@@ -147,7 +147,7 @@ int main(
 
         FILE *fp;
 
-        int   size;
+        long   size;
 
         if ((fp = fopen(optarg,"r")) == NULL)
           {
@@ -173,7 +173,7 @@ int main(
 
         size = ftell(fp);
 
-        HostList[MIN(size,sizeof(HostList) - 1)] = '\0';
+        HostList[MIN(size,(long)sizeof(HostList) - 1)] = '\0';
 
         fclose(fp);
         }  /* END BLOCK */
@@ -318,9 +318,18 @@ int main(
     {
     if ((sd = openrm(HPtr,MOMPort)) < 0)
       {
-      fprintf(stderr,"cannot connect to MOM on node '%s', rc=%d\n",
+      extern char TRMEMsg[];
+
+      fprintf(stderr,"cannot connect to MOM on node '%s', errno=%d (%s)\n",
         HPtr,
-        sd);
+        pbs_errno,
+        strerror(pbs_errno));
+
+      if (TRMEMsg[0] != '\0')
+        {
+        fprintf(stderr," %s\n",
+          TRMEMsg);
+        }
 
       HPtr = strtok_r(NULL,", \t\n",&HTok);
 
@@ -335,7 +344,7 @@ int main(
         HPtr);
       }
 
-    switch(CmdIndex)
+    switch (CmdIndex)
       {
       case momClear:
 
@@ -536,7 +545,9 @@ int main(
       FailCount);
     }
 
-  return(SUCCESS);
+  /* SUCCESS */
+
+  exit(0);
   }  /* END main() */
 
 

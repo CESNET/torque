@@ -1,5 +1,1 @@
-/*
- * The version of this file and the PBS version have no simple correlation.
- */
-
-#define PBS_VERSION "torque_1.2.0p0"
+#define PBS_VERSION "2.1.0p0-snap.200602232133"

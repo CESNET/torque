@@ -89,6 +89,11 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
+
+#ifndef __TOLDTTY
+#include <pty.h>
+#endif /* __TOLDTTY */
+
 #include "list_link.h"
 #include "log.h"
 #include "server_limits.h"
@@ -97,7 +102,6 @@
 #include "job.h"
 #include "mom_mach.h"
 #include "mom_func.h"
-
 
 /* Global Variables */
 
@@ -234,13 +238,12 @@ char *set_shell(
 void scan_for_terminated()
 
   {
-  static char	id[] = "scan_for_terminated";
+  static char id[] = "scan_for_terminated";
   int	 exiteval = 0;
   pid_t	 pid;
   job	*pjob;
   task	*ptask = NULL;
   int	statloc;
-  void	task_save A_((task *));
 
   /* update the latest intelligence about the running jobs;         */
   /* must be done before we reap the zombies, else we lose the info */
@@ -275,11 +278,11 @@ void scan_for_terminated()
       if (pid == pjob->ji_momsubt)
         break;
 
-      /*
-      ** look for task
-      */
+      /* look for task */
 
       ptask = (task *)GET_NEXT(pjob->ji_tasks);
+
+      /* locate task with associated process id */
 
       while (ptask != NULL) 
         {
@@ -299,7 +302,7 @@ void scan_for_terminated()
       {
       if (LOGLEVEL >= 1)
         {
-        sprintf(log_buffer,"pid %d not tracked, exitcode=%d\n",
+        sprintf(log_buffer,"pid %d not tracked, exitcode=%d",
           pid,
           statloc);
 
@@ -337,7 +340,7 @@ void scan_for_terminated()
 
     if (LOGLEVEL >= 2)
       {
-      sprintf(log_buffer,"for job %s, task %d, pid=%d, exitcode=%d\n",
+      sprintf(log_buffer,"for job %s, task %d, pid=%d, exitcode=%d",
         pjob->ji_qs.ji_jobid,
         ptask->ti_qs.ti_task,
         pid,
@@ -350,7 +353,7 @@ void scan_for_terminated()
         log_buffer);
       }
 
-    kill_task(ptask,SIGKILL);
+    kill_task(ptask,SIGKILL,0);
 
     ptask->ti_qs.ti_exitstat = exiteval;
     ptask->ti_qs.ti_status   = TI_STATE_EXITED;
@@ -358,9 +361,9 @@ void scan_for_terminated()
     task_save(ptask);
 
     sprintf(log_buffer,"%s: job %s task %d terminated, sid %d",
-      __func__, 
+      id,
       pjob->ji_qs.ji_jobid,
-      ptask->ti_qs.ti_task, 
+      ptask->ti_qs.ti_task,
       ptask->ti_qs.ti_sid);
 
     LOG_EVENT(
@@ -387,7 +390,7 @@ void scan_for_terminated()
 
 #define PTY_SIZE 64
 
-#ifdef __PNEWTTY
+#ifndef __TOLDTTY
 
 int open_master(
 
@@ -403,7 +406,7 @@ int open_master(
   if (status < 0)
     {
     log_err(errno,"open_master", 
-      "failed in open_pty()");
+      "failed in openpty()");
 
     return(-1);
     }
@@ -417,7 +420,7 @@ int open_master(
   return(master);
   }  /* END open_master() */
 
-#else /* __PNEWTTY */
+#else /* __TOLDTTY */
 
 int open_master(
 
@@ -461,7 +464,7 @@ int open_master(
   return(-1);	/* tried all entries, give up */
   }  /* END open_master() */
 
-#endif /* __PNEWTTY */
+#endif /* __TOLDTTY */
 
 
 
@@ -487,7 +490,8 @@ struct sig_tbl sig_tbl[] = {
 	{ "TERM", SIGTERM },
 	{ "URG", SIGURG },
 	{ "STOP", SIGSTOP },
-	{ "suspend", SIGSTOP },
+	/* { "suspend", SIGSTOP }, - NOTE: changed for MPI jobs - NORWAY */
+        { "suspend", SIGTSTP },
 	{ "TSTP", SIGTSTP },
 	{ "CONT", SIGCONT },
 	{ "resume", SIGCONT },

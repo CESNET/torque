@@ -86,6 +86,8 @@
 #endif
 #include <stdlib.h>
 #include <string.h>
+#include <grp.h>
+#include <sys/types.h>
 #include "pbs_ifl.h"
 #include "list_link.h"
 #include "attribute.h"
@@ -123,6 +125,7 @@
 
 static int hacl_match A_((const char *can, const char *master));
 static int user_match A_((const char *can, const char *master));
+static int gid_match A_((const char *can, const char *master));
 static int host_order A_((char *old, char *new));
 static int user_order A_((char *old, char *new));
 static int set_allacl A_((attribute *, attribute *, enum batch_op,
@@ -209,6 +212,9 @@ int acl_check(pattr, name, type)
 		break;
 	    case ACL_User:
 		match_func = user_match;
+		break;
+	    case ACL_Gid:
+		match_func = gid_match;
 		break;
 	    case ACL_Group:
 	    default:
@@ -310,8 +316,8 @@ static int set_allacl(attr, new, op, order_func)
 	int	 i;
 	int	 j;
 	int 	 k;
-	unsigned long nsize;
-	unsigned long need;
+	int	 nsize;
+	int  	 need;
 	long	 offset;
 	char	*pc;
 	char	*where;
@@ -371,7 +377,7 @@ static int set_allacl(attr, new, op, order_func)
 			if (pas->as_buf)
 				free(pas->as_buf);
 			nsize += nsize / 2;		/* alloc extra space */
-			if ( !(pas->as_buf = malloc(nsize)) ) {
+			if ( !(pas->as_buf = malloc((size_t)nsize)) ) {
 				pas->as_bufsize = 0;
 				return (PBSE_SYSTEM);
 			}
@@ -401,9 +407,9 @@ static int set_allacl(attr, new, op, order_func)
 
 		    need = pas->as_bufsize + 2 * nsize;  /* alloc new buf */
 		    if (pas->as_buf)
-			pc = realloc(pas->as_buf, need);
+			pc = realloc(pas->as_buf, (size_t)need);
 		    else
-			pc = malloc(need);
+			pc = malloc((size_t)need);
 		    if (pc == (char *)0)
 			return (PBSE_SYSTEM);
 		    offset = pc - pas->as_buf;
@@ -421,8 +427,8 @@ static int set_allacl(attr, new, op, order_func)
 			/* need more pointers */
 
 			j = 3 * j / 2;		/* allocate extra     */
-			need = sizeof(struct array_strings) + (j-1)*sizeof(char *);
-			tmppas=(struct array_strings *)realloc((char *)pas,need);
+			need = (int)sizeof(struct array_strings) + (j-1)*sizeof(char *);
+			tmppas=(struct array_strings *)realloc((char *)pas,(size_t)need);
 			if (tmppas == (struct array_strings *)0)
 				return (PBSE_SYSTEM);
 			tmppas->as_npointers = j;
@@ -466,10 +472,10 @@ static int set_allacl(attr, new, op, order_func)
 		    for (i=0; i<pas->as_usedptr; i++) {
 			if (!strcmp(pas->as_string[i], newpas->as_string[j])) {
 				/* compact buffer */
-				nsize = strlen(pas->as_string[i]) + 1;
+				nsize = (int)strlen(pas->as_string[i]) + 1;
 				pc = pas->as_string[i] + nsize;
 				need = pas->as_next - pc;
-				(void)memcpy(pas->as_string[i], pc, (int)need);
+				memmove(pas->as_string[i], pc, (size_t)need);
 				pas->as_next -= nsize;
 				/* compact pointers */
 				for ( ++i; i < pas->as_npointers; i++)
@@ -583,6 +589,35 @@ static int user_order(
   }  /* END user_order() */
 
 
+/*
+ * group acl match - match 2 groups by gid
+ */
+static int gid_match(const char *group1, const char *group2)
+{
+   struct group *pgrp;
+   gid_t gid1, gid2;
+
+   if (!strcmp(group1,group2))
+     {
+     return(0); /* match */
+     }
+
+   pgrp = getgrnam(group1);
+   if (pgrp == NULL)
+     return(1);
+
+   gid1 = pgrp->gr_gid;
+
+   pgrp = getgrnam(group2);
+   if (pgrp == NULL)
+     return(1);
+
+   gid2 = pgrp->gr_gid;
+
+   return (! (gid1 == gid2));
+}
+
+    
 /*
  * host acl order match - match two strings from the tail end first
  * 

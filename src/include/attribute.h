@@ -118,7 +118,7 @@
 /* define the size of fields in the structures */
 
 #define ATRFLAG 16
-#define ATRTYPE  6
+#define ATRTYPE  6  /* sync w/ATR_TYPE_*  (see #defines below) */
 #define ATRPART  3
 
 /*
@@ -169,10 +169,10 @@ union attr_val {		/* the attribute value	*/
 	long	at_long;		/* long integer */
 	Long	at_ll;			/* largest long integer */
 	char    at_char;		/* single character */
-	char *	at_str;			/* char string  */
-	struct array_strings *at_arst;	/* array of strings */
+	char   *at_str;			/* char string (alloc) */
+	struct array_strings *at_arst;	/* array of strings (alloc) */
 	struct size_value     at_size;	/* size value */
-	list_head	      at_list;	/* list of resources,  ... */
+	list_head	      at_list;	/* list of resources,  ... (alloc) */
 	struct  pbsnode	     *at_jinfo; /* ptr to node's job info  */
 	short		      at_short;	/* short int; node's state */
 };
@@ -257,6 +257,7 @@ typedef struct attribute_def attribute_def;
 #define ATR_VFLAG_SET    0x01	/* has specifed value (is set)	*/
 #define ATR_VFLAG_MODIFY 0x02	/* value has been modified	*/
 #define ATR_VFLAG_DEFLT  0x04	/* value is default value	*/
+#define ATR_VFLAG_SEND   0x08	/* value to be sent to server	*/
 
 #define ATR_TRUE  "True"
 #define ATR_FALSE "False"
@@ -313,6 +314,7 @@ extern int  find_attr  A_((attribute_def *attrdef,char *name,int limit));
 extern int  recov_attr A_((int fd, void *parent, attribute_def *padef,
 			   attribute *pattr, int limit, int unknown));
 extern void free_null  A_((attribute *attr));
+extern void free_noop  A_((attribute *attr));
 extern svrattrl *attrlist_alloc A_((int szname, int szresc, int szval));
 extern svrattrl *attrlist_create A_((char *aname,char *rname,int szval));
 extern void free_attrlist A_((list_head *attrhead));
@@ -378,27 +380,28 @@ extern int set_uacl  A_((attribute *attr,attribute *new, enum batch_op));
 extern int set_unkn A_((attribute *attr,attribute *new, enum batch_op));
 extern int set_depend A_((attribute *attr,attribute *new, enum batch_op));
 
-extern int   comp_b A_((attribute *attr, attribute *with));
-extern int   comp_c A_((attribute *attr, attribute *with));
-extern int   comp_l A_((attribute *attr, attribute *with));
-extern int   comp_ll A_((attribute *attr, attribute *with));
-extern int   comp_size  A_((attribute *attr, attribute *with));
-extern int   comp_str  A_((attribute *attr, attribute *with));
-extern int   comp_arst A_((attribute *attr, attribute *with));
-extern int   comp_resc A_((attribute *attr, attribute *with));
-extern int   comp_unkn A_((attribute *attr, attribute *with));
-extern int   comp_depend A_((attribute *attr, attribute *with));
-extern int   comp_hold A_((attribute *attr, attribute *with));
+extern int comp_b A_((attribute *, attribute *));
+extern int comp_c A_((attribute *, attribute *));
+extern int comp_l A_((attribute *, attribute *));
+extern int comp_ll A_((attribute *, attribute *));
+extern int comp_size A_((attribute *,attribute *));
+extern int comp_str  A_((attribute *,attribute *));
+extern int comp_arst A_((attribute *,attribute *));
+extern int comp_resc A_((attribute *,attribute *));
+extern int comp_resc2 A_((attribute *,attribute *,int,char *));
+extern int comp_unkn A_((attribute *,attribute *));
+extern int comp_depend A_((attribute *,attribute *));
+extern int comp_hold A_((attribute *,attribute *));
 
-extern int action_depend A_((attribute *attr, void *pobj, int mode));
+extern int action_depend A_((attribute *,void *,int));
 
-extern void free_str  A_((attribute *attr));
-extern void free_arst A_((attribute *attr));
-extern void free_resc A_((attribute *attr));
-extern void free_depend A_((attribute *attr));
-extern void free_unkn A_((attribute *attr));
-extern int   parse_equal_string A_((char  *start, char **name, char **value));
-extern char *parse_comma_string A_((char *start));
+extern void free_str  A_((attribute *));
+extern void free_arst A_((attribute *));
+extern void free_resc A_((attribute *));
+extern void free_depend A_((attribute *));
+extern void free_unkn A_((attribute *));
+extern int   parse_equal_string A_((char *,char **,char **));
+extern char *parse_comma_string A_((char *));
 
 #define NULL_FUNC (int (*)())0
 
@@ -435,5 +438,6 @@ extern int      node_status_list A_(( attribute*, void*, int));
 #define ACL_Host  1
 #define ACL_User  2
 #define ACL_Group 3
+#define ACL_Gid   4
 
 #endif 	/* ATTRIBUTE_H */

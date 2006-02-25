@@ -286,7 +286,7 @@ attribute_def svr_attr_def[] = {
 	encode_arst,
 	set_uacl,
 	comp_arst,
-	free_arst,
+	free_arst, 
 	manager_oper_chk,
 	MGR_ONLY_SET,
 	ATR_TYPE_ACL,
@@ -325,7 +325,7 @@ attribute_def svr_attr_def[] = {
 	encode_l,
 	set_l,
 	comp_l,
-	free_null,
+	free_noop,  /* disable unset */
 	NULL_FUNC,
 	NO_USER_SET,
 	ATR_TYPE_LONG,
@@ -442,7 +442,7 @@ attribute_def svr_attr_def[] = {
 	encode_l,
 	set_l,
 	comp_l,
-	free_null,
+	free_noop,  /* disable unset */
 	NULL_FUNC,
 	NO_USER_SET,
 	ATR_TYPE_LONG,
@@ -467,7 +467,7 @@ attribute_def svr_attr_def[] = {
        encode_l,
        set_l,
        comp_l,
-       free_null,
+       free_noop,  /* disable unset */
        NULL_FUNC,
        NO_USER_SET,
        ATR_TYPE_LONG,
@@ -480,7 +480,7 @@ attribute_def svr_attr_def[] = {
        encode_l,
        set_l,
        comp_l,
-       free_null,
+       free_noop,  /* disable unset */
        NULL_FUNC,
        NO_USER_SET,
        ATR_TYPE_LONG,
@@ -511,7 +511,7 @@ attribute_def svr_attr_def[] = {
 	ATR_TYPE_STR,
 	PARENT_TYPE_SERVER
     },
-/* SRV_ATR_NodeOrder */
+/* SRV_ATR_NodePack */
     {	ATTR_nodepack,		/* "node_pack" */
 	decode_b,
 	encode_b,
@@ -524,11 +524,125 @@ attribute_def svr_attr_def[] = {
 	PARENT_TYPE_SERVER
     },
 
-/* site supplied server attribute definitions if any, see site_svr_attr_*.h  */
-#include "site_svr_attr_def.h"
+/* SRV_ATR_JobStatRate */
+    {	ATTR_jobstatrate,	/* "job_stat_rate" */
+	decode_l,
+	encode_l,
+	set_l,
+	comp_l,
+	free_noop,  /* disable unset */
+	NULL_FUNC,
+	MGR_ONLY_SET,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_SERVER
+    },
+
+/* SRV_ATR_PollJobs */
+    {	ATTR_polljobs,		/* "poll_jobs" */
+	decode_b,
+	encode_b,
+	set_b,
+	comp_b,
+	free_noop,  /* disable unset */
+	NULL_FUNC,
+	MGR_ONLY_SET,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_SERVER
+    },
+
+/* SRV_ATR_LogLevel */
+    {   ATTR_loglevel,		/* "loglevel" */
+        decode_l,
+        encode_l,
+        set_l,
+        comp_l,
+        free_noop,  /* disable unset */
+        NULL_FUNC,
+        MGR_ONLY_SET,
+        ATR_TYPE_LONG,
+        PARENT_TYPE_SERVER
+    },
+
+/* SRV_ATR_DownOnError */
+    {   ATTR_downonerror,	/* "down_on_error" */
+        decode_b,
+        encode_b,
+        set_b,
+        comp_b,
+        free_null,
+        NULL_FUNC,
+        MGR_ONLY_SET,
+        ATR_TYPE_LONG,
+        PARENT_TYPE_SERVER
+    },
+
+/* SRV_ATR_JobNanny */
+    {   ATTR_jobnanny,		/* "job_nanny" */
+        decode_b,
+        encode_b,
+        set_b,
+        comp_b,
+        free_null,
+        NULL_FUNC,
+        MGR_ONLY_SET,
+        ATR_TYPE_LONG,
+        PARENT_TYPE_SERVER
+    },
+
+/* SRV_ATR_OwnerPurge */
+    {   ATTR_ownerpurge,       /* "owner_purge" */
+        decode_b,
+        encode_b,
+        set_b,
+        comp_b,
+        free_null,
+        NULL_FUNC,
+        MGR_ONLY_SET,
+        ATR_TYPE_LONG,
+        PARENT_TYPE_SERVER
+    },
+
+/* SRV_ATR_QCQLimits */
+    {   ATTR_qcqlimits,       /* "queue_centric_limits" */
+        decode_b,
+        encode_b,
+        set_b,
+        comp_b,
+        free_null,
+        NULL_FUNC,
+        MGR_ONLY_SET,
+        ATR_TYPE_LONG,
+        PARENT_TYPE_SERVER
+    },
+
+/* SRV_ATR_MomJobSync */
+    {	ATTR_momjobsync,	/* "mom_job_sync" */
+	decode_b,
+	encode_b,
+	set_b,
+	comp_b,
+	free_null,
+	NULL_FUNC,
+	MGR_ONLY_SET,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_SERVER
+    },
+
+/* SRV_ATR_MailDomain */
+    {	ATTR_maildomain,	/* "mail_domain" */
+	decode_str,
+	encode_str,
+	set_str,
+	comp_str,
+	free_str,
+	NULL_FUNC,
+	MGR_ONLY_SET,
+	ATR_TYPE_STR,
+	PARENT_TYPE_SERVER
+    },
 
 /* SRV_ATR_version */
-    {	"pbs_version",
+    {	ATTR_pbsversion,	/* "pbs_version" */
 	decode_str,
 	encode_str,
 	set_str,
@@ -536,6 +650,11 @@ attribute_def svr_attr_def[] = {
 	free_str,
 	NULL_FUNC,
 	READ_ONLY,
+	ATR_TYPE_STR,
 	PARENT_TYPE_SERVER
     }
+
+/* site supplied server attribute definitions if any, see site_svr_attr_*.h  */
+#include "site_svr_attr_def.h"
+
 };

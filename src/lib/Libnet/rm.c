@@ -106,6 +106,8 @@
 #include	"rm.h"
 #if	RPP
 #include	"rpp.h"
+#else
+extern void DIS_tcp_funcs();
 #endif
 
 
@@ -182,7 +184,7 @@ funcs_dis()		/* The equivalent of DIS_tcp_funcs() */
 
 #endif
 
-
+char TRMEMsg[1024];  /* global rm error message */
 
 
 /*
@@ -206,10 +208,8 @@ int openrm(
     {
     if (gotport == 0) 
       {
-
       gotport = get_svrport(PBS_MANAGER_SERVICE_NAME,"tcp",
 	   	PBS_MANAGER_SERVICE_PORT);
-
       }  /* END if (gotport == 0) */
 
     port = gotport;
@@ -233,7 +233,12 @@ int openrm(
       }
     }
 
-  stream = rpp_open(host,port);
+  if ((stream = rpp_open(host,port,TRMEMsg)) == -1)
+    {
+    pbs_errno = errno;
+
+    return(-1);
+    }
 
 #else /* RPP */
 
@@ -273,9 +278,9 @@ int openrm(
     addr.sin_family = hp->h_addrtype;
     addr.sin_port = htons((unsigned short)port);
 
-    memcpy(&addr.sin_addr, hp->h_addr, hp->h_length);
+    memcpy(&addr.sin_addr,hp->h_addr,hp->h_length);
 
-    if (connect(stream, (struct sockaddr *)&addr,sizeof(addr)) == -1) 
+    if (connect(stream,(struct sockaddr *)&addr,sizeof(addr)) == -1) 
       {
       pbs_errno = errno;
 
@@ -347,29 +352,33 @@ delrm(stream)
 **	Internal routine to find the out structure for a stream number.
 **	Return non NULL if all is well, NULL on error.
 */
-static
-struct	out *
-findout(stream)
-     int	stream;
-{
-	struct	out	*op;
 
-	for (op=outs[stream % HASHOUT]; op; op=op->next) {
-		if (op->stream == stream)
-			break;
-	}
-	if (op == NULL)
-		pbs_errno = ENOTTY;
-	return op;
-}
+static struct out *findout(
+
+  int stream)
+
+  {
+  struct out *op;
+
+  for (op = outs[stream % HASHOUT];op;op=op->next) 
+    {
+    if (op->stream == stream)
+      break;
+    }
+
+  if (op == NULL)
+    pbs_errno = ENOTTY;
+
+  return(op);
+  }
 
 
 
 
 static int startcom(
 
-  int stream,
-  int com)
+  int stream,  /* I */
+  int com)     /* I */
 
   {
   int ret;
@@ -388,8 +397,9 @@ static int startcom(
 
   if (ret != DIS_SUCCESS) 
     {
-    DBPRT(("startcom: diswsi error %s\n", 
-      dis_emsg[ret]))
+    /* NOTE:  cannot resolve log_err */
+
+    /* log_err(ret,"startcom - diswsi error",(char *)dis_emsg[ret]); */
 
     pbs_errno = errno;
     }
@@ -467,8 +477,9 @@ static int simpleget(
 
   if (ret != DIS_SUCCESS) 
     {
-    DBPRT(("simpleget: %s\n", 
-      dis_emsg[ret]))
+    /* NOTE:  cannot resolve log_err */
+
+    /* log_err(ret,"simpleget",(char *)dis_emsg[ret]); */
 
     pbs_errno = errno ? errno : EIO;
 
@@ -564,7 +575,8 @@ int configrm(
   char *file)    /* I */
 
   {
-  int         ret, len;
+  int         ret;
+  size_t      len;
   struct out *op;
 
   pbs_errno = 0;

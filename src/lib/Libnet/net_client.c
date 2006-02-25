@@ -105,23 +105,26 @@ static int await_connect(
 
   {
   fd_set fs;
-  int n, val, len, rc;
+  int n, val, rc;
   struct timeval tv;
 
-  tv.tv_sec = (time_t)timeout;
+  /* socklen_t not portable */
+  unsigned int len;
+
+  tv.tv_sec = timeout;
   tv.tv_usec = 0;
 
   FD_ZERO(&fs);
   FD_SET(sockd,&fs);
 
-  if ((n = select(FD_SETSIZE,0,&fs,0,&tv)) != 1)
+  if ((n = select(sockd+1,0,&fs,0,&tv)) != 1)
     {
     /* FAILURE:  socket not ready for write */
 
     return(-1);
     }
  
-  len = sizeof(int);
+  len = sizeof(val);
 
   rc = getsockopt(sockd,SOL_SOCKET,SO_ERROR,&val,&len);
 
@@ -170,7 +173,7 @@ int client_to_svr(
   int                sock;
   unsigned short     tryport;
   int                flags;
-  int                one = 1;
+  int               one = 1;
   
   local.sin_family = AF_INET;
   local.sin_addr.s_addr = 0;
@@ -214,12 +217,13 @@ retry:  /* retry goto added (rentec) */
       sock,
       SOL_SOCKET,
       SO_REUSEADDR,
-      (const char*)&one, 
+      (void *)&one, 
       sizeof(one));
 
     local.sin_port = htons(tryport);
 
 #if !defined(__TDARWIN) || defined(__TDARWINBIND)
+
     while (bind(sock,(struct sockaddr *)&local,sizeof(local)) < 0) 
       {
 #ifdef NDEBUG2

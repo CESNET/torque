@@ -102,14 +102,15 @@ struct	jobinfo {
 };
 
 struct	pbssubn {
-	struct pbsnode  *host;
-	struct pbssubn  *next;
-	struct	jobinfo	*jobs;
-	resource_t	allocto;
-	enum	psit	flag;		/* XXX */
-	unsigned short	inuse;
-	short		index;		/* subnode index */
-};
+  struct pbsnode *host;
+  struct pbssubn *next;
+  struct jobinfo *jobs;     /* list of jobs allocating resources within subnode */
+                            /* does this include suspended jobs? */
+  resource_t      allocto;
+  enum	psit      flag;		/* XXX */
+  unsigned short  inuse;
+  short           index;		/* subnode index */
+  };
 
 struct	pbsnode {
   char			*nd_name;	/* node's host name */
@@ -129,7 +130,7 @@ struct	pbsnode {
   short		 	 nd_nsnfree;	/* number of VPs free */
   short			 nd_nsnshared;	/* number of VPs shared */
   short			 nd_needed;	/* number of VPs needed */
-  unsigned short	 nd_state;
+  unsigned short	 nd_state;      /* node state (see INUSE_* #defines below) */
   unsigned short	 nd_ntype;	/* node type */
   short			 nd_order;	/* order of user's request */
   time_t                 nd_warnbad;

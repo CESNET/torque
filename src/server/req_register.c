@@ -153,6 +153,11 @@ extern char  log_buffer[];
  *
  *	We have an interesting problem here in that the request may well
  *	orginate from ourself.  In that case we doen't really reply.
+ *
+ *	Note: It is possible, though it doesn't make sense, for a job
+ *	to have a self-referencing depend.  We reject these for the register
+ *	and delete operations, but allow it for others in an attempt
+ *	to be graceful.
  */
 
 void req_register(
@@ -228,6 +233,14 @@ void req_register(
   switch (preq->rq_ind.rq_register.rq_op) 
     {
     case JOB_DEPEND_OP_REGISTER:
+
+      if (!strcmp(preq->rq_ind.rq_register.rq_parent,
+                  preq->rq_ind.rq_register.rq_child))
+        {
+        rc = PBSE_IVALREQ; /* can't depend on self */
+
+        break;
+        }
 
       switch (type) 
         {
@@ -439,6 +452,14 @@ void req_register(
 
     case JOB_DEPEND_OP_DELETE:
 
+      if (!strcmp(preq->rq_ind.rq_register.rq_parent,
+                  preq->rq_ind.rq_register.rq_child))
+        {
+        rc = PBSE_IVALREQ; /* prevent an infinite loop */
+
+        break;
+        }
+
       sprintf(log_buffer, msg_registerdel,
         preq->rq_ind.rq_register.rq_child);
 
@@ -530,6 +551,9 @@ static void post_doq(
 
   char *msg;
   job  *pjob;
+  attribute       *pattr;
+  struct depend     *pdp;
+  struct depend_job *pdjb;
 
   if (preq->rq_reply.brp_code) 
     {
@@ -549,7 +573,27 @@ static void post_doq(
       }
 
     if (pjob != NULL)
-      job_abt(&pjob,log_buffer);
+      {
+      strcat(log_buffer, "\n");
+      strcat(log_buffer, "Job held for unknown job dep, use 'qrls' to release");
+
+      svr_mailowner(pjob,MAIL_ABORT,MAIL_FORCE,log_buffer);
+
+      pattr = &pjob->ji_wattr[(int)JOB_ATR_depend];
+
+      if (((pdp = find_depend(preq->rq_ind.rq_register.rq_dependtype,pattr)) != 0) &&
+          ((pdjb = find_dependjob(pdp,preq->rq_ind.rq_register.rq_parent)) != 0))
+        {
+        del_depend_job(pdjb);
+
+        pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_u;
+        pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
+        pjob->ji_modified = 1;
+
+        set_depend_hold(pjob,pattr);
+
+        }
+      }
     }
 
   release_req(pwt);
@@ -625,7 +669,7 @@ static void alter_unreg(
 int depend_on_que(
 
   attribute *pattr,
-  job       *pjob,
+  void       *pjob,
   int        mode)
 
   {
@@ -636,8 +680,8 @@ int depend_on_que(
   int	       type;
 
   if (((mode != ATR_ACTION_ALTER) && (mode != ATR_ACTION_NOOP)) ||
-       (pjob->ji_qhdr == 0) ||
-       (pjob->ji_qhdr->qu_qs.qu_type != QTYPE_Execution))
+       (((job *)pjob)->ji_qhdr == 0) ||
+       (((job *)pjob)->ji_qhdr->qu_qs.qu_type != QTYPE_Execution))
     {
     return(0);
     }
@@ -646,12 +690,12 @@ int depend_on_que(
     {
     /* if there are dependencies being removed, unregister them */
 
-    alter_unreg(pjob, &pjob->ji_wattr[(int)JOB_ATR_depend], pattr);
+    alter_unreg((job *)pjob, &((job *)pjob)->ji_wattr[(int)JOB_ATR_depend], pattr);
     }
 
   /* First set a System hold if required */
 
-  set_depend_hold(pjob,pattr);
+  set_depend_hold((job *)pjob,pattr);
 
   /* Check if there are dependencies that require registering */
 
@@ -665,12 +709,12 @@ int depend_on_que(
       {
       /* register myself - this calculates and records the cost */
 
-      cost = calc_job_cost(pjob);
+      cost = calc_job_cost((job *)pjob);
 
-      register_sync(pdep,pjob->ji_qs.ji_jobid,server_name,cost);
+      register_sync(pdep,((job *)pjob)->ji_qs.ji_jobid,server_name,cost);
 
       if (pdep->dp_numreg > pdep->dp_numexp)
-        release_cheapest(pjob, pdep);
+        release_cheapest((job *)pjob, pdep);
       } 
     else if (type != JOB_DEPEND_TYPE_ON) 
       {
@@ -678,7 +722,7 @@ int depend_on_que(
 
       while (pparent) 
         {
-        if ((rc = send_depend_req(pjob,pparent,type,JOB_DEPEND_OP_REGISTER,SYNC_SCHED_HINT_NULL,post_doq)))
+        if ((rc = send_depend_req((job *)pjob,pparent,type,JOB_DEPEND_OP_REGISTER,SYNC_SCHED_HINT_NULL,post_doq)))
 
         return(rc);
 
@@ -869,10 +913,17 @@ int depend_on_term(
       {
       case JOB_DEPEND_TYPE_BEFOREOK:
 
-        if (exitstat == 0)
-          op = JOB_DEPEND_OP_RELEASE;
-        else
+        if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_ABORT)
+          {
           op = JOB_DEPEND_OP_DELETE;
+          }
+        else
+          {
+          if (exitstat == 0)
+            op = JOB_DEPEND_OP_RELEASE;
+          else
+            op = JOB_DEPEND_OP_DELETE;
+          }
 
         break;
 
@@ -891,40 +942,57 @@ int depend_on_term(
 
         break;
 
-		case JOB_DEPEND_TYPE_SYNCCT:
-		    /* Master of sync set has ended, if any members were */
-		    /* never started, kill all the jobs in the set	 */
+      case JOB_DEPEND_TYPE_SYNCCT:
 
-		    pparent = (struct depend_job *)GET_NEXT(pdep->dp_jobs);
-		    while (pparent) {
-			if (pparent->dc_state != JOB_DEPEND_OP_READY)
-			    shouldkill = 1;
-		        pparent=(struct depend_job *)GET_NEXT(pparent->dc_link);
-		    }
-		    if (shouldkill) {
-			pparent = (struct depend_job *)GET_NEXT(pdep->dp_jobs);
-			/* skip first, its this job */
-		        pparent=(struct depend_job *)GET_NEXT(pparent->dc_link);
-			while (pparent) {
-			    (void)send_depend_req(pjob, pparent, type, 
-					    JOB_DEPEND_OP_DELETE,
-					    SYNC_SCHED_HINT_NULL,
-					     release_req);
-		            pparent=(struct depend_job *)GET_NEXT(pparent->dc_link);
-			}
-		    }
-		    break;
+        /* Master of sync set has ended, if any members were */
+        /* never started, kill all the jobs in the set	 */
+
+        pparent = (struct depend_job *)GET_NEXT(pdep->dp_jobs);
+
+        while (pparent != NULL) 
+          {
+          if (pparent->dc_state != JOB_DEPEND_OP_READY)
+            shouldkill = 1;
+
+          pparent = (struct depend_job *)GET_NEXT(pparent->dc_link);
+          }
+
+        if (shouldkill) 
+          {
+	  pparent = (struct depend_job *)GET_NEXT(pdep->dp_jobs);
+
+          /* skip first, its this job */
+
+          pparent=(struct depend_job *)GET_NEXT(pparent->dc_link);
+
+	  while (pparent)
+            {
+	    send_depend_req(pjob, pparent, type, 
+              JOB_DEPEND_OP_DELETE,
+              SYNC_SCHED_HINT_NULL,
+              release_req);
+
+            pparent=(struct depend_job *)GET_NEXT(pparent->dc_link);
 	    }
+	  }
 
-	    if (op != -1) {
-		pparent = (struct depend_job *)GET_NEXT(pdep->dp_jobs);
-		while (pparent) {
+        break;
 
-		    /* "release" the job to execute */
-		    if ((rc = send_depend_req(pjob, pparent, type, op, SYNC_SCHED_HINT_NULL, release_req)))
-			return (rc);
-		    pparent = (struct depend_job *)GET_NEXT(pparent->dc_link);
-		}
+      } /* END switch(type) */
+
+    if (op != -1)
+      {
+      pparent = (struct depend_job *)GET_NEXT(pdep->dp_jobs);
+      while (pparent)
+        {
+
+        /* "release" the job to execute */
+        if ((rc = send_depend_req(pjob, pparent, type, op,
+               SYNC_SCHED_HINT_NULL, release_req)))
+          return (rc);
+
+        pparent = (struct depend_job *)GET_NEXT(pparent->dc_link);
+        }
       }
 
     pdep = (struct depend *)GET_NEXT(pdep->dp_link);
@@ -956,28 +1024,41 @@ static void release_cheapest(
 
   pdj = (struct depend_job *)GET_NEXT(pdep->dp_jobs);
 
-	while (pdj) {
-		if (pdj->dc_state == 0) {
-			if ((cheapest == (struct depend_job *)0) ||
-			    (pdj->dc_cost < lowestcost))         {
-				cheapest = pdj;
-				lowestcost  = pdj->dc_cost;
-			}
-		} else
-			++nreleased;	/* incr number already released */
-	    pdj = (struct depend_job *)GET_NEXT(pdj->dc_link);
-	}
-	if (cheapest) {
-		if (nreleased == 0)
-			hint = SYNC_SCHED_HINT_FIRST;
-		if (send_depend_req(pjob,
-				    cheapest, 
-				    JOB_DEPEND_TYPE_SYNCWITH,
-				    JOB_DEPEND_OP_RELEASE, 
-				    hint,
-				    release_req) == 0)
-			cheapest->dc_state = JOB_DEPEND_OP_RELEASE;
-	}
+  while (pdj != NULL) 
+    {
+    if (pdj->dc_state == 0) 
+      {
+      if ((cheapest == NULL) || (pdj->dc_cost < lowestcost)) 
+        {
+        cheapest = pdj;
+
+        lowestcost  = pdj->dc_cost;
+        }
+      } 
+    else
+      {
+      ++nreleased;	/* incr number already released */
+      }
+
+    pdj = (struct depend_job *)GET_NEXT(pdj->dc_link);
+    }
+ 
+  if (cheapest) 
+    {
+    if (nreleased == 0)
+      hint = SYNC_SCHED_HINT_FIRST;
+
+    if (send_depend_req(
+          pjob,
+          cheapest, 
+          JOB_DEPEND_TYPE_SYNCWITH,
+          JOB_DEPEND_OP_RELEASE, 
+          hint,
+          release_req) == 0)
+      {
+      cheapest->dc_state = JOB_DEPEND_OP_RELEASE;
+      }
+    }
 
   return;
   }
@@ -1010,50 +1091,62 @@ static void set_depend_hold(
     {
     switch (pdp->dp_type) 
       {
-		    case JOB_DEPEND_TYPE_SYNCCT:
-			 if (pdp->dp_released == 0)
-				substate = JOB_SUBSTATE_SYNCHOLD;
-			break;
+      case JOB_DEPEND_TYPE_SYNCCT:
 
-		    case JOB_DEPEND_TYPE_SYNCWITH:
-			if (((struct depend_job *)GET_NEXT(pdp->dp_jobs)!=0) &&
-			    (pdp->dp_released == 0))
-				substate = JOB_SUBSTATE_SYNCHOLD;
-			break;
+        if (pdp->dp_released == 0)
+          substate = JOB_SUBSTATE_SYNCHOLD;
 
-		    case JOB_DEPEND_TYPE_AFTERSTART:
-		    case JOB_DEPEND_TYPE_AFTEROK:
-		    case JOB_DEPEND_TYPE_AFTERNOTOK:
-		    case JOB_DEPEND_TYPE_AFTERANY:
-			if ((struct depend_job *)GET_NEXT(pdp->dp_jobs))
-				substate = JOB_SUBSTATE_DEPNHOLD;
-			break;
+        break;
 
-		    case JOB_DEPEND_TYPE_ON:
-			if (pdp->dp_numexp)
-				substate = JOB_SUBSTATE_DEPNHOLD;
-			break;
-		}
-		pdp = (struct depend *)GET_NEXT(pdp->dp_link);
-	}
-	if (substate == -1) {
+      case JOB_DEPEND_TYPE_SYNCWITH:
 
-		/* No (more) dependencies, clear system hold and set state */
+        if (((struct depend_job *)GET_NEXT(pdp->dp_jobs) != 0) &&
+            (pdp->dp_released == 0))
+          substate = JOB_SUBSTATE_SYNCHOLD;
 
-	    if ((pjob->ji_qs.ji_substate == JOB_SUBSTATE_SYNCHOLD) ||
-		(pjob->ji_qs.ji_substate == JOB_SUBSTATE_DEPNHOLD)) {
-		    pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long &= ~HOLD_s;
-		    svr_evaljobstate(pjob, &newstate, &newsubst, 0);
-		    (void)svr_setjobstate(pjob, newstate, newsubst);
-	    }
-	} else {
+        break;
 
-		/* there are dependencies, set system hold accordingly */
+      case JOB_DEPEND_TYPE_AFTERSTART:
+      case JOB_DEPEND_TYPE_AFTEROK:
+      case JOB_DEPEND_TYPE_AFTERNOTOK:
+      case JOB_DEPEND_TYPE_AFTERANY:
 
-		pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_s;
-		pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
-		(void)svr_setjobstate(pjob, JOB_STATE_HELD, substate);
-	}
+        if ((struct depend_job *)GET_NEXT(pdp->dp_jobs))
+          substate = JOB_SUBSTATE_DEPNHOLD;
+       
+        break;
+
+      case JOB_DEPEND_TYPE_ON:
+
+        if (pdp->dp_numexp)
+          substate = JOB_SUBSTATE_DEPNHOLD;
+
+        break;
+
+      }
+    pdp = (struct depend *)GET_NEXT(pdp->dp_link);
+    }
+
+  if (substate == -1)
+    {
+    /* No (more) dependencies, clear system hold and set state */
+
+    if ((pjob->ji_qs.ji_substate == JOB_SUBSTATE_SYNCHOLD) ||
+        (pjob->ji_qs.ji_substate == JOB_SUBSTATE_DEPNHOLD))
+      {
+      pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long &= ~HOLD_s;
+      svr_evaljobstate(pjob, &newstate, &newsubst, 0);
+      svr_setjobstate(pjob, newstate, newsubst);
+      }
+    }
+  else
+    {
+    /* there are dependencies, set system hold accordingly */
+
+    pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_s;
+    pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
+    svr_setjobstate(pjob, JOB_STATE_HELD, substate);
+    }
 
   return;
   }
@@ -1430,37 +1523,49 @@ static int send_depend_req(
       break;
     }
 
-	preq->rq_ind.rq_register.rq_owner[i] = '\0';
-	(void)strcpy(preq->rq_ind.rq_register.rq_parent, pparent->dc_child);
-	(void)strcpy(preq->rq_ind.rq_register.rq_child, pjob->ji_qs.ji_jobid);
-	/* kudge for server:port follows */
-	if (strchr(server_name, (int)':')) {
-		(void)strcat(preq->rq_ind.rq_register.rq_child, "@");
-		(void)strcat(preq->rq_ind.rq_register.rq_child, server_name);
-	}
-	preq->rq_ind.rq_register.rq_dependtype = type;
-	preq->rq_ind.rq_register.rq_op = op;
-	(void)strcpy(preq->rq_host, pparent->dc_svr);  /* for issue_to_svr() */
+  preq->rq_ind.rq_register.rq_owner[i] = '\0';
+
+  strcpy(preq->rq_ind.rq_register.rq_parent, pparent->dc_child);
+  strcpy(preq->rq_ind.rq_register.rq_child, pjob->ji_qs.ji_jobid);
+
+  /* kludge for server:port follows */
+
+  if (strchr(server_name,(int)':')) 
+    {
+    strcat(preq->rq_ind.rq_register.rq_child,"@");
+    strcat(preq->rq_ind.rq_register.rq_child,server_name);
+    }
+
+  preq->rq_ind.rq_register.rq_dependtype = type;
+  preq->rq_ind.rq_register.rq_op = op;
+  strcpy(preq->rq_host, pparent->dc_svr);  /* for issue_to_svr() */
 	
-	/* if registering sync, include job cost for scheduling */
+  /* if registering sync, include job cost for scheduling */
 
-	if (type == JOB_DEPEND_TYPE_SYNCWITH) {
-		if (op == JOB_DEPEND_OP_REGISTER) 
-			/* for sync-register, cost = job resource cost */
-			preq->rq_ind.rq_register.rq_cost = calc_job_cost(pjob);
-		else 
-			/* for sync-release, cost = scheduling hint */
-			preq->rq_ind.rq_register.rq_cost = schedhint;
-	} else {
-		/* otherwise, cost = null */
-		preq->rq_ind.rq_register.rq_cost = 0;
-	}
+  if (type == JOB_DEPEND_TYPE_SYNCWITH)
+    {
+    if (op == JOB_DEPEND_OP_REGISTER) 
+      /* for sync-register, cost = job resource cost */
+
+      preq->rq_ind.rq_register.rq_cost = calc_job_cost(pjob);
+    else 
+      /* for sync-release, cost = scheduling hint */
+
+      preq->rq_ind.rq_register.rq_cost = schedhint;
+    }
+  else
+    {
+    /* otherwise, cost = null */
+    preq->rq_ind.rq_register.rq_cost = 0;
+    }
 		
+  if (issue_to_svr(pparent->dc_svr,preq,postfunc) == -1) 
+    {
+    sprintf(log_buffer,"Unable to perform dependency with job %s\n", 
+      pparent->dc_child);
 
-	if ( issue_to_svr(pparent->dc_svr, preq, postfunc) == -1) {
-		(void)sprintf(log_buffer, "Unable to perform dependency with job %s\n", pparent->dc_child);
-		return (PBSE_BADHOST);
-	}
+    return(PBSE_BADHOST);
+    }
 
   return(0);
   }
@@ -1877,52 +1982,63 @@ void free_depend(
  *	Return 0 if ok, otherwise non-zero error number
  */
 
-static int build_depend(pattr, value)
-	attribute *pattr;
-	char 	  *value;
-{
-	struct depend	   *have[JOB_DEPEND_NUMBER_TYPES];
-	int		    i;
-	int		    numwds;
-	struct depend	   *pd;
-	struct depend_job  *pdjb;
-	struct dependnames *pname;
-	char		   *pwhere;
-	char		   *valwd;
-	char		   *nxwrd;
-	int		    type;
+static int build_depend(
 
-	/*
-	 * Map first subword into dependency type.  If there is just the type
-	 * with no following job id or count, then leave an empty depend
-	 * struct;  set_depend will "remove" any of that kind.
-	 */
+  attribute *pattr,
+  char      *value)
 
-	if ((nxwrd = strchr(value, (int)':')) != (char *)0)
-		*nxwrd++ = '\0';
-		
+  {
+  struct depend	   *have[JOB_DEPEND_NUMBER_TYPES];
+  int		    i;
+  int		    numwds;
+  struct depend	   *pd;
+  struct depend_job  *pdjb;
+  struct dependnames *pname;
+  char		   *pwhere;
+  char		   *valwd;
+  char		   *nxwrd;
+  int		    type;
 
-	for (pname = dependnames; pname->type != -1; pname++)
-		if ( !strcmp(value, pname->name) )
-			break;
+  /*
+   * Map first subword into dependency type.  If there is just the type
+   * with no following job id or count, then leave an empty depend
+   * struct;  set_depend will "remove" any of that kind.
+   */
+
+  if ((nxwrd = strchr(value,(int)':')) != NULL)
+    *nxwrd++ = '\0';
+
+  for (pname = dependnames;pname->type != -1;pname++)
+    {
+    if (!strcmp(value,pname->name))
+      break;
+    }
 	
-	if (pname->type == -1)
-		return (PBSE_BADATVAL);
-	type = pname->type;
+  if (pname->type == -1)
+    {
+    return(PBSE_BADATVAL);
+    }
 
-	/* what types do we have already? */
+  type = pname->type;
 
-	for(i=0; i<JOB_DEPEND_NUMBER_TYPES; i++)
-		have[i] = (struct depend *)0;
-	for (pd = (struct depend *)GET_NEXT(pattr->at_val.at_list);
-             pd; pd = (struct depend *)GET_NEXT(pd->dp_link)) 
-		have[pd->dp_type] = pd;
+  /* what types do we have already? */
 
-	/* certain combinations are not allowed */
+  for (i = 0;i < JOB_DEPEND_NUMBER_TYPES;i++)
+    have[i] = NULL;
 
-	switch (type) {
+  for (pd = (struct depend *)GET_NEXT(pattr->at_val.at_list);
+       pd; 
+       pd = (struct depend *)GET_NEXT(pd->dp_link)) 
+    {
+    have[pd->dp_type] = pd;
+    }
 
-	    case JOB_DEPEND_TYPE_SYNCWITH:
+  /* certain combinations are not allowed */
+
+  switch (type) 
+    {
+    case JOB_DEPEND_TYPE_SYNCWITH:
+
 		if ( have[JOB_DEPEND_TYPE_SYNCWITH]     ||
 		     have[JOB_DEPEND_TYPE_SYNCCT]     ||
 		     have[JOB_DEPEND_TYPE_AFTERSTART] ||
@@ -1953,11 +2069,12 @@ static int build_depend(pattr, value)
 			return (PBSE_SYSTEM);
 	}
 
+  /* now process the value string */
 
-	/* now process the value string */
+  numwds = 0;
 
-	numwds = 0;
-	while (nxwrd && (*nxwrd != '\0')) {
+  while (nxwrd && (*nxwrd != '\0')) 
+    {
 
 		numwds++;		/* number of arguments */
 		valwd = nxwrd;
@@ -2028,10 +2145,12 @@ static int build_depend(pattr, value)
 			}
 
 		}
-	}
+    }
 
-	return (0);
-}
+  /* SUCCESS */
+
+  return(0);
+  }
 
 
 
@@ -2042,26 +2161,35 @@ static int build_depend(pattr, value)
  *	If the "exist" flag is set, any depend_job sub-structures are freed.
  */
 
-static void clear_depend(pd, type, exist)
-	struct depend *pd;
-	int	       type;
-	int            exist;
-{
-	struct depend_job *pdj;
+static void clear_depend(
 
-	if (exist) {
-		while ((pdj = (struct depend_job *)GET_NEXT(pd->dp_jobs))) {
-			del_depend_job(pdj);
-		}
-	} else {
-		CLEAR_HEAD(pd->dp_jobs);
-		CLEAR_LINK(pd->dp_link);
-	}
-	pd->dp_type = type;
-	pd->dp_numexp = 0;
-	pd->dp_numreg = 0;
-	pd->dp_released = 0;
-}
+  struct depend *pd,
+  int            type,
+  int            exist)
+
+  {
+  struct depend_job *pdj;
+
+  if (exist) 
+    {
+    while ((pdj = (struct depend_job *)GET_NEXT(pd->dp_jobs))) 
+      {
+      del_depend_job(pdj);
+      }
+    } 
+  else 
+    {
+    CLEAR_HEAD(pd->dp_jobs);
+    CLEAR_LINK(pd->dp_link);
+    }
+
+  pd->dp_type = type;
+  pd->dp_numexp = 0;
+  pd->dp_numreg = 0;
+  pd->dp_released = 0;
+
+  return;
+  }
 
 
 
@@ -2071,17 +2199,24 @@ static void clear_depend(pd, type, exist)
  * del_depend - delete a single dependency set, including any depend_jobs
  */
 
-static void del_depend(pd)
-	struct depend *pd;
-{
-	struct depend_job *pdj;
+static void del_depend(
 
-	while ((pdj = (struct depend_job *)GET_NEXT(pd->dp_jobs))) {
-		del_depend_job(pdj);
-	}
-	delete_link(&pd->dp_link);
-	(void)free(pd);
-}
+  struct depend *pd)
+
+  {
+  struct depend_job *pdj;
+
+  while ((pdj = (struct depend_job *)GET_NEXT(pd->dp_jobs))) 
+    {
+    del_depend_job(pdj);
+    }
+
+  delete_link(&pd->dp_link);
+
+  free(pd);
+
+  return;
+  }
 
 
 
@@ -2101,3 +2236,6 @@ static void del_depend_job(
 
   return;
   }
+
+/* END req_register.c */
+

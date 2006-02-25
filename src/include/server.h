@@ -123,8 +123,17 @@ enum srv_atr {
 	SRV_ATR_Comment,
 	SRV_ATR_DefNode,
 	SRV_ATR_NodePack,
-#include "site_svr_attr_enum.h"
+        SRV_ATR_JobStatRate,
+	SRV_ATR_PollJobs,
+        SRV_ATR_LogLevel,
+        SRV_ATR_DownOnError,
+        SRV_ATR_JobNanny,
+        SRV_ATR_OwnerPurge,
+        SRV_ATR_QCQLimits,
+        SRV_ATR_MomJobSync,
+        SRV_ATR_MailDomain,
 	SRV_ATR_version,
+#include "site_svr_attr_enum.h"
 	/* This must be last */
 	SRV_ATR_LAST
 };
@@ -181,5 +190,23 @@ extern struct server server;
 
 /* function prototypes */
 
-extern int  svr_recov A_((char *));
-extern int  svr_save A_((struct server *, int mode));
+extern int svr_recov A_((char *));
+extern int svr_save A_((struct server *,int));
+
+
+/*
+** Macros for fast min/max.
+*/
+#ifndef MIN
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#endif /* END MIN */
+
+#ifndef MAX
+#define MAX(a,b) (((a)>(b))?(a):(b))                                              
+#endif /* END MAX */
+
+#ifndef JobStatRate
+#define JobStatRate MAX(PBS_JOBSTAT_MIN,server.sv_attr[(int)SRV_ATR_JobStatRate].at_val.at_long)
+#endif
+
+/* END server.h */

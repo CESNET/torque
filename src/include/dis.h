@@ -94,6 +94,8 @@
  * Integer function return values from Data-is-Strings reading calls
  */
 
+/* sync w/dis_emsg[] (lib/Libdis/dis.c) */
+
 #define DIS_SUCCESS	0	/* No error */
 #define DIS_OVERFLOW	1	/* Value too large to convert */
 #define DIS_HUGEVAL	2	/* Tried to write floating point infinity */
@@ -115,7 +117,7 @@
 #define volatile
 #endif
 
-unsigned long disrul A_((int stream, int *retval));
+unsigned long disrul A_((int stream,int *retval));
 
 /*#if UINT_MAX == ULONG_MAX*/
 #if SIZEOF_UNSIGNED == SIZEOF_LONG
@@ -128,29 +130,29 @@ unsigned disrui A_((int stream, int *retval));
 #if SIZEOF_UNSIGNED_SHORT == SIZEOF_UNSIGNED_INT
 #define disrus(strea, retval) (unsigned short)disrui(stream, (retval))
 #else
-unsigned short disrus A_((int stream, int *retval));
+unsigned short disrus A_((int stream,int *retval));
 #endif
 
 /*#if UCHAR_MAX == USHRT_MAX*/
 #if SIZEOF_UNSIGNED_CHAR == SIZEOF_UNSIGNED_SHORT
 #define disruc(stream, retval) (unsigned char)disrus(stream, (retval))
 #else
-unsigned char disruc A_((int stream, int *retval));
+unsigned char disruc A_((int stream,int *retval));
 #endif
 
-long disrsl A_((int stream, int *retval));
+long disrsl A_((int stream,int *retval));
 /*#if INT_MIN == LONG_MIN && INT_MAX == LONG_MAX*/
 #if SIZEOF_INT == SIZEOF_LONG
 #define disrsi(stream, retval) (int)disrsl(stream, (retval))
 #else
-int disrsi A_((int stream, int *retval));
+int disrsi A_((int stream,int *retval));
 #endif
 
 /*#if SHRT_MIN == INT_MIN && SHRT_MAX == INT_MAX*/
 #if SIZEOF_SHORT == SIZEOF_INT
 #define disrss(stream, retval) (short)disrsi(stream, (retval))
 #else
-short disrss A_((int stream, int *retval));
+short disrss A_((int stream,int *retval));
 #endif
 
 /*#if CHAR_MIN == SHRT_MIN && CHAR_MAX == SHRT_MAX*/
@@ -235,7 +237,7 @@ int diswl_ A_((int stream, dis_long_double_t value, unsigned int ndigs));
 #if SIZEOF_FLOAT == SIZEOF_DOUBLE
 #define diswf(stream, value) diswl_(stream, (dis_long_double_t)(value), FLT_DIG)
 #else
-int diswf A_((int stream, double value));
+int diswf A_((int stream,double value));
 #endif
 
 extern const char *dis_emsg[];
@@ -249,6 +251,8 @@ extern void DIS_tcp_settimeout A_((long timeout));
 extern int  DIS_tcp_istimeout A_((int fd));
 
 extern int  PConnTimeout(int);
+
+/* NOTE:  increase THE_BUF_SIZE to 131072 for systems > 5k nodes */
 
 #define THE_BUF_SIZE 65536 /* max size of tcp send buffer (must be big enough to contain all job attributes) */
 

@@ -96,6 +96,13 @@
 #include <netinet/in.h>
 #include <sys/time.h>
 
+#if defined(__TLINUX)
+#include <sys/vfs.h>
+#elif defined(__TDARWIN)
+#include <sys/param.h> 
+#include <sys/mount.h>
+#endif /* __TLINUX */
+
 #include "pbs_ifl.h"
 #include "pbs_error.h"
 #include "log.h"
@@ -103,6 +110,8 @@
 #include "rpp.h"
 #include "dis.h"
 #include "dis_init.h"
+#include "list_link.h"
+#include "attribute.h"
 #include "pbs_nodes.h"
 #include "resmon.h"
 
@@ -113,22 +122,32 @@ extern	unsigned int	default_server_port;
 extern	char		mom_host[];
 extern	char		*path_jobs;
 extern	char		*path_home;
+extern  char            *path_spool;
 extern	int		pbs_errno;
 extern	unsigned int	pbs_mom_port;
 extern	unsigned int	pbs_rm_port;
 extern	unsigned int	pbs_tm_port;
-extern	time_t		time_now;
 extern	int		internal_state;
 extern  int             LOGLEVEL;
 extern  char            PBSNodeCheckPath[1024];
 extern  int             PBSNodeCheckInterval;
 extern  char            PBSNodeMsgBuf[1024];
-extern  int             MOMRecvHelloCount;
-extern  int             MOMRecvClusterAddrsCount;
+extern  int             MOMRecvHelloCount[];
+extern  int             MOMRecvClusterAddrsCount[];
+extern  time_t          LastServerUpdateTime;
+extern  int             ServerStatUpdateInterval;
+extern  char            pbs_servername[PBS_MAXSERVER][PBS_MAXSERVERNAME + 1];
+extern  u_long          MOMServerAddrs[PBS_MAXSERVER];
 
-int			server_stream = -1;	/* XXX */
+int			SStream[PBS_MAXSERVER];  /* streams to pbs_server daemons */
+                                                 /* initialized in MOMInitialize() */
+int                     SIndex;                  /* master server index */
 
-void	state_to_server A_((int));
+char                    ReportMomState[PBS_MAXSERVER];
+
+void state_to_server A_((int,int));
+
+extern void DIS_rpp_reset A_((void));
 
 /*
  * Tree search generalized from Knuth (6.2.2) Algorithm T just like
@@ -222,7 +241,7 @@ int tlist(
     BSize--;
     }
 
-  if (BSize > strlen(tmpLine))
+  if (BSize > (int)strlen(tmpLine))
     {
     strcat(Buf,tmpLine);
     }
@@ -428,15 +447,18 @@ void is_request(
   int		ret = DIS_SUCCESS;
   u_long	ipaddr;
   short		port;
-  struct	sockaddr_in *addr;
+  struct	sockaddr_in *addr = NULL;
   void		init_addrs();
+
+  int           ServerIndex;
+  int           sindex;
 
   if (cmdp != NULL)
     *cmdp = 0;
 
   if (LOGLEVEL >= 4)
     {
-    sprintf(log_buffer,"stream %d version %d\n",
+    sprintf(log_buffer,"stream %d version %d",
       stream,
       version);
 
@@ -460,27 +482,60 @@ void is_request(
     }
 
   /* check that machine is okay to be a server */
-  /*  If the stream is the server_stream we already opened, then it's fine  */
+  /* If the stream is the SStream we already opened, then it's fine  */
 
-  if (stream != server_stream)
+  addr = rpp_getaddr(stream);
+
+  ServerIndex = -1;
+
+  for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {
-    addr = rpp_getaddr(stream);
+    if (stream == SStream[sindex])
+      {
+      ServerIndex = sindex;
 
+      break;
+      }
+    }    /* END for (sindex) */
+
+  /* We don't have an existing connection, but is this a valid server? */
+
+  if (ServerIndex == -1)
+    {
     port = ntohs((unsigned short)addr->sin_port);
 
     ipaddr = ntohl(addr->sin_addr.s_addr);
 
-    if ((port >= IPPORT_RESERVED) || !tfind(ipaddr,&okclients)) 
+    for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
       {
-      char tmpLine[1024];
+      if (ipaddr == MOMServerAddrs[sindex])
+        {
+        ServerIndex = sindex;
 
-      tmpLine[0] = '\0';
+        if (SStream[sindex] != -1)
+          {
+          sprintf(log_buffer,"duplicate connection from %s - closing original connection",
+            netaddr(addr));
 
-      tlist(okclients,tmpLine,1024);
+          log_record(
+            PBSEVENT_ERROR,
+            PBS_EVENTCLASS_SERVER,
+            id,
+            log_buffer);
 
-      sprintf(log_buffer,"bad connect from %s - unauthorized (okclients: %s)",
-        netaddr(addr),
-        tmpLine);
+          rpp_close(SStream[sindex]);
+          }
+
+        SStream[sindex] = stream;
+  
+        break;
+        }
+      }    /* END for (sindex) */
+
+    if (ServerIndex == -1)
+      {
+      sprintf(log_buffer,"bad connect from %s - unauthorized server",
+        netaddr(addr));
 
       log_err(-1,id,log_buffer);
 
@@ -488,7 +543,7 @@ void is_request(
 
       return;
       }
-    }    /* END if (stream != server_stream) */
+    }    /* END if (ServerIndex == -1) */
 
   command = disrsi(stream,&ret);
 
@@ -514,6 +569,7 @@ void is_request(
     {
     case IS_NULL: /* a ping from the server */
 
+      /* nothing seems to ever generate an IS_NULL message */
       if (LOGLEVEL >= 4)
         {
         DBPRT(("%s: IS_NULL\n",
@@ -522,27 +578,57 @@ void is_request(
 
       if (internal_state & INUSE_DOWN) 
         {
-        state_to_server(1);
+        int sindex;
+
+        for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
+          {
+          if (SStream[sindex] != -1)
+            state_to_server(sindex,1);
+          }
         }
 
       break;
 
     case IS_HELLO:		/* server wants a return ping */
 
-      DBPRT(("%s: IS_HELLO, state=0x%x\n", 
-        id, 
-        internal_state))
+      if (LOGLEVEL >= 3)
+        {
+        sprintf(log_buffer,"IS_HELLO received");
 
-      server_stream = stream;		/* save stream to server XXX */
+        log_record(
+          PBSEVENT_ERROR,
+          PBS_EVENTCLASS_JOB,
+          id,
+          log_buffer);
+        }
 
-      is_compose(stream,IS_HELLO);
+      if (is_compose(stream,IS_HELLO) != DIS_SUCCESS)
+        {
+        log_err(-1,id,"Error composing IS_HELLO");
 
-      rpp_flush(stream);
+        rpp_close(stream);
 
-      MOMRecvHelloCount++;
+        SStream[ServerIndex] = -1;
 
-      if (internal_state != 0)
-        state_to_server(1);
+        break;
+        }
+
+      if (rpp_flush(stream) != 0)
+        {
+        log_err(-1,id,"Error sending IS_HELLO");
+
+        rpp_close(stream);
+
+        SStream[ServerIndex] = -1;
+
+        break;
+        }
+
+      MOMRecvHelloCount[ServerIndex]++;
+
+      /* FORCE immediate server update */
+
+      LastServerUpdateTime = 0;
 
       break;
 
@@ -572,7 +658,7 @@ void is_request(
           {
           char tmpLine[1024];
 
-          sprintf(tmpLine,"%s:\t%ld.%ld.%ld.%ld added to okclients\n", 
+          sprintf(tmpLine,"%s:\t%ld.%ld.%ld.%ld added to okclients", 
             id,
             (ipaddr & 0xff000000) >> 24,
             (ipaddr & 0x00ff0000) >> 16,
@@ -587,10 +673,14 @@ void is_request(
           }
         }  /* END for (;;) */
 
-      MOMRecvClusterAddrsCount++;
-
       if (ret != DIS_EOD)
         goto err;
+
+      MOMRecvClusterAddrsCount[ServerIndex]++;
+
+      /* FORCE immediate update server */
+
+      LastServerUpdateTime = 0;
 
       break;
 
@@ -615,7 +705,7 @@ err:
 
   sprintf(log_buffer,"%s from %s", 
     dis_emsg[ret], 
-    netaddr(addr));
+    (addr != NULL) ? netaddr(addr) : "???");
 
   log_err(-1,id,log_buffer);
 
@@ -637,22 +727,40 @@ err:
 
 void check_busy(
 
-  double mla)
+  double mla) /* I */
 
   {
   extern int   internal_state;
   extern float ideal_load_val;
   extern float max_load_val;
 
+  int sindex;
+
   if ((mla >= max_load_val) && 
      ((internal_state & INUSE_BUSY) == 0))
     {
-    internal_state |= (INUSE_BUSY | UPDATE_MOM_STATE);
+    /* node transitioned from free to busy, report state */
+
+    internal_state |= INUSE_BUSY;
+
+    for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
+      {
+      if (SStream[sindex] != -1)
+        ReportMomState[sindex] = 1;
+      }
     }
   else if ((mla < ideal_load_val) && 
           ((internal_state & INUSE_BUSY) != 0))
     {
-    internal_state = (internal_state & ~INUSE_BUSY) | UPDATE_MOM_STATE;
+    /* node transitioned from busy to free, report state */
+
+    internal_state = (internal_state & ~INUSE_BUSY);
+
+    for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
+      {
+      if (SStream[sindex] != -1)
+        ReportMomState[sindex] = 1;
+      }
     }
 
   return;
@@ -672,6 +780,9 @@ int MUReadPipe(
   FILE *fp;
   int   rc;
 
+  int   rcount;
+  int   ccount;
+
   if ((Command == NULL) || (Buffer == NULL))
     {
     return(1);
@@ -682,16 +793,40 @@ int MUReadPipe(
     return(1);
     }
 
-  if ((rc = fread(Buffer,1,BufSize,fp)) == -1)
+  ccount = 0;
+  rcount = 0;
+
+  do 
     {
+    rc = fread(Buffer + ccount,1,BufSize - ccount,fp);
+
+    /* NOTE:  ferror may create false failures */
+
+    if (rc > 0)
+      { 
+      ccount += rc;
+      }  
+
+    if ((ccount >= BufSize) || (rcount++ > 10))
+      {
+      /* full buffer loaded or too many attempts */
+
+      break;
+      }
+    } while (!feof(fp));
+
+  if (ferror(fp))
+    {
+    /* FAILURE */
+
     pclose(fp);
 
     return(1);
     }
 
-  /* terminate buffer */
+  /* SUCCESS - terminate buffer */
 
-  Buffer[MIN(BufSize - 1,rc)] = '\0';
+  Buffer[MIN(BufSize - 1,ccount)] = '\0';
 
   pclose(fp);
 
@@ -707,21 +842,57 @@ int MUReadPipe(
  *   if down criteria is not set and node is down, mark it up
  */
 
-void check_state()
+void check_state(
+
+  int Force)  /* I */
 
   {
   static int ICount = 0;
 
   static char tmpPBSNodeMsgBuf[1024];
 
+  if (Force)
+    {
+    ICount = 0;
+    }
+
   /* clear node messages */
 
   PBSNodeMsgBuf[0] = '\0';
+
+  internal_state &= ~INUSE_DOWN;
 
   /* conditions:  external state should be down if
      - inadequate file handles available (for period X) 
      - external health check fails
   */
+
+  /* verify adequate space in spool directory */
+
+#define TMINSPOOLBLOCKS 100  /* blocks available in spool directory required for proper operation */
+
+
+#if defined(__TLINUX) || defined(__TDARWIN)
+  {
+  struct statfs F;
+
+  if (statfs(path_spool,&F) == -1)
+    {
+    /* cannot check filesystem */
+    log_err(errno,"check_state","statfs() failed");
+    }
+  else if (F.f_bavail < TMINSPOOLBLOCKS)
+    {
+    /* inadequate disk space in spool directory */
+
+    strcpy(PBSNodeMsgBuf,"ERROR: torque spool filesystem full");
+
+    /* NOTE:  adjusting internal state may not be proper behavior, see note below */
+
+    internal_state |= INUSE_DOWN;
+    }
+  }    /* END BLOCK */
+#endif /* __TLINUX || __TDARWIN */
 
   if (PBSNodeCheckPath[0] != '\0')
     {
@@ -751,6 +922,11 @@ void check_state()
         sizeof(PBSNodeMsgBuf));
 
       PBSNodeMsgBuf[sizeof(PBSNodeMsgBuf) - 1] = '\0';
+
+      /* NOTE:  not certain this is the correct behavior, scheduler should probably make this decision as 
+                proper action may be context sensitive */
+
+      internal_state |= INUSE_DOWN;
       }
     }      /* END if (PBSNodeCheckPath[0] != '\0') */
 
@@ -766,47 +942,55 @@ void check_state()
 
 
 /*
- * state_to_server() - if UPDATE_MOM_STATE is set, send state message to
+ * state_to_server() - if ReportMomState is set, send state message to
  *	the server.
  */
 
 void state_to_server(
 
-  int force)  /* I (boolean) */
+  int ServerIndex,  /* I */
+  int force)        /* I (boolean) */
 
   {
   char *id = "state_to_server";
 
-  if (!force && !(internal_state & UPDATE_MOM_STATE)) 
+  if ((force == 0) && (ReportMomState[ServerIndex] == 0))
     {
+    /* NO-OP */
+
     return;
     }
 
-  if (server_stream < 0)
+  if (SStream[ServerIndex] < 0)
     {
     return;
     }
  
-  if (is_compose(server_stream,IS_UPDATE) != DIS_SUCCESS) 
+  if (is_compose(SStream[ServerIndex],IS_UPDATE) != DIS_SUCCESS) 
     {
+    rpp_close(SStream[ServerIndex]);
+    SStream[ServerIndex]=-1;
     return;		
     } 
 
-  if (diswui(server_stream,internal_state & ~UPDATE_MOM_STATE) != DIS_SUCCESS) 
+  if (diswui(SStream[ServerIndex],internal_state) != DIS_SUCCESS) 
     {
+    rpp_close(SStream[ServerIndex]);
+    SStream[ServerIndex]=-1;
     return;
     }
 
-  if (rpp_flush(server_stream) == 0)
+  if (rpp_flush(SStream[ServerIndex]) == 0)
     {
-    /* send successful, unset UPDATE_MOM_STATE */
+    /* send successful, unset ReportMomState */
 
-    internal_state &= ~UPDATE_MOM_STATE;
+    ReportMomState[ServerIndex] = 0;
 
     if (LOGLEVEL >= 4)
       {
-      sprintf(log_buffer,"sent updated state 0x%x to server\n",
-        internal_state);
+      sprintf(log_buffer,"sent updated state 0x%x to server %s",
+        internal_state,
+        pbs_servername[ServerIndex]);
 
       log_record(
         PBSEVENT_ERROR,
@@ -819,12 +1003,17 @@ void state_to_server(
     {
     if (LOGLEVEL >= 2)
       {
+      sprintf(log_buffer,"state update to server %s failed",
+        pbs_servername[ServerIndex]);
+
       log_record(
         PBSEVENT_ERROR,
         PBS_EVENTCLASS_JOB,
         id,
-        "server state update failed");
+        log_buffer);
       }
+    rpp_close(SStream[ServerIndex]);
+    SStream[ServerIndex]=-1;
     }
 
   return;

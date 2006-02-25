@@ -104,6 +104,8 @@
  *	value type
  */
 
+/* sync w/job_attr_def.c */
+
 static int decode_nodes A_((struct attribute *, char *, char *, char *));
 static int set_node_ct A_((resource *, attribute *, int actmode));
 
@@ -553,21 +555,41 @@ resource_def svr_resc_def[] = {
 	ATR_TYPE_STR
     },
 #endif	/* PE_MASK */
+    /* support external resource manager extensions */
 
+    /* NOTE:  should enable expansion of this list dynamically (NYI) */
 
-	/* the definition for the "unknown" resource MUST be last */
+    { "advres", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "deadline", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "ddisk", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "dmem", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "jobflags", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "gres", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "hostlist", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "jgroup", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "minpreempttime", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "naccesspolicy", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "nallocpolicy", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "nodeset", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "partition", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "qos", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "queuejob", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "rmtype", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "sid", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "stagein", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "spriority", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "termtime", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "tpn", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "trl", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "trig", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "var", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "opsys", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
 
-    {	"|unknown|",
-	decode_unkn,
-	encode_unkn,
-	set_unkn,
-	comp_unkn,
-	free_unkn,
-	NULL_FUNC,
-	READ_WRITE,
-	ATR_TYPE_LIST
-    }
-	/* DO NOT ADD DEFINITIONS AFTER "unknown", ONLY BEFORE */
+    /* the definition for the "unknown" resource MUST be last */
+
+    { "|unknown|", decode_unkn, encode_unkn, set_unkn, comp_unkn, free_unkn, NULL_FUNC, READ_WRITE, ATR_TYPE_LIST }
+
+    /* DO NOT ADD DEFINITIONS AFTER "unknown", ONLY BEFORE */
 };
 
 int svr_resc_size = sizeof(svr_resc_def) / sizeof(resource_def);
@@ -658,27 +680,32 @@ static int decode_nodes(
  *	plain number of nodes.
  */
 
-int ctnodes(spec)
-	char *spec;
-{
-	int   ct = 0;
-	char *pc;
+int ctnodes(
 
-	while (1) {
+  char *spec)
 
-		while (isspace((int)*spec))
-			++spec;
+  {
+  int   ct = 0;
+  char *pc;
 
-		if (isdigit((int)*spec))
-			ct += atoi(spec);
-		else
-			++ct;
-		if ((pc = strchr(spec, '+')) == (char *)0)
-			break;
-		spec = pc+1;
-	}
-	return (ct);
-}
+  while (1) 
+    {
+    while (isspace((int)*spec))
+      ++spec;
+
+    if (isdigit((int)*spec))
+      ct += atoi(spec);
+    else
+      ++ct;
+
+    if ((pc = strchr(spec,'+')) == NULL)
+      break;
+
+    spec = pc + 1;
+    }  /* END while (1) */
+
+  return(ct);
+  }  /* END ctnodes() */
 
 
 
@@ -693,47 +720,73 @@ int ctnodes(spec)
  *	the value of the resource "nodect" for use by the scheduler.
  */
 
-static int set_node_ct(pnodesp, pattr, actmode)
-	resource  *pnodesp;
-	attribute *pattr;
-	int	   actmode;
-{
-	resource	*pnct;
-	resource_def	*pndef;
+static int set_node_ct(
 
-	if (actmode == ATR_ACTION_RECOV)
-		return (0);
+  resource  *pnodesp,  /* I */
+  attribute *pattr,    /* I */
+  int        actmode)  /* I */
 
-	/* Set "nodect" to count of nodes in "nodes" */
+  {
+  resource	*pnct;
+  resource_def	*pndef;
 
-	pndef = find_resc_def(svr_resc_def, "nodect", svr_resc_size);
-	if (pndef == (resource_def *)0)
-		return (PBSE_SYSTEM);
+  if (actmode == ATR_ACTION_RECOV)
+    {
+    /* SUCCESS */
 
-	if ((pnct = find_resc_entry(pattr, pndef)) == (resource *)0) {
-		if ((pnct = add_resource_entry(pattr, pndef)) == 0)
-			return (PBSE_SYSTEM);
-	}
+    return(0);
+    }
 
-	pnct->rs_value.at_val.at_long =
-				ctnodes(pnodesp->rs_value.at_val.at_str);
-	pnct->rs_value.at_flags |= ATR_VFLAG_SET;
+  /* Set "nodect" to count of nodes in "nodes" */
 
-	/* Set "neednodes" to "nodes", may be altered by Scheduler */
+  pndef = find_resc_def(svr_resc_def,"nodect",svr_resc_size);
 
-	pndef = find_resc_def(svr_resc_def, "neednodes", svr_resc_size);
-	if (pndef == (resource_def *)0)
-		return (PBSE_SYSTEM);
+  if (pndef == NULL)
+    {
+    return(PBSE_SYSTEM);
+    }
 
-	if ((pnct = find_resc_entry(pattr, pndef)) == (resource *)0) {
-		if ((pnct = add_resource_entry(pattr, pndef)) == 0)
-			return (PBSE_SYSTEM);
-	} else {
-		pndef->rs_free(&pnct->rs_value);
-	}
-	pndef->rs_decode(&pnct->rs_value, (char *)0, (char *)0,
-			 pnodesp->rs_value.at_val.at_str);
-	pnct->rs_value.at_flags |= ATR_VFLAG_SET;
+  if ((pnct = find_resc_entry(pattr,pndef)) == NULL) 
+    {
+    if ((pnct = add_resource_entry(pattr,pndef)) == 0)
+      {
+      return(PBSE_SYSTEM);
+      }
+    }
+
+  pnct->rs_value.at_val.at_long =
+    ctnodes(pnodesp->rs_value.at_val.at_str);
+
+  pnct->rs_value.at_flags |= ATR_VFLAG_SET;
+
+  /* Set "neednodes" to "nodes", may be altered by Scheduler */
+
+  pndef = find_resc_def(svr_resc_def,"neednodes",svr_resc_size);
+
+  if (pndef == NULL)
+    {
+    return(PBSE_SYSTEM);
+    }
+
+  if ((pnct = find_resc_entry(pattr,pndef)) == NULL) 
+    {
+    if ((pnct = add_resource_entry(pattr,pndef)) == NULL)
+      {
+      return(PBSE_SYSTEM);
+      }
+    } 
+  else 
+    {
+    pndef->rs_free(&pnct->rs_value);
+    }
+
+  pndef->rs_decode(&pnct->rs_value,NULL,NULL,pnodesp->rs_value.at_val.at_str);
+
+  pnct->rs_value.at_flags |= ATR_VFLAG_SET;
+
+  /* SUCCESS */
 	
-	return (0);
-}
+  return(0);
+  }  /* END set_node_ct() */
+
+

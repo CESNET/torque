@@ -287,6 +287,8 @@ extern	unsigned	int	reqnum;
 extern	char			*ret_string;
 extern	double	cputfactor;
 extern	double	wallfactor;
+extern  long    system_ncpus;
+extern  int     ignwalltime;
 
 /*
 ** local functions and data
@@ -1053,6 +1055,8 @@ int mom_set_limits(pjob, set_mode)
 	struct		srfs_req_s	srfs_brk;
 	struct		fsres_s		srfsinfo;
 
+        log_buffer[0] = '\0';
+
 #define	SRFS_SET(fs, val) \
 	if (val > 0) { \
 		DBPRT(("%s: going to set %s to %d\n", id, fs, val)) \
@@ -1684,6 +1688,8 @@ int mom_over_limit(pjob)
 			}
 		}
 		if (strcmp(pname, "walltime") == 0) {
+			if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
+				continue;
 			retval = gettime(pres, &value);
 			if (retval != PBSE_NONE)
 				continue;
@@ -1692,7 +1698,8 @@ int mom_over_limit(pjob)
 				sprintf(log_buffer,
 					"walltime %d exceeded limit %d",
 					num, value);
-				return (TRUE);
+				if (ignwalltime == 0)
+					return (TRUE);
 			}
 		}
 	}
@@ -1905,9 +1912,10 @@ int mom_set_use(pjob)
  *	Kill a task session.
  *	Call with the task pointer and a signal number.
  */
-int kill_task(ptask, sig)
+int kill_task(ptask, sig, pg)
     task	*ptask;
     int		sig;
+    int         pg;
 {
 	static char	*id = "kill_task";
 	int		ct = 1;
@@ -2490,6 +2498,7 @@ struct	rm_attribute	*attrib;
 	}
 
 	sprintf(ret_string, "%ld", tinfo.mc_ncpu);
+	system_ncpus=tinfo.mc_ncpu;
 	return ret_string;
 }
 

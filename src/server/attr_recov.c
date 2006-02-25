@@ -256,7 +256,7 @@ int save_flush()
 
   if (spaceused > 0) 
     {
-    while ((i = write(pkbfds,pbuf,spaceused)) != spaceused) 
+    while ((i = write(pkbfds,pbuf,spaceused)) != (ssize_t)spaceused) 
       {
       if (i == -1) 
         {
@@ -351,9 +351,7 @@ int save_attr(
 
   /* indicate last of attributes by writing dummy entry */
 
-#ifdef DEBUG
   memset(&dummy,0,sizeof(dummy));
-#endif
   dummy.al_tsize = ENDATTRIBUTES;
 
   if (save_struct((char *)&dummy,sizeof(dummy)) < 0)
@@ -421,14 +419,23 @@ int recov_attr(
     if (tempal.al_tsize == ENDATTRIBUTES)
       break;            /* hit dummy attribute that is eof */
 
-    /* read in the attribute chunck (name and encoded value) */
+    if (tempal.al_tsize <= (int)sizeof(tempal))
+      {
+      log_err(-1,id,"attr size too small");
 
-    pal = (svrattrl *)calloc(1,tempal.al_tsize);
+      return(-1);
+      }
+
+    /* read in the attribute chunck (name and encoded value) */
 
     palsize = tempal.al_tsize;
 
+    pal = (svrattrl *)calloc(1,palsize);
+
     if (pal == NULL)
       {
+      log_err(errno,id,"calloc failed");
+
       return(-1);
       }
 
@@ -489,9 +496,11 @@ int recov_attr(
         {
         log_err(-1,id,"unknown attribute discarded");
 
+        free(pal);
+
         continue;
         }
-      }
+      }    /* END if (index < 0) */
 
     (padef + index)->at_decode(
       pattr + index,
@@ -500,13 +509,12 @@ int recov_attr(
       pal->al_value);
 
     if ((padef + index)->at_action != (int (*)())0)
-      (padef + index)->at_action(pattr+index,parent,ATR_ACTION_RECOV);
+      (padef + index)->at_action(pattr + index,parent,ATR_ACTION_RECOV);
 
     (pattr + index)->at_flags = pal->al_flags & ~ATR_VFLAG_MODIFY;
-    }  /* END if (index < 0) */
 
-  if (palsize)
     free(pal);
+    }  /* END while (1) */
 
   return(0);
   }  /* END recov_attr() */

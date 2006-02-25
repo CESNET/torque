@@ -88,6 +88,8 @@
  *
  */
 
+/* sync w/SRV_ATR_* in server.h, server/svr_attr_def.c, and ATTR_* in pbs_ifl.h  */
+
 ATTR_aclhten,
 ATTR_aclhost,
 ATTR_acluren,
@@ -98,6 +100,7 @@ ATTR_defnode,
 ATTR_dfltque,
 ATTR_locsvrs,
 ATTR_logevents,
+ATTR_loglevel,
 ATTR_managers,
 ATTR_mailfrom,
 ATTR_maxrun,
@@ -116,3 +119,12 @@ ATTR_syscost,
 ATTR_pingrate,
 ATTR_ndchkrate,
 ATTR_tcptimeout,
+ATTR_jobstatrate,
+ATTR_polljobs,
+ATTR_downonerror,
+ATTR_jobnanny,
+ATTR_ownerpurge,
+ATTR_qcqlimits,
+ATTR_momjobsync,
+ATTR_maildomain,
+ATTR_pbsversion,

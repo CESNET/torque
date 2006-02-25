@@ -155,12 +155,18 @@ extern int   conn_qsub A_((char *,unsigned int));
 extern int   run_pelog A_((int, char *,job *,int));
 extern int   is_joined A_((job *));
 extern void  check_busy A_((double));
-extern void  state_to_server A_((int));
+extern void  state_to_server A_((int,int));
 extern void end_proc(void);
 extern int message_job(job *,enum job_file,char *);
 extern void term_job(job *);
 extern struct passwd *check_pwd(job *);
 extern int send_sisters(job *,int);
+extern int task_save(task *) ;
+extern void DIS_rpp_reset A_((void));
+extern void checkret A_((char **,int));
+
+/* defined in mach-dependant mom_mach.c */
+extern int kill_task A_((struct task *,int,int));
 
 /* Defines for pe_io_type, see run_pelog() */
 

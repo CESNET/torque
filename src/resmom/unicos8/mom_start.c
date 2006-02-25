@@ -358,7 +358,7 @@ void set_globid(
   {
   char cvtbuf[20];
 
-  if (srj != NULL)
+  if (sjr != NULL)
     {
     sprintf(cvtbuf,"%ld", 
       (long)sjr->sj_pid);
@@ -378,6 +378,8 @@ void set_globid(
     ATTR_altid, 
     NULL, 
     cvtbuf);
+
+  pjob->ji_wattr[(int)JOB_ATR_altid].at_flags |= JOB_VFLAG_SEND;
 
   return;
   }
@@ -531,7 +533,7 @@ void scan_for_terminated()
 			exiteval = 1;
 		DBPRT(("%s: task %d sid %d exit value %d\n", id,
 				ptask->ti_qs.ti_task, sid, exiteval))
-		kill_task(ptask, SIGKILL);
+		kill_task(ptask, SIGKILL,0);
 		ptask->ti_qs.ti_exitstat = exiteval;
 		ptask->ti_qs.ti_status = TI_STATE_EXITED;
 		task_save(ptask);

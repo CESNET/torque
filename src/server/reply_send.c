@@ -120,6 +120,7 @@ extern list_head task_list_immed;
 #endif	/* PBS_MOM */
 
 extern struct pbs_err_to_txt pbs_err_to_txt[];
+extern const char *PBatchReqType[];
 
 #define ERR_MSG_SIZE 127
 
@@ -227,10 +228,10 @@ int reply_send(
 
   {
   int		    rc = 0;
-  static char	   *id = "reply_send";
   int		    sfds = request->rq_conn;		/* socket */
 
 #ifndef PBS_MOM
+  static char	   *id = "reply_send";
   struct work_task *ptask;
 #endif /* PBS_MOM */
 
@@ -308,13 +309,15 @@ void reply_ack(preq)
  *	batch_reply structure, the reply structure itself IS NOT FREED.
  */
 
-void reply_free(prep)
-	struct batch_reply *prep;
-{
-	struct brp_status  *pstat;
-	struct brp_status  *pstatx;
-	struct brp_select  *psel;
-	struct brp_select  *pselx;
+void reply_free(
+
+  struct batch_reply *prep)
+
+  {
+  struct brp_status  *pstat;
+  struct brp_status  *pstatx;
+  struct brp_select  *psel;
+  struct brp_select  *pselx;
 
 	if (prep->brp_choice == BATCH_REPLY_CHOICE_Text) {
 		if (prep->brp_un.brp_txt.brp_str) {
@@ -345,8 +348,11 @@ void reply_free(prep)
 		(void)free(prep->brp_un.brp_rescq.brq_resvd);
 		(void)free(prep->brp_un.brp_rescq.brq_down);
 	}
-	prep->brp_choice = BATCH_REPLY_CHOICE_NULL;
-}
+
+  prep->brp_choice = BATCH_REPLY_CHOICE_NULL;
+
+  return;
+  }  /* END reply_free() */
 
 
 
@@ -368,28 +374,35 @@ void req_reject(
 
   {
   char msgbuf[ERR_MSG_SIZE + 256 + 1];
+  char msgbuf2[ERR_MSG_SIZE + 256 + 1];
 
   set_err_msg(code,msgbuf);
+
+  snprintf(msgbuf2,sizeof(msgbuf2),"%s",msgbuf);
 
   if (HostName != NULL)
     {
     snprintf(msgbuf,sizeof(msgbuf),"%s REJHOST=%s",
-      msgbuf,
+      msgbuf2,
       HostName);
+
+    snprintf(msgbuf2,sizeof(msgbuf2),"%s",msgbuf);
     }
 
   if (Msg != NULL)
     {
     snprintf(msgbuf,sizeof(msgbuf),"%s MSG=%s",
-      msgbuf,
+      msgbuf2,
       Msg);
+
+    /* NOTE: Don't need this last snprintf() unless another message is concatenated. */
     }
     
-  sprintf(log_buffer,"Reject reply code=%d(%s), aux=%d, type=%d, from %s@%s",
+  sprintf(log_buffer,"Reject reply code=%d(%s), aux=%d, type=%s, from %s@%s",
     code, 
     msgbuf,
     aux, 
-    preq->rq_type, 
+    PBatchReqType[preq->rq_type], 
     preq->rq_user, 
     preq->rq_host);
 

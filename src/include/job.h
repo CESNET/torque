@@ -201,6 +201,8 @@ struct grpcache {
  * define the size of the array.
  */
 
+/* sync w/XXX */
+
 enum job_atr {
 	JOB_ATR_jobname,	/* this set appears first as they show */
 	JOB_ATR_job_owner,	/* in a basic job status display       */
@@ -236,7 +238,7 @@ enum job_atr {
 	JOB_ATR_substate,
 	JOB_ATR_userlst,
 	JOB_ATR_variables,
-				/* this set are private attributes,       */
+				/* this set contains private attributes,  */
 				/* as such not sent to clients (status)   */
 
 	JOB_ATR_euser,		/* execution user name for MOM		  */
@@ -251,6 +253,7 @@ enum job_atr {
 	JOB_ATR_Cookie,
 	JOB_ATR_altid,		/* alternate job id, for irix6 = array id */
 	JOB_ATR_etime,		/* time job became eligible to run	  */
+	JOB_ATR_exitstat,	/* exit status of job			  */
 #include "site_job_attr_enum.h"
 
 	JOB_ATR_UNKN,		/* the special "unknown" type		  */
@@ -277,23 +280,26 @@ typedef	struct	hnodent {
 	int		hn_stream;	/* stream to MOM on node */
 	int		hn_sister;	/* save error for KILL_JOB event */
 	list_head	hn_events;	/* pointer to list of events */
-} hnodent;
+  } hnodent;
+
 
 typedef struct vnodent {
-	tm_node_id	vn_node;	/* user's vnode identifier */
-	hnodent	       *vn_host;	/* parent (host) nodeent entry */
-	int		vn_index;	/* index (window) */
-} vnodent;
+  tm_node_id  vn_node;	/* user's vnode identifier */
+  hnodent    *vn_host;	/* parent (host) nodeent entry */
+  int         vn_index;	/* index (window) */
+  } vnodent;
 
 
 /*
-**	Mothere Superior gets to hold an array of information from each
+**	Mother Superior gets to hold an array of information from each
 **	of the other nodes for resource usage.
 */
+
 typedef struct	noderes {
-	long		nr_cput;	/* cpu time */
-	long		nr_mem;		/* memory */
-} noderes;
+  long nr_cput;	/* cpu time */
+  long nr_mem;	/* memory */
+  long nr_vmem; /* virtual memory */
+  } noderes;
 
 
 
@@ -312,6 +318,7 @@ typedef struct	noderes {
 #define	MOM_CHKPT_POST		2	/* post checkpoint call returned */
 #define MOM_HAS_NODEFILE	4	/* Mom wrote job PBS_NODEFILE */
 #define MOM_NO_PROC		8	/* no procs found for job */
+#define MOM_HAS_TMPDIR		16	/* Mom made a tmpdir */
 #endif	/* MOM */
 
 /*
@@ -368,7 +375,8 @@ typedef struct {
 
 struct job {
 
-	/* Note: these members, up to ji_qs, are not saved to disk */
+	/* Note: these members, up to ji_qs, are not saved to disk
+           (except for ji_stdout, ji_stderr) */
 
 	list_link       ji_alljobs;	/* links to all jobs in server */
 	list_link       ji_jobque;	/* SVR: links to jobs in same queue */
@@ -436,8 +444,8 @@ struct job {
 		    time_t  ji_rteretry;	      /* route retry time */
 		} ji_routet;
 		struct {
+                    pbs_net_t  ji_fromaddr;     /* host job coming from   */
 		    int	       ji_fromsock;	/* socket job coming over */
-		    pbs_net_t  ji_fromaddr;	/* host job coming from   */
 		    int	       ji_scriptsz;	/* script size */
 		} ji_newt;
 		struct {
@@ -454,8 +462,8 @@ struct job {
 	 * Its presence is for rapid acces to the attributes.
 	 */
 
-	attribute	ji_wattr[JOB_ATR_LAST]; /* decoded attributes  */
-};
+  attribute ji_wattr[JOB_ATR_LAST]; /* decoded attributes  */
+  };
 
 typedef struct job job;
 
@@ -525,19 +533,19 @@ typedef struct	obitent {
 **	available to other tasks in the job.
 */
 typedef struct	infoent {
-	char		*ie_name;	/* published name */
-	void		*ie_info;	/* the glop */
-	size_t		ie_len;		/* how much glop */
-	list_link	ie_next;	/* link to next one */
-} infoent;
+  char		*ie_name;	/* published name */
+  void		*ie_info;	/* the glop */
+  size_t	ie_len;		/* how much glop */
+  list_link	ie_next;	/* link to next one */
+  } infoent;
 
 #define	TI_FLAGS_INIT		1		/* task has called tm_init */
 #define	TI_FLAGS_CHKPT		2		/* task has checkpointed */
 
-#define TI_STATE_EMBRYO		0
-#define	TI_STATE_RUNNING	1
-#define TI_STATE_EXITED		2		/* ti_exitstat valid */
-#define TI_STATE_DEAD		3
+#define TI_STATE_EMBRYO  0
+#define TI_STATE_RUNNING 1              /* includes suspended jobs */
+#define TI_STATE_EXITED	 2		/* ti_exitstat valid */
+#define TI_STATE_DEAD    3
 
 /*
 **      Here is the set of commands for InterMOM (IM) requests.
@@ -602,6 +610,7 @@ task		*task_find	A_((	job		*pjob,
 #define MAIL_NONE  (int)'n'
 #define MAIL_ABORT (int)'a'
 #define MAIL_BEGIN (int)'b'
+#define MAIL_DEL   (int)'d'
 #define MAIL_END   (int)'e'
 #define MAIL_OTHER (int)'o'
 #define MAIL_STAGEIN (int)'s'
@@ -704,7 +713,7 @@ task		*task_find	A_((	job		*pjob,
 
 extern void  add_dest A_((job *));
 extern void  depend_clrrdy A_((job *));
-extern int   depend_on_que A_((attribute *, job *, int mode));
+extern int   depend_on_que A_((attribute *, void *, int));
 extern int   depend_on_exec A_((job *));
 extern int   depend_on_term A_((job *));
 extern job  *find_job A_((char *));
@@ -717,31 +726,31 @@ extern job  *job_alloc();
 extern void  job_free A_((job *));
 extern void  job_purge A_((job *));
 extern job  *job_recov A_((char *));
-extern int   job_save A_((job *, int));
-extern int   modify_job_attr A_((job *, svrattrl *, int, int *));
-extern char *prefix_std_file A_((job *, int));
-extern int   set_jobexid A_((job *, attribute *));
-extern int   site_check_user_map A_((job *, char *));
+extern int   job_save A_((job *,int));
+extern int   modify_job_attr A_((job *,svrattrl *,int,int *));
+extern char *prefix_std_file A_((job *,int));
+extern int   set_jobexid A_((job *,attribute *));
+extern int   site_check_user_map A_((job *,char *));
 extern void  svr_dequejob A_((job *));
 extern int   svr_enquejob A_((job *));
-extern void  svr_evaljobstate A_((job *, int *, int *, int));
-extern void  svr_mailowner A_((job *, int mailtype, int force, char *));
-extern void  set_resc_deflt A_((job *));
+extern void  svr_evaljobstate A_((job *,int *,int *,int));
+extern void  svr_mailowner A_((job *,int,int,char *));
+extern void  set_resc_deflt A_((job *,attribute *));
 extern void  set_statechar A_((job *));
-extern int   svr_setjobstate A_((job *, int, int));
+extern int   svr_setjobstate A_((job *,int,int));
 
 #ifdef BATCH_REQUEST_H
 extern job  *chk_job_request A_((char *, struct batch_request *));
 extern int   net_move A_((job *, struct batch_request *));
-extern int   svr_chk_owner A_((struct batch_request *, job *));
-extern struct batch_request *cpy_stage A_((struct batch_request *, job *, enum job_atr, int));
+extern int   svr_chk_owner A_((struct batch_request *,job *));
+extern struct batch_request *cpy_stage A_((struct batch_request *,job *,enum job_atr,int));
 #endif	/* BATCH_REQUEST_H */
 
 #ifdef QUEUE_H
-extern int   svr_chkque A_((job *, pbs_queue *, char *, int mtype));
-extern int   default_router A_((job *, pbs_queue *, long));
-extern int   site_alt_router A_((job *, pbs_queue *, long));
-extern int   site_acl_check A_((job *, pbs_queue *));
+extern int   svr_chkque A_((job *,pbs_queue *,char *,int,char *));
+extern int   default_router A_((job *,pbs_queue *,long));
+extern int   site_alt_router A_((job *,pbs_queue *,long));
+extern int   site_acl_check A_((job *,pbs_queue *));
 #endif	/* QUEUE_H */
 
 #ifdef WORK_TASK_H

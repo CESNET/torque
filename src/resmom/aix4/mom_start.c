@@ -114,7 +114,7 @@ extern list_head svr_alljobs;
 extern int	 termin_child;
 extern char	*path_home;
 
-extern void    state_to_server A_((int));
+extern void    state_to_server A_((int,int));
 
 /* Private variables */
 static int     job_key;
@@ -228,7 +228,6 @@ void scan_for_terminated()
 	job		*pjob;
 	task		*ptask;
 	int		statloc;
-	void		task_save	A_((task *ptask));
 
 	/* update the latest intelligence about the running jobs;         */
 	/* must be done before we reap the zombies, else we lose the info */
@@ -292,7 +291,7 @@ void scan_for_terminated()
 		}
 		DBPRT(("%s: task %d pid %d exit value %d\n", id,
 				ptask->ti_qs.ti_task, pid, exiteval))
-		kill_task(ptask, SIGKILL);
+		kill_task(ptask, SIGKILL,0);
 		ptask->ti_qs.ti_exitstat = exiteval;
 		ptask->ti_qs.ti_status = TI_STATE_EXITED;
 		task_save(ptask);
@@ -485,7 +484,8 @@ int load_sp_switch(pjob)
 		log_record(PBSEVENT_SYSTEM|PBSEVENT_ADMIN|PBSEVENT_JOB,
 			   PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid,log_buffer);
 		internal_state |= INUSE_DOWN;
-		state_to_server(1);	/* tell server we are down */
+/* FIXME: need to send state to all servers, not just index 0 */
+		state_to_server(0,1);	/* tell server we are down */
 	} else {
 
 	    /* success */
@@ -537,7 +537,8 @@ void unload_sp_switch(pjob)
 			sprintf(log_buffer,"error %d cleaning switch table window %d for job %s", rc, pvp->vn_index, pjob->ji_qs.ji_jobid);
 			log_err(PBSE_SYSTEM, "unload_sp_switch", log_buffer);
 			internal_state |= INUSE_DOWN;
-			state_to_server(1);	/* tell server we are down */
+/* FIXME: need to send state to all servers, not just index 0 */
+			state_to_server(0,1);	/* tell server we are down */
 		    }
 		}
 	    }

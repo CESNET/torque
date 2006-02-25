@@ -94,7 +94,9 @@
 #include "attribute.h"
 #include "server_limits.h"
 #include "job.h"
+#include "log.h"
 #include "server.h"
+#include "rpp.h"
 
 
 /* External Functions Called */
@@ -107,24 +109,53 @@ extern struct server server;
 extern char *msg_job_abort;
 extern char *msg_job_start;
 extern char *msg_job_end;
+extern char *msg_job_del;
 extern char *msg_job_stageinfail;
+extern char *msg_job_otherfail;
 
+extern int LOGLEVEL;
 
 void svr_mailowner(
 
-  job	*pjob,
-  int 	 mailpoint,	/* note, single character  */
-  int	 force,		/* if set, force mail delivery */
-  char	*text)		/* additional message text */
+  job	*pjob,       /* I */
+  int 	 mailpoint,  /* note, single character  */
+  int	 force,	     /* if set, force mail delivery */
+  char	*text)	     /* (optional) additional message text */
 
   {
   char	*cmdbuf;
   int	 i;
   char	*mailfrom;
-  char	 mailto[512];
+  char	 mailto[1024];
   FILE	*outmail;
   struct array_strings *pas;
   char	*stdmessage = NULL;
+
+  if ((server.sv_attr[(int)SRV_ATR_MailDomain].at_flags & ATR_VFLAG_SET) &&
+      (server.sv_attr[(int)SRV_ATR_MailDomain].at_val.at_str != NULL) &&
+      (!strcasecmp("never",server.sv_attr[(int)SRV_ATR_MailDomain].at_val.at_str)))
+    {
+    /* never send user mail under any conditions */
+
+    return;
+    }
+
+  if (LOGLEVEL >= 3)
+    {
+    char tmpBuf[LOG_BUF_SIZE];
+
+    snprintf(tmpBuf,LOG_BUF_SIZE,"sending '%c' mail for job %s to %s (%.64s)\n",
+      (char)mailpoint,
+      pjob->ji_qs.ji_jobid,
+      pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+      (text != NULL) ? text : "---");
+
+    log_event(
+      PBSEVENT_ERROR|PBSEVENT_ADMIN|PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      tmpBuf);
+    }
 
   /* if force is true, force the mail out regardless of mailpoint */
 
@@ -167,7 +198,7 @@ void svr_mailowner(
 
   /* Who is mail from, if SRV_ATR_mailfrom not set use default */
 
-  if ((mailfrom = server.sv_attr[(int)SRV_ATR_mailfrom].at_val.at_str) == 0)
+  if ((mailfrom = server.sv_attr[(int)SRV_ATR_mailfrom].at_val.at_str) == NULL)
     mailfrom = PBS_DEFAULT_MAIL;
 
   /* Who does the mail go to?  If mail-list, them; else owner */
@@ -180,7 +211,7 @@ void svr_mailowner(
 
     pas = pjob->ji_wattr[(int)JOB_ATR_mailuser].at_val.at_arst;
 
-    if (pas != (struct array_strings *)0)	
+    if (pas != NULL)	
       {
       for (i = 0;i < pas->as_usedptr;i++) 
         {
@@ -196,7 +227,23 @@ void svr_mailowner(
     {
     /* no mail user list, just send to owner */
 
-    strcpy(mailto,pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str);
+    if ((server.sv_attr[(int)SRV_ATR_MailDomain].at_flags & ATR_VFLAG_SET) &&
+        (server.sv_attr[(int)SRV_ATR_MailDomain].at_val.at_str != NULL))
+      {
+      strcpy(mailto,pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str);
+      strcat(mailto,"@");
+      strcat(mailto,server.sv_attr[(int)SRV_ATR_MailDomain].at_val.at_str);
+      }
+    else
+      {
+    #ifdef TMAILDOMAIN
+      strcpy(mailto,pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str);
+      strcat(mailto,"@");
+      strcat(mailto,TMAILDOMAIN);
+    #else /* TMAILDOMAIN */
+      strcpy(mailto,pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str);
+    #endif /* TMAILDOMAIN */ 
+      }
     }
 
   /* setup sendmail command line with -f from_whom */
@@ -254,13 +301,25 @@ void svr_mailowner(
 
       break;
 
+    case MAIL_DEL:
+
+      stdmessage = msg_job_del;
+
+      break;
+
     case MAIL_STAGEIN:
-    default:
 
       stdmessage = msg_job_stageinfail;
 
       break;
-    }
+
+    case MAIL_OTHER:
+    default:
+
+      stdmessage = msg_job_otherfail;
+
+      break;
+    }  /* END switch (mailpoint) */
 
   fprintf(outmail,"PBS Job Id: %s\n", 
     pjob->ji_qs.ji_jobid);
@@ -268,13 +327,17 @@ void svr_mailowner(
   fprintf(outmail,"Job Name:   %s\n",
     pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
 
-  if (stdmessage)
-    fprintf(outmail, "%s\n", 
+  if (stdmessage != NULL)
+    {
+    fprintf(outmail,"%s\n", 
       stdmessage);
+    }
 
-  if (text != (char *)0)
-    fprintf(outmail, "%s\n",
+  if (text != NULL)
+    {
+    fprintf(outmail,"%s\n",
       text);
+    }
 
   fclose(outmail);
 

@@ -143,6 +143,12 @@ extern char *msg_man_set;
 extern char *msg_man_uns;
 
 
+extern int que_purge(pbs_queue *);
+extern void save_characteristic(struct pbsnode *);
+extern int chk_characteristic(struct pbsnode *,int *);
+
+
+
 /* private data */
 
 static char *all_quename = "_All_";
@@ -625,6 +631,14 @@ int __PNodeStateToString(
     strcat(Buf,ND_reserve);
     }
 
+  if (SBM & (INUSE_UNKNOWN))
+    {
+    if (Buf[0] != '\0')
+      strcat(Buf,",");
+
+    strcat(Buf,ND_state_unknown);
+    }
+
   if (Buf[0] == '\0')
     {
     strcat(Buf,ND_free);
@@ -692,7 +706,7 @@ int mgr_set_node_attr(
 
   if (plist == NULL)
     {
-    return(0);		/*nothing to do, return success*/
+    return(0);		/* nothing to do, return success */
     }
 
   /* Get heap space for a temporary node-attribute array and use the

@@ -77,7 +77,7 @@
 * without reference to its choice of law rules.
 */
 
-int			rpp_open	(char *, unsigned int);
+int			rpp_open	(char *,unsigned int,char *);
 int			rpp_bind	(unsigned int);
 int			rpp_poll	(void);
 int			rpp_io		(void);
@@ -100,4 +100,3 @@ unsigned long		crc		(unsigned char *, unsigned long);
 
 extern	int	rpp_fd;
 extern	int	rpp_dbprt;
-extern	int	rpp_retry;

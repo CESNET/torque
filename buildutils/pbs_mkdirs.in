@@ -97,30 +97,29 @@
 #              all      -- do all of the above
 #
 #
-# $Id$
-#
 
 #
 # check tree should not be called until it is installed since
 # only relative paths are used by autoconf.
 #
-prefix=@prefix@
-exec_prefix=@exec_prefix@
-CHK_TREE=@bindir@/chk_tree
+test -n "$prefix" || prefix=@prefix@
+test -n "$exec_prefix" || exec_prefix=@exec_prefix@
+test -n "$CHK_TREE" || CHK_TREE=@bindir@/chk_tree
 
-PBS_SERVER_HOME=@PBS_SERVER_HOME@
-PBS_DEFAULT_FILE=@PBS_DEFAULT_FILE@
-PBS_DEFAULT_SERVER=@PBS_DEFAULT_SERVER@
-
-PBS_ENVIRON=@PBS_ENVIRON@
+test -n "$PBS_SERVER_HOME" || PBS_SERVER_HOME=@PBS_SERVER_HOME@
+test -n "$PBS_DEFAULT_FILE" || PBS_DEFAULT_FILE=@PBS_DEFAULT_FILE@
+test -n "$PBS_DEFAULT_SERVER" || PBS_DEFAULT_SERVER=@PBS_DEFAULT_SERVER@
+ 
+test -n "$PBS_ENVIRON" || PBS_ENVIRON=@PBS_ENVIRON@
 
 #
 # manual page directories are created by doc/ers/Makefile
 #
-PBS_UBIN=@bindir@
-PBS_SBIN=@sbindir@
-PBS_LIB=@libdir@
-PBS_UINC=@includedir@
+
+test -n "$bindir" || bindir=@bindir@
+test -n "$sbindir" || sbindir=@sbindir@
+test -n "$libdir" || libdir=@libdir@
+test -n "$includedir" || includedir=@includedir@
 
 verbose=""
 
@@ -136,7 +135,7 @@ install_dir()
 	# use the id_ for namespace disambiguation
 	id_dname="$1"
 	id_mode=`test -n "$2" && echo "$2" || echo 755`
-	id_owner=`test -n "$3" && echo "$3" || echo root`
+	id_owner="$3"
 
 	# dlist will contain a list of directory names to make
 	id_dlist=""
@@ -145,7 +144,13 @@ install_dir()
 		"$id_dname" = "." \) ]; do
 
 		test -f $id_dname && return 1
-		test -d $id_dname && break
+
+# solaris fails on 'test -d'
+#               test -d $id_dname && break
+
+		if [ -d $id_dname ]; then
+                  break;
+                fi
 
 		id_dlist="`basename $id_dname` $id_dlist"
 		id_dname=`dirname "$id_dname"`
@@ -155,8 +160,10 @@ install_dir()
 	for id_d in $id_dlist ""; do
 		id_dir="$id_dir/$id_d"
 		test -z "$id_d" && return 0
-		mkdir $id_dir && chmod $id_mode $id_dir && \
-		    chown $id_owner $id_dir || return 1
+		mkdir $id_dir && chmod $id_mode $id_dir || return 1
+		if test -n "$id_owner"; then
+			chown $id_owner $id_dir || return 1
+		fi
 	done
 	return 0
 }
@@ -172,7 +179,7 @@ install_dir_by_varname()
 	idv_dname=`eval 'echo $'$idv_dvarname`
 
 	idv_mode=`test -n "$2" && echo "$2" || echo 755`
-	idv_owner=`test -n "$3" && echo "$3" || echo root`
+	idv_owner="$3"
 
 	if [ X$idv_dname = X ] ; then
 		echo $idv_dvarname is not defined 1>&2
@@ -181,14 +188,17 @@ install_dir_by_varname()
 		echo $idv_dvarname exists and is not a directory 1>&2
 		return 1
 	elif [ -d $idv_dname ] ; then
-		chmod $idv_mode $idv_dname > /dev/null 2>&1
-		chown $idv_owner $idv_dname > /dev/null 2>&1
+		chmod $idv_mode $idv_dname
+		test -n "$idv_owner" && chown $idv_owner $idv_dname
 		return 0
 	elif [ ! -d $idv_dname ] ; then
 		test -n "$verbose" && echo Creating $idv_dname
 		install_dir `dirname $idv_dname` 755 $idv_owner && \
-		    mkdir $idv_dname && chmod $idv_mode $idv_dname && \
-		    chown $idv_owner $idv_dname || return 1
+		    mkdir $idv_dname && chmod $idv_mode $idv_dname || return 1
+		if test -n "$idv_owner"; then
+			chown $idv_owner $idv_name || return 1
+		fi
+ 	
 	fi
 
 	return 0
@@ -236,12 +246,12 @@ chk_tree_wrap()
 mk_cli_dirs()
 {
 	test -n "$verbose" && echo Creating Directories required for clients
-	install_dir_by_varname PBS_UBIN 755 $owner
-	install_dir_by_varname PBS_SBIN 755 $owner
-	install_dir_by_varname PBS_LIB  755 $owner
-	install_dir_by_varname PBS_UINC 755 $owner
+	install_dir_by_varname bindir 755 $owner
+	install_dir_by_varname sbindir 755 $owner
+	install_dir_by_varname libdir  755 $owner
+	install_dir_by_varname includedir 755 $owner
 
-	chk_tree_wrap -d -n $PBS_UBIN $PBS_SBIN $PBS_LIB $PBS_UINC 
+	chk_tree_wrap -d -n $bindir $sbindir $libdir $includedir 
 }
 
 
@@ -312,7 +322,9 @@ mk_default_file()
 
 	# I think I know better than pbs.  --pw
         #  if default already exists, leave alone 
-	if [ ! -e $PBS_DEFAULT_FILE ]; then
+
+	# solaris fails on '-e', use '-f'
+	if [ ! -f $PBS_DEFAULT_FILE ]; then
 	    rm -f $PBS_DEFAULT_FILE > /dev/null 2>&1
 	    echo $PBS_DEFAULT_SERVER > $PBS_DEFAULT_FILE && \
 		chmod 644 $PBS_DEFAULT_FILE
@@ -321,11 +333,15 @@ mk_default_file()
 	chk_tree_wrap -n $PBS_DEFAULT_FILE
 }
 
+
+
 mk_aux_dir()
 {
-	install_dir $PBS_SERVER_HOME/aux 755
+	install_dir $PBS_SERVER_HOME/aux 755 $owner
 	chk_tree_wrap -d -n $PBS_SERVER_HOME/aux
 }
+
+
 
 do_check_tree()
 {

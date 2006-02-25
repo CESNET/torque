@@ -98,7 +98,7 @@ struct	config {
 	} c_u;
 };
 
-#define RM_NPARM	20	/* max number of parameters for child */
+#define RM_NPARM	32	/* max number of parameters for child */
 
 #define	RM_CMD_CLOSE	1
 #define	RM_CMD_REQUEST	2
@@ -108,14 +108,17 @@ struct	config {
 #define RM_RSP_OK	100
 #define RM_RSP_ERROR	999
 
-#define UPDATE_MOM_STATE 0x8000
+#define PBS_MAXSERVER   4
+
+
 
 /*
 ** Macros for fast min/max.
 */
 #ifndef MIN
 #define MIN(a,b) (((a)<(b))?(a):(b))
-#endif
+#endif /* !MIN */
+
 #ifndef MAX
 #define MAX(a,b) (((a)>(b))?(a):(b))
 #endif

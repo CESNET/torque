@@ -87,6 +87,8 @@
 #include <unistd.h>
 
 #include <sys/types.h>
+#include <sys/stat.h>  /* added - CRI 9/05 */
+#include <unistd.h>    /* added - CRI 9/05 */
 #include <sys/time.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -99,6 +101,7 @@
 #include "portability.h"
 #include "server_limits.h"
 #include "net_connect.h"
+#include "log.h"
 
 
 /* External Functions Called */
@@ -115,7 +118,7 @@ extern time_t time();
  * a record of the open I/O connections, it is indexed by the socket number.  
  */
 
-struct	connection svr_conn[PBS_NET_MAX_CONNECTIONS];
+struct connection svr_conn[PBS_NET_MAX_CONNECTIONS];
 
 /*
  * The following data is private to this set of network interface routines.
@@ -125,8 +128,11 @@ static int	max_connection = PBS_NET_MAX_CONNECTIONS;
 static int	num_connections = 0;
 static fd_set	readset;
 static void	(*read_func[2]) A_((int));
-static enum conn_type settype[2];		/* temp kludge */
-static char logbuf[256];
+static enum     conn_type settype[2];		/* temp kludge */
+static char     logbuf[256];
+
+extern int LOGLEVEL;
+extern pbs_net_t pbs_server_addr;
 
 /* Private function within this file */
 
@@ -171,7 +177,7 @@ int init_network(
     }
   else 
     {
-    return(-1);		/* too many main connections */
+    return(-1);	/* too many main connections */
     }
 
   net_set_type(type,FromClientDIS);
@@ -181,7 +187,7 @@ int init_network(
 
   read_func[initialized++] = readfunc;
 
-  sock = socket(AF_INET, SOCK_STREAM, 0);
+  sock = socket(AF_INET,SOCK_STREAM,0);
 
   if (sock < 0) 
     {
@@ -207,7 +213,7 @@ int init_network(
     {
     close(sock);
 
-    log_err(errno,"init_network" ,"bind failed");
+    log_err(errno,"init_network","bind failed");
 
     return(-1);
     }
@@ -218,7 +224,7 @@ int init_network(
 	
   /* start listening for connections */
 
-  if (listen(sock,128) < 0) 
+  if (listen(sock,512) < 0) 
     {
     log_err(errno,"init_network","listen failed");
 
@@ -241,7 +247,8 @@ int init_network(
 
 int wait_request(
 
-  time_t waittime)  /* I (seconds) */
+  time_t  waittime,   /* I (seconds) */
+  long   *SState)     /* I (optional) */
 
   {
   int i;
@@ -254,10 +261,14 @@ int wait_request(
   struct timeval timeout;
   void close_conn();
 
+  char tmpLine[1024];
+
+  char id[] = "wait_request";
+
   timeout.tv_usec = 0;
   timeout.tv_sec  = waittime;
 
-  selset = readset;
+  selset = readset;  /* readset is global */
 
   n = select(FD_SETSIZE,&selset,(fd_set *)0,(fd_set *)0,&timeout);
 
@@ -265,17 +276,42 @@ int wait_request(
     {
     if (errno == EINTR)
       {
-      n = 0;	/* interrupted, cycle arround */
+      n = 0;	/* interrupted, cycle around */
       }
     else 
       {
-      log_err(errno,"wait_request","select failed");
+      int i;
+      struct stat fbuf;
+     
+      log_err(errno,id,"select failed");
 
+      /* check all file descriptors to verify they are valid */
+
+      /* NOTE:  selset may be modified by failed select() */
+
+      for (i = 0;i < FD_SETSIZE;i++)
+        {
+        if (FD_ISSET(i,&readset) == 0)
+          continue;
+
+        if (fstat(i,&fbuf) == 0)
+          continue;
+
+        /* clean up SdList and bad sd... */
+
+        FD_CLR(i,&readset);
+
+        sprintf(tmpLine,"fd %d was improperly closed - readset was not updated",
+          i);
+
+        log_err(-1,id,tmpLine);
+        }    /* END for (i) */
+  
       return(-1);
-      }
-    }
+      }  /* END else (errno == EINTR) */
+    }    /* END if (n == -1) */
 
-  for (i = 0;i < max_connection && n;i++) 
+  for (i = 0;(i < max_connection) && (n != 0);i++) 
     {
     if (FD_ISSET(i,&selset)) 
       {	
@@ -288,17 +324,32 @@ int wait_request(
       if (svr_conn[i].cn_active != Idle) 
         {
         svr_conn[i].cn_func(i);
+
+        /* NOTE:  breakout if shutdown request received */
+
+        if ((SState != NULL) && (*SState == 0))
+          break;
         } 
       else 
         {
-        log_err(0,"wait_request","select bad socket");
-
         FD_CLR(i,&readset);
 
         close(i);
+
+        num_connections--;  /* added by CRI - should this be here? */
+
+        sprintf(tmpLine,"closed connection to fd %d - num_connections=%d (select bad socket)",
+          i,
+          num_connections);
+
+        log_err(-1,id,tmpLine);
         }
       }
     }    /* END for (i) */
+
+  /* NOTE:  break out if shutdown request received */
+
+  /* NYI */
 
   /* have any connections timed out ?? */
 
@@ -311,7 +362,10 @@ int wait_request(
 
     cp = &svr_conn[i];
 
-    if (cp->cn_active != FromClientASN && cp->cn_active != FromClientDIS)
+    if ((SState != NULL) && (*SState == 0))
+      break;
+
+    if ((cp->cn_active != FromClientASN) && (cp->cn_active != FromClientDIS))
       continue;
 
     if ((now - cp->cn_lasttime) <= PBS_NET_MAXCONNECTIDLE)
@@ -333,7 +387,7 @@ int wait_request(
 
     /* NYI */
 
-    log_err(0,"wait_request",logbuf);
+    log_err(-1,id,logbuf);
 
     close_conn(i);
     }  /* END for (i) */
@@ -361,7 +415,9 @@ static void accept_conn(
   {
   int newsock;
   struct sockaddr_in from;
-  int fromsize;
+
+  /* socklen_t not portable */
+  unsigned int fromsize;
 	
   /* update lasttime of main socket */
 
@@ -373,7 +429,7 @@ static void accept_conn(
 
   if (newsock == -1) 
     {
-    log_err(errno, "accept_conn", "accept failed");
+    log_err(errno,"accept_conn","accept failed");
 
     return;
     }
@@ -408,7 +464,7 @@ static void accept_conn(
 
 void add_conn(
 
-  int sock,		   /* socket associated with connection */
+  int            sock,	   /* socket associated with connection */
   enum conn_type type,	   /* type of connection */
   pbs_net_t      addr,	   /* IP address of connected host */
   unsigned int   port,	   /* port number (host order) on connected host */
@@ -416,6 +472,21 @@ void add_conn(
 
   {
   num_connections++;
+
+  if (LOGLEVEL >= 3)
+    {
+    char tmpLine[1024];
+
+    sprintf(tmpLine,"added connection to fd %d - num_connections=%d",
+      sock,
+      num_connections);
+
+    log_event(
+      PBSEVENT_DEBUG, 
+      PBS_EVENTCLASS_SERVER,
+      "add_conn", 
+      tmpLine);
+    }  /* END if (LOGLEVEL >= 3) */
 
   FD_SET(sock,&readset);
 
@@ -479,6 +550,21 @@ void close_conn(
 
   num_connections--;
 
+  if (LOGLEVEL >= 3)
+    {
+    char tmpLine[1024];
+
+    sprintf(tmpLine,"closed connection to fd %d - num_connections=%d",
+      sd,
+      num_connections);
+
+    log_event(
+      PBSEVENT_DEBUG, 
+      PBS_EVENTCLASS_SERVER,
+      "close_conn", 
+      tmpLine);
+    }  /* END if (LOGLEVEL >= 3) */
+
   return;
   }  /* END close_conn() */
 
@@ -510,10 +596,10 @@ void net_close(
 
       close_conn(i);
       }
-    }
+    }    /* END for (i) */
 
   return;
-  }
+  }  /* END net_close() */
 
 
 
@@ -561,32 +647,79 @@ int find_conn(
  * get_connecthost - return name of host connected via the socket
  */
 
-int get_connecthost(sock, namebuf, size)
-	int   sock;
-	char *namebuf;
-	int   size;
-{
-	struct hostent *phe;
-	struct in_addr  addr;
-	int	namesize = 0;
+int get_connecthost(
 
-	size--;
-	addr.s_addr = htonl(svr_conn[sock].cn_addr);
+  int   sock,     /* I */
+  char *namebuf,  /* O (minsize=size) */
+  int   size)     /* I */
 
-	if ((phe = gethostbyaddr((char *)&addr, sizeof(struct in_addr), 
-	     AF_INET)) == (struct hostent *)0) {
-		(void)strcpy(namebuf, inet_ntoa(addr));
-	}
-	else {
-		namesize = strlen(phe->h_name);
-		(void)strncpy(namebuf, phe->h_name, size);
-		*(namebuf+size) = '\0';
-	}
-	if (namesize > size)
-		return (-1);
-	else
-		return (0);
-}
+  {
+  struct hostent *phe;
+  struct in_addr  addr;
+  int             namesize = 0;
+
+  static struct in_addr  serveraddr;
+  static char           *server_name = NULL;
+
+  if ((server_name == NULL) && (pbs_server_addr != 0))
+    {
+    /* cache local server addr info */
+
+    serveraddr.s_addr = htonl(pbs_server_addr);
+
+    if ((phe = gethostbyaddr(
+            (char *)&serveraddr,
+            sizeof(struct in_addr),
+            AF_INET)) == NULL)
+      {
+      server_name = strdup(inet_ntoa(addr));
+      }
+    else
+      {
+      server_name = strdup(phe->h_name);
+      }
+    }
+
+  size--;
+  addr.s_addr = htonl(svr_conn[sock].cn_addr);
+
+  if ((server_name != NULL) && (addr.s_addr == serveraddr.s_addr))
+    {
+    /* lookup request is for local server */
+
+    strcpy(namebuf,server_name);
+    }
+  else if ((phe = gethostbyaddr(
+        (char *)&addr,
+        sizeof(struct in_addr), 
+        AF_INET)) == NULL) 
+    {
+    strcpy(namebuf,inet_ntoa(addr));
+    }
+  else 
+    {
+    namesize = strlen(phe->h_name);
+
+    strncpy(namebuf,phe->h_name,size);
+
+    *(namebuf + size) = '\0';
+    }
+
+  if (namesize > size)
+    {
+    /* FAILURE - buffer too small */
+
+    return(-1);
+    }
+
+  /* SUCCESS */
+
+  return(0);
+  }
+
+
+
+
 
 /*
  * net_set_type() - a temp kludge for supporting two protocols during

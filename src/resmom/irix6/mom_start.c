@@ -264,7 +264,6 @@ void scan_for_terminated()
 	job		*pjob;
 	task		*ptask;
 	int		statloc;
-	void		task_save	A_((task *ptask));
 
 	/* update the latest intelligence about the running jobs;         */
 	/* must be done before we reap the zombies, else we lose the info */
@@ -332,7 +331,7 @@ void scan_for_terminated()
 		*/
 		DBPRT(("%s: task %ld pid %d exit value %d\n", id,
 				ptask->ti_qs.ti_task, pid, exiteval))
-		kill_task(ptask, SIGKILL);
+		kill_task(ptask, SIGKILL,0);
 		ptask->ti_qs.ti_exitstat = exiteval;
 		ptask->ti_qs.ti_status = TI_STATE_EXITED;
 		task_save(ptask);

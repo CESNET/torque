@@ -122,6 +122,7 @@ static void states();
 #define ALT_DISPLAY_Mb	0x100	/* show sizes in MB */
 #define ALT_DISPLAY_Mw	0x200	/* -M option - show sizes in MW */
 #define ALT_DISPLAY_G	0x400	/* -G option - show sizes in GB */
+#define ALT_DISPLAY_o   0x800   /* -1 option - add node list on same line */
 #endif /* not PBS_NO_POSIX_VIOLATION */
 
 
@@ -314,31 +315,52 @@ void prt_attr(
     printf(".%s", 
       r);
     }
-	printf(" = ");
-	c = strtok(v, comma);
-	while (c) {
-		if ((l = strlen(c)) + start < 78) {
-			printf("%s", c);
-			start += l;
-		} else {
-			if ( ! first) {
-				printf("\n\t");
-				start = 9;
-			}
-			while (*c) {
-				putchar(*c++);
-				if (++start > 78) {
-					start = 8;
-					printf("\n\t");
-				}
-			}
-		}
-		if (c = strtok((char *)0, comma)) {
-			first = 0;
-			putchar(',');
-		}
-	}
-}
+
+  printf(" = ");
+
+  c = strtok(v,comma);
+
+  while (c != NULL) 
+    {
+    if ((l = strlen(c)) + start < 78) 
+      {
+      printf("%s", 
+        c);
+
+      start += l;
+      } 
+    else 
+      {
+      if (!first) 
+        {
+        printf("\n\t");
+
+        start = 9;
+        }
+
+      while (*c) 
+        {
+        putchar(*c++);
+
+        if (++start > 78) 
+          {
+          start = 8;
+
+          printf("\n\t");
+          }
+        }
+      }
+
+    if ((c = strtok(NULL,comma)) != NULL)
+      {
+      first = 0;
+
+      putchar(',');
+      }
+    }
+
+  return;
+  }
 
 
 
@@ -355,27 +377,35 @@ static char *findattrl(
   char         *resc)
 
   {
-	while (pattrl) {
-		if (strcmp(name, pattrl->name) == 0) {
-			if (resc) {
-				if (strcmp(resc, pattrl->resource) == 0) {
-					return (pattrl->value);
-				}
-			} else {
-				return (pattrl->value);
-			}
-		}
-		pattrl = pattrl->next;
-	}
-	return ((char *)0);
-}
+  while (pattrl != NULL) 
+    {
+    if (!strcmp(name,pattrl->name)) 
+      {
+      if (resc != NULL) 
+        {
+        if (!strcmp(resc,pattrl->resource)) 
+          {
+          return(pattrl->value);
+          }
+        } 
+      else 
+        {
+        return(pattrl->value);
+        }
+      }
+
+    pattrl = pattrl->next;
+    }
+
+  return(NULL);
+  }
 
 
 #define NAMEL   16  /* printf of jobs, queues, and servers */
 #define OWNERL  16  /* printf of jobs */
 #define TIMEUL  8   /* printf of jobs */
 #define STATEL  1   /* printf of jobs */
-#define LOCL    16  /* printf of jobs */
+#define LOCL    15  /* printf of jobs */
 #define SIZEL	6   /* length of "SIZE" fields in printf */
 
 
@@ -388,46 +418,90 @@ static char *findattrl(
 
 static void prt_nodes(
 
-  char *nodes)
+  char *nodes,   /* I */
+  int   option)  /* I */
 
   {
-	int  i;
-	char linebuf[78];
-	char *stp;
+  int   i;
+  char *stp;
 
-	if ((nodes == (char *)0) || (*nodes == '\0'))
-		return;
+  int   linesize;
 
-	i = 0;
-	stp = nodes;
-	while (*nodes != '\0') {
-		if ((*stp == '.') || (*stp == '+') || (*stp == '\0')) {
-			/* does node fit into line? */
-			if (i + stp - nodes < 77) {
-				while (nodes < stp)
-					linebuf[i++] = *nodes++;
-			} else {
-				/* flush line and start next */
-				linebuf[i] = '\0';
-				printf("   %s\n", linebuf);
-				i = 0;
-				while (nodes < stp)
-					linebuf[i++] = *nodes++;
-			}
+  char  linebuf[65536];
+
+  if ((nodes == NULL) || (*nodes == '\0'))
+    {
+    /* FAILURE - node is invalid */
+
+    return;
+    }
+
+  if (option & ALT_DISPLAY_o) 
+    {
+    linesize = sizeof(linebuf);        
+    }
+  else
+    {
+    linesize = 77;
+    }
+
+  i = 0;
+
+  stp = nodes;
+
+  while (*nodes != '\0') 
+    {
+    if ((*stp == '.') || (*stp == '+') || (*stp == '\0')) 
+      {
+      /* does node fit into line? */
+
+      if (i + stp - nodes < linesize) 
+        {
+        while (nodes < stp)
+          linebuf[i++] = *nodes++;
+        } 
+      else 
+        {
+        /* flush line and start next */
+
+        linebuf[i] = '\0';
+
+        printf("   %s\n", 
+          linebuf);
+
+        i = 0;
+
+        while (nodes < stp)
+          linebuf[i++] = *nodes++;
+        }
 			
-			/* strip off domain name to keep string short */
-			while ((*stp != '+') && (*stp != '\0'))
-				stp++;
-			nodes = stp++;
-		} else {
-			stp++;
-		}
-	}
-	if (i != 0) {
-		linebuf[i] = '\0';
-		printf("   %s\n", linebuf);
-	}
-}
+      /* strip off domain name to keep string short */
+
+      while ((*stp != '+') && (*stp != '\0'))
+        stp++;
+
+      nodes = stp++;
+      } 
+    else 
+      {
+      stp++;
+      }
+    }
+
+  if (i != 0) 
+    {
+    linebuf[i] = '\0';
+
+    printf("   %s\n", 
+      linebuf);
+    }
+
+  return;
+  }  /* END prt_nodes() */
+
+
+
+
 
 /*
  * convert size from suffix string (nnnn[ kmgt][ bw]) to string of
@@ -504,153 +578,226 @@ static void altdsp_statjob(
   int                  alt_opt)
 
   {
-	char *comment;
-	char *pc;
-	struct attrl *pat;
-	char *exechost;
-	char *usern = NULL;
-	char *queuen = NULL;
-	char *jobn = NULL;
-	char *sess;
-	char *tasks;
-	char *nodect;
-	char *rqtimecpu;
-	char *rqtimewal;
-	char *jstate;
-	char *eltimecpu;
-	char *eltimewal;
-	int   usecput;
-	static char  pfs[SIZEL];
-	static char  rqmem[SIZEL];
-	static char  srfsbig[SIZEL];
-	static char  srfsfast[SIZEL];
-	static char *blank = " -- ";
+  char *comment;
+  char *pc;
+  struct attrl *pat;
+  char *exechost;
+  char *usern = NULL;
+  char *queuen = NULL;
+  char *jobn = NULL;
+  char *sess;
+  char *tasks;
+  char *nodect;
+  char *rqtimecpu;
+  char *rqtimewal;
+  char *jstate;
+  char *eltimecpu;
+  char *eltimewal;
+  int   usecput;
+  static char  pfs[SIZEL];
+  static char  rqmem[SIZEL];
+  static char  srfsbig[SIZEL];
+  static char  srfsfast[SIZEL];
+  static char *blank = " -- ";
 
-	if (prtheader) {
-		printf("\n%s: ", prtheader->name);
-		if (pc = findattrl(prtheader->attribs, ATTR_comment, NULL))
-			printf("%s", pc);
-		if (alt_opt & ALT_DISPLAY_R) {
-		 	printf("\n                                          Req'd  Req'd   Elap \n");
-			printf("Job ID          Username Queue    NDS TSK Memory Time  S Time   BIG  FAST   PFS\n");
-			printf("--------------- -------- -------- --- --- ------ ----- - ----- ----- ----- -----\n"); 
-		} else {
-			printf("\n                                                            Req'd  Req'd   Elap\n");
-			printf("Job ID          Username Queue    Jobname    SessID NDS TSK Memory Time  S Time\n");
-			printf("--------------- -------- -------- ---------- ------ --- --- ------ ----- - -----\n");
-		}
-	}
-	while (pstat) {
-		exechost = blank;
-		sess   = blank;
-		nodect  = blank;
-		tasks  = blank;
-		rqtimecpu = blank;
-		rqtimewal = blank;
-		eltimecpu = blank;
-		eltimewal = blank;
-		jstate    = blank;
-		comment   = blank;
-/*		*pfs      = *blank;  */
-		(void)strcpy(pfs, blank);
-/*		*rqmem    = *blank;  */
-		(void)strcpy(rqmem, blank);
-/*		*srfsbig  = *blank;  */
-		(void)strcpy(srfsbig, blank);
-/*		*srfsfast = *blank;  */
-		(void)strcpy(srfsfast, blank);
-		usecput = 0;
+  if (prtheader) 
+    {
+    printf("\n%s: ", 
+      prtheader->name);
 
-		pat = pstat->attribs;
+    if ((pc = findattrl(prtheader->attribs,ATTR_comment,NULL)) != NULL)
+      {
+      printf("%s", 
+        pc);
+      }
 
-		while (pat) {
-		    if (strcmp(pat->name, ATTR_N) == 0) {
-			jobn = pat->value;
-		    } else if (strcmp(pat->name, ATTR_owner) == 0) {
-			usern = pat->value;	
-			if (pc = strchr(usern, (int)'@'))
-				*pc = '\0';
-		    } else if (strcmp(pat->name, ATTR_state) == 0) {
-			jstate = pat->value;
-		    } else if (strcmp(pat->name, ATTR_queue) == 0) {
-			queuen = pat->value;
-		    } else if (strcmp(pat->name, ATTR_session) == 0) {
-			sess = pat->value;
-		    } else if (strcmp(pat->name, ATTR_l) == 0) {
-			if (strcmp(pat->resource, "nodect") == 0) {
-				nodect = pat->value;
-			} else if (strcmp(pat->resource, "ncpus") == 0) {
-				if (strcmp(pat->value, "0") != 0)
-					tasks = pat->value;
-			} else if (strcmp(pat->resource, "mppe") == 0) {
-				if (strcmp(pat->value, "0") != 0)
-					tasks = pat->value;
-			} else if (strcmp(pat->resource, "mem") == 0) {
-				(void)strncpy(rqmem,
-					cnv_size(pat->value, alt_opt), SIZEL);
-			} else if (strcmp(pat->resource, "walltime") == 0) {
-				rqtimewal = pat->value;
-			} else if (strcmp(pat->resource, "cput") == 0) {
-				rqtimecpu = pat->value;
-				usecput = 1;
-			} else if (strcmp(pat->resource, "srfs_big") == 0) {
-				(void)strncpy(srfsbig, 
-					cnv_size(pat->value, alt_opt), SIZEL-1);
-			} else if (strcmp(pat->resource, "srfs_fast") == 0) {
-				(void)strncpy(srfsfast, 
-					cnv_size(pat->value, alt_opt), SIZEL-1);
-			} else if (strcmp(pat->resource, "piofs") == 0) {
-				(void)strncpy(pfs, 
-					cnv_size(pat->value, alt_opt), SIZEL-1);
-			}
-			
-		    } else if (strcmp(pat->name, ATTR_exechost) == 0) {
-				exechost = pat->value;
-		    } else if (strcmp(pat->name, ATTR_used) == 0) {
-			if (strcmp(pat->resource, "walltime") == 0) {
-				eltimewal = pat->value;
-			} else if (strcmp(pat->resource, "cput") == 0)  {
-				eltimecpu = pat->value;
-			}
-		    } else if (strcmp(pat->name, ATTR_comment) == 0) {
-			comment = pat->value;
-		    }
+    if (alt_opt & ALT_DISPLAY_R) 
+      {
+      printf("\n                                                 Req'd  Req'd   Elap \n");
 
-		    pat = pat->next;
-		}
+      printf("Job ID               Username Queue    NDS   TSK Memory Time  S Time   BIG  FAST   PFS\n");
 
+      printf("-------------------- -------- -------- ----- --- ------ ----- - ----- ----- ----- -----\n"); 
+      } 
+    else 
+      {
+      printf("\n                                                                   Req'd  Req'd   Elap\n");
 
-		printf("%-15.15s %-8.8s %-8.8s ", 
-			pstat->name, usern, queuen);
-		if (alt_opt & ALT_DISPLAY_R) {
-			printf("%3.3s %3.3s %6.6s %5.5s %1.1s %5.5s %5.5s %5.5s %5.5s\n", 
-				nodect, tasks, rqmem, 
-				usecput ? rqtimecpu : rqtimewal,
-				jstate, 
-				usecput ? eltimecpu : eltimewal,
-				srfsbig, srfsfast, pfs);
-		} else {
-			printf("%-10.10s %6.6s %3.3s %3.3s %6.6s %5.5s %1.1s %5.5s\n",
-				jobn, sess, nodect, tasks, 
-				rqmem,
-				usecput ? rqtimecpu : rqtimewal,
-				jstate, 
-				usecput ? eltimecpu : eltimewal);
-		}
+      printf("Job ID               Username Queue    Jobname    SessID NDS   TSK Memory Time  S Time\n");
 
-		if (alt_opt & ALT_DISPLAY_n) {
-			/* print assigned nodes */
-			prt_nodes(exechost);
-		}
-		if (alt_opt & ALT_DISPLAY_s) {
-			/* print (scheduler) comment */
-			if (*comment != '\0')
-				printf("   %s\n", comment);
-		}
+      printf("-------------------- -------- -------- ---------- ------ ----- --- ------ ----- - -----\n");
+      }
+    }
 
-		pstat = pstat->next;
-	}
-}
+  while (pstat != NULL) 
+    {
+    exechost  = blank;
+    sess      = blank;
+    nodect    = blank;
+    tasks     = blank;
+    rqtimecpu = blank;
+    rqtimewal = blank;
+    eltimecpu = blank;
+    eltimewal = blank;
+    jstate    = blank;
+    comment   = blank;
+    /*	*pfs      = *blank;  */
+    strcpy(pfs,blank);
+    /*	*rqmem    = *blank;  */
+    strcpy(rqmem,blank);
+    /*	*srfsbig  = *blank;  */
+    strcpy(srfsbig,blank);
+    /*	*srfsfast = *blank;  */
+    strcpy(srfsfast, blank);
+    usecput = 0;
+
+    pat = pstat->attribs;
+
+    while (pat != NULL) 
+      {
+      if (!strcmp(pat->name,ATTR_N)) 
+        {
+        jobn = pat->value;
+        } 
+      else if (!strcmp(pat->name,ATTR_owner)) 
+        {
+        usern = pat->value;	
+
+        if ((pc = strchr(usern,(int)'@')) != NULL)
+          *pc = '\0';
+        } 
+      else if (!strcmp(pat->name,ATTR_state)) 
+        {
+        jstate = pat->value;
+        } 
+      else if (!strcmp(pat->name,ATTR_queue)) 
+        {
+        queuen = pat->value;
+        } 
+      else if (!strcmp(pat->name,ATTR_session)) 
+        {
+        sess = pat->value;
+        } 
+      else if (!strcmp(pat->name,ATTR_l)) 
+        {
+        if (!strcmp(pat->resource,"nodect")) 
+          {
+          nodect = pat->value;
+          } 
+        else if (!strcmp(pat->resource,"ncpus")) 
+          {
+          if (strcmp(pat->value,"0"))
+            tasks = pat->value;
+          } 
+        else if (!strcmp(pat->resource,"mppe")) 
+          {
+          if (strcmp(pat->value,"0"))
+            tasks = pat->value;
+          } 
+        else if (!strcmp(pat->resource,"mem")) 
+          {
+          strncpy(rqmem,cnv_size(pat->value,alt_opt),SIZEL);
+          } 
+        else if (!strcmp(pat->resource,"walltime")) 
+          {
+          rqtimewal = pat->value;
+          } 
+        else if (!strcmp(pat->resource,"cput")) 
+          {
+          rqtimecpu = pat->value;
+          usecput = 1;
+          } 
+        else if (!strcmp(pat->resource,"srfs_big")) 
+          {
+          strncpy(srfsbig,cnv_size(pat->value,alt_opt),SIZEL - 1);
+          } 
+        else if (!strcmp(pat->resource,"srfs_fast")) 
+          {
+          strncpy(srfsfast,cnv_size(pat->value,alt_opt),SIZEL - 1);
+          } 
+        else if (!strcmp(pat->resource,"piofs")) 
+          {
+          strncpy(pfs,cnv_size(pat->value,alt_opt),SIZEL - 1);
+          }
+        } 
+      else if (!strcmp(pat->name,ATTR_exechost)) 
+        {
+        exechost = pat->value;
+        } 
+      else if (!strcmp(pat->name,ATTR_used)) 
+        {
+        if (!strcmp(pat->resource,"walltime")) 
+          {
+          eltimewal = pat->value;
+          } 
+        else if (!strcmp(pat->resource,"cput"))  
+          {
+          eltimecpu = pat->value;
+          }
+        } 
+      else if (!strcmp(pat->name,ATTR_comment)) 
+        {
+        comment = pat->value;
+        }
+
+      pat = pat->next;
+      }
+
+    printf("%-20.20s %-8.8s %-8.8s ", 
+      pstat->name, 
+      usern, 
+      queuen);
+
+    if (alt_opt & ALT_DISPLAY_R) 
+      {
+      printf("%5.5s %3.3s %6.6s %5.5s %1.1s %5.5s %5.5s %5.5s %5.5s", 
+        nodect, 
+        tasks, 
+        rqmem, 
+        usecput ? rqtimecpu : rqtimewal,
+        jstate, 
+        usecput ? eltimecpu : eltimewal,
+        srfsbig, 
+        srfsfast, 
+        pfs);
+      } 
+    else 
+      {
+      printf("%-10.10s %6.6s %5.5s %3.3s %6.6s %5.5s %1.1s %5.5s",
+        jobn, 
+        sess, 
+        nodect, 
+        tasks, 
+        rqmem,
+        usecput ? rqtimecpu : rqtimewal,
+        jstate, 
+        usecput ? eltimecpu : eltimewal);
+      }
+
+    if (!(alt_opt & ALT_DISPLAY_o)) 
+      printf("\n");
+
+    if (alt_opt & ALT_DISPLAY_n) 
+      {
+      /* print assigned nodes */
+
+      prt_nodes(exechost,alt_opt);
+      }
+
+    if (alt_opt & ALT_DISPLAY_s) 
+      {
+      /* print (scheduler) comment */
+  
+      if (*comment != '\0')
+        printf("   %s\n", 
+          comment);
+      }
+
+    pstat = pstat->next;
+    }
+
+  return;
+  }  /* END altdsp_statjob() */
 
 
 
@@ -685,51 +832,61 @@ static void get_ct(str, jque, jrun)
  * altdsp_statque - alternative display for queue information, -q option
  */
 
-static void altdsp_statque(serv, pstat, opt)
-	char *serv;
-	struct batch_status *pstat;
-	int  opt;
-{
-	char  rmem[SIZEL];
-	char *cput;
-	char *wallt;
-	char *jmax;
-	char *nodect;
-	char *blank = "--   ";
-	int   jrun;
-	int   jque;
-	char  qenabled = NULL;
-	char  qstarted = NULL;
-	int   tot_jrun = 0;
-	int   tot_jque = 0;
-	struct attrl *pat;
+static void altdsp_statque(
 
-	printf("\nserver: %s\n\n", serv);
-	printf("Queue            Memory CPU Time Walltime Node Run Que Lm  State\n");
-	printf("---------------- ------ -------- -------- ---- --- --- --  -----\n");
+  char *serv,
+  struct batch_status *pstat,
+  int  opt)
 
-	while (pstat) {
-		/* *rmem = '\0'; */
-		(void)strncpy(rmem, "--  ", SIZEL-1);
-		cput  = blank;
-		wallt = blank;
-		nodect= "-- ";
-		jrun  = 0;
-		jque  = 0;
-		jmax  = blank;
+  {
+  char  rmem[SIZEL];
+  char *cput;
+  char *wallt;
+  char *jmax;
+  char *nodect;
+  char *blank = "--   ";
+  int   jrun;
+  int   jque;
+  char  qenabled = '\0';
+  char  qstarted = '\0';
+  int   tot_jrun = 0;
+  int   tot_jque = 0;
+  struct attrl *pat;
 
-		
-		pat = pstat->attribs;
+  printf("\nserver: %s\n\n", serv);
+  printf("Queue            Memory CPU Time Walltime Node Run Que Lm  State\n");
+  printf("---------------- ------ -------- -------- ---- --- --- --  -----\n");
 
-		while (pat) {
-			if (strcmp(pat->name, ATTR_maxrun) == 0) {
-				jmax = pat->value;
-			} else if (strcmp(pat->name, ATTR_enable) == 0) {
-				if (*pat->value == 'T')
-					qenabled = 'E';
-				else
-					qenabled = 'D';
-			} else if (strcmp(pat->name, ATTR_start) == 0) {
+  while (pstat != NULL) 
+    {
+    /* *rmem = '\0'; */
+
+    strncpy(rmem, "--  ", SIZEL-1);
+
+    cput  = blank;
+    wallt = blank;
+    nodect= "-- ";
+    jrun  = 0;
+    jque  = 0;
+    jmax  = blank;
+
+    pat = pstat->attribs;
+
+    while (pat != NULL) 
+      {
+      if (strcmp(pat->name,ATTR_maxrun) == 0) 
+        {
+        jmax = pat->value;
+        } 
+      else if (strcmp(pat->name,ATTR_enable) == 0) 
+        {
+        if (*pat->value == 'T')
+          qenabled = 'E';
+        else
+          qenabled = 'D';
+        } 
+      else if (strcmp(pat->name,ATTR_start) == 0) 
+        {
 				if (*pat->value == 'T')
 					qstarted = 'R';
 				else
@@ -753,16 +910,21 @@ static void altdsp_statque(serv, pstat, opt)
 			pat = pat->next;
 		}
 
-		printf("%-16.16s %6.6s %8.8s %8.8s %4.4s ",
+		printf("%-16.16s %6.6s %8.8s %8.8s %5.5s ",
 		       pstat->name, rmem, cput, wallt, nodect);
 		printf("%3d %3d %2.2s   %c %c\n",
 		       jrun, jque, jmax, qenabled, qstarted);
 
 		pstat = pstat->next;
 	}
-	printf("                                               --- ---\n");
-	printf("                                               %3d %3d\n", tot_jrun, tot_jque);
-}
+
+  printf("                                               --- ---\n");
+  printf("                                               %3d %3d\n", 
+    tot_jrun, 
+    tot_jque);
+
+  return;
+  }
 
 
 
@@ -829,7 +991,7 @@ void display_statjob(
   if (!full)
     {
     sprintf(format,"%%-%ds %%-%ds %%-%ds %%%ds %%%ds %%-%ds\n", 
-      PBS_MAXSEQNUM + 8, 
+      PBS_MAXSEQNUM + 11, 
       NAMEL, 
       OWNERL, 
       TIMEUL, 
@@ -840,8 +1002,8 @@ void display_statjob(
       {
       /* display summary header */
 
-      printf("Job id           Name             User             Time Use S Queue\n");
-      printf("---------------- ---------------- ---------------- -------- - -----\n");
+      printf("Job id              Name             User             Time Use S Queue\n");
+      printf("------------------- ---------------- ---------------- -------- - -----\n");
       }
     }    /* END if (!full) */
 
@@ -929,74 +1091,139 @@ void display_statjob(
 
       if (p->name != NULL) 
         {
-                c = p->name;
-                while ( *c != '.' && *c != '\0' ) c++;
-                c++;    /* List the first part of the server name, too. */
-                while ( *c != '.' && *c != '\0' ) c++;
+        c = p->name;
+
+        while ((*c != '.') && (*c != '\0')) 
+          c++;
+
+        c++;    /* List the first part of the server name, too. */
+
+        while ((*c != '.') && (*c != '\0')) 
+          c++;
+
+        *c = '\0';
+
+        l = strlen(p->name);
+
+        if (l > (PBS_MAXSEQNUM + 8)) 
+          {
+          /* truncate job name */
+
+          c = p->name + PBS_MAXSEQNUM + 14;
+
+          *c = '\0';
+          }
+  
+        jid = p->name;
+        }
+
+      a = p->attribs;
+
+      while (a != NULL) 
+        {
+        if (a->name != NULL) 
+          {
+          if (strcmp(a->name,ATTR_name) == 0) 
+            {
+            l = strlen(a->value);
+
+            if (l > NAMEL) 
+              {
+              l = l - NAMEL + 3;
+
+              c = a->value + l;
+
+              while ((*c != '/') && (*c != '\0')) 
+                c++;
+
+              if (*c == '\0') 
+                c = a->value + l;
+
+              strcpy(long_name,"...");
+              strcat(long_name,c);
+
+              c = long_name;
+              } 
+            else
+              {     
+              c = a->value;
+              }
+
+            name = c;
+            } 
+          else if (!strcmp(a->name,ATTR_owner)) 
+            {
+            c = a->value;
+
+            while ((*c != '@') && (*c != '\0')) 
+              c++;
+
+            *c = '\0';
+
+            l = strlen(a->value);
+
+            if (l > OWNERL) 
+              {
+              c = a->value + OWNERL;
+
+              *c = '\0';
+              }
+
+            owner = a->value;
+            } 
+          else if (!strcmp(a->name,ATTR_used)) 
+            {
+            if (!strcmp(a->resource,"cput")) 
+              {
+              l = strlen(a->value);
+
+              if (l > TIMEUL) 
+                {
+                c = a->value + TIMEUL;
+
                 *c = '\0';
-                l = strlen(p->name);
-                if ( l > (PBS_MAXSEQNUM+8) ) {
-                    c = p->name + PBS_MAXSEQNUM + 8;
-                    *c = '\0';
                 }
-                jid = p->name;
+
+              timeu = a->value;
+              }
+            } 
+          else if (!strcmp(a->name,ATTR_state)) 
+            {
+            l = strlen(a->value);
+
+            if (l > STATEL)
+              {
+              c = a->value + STATEL;
+
+              *c = '\0';
+              }
+
+            state = a->value;
+            } 
+          else if (!strcmp(a->name,ATTR_queue)) 
+            {
+            c = a->value;
+
+            while ((*c != '@') && (*c != '\0')) 
+              c++;
+
+            *c = '\0';
+
+            l = strlen(a->value);
+
+            if (l > LOCL) 
+              {
+              c = a->value + LOCL;
+
+              *c = '\0';
+              }
+
+            location = a->value;
             }
-            a = p->attribs;
-            while ( a != NULL ) {
-                if ( a->name != NULL )  {
-                    if ( strcmp(a->name,ATTR_name) == 0 ) {
-                        l = strlen(a->value);
-                        if ( l > NAMEL ) {
-			    l = l - NAMEL + 3;
-                            c = a->value + l;
-			    while ( *c != '/' && *c != '\0' ) c++;
-			    if ( *c == '\0' ) c = a->value + l;
-			    strcpy(long_name, "...");
-                            strcat(long_name, c);
-			    c = long_name;
-			} else
-			    c = a->value;
-                        name = c;
-                    } else if ( strcmp(a->name,ATTR_owner) == 0 ) {
-                        c = a->value;
-                        while ( *c != '@' && *c != '\0' ) c++;
-                        *c = '\0';
-                        l = strlen(a->value);
-                        if ( l > OWNERL ) {
-                            c = a->value + OWNERL;
-                            *c = '\0';
-                        }
-                        owner = a->value;
-                    } else if ( strcmp(a->name,ATTR_used) == 0 ) {
-                        if ( strcmp(a->resource, "cput") == 0 ) {
-                            l = strlen(a->value);
-                            if ( l > TIMEUL ) {
-                                c = a->value + TIMEUL;
-                                *c = '\0';
-                            }
-                            timeu = a->value;
-                        }
-                    } else if ( strcmp(a->name, ATTR_state) == 0 ) {
-                        l = strlen(a->value);
-                        if ( l > STATEL ) {
-                            c = a->value + STATEL;
-                            *c = '\0';
-                        }
-                        state = a->value;
-                    } else if ( strcmp(a->name,ATTR_queue) == 0 ) {
-                        c = a->value;
-                        while ( *c != '@' && *c != '\0' ) c++;
-                        *c = '\0';
-                        l = strlen(a->value);
-                        if ( l > LOCL ) {
-                            c = a->value + LOCL;
-                            *c = '\0';
-                        }
-                        location = a->value;
-                    }
-                }
-                a = a->next;
-            }
+          }
+
+        a = a->next;
+        }
 
       if (timeu == NULL) 
         timeu = "0";
@@ -1570,6 +1797,11 @@ void tcl_run(
 #define tcl_run(f_opt)
 #endif	/* TCL_QSTAT */
 
+
+
+/* connects to server side routine pbs_statjob() in lib/Libifl/pbs_statjob.c */
+/*  routes to req_stat_job() in server/req_stat.c (PBS_BATCH_StatusJob) */
+
 int main(
 
   int    argc,
@@ -1593,13 +1825,13 @@ int main(
   char server_out[MAXSERVERNAME];
   char server_old[MAXSERVERNAME] = "";
   char rmt_server[MAXSERVERNAME];
-  char destination[PBS_MAXDEST+1];
+  char destination[PBS_MAXDEST + 1];
   char *def_server;
     
   char *queue_name_out;
   char *server_name_out;
 
-  char operand[PBS_MAXCLTJOBID+1];
+  char operand[PBS_MAXCLTJOBID + 1];
   int alt_opt;
   int f_opt, B_opt, Q_opt;
   int p_header = TRUE;
@@ -1609,6 +1841,7 @@ int main(
   struct batch_status *p_server;
   struct attropl *p_atropl = 0;
   char *errmsg;
+  int exec_only=0;
 
 #ifndef mbool
 #define mbool char
@@ -1623,7 +1856,7 @@ int main(
 #endif /* !FALSE */
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
-#define GETOPT_ARGS "afinqrsu:xGMQRBW:-:"
+#define GETOPT_ARGS "aefin1qrsu:xGMQRBW:-:"
 #else
 #define GETOPT_ARGS "fQBW:"
 #endif /* PBS_NO_POSIX_VIOLATION */
@@ -1640,6 +1873,9 @@ int main(
   option[0] = '-';
   option[2] = '\0';
 
+  if (getenv("PBS_QSTAT_EXECONLY") != NULL)
+    exec_only = 1;
+
   while ((c = getopt(argc,argv,GETOPT_ARGS )) != EOF) 
     {
     option[1] = (char)c;
@@ -1651,9 +1887,21 @@ int main(
       {
 #if !defined(PBS_NO_POSIX_VIOLATION)
 
+      case '1':
+
+        alt_opt |= ALT_DISPLAY_o;
+
+        break;
+
       case 'a':
 
         alt_opt |= ALT_DISPLAY_a;
+
+        break;
+
+      case 'e':
+
+        exec_only = 1;
 
         break;
 
@@ -1791,12 +2039,17 @@ int main(
       case 'W':
 
 #if (TCL_QSTAT == 0)
-	    pc = optarg;
-	    while ( *pc ) {
-		switch (*pc) {
-		    case 'a':
-	    		alt_opt |= ALT_DISPLAY_a;
-			break;
+        pc = optarg;
+
+        while (*pc) 
+          {
+          switch (*pc) 
+            {
+            case 'a':
+
+              alt_opt |= ALT_DISPLAY_a;
+
+              break;
 
 		    case 'i':
 	    		alt_opt |= ALT_DISPLAY_i;
@@ -1885,14 +2138,21 @@ int main(
 
   if (c == (ALT_DISPLAY_Mw | ALT_DISPLAY_G)) 
     {
-    fprintf(stderr, conflict);
+    fprintf(stderr,conflict);
 
     errflg++;
     }
 
   if ((alt_opt & ALT_DISPLAY_q) && (f_opt == 1)) 
     {
-    fprintf(stderr, conflict);
+    fprintf(stderr,conflict);
+
+    errflg++;
+    }
+
+  if ((alt_opt & ALT_DISPLAY_o) && !(alt_opt & ALT_DISPLAY_n))
+    {
+    fprintf(stderr,conflict);
 
     errflg++;
     }
@@ -1903,7 +2163,7 @@ int main(
     {
     static char usage[]="usage: \n\
 qstat [-f] [-W site_specific] [ job_identifier... | destination... ]\n\
-qstat [-a|-i|-r] [-u user] [-n] [-s] [-G|-M] [-R] [job_id... | destination...]\n\
+qstat [-a|-i|-r|-e] [-u user] [-n [-1]] [-s] [-G|-M] [-R] [job_id... | destination...]\n\
 qstat -Q [-f] [-W site_specific] [ destination... ]\n\
 qstat -q [-G|-M] [ destination... ]\n\
 qstat -B [-f] [-W site_specific] [ server_name... ]\n";
@@ -1927,8 +2187,8 @@ qstat -B [-f] [-W site_specific] [ server_name... ]\n";
       case JOBS:
 
         server_out[0] = '@';
-        strcpy(&server_out[1], def_server);
-        tcl_addarg(ops, server_out);
+        strcpy(&server_out[1],def_server);
+        tcl_addarg(ops,server_out);
 
         job_id_out[0] = '\0';
         server_out[0] = '\0';
@@ -1942,7 +2202,7 @@ qstat -B [-f] [-W site_specific] [ server_name... ]\n";
       case QUEUES:
 
         server_out[0] = '@';
-        strcpy(&server_out[1], def_server);
+        strcpy(&server_out[1],def_server);
 
         tcl_addarg(ops, server_out);
 
@@ -2072,11 +2332,11 @@ job_no_args:
 
         if ((stat_single_job == 1) || (p_atropl == 0)) 
           {
-          p_status = pbs_statjob(connect,job_id_out,NULL,NULL);
+          p_status = pbs_statjob(connect,job_id_out,NULL, exec_only ? EXECQUEONLY : NULL);
           } 
         else 
           {
-          p_status = pbs_selstat(connect,p_atropl,NULL);
+          p_status = pbs_selstat(connect,p_atropl,exec_only ? EXECQUEONLY : NULL);
           }
 
             if ( p_status == NULL ) {

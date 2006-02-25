@@ -103,6 +103,9 @@ extern char *msg_permlog;
 extern char *msg_unkjobid;
 extern time_t time_now;
 
+extern int site_allow_u(char *,char *);
+
+
 /*
  * svr_chk_owner - compare a user name from a request and the name of
  *	the user who owns the job.
@@ -113,8 +116,8 @@ extern time_t time_now;
 
 int svr_chk_owner(
 
-  struct batch_request *preq,
-  job                  *pjob)
+  struct batch_request *preq,  /* I */
+  job                  *pjob)  /* I */
 
   {
   char  owner[PBS_MAXUSER + 1];
@@ -372,7 +375,7 @@ job *chk_job_request(
     return(NULL);
     }
 
-  if (pjob->ji_qs.ji_state == JOB_STATE_EXITING) 
+  if (pjob->ji_qs.ji_state >= JOB_STATE_EXITING) 
     {
     sprintf(log_buffer,"%s %d", 
       msg_badstate,

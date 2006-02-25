@@ -112,6 +112,7 @@
 #include	"pbs_ifl.h"
 #include        "pbs_version.h"
 #include        "mcom.h"
+#include        "cmds.h"
   
 #define	DOWN	0
 #define	LIST	1
@@ -263,6 +264,23 @@ static int is_offline(
 
 
 
+static int is_unknown(
+
+  struct batch_status *pbs)
+
+  {
+
+  if (strstr(get_nstate(pbs),ND_state_unknown) != NULL)
+    {
+    return(1);
+    }
+
+  return(0);
+  }
+
+
+
+
 static int marknode(
 
   int   con, 
@@ -273,9 +291,9 @@ static int marknode(
   enum batch_op op2)
 
   {
-  char	       *errmsg;
+  char	         *errmsg;
   struct attropl  new[2];
-  int		rc;
+  int             rc;
 
   new[0].name     = ATTR_NODE_state;
   new[0].resource = NULL;
@@ -409,6 +427,8 @@ int main(
 
       case 'x':
 
+        flag = ALLI;
+
         DisplayXML = TRUE;
 
         break;
@@ -422,10 +442,8 @@ int main(
 
           exit(0);
           }
-        else 
-          {
-          errflg = 1;
-          }
+
+        errflg = 1;
 
         break;
 
@@ -435,20 +453,20 @@ int main(
         errflg = 1;
 
         break;
-      }  /* END switch(i) */
+      }  /* END switch (i) */
     }    /* END while (i == getopt()) */
 
   if ((errflg != 0) || ((flag == LIST) && (optind != argc))) 
     {
     if (!quiet)
       {
-      fprintf(stderr,"usage:\t%s [-{c|d|o|p|r}][-s server] [-q] [-x] node node ...\n",
+      fprintf(stderr,"usage:\t%s [-{c|d|o|p|r}][-s server] [-q] node node ...\n",
         argv[0]);
 
       fprintf(stderr,"\t%s -l [-s server] [-q]\n",
         argv[0]);
 
-      fprintf(stderr,"\t%s -a [-s server] [-q] [node]\n",
+      fprintf(stderr,"\t%s -{a|x} [-s server] [-q] [node]\n",
         argv[0]);
       }
 
@@ -521,10 +539,7 @@ int main(
       }
     }    /* END if ((flag == ALLI) || (flag == DOWN) || (flag == LIST) || (flag == DIAG)) */
 
-  if (DisplayXML == TRUE)
-    flag = ALLI;
-
-  switch(flag) 
+  switch (flag) 
     {
     case DIAG:
 
@@ -534,12 +549,12 @@ int main(
 
     case DOWN:
 
-	/*
-	 * loop through the list of nodes returned above:
-	 *   if node is up and is in argv list, mark it down;
-	 *   if node is down and not in argv list, mark it up;
-	 * for all changed nodes, send in request to server
-	 */
+      /*
+       * loop through the list of nodes returned above:
+       *   if node is up and is in argv list, mark it down;
+       *   if node is down and not in argv list, mark it up;
+       * for all changed nodes, send in request to server
+       */
 
       for (pbstat = bstatus;pbstat != NULL;pbstat = pbstat->next) 
         {
@@ -578,18 +593,7 @@ int main(
 
     case CLEAR:
 
-      /* clear DOWN and OFF_LINE from specified nodes		*/
-
-      for (pa = argv + optind;*pa;pa++) 
-        {
-        marknode(con,*pa,ND_offline,DECR,ND_down,DECR);	
-        }
-
-      break;
-
-    case RESET:
-
-      /* clear OFF_LINE from specified nodes			*/
+      /* clear  OFFLINE from specified nodes */
 
       for (pa = argv + optind;*pa;pa++) 
         {
@@ -598,13 +602,24 @@ int main(
 
       break;
 
+    case RESET:
+
+      /* clear OFFLINE, add DOWN to specified nodes */
+
+      for (pa = argv + optind;*pa;pa++) 
+        {
+        marknode(con,*pa,ND_offline,DECR,ND_down,INCR);	
+        }
+
+      break;
+
     case OFFLINE:
 
-      /* set OFF_LINE on specified nodes			*/
+      /* set OFFLINE on specified nodes */
 
-      for (pa = argv+optind; *pa; pa++) 
+      for (pa = argv + optind;*pa;pa++) 
         {
-        marknode(con,*pa,ND_offline,SET,NULL,INCR);	
+        marknode(con,*pa,ND_offline,INCR,NULL,INCR);	
         }
 
       break;
@@ -679,11 +694,11 @@ int main(
 
     case LIST:
 
-      /* list any node that is DOWN or OFF_LINE		*/
+      /* list any node that is DOWN, OFFLINE, or UNKNOWN */
 
       for (pbstat = bstatus; pbstat; pbstat = pbstat->next) 
         {
-        if (is_down(pbstat) || is_offline(pbstat)) 
+        if (is_down(pbstat) || is_offline(pbstat) || is_unknown(pbstat)) 
           {
           printf("%-20.20s %s\n", 
             pbstat->name,
@@ -692,7 +707,7 @@ int main(
         }
 
       break;
-    }  /* END switch(flag) */
+    }  /* END switch (flag) */
 
   pbs_disconnect(con);
   

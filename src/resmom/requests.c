@@ -106,9 +106,33 @@
 #include "mom_mach.h"
 #include "mom_func.h"
 #include "log.h"
+#include "rpp.h"
+#include "net_connect.h"
 #ifdef _CRAY
 #include <sys/category.h>
 #endif
+
+#ifdef HAVE_WORDEXP
+#include <wordexp.h>
+
+extern struct var_table vtable;      /* see start_exec.c */
+extern        char          **environ;
+
+extern int InitUserEnv(
+      
+  job            *pjob,   /* I */
+  task           *ptask,  /* I (optional) */
+  char          **envp,   /* I (optional) */
+  struct passwd  *pwdp,   /* I (optional) */
+  char           *shell);  /* I (optional) */
+    
+extern int mkdirtree(
+              
+  char *dirpath, /* I */
+  mode_t mode);
+
+extern int TTmpDirName( job*,char *);
+#endif /* HAVE_WORDEXP */
 
 /* External Global Data Items */
 
@@ -126,6 +150,8 @@ extern char		*msg_manager;
 extern time_t		time_now;
 extern int		resc_access_perm;	/* see encode_resc() */
 						/* in attr_fn_resc.c */
+
+extern char             MOMUNameMissing[];
 
 /* Local Data Items */
 
@@ -207,8 +233,6 @@ static pid_t fork_to_user(
 
   char           *hdir;
 
-  char            tmpLine[1024];
-
   struct stat     sb;
 
   /* initialize */
@@ -239,13 +263,16 @@ static pid_t fork_to_user(
     {
     if ((pwdp = getpwnam(preq->rq_ind.rq_cpyfile.rq_user)) == NULL)
       {
-      sprintf(tmpLine,"cannot find user '%s' in password file",
+      if (MOMUNameMissing[0] == '\0')
+        strncpy(MOMUNameMissing,preq->rq_ind.rq_cpyfile.rq_user,64);
+
+      sprintf(log_buffer,"cannot find user '%s' in password file",
         preq->rq_ind.rq_cpyfile.rq_user);
 
       if (EMsg != NULL)
-        strncpy(EMsg,tmpLine,1024);
+        strncpy(EMsg,log_buffer,1024);
 
-      log_err(errno,id,tmpLine);
+      log_err(errno,id,log_buffer);
 
       return(-PBSE_BADUSER);
       }
@@ -262,13 +289,13 @@ static pid_t fork_to_user(
       }
     else
       {
-      sprintf(tmpLine,"cannot find group for user '%s' in password file",
+      sprintf(log_buffer,"cannot find group for user '%s' in password file",
         preq->rq_ind.rq_cpyfile.rq_user);
 
       if (EMsg != NULL)
-        strncpy(EMsg,tmpLine,1024);
+        strncpy(EMsg,log_buffer,1024);
 
-      log_err(errno,id,tmpLine);
+      log_err(errno,id,log_buffer);
 
       return(-PBSE_BADUSER);
       }
@@ -313,18 +340,18 @@ static pid_t fork_to_user(
 
   if (stat(hdir,&sb) != 0)
     {
-    sprintf(tmpLine,"invalid home directory '%s' specified, errno=%d (%s)",
+    sprintf(log_buffer,"invalid home directory '%s' specified, errno=%d (%s)",
       hdir,
       errno,
       strerror(errno));
 
     if (LOGLEVEL >= 2)
       { 
-      log_err(errno,id,tmpLine);
+      log_err(errno,id,log_buffer);
       }
 
     if (EMsg != NULL)
-      strncpy(EMsg,tmpLine,1024);
+      strncpy(EMsg,log_buffer,1024);
 
     /* NOTE:  warn only, root may not be able to stat directory */
 
@@ -332,29 +359,29 @@ static pid_t fork_to_user(
     }
   else if (!S_ISDIR(sb.st_mode))
     {
-    sprintf(tmpLine,"invalid home directory '%s' specified, not a directory",
+    sprintf(log_buffer,"invalid home directory '%s' specified, not a directory",
       hdir);
 
-    log_err(PBSE_UNKRESC,id,tmpLine);
+    log_err(PBSE_UNKRESC,id,log_buffer);
       
     if (EMsg != NULL)
-      strncpy(EMsg,tmpLine,1024);
+      strncpy(EMsg,log_buffer,1024);
 
     return(-PBSE_UNKRESC); 
     }
 
   if (LOGLEVEL >= 1)
     { 
-    sprintf(tmpLine,"forking to user, uid: %ld  gid: %ld  homedir: '%s'\n",
+    sprintf(log_buffer,"forking to user, uid: %ld  gid: %ld  homedir: '%s'",
       (long)useruid,
       (long)usergid,
       hdir);
  
     log_record(
-      PBSEVENT_ADMIN,
-      PBS_EVENTCLASS_FILE,
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
       (pjob != NULL) ? pjob->ji_qs.ji_jobid : "N/A",
-      tmpLine);
+      log_buffer);
     }
 
   if (HDir != NULL)
@@ -366,12 +393,14 @@ static pid_t fork_to_user(
     {
     /* fork failed */
 
-    sprintf(tmpLine,"forked failed, errno=%d (%s)",
+    sprintf(log_buffer,"forked failed, errno=%d (%s)",
       errno,
       strerror(errno));
 
+    log_err(-1,id,log_buffer);
+
     if (EMsg != NULL)
-      strncpy(EMsg,tmpLine,1024);
+      strncpy(EMsg,log_buffer,1024);
 
     return(-PBSE_SYSTEM);
     }
@@ -420,6 +449,53 @@ static pid_t fork_to_user(
       return(-PBSE_UNKRESC);
       }
     }
+
+    
+#ifdef HAVE_WORDEXP
+  {
+    /* set some useful env variables */
+
+    char *envstr;
+
+    envstr=malloc((strlen("HOME=") + strlen(hdir) + 1) * sizeof(char));
+
+    if (envstr == NULL)
+      {
+      sprintf(log_buffer,"malloc failed, errno=%d (%s)",
+        errno,
+        strerror(errno));
+
+      log_err(-1,id,log_buffer);
+
+      if (EMsg != NULL)
+        strncpy(EMsg,log_buffer,1024);
+
+      return(-PBSE_SYSTEM);
+      }
+
+    sprintf(envstr,"HOME=%s",hdir);
+    putenv(envstr);
+
+    envstr=malloc((strlen("PBS_JOBID=") + strlen(preq->rq_ind.rq_cpyfile.rq_jobid) + 1) * sizeof(char));
+
+    if (envstr == NULL)
+      {
+      sprintf(log_buffer,"malloc failed, errno=%d (%s)",
+        errno,
+        strerror(errno));
+
+      log_err(-1,id,log_buffer);
+
+      if (EMsg != NULL)
+        strncpy(EMsg,log_buffer,1024);
+
+      return(-PBSE_SYSTEM);
+      }
+
+    sprintf(envstr,"PBS_JOBID=%s",preq->rq_ind.rq_cpyfile.rq_jobid);
+    putenv(envstr);
+  }
+#endif
 
   return(pid);
   }  /* END fork_to_user() */
@@ -470,7 +546,7 @@ static void add_bad_list(
   while (nl--)				/* prefix new-lines */
     strcat(*pbl,"\n");
 
-  strcat(*pbl, newtext);
+  strcat(*pbl,newtext);
 
   return;
   }  /* END add_bad_list() */
@@ -481,62 +557,82 @@ static void add_bad_list(
 
 #define RT_BLK_SZ 4096 
 
-static int return_file(pjob, which, sock)
-	job	      *pjob;
-	enum job_file  which;
-	int	       sock;
-{
-	int		      amt;
-	char		      buf[RT_BLK_SZ];
-	int		      fds;
-	char		     *filename;
-	struct batch_request *prq;
-	int		      rc = 0;
-	int		      seq = 0;
+/* return 0 on failure */
 
-	filename = std_file_name(pjob, which, &amt); /* amt is place holder */
-	fds = open(filename, O_RDONLY, 0);
-	if (fds < 0)
-		return (0);
+static int return_file(
 
-	prq = alloc_br(PBS_BATCH_MvJobFile);
-	if (prq == (struct batch_request *)0)
-		return PBSE_SYSTEM;
+  job	        *pjob,
+  enum job_file  which,
+  int	         sock)
 
-	(void)strcpy(prq->rq_host, mom_host);
-	(void)strcpy(prq->rq_ind.rq_jobfile.rq_jobid, pjob->ji_qs.ji_jobid);
+  {
+  int		      amt;
+  char		      buf[RT_BLK_SZ];
+  int		      fds;
+  char		     *filename;
+  struct batch_request *prq;
+  int		      rc = 0;
+  int		      seq = 0;
 
-	while ( (amt = read(fds, buf, RT_BLK_SZ)) > 0 ) {
-		/* prq->rq_ind.rq_jobfile.rq_sequence = seq++; */
-		/* prq->rq_ind.rq_jobfile.rq_type = (int)which; */
-		/* prq->rq_ind.rq_jobfile.rq_size = amt; */
-		/* prq->rq_ind.rq_jobfile.rq_data = buf; */
+  filename = std_file_name(pjob,which,&amt); /* amt is place holder */
 
+  fds = open(filename,O_RDONLY,0);
 
-		DIS_tcp_setup(sock);
-		if ( (rc = encode_DIS_ReqHdr(sock, PBS_BATCH_MvJobFile,
-					     pbs_current_user)) ||
-		     (rc = encode_DIS_JobFile(sock, seq++, buf, amt,
-					      pjob->ji_qs.ji_jobid, which)) ||
-		     (rc = encode_DIS_ReqExtend(sock, (char *)0)) ) {
-			break;
-		}
+  if (fds < 0)
+    {
+    return(0);
+    }
+
+  prq = alloc_br(PBS_BATCH_MvJobFile);
+
+  if (prq == NULL)
+    {
+    /* no memory */
+
+    return(PBSE_SYSTEM);
+    }
+
+  strcpy(prq->rq_host,mom_host);
+  strcpy(prq->rq_ind.rq_jobfile.rq_jobid,pjob->ji_qs.ji_jobid);
+
+  while ((amt = read(fds,buf,RT_BLK_SZ)) > 0) 
+    {
+    /* prq->rq_ind.rq_jobfile.rq_sequence = seq++; */
+    /* prq->rq_ind.rq_jobfile.rq_type = (int)which; */
+    /* prq->rq_ind.rq_jobfile.rq_size = amt; */
+    /* prq->rq_ind.rq_jobfile.rq_data = buf; */
+
+    DIS_tcp_setup(sock);
+
+    if ((rc = encode_DIS_ReqHdr(sock,PBS_BATCH_MvJobFile,pbs_current_user)) ||
+        (rc = encode_DIS_JobFile(sock,seq++,buf,amt,pjob->ji_qs.ji_jobid,which)) ||
+        (rc = encode_DIS_ReqExtend(sock,NULL))) 
+      {
+      break;
+      }
 		
-		DIS_tcp_wflush(sock);
+    DIS_tcp_wflush(sock);
 
-		if ( (DIS_reply_read(sock, &prq->rq_reply) != 0) ||
-		     (prq->rq_reply.brp_code != 0) ) {
-			(void)close(fds);
-			rc = -1;
-			break;
-		}
-		
-	}
-	free_br(prq);
-	(void)close(fds);
-	if (rc == 0) (void)unlink(filename);
-	return (rc);
-}
+    if ((DIS_reply_read(sock,&prq->rq_reply) != 0) ||
+        (prq->rq_reply.brp_code != 0)) 
+      {
+      close(fds);
+
+      rc = -1;
+
+      break;
+      }
+    }    /* END while ((amt = read()) */
+
+  free_br(prq);
+
+  close(fds);
+
+  if (rc == 0) 
+    unlink(filename);
+
+  return(rc);
+  }  /* END return_file() */
 
 
 
@@ -663,7 +759,7 @@ static int told_to_cp(
 
 static int local_or_remote(
 
-  char **path)
+  char **path)  /* I */
 
   {
   int   len;
@@ -682,7 +778,7 @@ static int local_or_remote(
 
   len = strlen(*path);
 
-  if ((strcmp("localhost",*path) == 0) ||
+  if ((strncmp("localhost",*path,9) == 0) ||
      ((strncmp(mom_host,*path,len) == 0) && 
      ((mom_host[len] == '\0') || (mom_host[len] == '.')))) 
     {
@@ -723,21 +819,27 @@ static int local_or_remote(
  *		 0 if not the same (or cannot tell)
  */
 
-static int is_file_same(file1, file2)
-	char *file1;
-	char *file2;
-{
-	struct stat sb1, sb2;
+static int is_file_same(
 
-	if ((stat(file1, &sb1) == 0) && (stat(file2, &sb2) == 0)) {
+  char *file1,
+  char *file2)
 
-		if ( !memcmp(&sb1.st_dev, &sb2.st_dev, sizeof(dev_t)) && 
-		     !memcmp(&sb1.st_ino, &sb2.st_ino, sizeof(ino_t)) )
-			return 1;
+  {
+  struct stat sb1, sb2;
 
-	}
-	return 0;
-}
+  if ((stat(file1,&sb1) == 0) && (stat(file2,&sb2) == 0)) 
+    {
+    if (!memcmp(&sb1.st_dev,&sb2.st_dev,sizeof(dev_t)) && 
+        !memcmp(&sb1.st_ino,&sb2.st_ino,sizeof(ino_t)) )
+      {
+      /* files are same */
+
+      return(1);
+      }
+    }
+
+  return(0);
+  }
 
 
 
@@ -766,7 +868,7 @@ void req_deletejob(
     }
 
   return;
-  }
+  }  /* END req_deletejob() */
 
 
 
@@ -830,6 +932,7 @@ int message_job(
   char		*pstr = NULL;
   int		len;
   int		fds;
+  int 		rc;
 
   if (pjob == NULL)
     {
@@ -884,16 +987,28 @@ int message_job(
     text = pstr;
     }
 
-  write(fds,text,len);
+  rc = PBSE_NONE;
 
-  close(fds);
+  if (write(fds,text,len) != len)
+    {
+    log_err(errno,"message_job","unable to write message to job");
+
+    rc = PBSE_INTERNAL;
+    }
+
+  if (close(fds) != 0)
+    {
+    log_err(errno,"message_job","unable to write message to job");
+
+    rc = PBSE_INTERNAL;
+    }
 
   if (pstr != NULL)
     free(pstr);
 
   /* SUCCESS */
 
-  return(PBSE_NONE);
+  return(rc);
   }  /* END message_job() */
 
 
@@ -943,6 +1058,50 @@ void req_messagejob(
 
 
 
+const char *TJobAttr[] = {
+  "jobname",        /* this set appears first as they show */
+  "job_owner",      /* in a basic job status display       */
+  "resc_used",
+  "state",
+  "in_queue",
+  "at_server",
+  "account",        /* the bulk of the attributes are in   */
+  "chkpnt",         /* alphabetic order for no good reason */
+  "ctime",
+  "depend",
+  "errpath",
+  "exec_host",
+  "exectime",
+  "grouplst",
+  "hold",
+  "interactive",
+  "join",
+  "keep",
+  "mailpnts",
+  "mailuser",
+  "mtime",
+  "outpath",
+  "priority",
+  "qtime",
+  "rerunable",
+  "resource",
+  "session_id",
+  "shell",
+  "stagein",
+  "stageout",
+  "substate",
+  "userlst",
+  "variables",
+  "euser",          /* execution user name for MOM            */
+  "egroup",         /* execution group name for MOM           */
+  "hashname",       /* job name hashed into 14 characters     */
+  "hopcount",
+  "qrank",
+  "queuetype",
+  NULL };
+
+
+
 
 /*
  * req_modifyjob - service the Modify Job Request
@@ -952,7 +1111,7 @@ void req_messagejob(
 
 void req_modifyjob(
 
-  struct batch_request *preq)
+  struct batch_request *preq)  /* I */
 
   {
   int		 bad = 0;
@@ -1010,7 +1169,7 @@ void req_modifyjob(
 
   if (rc != 0) 
     {
-    /* leave old values, free the new ones */
+    /* FAILURE - leave old values, free the new ones */
  
     for (i = 0;i < JOB_ATR_LAST;i++)
       {
@@ -1030,10 +1189,38 @@ void req_modifyjob(
     {
     if (newattr[i].at_flags & ATR_VFLAG_MODIFY) 
       {
-      if (job_attr_def[i].at_action)  
+      if (LOGLEVEL >= 5)
+        {
+        char tmpLine[1024];
+
+        strcpy(tmpLine,"???");
+
+        if (newattr[i].at_type == ATR_TYPE_STR)
+          {
+          if (newattr[i].at_val.at_str != NULL)
+            strncpy(tmpLine,newattr[i].at_val.at_str,sizeof(tmpLine));
+          }
+        else if (newattr[i].at_type == ATR_TYPE_LONG)
+          {
+          sprintf(tmpLine,"%ld",
+            newattr[i].at_val.at_long);
+          }         
+
+        sprintf(log_buffer,"modifying attribute %s of job (value: '%s'",
+          TJobAttr[i],
+          tmpLine);
+
+        log_record(
+          PBSEVENT_JOB,
+          PBS_EVENTCLASS_JOB,
+          (pjob != NULL) ? pjob->ji_qs.ji_jobid : "N/A",
+          log_buffer);
+        }
+
+      if (job_attr_def[i].at_action != NULL)  
         job_attr_def[i].at_action(&newattr[i],pjob,ATR_ACTION_ALTER);
 
-      job_attr_def[i].at_free(pattr+i);
+      job_attr_def[i].at_free(pattr + i);
 
       if ((newattr[i].at_type == ATR_TYPE_LIST) ||
           (newattr[i].at_type == ATR_TYPE_RESC)) 
@@ -1047,12 +1234,14 @@ void req_modifyjob(
 
       (pattr + i)->at_flags = newattr[i].at_flags;
       }
-    }
+    }    /* END for (i) */
 
-  /* note, the newattr[] attributes are on the stack, they goaway auto */
+  /* note, the newattr[] attributes are on the stack, they go away auto */
 
   if (rc == 0)
+    {
     rc = mom_set_limits(pjob,SET_LIMIT_ALTER);
+    }
 
   if (rc != 0) 
     {
@@ -1086,10 +1275,10 @@ void req_modifyjob(
 
 void req_shutdown(
 
-  struct batch_request *preq)
+  struct batch_request *preq)  /* I */
 
   {
-  req_reject(PBSE_NOSUP, 0, preq,NULL,NULL);
+  req_reject(PBSE_NOSUP,0,preq,NULL,NULL);
 
   return;
   }
@@ -1098,70 +1287,118 @@ void req_shutdown(
 
 
 #ifdef _CRAY
+
 /*
  * cray_susp_resum - special cray suspend/resume function
  */
-static void cray_susp_resum(pjob, which, preq)
-	job	*pjob;
-	int	 which;
-	struct batch_request *preq;
-{
-	int 	i;
-	int	ct;
-	task	*ptask;
-	pid_t   pid;
-	long	sess;
-	int	sock;
 
-	sock = preq->rq_conn;
-	pid = fork_me(sock);
-	if (pid > 0) {
+static void cray_susp_resum(
 
-		/* record pid in job for when child terminates */
+  job                  *pjob,
+  int                   which,
+  struct batch_request *preq)
 
-		pjob->ji_momsubt = pid;
-		if (which == 1) {
-			pjob->ji_mompost = post_suspend;
+  {
+  int 	 i;
+  int	 ct;
+  task	*ptask;
+  pid_t  pid;
+  long	 sess;
+  int	 sock;
 
-			/* save stop time for adjusting walltime */
-			pjob->ji_momstat = time_now;
-		} else {
-			pjob->ji_mompost = post_resume;
-		}
-		free_br(preq);
-		return;
+  sock = preq->rq_conn;
 
-	} else if (pid == -1) {
-		/* fork failed - still the main mom */
-		req_reject(PBSE_SYSTEM, errno, preq,NULL,NULL);
-		return;
-	}
+  pid = fork_me(sock);
 
-	/* child of MOM, cannot update job struct */
+  if (pid > 0) 
+    {
+    /* record pid in job for when child terminates */
 
-	for (ptask = (task *)GET_NEXT(pjob->ji_tasks);
-			ptask != NULL;
-			ptask = (task *)GET_NEXT(ptask->ti_jobtask)) {
-		sess = ptask->ti_qs.ti_sid;
+    pjob->ji_momsubt = pid;
 
-		for (ct=0; ct<3; ct++)  {
-			i = (which == 1) ?
-				suspend(C_JOB, sess) :
-				resume(C_JOB, sess);
-			if (i == 0)
-				break;
-			if ((errno != EAGAIN) && (errno != EINTR))
-				break;
-		}
-		if (i == -1) {	/* error */
-			req_reject(PBSE_SYSTEM, errno, preq,NULL,NULL);
-			exit(1);
-		}
-	}
-	reply_ack(preq);
-	exit(0);
-}
+    if (which == 1) 
+      {
+      pjob->ji_mompost = post_suspend;
+
+      /* save stop time for adjusting walltime */
+
+      pjob->ji_momstat = time_now;
+      } 
+    else 
+      {
+      pjob->ji_mompost = post_resume;
+      }
+
+    free_br(preq);
+
+    return;
+    } 
+  else if (pid == -1) 
+    {
+    /* fork failed - still the main mom */
+
+    log_err(-1,id,"cannot fork child for cray suspend");
+
+    req_reject(PBSE_SYSTEM,errno,preq,NULL,NULL);
+
+    return;
+    }
+
+  /* child of MOM, cannot update job struct */
+
+  for (ptask = (task *)GET_NEXT(pjob->ji_tasks);
+       ptask != NULL;
+       ptask = (task *)GET_NEXT(ptask->ti_jobtask)) 
+    {
+    sess = ptask->ti_qs.ti_sid;
+
+    for (ct = 0;ct < 3;ct++)  
+      {
+      i = (which == 1) ?  suspend(C_JOB,sess) : resume(C_JOB,sess);
+
+      if (i == 0)
+        break;
+
+      if ((errno != EAGAIN) && (errno != EINTR))
+        break;
+      }
+
+    if (i == -1) 
+      {
+      /* error */
+
+      req_reject(PBSE_SYSTEM,errno,preq,NULL,NULL);
+
+      exit(1);
+      }
+    }
+
+  reply_ack(preq);
+
+  exit(0);
+  }  /* END cray_susp_resum() */
+
 #endif	/* _CRAY */
+
+
+
+
+
+int MUSleep(
+
+  long SleepDuration) /* I (in us) */
+
+  {
+  struct timeval timeout;
+
+  timeout.tv_sec  = SleepDuration / 1000000;
+  timeout.tv_usec = SleepDuration % 1000000;
+
+  select(0,(fd_set *)NULL,(fd_set *)NULL,(fd_set *)NULL,&timeout);
+
+  return(0);
+  }  /* END MUSleep() */
+
 
 
 
@@ -1169,86 +1406,223 @@ static void cray_susp_resum(pjob, which, preq)
 static void resume_suspend( 
 
   job                  *pjob,
-  int                   susp,  /* I */
+  int                   susp,  /* I (0=FALSE, 1=TRUE) */
   struct batch_request *preq)
 
   {
+  static char *id = "resume_suspend";
+
   task *tp;
 
   int   stat = 0;
   int   savederr = 0;
 
-  for (tp = (task *)GET_NEXT(pjob->ji_tasks);tp != NULL;tp = (task *)GET_NEXT(tp->ti_jobtask)) 
+  if (LOGLEVEL >= 2)
+    {
+    sprintf(log_buffer,"%s job in %s",
+      (susp != 0) ? "suspending" : "resuming",
+      id);
+
+    log_record(
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      (pjob != NULL) ? pjob->ji_qs.ji_jobid : "N/A",
+      log_buffer);
+    }
+
+  /* First we need to send SIGTSTP to let reasonable mpi daemons stop
+     their subprocesses, then we send SIGSTOP to stop all other types
+     of processes.  This is split into two loops instead of doing them
+     right after each other because one needs a delay between the
+     SIGTSTP and SIGSTOP to give the mpi daemon time to stop all its
+     tasks.  Inserting a delay for each task would produce a very long
+     delay for jobs with large number of tasks.
+
+     So, to summarize, we send all tasks SIGTSTP, then we wait for 1
+     second, then we send all tasks SIGSTOP.  Hopefully this should
+     cover all cases.  The delay should rather be configurable but I
+     don't have a clue how, nor time, to do that.
+ 
+     Fortunately only one SIGCONT is needed to resume.
+   */
+
+  /* NOTE:  format {suspend[:X]|resume[:X]} should be supported to allow 
+            job state change AND custom suspend/resume signal (NYI) */
+
+  for (tp = (task *)GET_NEXT(pjob->ji_tasks);
+       tp != NULL;
+       tp = (task *)GET_NEXT(tp->ti_jobtask)) 
     {
     if (susp != 0)
-      stat = kill_task(tp,SIGSTOP);
+      {
+      /* NOTE:  for suspend, changed signals to SIGTSTP for MPI jobs - NORWAY */
+
+      /* stat = kill_task(tp,SIGSTOP,0); */
+
+      stat = kill_task(tp,SIGTSTP,0);
+      }
     else
-      stat = kill_task(tp,SIGCONT);
+      {
+      stat = kill_task(tp,SIGCONT,0);
+      }
 
     if (stat < 0) 
       {
-      /* Hmm, couldn't send signal, don't signal more tasks */
+      /* couldn't send signal, don't signal more tasks */
 
       savederr = errno;
 
+      if (LOGLEVEL >= 1)
+        {
+        sprintf(log_buffer,"cannot send signal %s to tasks of job in %s (errno=%d) - attempt aborted",
+          (susp != 0) ? "SIGTSTP" : "SIGCONT",
+          id, 
+          savederr);
+
+        log_record(
+          PBSEVENT_ERROR,
+          PBS_EVENTCLASS_JOB,
+          (pjob != NULL) ? pjob->ji_qs.ji_jobid : "N/A",
+          log_buffer);
+        }
+
       break;
-      }
+      }  /* END if (stat < 0) */
     }    /* END for (tp) */
 
-  /* We're done sending signals, let's adjust some statuses */
+  if ((susp != 0) && (stat >= 0))
+    {
+    MUSleep(50000);
+ 
+    for (tp = (task *)GET_NEXT(pjob->ji_tasks);
+         tp != NULL;
+         tp = (task *)GET_NEXT(tp->ti_jobtask)) 
+      {
+      stat = kill_task(tp,SIGSTOP,0);
+
+      if (stat < 0) 
+        {
+        /* couldn't send signal, don't signal more tasks */
+
+        savederr = errno;
+
+        if (LOGLEVEL >= 1)
+          {
+          sprintf(log_buffer,"cannot send signal %s to tasks of job in %s (errno=%d) - attempt aborted",
+            "SIGSTOP",
+            id,
+            savederr);
+
+          log_record(
+            PBSEVENT_ERROR,
+            PBS_EVENTCLASS_JOB,
+            (pjob != NULL) ? pjob->ji_qs.ji_jobid : "N/A",
+            log_buffer);
+          }
+
+        break;
+        }
+      }    /* END for (tp) */
+    }      /* END if ((susp != 0) && (stat >= 0)) */
 
   if (stat < 0) 
     {
     /* We couldn't signal all the tasks, signal them back to their old state */
     
-    for (tp = (task *)GET_NEXT(pjob->ji_tasks);tp != NULL;tp = (task *)GET_NEXT(tp->ti_jobtask)) 
+    for (tp = (task *)GET_NEXT(pjob->ji_tasks);
+         tp != NULL;
+         tp = (task *)GET_NEXT(tp->ti_jobtask)) 
       {
       if (susp)
-	stat = kill_task(tp,SIGCONT);
+        {
+        stat = kill_task(tp,SIGCONT,0);
+        }
       else
-	stat = kill_task(tp,SIGSTOP);
+        {
+        /* NOTE:  for suspend, changed signals to SIGTSTP for MPI jobs - NORWAY */
+
+	/* stat = kill_task(tp,SIGSTOP,0); */
+
+        stat = kill_task(tp,SIGTSTP,0);
+        }
       }  /* END for (tp) */
 
-    /* Tell them we couldn't */
+    /* the same two signal exercise as above */
 
-    req_reject(PBSE_SYSTEM,savederr,preq,NULL,NULL);      
-    }  /* END if (stat < 0) */ 
-  else 
-    {
-    if (susp != 0) 
+    if (susp != 0)
       {
-      /* Successfully suspended, let's update status */
-      /* This is needed for calculating correct walltime */
+      MUSleep(50000);
 
-      pjob->ji_momstat = time_now;
-      
-      pjob->ji_qs.ji_substate = JOB_SUBSTATE_SUSPEND;
-      pjob->ji_qs.ji_svrflags |= JOB_SVFLG_Suspend;
-      } 
-    else 
-      {
-      pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
-
-      /* Ok, we resumed'em, we have set ji_momstat to the time we suspended the
-	 job.  We use this to compute a new start-time for the job, so that
-	 walltime is computed correctly elsewhere */
-      
-      if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) 
+      for (tp = (task *)GET_NEXT(pjob->ji_tasks);
+           tp != NULL;
+           tp = (task *)GET_NEXT(tp->ti_jobtask)) 
         {
-	/* If it's suspended, update the start time */
-
-	pjob->ji_qs.ji_stime =  pjob->ji_qs.ji_stime - pjob->ji_momstat + time_now;
-        }
-
-      /* Clear the Suspend bit */
-
-      pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Suspend;
+        stat = kill_task(tp,SIGSTOP,0);
+        }  /* END for (tp) */
       }
 
-    /* Tell them we did it */
+    /* suspend/resume failued - report failure */
 
-    reply_ack(preq);
-    }  /* else (stat < 0) */
+    req_reject(PBSE_SYSTEM,savederr,preq,NULL,NULL);      
+
+    return;
+    }  /* END if (stat < 0) */ 
+
+  /* signals sent to all tasks, now adjust job state */
+
+  if (susp != 0) 
+    {
+    /* Successfully suspended, let's update status */
+    /* This is needed for calculating correct walltime */
+
+    pjob->ji_momstat = time_now;
+      
+    pjob->ji_qs.ji_substate = JOB_SUBSTATE_SUSPEND;
+    pjob->ji_qs.ji_svrflags |= JOB_SVFLG_Suspend;
+
+    if (LOGLEVEL >= 1)
+      {
+      log_record(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        (pjob != NULL) ? pjob->ji_qs.ji_jobid : "N/A",
+        "job suspended - adjusting job state");
+      }
+    } 
+  else 
+    {
+    pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
+
+    /* Ok, we resumed'em, we have set ji_momstat to the time we suspended the
+       job.  We use this to compute a new start-time for the job, so that
+       walltime is computed correctly elsewhere */
+      
+    if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) 
+      {
+      /* If it's suspended, update the start time */
+
+      pjob->ji_qs.ji_stime = pjob->ji_qs.ji_stime - pjob->ji_momstat + time_now;
+      }
+
+    /* clear the Suspend bit */
+
+    pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Suspend;
+
+    if (LOGLEVEL >= 1)
+      {
+      log_record(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        (pjob != NULL) ? pjob->ji_qs.ji_jobid : "N/A",
+        "job resumed - adjusting job state");
+      }
+    }    /* END else (susp != 0) */
+
+  /* acknowledge change to pbs_server */
+
+  reply_ack(preq);
+
+  /* SUCCESS */
  
   return;
   }  /* END resume_suspend() */
@@ -1265,7 +1639,7 @@ static void resume_suspend(
 
 void req_signaljob(
 
-  struct batch_request *preq)
+  struct batch_request *preq) /* I */
 
   {
   job            *pjob;
@@ -1285,10 +1659,19 @@ void req_signaljob(
 
   sname = preq->rq_ind.rq_signal.rq_signame;
 
-  DBPRT(("req_signaljob: Sending %s\n", 
-    sname))
+  if (LOGLEVEL >= 3)
+    {
+    sprintf(log_buffer,"signalling job with signal %s",
+      sname); 
 
-  if (strcmp(sname,SIG_SUSPEND) == 0) 
+    log_record(
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      (pjob != NULL) ? pjob->ji_qs.ji_jobid : "N/A",
+      log_buffer);
+    }
+
+  if (!strcasecmp(sname,SIG_SUSPEND)) 
     {
     if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING) 
       {
@@ -1305,7 +1688,8 @@ void req_signaljob(
 
     return;
     } 
-  else if (strcmp(sname,SIG_RESUME) == 0) 
+
+  if (!strcasecmp(sname,SIG_RESUME)) 
     {
     if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_SUSPEND) 
       {
@@ -1317,7 +1701,7 @@ void req_signaljob(
       }
 
 #ifdef _CRAY
-    cray_susp_resum(pjob, 0, preq);
+    cray_susp_resum(pjob,0,preq);
 #else
     resume_suspend(pjob,0,preq);
 #endif	/* _CRAY */
@@ -1325,20 +1709,22 @@ void req_signaljob(
     return;
     }
 
+  /* standard signal received - signal tasks but do not change job state */
+
   if (isdigit((int)*sname))
     {
     sig = atoi(sname);
     }
   else 
     {
-    if (!strncmp("SIG", sname, 3))
+    if (!strncmp("SIG",sname,3))
       sname += 3;
 
     psigt = sig_tbl;
 
-    while (psigt->sig_name) 
+    while (psigt->sig_name != NULL) 
       {
-      if (!strcmp(sname, psigt->sig_name)) 
+      if (!strcmp(sname,psigt->sig_name)) 
         break;
 
       psigt++;
@@ -1349,17 +1735,17 @@ void req_signaljob(
 
   if (sig < 0) 
     {
-    req_reject(PBSE_UNKSIG, 0, preq,NULL,NULL);
+    req_reject(PBSE_UNKSIG,0,preq,NULL,NULL);
 
     return;
     }
-			
-  if ((kill_job(pjob, sig) == 0) && (sig == 0)) 
+
+  if ((kill_job(pjob,sig) == 0) && (sig == 0)) 
     {
     /* SIGNUL and no procs found, force job to exiting */
     /* force issue of (another) job obit */
 
-    sprintf(log_buffer,"Job recycled into exiting on SIGNULL from substate %d",
+    sprintf(log_buffer,"job recycled into exiting on SIGNULL from substate %d",
       pjob->ji_qs.ji_substate);
 
     LOG_EVENT(
@@ -1377,7 +1763,7 @@ void req_signaljob(
     {
     /* force issue of (another) job obit */
 
-    sprintf(log_buffer,"Job recycled into exiting on SIGKILL from substate %d",
+    sprintf(log_buffer,"job recycled into exiting on SIGKILL from substate %d",
       pjob->ji_qs.ji_substate);
 
     LOG_EVENT(
@@ -1398,20 +1784,10 @@ void req_signaljob(
 
 
 
-
-static enum job_atr mom_rtn_list[] = {
-	JOB_ATR_errpath,
-	JOB_ATR_outpath,
-	JOB_ATR_session_id,
-	JOB_ATR_altid,
-	(enum job_atr) -1
-};
-
-
 void encode_used(
 
-  job       *pjob,
-  list_head *phead)
+  job       *pjob,   /* I */
+  list_head *phead)  /* O */
 
   {
   unsigned long		lnum;
@@ -1428,46 +1804,63 @@ void encode_used(
     return;
     }
 
-	for (rs = (resource *)GET_NEXT(at->at_val.at_list);
-			rs != (resource *)0;
-			rs = (resource *)GET_NEXT(rs->rs_link)) {
+  for (rs = (resource *)GET_NEXT(at->at_val.at_list);
+       rs != NULL;
+       rs = (resource *)GET_NEXT(rs->rs_link)) 
+    {
+    resource_def *rd = rs->rs_defin;
+    attribute     val;
+    int           rc;
 
-		resource_def	*rd = rs->rs_defin;
-		attribute	val;
-		int		rc;
+    if ((rd->rs_flags & resc_access_perm) == 0)
+      continue;
 
-		if ((rd->rs_flags & resc_access_perm) == 0)
-			continue;
+    val = rs->rs_value;	/* copy resource attribute */
 
-		val = rs->rs_value;	/* copy resource attribute */
+    /* count up sisterhood too */
 
-		/* count up sisterhood too */
-		lnum = 0;
-		if (pjob->ji_resources != NULL) {
-			if (strcmp(rd->rs_name, "cput") == 0) {
-				for (i=0; i<pjob->ji_numnodes-1; i++) {
-					noderes	*nr = &pjob->ji_resources[i];
-					lnum += nr->nr_cput;
-				}
-			}
-			else if (strcmp(rd->rs_name, "mem") == 0) {
-				for (i=0; i<pjob->ji_numnodes-1; i++) {
-					noderes	*nr = &pjob->ji_resources[i];
-					lnum += nr->nr_mem;
-				}
-			}
-		}
-		val.at_val.at_long += lnum;
+    if (pjob->ji_resources != NULL) 
+      {
+      lnum = 0;
 
-		rc = rd->rs_encode(&val, phead,
-				ad->at_name, rd->rs_name,
-				ATR_ENCODE_CLIENT);
-		if (rc < 0)
-			break;
-	}
+      if (!strcmp(rd->rs_name,"cput")) 
+        {
+        for (i = 0;i < pjob->ji_numnodes - 1;i++) 
+          {
+          lnum += pjob->ji_resources[i].nr_cput;
+          }
+        }
+      else if (!strcmp(rd->rs_name,"mem")) 
+        {
+        for (i = 0;i < pjob->ji_numnodes - 1;i++) 
+          {
+          lnum += pjob->ji_resources[i].nr_mem;
+          }
+        }
+      else if (!strcmp(rd->rs_name,"vmem"))
+        {
+        for (i = 0;i < pjob->ji_numnodes - 1;i++)
+          {
+          lnum += pjob->ji_resources[i].nr_vmem;
+          }
+        }
+
+      val.at_val.at_long += lnum;
+      }
+
+    rc = rd->rs_encode(
+      &val, 
+      phead,
+      ad->at_name, 
+      rd->rs_name,
+      ATR_ENCODE_CLIENT);
+
+    if (rc < 0)
+      break;
+    }  /* END for (rs) */
 
   return;
-  }
+  }  /* END encode_used() */
 
 
 
@@ -1486,7 +1879,6 @@ void req_stat_job(
   char			*name;
   job			*pjob;
   int			index;
-  int			nth = 0;
   struct batch_reply	*preply = &preq->rq_reply;
   struct brp_status	*pstat;
   attribute		*at;
@@ -1553,24 +1945,35 @@ void req_stat_job(
 
     /* add attributes to the status reply */
 
-    for (index = 0;(int)mom_rtn_list[index] >= 0;++index) 
+    for (index = 0;(int)index < JOB_ATR_LAST;++index) 
       {
-      nth = (int)mom_rtn_list[index];
-      at  = &pjob->ji_wattr[nth];
-      ad  = &job_attr_def[nth];
+      at  = &pjob->ji_wattr[index];
+      ad  = &job_attr_def[index];
 
-      if (at->at_flags & ATR_VFLAG_MODIFY) 
+      if (at->at_flags & ATR_VFLAG_SEND) 
         {
+        /* turn off "need to send" flag */
+ 
+        at->at_flags &= ~ATR_VFLAG_SEND;
+
+        if (LOGLEVEL >= 4)
+          {
+          sprintf(log_buffer,"sending \"send flagged\" attr: %s",
+            ad->at_name);
+
+          LOG_EVENT(
+            PBSEVENT_DEBUG, 
+            PBS_EVENTCLASS_JOB,
+            pjob->ji_qs.ji_jobid, 
+            log_buffer);
+          }
+
         ad->at_encode(
           at, 
           &pstat->brp_attr,
           ad->at_name, 
           NULL,
           ATR_ENCODE_CLIENT);
-
-        /* turn off modify so only sent if changed */
- 
-        at->at_flags &= ~ATR_VFLAG_MODIFY;
         }
       }
 
@@ -1600,19 +2003,29 @@ static int del_files(
 
   struct batch_request *preq,      /* I */
   char                 *HDir,      /* I (home directory) */
+  int                   setuserenv,/* I */
   char                **pbadfile)  /* O */
 
   {
+  char		 id[] = "del_files";
+
   int		 AsUser = FALSE;
   struct rqfpair  *pair;
   int		 rc = 0;
   char		 path[MAXPATHLEN + 1];
-  char		 path_alt[MAXPATHLEN + 1];
   char		*pp;
   char		*prmt;
   struct stat	 sb;
+#if NO_SPOOL_OUTPUT == 1
+  char		 path_alt[MAXPATHLEN + 1];
   int		 rcstat;
   struct stat	 myspooldir;
+#endif
+
+#ifdef HAVE_WORDEXP
+  job *pjob;
+  wordexp_t pathexp;
+#endif
 
   /* NOTE:  may be called as root in TORQUE home dir or as user in user homedir */
 
@@ -1643,9 +2056,9 @@ static int del_files(
       {
       /* the job's stdout/stderr */
 
-#ifndef NO_SPOOL_OUTPUT
+#if NO_SPOOL_OUTPUT == 0
       strncpy(path,path_spool,sizeof(path));
-#endif	/* NO_SPOOL_OUTPUT */
+#endif	/* !NO_SPOOL_OUTPUT */
       } 
     else if (AsUser == FALSE) 
       {
@@ -1663,6 +2076,16 @@ static int del_files(
         chdir(HDir);
         }
 
+#ifdef HAVE_WORDEXP
+      if (setuserenv && (pjob = find_job(preq->rq_ind.rq_cpyfile.rq_jobid)) != NULL)
+        {
+        InitUserEnv(pjob,NULL,NULL,NULL,NULL);
+
+        *(vtable.v_envp + vtable.v_used) = NULL;
+
+        environ = vtable.v_envp;
+        }
+#endif
       AsUser = TRUE;
       }
 
@@ -1679,21 +2102,39 @@ static int del_files(
         }
       }
 
+#ifdef HAVE_WORDEXP
+    switch (wordexp(path,&pathexp, WRDE_NOCMD|WRDE_UNDEF))
+      {
+      case 0:
+        break; /* Successful */
+      case WRDE_NOSPACE:
+        wordfree(&pathexp);
+      default:
+        sprintf(log_buffer,">>> failed to delete files, expansion of %s failed",path);
+        add_bad_list(pbadfile,log_buffer,1);
+        return(-1);
+      }
+
+    strcpy(path,pathexp.we_wordv[0]);
+    wordfree(&pathexp);
+#endif
+
     if (stat(path,&sb) == 0) 
       {
       if (S_ISDIR(sb.st_mode)) 
         {
         /* have a directory, must append last segment */
-        /* of source name to it for  the unlink	      */
+        /* of source name to it for the unlink	      */
 
+#if NO_SPOOL_OUTPUT == 1
         /* check for  ~/.pbs_spool */
         /* if it isn't a dir., use $HOME us usual */
-		
+
         strcpy(path_alt,path);
         strcat(path_alt,"/.pbs_spool/");
 
         rcstat = stat(path_alt,&myspooldir);
-			
+
         if ((rcstat == 0) && 
             (S_ISDIR(myspooldir.st_mode)) && 
             ((myspooldir.st_mode & S_IXOTH) == S_IXOTH))
@@ -1701,6 +2142,7 @@ static int del_files(
           strcpy(path,path_alt); 
           }
         else
+#endif /* NO_SPOOL_OUTPUT */
           {
           strcat(path, "/");
           }
@@ -1731,10 +2173,10 @@ static int del_files(
       LOG_EVENT(
         PBSEVENT_JOB, 
         PBS_EVENTCLASS_REQUEST,
-        "del_files", 
+        id, 
         log_buffer);
       }
-			
+
     if (remtree(path) == -1)
       {
       if (errno != ENOENT) 
@@ -1747,7 +2189,7 @@ static int del_files(
         LOG_EVENT(
           PBSEVENT_JOB, 
           PBS_EVENTCLASS_REQUEST,
-          "del_files", 
+          id, 
           log_buffer);
 
         add_bad_list(pbadfile,log_buffer,2);
@@ -1767,7 +2209,7 @@ static int del_files(
       LOG_EVENT(
         PBSEVENT_DEBUG, 
         PBS_EVENTCLASS_FILE,
-        "del_files", 
+        id, 
         log_buffer);
 
 #endif  /* DEBUG */
@@ -1785,6 +2227,8 @@ void req_rerunjob(
   struct batch_request *preq)
 
   {
+  static char   *id = "req_rerunjob";
+
   job		*pjob;
   unsigned int	 port;
   int		 rc;
@@ -1829,27 +2273,40 @@ void req_rerunjob(
 
   if (sock < 0) 
     {
+    /* FAILURE */
+
     LOG_EVENT(
       PBSEVENT_ERROR,
       PBS_EVENTCLASS_REQUEST,
-      "req_rerun", 
+      id, 
       "no contact with the server");
 
-    req_reject(PBSE_NOSERVER, 0, preq,NULL,NULL);
+    req_reject(PBSE_NOSERVER,0,preq,NULL,NULL);
 
     exit(0);
     }
 
   if (((rc = return_file(pjob,StdOut,sock)) != 0) ||
-      ((rc = return_file(pjob, StdErr, sock)) != 0) ||
-      ((rc = return_file(pjob, Chkpt, sock)) != 0)) 
+      ((rc = return_file(pjob,StdErr,sock)) != 0) ||
+      ((rc = return_file(pjob,Chkpt,sock)) != 0)) 
     {
-    req_reject(rc, 0, preq,NULL,NULL);
+    /* FAILURE - cannot report file to server */
+
+    LOG_EVENT(
+      PBSEVENT_ERROR,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      "cannot move output files to server");
+
+    req_reject(rc,0,preq,NULL,NULL);
     }
   else
     {
+    /* SUCCESS */
+
     reply_ack(preq);
-    (void)close(sock);
+
+    close(sock);
 
     exit(0);
     }
@@ -1871,60 +2328,55 @@ void req_rerunjob(
 static int sys_copy(
 
   int   rmtflg,  /* I */
-  char *ag2,
-  char *ag3,
-  int   conn)
+  char *ag2,     /* I */
+  char *ag3,     /* I */
+  int   conn)    /* I */
 
   {
   char *ag0;
   char *ag1;
   int i;
-  static char *myid = "sys_copy";
+  static char *id = "sys_copy";
   int loop;
   int rc;
-
-  static int failcount = 0;
 
   sprintf(rcperr,"%srcperr.%ld", 
     path_spool, 
     (long)getpid());
 
-  for (loop = 1;loop < 5;++loop) 
+  if (rmtflg == 0) 
+    {	
+    /* local copy */
+
+    ag0 = "/bin/cp";
+    ag1 = "-r";
+    } 
+  else
     {
-    if (rmtflg == 0) 
-      {	/* local copy */
-      ag0 = "/bin/cp";
-      ag1 = "-r";
+    /* use '-p' to preserve permissions */
 
 #ifdef SCP_PATH
-      } 
-    else if (((loop % 2) == 1) && (strcmp(SCP_PATH,"") != 0))
-      {	/* remote, try scp */
-      ag0 = SCP_PATH;
-      ag1 = "-Br";
+    ag0 = SCP_PATH;
+    ag1 = "-Brp";
+#else /* SCP_PATH */
+    ag0 = RCP_PATH;
+    ag1 = "-rp";
 #endif	/* SCP_PATH */
-      } 
-    else 
-      {
-      ag0 = RCP_PATH;
-      ag1 = "-r";
-      }
+    } 
 
-    if (LOGLEVEL >= 3)
-      {
-      sprintf(log_buffer,"executing copy command: %s %s %s %s\n",
-        ag0,
-        ag1,
-        ag2,
-        ag3);
- 
-      LOG_EVENT(
-        PBSEVENT_DEBUG,
-        PBS_EVENTCLASS_FILE,
-        myid,
-        log_buffer);
-      }
+  if (LOGLEVEL >= 6)
+    {
+    sprintf(log_buffer,"executing copy command: %s %s %s %s",
+      ag0,
+      ag1,
+      ag2,
+      ag3);
 
+    log_err(-1,id,log_buffer);
+    }
+
+  for (loop = 1;loop < 4;++loop) 
+    {
     if ((rc = fork()) > 0) 
       {
       /* Parent - wait for copy to complete */
@@ -1972,11 +2424,7 @@ static int sys_copy(
         sprintf(log_buffer,"can't open %s, error = %d",
           rcperr,errno);
 
-        LOG_EVENT(
-          PBSEVENT_DEBUG, 
-          PBS_EVENTCLASS_FILE,
-          myid, 
-          log_buffer);
+        log_err(errno,id,log_buffer);
 
         exit(12);
         };
@@ -1990,88 +2438,45 @@ static int sys_copy(
 
       execl(ag0,ag0,ag1,ag2,ag3,NULL);
 
-      /* not reached on success */
+      /* reached only if execl() fails */
 
-      sprintf(log_buffer,"command: %s %s %s %s exec failed %d",
+      sprintf(log_buffer,"exec of command '%s %s %s %s' failed, errno=%d",
         ag0, 
         ag1, 
         ag2, 
         ag3, 
         errno);
 
-      LOG_EVENT(
-        PBSEVENT_DEBUG, 
-        PBS_EVENTCLASS_FILE,
-        myid,
-        log_buffer);
+      log_err(errno,id,log_buffer);
 
       exit(13);	/* 13, an unlucky number */
       }
 
     /* copy did not work, try again */
 
-    {
-    char tmpLine[1024];
-
-    switch(rc)
-      {
-      case 1:
-
-        sprintf(tmpLine,"copy request failed");
-       
-        failcount++;
-
-        break;
-
-      case 0:
-
-        sprintf(tmpLine,"copy request succeeded");
-
-        failcount = 0;
-
-        break;
-
-      default:
-
-        sprintf(tmpLine,"unknown copy failure");
-
-        break;
-      }  /* END switch(rc) */
-
-    sprintf(log_buffer,"command: %s %s %s %s status=%d (%s), try=%d",
-      ag0, 
-      ag1, 
-      ag2, 
-      ag3, 
-      rc, 
-      tmpLine,
-      loop);
-    }  /* END BLOCK */
-
-    LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_FILE,myid,log_buffer);
-
-    if ((loop % 2) == 0)	/* don't sleep between scp and rcp */
+    if ((loop % 2) == 0)
       sleep(loop/2 * 3 + 1);
-
-    if (failcount >= 3)
-      {
-      /* data staging service may be disabled at destination? */
-
-      if (errno == ENFILE)
-        {
-        snprintf(PBSNodeMsgBuf,sizeof(PBSNodeMsgBuf),
-          "ERROR:  NOSTAGE - data staging services disabled");
-        }
-      }
     }  /* END for (loop) */
 
-  return(rc);	/* tried a bunch of times, just give up */
+  /* tried a bunch of times, just give up */
+
+  sprintf(log_buffer,"command '%s %s %s %s' failed with status=%d, giving up after %d attempts",
+    ag0, 
+    ag1, 
+    ag2, 
+    ag3, 
+    rc, 
+    loop);
+
+  log_err(-1,id,log_buffer);
+
+  return(rc);
   }  /* END sys_copy() */
-	
 
 
 
-		
+
+
 /*
  * req_cpyfile - process the Copy Files request from the server to dispose
  *	of output from the job.  This is done by a child of MOM since it
@@ -2110,6 +2515,8 @@ void req_cpyfile(
   struct batch_request *preq)  /* I */
 
   {
+  char		 id[] = "req_cpyfile";
+
   char		 arg2[MAXPATHLEN + 1];
   char		 arg3[MAXPATHLEN + 1];
   int		 bad_files = 0;
@@ -2118,35 +2525,69 @@ void req_cpyfile(
   int		 from_spool;
   int		 len;
   char		 localname[MAXPATHLEN + 1];  /* used only for in-bound */
-  char		 localname_alt[MAXPATHLEN + 1];
   struct rqfpair  *pair;
   char		*prmt;
   int		 rc;
   int		 rmtflag;
-  struct passwd	 *pw, mypw;
-  struct stat	 myspooldir;
-  int		 rcstat;
   char		 undelname[MAXPATHLEN + 1];
-  struct stat      sb; /* see if local file is a regular file */
 #ifdef  _CRAY
   char		 tmpdirname[MAXPATHLEN + 1];
 #endif 	/* _CRAY */
+#if NO_SPOOL_OUTPUT == 1
+  char		 localname_alt[MAXPATHLEN + 1];
+  struct stat	 myspooldir;
+  int		 rcstat;
+  char           homespool[MAXPATHLEN + 1];
+  int            havehomespool = 0;
+#endif
 
   char           EMsg[1024];
   char           HDir[1024];
+
+#ifdef HAVE_WORDEXP
+  int		 madefaketmpdir=0;
+  int		 usedfaketmpdir=0;
+  wordexp_t	 arg2exp, arg3exp;
+  int            arg2index = -1;
+  char		 faketmpdir[1024];
+  job 		*pjob;
+#endif
+
+  if (LOGLEVEL >= 3)
+    {
+    LOG_EVENT(
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      preq->rq_ind.rq_cpyfile.rq_jobid,
+      log_buffer);
+    }
 
   rc = (int)fork_to_user(preq,TRUE,HDir,EMsg);
 
   if (rc < 0) 
     {
+    char tmpLine[1024];
+    
     /* FAILURE */
 
     req_reject(-rc,0,preq,mom_host,EMsg);
 
-    if (rc != -PBSE_SYSTEM)
+    if ((rc != -PBSE_SYSTEM) && (rc != -PBSE_BADUSER))
       {
+      sprintf(tmpLine,"fork_to_user failed with rc=%d '%s' - exiting",
+        rc,
+        EMsg);
+
+      log_err(errno,id,tmpLine);
+
       exit(rc);
       }
+
+    sprintf(tmpLine,"fork_to_user failed with rc=%d '%s' - returning failure",
+      rc,
+      EMsg);
+
+    log_err(errno,id,tmpLine);
 
     return;
     }
@@ -2164,18 +2605,75 @@ void req_cpyfile(
 
   /* now running as user in the user's home directory */
 
+#if NO_SPOOL_OUTPUT == 1
+  strcpy(homespool,HDir); 
+  strcat(homespool,"/.pbs_spool/");
+
+  rcstat = stat(homespool,&myspooldir);
+  if ((rcstat == 0) && S_ISDIR(myspooldir.st_mode))
+    {
+    havehomespool = 1;
+    }
+  else
+    {
+    havehomespool = 0;
+    }
+#endif /* END NO_SPOOL_OUTPUT == 1 */
+
+#ifdef HAVE_WORDEXP
+  faketmpdir[0] = '\0';
+
+  if ((pjob = find_job(preq->rq_ind.rq_cpyfile.rq_jobid)) == NULL)
+    {
+    /* This a stagein which happens before the job struct to sent to MOM
+     * This limits the available variables we can use.  fork_to_user()
+     * has already set PBS_JOBID and HOME for us.  Now just fake a TMPDIR
+     * if we need it. */
+
+    pjob=job_alloc();
+    strcpy(pjob->ji_qs.ji_jobid,preq->rq_ind.rq_cpyfile.rq_jobid);
+
+    if (TTmpDirName(pjob,faketmpdir))
+      {
+      if (!mkdirtree(faketmpdir,0755))
+        {
+        char *envstr;
+        envstr=malloc((strlen("TMPDIR=") + strlen(faketmpdir) + 1) * sizeof(char));
+        sprintf(envstr,"TMPDIR=%s",faketmpdir);
+        putenv(envstr);
+
+        madefaketmpdir = 1;
+        }
+      }
+    }
+  else
+    {
+    InitUserEnv(pjob,NULL,NULL,NULL,NULL);
+
+    *(vtable.v_envp + vtable.v_used) = NULL;
+
+    environ = vtable.v_envp;
+    }
+#endif  /* END HAVE_WORDEXP */
+
   /* build up cp/rcp command(s), one per file pair */
 
   dir = preq->rq_ind.rq_cpyfile.rq_dir;
 
-  for (
-     pair = (struct rqfpair *)GET_NEXT(preq->rq_ind.rq_cpyfile.rq_pair);
-     pair != NULL;
-     pair = (struct rqfpair *)GET_NEXT(pair->fp_link)) 
+  for (pair = (struct rqfpair *)GET_NEXT(preq->rq_ind.rq_cpyfile.rq_pair);
+       pair != NULL;
+       pair = (struct rqfpair *)GET_NEXT(pair->fp_link)) 
     {
+    if ((pair->fp_rmt != NULL) && (strstr(pair->fp_rmt,":/dev/null")))
+      {
+      /* ignore copies to/from /dev/null */
+
+      continue;
+      }
+
     from_spool = 0;
     prmt       = pair->fp_rmt;
-			
+
     if (local_or_remote(&prmt) == 0) 
       {
       /* destination host is this host, use cp */
@@ -2198,63 +2696,49 @@ void req_cpyfile(
        * build "from" path name, local to this system
        */
 
-      localname[0] = '\0';
-
       if (pair->fp_flag == STDJOBFILE) 
         {
-#ifndef NO_SPOOL_OUTPUT
+#if NO_SPOOL_OUTPUT == 0
 
-        /* stdout | stderr from MOM's spool area */
+        /* stdout | stderr from MOM's spool area (ie, /usr/spool/PBS/spool ) */
 
-        strncpy(localname,path_spool,sizeof(localname));
+        strcpy(localname,path_spool);
+        strcat(localname,pair->fp_local);  /* from location */
 
         from_spool = 1;	/* flag as being in spool dir */
+#else
+        strcpy(localname,pair->fp_local);  /* from location */
 
-        /*
-         * note, if NO_SPOOL_OUTPUT is defined, the
-         * output is in the user's home directory where
-         * we currently are.
-         */
+        if (havehomespool)
+          {
+          /* only use ~/.pbs_spool if the file actually exists */
 
+          strcpy(localname_alt,homespool);
+          strcat(localname_alt,pair->fp_local);
+
+          rcstat = stat(localname_alt,&myspooldir);
+          if ((rcstat == 0) && S_ISREG(myspooldir.st_mode))
+            {
+            strcpy(localname,localname_alt);
+            }
+          }
+       
 #endif	/* NO_SPOOL_OUTPUT */
         }
 #if MOM_CHECKPOINT == 1
       else if (pair->fp_flag == JOBCKPFILE) 
         {
-        strncpy(localname,path_checkpoint,sizeof(localname));
+        strcpy(localname,path_checkpoint);
+        strcat(localname,pair->fp_local);  /* from location */
         }
 #endif	/* MOM_CHECKPOINT */
-
-      /* check for $HOME/.pbs_spool */
-      /* if it isn't a directory, just use $HOME us usual */
-			
-      pw = &mypw;
-      pw = getpwuid(useruid); 	
-
-      strcpy(localname_alt,pw->pw_dir); 
-
-      rcstat = stat(localname_alt,&myspooldir);
-
-      /* also need o+x perms. to write through as root via */
-      /* an nfs mount --assuming root is squashed */
-
-      if ((rcstat == 0) && 
-          (S_ISDIR(myspooldir.st_mode)) &&  
-          ((myspooldir.st_mode & S_IXOTH) == S_IXOTH))
+      else
         {
-        strcat(localname_alt,"/.pbs_spool/");
+        /* user-supplied stage-out file */
 
-        rcstat= stat(localname_alt,&myspooldir);
-
-        if ((rcstat == 0) && 
-            (S_ISDIR(myspooldir.st_mode)) && 
-            ((myspooldir.st_mode & S_IXOTH) == S_IXOTH))
-          {
-          strcpy(localname,localname_alt);
-          }
+        strncpy(localname,pair->fp_local,sizeof(localname)-1);  /* from location */
         }
 
-      strcat(localname,pair->fp_local);
 
 #if SRFS
 
@@ -2278,24 +2762,6 @@ void req_cpyfile(
         }
 
 #endif /* SRFS */
-
-      /* Is the file there?  If not, don`t trying copy */
-
-      if (access(localname,F_OK|R_OK) < 0)
-        {
-        if (errno == ENOENT) 
-          {
-          continue;
-          }
-        }
-
-      /* Is this a regular file?  We wouldn't want to scp /dev/null! */
-
-      if (stat(localname,&sb) < 0)
-        continue;
-
-      if (!S_ISREG(sb.st_mode))
-        continue;
 
       strcpy(arg2,localname);
 
@@ -2326,13 +2792,132 @@ void req_cpyfile(
         /* using rcp, need to prepend the owner name */
 
         strcat(arg2,preq->rq_ind.rq_cpyfile.rq_owner);
-        strcat(arg2, "@");
+        strcat(arg2,"@");
         }
 
       strcat(arg2,prmt);
 
       strcpy(arg3,pair->fp_local);
       }
+
+#ifdef HAVE_WORDEXP
+
+    /* Expand and verify arg2 (source path) */
+
+    switch (wordexp(arg2,&arg2exp,WRDE_NOCMD|WRDE_UNDEF))
+      {
+      case 0:
+
+        /* NO-OP */
+
+        break; /* Successful */
+
+      case WRDE_NOSPACE:
+
+        wordfree(&arg2exp);
+
+        /* fall through */
+
+      default:
+
+        sprintf(log_buffer,"Failed to expand source path in data staging: %s",
+          arg2);
+
+        add_bad_list(&bad_list,log_buffer,2);
+
+        bad_files = 1;
+
+        goto error;
+
+        /*NOTREACHED*/
+
+        break;
+      }  /* END switch () */
+
+    /* Expand and verify arg3 (destination path) */
+
+    switch (wordexp(arg3,&arg3exp,WRDE_NOCMD|WRDE_UNDEF))
+      {
+      case 0:
+
+        break; /* Successful */
+
+      case WRDE_NOSPACE:
+
+        wordfree(&arg3exp);
+
+        /* fall through */
+
+      default:
+
+        sprintf(log_buffer,"Failed to expand destination path in data staging: %s",
+          arg3);
+
+        add_bad_list(&bad_list,log_buffer,2);
+
+        bad_files = 1;
+
+        goto error;
+
+        break;
+      }  /* END switch () */
+
+    /* Note: more than one word is only allowed for arg3 (destination) */
+
+    if (arg3exp.we_wordc > 1)
+      {
+      sprintf(log_buffer,"Too many words after expanding destination path: %s",
+        arg3);
+
+      add_bad_list(&bad_list,log_buffer,2);
+
+      reply_text(preq,PBSE_NOCOPYFILE,bad_list);
+
+      bad_files = 1;
+
+      goto error;
+      }
+
+    strcpy(arg3,arg3exp.we_wordv[0]);
+
+    wordfree(&arg3exp);
+
+    arg2index = -1;
+
+nextword:
+
+    arg2index++;
+
+    if (arg2index >= (int)arg2exp.we_wordc) 
+      {
+      /* no more words */
+
+      wordfree(&arg2exp);
+
+      continue;
+      }
+
+    strcpy(arg2,arg2exp.we_wordv[arg2index]);
+
+    if (dir == STAGE_DIR_OUT) 
+      {
+      strcpy(localname,arg2);
+      }
+
+    /* if we made a fake TMPDIR, and we are using it, don't delete after stagein */
+
+    if (madefaketmpdir && 
+        (faketmpdir[0] != '\0') && 
+        !strncmp(faketmpdir,arg3,strlen(faketmpdir)))
+      {
+      usedfaketmpdir = 1;
+      }
+    else
+      {
+      usedfaketmpdir = 0;
+      }
+
+#endif /* HAVE_WORDEXP */
 
     if ((rmtflag == 0) && (is_file_same(arg2,arg3) == 1)) 
       {
@@ -2349,24 +2934,19 @@ void req_cpyfile(
 
       bad_files = 1;
 
-      sprintf(log_buffer,"Unable to copy file %s %s %s",
-        pair->fp_local,
-        (dir == STAGE_DIR_IN) ? "from" : "to",
-        pair->fp_rmt);
+      sprintf(log_buffer,"Unable to copy file %s to %s",
+        arg2,
+        arg3);
 
       add_bad_list(&bad_list,log_buffer,2);
 
-      log_record(
-        PBSEVENT_ADMIN, 
-        PBS_EVENTCLASS_FILE,
-        pair->fp_local, 
-        log_buffer);
+      log_err(-1,id,log_buffer);
 
       /* copy message from rcp as well */
 
-      if ((fp = fopen(rcperr, "r")) != NULL) 
+      if ((fp = fopen(rcperr,"r")) != NULL) 
         {
-        add_bad_list(&bad_list, ">>> error from copy", 1);
+        add_bad_list(&bad_list,">>> error from copy",1);
 
         while (fgets(log_buffer,LOG_BUF_SIZE,fp) != NULL) 
           {
@@ -2376,28 +2956,26 @@ void req_cpyfile(
             log_buffer[len] = '\0';
 
           add_bad_list(&bad_list,log_buffer, 1);
-
-          log_record(
-            PBSEVENT_ADMIN, 
-            PBS_EVENTCLASS_FILE,
-            pair->fp_local, 
-            log_buffer);
           }
 
         fclose(fp);
 
         add_bad_list(&bad_list,">>> end error output",1);
         }
-		
+
+#ifdef HAVE_WORDEXP
+error:
+#endif
+
       if (dir == STAGE_DIR_IN) 
         {
         /* delete the stage_in files that were just copied in */
 
         /* NOTE:  running as user in user homedir */
 
-        del_files(preq,NULL,&bad_list);
+        del_files(preq,NULL,1,&bad_list);
 
-#ifndef NO_SPOOL_OUTPUT
+#if NO_SPOOL_OUTPUT == 0
         } 
       else if (from_spool == 1) 
         {	
@@ -2418,13 +2996,13 @@ void req_cpyfile(
           } 
         else 
           {
-          sprintf(arg3,"Unable to rename %s to %s",
+          sprintf(log_buffer,"Unable to rename %s to %s",
             localname, 
             undelname);
 
-          log_err(errno,"req_cpyfile",arg3);
+          log_err(errno,id,log_buffer);
           }
-#endif	/* NO_SPOOL_OUTPUT */
+#endif	/* !NO_SPOOL_OUTPUT */
         }
 
       if (dir == STAGE_DIR_IN) 
@@ -2444,13 +3022,13 @@ void req_cpyfile(
 
         if (remtree(localname) < 0) 
           {
-          sprintf(arg3,msg_err_unlink, 
+          sprintf(log_buffer,msg_err_unlink, 
             "stage out",
             localname);
 
-          log_err(errno,"req_cpyfile",arg3);
+          log_err(errno,id,log_buffer);
 
-          add_bad_list(&bad_list,arg3,2);
+          add_bad_list(&bad_list,log_buffer,2);
 
           bad_files = 1;
           }
@@ -2458,8 +3036,18 @@ void req_cpyfile(
       }
 
     unlink(rcperr);
-    }  /* END for() */
+#ifdef HAVE_WORDEXP
+    goto nextword;  /* ugh, it's hard to use a real loop when your feature is #ifdef's out */
+#endif
+    }  /* END for(pair) */
 
+#ifdef HAVE_WORDEXP
+  if (madefaketmpdir && !usedfaketmpdir)
+    {
+    remtree(faketmpdir);
+    }
+#endif
+   
   if (bad_files) 
     {
     reply_text(preq,PBSE_NOCOPYFILE,bad_list);
@@ -2523,7 +3111,7 @@ void req_delfile(
 
   /* delete the files */
 
-  if ((rc = del_files(preq,HDir,&bad_list)))
+  if ((rc = del_files(preq,HDir,1,&bad_list)))
     {
     /* FAILURE */
 
@@ -2564,12 +3152,13 @@ int mom_checkpoint_job(
   int		ckerr;
   int		i;
   struct stat	statbuf;
-  char		path[MAXPATHLEN+1];
-  char		oldp[MAXPATHLEN+1];
-  char		file[MAXPATHLEN+1], *name;
+  char		path[MAXPATHLEN + 1];
+  char		oldp[MAXPATHLEN + 1];
+  char		file[MAXPATHLEN + 1]; 
+  char         *name;
   int		filelen;
-  task		*ptask;
-  extern	char	task_fmt[];
+  task         *ptask;
+  extern char   task_fmt[];
 
   assert(pjob != NULL);
 
@@ -2608,85 +3197,120 @@ int mom_checkpoint_job(
    * when restarted.
    */
 
-	if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) && abort) {
-		for (ptask = (task *)GET_NEXT(pjob->ji_tasks);
-				ptask != NULL;
-				ptask = (task *)GET_NEXT(ptask->ti_jobtask)) {
-			sesid = ptask->ti_qs.ti_sid;
-			if (ptask->ti_qs.ti_status != TI_STATE_RUNNING)
-				continue;
+  if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) && abort) 
+    {
+    for (ptask = (task *)GET_NEXT(pjob->ji_tasks); 
+         ptask != NULL; 
+         ptask = (task *)GET_NEXT(ptask->ti_jobtask)) 
+      {
+      sesid = ptask->ti_qs.ti_sid;
 
-			/*
-			** What to do if some resume's work and others don't?
-			*/
-			if ((ckerr = resume(C_JOB, sesid)) == 0) {
-				post_resume(pjob, ckerr);
-	    		} else {
-				sprintf(log_buffer,
-					"chkpnt failed: errno=%d sid=%d",
-					errno, sesid);
-				LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
-					pjob->ji_qs.ji_jobid, log_buffer);
-				return (errno);
-			}
-		}
-	}
+      if (ptask->ti_qs.ti_status != TI_STATE_RUNNING)
+        continue;
+
+      /* What to do if some resume work and others don't? */
+
+      if ((ckerr = resume(C_JOB,sesid)) == 0) 
+        {
+        post_resume(pjob, ckerr);
+        } 
+      else 
+        {
+        sprintf(log_buffer,"chkpnt failed: errno=%d sid=%d",
+          errno, 
+          sesid);
+
+        LOG_EVENT(
+          PBSEVENT_JOB, 
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid, 
+          log_buffer);
+
+        return(errno);
+        }
+      }
+    }
 #endif	/* _CRAY */
 
-	for (ptask = (task *)GET_NEXT(pjob->ji_tasks);
-			ptask != NULL;
-			ptask = (task *)GET_NEXT(ptask->ti_jobtask)) {
+  for (ptask = (task *)GET_NEXT(pjob->ji_tasks);
+       ptask != NULL;
+       ptask = (task *)GET_NEXT(ptask->ti_jobtask)) 
+    {
+    sesid = ptask->ti_qs.ti_sid;
 
-		sesid = ptask->ti_qs.ti_sid;
-		if (ptask->ti_qs.ti_status != TI_STATE_RUNNING)
-			continue;
-		sprintf(name, task_fmt, ptask->ti_qs.ti_task);
-		if (mach_checkpoint(ptask, file, abort) == -1)
-			goto fail;
-	}
+    if (ptask->ti_qs.ti_status != TI_STATE_RUNNING)
+      continue;
 
-	/* Checkpoint successful */
+    sprintf(name,task_fmt, 
+      ptask->ti_qs.ti_task);
 
-	(void)job_save(pjob, SAVEJOB_FULL);  /* to save resources_used so far */
-	sprintf(log_buffer, "checkpointed to %s", path);
-	log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
-		   pjob->ji_qs.ji_jobid, log_buffer);
-	if (hasold) 
-		(void)remtree(oldp);
+    if (mach_checkpoint(ptask,file,abort) == -1)
+      goto fail;
+    }
 
-       	return (PBSE_NONE);
+  /* Checkpoint successful */
 
- fail:
-	/*
-	** A checkpoint has failed.  Log and return error.
-	*/
-	ckerr = errno;
-	sprintf(log_buffer,"chkpnt failed:errno=%d sid=%d", errno, sesid);
-	LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,pjob->ji_qs.ji_jobid,
-		  log_buffer);
+  job_save(pjob,SAVEJOB_FULL);  /* to save resources_used so far */
 
-	/*
-	** See if any checkpoints worked and abort is set.
-	** If so, we need to restart these tasks so the whole job is
-	** still running.  This has to wait until we reap the
-	** aborted task(s).
-	*/
-	if (abort)
-		return PBSE_CKPSHORT;
+  sprintf(log_buffer,"checkpointed to %s", 
+    path);
 
-	/*
-	** Clean up files.
-	*/
-	(void)remtree(path);
-	if (hasold) {
-		if (rename(oldp, path) == -1)
-			pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_CHKPT;
-	}
-	if (ckerr == EAGAIN)
-		return (PBSE_CKPBSY);
-	else
-		return(ckerr);
-}
+  log_record(
+    PBSEVENT_JOB, 
+    PBS_EVENTCLASS_JOB,
+    pjob->ji_qs.ji_jobid, 
+    log_buffer);
+
+  if (hasold) 
+    remtree(oldp);
+
+  return(PBSE_NONE);
+
+fail:
+
+  /* A checkpoint has failed.  Log and return error. */
+
+  ckerr = errno;
+
+  sprintf(log_buffer,"chkpnt failed:errno=%d sid=%d", 
+    errno, 
+    sesid);
+
+  LOG_EVENT(
+    PBSEVENT_JOB, 
+    PBS_EVENTCLASS_JOB,
+    pjob->ji_qs.ji_jobid,
+    log_buffer);
+
+  /*
+  ** See if any checkpoints worked and abort is set.
+  ** If so, we need to restart these tasks so the whole job is
+  ** still running.  This has to wait until we reap the
+  ** aborted task(s).
+  */
+
+  if (abort)
+    {
+    return(PBSE_CKPSHORT);
+    }
+
+  /* Clean up files */
+
+  remtree(path);
+
+  if (hasold) 
+    {
+    if (rename(oldp,path) == -1)
+      pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_CHKPT;
+    }
+
+  if (ckerr == EAGAIN)
+    {
+    return(PBSE_CKPBSY);
+    }
+
+  return(ckerr);
+  }
 
 
 
@@ -2699,63 +3323,87 @@ int mom_checkpoint_job(
  *	This sets the "has checkpoint image" bit in the job.
  */
 
-void post_chkpt(pjob, ev)
-	job *pjob;
-	int  ev;
-{
-	char		path[MAXPATHLEN+1];
-	DIR		*dir;
-	struct	dirent	*pdir;
-	extern	char	*path_checkpoint;
-	tm_task_id	tid;
-	task		*ptask;
-	int		abort = pjob->ji_flags & MOM_CHKPT_ACTIVE;
+void post_chkpt(
 
-	exiting_tasks = 1;	/* make sure we call scan_for_exiting() */
-	pjob->ji_flags &= ~MOM_CHKPT_ACTIVE;
-	if (ev == 0) {
-		pjob->ji_qs.ji_svrflags |= JOB_SVFLG_CHKPT;
-		return;
-	}
+  job *pjob,
+  int  ev)
 
-	/*
-	** If we get here, an error happened.  Only try to recover
-	** if we had abort set.
-	*/
-	if (abort == 0)
-		return;
-	/*
-	** Set a flag for scan_for_exiting() to be able to
-	** deal with a failed checkpoint rather than doing
-	** the usual processing.
-	*/
-	pjob->ji_flags |= MOM_CHKPT_POST;
+  {
+  char           path[MAXPATHLEN + 1];
+  DIR		*dir;
+  struct dirent	*pdir;
+  extern char	*path_checkpoint;
+  tm_task_id	tid;
+  task		*ptask;
+  int		abort = pjob->ji_flags & MOM_CHKPT_ACTIVE;
 
-	/*
-	** Set the TI_FLAGS_CHKPT flag for each task that
-	** was checkpointed and aborted.
-	*/
-	strcpy(path, path_checkpoint);
-	strcat(path, pjob->ji_qs.ji_fileprefix);
-	strcat(path, JOB_CKPT_SUFFIX);
+  exiting_tasks = 1;	/* make sure we call scan_for_exiting() */
 
-	dir = opendir(path);
-	if (dir == NULL)
-		return;
-	while ((pdir = readdir(dir)) != NULL) {
-		if (pdir->d_name[0] == '.')
-			continue;
-		tid = atoi(pdir->d_name);
-		if (tid == 0)
-			continue;
-		ptask = task_find(pjob, tid);
-		if (ptask == NULL)
-			continue;
-		ptask->ti_flags |= TI_FLAGS_CHKPT;
-	}
-	closedir(dir);
-	return;
-}
+  pjob->ji_flags &= ~MOM_CHKPT_ACTIVE;
+
+  if (ev == 0) 
+    {
+    pjob->ji_qs.ji_svrflags |= JOB_SVFLG_CHKPT;
+
+    return;
+    }
+
+  /*
+  ** If we get here, an error happened.  Only try to recover
+  ** if we had abort set.
+  */
+
+  if (abort == 0)
+    {
+    return;
+    }
+
+  /*
+  ** Set a flag for scan_for_exiting() to be able to
+  ** deal with a failed checkpoint rather than doing
+  ** the usual processing.
+  */
+
+  pjob->ji_flags |= MOM_CHKPT_POST;
+
+  /*
+  ** Set the TI_FLAGS_CHKPT flag for each task that
+  ** was checkpointed and aborted.
+  */
+
+  strcpy(path,path_checkpoint);
+  strcat(path,pjob->ji_qs.ji_fileprefix);
+  strcat(path,JOB_CKPT_SUFFIX);
+
+  dir = opendir(path);
+
+  if (dir == NULL)
+    {
+    return;
+    }
+
+  while ((pdir = readdir(dir)) != NULL) 
+    {
+    if (pdir->d_name[0] == '.')
+      continue;
+
+    tid = atoi(pdir->d_name);
+
+    if (tid == 0)
+      continue;
+
+    ptask = task_find(pjob,tid);
+
+    if (ptask == NULL)
+      continue;
+
+    ptask->ti_flags |= TI_FLAGS_CHKPT;
+    }
+
+  closedir(dir);
+
+  return;
+  }
 
 
 
@@ -2775,6 +3423,7 @@ int start_checkpoint(
   struct batch_request *preq)	/* may be null */
 
   {
+  static char id[] = "start_checkpoint";
   svrattrl *pal;
   pid_t     pid;
   int       rc;
@@ -2797,49 +3446,68 @@ int start_checkpoint(
     {
     /* parent, record pid in job for when child terminates */
 
-		pjob->ji_momsubt = pid;
-		pjob->ji_mompost = post_chkpt;
-		if (preq)
-			free_br(preq);
-		/*
-		** If we are going to have tasks dieing, set a flag.
-		*/
-		if (abort)
-			pjob->ji_flags |= MOM_CHKPT_ACTIVE;
+    pjob->ji_momsubt = pid;
+    pjob->ji_mompost = post_chkpt;
 
-	} else if (pid < 0) {
-		return (PBSE_SYSTEM);		/* error on fork */
-	} else {
-		/* child - does the checkpoint */
-		int	  hok = 1;
+    if (preq)
+      free_br(preq);
 
-		clear_attr(&tmph, &job_attr_def[(int)JOB_ATR_hold]);
-		if (preq) {
-			pal = (svrattrl *)
-				GET_NEXT(preq->rq_ind.rq_hold.rq_orig.rq_attr);
-			if (pal) {
-				hok = job_attr_def[(int)JOB_ATR_hold].at_decode(
-							&tmph,
-							pal->al_name,
-							(char *)0,
-							pal->al_value);
-			}
-		}
-		rc = mom_checkpoint_job(pjob, abort);
-		if (preq != (struct batch_request *)0) {
-			/*
-			** rc may be 0, req_reject is used
-			** to pass auxcode
-			*/
-			req_reject(rc, PBS_CHKPT_MIGRATE, preq,NULL,NULL);
-		}
-		if ( (rc == 0) && (hok == 0) )
-			rc = site_mom_postchk(pjob, (int)tmph.at_val.at_long);
+    /* If we are going to have tasks dieing, set a flag. */
 
-		exit(rc);	/* zero exit tells main chkpnt ok */
+    if (abort)
+      pjob->ji_flags |= MOM_CHKPT_ACTIVE;
+    } 
+  else if (pid < 0) 
+    {
+    char tmpLine[1024];
+
+    /* error on fork */
+
+    sprintf(tmpLine,"cannot fork child process for checkpoint, errno=%d",
+      errno);
+
+    log_err(-1,id,tmpLine);
+
+    return(PBSE_SYSTEM);	
+    } 
+  else 
+    {
+    /* child - does the checkpoint */
+
+    int hok = 1;
+
+    clear_attr(&tmph,&job_attr_def[(int)JOB_ATR_hold]);
+
+    if (preq != NULL) 
+      {
+      pal = (svrattrl *)GET_NEXT(preq->rq_ind.rq_hold.rq_orig.rq_attr);
+
+      if (pal != NULL) 
+        {
+        hok = job_attr_def[(int)JOB_ATR_hold].at_decode(
+          &tmph,
+          pal->al_name,
+          NULL,
+          pal->al_value);
+        }
+      }
+
+    rc = mom_checkpoint_job(pjob,abort);
+
+    if (preq != NULL) 
+      {
+      /* rc may be 0, req_reject is used to pass auxcode */
+
+      req_reject(rc,PBS_CHKPT_MIGRATE,preq,NULL,NULL);
+      }
+
+    if ((rc == 0) && (hok == 0))
+      rc = site_mom_postchk(pjob,(int)tmph.at_val.at_long);
+
+    exit(rc);	/* zero exit tells main chkpnt ok */
     }
 
-  return (0);		/* parent return */
+  return(0);		/* parent return */
   }  /* END start_checkpoint() */
 
 #endif	/* MOM_CHECKPOINT */

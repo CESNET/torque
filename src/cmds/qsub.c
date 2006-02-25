@@ -124,9 +124,12 @@
 
 
 #include "cmds.h"
+#include "net_connect.h"
 #include "pbs_version.h"
 
 static char *DefaultFilterPath = "/usr/local/sbin/torque_submitfilter";
+
+#define SUBMIT_FILTER_ADMIN_REJECT_CODE -1 
 
 #define MAX_QSUB_PREFIX_LEN 32
 
@@ -137,12 +140,15 @@ char PBS_InitDir[256];
 char PBS_RootDir[256];
 
 
+int do_dir(char *);
+int process_opts(int,char **,int);
+
 
 
 char *set_dir_prefix(
 
   char *prefix,
-  int diropt)
+  int   diropt)
 
   {
   char *s;
@@ -222,6 +228,58 @@ char *ispbsdir(
 
 
 
+#define MMAX_VERIFY_BYTES 50
+
+int istext(
+
+  FILE   *fd,      /* I */
+  int    *IsText)  /* O (optional) */
+
+  {
+  int i;
+  int c;
+
+  if (IsText != NULL)
+    *IsText = FALSE;
+
+  if (fd == NULL)
+    {
+    return(0);
+    }
+
+  if (fd == stdin)
+    {
+    return(1);
+    }
+
+  /* read first characters to ensure this is ASCII text */
+
+  for(i = 0; i < MMAX_VERIFY_BYTES; i++)
+    {
+    c = fgetc(fd);
+
+    if (c == EOF)
+      break;
+
+    if (!isprint(c) && !isspace(c))
+      {
+      fseek(fd,0,SEEK_SET);
+
+      return(0);
+      }
+    }  /* END for(i) */
+
+  if (IsText != NULL)
+    *IsText = TRUE;
+
+  fseek(fd,0,SEEK_SET);
+
+  return(1);
+  }  /* END FileIsText() */
+
+
+
+
 
 int get_script(
 
@@ -245,27 +303,45 @@ int get_script(
 
   /* START WRAPPER */
 
-  char cfilter[MAXPATHLEN + L_tmpnam + L_tmpnam + 1024];
+  char cfilter[MAXPATHLEN + 1024];
 
-  char tmp_name2[L_tmpnam + 1];
-  char tmp_name3[L_tmpnam + 1];
+  char tmp_name2[]="/tmp/qsub.XXXXXX";
+  char tmp_name3[]="/tmp/qsub.XXXXXX";
 
   struct stat sfilter;
-  FILE *filesaved;
+  FILE       *filesaved;
+
+  int         rc;
 
   /*  If the submitfilter exists, run it.                               */
+
+  /* check that the file is text */
+
+  if (istext(file,NULL) == 0)
+    {
+    fprintf(stderr,
+      "qsub:  file must be an ascii script\n");
+
+    return(4);
+    }
 
   if (stat(PBS_Filter,&sfilter) != -1) 
     {
     /* Create a copy of the script to run through the submit filter. */
 
-    tmpnam(tmp_name2);
-
-    if ((TMP_FILE = fopen(tmp_name2,"w+")) == NULL) 
+    if ((tmpfd = mkstemp(tmp_name2)) < 0) 
       {
       fprintf(stderr,
         "qsub: could not create filter i/p %s\n",
         tmp_name2);
+
+      return(4);
+      }
+
+    if ((TMP_FILE = fdopen(tmpfd,"w+")) == NULL) 
+      {
+      fprintf(stderr, "qsub: could not create filter i/p %s\n", 
+        tmp_name);
 
       return(4);
       }
@@ -288,7 +364,16 @@ int get_script(
 
     /* run the copy through the submit filter. */
 
-    tmpnam(tmp_name3);
+    if ((tmpfd = mkstemp(tmp_name3)) < 0) 
+      {
+      fprintf(stderr,
+        "qsub: could not create filter o/p %s\n",
+        tmp_name3);
+
+      return(4);
+      }
+
+    close(tmpfd);
 
     strcpy(cfilter,PBS_Filter);
 
@@ -307,10 +392,33 @@ int get_script(
     strcat(cfilter," >");
     strcat(cfilter,tmp_name3);
 
-    if (system(cfilter) == -1) 
+    rc = system(cfilter);
+
+    if (rc == -1)
       {
-      fprintf( stderr, "qsub: error writing filter o/p, %s\n",
+      fprintf( stderr, "qsub: failed to execute submit filter, %s\n",
         tmp_name3);
+
+      unlink(tmp_name2);
+      unlink(tmp_name3);
+
+      return(3);
+      }
+
+    if (WEXITSTATUS(rc) == (unsigned char)SUBMIT_FILTER_ADMIN_REJECT_CODE)
+      {
+      fprintf(stderr,"qsub: Your job has been administratively rejected by the queueing system.\n");
+      fprintf(stderr,"qsub: There may be a more detailed explanation prior to this notice.\n");
+
+      unlink(tmp_name2);
+      unlink(tmp_name3);
+
+      return(3);
+      }
+
+    if (WEXITSTATUS(rc))
+      {
+      fprintf(stderr,"qsub: submit filter returned an error code, aborting job submission.\n");
 
       unlink(tmp_name2);
       unlink(tmp_name3);
@@ -370,25 +478,25 @@ int get_script(
 
   while ((in = fgets(s,MAX_LINE_LEN,file)) != NULL) 
     {
+    int len;
+
+    /* replace DOS EOL ('^M') characters */
+
+    len = strlen(in);
+
+    if ((len >= 2) && (in[len - 2] == '\r') && (in[len - 1] == '\n'))
+      {
+      in[len - 2] = '\n';
+      in[len - 1] = '\0';
+      }
+
     if (!exec && ((sopt = ispbsdir(s,prefix)) != NULL)) 
       {
-      int len;
-
-      /* replace DOS EOL ('^M') characters */
-
-      len = strlen(in);
-
-      if ((len >= 2) && (in[len - 2] == '\r') && (in[len - 1] == '\n'))
-        {
-        in[len - 2] = '\n';
-        in[len - 1] = '\0';
-        }
-
       while ((*(cont = in + strlen(in) - 2) == '\\') && (*(cont + 1) == '\n') ) 
         { 
         /* next line is continuation of this line */
 
-        *cont = '\0';	/* clear newline from our copy */
+        *cont = '\0';  /* clear newline from our copy */
 
         if (fputs(in,TMP_FILE) < 0) 
           {
@@ -594,10 +702,11 @@ struct winsize wsz;
 
 struct attrl *attrib = NULL;
 char *new_jobname;                  /* return from submit request */
-char dir_prefix[MAX_QSUB_PREFIX_LEN+1];
-char path_out[MAXPATHLEN+1];
+char dir_prefix[MAX_QSUB_PREFIX_LEN + 1];
+char path_out[MAXPATHLEN + 1];
 char destination[PBS_MAXDEST];
-static char server_out[PBS_MAXSERVERNAME+PBS_MAXPORTNUM+2];
+static char server_out[PBS_MAXSERVERNAME + PBS_MAXPORTNUM + 2];
+char server_host[PBS_MAXHOSTNAME + 1];
 
 /* state booleans for protecting already-set options */
 int a_opt = FALSE;
@@ -631,8 +740,8 @@ char *v_value = NULL;
 
 char *copy_env_value(
 
-  char *dest,	/* destination  */
-  char *pv,	/* value string */
+  char *dest,      /* destination  */
+  char *pv,        /* value string */
   int   quote_flg) /* non-zero then assume single word (quoting on) */
 
   {
@@ -650,7 +759,7 @@ char *copy_env_value(
       case '\'':
 
         if (q_ch) 
-          {	
+          {
           /* local quoting is in progress */
 
           if (q_ch == (int)*pv) 
@@ -676,28 +785,44 @@ char *copy_env_value(
           }
 
         break;
-				
+        
       case '\\':
 
-			*dest++ = '\\';		/* escape back-slash */
-			*dest++ = *pv;
-			break;
+        *dest++ = '\\';		/* escape back-slash */
+        *dest++ = *pv;
 
-		    case ',':
-			if (q_ch || quote_flg) {
-				*dest++ = '\\';
-				*dest++ = *pv;
-			} else {
-				go = 0;		/* end of value string */
-			}
-			break;
+        break;
 
-		    default:
-			*dest++ = *pv;
-			break;
-		}
-		pv++;
-	}
+      case '\n':
+
+        *dest++ = '\\';		/* escape newline */
+        *dest++ = *pv;
+
+        break;
+
+      case ',':
+
+        if (q_ch || quote_flg) 
+          {
+          *dest++ = '\\';
+          *dest++ = *pv;
+          } 
+        else 
+          {
+          go = 0;		/* end of value string */
+          }
+
+        break;
+
+      default:
+
+        *dest++ = *pv;
+
+        break;
+      }
+
+    pv++;
+    }  /* END while (go && *pv) */
 
   *dest = '\0';
 
@@ -718,14 +843,25 @@ int set_job_env(
   char **evp;
   char *job_env;
   char *s, *c, *env, l;
-  char host[PBS_MAXHOSTNAME + 1];
-  int len;
-  int rc;
+  unsigned   len;
+  int   rc;
   char *getcwd();
+
+  int   eindex;
+
+  const char *EList[] = {
+    "HOME",
+    "LANG",
+    "LOGNAME",
+    "MAIL",
+    "PATH",
+    "SHELL",
+    "TZ",
+    NULL };
 
   /* Calculate how big to make the variable string. */
 
-  len = 0;
+  len = PBS_MAXHOSTNAME + MAXPATHLEN;
 
   if (v_opt) 
     {
@@ -738,52 +874,35 @@ int set_job_env(
 
     while (notNULL(*evp)) 
       {
-      len += strlen(*evp);
+	  /* add 1 for ',' */
+      len += strlen(*evp) + 1;
 
       evp++;
       }
     }
 
-  env = getenv("HOME");
+  for (eindex = 0;EList[eindex] != NULL;eindex++)
+    {
+    env = getenv(EList[eindex]);
 
-  if (env != NULL) 
-    len += strlen(env);
+    if (env == NULL)
+      continue;
 
-  env = getenv("LANG");
+    /* prepend 'PBS_O_' to each var and add '2' for ',' and '=' */
 
-  if (env != NULL) 
-    len += strlen(env);
+    len += strlen(env) + strlen(EList[eindex]) + strlen("PBS_O_") + 2;
+    }  /* END for (eindex) */
 
-  env = getenv("LOGNAME");
+  if (PBS_InitDir[0] != '\0') {
+      len += strlen("PBS_O_INITDIR=") + strlen(PBS_InitDir) + 1;
+  }
+  if (PBS_RootDir[0] != '\0') {
+      len += strlen("PBS_O_ROOTDIR=") + strlen(PBS_RootDir) + 1;
+  }
 
-  if (env != NULL) 
-    len += strlen(env);
+  len += strlen("PBS_O_WORKDIR=") + 1;
 
-  env = getenv("PATH");
-
-  if (env != NULL) 
-    len += strlen(env);
-
-  env = getenv("MAIL");
-
-  if (env != NULL) 
-    len += strlen(env);
-
-  env = getenv("SHELL");
-
-  if (env != NULL) 
-    len += strlen(env);
-
-  env = getenv("TZ");
-
-  if (env != NULL) 
-    len += strlen(env);
-
-  len += PBS_MAXHOSTNAME;
-
-  len += MAXPATHLEN;
-
-  len += len;     /* Double it for all the commas, etc. */
+  len++; /* Terminating '0' */
 
   if ((job_env = (char *)malloc(len)) == NULL)
     {
@@ -845,18 +964,19 @@ int set_job_env(
 
   c = getenv("TZ");
 
-  if ( c != NULL ) 
+  if (c != NULL) 
     {
     strcat(job_env,",PBS_O_TZ=");
     strcat(job_env,c);
     }
 
-  if ((rc = gethostname(host,PBS_MAXHOSTNAME + 1)) == 0) 
+  if ((server_host[0] != '\0') || 
+     ((rc = gethostname(server_host,PBS_MAXHOSTNAME + 1)) == 0))
     {
-    if ((rc = get_fullhostname(host,host,PBS_MAXHOSTNAME)) == 0) 
+    if ((rc = get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME)) == 0) 
       {
       strcat(job_env,",PBS_O_HOST=");
-      strcat(job_env,host);
+      strcat(job_env,server_host);
       }
     }
 
@@ -873,8 +993,6 @@ int set_job_env(
     {
     /* load init dir into env */
 
-    s = job_env + strlen(job_env);
-
     strcat(job_env,",PBS_O_INITDIR=");
 
     strcat(job_env,PBS_InitDir);
@@ -883,8 +1001,6 @@ int set_job_env(
   if (PBS_RootDir[0] != '\0')
     {
     /* load init dir into env */
-
-    s = job_env + strlen(job_env);
 
     strcat(job_env,",PBS_O_ROOTDIR=");
 
@@ -942,7 +1058,7 @@ int set_job_env(
     if (getcwd(c,MAXPATHLEN + 1) == NULL) 
       *s = '\0';
     }
-	
+
   /* Send these variables with the job. */
   /* POSIX requirement: If a variable is given without a value, supply the
      value from the environment. */
@@ -953,45 +1069,133 @@ int set_job_env(
     {
     c = v_value;
 
-state1:         /* Initial state comes here */
-        switch (*c) {
-        case ',':
-        case '=':
-            return FALSE;
-        case '\0':
-            goto final;
-        }
-        s = c;
-state2:         /* Variable name */
-        switch (*c) {
-        case ',':
-        case '\0':
-            goto state3;
-        case '=':
-            goto state4;
-        default:
-            c++;
-            goto state2;
-        }
+state1:         /* goto label : Initial state comes here */
+
+    switch (*c) 
+      {
+      case ',':
+      case '=':
+
+        return FALSE;
+
+        /*NOTREACHED*/
+
+        break;
+
+      case '\0':
+
+        goto final;
+
+        /*NOTRREACHED*/
+
+        break;
+      }
+
+    s = c;
+
+    /* pass through to next case */
+
+state2:         /* goto label : Variable name */
+
+    switch (*c) 
+      {
+      case ',':
+      case '\0':
+
+        goto state3;
+
+        /*NOTREACHED*/
+
+        break;
+
+      case '=':
+
+        goto state4;
+
+        /*NOTREACHED*/
+
+        break;
+
+      default:
+
+        c++;
+
+        goto state2;
+
+        /*NOTREACHED*/
+
+        break;
+      }  /* END switch (*c) */
+
 state3:         /* No value - get it from qsub environment */
-        l = *c;
-        *c = '\0';
-        env = getenv(s);
-        if ( env == NULL ) return FALSE;
-        strcat(job_env, ",");
-        strcat(job_env, s);
-        strcat(job_env, "=");
-	if (copy_env_value(job_env, env, 1) == (char *)0) return FALSE;
-        if ( l == ',' ) c++;
-        goto state1;
-state4:         /* Value specified */
-        *c++ = '\0';;
-	(void)strcat(job_env, ",");
-	(void)strcat(job_env, s);
-	(void)strcat(job_env, "=");
-	if ((c = copy_env_value(job_env, c, 0)) == (char *)0) return FALSE;
-	goto state1;
-    }
+
+    l = *c;
+    *c = '\0';
+
+    env = getenv(s);
+
+    if (env == NULL) 
+      {
+      return(FALSE);
+      }
+
+    if (strlen(job_env) + 2 + strlen(s) + 2*strlen(env) >= len)
+      {
+      /* increase size of job env buffer */
+
+      len += 2*strlen(env) + 1;
+
+      job_env = (char *)realloc(job_env,len);
+
+      if (job_env == NULL)
+        {
+        return(FALSE);
+        }
+      }
+
+    strcat(job_env,",");
+    strcat(job_env,s);
+    strcat(job_env,"=");
+
+    if (copy_env_value(job_env,env,1) == NULL) 
+      {
+      return(FALSE);
+      }
+
+    if (l == ',') 
+      c++;
+
+    goto state1;
+
+state4:         /* goto label - Value specified */
+
+    *c++ = '\0';
+
+    if (strlen(job_env) + 2 + strlen(s) + 2*strlen(c) >= len)
+      {
+      /* increase size of job env buffer */
+
+      len += 2*strlen(c) + 1;
+
+      job_env = (char *)realloc(job_env,len);
+
+      if (job_env == NULL)
+        {
+        return(FALSE);
+        }
+      }
+
+    strcat(job_env,",");
+    strcat(job_env,s);
+    strcat(job_env,"=");
+
+    if ((c = copy_env_value(job_env,c,0)) == NULL) 
+      {
+      return(FALSE);
+      }
+
+    goto state1;
+    }  /* END if (v_opt) */
 
 final:
 
@@ -1008,7 +1212,30 @@ final:
       while ((*s != '=') && *s)
         ++s;
 
-      *s = '\0';
+      if (!*s)
+        {
+        evp++;
+
+        continue;
+        }
+
+      *s = '\0';  /* NOTE: *s is clobbering our current, real, environ */
+
+      if (strlen(job_env) + 2 + strlen(*evp) + 2*strlen(s + 1) >= len)
+        {
+        /* increase size of job env buffer */
+
+        len += 2*strlen(s + 1) + 1;
+
+        job_env = (char *)realloc(job_env,len);
+
+        if (job_env == NULL)
+          {
+          *s = '='; /* restore our existing environ */
+
+          return(FALSE);
+          }
+        }
 
       strcat(job_env,",");
       strcat(job_env,*evp);
@@ -1016,16 +1243,18 @@ final:
 
       copy_env_value(job_env,s + 1,1);
 
+      *s = '='; /* restore our existing environ */
+
       evp++;
       }
-    }
+    }    /* END if (V_opt) */
 
   set_attr(&attrib,ATTR_v,job_env);
 
   free(job_env);
 
   return(TRUE);
-  }
+  }  /* END set_job_env() */
 
 
 
@@ -1045,7 +1274,7 @@ final:
 char *interactive_port()
 
   {
-  int namelen;
+  unsigned int namelen;
   static char portstring[8];
   struct sockaddr_in myaddr;
   unsigned short port;
@@ -1060,33 +1289,47 @@ char *interactive_port()
 
   if (inter_sock < 0) 
     {
-	perror("qsub: unable to obtain socket");
-	exit(1);
-    }
-    myaddr.sin_family = AF_INET;
-    myaddr.sin_addr.s_addr = INADDR_ANY;
-    myaddr.sin_port = 0;
-    if (bind(inter_sock, (struct sockaddr *)&myaddr, sizeof(myaddr)) < 0) {
-	perror("qsub: unable to bind to socket");
-	exit(1);
+    perror("qsub: unable to obtain socket");
+
+    exit(1);
     }
 
-    /* get port number assigned */
+  myaddr.sin_family = AF_INET;
+  myaddr.sin_addr.s_addr = INADDR_ANY;
+  myaddr.sin_port = 0;
 
-    namelen = sizeof(myaddr);
-    if (getsockname(inter_sock, (struct sockaddr *)&myaddr, &namelen) < 0) {
-	perror("qsub: unable to get port number");
-	exit(1);
+  if (bind(inter_sock,(struct sockaddr *)&myaddr,sizeof(myaddr)) < 0) 
+    {
+    perror("qsub: unable to bind to socket");
+
+    exit(1);
     }
-    port = ntohs(myaddr.sin_port);
-    (void)sprintf(portstring, "%u", (unsigned int)port);
-    if (listen(inter_sock, 1) < 0) {
-	perror("qsub: listen on interactive socket");
-	exit(1);
+
+  /* get port number assigned */
+
+  namelen = sizeof(myaddr);
+
+  if (getsockname(inter_sock,(struct sockaddr *)&myaddr,&namelen) < 0) 
+    {
+    perror("qsub: unable to get port number");
+
+    exit(1);
+    }
+
+  port = ntohs(myaddr.sin_port);
+
+  sprintf(portstring,"%u", 
+    (unsigned int)port);
+
+  if (listen(inter_sock,1) < 0) 
+    {
+    perror("qsub: listen on interactive socket");
+
+    exit(1);
     }
     
-    return (portstring);
-}
+  return(portstring);
+  }
 
 
 
@@ -1095,31 +1338,39 @@ char *interactive_port()
  * settermraw - set terminal into "raw" mode
  */
 
-void
-settermraw(ptio)
-    struct termios *ptio;
-{
-    struct termios tio;
+void settermraw(
 
-    tio = *ptio;
+  struct termios *ptio)
 
-    tio.c_lflag &= ~(ICANON|ISIG|ECHO|ECHOE|ECHOK);
-    tio.c_iflag &= ~(IGNBRK|INLCR|ICRNL|IXON|IXOFF);
-    tio.c_oflag = 0;
-    tio.c_oflag |= (OPOST); /* TAB3 */
-    tio.c_cc[VMIN] = 1;
-    tio.c_cc[VTIME] = 0;
+  {
+  struct termios tio;
+
+  tio = *ptio;
+
+  tio.c_lflag &= ~(ICANON|ISIG|ECHO|ECHOE|ECHOK);
+  tio.c_iflag &= ~(IGNBRK|INLCR|ICRNL|IXON|IXOFF);
+  tio.c_oflag = 0;
+  tio.c_oflag |= (OPOST); /* TAB3 */
+  tio.c_cc[VMIN] = 1;
+  tio.c_cc[VTIME] = 0;
 
 #if defined(TABDLY) && defined(TAB3)
-    if ((tio.c_oflag & TABDLY) == TAB3)
-	tio.c_oflag &= ~TABDLY;
+  if ((tio.c_oflag & TABDLY) == TAB3)
+    tio.c_oflag &= ~TABDLY;
 #endif
-    tio.c_cc[VKILL]  = -1;
-    tio.c_cc[VERASE] = -1;
 
-    if (tcsetattr(0, TCSANOW, &tio) < 0)
-	perror("qsub: set terminal mode");
-}
+  tio.c_cc[VKILL]  = -1;
+  tio.c_cc[VERASE] = -1;
+
+  if (tcsetattr(0,TCSANOW,&tio) < 0)
+    perror("qsub: set terminal mode");
+
+  return;
+  }  /* END settermraw() */
+
+
+
+
 
 /*
  * stopme - suspend process on ~^Z or ~^Y
@@ -1127,14 +1378,19 @@ settermraw(ptio)
  *	when resumed, again set terminal to raw.
  */
 
-void
-stopme(p)
-    pid_t p;	/* pid of 0 (process group) or just myself (writer) */
-{
-    (void)tcsetattr(0, TCSANOW, &oldtio); /* reset terminal */
-    kill(p, SIGTSTP);
-    (void)settermraw(&oldtio);            /* back to raw when we resume */
-}
+void stopme(
+
+  pid_t p)  /* pid of 0 (process group) or just myself (writer) */
+
+  {
+  tcsetattr(0,TCSANOW,&oldtio); /* reset terminal */
+
+  kill(p,SIGTSTP);
+
+  settermraw(&oldtio);          /* back to raw when we resume */
+
+  return;
+  }
 
 
 
@@ -1144,150 +1400,238 @@ stopme(p)
  *      and writes that out to the stdout
  */
 
-int
-reader(s)
-    int s;	/* socket */
-{
-    char buf[4096];
-    int  c;
-    char *p;
-    int  wc;
+int reader(
 
-    /* read from the socket, and write to stdout */
-    while (1) {
-	c = read(s, buf, sizeof(buf));
-	if (c > 0) {
-	    p = buf;
-	    while (c) {
-		if ((wc = write(1, p, c)) < 0) {
-		    if (errno == EINTR) {
-			continue;
-		    } else {
-			perror("qsub: write error");
-			return (-1);
-		    }
-		}
-		c -= wc;
-		p += wc;
-	    }
-	} else if (c == 0) {
-	    return (0);		/* EOF - all done */
-	} else {
-	    if (errno == EINTR)
-		continue;
-	    else {
-		perror("qsub: read error");
-		return (-1);
-	    }
-	}
-    }
-}
-	
-	
+  int s)	/* socket */
+
+  {
+  char buf[4096];
+  int  c;
+  char *p;
+  int  wc;
+
+  /* read from the socket, and write to stdout */
+
+  /* NOTE:  s should be blocking */
+
+  while (1) 
+    {
+    c = read(s,buf,sizeof(buf));
+
+    if (c > 0) 
+      {
+      p = buf;
+
+      while (c) 
+        {
+        if ((wc = write(1,p,c)) < 0) 
+          {
+          if (errno == EINTR) 
+            {
+            continue;
+            } 
+          else 
+            {
+            perror("qsub: write error");
+
+            return(-1);
+            }
+          }
+
+         c -= wc;
+         p += wc;
+         }
+       } 
+     else if (c == 0) 
+       {
+       return(0);		/* EOF - all done */
+       } 
+     else 
+       {
+       if (errno == EINTR)
+         continue;
+
+       if (errno == EAGAIN)
+         {
+         sleep(1);
+
+         continue;
+         }
+
+       perror("qsub: read error");
+  
+       return(-1);
+       }
+    }    /* END while (1) */
+ 
+  return(0);
+  }  /* END reader() */
+        
+        
 
 
-	    
+        
 /*
  * Writer process: reads from stdin, and writes
  * data out to the rem socket
  */
 
-void
-writer(s)
-    int s;	/* socket */
-{
-    char c;
-    int i;
-    int newline = 1;
-    char tilda = '~';
-    int wi;
+void writer(
 
-    /* read from stdin, and write to the socket */
+  int s)  /* socket */
 
-    while (1) {
-	i = read(0, &c, 1);
-	if (i > 0) {		/* read data */
-	    if (newline) {
-		if (c == tilda) {	/* maybe escape character */
+  {
+  char c;
+  int i;
+  int newline = 1;
+  char tilde = '~';
+  int wi;
 
-		    /* read next character to check */
+  /* read from stdin, and write to the socket */
 
-		    while ((i = read(0, &c, 1)) != 1) {
-			if ((i == -1) && (errno == EINTR))
-			    continue;
-			else
-			    break;
-		    }
-		    if (i != 1)
-			break;
-		    if (c == '.')	/* termination character */
-			break;
- 		    else if (c == oldtio.c_cc[VSUSP]) {
-			stopme(0);	/* ^Z suspend all */
-			continue;
+  while (1) 
+    {
+    i = read(0,&c,1);
+
+    if (i > 0) 
+      {  
+      /* read data */
+
+      if (newline) 
+        {
+        if (c == tilde) 
+          {
+          /* maybe escape character */
+
+          /* read next character to check */
+
+          while ((i = read(0,&c,1)) != 1) 
+            {
+            if ((i == -1) && (errno == EINTR))
+              continue;
+
+            break;
+            }
+
+          if (i != 1)
+            break;
+
+          if (c == '.')	/* termination character */
+            break;
+         
+          if (c == oldtio.c_cc[VSUSP]) 
+            {
+            stopme(0);	/* ^Z suspend all */
+
+            continue;
 #ifdef VDSUSP
-		    } else if (c == oldtio.c_cc[VDSUSP]) {
-			stopme(getpid());
-			continue;
+            } 
+          else if (c == oldtio.c_cc[VDSUSP]) 
+            {
+            stopme(getpid());
+
+            continue;
 #endif	/* VDSUSP */
-		    } else {	/* not escape, write out tilda */
-			while ((wi = write(s, &tilda, 1)) != 1) {
-			    if ((wi == -1) && (errno == EINTR))
-				continue;
-			    else
-				break;
-			}
-			if (wi != 1)
-			    break;
-		    }
-		}
-		newline = 0;   /* no longer at start of line */
-	    } else {
-		/* reset to newline if \n \r kill or interrupt */
-		newline = (c == '\n') ||
-			  (c == oldtio.c_cc[VKILL]) ||
-			  (c == oldtio.c_cc[VINTR]) ||
-			  (c == '\r') ;
-	    }
-	    while ((wi = write(s, &c, 1)) != 1) {   /* write out character */
-		if ((wi == -1) && (errno == EINTR))
-		    continue;
-		else
-		    break;
-	    }
-	    if (wi != 1)
-		break;
+            } 
+          else 
+            {
+            /* not escape, write out tilde */
 
-	} else if (i == 0) {	/* EOF */
-	    break;
-	} else if (i < 0) {	/* error */
-	    if (errno == EINTR)
-		continue;
-	    else {
-		perror("qsub: read error");
-		return;
-	    }
-	}
-    }
-    return;
-}
-	
+            while ((wi = write(s,&tilde,1)) != 1) 
+              {
+              if ((wi == -1) && (errno == EINTR))
+                continue;
+
+              break;
+              }
+
+            if (wi != 1)
+              break;
+            }
+          }
+
+        newline = 0;   /* no longer at start of line */
+        } 
+      else 
+        {
+        /* reset to newline if \n \r kill or interrupt */
+
+        newline = (c == '\n') ||
+                  (c == oldtio.c_cc[VKILL]) ||
+                  (c == oldtio.c_cc[VINTR]) ||
+                  (c == '\r');
+        }
+
+      while ((wi = write(s,&c,1)) != 1) 
+        {   
+        /* write out character */
+
+        if ((wi == -1) && (errno == EINTR))
+          continue;
+
+        break;
+        }
+
+      if (wi != 1)
+        break;
+      } 
+    else if (i == 0) 
+      {
+      /* EOF */
+
+      break;
+      } 
+    else if (i < 0) 
+      {	
+      /* error */
+
+      if (errno == EAGAIN)
+        {
+        sleep(1);
+
+        continue;
+        }
+
+      if (errno == EAGAIN)
+        {
+        sleep(1);
+
+        continue;
+        }
+
+      if (errno != EINTR)
+        {
+        perror("qsub: read error");
+
+        return;
+        }
+      }
+    }  /* END while (1) */
+
+  return;
+  }  /* END writer() */
 
 
-	
+
+
 /*
  * getwinsize - get the current window size
  */
-int
-getwinsize(pwsz)
-    struct winsize *pwsz;
-{
-    if (ioctl(0, TIOCGWINSZ, &wsz) < 0) {
-	perror("qsub: unable to get window size");
-	return (-1);
+
+int getwinsize(
+
+  struct winsize *pwsz)
+
+  {
+  if (ioctl(0,TIOCGWINSZ,&wsz) < 0) 
+    {
+    perror("qsub: unable to get window size");
+
+    return(-1);
     }
-    return (0);
-}
+
+  return(0);
+  }
 
 
 
@@ -1297,139 +1641,225 @@ getwinsize(pwsz)
  * send_winsize = send the current tty's window size
  */
 
-void
-send_winsize(sock)
-    int sock;
-{
-    char  buf[PBS_TERM_BUF_SZ];
+void send_winsize(
 
-    (void)sprintf(buf, "WINSIZE %hu,%hu,%hu,%hu", wsz.ws_row, wsz.ws_col,
-			wsz.ws_xpixel, wsz.ws_ypixel);
-    (void)write(sock, buf, PBS_TERM_BUF_SZ);
-    return;
-}
+  int sock)
+
+  {
+  char  buf[PBS_TERM_BUF_SZ];
+
+  sprintf(buf,"WINSIZE %hu,%hu,%hu,%hu", 
+    wsz.ws_row, 
+    wsz.ws_col,
+    wsz.ws_xpixel, 
+    wsz.ws_ypixel);
+
+  write(sock,buf,PBS_TERM_BUF_SZ);
+
+  return;
+  } 
+
+
+
 
 /*
  * send_term - send the current TERM type and certain control characters
  */
 
-void
-send_term(sock)
-    int sock;
-{
-    char  buf[PBS_TERM_BUF_SZ];
-    char *term;
-    char  cc_array[PBS_TERM_CCA];
+void send_term(
 
-    (void)strcpy(buf, "TERM=");
-    term = getenv("TERM");
-    if (term == (char *)0)
-	(void)strcat(buf, "unknown");
-    else
-	(void)strncat(buf, term, PBS_TERM_BUF_SZ-5);
-    (void)write(sock, buf, PBS_TERM_BUF_SZ);
+  int sock)
 
-    cc_array[0] = oldtio.c_cc[VINTR];
-    cc_array[1] = oldtio.c_cc[VQUIT];
-    cc_array[2] = oldtio.c_cc[VERASE];
-    cc_array[3] = oldtio.c_cc[VKILL];
-    cc_array[4] = oldtio.c_cc[VEOF];
-    cc_array[5] = oldtio.c_cc[VSUSP];
-    write(sock, cc_array, PBS_TERM_CCA);
-}
+  {
+  char  buf[PBS_TERM_BUF_SZ];
+  char *term;
+  char  cc_array[PBS_TERM_CCA];
+
+  strcpy(buf,"TERM=");
+
+  term = getenv("TERM");
+
+  if (term == NULL)
+    strcat(buf,"unknown");
+  else
+    strncat(buf,term,PBS_TERM_BUF_SZ - 5);
+
+  write(sock, buf, PBS_TERM_BUF_SZ);
+
+  cc_array[0] = oldtio.c_cc[VINTR];
+  cc_array[1] = oldtio.c_cc[VQUIT];
+  cc_array[2] = oldtio.c_cc[VERASE];
+  cc_array[3] = oldtio.c_cc[VKILL];
+  cc_array[4] = oldtio.c_cc[VEOF];
+  cc_array[5] = oldtio.c_cc[VSUSP];
+
+  write(sock, cc_array, PBS_TERM_CCA);
+
+  return;
+  }
+
+
 
 
 /*
  * catchchild = signal handler for Death of Child
  */    
  
-void
-catchchild(sig)
-    int sig;
-{
-    int status;
-    int pid;
+void catchchild(
 
-    while (1) {
-    	pid = waitpid(-1, &status, WNOHANG|WUNTRACED);
-    	if (pid == 0)
-	    return;
-    	if ( (pid > 0) && (WIFSTOPPED(status) == 0) )
-	    break;
-	if ((pid == -1) && (errno != EINTR)) {
-	    perror("qsub: bad status in catchchild: ");
-	    return;
-        }
+  int sig)
+
+  {
+  int status;
+  int pid;
+
+  while (1) 
+    {
+    pid = waitpid(-1,&status,WNOHANG|WUNTRACED);
+
+    if (pid == 0)
+      {
+      return;
+      }
+
+    if ((pid > 0) && (WIFSTOPPED(status) == 0))
+      break;
+
+    if ((pid == -1) && (errno != EINTR)) 
+      {
+      perror("qsub: bad status in catchchild: ");
+
+      return;
+      }
     }
    
-    /* reset terminal to cooked mode */
+  /* reset terminal to cooked mode */
 
-    (void)tcsetattr(0, TCSANOW, &oldtio);
-    exit(0);
-}
+  tcsetattr(0,TCSANOW,&oldtio);
 
-void no_suspend(sig)
-	int sig;
-{
-	printf("Sorry, you cannot suspend qsub until the job is started\n");
-	fflush(stdout);
-}
+  exit(0);
 
-void
-bailout()
-{
-	int	c;
+  /*NOTREACHED*/
 
-	(void)shutdown(inter_sock, 2);
-	(void)close(inter_sock);
-	printf("Job %s is being deleted\n", new_jobname);	
-	c = cnt2server(server_out);
-	if ( c <= 0 ) {
-		fprintf(stderr,
-			"qsub: cannot connect to server %s (errno=%d)\n",
-	        	pbs_server, pbs_errno);
-		exit(1);
-	}
-	(void)pbs_deljob(c, new_jobname, (char *)0);
-	pbs_disconnect(c);
-	exit(0);
-}
+  return;
+  }
 
-void
-toolong(sig)
-    int	sig;
-{
-	printf("Timeout -- deleting job\n");
-	bailout();
-}
 
-void
-catchint(sig)
-    int sig;
-{
-    int c;
 
-    printf("Do you wish to terminate the job and exit (y|[n])? ");
-    fflush(stdout);
-    while (1) {
-	alarm(60);	/* give a minute to think about it */
-	c = getchar();
 
-	if ((c == 'n') || (c == 'N') || (c == '\n'))
-	    break;
-	else if ((c == 'y') || (c == 'Y')) {
-	    bailout();
-	} else {
-	    printf("yes or no please\n");
-	    while ((c != '\n') && (c != EOF))
-		c = getchar();
-	}
+void no_suspend(
+
+  int sig)
+
+  {
+  printf("Sorry, you cannot suspend qsub until the job is started\n");
+
+  fflush(stdout);
+  }
+
+
+
+
+/* does not return */
+
+void bailout()
+
+  {
+  int c;
+
+  shutdown(inter_sock,2);
+
+  close(inter_sock);
+
+  printf("Job %s is being deleted\n", 
+    new_jobname);	
+
+  c = cnt2server(server_out);
+
+  if (c <= 0) 
+    {
+    fprintf(stderr,"qsub: cannot connect to server %s (errno=%d)\n",
+      pbs_server, 
+      pbs_errno);
+
+    if (getenv("PBSDEBUG") != NULL)
+      {
+      fprintf(stderr,"qsub: pbs_server daemon may not be running on host %s or hostname in file '$TORQUEHOME/server_name' may be incorrect)\n",
+        pbs_server);
+      }
+
+    exit(1);
     }
-    alarm(0);		/* reset alarm */
+
+  pbs_deljob(c,new_jobname,NULL);
+
+  pbs_disconnect(c);
+
+  exit(0);
+  }
+
+
+
+
+void toolong(
+
+  int sig)
+
+  {
+  printf("Timeout -- deleting job\n");
+
+  bailout();
+  
+  /*NOTREACHED*/
+
+  exit(0);
+  }
+
+
+
+
+void catchint(
+
+  int sig)
+
+  {
+  int c;
+
+  printf("Do you wish to terminate the job and exit (y|[n])? ");
+
+  fflush(stdout);
+
+  while (1) 
+    {
+    alarm(60);	/* give a minute to think about it */
+
+    c = getchar();
+
+    if ((c == 'n') || (c == 'N') || (c == '\n'))
+      break;
+
+    if ((c == 'y') || (c == 'Y')) 
+      {
+      bailout();
+
+      /*NOTREACHED*/
+
+      exit(0);
+      } 
+
+    printf("yes or no please\n");
+
     while ((c != '\n') && (c != EOF))
-	c = getchar();
-    return;
-}
+      c = getchar();
+    }  /* END while (1) */
+
+  alarm(0);  /* reset alarm */
+
+  while ((c != '\n') && (c != EOF))
+    c = getchar();
+
+  return;
+  }  /* END catchint() */
 
 
 
@@ -1442,8 +1872,8 @@ void interactive()
 
   {
   int  amt;
-  char cur_server[PBS_MAXSERVERNAME+PBS_MAXPORTNUM+2];
-  int fromlen;
+  char cur_server[PBS_MAXSERVERNAME + PBS_MAXPORTNUM + 2];
+  unsigned int fromlen;
 
   char momjobid[PBS_MAXSVRJOBID+1];
   int  news;
@@ -1473,122 +1903,166 @@ void interactive()
 
   act.sa_handler = toolong;
 
-    if ( (sigaction(SIGALRM, &act, (struct sigaction *)0) < 0) ) {
-	perror("cannot catch alarm");
-	exit(2);
+  if ((sigaction(SIGALRM,&act,NULL) < 0)) 
+    {
+    perror("cannot catch alarm");
+
+    exit(2);
     }
 
-    /* save the old terminal setting */
+  /* save the old terminal setting */
 
-    if (tcgetattr(0, &oldtio) < 0) {
-	perror("qsub: unable to get terminal settings");
-	exit (1);
+  if (tcgetattr(0,&oldtio) < 0)  
+    {
+    perror("qsub: unable to get terminal settings");
+
+    exit(1);
     }
 
-    /* Get the current window size, to be sent to MOM later */
+  /* Get the current window size, to be sent to MOM later */
 
-    if (getwinsize(&wsz)) {
-	wsz.ws_row = 20;	/* unable to get actual values	*/
-	wsz.ws_col = 80;	/* set defaults			*/
-	wsz.ws_xpixel = 0;
-	wsz.ws_ypixel = 0;
+  if (getwinsize(&wsz)) 
+    {
+    wsz.ws_row = 20;	/* unable to get actual values	*/
+    wsz.ws_col = 80;	/* set defaults			*/
+    wsz.ws_xpixel = 0;
+    wsz.ws_ypixel = 0;
     }
 
-    printf("qsub: waiting for job %s to start\n", new_jobname);
+  printf("qsub: waiting for job %s to start\n", 
+    new_jobname);
 
-    /* Accept connection on socket set up earlier */
+  /* Accept connection on socket set up earlier */
 
-    nsel = 0;
-    while (nsel == 0) {
-	FD_ZERO(&selset);
-	FD_SET(inter_sock, &selset);
-        timeout.tv_usec = 0;
-        timeout.tv_sec  = 30;
-	nsel = select(FD_SETSIZE, &selset, (fd_set *)0, (fd_set *)0, &timeout);
-	if (nsel > 0) {
-		break;
-	} else if (nsel == -1) {
-	    if (errno == EINTR)
-		nsel = 0;
-	    else {
-		perror("qsub: select failed");
-		exit(1);
-	    }
-	}
-	/* connect to server, status job to see if still there */
+  nsel = 0;
 
-        if ( ! locate_job(new_jobname, server_out, cur_server) ) {
-		fprintf(stderr,"qsub: job %s apparently deleted\n",new_jobname);
-		exit(1);
-	}
+  while (nsel == 0) 
+    {
+    FD_ZERO(&selset);
+    FD_SET(inter_sock, &selset);
 
+    timeout.tv_usec = 0;
+    timeout.tv_sec  = 30;
+
+    nsel = select(FD_SETSIZE,&selset,NULL,NULL,&timeout);
+
+    if (nsel > 0) 
+      {
+      break;
+      } 
+    else if (nsel == -1) 
+      {
+      if (errno == EINTR)
+        {
+        nsel = 0;
+        }
+      else 
+        {
+        perror("qsub: select failed");
+
+        exit(1);
+        }
+      }
+
+    /* connect to server, status job to see if still there */
+
+    if (!locate_job(new_jobname,server_out,cur_server)) 
+      {
+      fprintf(stderr,"qsub: job %s apparently deleted\n",
+        new_jobname);
+
+      exit(1);
+      }
     }
 
-    /* apparently someone is attempting to connect to us */
+  /* apparently someone is attempting to connect to us */
 
-    fromlen = sizeof(from);
-    if ((news = accept(inter_sock, (struct sockaddr *)&from, &fromlen)) < 0) {
-	perror("qsub: accept error");
-	exit (1);
+  fromlen = sizeof(from);
+
+  if ((news = accept(inter_sock,(struct sockaddr *)&from,&fromlen)) < 0) 
+    {
+    perror("qsub: accept error");
+
+    exit(1);
     }
 
-    /* When MOM connects, she will send the job id for us to verify */
+  /* When MOM connects, she will send the job id for us to verify */
 
+  amt = PBS_MAXSVRJOBID + 1;
 
-    amt = PBS_MAXSVRJOBID+1;
-    pc = momjobid;
-    while (amt > 0) {
-	fromlen = read(news, pc, amt);
-	if (fromlen <= 0)
-	    break;
-	pc += fromlen;
-	if (*(pc-1) == '\0')
-	    break;
-	amt -= fromlen;
+  pc = momjobid;
+
+  while (amt > 0) 
+    {
+    fromlen = read(news,pc,amt);
+
+    if (fromlen <= 0)
+      break;
+
+    pc += fromlen;
+
+    if (*(pc - 1) == '\0')
+      break;
+
+    amt -= fromlen;
     }
-    if (strncmp(momjobid, new_jobname, PBS_MAXSVRJOBID) != 0) {
-	fprintf(stderr, "qsub: invalid job name from execution server\n");
-	shutdown(news, 2);
-	exit (1);
+
+  if (strncmp(momjobid,new_jobname,PBS_MAXSVRJOBID) != 0) 
+    {
+    fprintf(stderr, "qsub: invalid job name from execution server\n");
+
+    shutdown(news,2);
+
+    exit(1);
     }
     
-    /*
-     * got the right job, send:
-     *		terminal type as "TERM=xxxx"
-     *		window size as   "WINSIZE=r,c,x,y"
-     */
-    send_term(news);
-    send_winsize(news);
+  /*
+   * got the right job, send:
+   *		terminal type as "TERM=xxxx"
+   *		window size as   "WINSIZE=r,c,x,y"
+   */
 
-    printf("qsub: job %s ready\n\n", new_jobname);
+  send_term(news);
+  send_winsize(news);
+
+  printf("qsub: job %s ready\n\n", 
+    new_jobname);
 
     /* set SIGINT, SIGTERM processing to default */
 
-    act.sa_handler = SIG_DFL;
-    if ( (sigaction(SIGINT, &act, (struct sigaction *)0) < 0)  ||
-         (sigaction(SIGTERM, &act, (struct sigaction *)0) < 0) ||
-         (sigaction(SIGALRM, &act, (struct sigaction *)0) < 0) ||
-         (sigaction(SIGTSTP, &act, (struct sigaction *)0) < 0) ) {
-		perror("unable to reset signals");
-		exit(1);
+  act.sa_handler = SIG_DFL;
+
+  if ((sigaction(SIGINT, &act, (struct sigaction *)0) < 0)  ||
+      (sigaction(SIGTERM, &act, (struct sigaction *)0) < 0) ||
+      (sigaction(SIGALRM, &act, (struct sigaction *)0) < 0) ||
+      (sigaction(SIGTSTP, &act, (struct sigaction *)0) < 0) ) 
+    {
+    perror("unable to reset signals");
+
+    exit(1);
     }
 
-    child = fork();
-    if (child == 0) {
-	/*
-	 * child process - start the reader function
-	 *		   set terminal into raw mode
-	 */
+  child = fork();
 
-	settermraw(&oldtio);
+  if (child == 0) 
+    {
+    /*
+     * child process - start the reader function
+     *		   set terminal into raw mode
+     */
 
-	(void)reader(news);
+    settermraw(&oldtio);
 
-	/* reset terminal */
-	tcsetattr(0, TCSANOW, &oldtio);
-	printf("\nqsub: job %s completed\n", new_jobname);
-	exit (0);
+    reader(news);
 
+    /* reset terminal */
+
+    tcsetattr(0,TCSANOW,&oldtio);
+
+    printf("\nqsub: job %s completed\n", 
+      new_jobname);
+
+    exit(0);
     } 
   else if (child > 0) 
     {
@@ -1642,14 +2116,18 @@ int process_opts(
   char *pc;
   char *pdepend;
 
-  FILE *fP;
-  char tmp_name[L_tmpnam + 2];
+  FILE *fP=NULL;
+  char tmp_name[]="/tmp/qsub.XXXXXX";
+  char tmp_name2[]="/tmp/qsub.XXXXXX";
   char cline[4096];
+  char tmpResources[4096]="";
   char *cP;
 
   char *ptr;
 
   struct stat sfilter;
+
+  int tmpfd;
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
 #define GETOPT_ARGS "a:A:c:C:d:D:e:hIj:k:l:m:M:N:o:p:q:r:S:u:v:VW:z-:"
@@ -1657,7 +2135,7 @@ int process_opts(
 #define GETOPT_ARGS "a:A:c:C:e:hj:k:l:m:M:N:o:p:q:r:S:u:v:VW:z"
 #endif	/* PBS_NO_POSIX_VIOLATION */
 
-#define MAX_RES_LIST_LEN 64
+#define MAX_RES_LIST_LEN 64  /* doesn't seem to be used? */
 
 /* The following macro, together the value of passet (pass + 1) is used	*/
 /* to enforce the following rules: 1. option on the command line take	*/
@@ -1666,8 +2144,6 @@ int process_opts(
 /* precedence over the earlier occurance.				*/
 
 #define if_cmd_line(x) if ((pass == 0) || (x != 1))
-
-  tmpnam(tmp_name);
 
   passet = pass + 1;
 
@@ -1723,7 +2199,7 @@ int process_opts(
             fprintf(stderr, "qsub: illegal -a value\n");
             errflg++;
 
-	    break;
+            break;
             }
 
           sprintf(a_value,"%ld", 
@@ -2022,14 +2498,12 @@ int process_opts(
 
         if (Interact_opt == 1) 
           {
+          char tmpLine[4096];
           /* Queue interactive resources to temp file. */
 
-          fP = fopen(tmp_name,"a+");
+          strcpy(tmpLine,tmpResources);
 
-          fputs("#PBS -l ",fP);
-          fputs(optarg,fP);
-          fputs("\n",fP);
-          fclose(fP);
+          sprintf(tmpResources,"%s#PBS -l %s\n",tmpLine,optarg);
           } 
         else 
           {
@@ -2187,157 +2661,302 @@ int process_opts(
             pc++;
             }
 
-		i = atoi(optarg);
-		if ( i < -1024 || i > 1023 ) {
-		    fprintf(stderr, "qsub: illegal -p value\n");
-		    errflg++;
-		    break;
-		}
-                set_attr(&attrib,ATTR_p,optarg);
-            }
-            break;
-        case 'q':
-            if_cmd_line(q_opt) {
-                q_opt = passet;
-                strcpy(destination, optarg);
-            }
-            break;
-        case 'r':
+          i = atoi(optarg);
 
-            if_cmd_line(r_opt) {
-                r_opt = passet;
-		if ( strlen(optarg) != 1 ) {
-		    fprintf(stderr, "qsub: illegal -r value\n");
-		    errflg++;
-		    break;
-		}
-		if ( *optarg != 'y' && *optarg != 'n' ) {
-		    fprintf(stderr, "qsub: illegal -r value\n");
-		    errflg++;
-		    break;
-		}
-                set_attr(&attrib, ATTR_r, optarg);
-            }
-            break;
+          if ((i < -1024) || (i > 1023)) 
+            {
+            fprintf(stderr, "qsub: illegal -p value\n");
 
-        case 'S':
-
-            if_cmd_line(S_opt) {
-                S_opt = passet;
-		if ( parse_at_list(optarg, TRUE, TRUE) ) {
-	            fprintf(stderr, "qsub: illegal -S value\n");
-	            errflg++;
-		    break;
-		}
-                set_attr(&attrib, ATTR_S, optarg);
-            }
-            break;
-        case 'u':
-            if_cmd_line(u_opt) {
-                u_opt = passet;
-		if ( parse_at_list(optarg, TRUE, FALSE) ) {
-	            fprintf(stderr, "qsub: illegal -u value\n");
-	            errflg++;
-		    break;
-		}
-                set_attr(&attrib, ATTR_u, optarg);
-            }
-            break;
-        case 'v':
-            if_cmd_line(v_opt) {
-                v_opt = passet;
-		if ( v_value != (char *)0 ) free(v_value);
-		v_value = (char *) malloc(strlen(optarg)+1);
-		if ( v_value == (char *)0 ) {
-		    fprintf(stderr, "qsub: out of memory\n");
-		    errflg++;
-		    break;
-		}
-                strcpy(v_value, optarg);
-            }
-            break;
-        case 'V':
-            if_cmd_line(V_opt) {
-                V_opt = passet;
-            }
-            break;
-        case 'W':
-	    while ( isspace((int)*optarg) ) optarg++;
-	    if ( strlen(optarg) == 0 ) {
-		fprintf(stderr, "qsub: illegal -W value\n");
-		errflg++;
-		break;
-	    }
-	    i = parse_equal_string(optarg, &keyword, &valuewd);
-	    while (i == 1) {
-		if (strcmp(keyword, ATTR_depend) == 0) {
-            	    if_cmd_line(Depend_opt) {
-                	Depend_opt = passet;
-			pdepend = malloc(PBS_DEPEND_LEN);
-			if (parse_depend_list(valuewd,pdepend,PBS_DEPEND_LEN)) {
-			    fprintf(stderr, "qsub: illegal -W value\n");
-			    errflg++;
-			    break;
-			}
-                	set_attr(&attrib, ATTR_depend, pdepend);
-		    }
-		} else if (strcmp(keyword, ATTR_stagein) == 0) {
-            	    if_cmd_line(Stagein_opt) {
-                	Stagein_opt = passet;
-			if ( parse_stage_list(valuewd) ) {
-			    fprintf(stderr, "qsub: illegal -W value\n");
-			    errflg++;
-			    break;
-			}
-                	set_attr(&attrib, ATTR_stagein, valuewd);
-		    }
-		} else if (strcmp(keyword, ATTR_stageout) == 0) {
-            	    if_cmd_line(Stageout_opt) {
-                	Stageout_opt = passet;
-                        if ( parse_stage_list(valuewd) ) {
-                            fprintf(stderr, "qsub: illegal -W value\n");
-                            errflg++;
-			    break;
-                        }
-                	set_attr(&attrib, ATTR_stageout, valuewd);
-		    }
-		} else if (strcmp(keyword, ATTR_g) == 0) {
-		    if_cmd_line(Grouplist_opt) {
-			Grouplist_opt = passet;
-                	if ( parse_at_list(valuewd, TRUE, FALSE) ) {
-                	    fprintf(stderr, "qsub: illegal -W value\n");
-                	    errflg++;
-			    break;
-                	}
-			set_attr(&attrib, ATTR_g, valuewd);
-		    }
-		} else if (strcmp(keyword, ATTR_inter) == 0) {
-		    if_cmd_line(Interact_opt) {
-			Interact_opt = passet;
-			if ( strcmp(valuewd, "true") != 0 ) {
-			    fprintf(stderr, "qsub: illegal -W value\n");
-			    errflg++;
-			    break;
-			}
-			set_attr(&attrib, ATTR_inter, interactive_port());
-		    }
-		} else {
-			set_attr(&attrib, keyword, valuewd);
-		}
-		i = parse_equal_string((char *)0, &keyword, &valuewd);
-            }
-	    if (i == -1) {
-		fprintf(stderr, "qsub: illegal -W value\n");
-		errflg++;
-	    }
-            break;
-        case 'z':
-            if_cmd_line(z_opt) z_opt = passet;
-            break;
-        case '?':
-        default :
             errflg++;
-        }
+
+            break;
+            }
+
+          set_attr(&attrib,ATTR_p,optarg);
+          }
+
+        break;
+
+      case 'q':
+
+        if_cmd_line(q_opt) 
+          {
+          q_opt = passet;
+
+          strcpy(destination,optarg);
+          }
+
+        break;
+
+      case 'r':
+
+        if_cmd_line(r_opt) 
+          {
+          r_opt = passet;
+
+          if (strlen(optarg) != 1) 
+            {
+            fprintf(stderr,"qsub: illegal -r value\n");
+
+            errflg++;
+
+            break;
+            }
+
+          if ((*optarg != 'y') && (*optarg != 'n')) 
+            {
+            fprintf(stderr,"qsub: illegal -r value\n");
+
+            errflg++;
+
+            break;
+            }
+
+          set_attr(&attrib,ATTR_r,optarg);
+          }
+
+        break;
+
+      case 'S':
+
+        if_cmd_line(S_opt) 
+          {
+          S_opt = passet;
+
+          if (parse_at_list(optarg,TRUE,TRUE)) 
+            {
+            fprintf(stderr,"qsub: illegal -S value\n");
+
+            errflg++;
+
+            break;
+            }
+
+          set_attr(&attrib,ATTR_S,optarg);
+          }
+
+        break;
+
+      case 'u':
+
+        if_cmd_line(u_opt) 
+          {
+          u_opt = passet;
+
+          if (parse_at_list(optarg,TRUE,FALSE)) 
+            {
+            fprintf(stderr,"qsub: illegal -u value\n");
+
+            errflg++;
+
+            break;
+            }
+
+          set_attr(&attrib,ATTR_u,optarg);
+          }
+
+        break;
+
+      case 'v':
+
+        if_cmd_line(v_opt) 
+          {
+          v_opt = passet;
+
+          if (v_value != NULL) 
+            free(v_value);
+
+          v_value = (char *)malloc(strlen(optarg) + 1);
+
+          if (v_value == NULL) 
+            {
+            fprintf(stderr, "qsub: out of memory\n");
+ 
+            errflg++;
+
+            break;
+            }
+
+          strcpy(v_value,optarg);
+          }
+
+        break;
+
+      case 'V':
+
+        if_cmd_line(V_opt) 
+          {
+          V_opt = passet;
+          }
+
+        break;
+
+      case 'W':
+
+        while (isspace((int)*optarg)) 
+          optarg++;
+
+        if (strlen(optarg) == 0) 
+          {
+          /* value is empty */
+
+          fprintf(stderr,"qsub: illegal -W value\n");
+
+          errflg++;
+
+          break;
+          }
+
+        i = parse_equal_string(optarg,&keyword,&valuewd);
+
+        if (i != 1)
+          {
+          char tmpLine[65536];
+
+          /* assume resource manager extension */
+
+          snprintf(tmpLine,sizeof(tmpLine),"x=%s",
+            optarg);
+
+          i = parse_equal_string(tmpLine,&keyword,&valuewd);
+          }
+
+        while (i == 1) 
+          {
+          if (!strcmp(keyword,ATTR_depend)) 
+            {
+            if_cmd_line(Depend_opt) 
+              {
+              Depend_opt = passet;
+
+              pdepend = malloc(PBS_DEPEND_LEN);
+
+              if (parse_depend_list(valuewd,pdepend,PBS_DEPEND_LEN)) 
+                {
+                /* cannot parse 'depend' value */
+ 
+                fprintf(stderr, "qsub: illegal -W value\n");
+                  errflg++;
+
+                break;
+                }
+
+              set_attr(&attrib,ATTR_depend,pdepend);
+              }
+            } 
+          else if (!strcmp(keyword,ATTR_stagein)) 
+            {
+            if_cmd_line(Stagein_opt) 
+              {
+              Stagein_opt = passet;
+
+              if (parse_stage_list(valuewd)) 
+                {
+                /* cannot parse 'stagein' value */
+
+                fprintf(stderr, "qsub: illegal -W value\n");
+
+                errflg++;
+
+                break;
+                }
+
+              set_attr(&attrib,ATTR_stagein,valuewd);
+              }
+            } 
+          else if (!strcmp(keyword,ATTR_stageout)) 
+            {
+            if_cmd_line(Stageout_opt) 
+              {
+              Stageout_opt = passet;
+
+              if (parse_stage_list(valuewd)) 
+                {
+                /* cannot parse 'stageout' value */
+ 
+                fprintf(stderr,"qsub: illegal -W value\n");
+
+                errflg++;
+
+                break;
+                }
+ 
+              set_attr(&attrib,ATTR_stageout,valuewd);
+              }
+            } 
+          else if (!strcmp(keyword,ATTR_g)) 
+            {
+            if_cmd_line(Grouplist_opt) 
+              {
+              Grouplist_opt = passet;
+
+              if (parse_at_list(valuewd,TRUE,FALSE)) 
+                {
+                /* cannot parse 'grouplist' value */
+ 
+                fprintf(stderr,"qsub: illegal -W value\n");
+
+                errflg++;
+
+                break;
+                }
+  
+              set_attr(&attrib,ATTR_g,valuewd);
+              }
+            } 
+          else if (!strcmp(keyword,ATTR_inter)) 
+            {
+            /* specify interactive job */
+
+            if_cmd_line(Interact_opt) 
+              {
+              Interact_opt = passet;
+
+              if (strcmp(valuewd,"true") != 0) 
+                {
+                fprintf(stderr,"qsub: illegal -W value\n");
+
+                errflg++;
+ 
+                break;
+                }
+
+              set_attr(&attrib,ATTR_inter,interactive_port());
+              }
+            } 
+          else 
+            {
+            /* generic job attribute specified */
+
+            set_attr(&attrib,keyword,valuewd);
+            }
+
+          i = parse_equal_string(NULL,&keyword,&valuewd);
+          }  /* END while (i == 1) */
+
+        if (i == -1) 
+          {
+          fprintf(stderr,"qsub: illegal -W value\n");
+ 
+          errflg++;
+          }
+
+        break;
+
+      case 'z':
+ 
+        if_cmd_line(z_opt) 
+          z_opt = passet;
+
+        break;
+
+      case '?':
+      default :
+
+        errflg++;
+ 
+        break;   
+      }
     }  /* END while ((c = getopt(argc,argv,GETOPT_ARGS)) != EOF) */
 
 /* ORNL WRAPPER */
@@ -2346,16 +2965,55 @@ int process_opts(
     {
     /* Evaluate resources for interactive submission here. */
 
-    fP = fopen(tmp_name,"a+");
+    if ((tmpfd = mkstemp(tmp_name)) < 1)
+      {
+      fprintf(stderr,
+        "qsub: could not create tmp job file %s\n",
+        tmp_name);
+    
+      errflg++;
 
-    fputs("\n",fP);
-    fputs("\n",fP);
+      goto err;
+      }
+
+    if ((fP = fdopen(tmpfd,"w+")) == NULL)
+      {
+      fprintf(stderr, "qsub: could not create tmp job file %s\n",
+        tmp_name);
+      
+      errflg++;
+
+      goto err;
+      }
+
+    if (fprintf(fP,"%s\n\n",tmpResources) < 0)
+      {
+      fprintf(stderr, "qsub: unable to write to tmp job file %s\n",
+        tmp_name);
+
+      errflg++;
+
+      goto err;
+      }
 
     fclose(fP);
 
     if (stat(PBS_Filter,&sfilter) != -1)
       {
       int index;
+
+      if ((tmpfd = mkstemp(tmp_name2)) < 1)
+        {
+        fprintf(stderr,
+          "qsub: could not create tmp job file %s\n",
+          tmp_name2);
+    
+        errflg++;
+
+        goto err;
+        }
+
+      close(tmpfd);
 
       /* run the specified resources through the submitfilter. */
 
@@ -2374,25 +3032,28 @@ int process_opts(
       strcat(cline," <");
       strcat(cline,tmp_name);
       strcat(cline," >");
-      strcat(cline,tmp_name);
-      strcat(cline,"2");
+      strcat(cline,tmp_name2);
 
       if (system(cline) == -1)
         {
         fprintf( stderr, "qsub: error writing filter o/p, %s\n",
-          tmp_name);
+          tmp_name2);
 
         exit(1);
         }
 
+      fP = fopen(tmp_name2,"r+");
+
+      unlink(tmp_name2);
       unlink(tmp_name);
-      strcat(tmp_name,"2");
+      }
+    else
+      {
+      fP = fopen(tmp_name,"r+");
+      unlink(tmp_name);
       }
 
-    fP = fopen(tmp_name,"r+");
-    unlink(tmp_name);
-
-    /* evaluate the resources. */
+    /* evaluate the resources */
 
     while (fgets(cline,sizeof(cline),fP) != NULL) 
       {
@@ -2419,6 +3080,7 @@ int process_opts(
 
 /* END ORNL WRAPPER */
 
+err:
   if (!errflg && pass) 
     {
     errflg = (optind != argc);
@@ -2477,38 +3139,65 @@ void set_opt_defaults()
 
 
 
+#define TCONST_CFGFILE "torque.cfg"
+
 int load_config(
 
-  char *config_buf, 
-  int BufSize)
+  char *config_buf, /* O */
+  int   BufSize)    /* I */
 
   {                                                                       
   FILE *config_stream;
 
   char home_dir[MAXPATHLEN];
 
-  int  length = strlen(PBS_SERVER_HOME) + strlen("/torque.cfg");
+  int  length = strlen(PBS_SERVER_HOME) + strlen(TCONST_CFGFILE) + 1;
+
+  char *ptr;
+  char *tail;
 
   if (length >= MAXPATHLEN)
     {
+    /* FAILURE */
+
     return(1);
     }
 
   home_dir[0] = '\0';
 
   strcat(home_dir,PBS_SERVER_HOME);
-                                                                           
-  strcat(home_dir,"/torque.cfg");
+
+  strcat(home_dir,"/");
+ 
+  strcat(home_dir,TCONST_CFGFILE);
 
   if ((config_stream = fopen(home_dir,"r")) == NULL)
     {
+    /* FAILURE */
+
     return(1);
     }
 
-  if (fgets(config_buf,BufSize,config_stream) == NULL)
+  if ((fread(config_buf,BufSize,1,config_stream) <= 0) && (ferror(config_stream) != 0))
     {
+    /* FAILURE */
+
     return(1);
     }
+
+  ptr = config_buf;
+
+  while ((ptr = strchr(ptr,'#')) != NULL)
+    {
+    ptr++;
+
+    for (;(*ptr != '\0') && (*ptr != '\n');ptr++)
+      {
+      *ptr = ' ';
+      }
+    }   /* END while ((ptr = strchr(ptr,'#')) != NULL) */ 
+
+  /* SUCCESS */
 
   return(0);
   }  /* END load_config() */
@@ -2530,6 +3219,8 @@ char *get_param(
 
   /* FORMAT:  <PARAM> <WS> <VALUE> \n */
 
+  /* NOTE:  does not support comments */
+
   if ((param_val = strstr(config_buf,param)) == NULL)
     {
     return(NULL);
@@ -2546,6 +3237,7 @@ char *get_param(
 
   return(new_val);
   }  /* END get_param() */
+
 
 
 
@@ -2597,6 +3289,7 @@ int main(
   /* check TORQUE config settings */
 
   strcpy(PBS_Filter,DefaultFilterPath);
+  server_host[0] = '\0';
 
   if (load_config(config_buf,sizeof(config_buf)) == 0)
     {
@@ -2608,6 +3301,13 @@ int main(
     if ((param_val = get_param("SUBMITFILTER",config_buf)) != NULL)
       {
       strncpy(PBS_Filter,param_val,sizeof(PBS_Filter));
+      PBS_Filter[sizeof(PBS_Filter) - 1] = '\0';
+      }
+
+    if ((param_val = get_param("SERVERHOST",config_buf)) != NULL)
+      {
+      strncpy(server_host,param_val,sizeof(server_host));
+      server_host[sizeof(server_host) - 1] = '\0';
       }
     }
 
@@ -2637,7 +3337,7 @@ int main(
       else if (errflg < 0) 
         {
         exit(1);
-	}
+        }
       }
     } 
   else 
@@ -2736,6 +3436,12 @@ int main(
       pbs_server, 
       pbs_errno);
 
+    if (getenv("PBSDEBUG") != NULL)
+      {
+      fprintf(stderr,"qsub: pbs_server daemon may not be running on host %s or hostname in file '$TORQUEHOME/server_name' may be incorrect)\n",
+        pbs_server);
+      }
+
     unlink(script_tmp);
 
     exit(pbs_errno);
@@ -2746,6 +3452,7 @@ int main(
   if (!set_job_env(envp)) 
     {
     fprintf(stderr, "qsub: cannot send environment with the job\n");
+
     exit(3);
     }
 
@@ -2814,5 +3521,7 @@ int main(
 
   exit(0);
   }  /* END main() */
+
+
 
 

@@ -149,8 +149,8 @@ int PBSD_rdytocmt(
 
 int PBSD_commit(
 
-  int   connect,
-  char *jobid)
+  int   connect,  /* I */
+  char *jobid)    /* I */
 
   {
   struct batch_reply *reply;
@@ -179,12 +179,14 @@ int PBSD_commit(
     return(pbs_errno);
     }
 
+  /* PBSD_rdrpy sets connection[connect].ch_errno */
+
   reply = PBSD_rdrpy(connect);
 
   PBSD_FreeReply(reply);
 
   return(connection[connect].ch_errno);
-  }
+  }  /* END PBSD_commit() */
 
 
 

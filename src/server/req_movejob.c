@@ -98,6 +98,7 @@
 #include "job.h"
 #include "log.h"
 #include "pbs_error.h"
+#include "queue.h"
 
 /* Global Data Items: */
 
@@ -108,59 +109,102 @@ extern char	*msg_movejob;
 extern int	 pbs_errno;
 extern char	*pbs_o_host;
 
+extern int svr_movejob A_((job *,char *,struct batch_request *));
+extern int svr_chkque A_((job *,pbs_queue *,char *,int,char *));
+
 /*
  * req_movejob = move a job to a new destination (local or remote)
  */
 
-void req_movejob(req)
-	struct batch_request	*req;
-{
-	char	*id = "req_movejob";
-	job	*jobp;
+void req_movejob(
 
-	jobp = chk_job_request(req->rq_ind.rq_move.rq_jid, req);
-	if (jobp == NULL) 
-		return;
+  struct batch_request *req)
 
-	if (jobp->ji_qs.ji_state != JOB_STATE_QUEUED &&
-	    jobp->ji_qs.ji_state != JOB_STATE_HELD &&
-	    jobp->ji_qs.ji_state != JOB_STATE_WAITING) {
+  {
+  char	*id = "req_movejob";
+  job	*jobp;
+
+  jobp = chk_job_request(req->rq_ind.rq_move.rq_jid,req);
+
+  if (jobp == NULL) 
+    {
+    return;
+    }
+
+  if ((jobp->ji_qs.ji_state != JOB_STATE_QUEUED) &&
+      (jobp->ji_qs.ji_state != JOB_STATE_HELD) &&
+      (jobp->ji_qs.ji_state != JOB_STATE_WAITING)) 
+    {
 #ifndef NDEBUG
-		(void)sprintf(log_buffer, "%s %d", msg_badstate,
-						   jobp->ji_qs.ji_state);
-		(void)strcat(log_buffer, id);
-		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB,
-			  jobp->ji_qs.ji_jobid, log_buffer);
+    sprintf(log_buffer,"%s %d", 
+      msg_badstate,
+      jobp->ji_qs.ji_state);
+
+    strcat(log_buffer,id);
+
+    log_event(
+      PBSEVENT_DEBUG, 
+      PBS_EVENTCLASS_JOB,
+      jobp->ji_qs.ji_jobid, 
+      log_buffer);
 #endif /* NDEBUG */
-		req_reject(PBSE_BADSTATE,0,req,NULL,NULL);
-		return;
-	}
 
-	/*
-	 * svr_movejob() does the real work, handles both local and
-	 * network moves
-	 */
+    req_reject(PBSE_BADSTATE,0,req,NULL,NULL);
 
-	switch (svr_movejob(jobp, req->rq_ind.rq_move.rq_destin, req)) {
-	case 0:			/* success */
-		(void)strcpy(log_buffer, msg_movejob);
-		(void)sprintf(log_buffer+strlen(log_buffer), 
-			      msg_manager, req->rq_ind.rq_move.rq_destin,
-			      req->rq_user, req->rq_host);
-		log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
-			  jobp->ji_qs.ji_jobid, log_buffer);
-		reply_ack(req);
-		break;
-	case -1:
-	case 1:			/* fail */
-		req_reject(pbs_errno,0,req,NULL,NULL);
-		break;
-	case 2:			/* deferred, will be handled by 	   */
-				/* post_movejob() when the child completes */
-		break;
-	}
-	return;
-}
+    return;
+    }
+
+  /*
+   * svr_movejob() does the real work, handles both local and
+   * network moves
+   */
+
+  switch (svr_movejob(jobp,req->rq_ind.rq_move.rq_destin,req)) 
+    {
+    case 0:
+
+      /* success */
+
+      strcpy(log_buffer,msg_movejob);
+
+      sprintf(log_buffer + strlen(log_buffer),msg_manager, 
+        req->rq_ind.rq_move.rq_destin,
+        req->rq_user, 
+        req->rq_host);
+
+      log_event(
+        PBSEVENT_JOB, 
+        PBS_EVENTCLASS_JOB,
+        jobp->ji_qs.ji_jobid, 
+        log_buffer);
+
+      reply_ack(req);
+
+      break;
+
+    case -1:
+    case 1:	
+
+      /* fail */
+
+      /* NOTE:  can pass detailed response to requestor (NYI) */
+
+      req_reject(pbs_errno,0,req,NULL,NULL);
+
+      break;
+
+    case 2:
+
+      /* deferred, will be handled by    */
+      /* post_movejob() when the child completes */
+
+      /* NO-OP */
+
+      break;
+    }  /* END switch (svr_movejob(jobp,req->rq_ind.rq_move.rq_destin,req)) */
+
+  return;
+  }  /* END req_movejob() */
 
 
 
@@ -194,31 +238,49 @@ void req_orderjob(
     return;
     }
 
-	if (((pjob = pjob1)->ji_qs.ji_state == JOB_STATE_RUNNING) ||
-	    ((pjob = pjob2)->ji_qs.ji_state == JOB_STATE_RUNNING)) {
+  if (((pjob = pjob1)->ji_qs.ji_state == JOB_STATE_RUNNING) ||
+      ((pjob = pjob2)->ji_qs.ji_state == JOB_STATE_RUNNING)) 
+    {
 #ifndef NDEBUG
-		(void)sprintf(log_buffer, "%s %d", msg_badstate,
-						   pjob->ji_qs.ji_state);
-		(void)strcat(log_buffer, id);
-		log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB,
-			  pjob->ji_qs.ji_jobid, log_buffer);
+    sprintf(log_buffer,"%s %d", 
+      msg_badstate,
+      pjob->ji_qs.ji_state);
+ 
+    strcat(log_buffer,id);
+
+    log_event(
+      PBSEVENT_DEBUG, 
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid, 
+      log_buffer);
 #endif	/* NDEBUG */
-		req_reject(PBSE_BADSTATE,0,req,NULL,NULL);
-		return;
-	} else if (pjob1->ji_qhdr != pjob2->ji_qhdr) {
 
-		/* Jobs are in different queues */
+    req_reject(PBSE_BADSTATE,0,req,NULL,NULL);
 
-		if ((rc = svr_chkque(pjob1, pjob2->ji_qhdr,
-				     get_variable(pjob1, pbs_o_host),
-				     MOVE_TYPE_Order)) ||
-		    (rc = svr_chkque(pjob2, pjob1->ji_qhdr,
-				     get_variable(pjob2, pbs_o_host),
-				     MOVE_TYPE_Order))) {
-			req_reject(rc,0,req,NULL,NULL);
-			return;
-		}
-	}
+    return;
+    } 
+  else if (pjob1->ji_qhdr != pjob2->ji_qhdr) 
+    {
+    /* jobs are in different queues */
+
+    if ((rc = svr_chkque(
+           pjob1, 
+           pjob2->ji_qhdr,
+           get_variable(pjob1,pbs_o_host),
+           MOVE_TYPE_Order,
+           NULL)) ||
+        (rc = svr_chkque(
+           pjob2, 
+           pjob1->ji_qhdr,
+           get_variable(pjob2,pbs_o_host),
+           MOVE_TYPE_Order,
+           NULL))) 
+      {
+      req_reject(rc,0,req,NULL,NULL);
+
+      return;
+      }
+    }
 
 	/* now swap the order of the two jobs in the queue lists */
 

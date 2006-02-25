@@ -98,6 +98,7 @@
 #include <time.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <errno.h>
@@ -254,8 +255,13 @@ void log_err(
   char *text)    /* I */
 
   {
-  char buf[LOG_BUF_SIZE], *errmsg;
-  int  i;
+  char  buf[LOG_BUF_SIZE];
+
+  char *EPtr;
+
+  char  EBuf[1024];
+
+  int   i;
 
   if (errnum == -1) 
     {
@@ -263,12 +269,27 @@ void log_err(
     } 
   else 
     {
-    if (((errmsg = strerror(errnum)) == NULL) &&
-        ((errmsg = pbse_to_txt(errnum)) == NULL))
-      errmsg = "";
+    /* NOTE:  some strerror() routines return "Unknown error X" w/bad errno */
+
+    if (errnum >= 15000) 
+      {
+      EPtr = pbse_to_txt(errnum);
+      }
+    else 
+      {
+      EPtr = strerror(errnum);
+      }
+
+    if (EPtr == NULL)
+      {
+      sprintf(EBuf,"unexpected error %d",
+        errnum);
+
+      EPtr = EBuf;
+      }
 
     sprintf(buf,"%s (%d) in ", 
-      errmsg, 
+      EPtr, 
       errnum);
     }
 
@@ -406,7 +427,9 @@ void log_close(
 
     if (msg) 
       {
-      log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER,
+      log_record(
+        PBSEVENT_SYSTEM, 
+        PBS_EVENTCLASS_SERVER,
         "Log", 
         "Log closed");
       }

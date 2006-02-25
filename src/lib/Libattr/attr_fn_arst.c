@@ -158,7 +158,7 @@ static int decode_arst_direct(
 
   pc--;
 
-  if ((*pc == '\n') || ((*pc == ',') && (*(pc-1) != '\\'))) 
+  if (((*pc == '\n') || (*pc == ',')) && (*(pc-1) != '\\')) 
     {
     ns--;		/* strip any trailing null string */
     *pc = '\0';
@@ -237,9 +237,9 @@ static int decode_arst_direct(
 int decode_arst(
 
   struct attribute *patr,    /* O (modified) */
-  char             *name,    /* I: attribute name (notused) */
-  char             *rescn,   /* I: resource name (notused) */
-  char             *val)     /* I: attribute value */
+  char             *name,    /* I attribute name (notused) */
+  char             *rescn,   /* I resource name (notused) */
+  char             *val)     /* I attribute value */
 
   {
   int	  rc;
@@ -249,7 +249,7 @@ int decode_arst(
     {
     free_arst(patr);
 
-    patr->at_flags &= ATR_VFLAG_MODIFY;	/* _SET cleared in free_arst */
+    patr->at_flags &= ~ATR_VFLAG_MODIFY;	/* _SET cleared in free_arst */
 
     return(0);
     }
@@ -361,7 +361,7 @@ int encode_arst(
 
   for (pc = attr->at_val.at_arst->as_buf;pc < attr->at_val.at_arst->as_next;++pc) 
     {
-    if ((*pc == '"') || (*pc == '\'') || (*pc == ',') || (*pc == '\\'))
+    if ((*pc == '"') || (*pc == '\'') || (*pc == ',') || (*pc == '\\') || (*pc == '\n'))
       ++j;
     }
 
@@ -384,7 +384,7 @@ int encode_arst(
 
   while (pfrom < end) 
     {
-    if ((*pfrom == '"') || (*pfrom == '\'') || (*pfrom == ',') || (*pfrom == '\\')) 
+    if ((*pfrom == '"') || (*pfrom == '\'') || (*pfrom == ',') || (*pfrom == '\\') || (*pfrom == '\n')) 
       {
       *pc++ = '\\';
       *pc   = *pfrom;
@@ -438,8 +438,8 @@ int set_arst(
   {
   int	 i;
   int	 j;
-  unsigned long nsize;
-  unsigned long need;
+  int 	 nsize;
+  int 	 need;
   long	 offset;
   char	*pc;
   long	 used;
@@ -469,8 +469,8 @@ int set_arst(
       return(PBSE_INTERNAL);
       }
 
-    need = sizeof(struct array_strings) + (j - 1) * sizeof (char *);
-    pas=(struct array_strings *)malloc(need);
+    need = (int)sizeof(struct array_strings) + (j - 1) * sizeof (char *);
+    pas=(struct array_strings *)malloc((size_t)need);
 
     if (!pas)
       {
@@ -522,7 +522,7 @@ int set_arst(
 
         nsize += nsize / 2;			/* alloc extra space */
 
-        if (!(pas->as_buf = malloc(nsize))) 
+        if (!(pas->as_buf = malloc((size_t)nsize))) 
           {
           pas->as_bufsize = 0;
 
@@ -552,9 +552,9 @@ int set_arst(
         need = pas->as_bufsize + 2 * nsize;  /* alloc new buf */
 
         if (pas->as_buf)
-          pc = realloc(pas->as_buf,need);
+          pc = realloc(pas->as_buf,(size_t)need);
         else
-          pc = malloc(need);
+          pc = malloc((size_t)need);
 
         if (pc == NULL)
           {
@@ -578,9 +578,9 @@ int set_arst(
 
         j = 3 * j / 2;		/* allocate extra     */
 
-        need = sizeof(struct array_strings) + (j - 1) * sizeof(char *);
+        need = (int)sizeof(struct array_strings) + (j - 1) * sizeof(char *);
        
-        newpas = (struct array_strings *)realloc((char *)pas,need);
+        newpas = (struct array_strings *)realloc((char *)pas,(size_t)need);
 
         if (newpas == NULL)
           {
@@ -624,7 +624,7 @@ int set_arst(
 
             need = pas->as_next - pc;
 
-            memcpy(pas->as_string[i],pc,(int)need);
+            memcpy(pas->as_string[i],pc,(size_t)need);
 
             pas->as_next -= nsize;
 

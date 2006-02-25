@@ -136,16 +136,49 @@ extern int LOGLEVEL;
 /* private functions local to this file */
 
 static void close_client A_((int sfds));
-static void free_rescrq A_((struct rq_rescq *));
 static void freebr_manage A_((struct rq_manage *)); 
 static void freebr_cpyfile A_((struct rq_cpyfile *));
 static void close_quejob A_((int sfds));
+#ifndef PBS_MOM
+static void free_rescrq A_((struct rq_rescq *));
+#endif /* PBS_MOM */
 
 /* END private prototypes */
 
+/* request processing prototypes */
+void req_quejob(struct batch_request *preq);
+void req_jobcredential(struct batch_request *preq);
+void req_jobscript(struct batch_request *preq);
+void req_rdytocommit(struct batch_request *preq);
+void req_commit(struct batch_request *preq);
+void req_deletejob(struct batch_request *preq);
+void req_holdjob(struct batch_request *preq);
+void req_messagejob(struct batch_request *preq);
+void req_modifyjob(struct batch_request *preq);
+#ifndef PBS_MOM
+void req_orderjob(struct batch_request *preq);
+void req_rescreserve(struct batch_request *preq);
+void req_rescfree(struct batch_request *preq);
+#endif
+#ifdef PBS_MOM
+void req_rerunjob(struct batch_request *preq);
+#endif
+void req_shutdown(struct batch_request *preq);
+void req_signaljob(struct batch_request *preq);
+void req_mvjobfile(struct batch_request *preq);
+#ifndef PBS_MOM
+void req_stat_node(struct batch_request *preq);
+void req_track(struct batch_request *preq);
+void req_jobobit(struct batch_request *preq);
+void req_stagein(struct batch_request *preq);
+#endif
 
+/* END request processing prototypes */
 
-
+#ifdef PBS_MOM
+extern int tfind(const u_long,void **);
+#endif
+                       
 
 /*
  * process_request - process an request from the network:
@@ -160,7 +193,9 @@ void process_request(
   int sfds)	/* file descriptor (socket) to get request */
 
   {
+#ifdef PBS_MOM
   char *id = "process_request";
+#endif
 
   int                   rc;
   struct batch_request *request;
@@ -234,7 +269,7 @@ void process_request(
 
     /*
      * request didn't decode, either garbage or unknown
-     * request type, in ether case, return reject-reply
+     * request type, in either case, return reject-reply
      */
 
     req_reject(rc,0,request,NULL,"cannot decode message");
@@ -644,7 +679,7 @@ void dispatch_request(
 
       break;
 
-#ifndef PBS_MOM		/* Server Only Functions */
+#ifndef PBS_MOM		/* server only functions */
 
     case PBS_BATCH_StatusQue: 
 
@@ -1035,6 +1070,7 @@ static void freebr_cpyfile(
 
 
 
+#ifndef PBS_MOM
 static void free_rescrq(
 
   struct rq_rescq *pq)
@@ -1055,6 +1091,7 @@ static void free_rescrq(
 
   return;
   }  /* END free_rescrq() */
+#endif /* PBS_MOM */
 
 /* END process_requests.c */
 

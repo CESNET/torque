@@ -90,29 +90,36 @@
 #include <stdio.h>
 #include <pwd.h>
 #include <string.h>
+#include <signal.h>
 #include <netdb.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include "libpbs.h"
 #include "dis.h"
 #include "net_connect.h"
 
-static uid_t pbs_current_uid;
+/* NOTE:  globals, must not impose per connection constraints */
 
-extern char pbs_current_user[PBS_MAXUSER];
-extern struct connect_handle connection[NCONNECTS];
-extern time_t pbs_tcp_timeout;
+static uid_t pbs_current_uid;               /* only one uid per requestor */
+
+extern char pbs_current_user[PBS_MAXUSER];  /* only one uname per requestor */
+
+extern struct connect_handle connection[NCONNECTS];  /* verify no connect conflicts (TODO) */
+extern time_t pbs_tcp_timeout;              /* source? */
 
 static unsigned int dflt_port = 0;
-static char dflt_server[PBS_MAXSERVERNAME+1];
+static char dflt_server[PBS_MAXSERVERNAME + 1];
 static int got_dflt = FALSE;
-static char server_name[PBS_MAXSERVERNAME+1];
-static unsigned int server_port;
+static char server_name[PBS_MAXSERVERNAME + 1];  /* definite conflicts */
+static unsigned int server_port;                 /* definite conflicts */
 static char *pbs_destn_file = PBS_DEFAULT_FILE;
 
-char *pbs_server = 0;
+char *pbs_server = NULL;
+
+
 
 
 char *pbs_default()
@@ -132,20 +139,15 @@ char *pbs_default()
 
       if (fd == NULL) 
         {
-        char tmpLine[1024];
-
-        /* attempt again with parent */
-
-        snprintf(tmpLine,sizeof(tmpLine),"../%s",
-          pbs_destn_file);
-
-        if ((fd = fopen(pbs_destn_file,"r")) == NULL)
-          {
-          return(NULL);
-          }
+        return(NULL);
         }
 
-      fgets(dflt_server,PBS_MAXSERVERNAME,fd);
+      if (fgets(dflt_server,PBS_MAXSERVERNAME,fd) == NULL)
+        {
+        fclose(fd);
+
+        return(NULL);
+        }
 
       if ((pn = strchr(dflt_server,(int)'\n')))
         *pn = '\0';
@@ -170,16 +172,20 @@ char *pbs_default()
 
 static char *PBS_get_server(
 
-  char         *server,
-  unsigned int *port)
+  char         *server,  /* I (modified) */
+  unsigned int *port)    /* O */
 
   {
   int   i;
   char *pc;
 	
   for (i = 0;i < PBS_MAXSERVERNAME + 1;i++) 
+    {
+    /* clear global server_name */
+
     server_name[i] = '\0';
-	
+    }
+
   if (dflt_port == 0) 
     {
     dflt_port = get_svrport(
@@ -230,7 +236,7 @@ static char *PBS_get_server(
 
 static int PBSD_authenticate(
 
-  int psock)
+  int psock)  /* I */
 
   {
   char   cmd[PBS_MAXSERVERNAME + 80];
@@ -238,11 +244,41 @@ static int PBSD_authenticate(
   int    i;
   int    j;
   FILE	*piff;
+  char  *ptr;
+
+  char   tmpLine[1024];
+
+  struct stat buf;
 
   /* use pbs_iff to authenticate me */
 
-  sprintf(cmd,"%s %s %u %d", 
-    IFF_PATH, 
+  if ((ptr = getenv("PBSBINDIR")) != NULL)
+    {
+    snprintf(tmpLine,sizeof(tmpLine),"%s/pbs_iff",
+      ptr);
+    }
+  else
+    {
+    strcpy(tmpLine,IFF_PATH);
+    }
+
+  if (stat(tmpLine,&buf) == -1)
+    {
+    /* FAILURE */
+
+    if (getenv("PBSDEBUG"))
+      {
+      fprintf(stderr,"ALERT:  cannot verify file '%s', errno=%d (%s)\n",
+        cmd,
+        errno,
+        strerror(errno));
+      }
+
+    return(-1);
+    }
+
+  snprintf(cmd,sizeof(cmd),"%s %s %u %d", 
+    tmpLine, 
     server_name, 
     server_port,
     psock);
@@ -254,9 +290,11 @@ static int PBSD_authenticate(
     /* FAILURE */
 
     if (getenv("PBSDEBUG"))
+      {
       fprintf(stderr,"ALERT:  cannot open pipe, errno=%d (%s)\n",
         errno,
         strerror(errno));
+      }
 
     return(-1);
     }
@@ -295,9 +333,11 @@ static int PBSD_authenticate(
     /* FAILURE */
 
     if (getenv("PBSDEBUG"))
+      {
       fprintf(stderr,"ALERT:  cannot close pipe, errno=%d (%s)\n",
         errno,
         strerror(errno));
+      }
 
     /* report failure but do not fail (CRI) */
 
@@ -312,11 +352,17 @@ static int PBSD_authenticate(
 
 
 
-/* returns socket descriptor or -1 on failure */
+/* returns socket descriptor or negative value (-1) on failure */
+
+/* NOTE:  cannot use globals or static infomration as API
+   may be used to connect a single server to multiple TORQUE
+   interfaces */
+
+/* NOTE:  0 is not a valid return value */
 
 int pbs_connect(
 
-  char *server)  /* I */
+  char *server)  /* I (FORMAT:  NULL | HOSTNAME | HOSTNAME:PORT )*/
 
   {
   struct sockaddr_in server_addr;
@@ -353,6 +399,8 @@ int pbs_connect(
 
     if (getenv("PBSDEBUG"))
       fprintf(stderr,"ALERT:  cannot locate free channel\n");
+
+    /* FAILURE */
 
     return(-1);
     }
@@ -484,7 +532,12 @@ int pbs_connect(
 
   if ((ptr = getenv("PBSAPITIMEOUT")) != NULL)
     {
-    pbs_tcp_timeout = (int)strtol(ptr,NULL,0);	/* set for 3 hour time out */
+    pbs_tcp_timeout = strtol(ptr,NULL,0);	
+
+    if (pbs_tcp_timeout <= 0)
+      {
+      pbs_tcp_timeout = 10800;      /* set for 3 hour time out */
+      }
     }
   else
     {
@@ -504,7 +557,7 @@ int pbs_disconnect(
 
   {
   int  sock;
-  char x;
+  static char x[THE_BUF_SIZE / 4];
 
   /* send close-connection message */
 
@@ -515,13 +568,34 @@ int pbs_disconnect(
   if ((encode_DIS_ReqHdr(sock,PBS_BATCH_Disconnect,pbs_current_user) == 0) && 
       (DIS_tcp_wflush(sock) == 0)) 
     {
+    int atime;
+    struct sigaction act;
+    struct sigaction oldact;
+
+    /* set alarm to break out of potentially infinite read */
+
+    act.sa_handler = SIG_IGN;
+    sigemptyset(&act.sa_mask);
+    act.sa_flags = 0;
+    sigaction(SIGALRM,&act,&oldact);
+
+    atime = alarm(pbs_tcp_timeout);
+
+    /* NOTE:  alarm will break out of blocking read even with sigaction ignored */
+
     while (1) 
       {	
       /* wait for server to close connection */
 
-      if (read(sock,&x,1) < 1) 
+      /* NOTE:  if read of 'sock' is blocking, request below may hang forever */
+
+      if (read(sock,&x,sizeof(x)) < 1) 
         break;
       }
+
+    alarm(atime);
+
+    sigaction(SIGALRM,&oldact,NULL);
     }
 	
   close(sock);
@@ -533,7 +607,7 @@ int pbs_disconnect(
   connection[connect].ch_inuse = 0;
 
   return(0);
-  }
+  }  /* END pbs_disconnect() */
 
 
 

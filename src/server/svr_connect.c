@@ -105,9 +105,11 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include "libpbs.h"
+#include "log.h"
 #include "server_limits.h"
 #include "net_connect.h"
 #include "svrfunc.h"
+#include "dis.h"
 
 
 /* global data */
@@ -120,6 +122,13 @@ extern int		 pbs_errno;
 extern unsigned int	 pbs_server_port_dis;
 extern struct connection svr_conn[];
 extern pbs_net_t	 pbs_server_addr;
+extern int               LOGLEVEL;
+
+extern int addr_ok(pbs_net_t);
+extern void bad_node_warning(pbs_net_t);
+extern ssize_t read_blocking_socket(int,void *,ssize_t);
+
+
 
 int svr_connect(
 
@@ -129,14 +138,29 @@ int svr_connect(
   enum conn_type cntype)
 
   {
+  static char *id = "svr_connect";
+
   int handle;
   int sock;
+
+  if (LOGLEVEL >= 4)
+    {
+    sprintf(log_buffer,"attempting connect to %s port %d",
+      (hostaddr == pbs_server_addr) ? "server" : "host",
+      port);
+
+   log_event(
+      PBSEVENT_ADMIN,
+      PBS_EVENTCLASS_SERVER,
+      id,
+      log_buffer);
+    }
 
   /* First, determine if the request is to another server or ourselves */
 
   if ((hostaddr == pbs_server_addr) && (port == pbs_server_port_dis))
     {
-    return(PBS_LOCAL_CONNECTION);	/* special value for local */
+    return(PBS_LOCAL_CONNECTION); /* special value for local */
     }
 
   /* obtain the connection to the other server */
@@ -164,9 +188,15 @@ int svr_connect(
   if (func) 
     {
     if (cntype == ToServerASN)
+      {
       abort();	/* ASN kludge */	
+      }
     else
+      {
+      /* connect attempt to XXX? */
+
       add_conn(sock,ToServerDIS,hostaddr,port,func);
+      }
     }
 
   svr_conn[sock].cn_authen = PBS_NET_CONN_AUTHENTICATED;
@@ -199,7 +229,7 @@ int svr_connect(
 
 void svr_disconnect(
 
-  int handle)
+  int handle)  /* I */
 
   {
   int sock;
@@ -229,10 +259,10 @@ void svr_disconnect(
 
     close_conn(connection[handle].ch_socket);
 
-    if (connection[handle].ch_errtxt != (char *)0) 
+    if (connection[handle].ch_errtxt != NULL) 
       {
       free(connection[handle].ch_errtxt);
-      connection[handle].ch_errtxt = (char *)0;
+      connection[handle].ch_errtxt = NULL;
       }
 
     connection[handle].ch_errno = 0;

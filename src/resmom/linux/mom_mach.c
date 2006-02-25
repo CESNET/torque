@@ -173,6 +173,7 @@ extern	struct	pbs_err_to_txt	pbs_err_to_txt[];
 extern	time_t			time_now;
 
 extern  int     LOGLEVEL;
+extern  char    CHECKPOINT_SCRIPT[1024];
 extern  char    PBSNodeMsgBuf[1024];
 
 /*
@@ -183,8 +184,8 @@ extern	struct	rm_attribute	*momgetattr A_((char *));
 extern	int                      rm_errno;
 extern	double	cputfactor;
 extern	double	wallfactor;
-
-
+extern	long	system_ncpus;
+extern  int     ignwalltime;
 
 /*
 ** local functions and data
@@ -269,21 +270,24 @@ void proc_get_btime()
   fclose(fp);
 
   return;
-  }
+  }  /* END proc_get_btime() */
 
 static char stat_str[] = "%d (%[^)]) %c %*d %*d %d %*d %*d %u %*u \
-%*u %*u %*u %d %d %d %d %*d %*d %*u %*u %u %u %u %*u %*u \
+%*u %*u %*u %d %d %d %d %*d %*d %*u %*u %u %lu %lu %*u %*u \
 %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u";
 
 /*
-**	Convert jiffies to seconds.
+ * Convert jiffies to seconds.
+ *
+ * Hertz is sysconf(_SC_CLK_TCK) in get_proc_stat()
 */
-#define	JTOS(x)	 x = (x + CLK_TCK/2) / CLK_TCK;
+
+#define JTOS(x)  (x) / Hertz;
 
 /*
  * Linux /proc status routine.
  *
- *	Returns a pointer to a malloc'd proc_stat_t structure given
+ *	Returns a pointer to a static proc_stat_t structure given
  *	a process number, or NULL if there is an error.  Takes the
  *	place of the ioctl call PIOCSTATUS in the irix imp of mom_mach.c
  *
@@ -297,8 +301,28 @@ proc_stat_t *get_proc_stat(
   static proc_stat_t	ps;
   static char		path[1024];
   FILE                 *fd;
-  unsigned		jiffies;
+  unsigned long         jiffies;
   struct stat		sb;
+
+  static int Hertz  = 0;
+  int Hertz_errored = 0;
+
+  if (Hertz <= 0)
+    {
+    Hertz = sysconf(_SC_CLK_TCK);  /* returns 0 on error */
+
+    if (Hertz <= 0)
+      {
+      if (!Hertz_errored)
+        log_err(errno,"get_proc_stat","sysconf(_SC_CLK_TCK) failed, unable to monitor processes");
+
+      Hertz_errored = 1;
+
+      return(NULL);
+      }
+    }
+
+  Hertz_errored = 0;
 
   sprintf(path,"/proc/%d/stat",
     pid);
@@ -333,18 +357,16 @@ proc_stat_t *get_proc_stat(
 
     return(NULL);
     }  
-  else  
-    {
-    ps.uid = sb.st_uid;
-    }
 
-  ps.start_time = linux_time + (jiffies / 100);
+  ps.uid = sb.st_uid;
+
+  ps.start_time = linux_time + JTOS(jiffies);
   ps.name = path;
 
-  JTOS(ps.utime)
-  JTOS(ps.stime)
-  JTOS(ps.cutime)
-  JTOS(ps.cstime)
+  ps.utime = JTOS(ps.utime);
+  ps.stime = JTOS(ps.stime);
+  ps.cutime = JTOS(ps.cutime);
+  ps.cstime = JTOS(ps.cstime);
 
   fclose(fd);
 
@@ -360,6 +382,7 @@ proc_mem_t *get_proc_mem()
   static proc_mem_t  mm;
   FILE              *fp;
   char               str[32];
+  unsigned long      bfsz, casz;
 
   if ((fp = fopen("/proc/meminfo","r")) == NULL) 
     {
@@ -377,49 +400,79 @@ proc_mem_t *get_proc_mem()
 
     fscanf(fp,"%*[^\n]%*c");      /* remove text header */;
 
+    /* umu vmem patch */
+
+    fscanf(fp,"%*s %lu %lu %lu %*u %lu %lu",
+       &mm.mem_total,
+       &mm.mem_used,
+       &mm.mem_free,
+       &bfsz,
+       &casz);
+
+    mm.mem_free += casz + bfsz;
+
+/*
     fscanf(fp,"%*s %lu %lu %lu %*[^\n]%*c",
       &mm.mem_total,
       &mm.mem_used,
       &mm.mem_free);
+*/
 
     fscanf(fp,"%*s %lu %lu %lu %*[^\n]%*c",
       &mm.swap_total,
       &mm.swap_used,
       &mm.swap_free);
     } 
-  else do 
-    { 
-    /* new format (kernel > 2.4) the first 'str' has been read */
+  else 
+    {
+    do 
+      { 
+      /* new format (kernel > 2.4) the first 'str' has been read */
 
-    if (!strncmp(str,"MemTotal:",sizeof(str))) 
-      {
-      fscanf(fp,"%lu",
-        &mm.mem_total);
+      if (!strncmp(str,"MemTotal:",sizeof(str))) 
+        {
+        fscanf(fp,"%lu",
+          &mm.mem_total);
 
-      mm.mem_total *= 1024; /* the unit is kB */
-      } 
-    else if (!strncmp(str,"MemFree:",sizeof(str))) 
-      {
-      fscanf(fp,"%lu",
-        &mm.mem_free);
+        mm.mem_total *= 1024; /* the unit is kB */
+        } 
+      else if (!strncmp(str,"MemFree:",sizeof(str))) 
+        {
+        fscanf(fp,"%lu",
+          &mm.mem_free);
 
-      mm.mem_free *= 1024;
-      } 
-    else if (!strncmp(str,"SwapTotal:",sizeof(str))) 
-      {
-      fscanf(fp,"%lu",
-        &mm.swap_total);
+        mm.mem_free *= 1024;
+        } 
+      else if (!strncmp(str,"Buffers:",sizeof(str))) 
+        {
+        fscanf(fp,"%lu",
+          &bfsz);
+ 
+        mm.mem_free += bfsz * 1024;
+        } 
+      else if (!strncmp(str,"Cached:",sizeof(str))) 
+        {
+        fscanf(fp,"%lu",
+          &casz);
+ 
+        mm.mem_free += casz * 1024;
+        } 
+      else if (!strncmp(str,"SwapTotal:",sizeof(str))) 
+        {
+        fscanf(fp,"%lu",
+          &mm.swap_total);
 
-      mm.swap_total *= 1024;
-      } 
-    else if (!strncmp(str,"SwapFree:",sizeof(str))) 
-      {
-      fscanf(fp,"%lu",
-        &mm.swap_free);
+        mm.swap_total *= 1024;
+        } 
+      else if (!strncmp(str,"SwapFree:",sizeof(str))) 
+        {
+        fscanf(fp,"%lu",
+          &mm.swap_free);
 
-      mm.swap_free *= 1024;
-      }
-    }  while (fscanf(fp,"%30s",str) == 1);
+        mm.swap_free *= 1024;
+        }
+      }  while (fscanf(fp,"%30s",str) == 1);
+    }    /* END else */
 
   fclose(fp);
 
@@ -654,13 +707,13 @@ static unsigned long cput_sum(
   job *pjob)  /* I */
 
   {
-  char			*id = "cput_sum";
-  struct dirent		*dent;
-  ulong			cputime;
-  int			nps = 0;
-  proc_stat_t		*ps;
+  char          *id = "cput_sum";
+  struct dirent	*dent;
+  ulong          cputime;
+  int            nps = 0;
+  proc_stat_t   *ps;
 
-  cputime = 0.0;
+  cputime = 0;
 
   rewinddir(pdir);
 
@@ -691,11 +744,14 @@ static unsigned long cput_sum(
 
     if (LOGLEVEL >= 6)
       {
-      DBPRT(("%s: ses %d pid %d cputime %lu\n",
+      sprintf(log_buffer,"%s: session=%d pid=%d cputime=%lu (cputfactor=%lf)",
         id, 
         ps->session, 
         ps->pid, 
-        cputime));
+        cputime,
+        cputfactor);
+
+      log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
       }
     }
 
@@ -703,7 +759,7 @@ static unsigned long cput_sum(
     pjob->ji_flags |= MOM_NO_PROC;
 
   return((unsigned long)((double)cputime * cputfactor));
-  }  /* END cput_ses() */
+  }  /* END cput_sum() */
 
 
 
@@ -748,10 +804,12 @@ static int overcpu_proc(
       continue;
       }
 
-    if (!injob(pjob, ps->session))
+    if (!injob(pjob,ps->session))
       continue;
 
-    cputime = (ulong)((double)(ps->cutime + ps->cstime)*cputfactor);
+    /* change from ps->cutime to ps->utime, and ps->cstime to ps->stime */
+
+    cputime = (ulong)((double)(ps->utime + ps->stime) * cputfactor);
 
     if (cputime > limit)
       {
@@ -778,7 +836,7 @@ static unsigned long mem_sum(
   job *pjob)
 
   {
-  char			*id="mem_sum";
+  char			*id = "mem_sum";
   struct dirent		*dent;
   unsigned long		segadd;
   proc_stat_t		*ps;
@@ -826,7 +884,8 @@ static unsigned long resi_sum(
   job *pjob)
 
   {
-  char		*id="resi_sum";
+  char		*id = "resi_sum";
+
   ulong	         resisize;
   struct dirent	*dent;
   proc_stat_t	*ps;
@@ -997,8 +1056,8 @@ int error(
 
 int mom_set_limits(
 
-  job *pjob,
-  int  set_mode)	/* SET_LIMIT_SET or SET_LIMIT_ALTER */
+  job *pjob,     /* I */
+  int  set_mode) /* SET_LIMIT_SET or SET_LIMIT_ALTER */
 
   {
   char		*id = "mom_set_limits";
@@ -1008,7 +1067,10 @@ int mom_set_limits(
   unsigned long	value;	/* place in which to build resource value */
   resource	*pres;
   struct rlimit	reslim;
+  unsigned long vmem_limit = 0;
   unsigned long	mem_limit = 0;
+
+  /* NOTE:  log_buffer is exported */
 
   if (LOGLEVEL >= 2)
     {
@@ -1018,6 +1080,8 @@ int mom_set_limits(
       (set_mode == SET_LIMIT_SET) ? "set" : "alter");
 
     log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+
+    log_buffer[0] = '\0';
     }
 
   assert(pjob != NULL);
@@ -1034,15 +1098,28 @@ int mom_set_limits(
 
   while (pres != NULL) 
     {
-    assert(pres->rs_defin != NULL);
+    if (pres->rs_defin != NULL)
+      pname = pres->rs_defin->rs_name;
+    else 
+      pname = NULL;
 
-    pname = pres->rs_defin->rs_name;
+    if (LOGLEVEL >= 2)
+      {
+      sprintf(log_buffer,"setting limit for attribute '%s'",
+        (pname != NULL) ? pname : "NULL");
+
+      log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+
+      log_buffer[0] = '\0';
+      }
+
+    assert(pres->rs_defin != NULL);
 
     assert(pname != NULL);
 
-    assert(*pname != '\0');
+    assert(pname[0] != '\0');
 
-    if (strcmp(pname,"cput") == 0) 
+    if (!strcmp(pname,"cput")) 
       {
       /* cpu time - check, if less than pcput use it */
 
@@ -1050,10 +1127,12 @@ int mom_set_limits(
 
       if (retval != PBSE_NONE)
         {
+        log_buffer[0] = '\0';
+
         return(error(pname,retval));
         }
       } 
-    else if (strcmp(pname,"pcput") == 0) 
+    else if (!strcmp(pname,"pcput")) 
       {
       /* process cpu time - set */
 
@@ -1061,6 +1140,8 @@ int mom_set_limits(
 
       if (retval != PBSE_NONE)
         {
+        log_buffer[0] = '\0';
+
         return(error(pname,retval));
         }
 
@@ -1074,14 +1155,18 @@ int mom_set_limits(
           pjob->ji_qs.ji_jobid);
 
         log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+
+        log_buffer[0] = '\0';
         }
 
       if (setrlimit(RLIMIT_CPU,&reslim) < 0)
         {
+        log_buffer[0] = '\0';
+
         return(error("RLIMIT_CPU",PBSE_SYSTEM));
         }
       } 
-    else if (strcmp(pname,"file") == 0) 
+    else if (!strcmp(pname,"file")) 
       {	
       /* set */
 
@@ -1096,6 +1181,17 @@ int mom_set_limits(
 
         if (value > ULONG_MAX)
           {
+          if (LOGLEVEL >= 0)
+            {
+            sprintf(log_buffer,"cannot set file limit to %ld for job %s (value too large)",
+              reslim.rlim_cur,
+              pjob->ji_qs.ji_jobid);
+
+            log_err(0,id,log_buffer);
+
+            log_buffer[0] = '\0';
+            }
+
           return(error(pname,PBSE_BADATVAL));
           }
 
@@ -1103,11 +1199,19 @@ int mom_set_limits(
 
         if (setrlimit(RLIMIT_FSIZE,&reslim) < 0)
           {
+          sprintf(log_buffer,"cannot set file limit to %ld for job %s (setrlimit failed - check default user limits)",
+            reslim.rlim_max,
+            pjob->ji_qs.ji_jobid);
+
+          log_err(errno,id,log_buffer);
+
+          log_buffer[0] = '\0';
+
           return(error(pname,PBSE_SYSTEM));
           }
         }
       } 
-    else if (strcmp(pname,"vmem") == 0) 
+    else if (!strcmp(pname,"vmem")) 
       {	
       /* check */
 
@@ -1115,13 +1219,15 @@ int mom_set_limits(
 
       if (retval != PBSE_NONE)
         {
+        log_buffer[0] = '\0';
+
         return(error(pname,retval));
         }
 
-      if ((mem_limit == 0) || (value < mem_limit))
-        mem_limit = value;
+      if ((vmem_limit == 0) || (value < vmem_limit))
+        vmem_limit = value;
       } 
-    else if (strcmp(pname,"pvmem") == 0) 
+    else if (!strcmp(pname,"pvmem")) 
       {	
       /* set */
 
@@ -1131,23 +1237,24 @@ int mom_set_limits(
 
         if (retval != PBSE_NONE)
           {
+          log_buffer[0] = '\0';
+
           return(error(pname,retval));
           }
 
         if (value > ULONG_MAX)
           {
+          log_buffer[0] = '\0';
+ 
           return(error(pname,PBSE_BADATVAL));
           }
 
-        if ((mem_limit == 0) || (value < mem_limit))
-          mem_limit = value;
+        if ((vmem_limit == 0) || (value < vmem_limit))
+          vmem_limit = value;
         }
       } 
-    else if (strcmp(pname,"mem") == 0) 
-      {	
-      /* ignore */
-      } 
-    else if (strcmp(pname,"pmem") == 0) 
+    else if ((!strcmp(pname,"mem") && (pjob->ji_numnodes == 1)) ||
+              !strcmp(pname,"pmem")) 
       {	
       /* set */
 
@@ -1162,15 +1269,41 @@ int mom_set_limits(
 
         reslim.rlim_cur = reslim.rlim_max = value;
 
+        if (setrlimit(RLIMIT_DATA,&reslim) < 0)
+          {
+          return(error("RLIMIT_DATA",PBSE_SYSTEM));
+          }
+
         if (setrlimit(RLIMIT_RSS,&reslim) < 0)
           {
           return(error("RLIMIT_RSS",PBSE_SYSTEM));
           }
+
+#ifdef __GATECH
+        /* NOTE:  best patch may be to change to 'vmem_limit = value;' */
+
+        if (setrlimit(RLIMIT_STACK,&reslim) < 0)
+          {
+          return(error("RLIMIT_STACK",PBSE_SYSTEM));
+          }
+
+        if (setrlimit(RLIMIT_AS,&reslim) < 0)
+          {
+          return(error("RLIMIT_AS",PBSE_SYSTEM));
+          }
+#endif /* __GATECH */
+
+        mem_limit = value;
+
+        if (getrlimit(RLIMIT_STACK,&reslim) >= 0)
+          {
+          mem_limit = value + reslim.rlim_cur;
+          }
         }
       } 
-    else if (strcmp(pname,"walltime") == 0) 
+    else if (!strcmp(pname,"walltime")) 
       {	
-      /* Check */
+      /* check */
 
       retval = gettime(pres,&value);
 
@@ -1179,7 +1312,7 @@ int mom_set_limits(
         return(error(pname,retval));
         }
       } 
-    else if (strcmp(pname,"nice") == 0) 
+    else if (!strcmp(pname,"nice")) 
       {	
       /* set nice */
 
@@ -1207,8 +1340,25 @@ int mom_set_limits(
     {
     /* if either of vmem or pvmem was given, set sys limit to lesser */
 
-    if (mem_limit != 0) 
+    if (vmem_limit != 0) 
       {
+      /* Don't make (p)vmem < pmem */
+
+      if (mem_limit > vmem_limit) 
+        {
+        vmem_limit = mem_limit;
+        }
+
+      reslim.rlim_cur = reslim.rlim_max = vmem_limit;
+
+      if (setrlimit(RLIMIT_AS,&reslim) < 0)
+        {
+        return(error("RLIMIT_AS",PBSE_SYSTEM));
+        }
+
+      /* UMU vmem patch sets RLIMIT_AS rather than RLIMIT_DATA and RLIMIT_STACK */
+
+      /*
       reslim.rlim_cur = reslim.rlim_max = mem_limit;
 
       if (setrlimit(RLIMIT_DATA,&reslim) < 0)
@@ -1220,8 +1370,23 @@ int mom_set_limits(
         {
         return(error("RLIMIT_STACK",PBSE_SYSTEM));
         }
+      */
       }
     }
+
+  if (LOGLEVEL >= 5)
+    {
+    sprintf(log_buffer,"%s(%s,%s) completed",
+      id,
+      (pjob != NULL) ? pjob->ji_qs.ji_jobid : "NULL",
+      (set_mode == SET_LIMIT_SET) ? "set" : "alter");
+
+    log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+
+    log_buffer[0] = '\0';
+    }
+
+  /* SUCCESS */
 
   return(PBSE_NONE);
   }  /* END mom_set_limits() */
@@ -1243,7 +1408,6 @@ int mom_do_poll(
   job *pjob) /* I */
 
   {
-  char		*id = "mom_do_poll";
   char		*pname;
   resource	*pres;
  
@@ -1305,8 +1469,9 @@ int mom_open_poll()
   char *id = "mom_open_poll";
 
   if (LOGLEVEL >= 6)
-    DBPRT(("%s: entered\n", 
-      id))
+    {
+    log_record(PBSEVENT_SYSTEM,0,id,"started");
+    }
 
   pagesize = getpagesize();
 
@@ -1343,7 +1508,6 @@ int mom_over_limit(
   job *pjob)
 
   {
-  char		*id = "mom_over_limit";
   char		*pname;
   int		retval;
   unsigned long	value, num;
@@ -1428,6 +1592,11 @@ int mom_over_limit(
       } 
     else if (strcmp(pname,"walltime") == 0) 
       {
+
+      /* no need to check walltime on sisters, MS will get it */
+      if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
+        continue;
+
       retval = gettime(pres,&value);
 
       if (retval != PBSE_NONE)
@@ -1442,7 +1611,10 @@ int mom_over_limit(
           num, 
           value);
 
-        return(TRUE);
+        if (ignwalltime == 0)
+          {
+          return(TRUE);
+          }
         }
       }
     }  /* END for (pres) */
@@ -1468,7 +1640,6 @@ int mom_set_use(
   job *pjob)
 
   {
-  char			*id = "mom_set_use";
   resource		*pres;
   attribute		*at;
   resource_def		*rd;
@@ -1553,7 +1724,7 @@ int mom_set_use(
 
   lp = &pres->rs_value.at_val.at_size.atsv_num;
 
-  lnum = (mem_sum(pjob) + 1023) >> 10;	/* as KB */
+  lnum = (mem_sum(pjob) + 1023) >> pres->rs_value.at_val.at_size.atsv_shift;	/* as KB */
 
   *lp = MAX(*lp, lnum);
 
@@ -1582,12 +1753,12 @@ int mom_set_use(
 
   lp = &pres->rs_value.at_val.at_size.atsv_num;
 
-  lnum = (resi_sum(pjob) + 1023) >> 10;	/* as KB */
+  lnum = (resi_sum(pjob) + 1023) >> pres->rs_value.at_val.at_size.atsv_shift;	/* as KB */
 
   *lp = MAX(*lp,lnum);
 
   return(PBSE_NONE);
-  }
+  }  /* END mom_set_use() */
 
 
 
@@ -1595,24 +1766,46 @@ int mom_set_use(
 /*
  *	Kill a task session.
  *	Call with the task pointer and a signal number.
+ *      return number of tasks signalled (0 = failure) 
  */
+
+/* NOTE:  should support killpg() or killpidtree() (NYI) 
+          may be required for suspend resume */
 
 int kill_task(
 
-  task *ptask,
-  int   sig)
+  task *ptask,  /* I */
+  int   sig,    /* I */
+  int   pg)     /* I (1=signal process group, 0=signal master process only) */
 
   {
-  char		*id = "kill_task";
-  int		ct = 0;
+  char          *id = "kill_task";
+
+  int            ct = 0;
   struct dirent	*dent;
   proc_stat_t	*ps;
-  int		sesid;
+  int            sesid;
+  pid_t          mompid;
 
   sesid = ptask->ti_qs.ti_sid;
+  mompid = getpid();
 
   if (sesid <= 1)
     {
+    if (LOGLEVEL >= 3)
+      {
+      sprintf(log_buffer,"cannot send signal %d to task (no session id)",
+        sig);
+
+      log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        ptask->ti_job->ji_qs.ji_jobid,
+        log_buffer);
+      }
+
+    /* FAILURE */
+
     return(0);
     }
 
@@ -1627,6 +1820,8 @@ int kill_task(
       ptask->ti_job->ji_qs.ji_jobid,
       log_buffer);
     }
+
+  /* pdir is global */
 
   rewinddir(pdir);
 
@@ -1656,10 +1851,10 @@ int kill_task(
          * Killing a zombie is sure death! Its pid is zero,
          * which to kill(2) means 'every process in the process
          * group of the current process'.
-          */
+         */
 
         sprintf(log_buffer,"%s: not killing pid 0 with sig %d",
-          (char *)__func__,
+          id,
           sig);
 
         log_record(
@@ -1670,27 +1865,52 @@ int kill_task(
         }
       else
         {
+        int i = 0;
+
+        if (ps->pid == mompid)
+          {
+          /*
+	   * there is a race condition with newly started jobs that
+           * can be killed before they've established their own
+           * session id.  This means the child tasks still have MOM's
+           * session id.  We check this to make sure MOM doesn't kill
+           * herself. 
+           */
+
+          continue;
+          }
+
         if (sig == SIGKILL) 
           {
           struct timespec req;
-          int i;
 
           req.tv_sec = 0;
-          req.tv_nsec = 250000000;
+          req.tv_nsec = 250000000;  /* .25 seconds */
 
-          /* give the process some time to quit gracefully first */
+          /* give the process some time to quit gracefully first (up to 5 seconds) */
+
+          if (pg == 0)
+            kill(ps->pid,SIGTERM);
+          else
+            killpg(ps->pid,SIGTERM);
 
           for (i = 0;i < 20;i++) 
             {
-            if (kill(ps->pid,SIGTERM) == -1) 
+            /* check if process is gone */
+
+            if (kill(ps->pid,0) == -1) 
               break;
 
             nanosleep(&req,NULL);
             }  /* END for (i = 0) */
+          }    /* END if (sig == SIGKILL) */
+        else
+          {
+          i = 20;
           }
 
         sprintf(log_buffer,"%s: killing pid %d task %d with sig %d",
-          (char *)__func__, 
+          id, 
           ps->pid, 
           ptask->ti_qs.ti_task, 
           sig);
@@ -1701,12 +1921,24 @@ int kill_task(
           ptask->ti_job->ji_qs.ji_jobid,
           log_buffer);
 
-        kill(ps->pid,sig);
+        if (i >= 20)
+          {
+          /* kill process hard */
+
+          /* should this be replaced w/killpg() to kill all children? */
+
+          if (pg == 0)
+            kill(ps->pid,sig);
+          else
+            killpg(ps->pid,sig);
+          }
 
         ++ct;
         }  /* END else ((ps->state == 'Z') || (ps->pid == 0)) */
       }    /* END if (sesid == ps->session) */
     }      /* END while ((dent = readdir(pdir)) != NULL) */
+
+  /* SUCCESS */
 
   return(ct);
   }  /* END kill_task() */
@@ -1726,16 +1958,20 @@ int mom_close_poll()
 
   if (LOGLEVEL >= 6)
     {
-    DBPRT(("%s: entered\n", 
-      id))
+    log_record(
+      PBSEVENT_SYSTEM,
+      0,
+      id,
+      "entered");
     }
 
   if (pdir) 
     {
     if (closedir(pdir) != 0) 
       {
-      log_err(errno, id, "closedir");
-      return (PBSE_SYSTEM);
+      log_err(errno,id,"closedir");
+
+      return(PBSE_SYSTEM);
       }
 
     pdir = NULL;
@@ -1755,6 +1991,11 @@ int mom_close_poll()
 int mom_does_chkpnt()
 
   {
+  if (CHECKPOINT_SCRIPT[0] != '\0')
+    {
+    return(1);
+    }
+
   return(0);
   }
 
@@ -1768,9 +2009,56 @@ int mach_checkpoint(
 
   task	*ptask,
   char	*file,
-  int	 abort)
+  int	 abort)  /* I */
 
   {
+  /* if a checkpoint script is defined launch it */
+
+  if (CHECKPOINT_SCRIPT[0] != '\0')
+    {
+    int   pid;
+    char  sid[20],s_abort[20];
+    char *arg[6];
+
+    /* launch the script and return success */
+
+    pid = fork();
+
+    if (pid > 0)
+      {
+      /* parent: pid = child's pid */
+
+      /* NO-OP, but may need to waitpid() the child (NYI) */
+
+      return(0);
+      }
+    else if (pid == 0)
+      {
+      /* child: execv the script */
+
+      sprintf(sid,"%ld",
+        ptask->ti_job->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long);
+
+      sprintf(s_abort,"%d",
+        abort);
+
+      arg[0] = CHECKPOINT_SCRIPT;
+      arg[1] = sid;
+      arg[2] = ptask->ti_job->ji_qs.ji_jobid;
+      arg[3] = ptask->ti_job->ji_wattr[(int)JOB_ATR_euser].at_val.at_str;
+      arg[4] = s_abort;
+      arg[5] = NULL;
+
+      execv(arg[0],arg);
+
+      /* NOTE: The right way to do this is to put the job into some sort
+       *       of waiting state before returning, and the monitor the
+       *       the child to see what it's exit status is.  We are delaying
+       *       the full implementation for now.  NYI
+       */
+      }
+    }
+
   return(-1);
   }
 
@@ -1784,12 +2072,16 @@ int mach_checkpoint(
  *	Return -1 on error or sid if okay.
  */
 
-long mach_restart(ptask, file)
-    task	*ptask;
-    char	*file;
-{
-	return (-1);
-}
+long mach_restart(
+
+  task *ptask,
+  char *file)
+
+  {
+  /* NOTE: Currently, we expect the application to handle this itself */
+
+  return(-1);
+  }
 
 
 
@@ -1835,7 +2127,13 @@ char *cput_job(
 
     found = 1;
 
-    addtime = dsecs(ps->cutime) + dsecs(ps->cstime);
+    /* add utime and stime (AKE) */
+
+    addtime = 
+      dsecs(ps->utime) + 
+      dsecs(ps->stime) + 
+      dsecs(ps->cutime) + 
+      dsecs(ps->cstime);
 
     cputime += addtime;
 
@@ -1909,7 +2207,7 @@ char *cput(
 
   if (attrib == NULL) 
     {
-    log_err(-1, id, no_parm);
+    log_err(-1,id,no_parm);
 
     rm_errno = RM_ERR_NOPARAM;
 
@@ -1921,7 +2219,7 @@ char *cput(
     sprintf(log_buffer,"bad param: %s", 
       attrib->a_value);
 
-    log_err(-1, id, log_buffer);
+    log_err(-1,id,log_buffer);
 
     rm_errno = RM_ERR_BADPARAM;
 
@@ -1930,7 +2228,7 @@ char *cput(
 
   if (momgetattr(NULL)) 
     {
-    log_err(-1, id, extra_parm);
+    log_err(-1,id,extra_parm);
 
     rm_errno = RM_ERR_BADPARAM;
 
@@ -2130,7 +2428,7 @@ static char *resi_job(
         sprintf(log_buffer,"%s: get_proc_stat", 
           dent->d_name);
 
-        log_err(errno, id, log_buffer);
+        log_err(errno,id,log_buffer);
         }
 
       continue;
@@ -2202,8 +2500,8 @@ static char *resi(
   struct rm_attribute *attrib)
 
   {
-  char			*id = "resi";
-  int			value;
+  char *id = "resi";
+  int   value;
 
   if (attrib == NULL) 
     {
@@ -2304,7 +2602,7 @@ char *sessions(
         sprintf(log_buffer,"%s: get_proc_stat", 
           dent->d_name);
 
-        log_err(errno, id, log_buffer);
+        log_err(errno,id,log_buffer);
         }
 
       continue;
@@ -2318,7 +2616,7 @@ char *sessions(
 
     if (LOGLEVEL >= 6)
       {
-      sprintf(log_buffer,"%s[%d]: pid %d sid %d\n",
+      sprintf(log_buffer,"%s[%d]: pid %d sid %d",
         id, 
         njids, 
         ps->pid, 
@@ -2455,40 +2753,59 @@ char *pids(
     return(NULL);
     }
 
-	if ((jobid = (pid_t)atoi(attrib->a_value)) == 0) {
-		sprintf(log_buffer, "bad param: %s", attrib->a_value);
-		log_err(-1, id, log_buffer);
-		rm_errno = RM_ERR_BADPARAM;
-		return NULL;
-	}
-	if (momgetattr(NULL)) {
-		log_err(-1, id, extra_parm);
-		rm_errno = RM_ERR_BADPARAM;
-		return NULL;
-	}
+  if ((jobid = (pid_t)atoi(attrib->a_value)) == 0) 
+    {
+    sprintf(log_buffer,"bad param: %s", 
+      attrib->a_value);
 
-	if (strcmp(attrib->a_qualifier, "session") != 0) {
-		rm_errno = RM_ERR_BADPARAM;
-		return NULL;
-	}
+    log_err(-1,id,log_buffer);
 
-	/*
-	** Search for members of session
-	*/
-	rewinddir(pdir);
-	fmt = ret_string;
-	while ((dent = readdir(pdir)) != NULL) {
-		if (!isdigit(dent->d_name[0]))
-			continue;
+    rm_errno = RM_ERR_BADPARAM;
 
-		if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL) {
-			if (errno != ENOENT) {
-				sprintf(log_buffer,
-					"%s: get_proc_stat", dent->d_name);
-				log_err(errno, id, log_buffer);
-			}
-			continue;
-		}
+    return(NULL);
+    }
+
+  if (momgetattr(NULL)) 
+    {
+    log_err(-1,id,extra_parm);
+
+    rm_errno = RM_ERR_BADPARAM;
+
+    return(NULL);
+    }
+
+  if (strcmp(attrib->a_qualifier,"session") != 0) 
+    {
+    rm_errno = RM_ERR_BADPARAM;
+
+    return(NULL);
+    }
+
+  /*
+  ** Search for members of session
+  */
+
+  rewinddir(pdir);
+
+  fmt = ret_string;
+
+  while ((dent = readdir(pdir)) != NULL) 
+    {
+    if (!isdigit(dent->d_name[0]))
+      continue;
+
+    if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL) 
+      {
+      if (errno != ENOENT) 
+        {
+        sprintf(log_buffer,"%s: get_proc_stat", 
+          dent->d_name);
+
+        log_err(errno,id,log_buffer);
+        }
+
+      continue;
+      }
 
     if (LOGLEVEL >= 6)
       {
@@ -2546,9 +2863,9 @@ char *nusers(
     return(NULL);
     }
 
-  if ((uids = (uid_t *)calloc(maxuid, sizeof(uid_t))) == NULL) 
+  if ((uids = (uid_t *)calloc(maxuid,sizeof(uid_t))) == NULL) 
     {
-    log_err(errno, id, "no memory");
+    log_err(errno,id,"no memory");
     rm_errno = RM_ERR_SYSTEM;
 
     return(NULL);
@@ -2579,7 +2896,7 @@ char *nusers(
 
     if (LOGLEVEL >= 6)
       {
-      sprintf(log_buffer,"%s[%d]: pid %d uid %d\n",
+      sprintf(log_buffer,"%s[%d]: pid %d uid %d",
 	id, 
         nuids, 
         ps->pid, 
@@ -2659,7 +2976,7 @@ static char *totmem(
  
   if (LOGLEVEL >= 6)
     {
-    sprintf(log_buffer,"%s: total mem=%lu\n", 
+    sprintf(log_buffer,"%s: total mem=%lu", 
       id, 
       mm->mem_total + mm->swap_total);
 
@@ -2667,7 +2984,7 @@ static char *totmem(
     }
 
   sprintf(ret_string,"%lukb", 
-    (ulong)(mm->mem_total + mm->swap_total) >> 10); /* KB */
+    (ulong)((mm->mem_total >> 10) + (mm->swap_total >> 10))); /* KB */
 
   return(ret_string);
   }  /* END totmem() */
@@ -2684,7 +3001,7 @@ static char *availmem(
   char *id = "availmem";
   proc_mem_t *mm;
 
-  if (attrib) 
+  if (attrib != NULL) 
     {
     log_err(-1,id,extra_parm);
 
@@ -2704,7 +3021,7 @@ static char *availmem(
 
   if (LOGLEVEL >= 6)
     {
-    sprintf(log_buffer,"%s: free mem=%lu\n", 
+    sprintf(log_buffer,"%s: free mem=%lu", 
       id, 
       mm->mem_free + mm->swap_free);
 
@@ -2712,7 +3029,7 @@ static char *availmem(
     }
 
   sprintf(ret_string,"%lukb",
-    (mm->mem_free + mm->swap_free) >> 10); /* KB */
+    (ulong)((mm->mem_free >> 10) + (mm->swap_free >> 10))); /* KB */
 
   return(ret_string);
   }  /* END availmem() */
@@ -2756,6 +3073,8 @@ static char *ncpus(
 
   sprintf(ret_string,"%d",
     procs);
+
+  system_ncpus=procs;
 
   fclose(fp);
 
@@ -2822,7 +3141,7 @@ static char *physmem(
     {
     BPtr += strlen("MemTotal:");
 
-    if (sscanf(BPtr,"%Lu",
+    if (sscanf(BPtr,"%llu",
          &mem) != 1)
       {
       rm_errno = RM_ERR_SYSTEM;
@@ -2836,7 +3155,7 @@ static char *physmem(
     {
     /* attempt to load first numeric value */
 
-    if (sscanf(BPtr,"%*s %Lu",
+    if (sscanf(BPtr,"%*s %llu",
         &mem) != 1)
       {
       rm_errno = RM_ERR_SYSTEM;
@@ -2849,7 +3168,7 @@ static char *physmem(
     mem >>= 10;
     }
 
-  sprintf(ret_string,"%Lukb", 
+  sprintf(ret_string,"%llukb", 
     mem);
  
   return(ret_string);
@@ -2869,7 +3188,7 @@ char *size_fs(
 
   if (param[0] != '/') 
     {
-    sprintf(log_buffer,"%s: not full path filesystem name: %s\n",
+    sprintf(log_buffer,"%s: not full path filesystem name: %s",
       id, 
       param);
 
@@ -2909,7 +3228,7 @@ char *size_file(
 
   if (param[0] != '/') 
     {
-    sprintf(log_buffer, "%s: not full path filesystem name: %s\n",
+    sprintf(log_buffer, "%s: not full path filesystem name: %s",
       id,param);
 
     log_err(-1,id,log_buffer);
@@ -2994,12 +3313,14 @@ char *size(
 void scan_non_child_tasks(void)
 
   {
+  char *id = "scan_non_child_tasks";
+
   job *job;
   extern list_head svr_alljobs;
 
   DIR *pdir;  /* use local pdir to prevent race conditions associated w/global pdir (VPAC) */
 
-  pdir=opendir("/proc");
+  pdir = opendir("/proc");
 
   for (job = GET_NEXT(svr_alljobs);job != NULL;job = GET_NEXT(job->ji_alljobs)) 
     {
@@ -3018,27 +3339,39 @@ void scan_non_child_tasks(void)
       /* look for processes with this session id */
 
       found = 0;
-      rewinddir(pdir);
 
-      while ((dent = readdir(pdir)) != NULL) 
+      /* NOTE:  on linux systems, the session master should have pid == sessionid */
+
+      if (kill(task->ti_qs.ti_sid,0) != -1)
         {
-        proc_stat_t *ps;
+        found = 1;
+        }
+      else
+        {
+        /* session master cannot be found, look for other pid in session */
 
-        if (!isdigit(dent->d_name[0]))
-          continue;
-
-        ps = get_proc_stat(atoi(dent->d_name));
-
-        if (!ps)
-          continue;
-
-        if (ps->session == task->ti_qs.ti_sid) 
+        rewinddir(pdir);
+  
+        while ((dent = readdir(pdir)) != NULL) 
           {
-          ++found;
+          proc_stat_t *ps;
 
-          break;
-          }
-        }    /* END while ((dent) != NULL) */
+          if (!isdigit(dent->d_name[0]))
+            continue;
+
+          ps = get_proc_stat(atoi(dent->d_name));
+
+          if (ps == NULL)
+            continue;
+
+          if (ps->session == task->ti_qs.ti_sid) 
+            {
+            found = 1;
+
+            break;
+            }
+          }    /* END while ((dent) != NULL) */
+        }
 
       if (!found) 
         {
@@ -3054,7 +3387,7 @@ void scan_non_child_tasks(void)
         log_event(
           PBSEVENT_JOB,
           PBS_EVENTCLASS_JOB,
-          (char *)__func__,
+          id,
           buf);
 
         task->ti_qs.ti_exitstat = 0;  /* actually unknown */
@@ -3259,7 +3592,7 @@ static char *walltime(
 
     found = 1;
 
-    start = MIN(start,ps->start_time);
+    start = MIN((unsigned)start,ps->start_time);
     }  /* END while ((dent = readdir(pdir)) != NULL) */
 
   if (found) 
@@ -3323,7 +3656,7 @@ u_long gracetime(
   {
   time_t now = time((time_t *)NULL);
 
-  if (secs > now)		/* time is in the future */
+  if (secs > (u_long)now)		/* time is in the future */
     return(secs - now);
 
   return(0);
@@ -3384,7 +3717,7 @@ static char *quota(
     sprintf(log_buffer, "unknown qualifier %s",
       attrib->a_qualifier);
 
-    log_err(-1, id, log_buffer);
+    log_err(-1,id,log_buffer);
 
     rm_errno = RM_ERR_BADPARAM;
 
@@ -3547,13 +3880,15 @@ static char *quota(
 
     case currdata:
 
-#ifdef Q_6_5_QUOTAON
-      sprintf(ret_string,"%ukb",
-        (unsigned int)qi.dqb_curspace >> 10);
-#else
+#if defined(TENABLEQUOTA)
+#if _LINUX_QUOTA_VERSION < 2
       sprintf(ret_string,"%ukb",
         qi.dqb_curblocks >> 10);
-#endif /* Q_6_5_QUOTAON */
+#else /* _LINUX_QUOTA_VERSION < 2 */
+      sprintf(ret_string,"%ukb",
+        (unsigned int)qi.dqb_curspace >> 10);
+#endif /* _LINUX_QUOTA_VERSION < 2 */
+#endif /* TENABLEQUOTA */
 
       break;
 
@@ -3602,7 +3937,7 @@ static char *quota(
 
 #define MAX_INTERFACES 10 /*the maximum number of interfaces*/
 #define HEADER_STR "%*[^\n]\n%*[^\n]\n"
-#define INTERFACE_STR "%[^:]:%d %*d %*d %*d %*d %*d %*d %*d %d %*d %*d %*d %*d %*d %*d %*d\n"
+#define INTERFACE_STR "%[^:]:%lu %*d %*d %*d %*d %*d %*d %*d %lu %*d %*d %*d %*d %*d %*d %*d\n"
 
 static char *netload(
 
@@ -3613,8 +3948,8 @@ static char *netload(
   int   rc; /*read count*/
 
   char interfaceName[MAX_INTERFACES][32];
-  int bytesRX[MAX_INTERFACES + 1];
-  int bytesTX[MAX_INTERFACES + 1];
+  unsigned long int bytesRX[MAX_INTERFACES + 1];
+  unsigned long int bytesTX[MAX_INTERFACES + 1];
 
   int interface = 0;
   /* int ethNum = 0; */
@@ -3684,7 +4019,7 @@ static char *netload(
   fclose(fp);
 
   sprintf(ret_string,"%lu",
-    (unsigned long)(bytesRX[MAX_INTERFACES] + bytesTX[MAX_INTERFACES]));
+    bytesRX[MAX_INTERFACES] + bytesTX[MAX_INTERFACES]);
 
   return(ret_string);
   }  /* END netload() */

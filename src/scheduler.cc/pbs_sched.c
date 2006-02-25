@@ -119,6 +119,9 @@
 #include	"sched_cmds.h"
 #include	"server_limits.h"
 #include	"net_connect.h"
+#include	"rpp.h"
+#include	"rm.h"
+#include        "pbs_version.h"
 
 struct		connect_handle connection[PBS_NET_MAX_CONNECTIONS];
 int		pbs_errno;
@@ -146,7 +149,7 @@ int 		pbs_rm_port;
 
 int	schedreq();
 
-
+extern int get_4byte(int,int *);
 
 
 /*
@@ -548,7 +551,7 @@ badconn(msg)
 
 		uu.aa = addr;
 		sprintf(buf, "%u", uu.bb[0]);
-		for(i=1; i<sizeof(addr); i++) {
+		for(i=1; i<(int)sizeof(addr); i++) {
 			sprintf(hold, ".%u", uu.bb[i]);
 			strcat(buf, hold);
 		}
@@ -561,8 +564,9 @@ badconn(msg)
 	sprintf(log_buffer, "%s on port %u %s",
 			buf, ntohs(saddr.sin_port), msg);
 	log_err(-1, id, log_buffer);
-	return;
-}
+
+  return;
+  }
 
 
 
@@ -572,8 +576,9 @@ int server_command()
 
   {
   char	*id = "server_command";
-  int		new_socket;
-  int		slen;
+
+  int           new_socket;
+  unsigned int	slen;
   int		i, cmd;
   pbs_net_t	addr;
 
@@ -642,6 +647,10 @@ int server_command()
   return(cmd);
   }
 
+
+
+
+
 /*
  * lock_out - lock out other daemons from this directory.
  */
@@ -694,13 +703,6 @@ int main(
 	int		schedinit A_((int argc, char **argv));
 	int		schedule A_((int com, int connector));
 
-#ifndef DEBUG
-	if ((geteuid() != 0) || (getuid() != 0)) {
-		fprintf(stderr, "%s: Must be run by root\n", argv[0]);
-		return (1);
-	}
-#endif	/* DEBUG */
-
 	glob_argv = argv;
 	alarm_time = 180;
 
@@ -710,8 +712,21 @@ int main(
 			   PBS_MANAGER_SERVICE_PORT);
 
 	opterr = 0;
-	while ((c = getopt(argc, argv, "L:S:R:d:p:c:a:")) != EOF) {
+
+        while ((c = getopt(argc, argv, "L:S:R:d:p:c:a:-:")) != EOF) {
 		switch (c) {
+                case '-':
+                        if ((optarg == NULL) || (optarg[0] == '\0')) {
+                                errflg = 1;
+                        }
+
+                        if (!strcmp(optarg,"version")) {
+                                fprintf(stderr,"version: %s\n", PBS_VERSION);
+                                exit(0);
+                        } else {
+                                errflg = 1;
+                        }
+                        break;
 		case 'L':
 			logfile = optarg;
 			break;
@@ -748,6 +763,7 @@ int main(
 			}
 			break;
 		case '?':
+                        errflg = 1;
 			break;
 		}
 	}
@@ -755,6 +771,13 @@ int main(
 		fprintf(stderr, "usage: %s %s\n", argv[0], usage);
 		exit(1);
 	}
+
+#ifndef DEBUG
+        if ((geteuid() != 0) || (getuid() != 0)) {
+                fprintf(stderr, "%s: Must be run by root\n", argv[0]);
+                return (1);
+        }
+#endif        /* DEBUG */
 
 	/* Save the original working directory for "restart" */
 	if ((oldpath = getcwd((char *)NULL, MAXPATHLEN)) == NULL) {
@@ -898,18 +921,18 @@ int main(
          * Chris Samuel - VPAC
          * csamuel@vpac.org - 29th July 2003
          * 
-         * Now conditional on the PSBCOREDUMP environment variable
+         * Now conditional on the PBSCOREDUMP environment variable
          */
 
-        if (getenv("PSBCOREDUMP"))
+        if (getenv("PBSCOREDUMP"))
           {
           act.sa_handler = catch_abort;   /* make sure we core dump */
 
-          sigaction(SIGSEGV, &act, NULL);
+          sigaction(SIGSEGV,&act, NULL);
           sigaction(SIGBUS, &act, NULL);
           sigaction(SIGFPE, &act, NULL);
           sigaction(SIGILL, &act, NULL);
-          sigaction(SIGTRAP, &act, NULL);
+          sigaction(SIGTRAP,&act, NULL);
           sigaction(SIGSYS, &act, NULL);
           }
 

@@ -170,7 +170,7 @@ attribute_def job_attr_def[] = {
 	comp_str,
 	free_str,
 	NULL_FUNC,
-	READ_WRITE | ATR_DFLAG_MOM,
+	READ_WRITE | ATR_DFLAG_MOM /* | ATR_DFLAG_ALTRUN */,
 	ATR_TYPE_STR,
 	PARENT_TYPE_JOB
     },
@@ -276,7 +276,7 @@ attribute_def job_attr_def[] = {
 	PARENT_TYPE_JOB
     },
 /* JOB_ATR_exectime */
-    {	ATTR_a,			/* "Execution_Time" */
+    {	ATTR_a,			/* "Execution_Time" (aka release_date) */
 	decode_l,
 	encode_l,
 	set_l,
@@ -387,7 +387,7 @@ attribute_def job_attr_def[] = {
 	ATR_TYPE_LONG,
 	PARENT_TYPE_JOB
     },
-/* JOB_ATR_output */
+/* JOB_ATR_outpath */
     {	ATTR_o,			/* "Output_Path" */
 	decode_str,
 	encode_str,
@@ -676,6 +676,18 @@ attribute_def job_attr_def[] = {
 	free_null,
 	NULL_FUNC,
 	READ_ONLY | ATR_DFLAG_SSET,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_JOB
+    },
+/* JOB_ATR_exitstat */
+    {	ATTR_exitstat,		/* "exit_status" */
+	decode_l,
+	encode_l,
+	set_l,
+	comp_l,
+	free_null,
+	NULL_FUNC,
+	READ_ONLY,
 	ATR_TYPE_LONG,
 	PARENT_TYPE_JOB
     },

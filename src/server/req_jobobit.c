@@ -104,6 +104,7 @@
 #include "net_connect.h"
 #include "svrfunc.h"
 #include "sched_cmds.h"
+#include "queue.h"
 
 
 #define RESC_USED_BUF 2048
@@ -123,13 +124,13 @@ extern char *msg_momnoexec2;
 extern char *msg_obitnojob;
 extern char *msg_obitnocpy;
 extern char *msg_obitnodel;
-extern struct connection svr_conn[];
-extern struct connect_handle connection[];
 extern char  server_host[];
 extern int   svr_do_schedule;
 extern time_t time_now;
 
 extern int   LOGLEVEL;
+
+extern const char *PJobState[];
 
 /* External Functions called */
 
@@ -660,6 +661,10 @@ void on_job_exit(
   struct batch_request *preq;
 
   int    IsFaked = 0;
+  int	 KeepSeconds = 0;
+  pbs_queue          *pque;
+
+  extern void remove_job_delete_nanny(struct job *);
 
   if (ptask->wt_type != WORK_Deferred_Reply) 
     {
@@ -678,6 +683,9 @@ void on_job_exit(
     {
     return;
     }		
+
+  /* MOM has killed everything it can kill, so we can stop the nanny */
+  remove_job_delete_nanny(pjob);
 
   switch (pjob->ji_qs.ji_substate) 
     {
@@ -942,37 +950,52 @@ void on_job_exit(
         /* release_req will free preq and close connection */
         }
 
+      /* NOTE: we never check if MOM actually deleted the job */
+
       rel_resc(pjob); /* free any resc assigned to the job */
 
       if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
         issue_track(pjob);
 
-      if (getenv("TORQUEKEEPCOMPLETED") != NULL)
-        {
-        /* set job to completed state */
- 
-        svr_setjobstate(pjob,JOB_STATE_COMPLETE,JOB_SUBSTATE_COMPLETE);
+      svr_setjobstate(pjob,JOB_STATE_COMPLETE,JOB_SUBSTATE_COMPLETE);
 
-        pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char = 'C';
+      ptask->wt_type = WORK_Immed;
 
-        ptask = set_task(WORK_Timed,time_now + 300,on_job_exit,pjob);
-
-        /* NOTE:  what happens if job server is shutdown with job still *
-         *        in completed state?  should job_purge be called at clean 
-                  shutdown?  what about 'hard' shutdown? */
-        }
-      else
-        {
-        job_purge(pjob);
-        }
-
-      break;
+      /* NO BREAK, FALL INTO NEXT CASE */
     
     case JOB_SUBSTATE_COMPLETE:
 
-      /* job has stuck around long enough */
+      if ((pque = pjob->ji_qhdr) && (pque->qu_attr != NULL))
+        {
+        KeepSeconds = (int)pque->qu_attr[(int)QE_ATR_KeepCompleted].at_val.at_long;
+        }
 
-      job_purge(pjob);
+      if (KeepSeconds <= 0)
+        {
+        job_purge(pjob);
+
+        break;
+        }
+
+      if (ptask->wt_type == WORK_Immed) 
+        {
+        /* first time in */
+
+        ptask = set_task(WORK_Timed,time_now + KeepSeconds,on_job_exit,pjob);
+
+        if (ptask)
+          {
+          /* insure that work task will be removed if job goes away */
+
+          append_link(&pjob->ji_svrtask,&ptask->wt_linkobj,ptask);
+          }
+        }
+      else
+        {
+        /* job has been around long enough */
+
+        job_purge(pjob);
+        }
 
       break;
     }  /* END switch (pjob->ji_qs.ji_substate) */
@@ -1466,9 +1489,12 @@ void req_jobobit(
       {
       /* not running and not exiting - bad news (possible data staging issue) */
 
-      sprintf(log_buffer,msg_obitnojob,
+      /* NOTE:  was logged w/msg_obitnojob */
+
+      sprintf(log_buffer,"obit received for job %s from host %s with bad state (state: %s)",
+        preq->rq_ind.rq_jobobit.rq_jid,
         preq->rq_host, 
-        PBSE_BADSTATE);
+        PJobState[pjob->ji_qs.ji_state]);
 
       log_event(
         PBSEVENT_ERROR|PBSEVENT_JOB,
@@ -1515,6 +1541,9 @@ void req_jobobit(
   exitstatus = preq->rq_ind.rq_jobobit.rq_status;
 
   pjob->ji_qs.ji_un.ji_exect.ji_exitstat = exitstatus;
+
+  pjob->ji_wattr[(int)JOB_ATR_exitstat].at_val.at_long = exitstatus;
+  pjob->ji_wattr[(int)JOB_ATR_exitstat].at_flags |=ATR_VFLAG_SET;
 
   patlist = (svrattrl *)GET_NEXT(preq->rq_ind.rq_jobobit.rq_attr);
 

@@ -167,6 +167,8 @@ extern	unsigned	int	reqnum;
 extern	char	*ret_string;
 extern 	double	 cputfactor;
 extern	double	 wallfactor;
+extern  long     system_ncpus;
+extern  int      ignwalltime;
 
 /*
 ** local functions
@@ -369,7 +371,7 @@ void dep_initialize(void)
 
   /* NOTE:  was 'odm_initialize() == 0' */
 
-  if ((odm_path = odm_set_path("/etc/objrepos")) != -1)
+  if ((odm_path = odm_set_path("/etc/objrepos")) != (char *)-1)
     {
     /* NOTE:  obj is alloc'd */
 
@@ -761,6 +763,8 @@ int mom_set_limits(pjob, set_mode)
        	struct rlimit	reslim;
 	unsigned long	mem_limit  = 0;
 
+        log_buffer[0] = '\0';
+
 	DBPRT(("%s: entered\n", id))
 	assert(pjob != NULL);
 	assert(pjob->ji_wattr[(int)JOB_ATR_resource].at_type == ATR_TYPE_RESC);
@@ -797,7 +801,7 @@ int mom_set_limits(pjob, set_mode)
 			    retval = getsize(pres, &value);
 			    if (retval != PBSE_NONE)
 			        return (error(pname, retval));
-			    if (value > INT_MAX)
+			    if (value > ULONG_MAX)
 			        return (error(pname, PBSE_BADATVAL));
 			    reslim.rlim_cur = reslim.rlim_max = value;
 			    if (setrlimit(RLIMIT_FSIZE, &reslim) < 0)
@@ -814,7 +818,7 @@ int mom_set_limits(pjob, set_mode)
 			    retval = getsize(pres, &value);
 			    if (retval != PBSE_NONE)
 			        return (error(pname, retval));
-			    if (value > INT_MAX)
+			    if (value > ULONG_MAX)
 			        return (error(pname, PBSE_BADATVAL));
 			if ((mem_limit == 0) || (value < mem_limit))
 				mem_limit = value;
@@ -1239,6 +1243,8 @@ int mom_over_limit(pjob)
 				return (TRUE);
 			}
 		} else if (strcmp(pname, "walltime") == 0) {
+			if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
+				continue;
 			retval = gettime(pres, &value);
 			if (retval != PBSE_NONE)
 				continue;
@@ -1247,7 +1253,8 @@ int mom_over_limit(pjob)
 				sprintf(log_buffer,
 					"walltime %d exceeded limit %d",
 					num, value);
-				return (TRUE);
+				if (ignwalltime == 0)
+					return (TRUE);
 			}
 		}
 	}
@@ -1356,9 +1363,10 @@ int mom_set_use(pjob)
  *	Kill a task session.
  *	Call with the job pointer and a signal number.
  */
-int kill_task(ptask, sig)
+int kill_task(ptask, sig,pg)
     task	*ptask;
     int  	sig;
+    int         pg;
 {
 	int	ct = 0;
 	int	i, err;
@@ -1729,6 +1737,7 @@ struct rm_attribute	*attrib;
 		return NULL;
 	}
 	sprintf(ret_string, "%d", nncpus);
+	system_ncpus=nncpus;
 	return ret_string;
 }
 

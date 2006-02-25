@@ -95,9 +95,8 @@ ac_default_prefix=/usr/local
 # Any additions from configure.in:
 ac_help="$ac_help
 
-  --enable-docs           build PBS with documentation. This is off by
-                          default since it takes a while to build. Man pages
-                          will still be installed, however."
+  --disable-docs          Don't install the manpages."
+
 ac_help="$ac_help
 
   --enable-server         build/not build the server. Can be used to disable
@@ -150,6 +149,7 @@ ac_help="$ac_help
 ac_help="$ac_help
 
   --set-tmpdir=DIR        set the tmp directory that pbs_mom will use.
+                          This is a Cray-specific feature.
                           This will default to \"/tmp\"."
 ac_help="$ac_help
 
@@ -172,7 +172,8 @@ ac_help="$ac_help
                           set the name of the computer that clients will
                           access when no machine name is specified as part
                           of the queue name. It defaults to the hostname
-                          of the machine on which PBS is being compiled."
+                          of the machine on which PBS is being compiled.
+                          DO NOT SET THIS TO 'localhost'"
 ac_help="$ac_help
 
   --set-environ=PATH      set the path containing the environment variables
@@ -188,7 +189,8 @@ ac_help="$ac_help
                           4 for pbs_mom. (e.g. set to 7 for all three)"
 ac_help="$ac_help
 
-  --enable-syslog         enable the use of syslog for error reporting"
+  --disable-syslog        disable the use of syslog for error reporting"
+
 ac_help="$ac_help
 
   --set-sched=TYPE        sets the scheduler type. If TYPE is
@@ -242,8 +244,11 @@ ac_help="$ac_help
                           disabled, the behavior is to give the script file
 			  as standard input"
 ac_help="$ac_help
-
-  --enable-rpp            use RPP/UDP for resource queries to mom.
+  --enable-shell-use-argv enable this to put the job script name on the
+                          command line that invokes the shell.  Not on by
+                          default.  Ignores --enable-shell-pipe setting."
+ac_help="$ac_help
+  --enable-rpp            use RPP/UDP for resource queries from PBS server to mom.
                           This is enabled by default. If disabled TCP is used."
 ac_help="$ac_help
 
@@ -284,10 +289,30 @@ ac_help="$ac_help
                           This is disabled by default"
 ac_help="$ac_help
 
-  --disable-filesync      disable file system blocking until data is physically 
+  --enable-filesync       enable file system blocking until data is physically 
                           written to the disk.  Filesync enabled is more reliable
                           but may lead to server delays in larger systems. 
-                          filesync is enabled by default"
+                          filesync is disabled by default"
+
+ac_help="$ac_help
+
+  --enable-wordexp        enable word expansion on file paths used in job stagein,
+                          stageout, and standard out/err files.  Requires that
+                          your libc implementation provides wordexp() and wordexp.h"
+
+ac_help="$ac_help
+
+  --maildomain=MAILDOMAIN override the default domain for outgoing mail messages,
+                          i.e. \"user@maildomain\".  The default maildomain is the
+                          hostname where the job was submitted from"
+
+ac_help="$ac_help
+
+  --disable-spool         if set, TORQUE will create output and error files directly 
+                          in \$HOME/.pbs_spool if it exists or in \$HOME otherwise.
+                          By default, TORQUE will spool files in \$TORQUEHOME/spool 
+                          and copy them to the users home directory when the job
+                          completes"
 
 # Initialize some variables set by options.
 # The variables have the same names as the options, with
@@ -449,6 +474,11 @@ EOF
     ac_prev=libdir ;;
   -libdir=* | --libdir=* | --libdi=* | --libd=*)
     libdir="$ac_optarg" ;;
+
+  -maildomain | --maildomain)
+    ac_prev=maildomain ;;
+  -maildomain=* | --maildomain=*)
+    maildomain="$ac_optarg" ;;
 
   -mandir | --mandir | --mandi | --mand | --man | --ma | --m)
     ac_prev=mandir ;;
@@ -782,11 +812,254 @@ fi
 
 
 
+user_set_cc_val=no
+
+# Check whether --set-cc was given.
+if test "${set_cc+zzq}" = zzq; then
+  setval="$set_cc"
+  CC="${setval}"; user_set_cc_val=yes
+fi
+test "$CC" = yes && { CC=cc; user_set_cc_val=no; }
+
+
+# Check whether --set-cflags was given.
+if test "${set_cflags+zzq}" = zzq; then
+  setval="$set_cflags"
+  cflags="${setval}"
+else
+  cflags="not_set"
+fi
+test "$cflags" = yes && cflags=""
+
+test "$cflags" = not_set || CFLAGS="$cflags"
+pbs_save_CFLAGS="$CFLAGS"
+# Extract the first word of "gcc", so it can be a program name with args.
+set dummy gcc; ac_word=$2
+echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+echo "configure:2277: checking for $ac_word" >&5
+if eval "test \"`echo '$''{'ac_cv_prog_CC'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  if test -n "$CC"; then
+  ac_cv_prog_CC="$CC" # Let the user override the test.
+else
+  IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS="${IFS}:"
+  for ac_dir in $PATH; do
+    test -z "$ac_dir" && ac_dir=.
+    if test -f $ac_dir/$ac_word; then
+      ac_cv_prog_CC="gcc"
+      break
+    fi
+  done
+  IFS="$ac_save_ifs"
+fi
+fi
+CC="$ac_cv_prog_CC"
+if test -n "$CC"; then
+  echo "$ac_t""$CC" 1>&6
+else
+  echo "$ac_t""no" 1>&6
+fi
+
+if test -z "$CC"; then
+  # Extract the first word of "cc", so it can be a program name with args.
+set dummy cc; ac_word=$2
+echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
+echo "configure:2306: checking for $ac_word" >&5
+if eval "test \"`echo '$''{'ac_cv_prog_CC'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  if test -n "$CC"; then
+  ac_cv_prog_CC="$CC" # Let the user override the test.
+else
+  IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS="${IFS}:"
+  ac_prog_rejected=no
+  for ac_dir in $PATH; do
+    test -z "$ac_dir" && ac_dir=.
+    if test -f $ac_dir/$ac_word; then
+      if test "$ac_dir/$ac_word" = "/usr/ucb/cc"; then
+        ac_prog_rejected=yes
+	continue
+      fi
+      ac_cv_prog_CC="cc"
+      break
+    fi
+  done
+  IFS="$ac_save_ifs"
+if test $ac_prog_rejected = yes; then
+  # We found a bogon in the path, so make sure we never use it.
+  set dummy $ac_cv_prog_CC
+  shift
+  if test $# -gt 0; then
+    # We chose a different compiler from the bogus one.
+    # However, it has the same basename, so the bogon will be chosen
+    # first if we set CC to just the basename; use the full file name.
+    shift
+    set dummy "$ac_dir/$ac_word" "$@"
+    shift
+    ac_cv_prog_CC="$@"
+  fi
+fi
+fi
+fi
+CC="$ac_cv_prog_CC"
+if test -n "$CC"; then
+  echo "$ac_t""$CC" 1>&6
+else
+  echo "$ac_t""no" 1>&6
+fi
+
+  test -z "$CC" && { echo "configure: error: no acceptable cc found in \$PATH" 1>&2; exit 1; }
+fi
+
+echo $ac_n "checking whether the C compiler ($CC $CFLAGS $LDFLAGS) works""... $ac_c" 1>&6
+echo "configure:2354: checking whether the C compiler ($CC $CFLAGS $LDFLAGS) works" >&5
+
+ac_ext=c
+# CFLAGS is not in ac_cpp because -g, -O, etc. are not valid cpp options.
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='${CC-cc} -c $CFLAGS $CPPFLAGS conftest.$ac_ext 1>&5'
+ac_link='${CC-cc} -o conftest $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS 1>&5'
+cross_compiling=$ac_cv_prog_cc_cross
+
+cat > conftest.$ac_ext <<EOF
+#line 2364 "configure"
+#include "confdefs.h"
+main(){return(0);}
+EOF
+if { (eval echo configure:2368: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest; then
+  ac_cv_prog_cc_works=yes
+  # If we can't run a trivial program, we are probably using a cross compiler.
+  if (./conftest; exit) 2>/dev/null; then
+    ac_cv_prog_cc_cross=no
+  else
+    ac_cv_prog_cc_cross=yes
+  fi
+else
+  echo "configure: failed program was:" >&5
+  cat conftest.$ac_ext >&5
+  ac_cv_prog_cc_works=no
+fi
+rm -fr conftest*
+
+echo "$ac_t""$ac_cv_prog_cc_works" 1>&6
+if test $ac_cv_prog_cc_works = no; then
+  { echo "configure: error: installation or configuration problem: C compiler cannot create executables." 1>&2; exit 1; }
+fi
+echo $ac_n "checking whether the C compiler ($CC $CFLAGS $LDFLAGS) is a cross-compiler""... $ac_c" 1>&6
+echo "configure:2388: checking whether the C compiler ($CC $CFLAGS $LDFLAGS) is a cross-compiler" >&5
+echo "$ac_t""$ac_cv_prog_cc_cross" 1>&6
+cross_compiling=$ac_cv_prog_cc_cross
+
+echo $ac_n "checking whether we are using GNU C""... $ac_c" 1>&6
+echo "configure:2393: checking whether we are using GNU C" >&5
+if eval "test \"`echo '$''{'ac_cv_prog_gcc'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  cat > conftest.c <<EOF
+#ifdef __GNUC__
+  yes;
+#endif
+EOF
+if { ac_try='${CC-cc} -E conftest.c'; { (eval echo configure:2402: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }; } | egrep yes >/dev/null 2>&1; then
+  ac_cv_prog_gcc=yes
+else
+  ac_cv_prog_gcc=no
+fi
+fi
+
+echo "$ac_t""$ac_cv_prog_gcc" 1>&6
+
+if test $ac_cv_prog_gcc = yes; then
+  GCC=yes
+  ac_test_CFLAGS="${CFLAGS+set}"
+  ac_save_CFLAGS="$CFLAGS"
+  CFLAGS=
+  echo $ac_n "checking whether ${CC-cc} accepts -g""... $ac_c" 1>&6
+echo "configure:2417: checking whether ${CC-cc} accepts -g" >&5
+if eval "test \"`echo '$''{'ac_cv_prog_cc_g'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  echo 'void f(){}' > conftest.c
+if test -z "`${CC-cc} -g -c conftest.c 2>&1`"; then
+  ac_cv_prog_cc_g=yes
+else
+  ac_cv_prog_cc_g=no
+fi
+rm -f conftest*
+
+fi
+
+echo "$ac_t""$ac_cv_prog_cc_g" 1>&6
+  if test "$ac_test_CFLAGS" = set; then
+    CFLAGS="$ac_save_CFLAGS"
+  elif test $ac_cv_prog_cc_g = yes; then
+#    CFLAGS="-g -O2"
+    CFLAGS="-g"
+  else
+#    CFLAGS="-O2"
+    CFLAGS=""
+  fi
+else
+  GCC=
+  test "${CFLAGS+set}" = set || CFLAGS="-g"
+fi
+
+CFLAGS="$pbs_save_CFLAGS"
+
+if test -z "$CFLAGS"; then
+        if   test "$GCC" = "yes"; then
+#    CFLAGS="-g -O2"
+    CFLAGS="-g"
+  elif test "$CC" = "xlc"; then
+    CFLAGS="-O3 -qstrict -qnoansialias -qlibansi -qinfo -qro -qmaxmem=20000"
+  else
+    case "$canonical" in
+      *-*-irix*) CFLAGS='-O -Wl,-woff,84' ;;
+      *-*-hpux*) CFLAGS='-Ae' ;;
+      *-*-osf*)  CFLAGS='-std1' ;;
+      *-*-solaris2.7) if test -n "`isainfo -kv | grep 64-bit`" ; then
+			CFLAGS=-xarch=v9
+		      else
+			CFLAGS=-O
+		      fi ;;
+      *)	 CFLAGS="-O" ;;     esac
+  fi
+fi
+
+
+# figure out the name of "lib" on this system
+# Warning! this is really hacky
+libsuff=
+case $host_os in
+linux-gnu*)
+  case "$host_cpu" in
+  x86_64*|s390x*)
+    echo '#line 819 "configure"' > conftest.$ac_ext
+    echo $ac_n "checking name of lib directory""... $ac_c" 1>&6
+    if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; then
+      case `/usr/bin/file conftest.o` in
+      *64-bit*)
+        libsuff=64
+        ;;
+      esac
+    fi
+    rm -rf conftest*
+    echo "$ac_t""lib$libsuff" 1>&6
+    ;;
+  esac
+esac
+
+
 
 #
 # the default is to build all the executables but not the documents
 #
-PART_DOCS=""
+PART_DOCS="doc"
 PART_SERVER=server
 PART_MOM=mom
 PART_CLIENTS=clients
@@ -928,7 +1201,7 @@ tclx_dir=no
 ac_LL_PATH=`echo "$PATH" | sed -e 's/:/ /g'`
 for ac_libpath in $ac_LL_PATH /__XqqFrobozz ; do
     ac_libpath=`echo $ac_libpath | sed -e 's;/bin$;;'`
-    if test `/bin/ls ${ac_libpath}/lib/libtclx*.* 2> /dev/null | wc -l` -gt 0; then
+    if test `/bin/ls ${ac_libpath}/lib$libsuff/libtclx*.* 2> /dev/null | wc -l` -gt 0; then
         tclx_dir="$ac_libpath"
 	break;
     fi
@@ -963,7 +1236,7 @@ tcl_dir=no
 ac_LL_PATH=`echo "$PATH" | sed -e 's/:/ /g'`
 for ac_libpath in $ac_LL_PATH /__XqqFrobozz ; do
     ac_libpath=`echo $ac_libpath | sed -e 's;/bin$;;'`
-    if test `/bin/ls ${ac_libpath}/lib/libtcl*.* 2> /dev/null | wc -l` -gt 0; then
+    if test `/bin/ls ${ac_libpath}/lib$libsuff/libtcl*.* 2> /dev/null | wc -l` -gt 0; then
         tcl_dir="$ac_libpath"
 	break;
     fi
@@ -980,7 +1253,7 @@ tcl_dir=no
 ac_LL_PATH=`echo "$PATH" | sed -e 's/:/ /g'`
 for ac_libpath in $ac_LL_PATH /__XqqFrobozz ; do
     ac_libpath=`echo $ac_libpath | sed -e 's;/bin$;;'`
-    if test `/bin/ls ${ac_libpath}/lib/libtcl*.* 2> /dev/null | wc -l` -gt 0; then
+    if test `/bin/ls ${ac_libpath}/lib$libsuff/libtcl*.* 2> /dev/null | wc -l` -gt 0; then
         tcl_dir="$ac_libpath"
 	break;
     fi
@@ -992,7 +1265,7 @@ if test "$tcl_dir" != no; then
     TCL=1
     TCL_DIR="$tcl_dir"
 
-                    count=`/bin/ls ${tcl_dir}/lib/libtk* 2> /dev/null | wc -l`
+                    count=`/bin/ls ${tcl_dir}/lib$libsuff/libtk* 2> /dev/null | wc -l`
     if test "$count" -gt 0 -a -n "$GUI"; then
 	TK=1
     fi
@@ -1039,10 +1312,10 @@ echo "$ac_t""$pbs_cv_ver_tcl" 1>&6
 	{ echo "configure: error: cannot find Tcl version in $tcl_h" 1>&2; exit 1; };
 
                         TCL_LIB_VER="$TCL_VER"
-    count=`/bin/ls -d $TCL_DIR/lib/libtcl${TCL_LIB_VER}.* 2> /dev/null | wc -l`
+    count=`/bin/ls -d $TCL_DIR/lib$libsuff/libtcl${TCL_LIB_VER}.* 2> /dev/null | wc -l`
     if test "$count" -lt 1; then
         TCL_LIB_VER=`echo $TCL_LIB_VER | sed -e 's/\.//'`
-        count=`/bin/ls $TCL_DIR/lib/libtcl${TCL_LIB_VER}.* | wc -l`
+        count=`/bin/ls $TCL_DIR/lib$libsuff/libtcl${TCL_LIB_VER}.* | wc -l`
         if test "$count" -lt 1; then
             { echo "configure: error: cannot find a Tcl library for version $TCL_VER" 1>&2; exit 1; }
         fi
@@ -1080,10 +1353,10 @@ echo "$ac_t""$pbs_cv_ver_tk" 1>&6
 	{ echo "configure: error: cannot find Tk version in $tk_h" 1>&2; exit 1; };
 
                         TK_LIB_VER="$TK_VER"
-    count=`/bin/ls $TCL_DIR/lib/libtk${TK_LIB_VER}.* 2> /dev/null | wc -l`
+    count=`/bin/ls $TCL_DIR/lib$libsuff/libtk${TK_LIB_VER}.* 2> /dev/null | wc -l`
     if test "$count" -lt 1; then
         TK_LIB_VER=`echo $TK_LIB_VER | sed -e 's/\.//'`
-        count=`/bin/ls $TCL_DIR/lib/libtk${TK_LIB_VER}.* | wc -l`
+        count=`/bin/ls $TCL_DIR/lib$libsuff/libtk${TK_LIB_VER}.* | wc -l`
         if test "$count" -lt 1; then
             { echo "configure: error: cannot find a Tk library for version $TK_VER" 1>&2; exit 1; }
         fi
@@ -1094,19 +1367,57 @@ fi
 
 TCL_LIBS=""; TCL_INCS=""
 
+TCLX_VER=""
 if test "$TCLX" -eq 1; then
 
+
+                    tclx_h=/dev/null
+    for i in $TCL_DIR/include/tclExtend.h \
+      `/bin/ls -d $TCL_DIR/include/tcl*/tclExtend.h 2> /dev/null`; do
+        test -r $i && { tclx_h="$i"; break; }
+    done
+
+    echo $ac_n "checking TclX version""... $ac_c" 1>&6
+echo "configure:1057: checking TclX version" >&5
+if eval "test \"`echo '$''{'pbs_cv_ver_tclx'+set}'`\" = set"; then
+  echo $ac_n "(cached) $ac_c" 1>&6
+else
+  
+        if grep "[ \	]TCLX_VERSION[ \	]" $tclx_h > /dev/null 2>&1; then
+           pbs_cv_ver_tclx=`sed -n \
+               -e 's/.*#define.*TCLX_VERSION[^"]*"\([^"]*\).*/\1/p' \
+               $tclx_h | tail -1`
+        else
+            pbs_cv_ver_tclx=notfound
+    fi
+fi
+
+echo "$ac_t""$pbs_cv_ver_tclx" 1>&6
+
+    TCLX_VER="$pbs_cv_ver_tclx"
+    test "$TCLX_VER" = notfound && \
+	{ echo "configure: error: cannot find TclX version in $tclx_h" 1>&2; exit 1; };
+
+                        TCLX_LIB_VER="$TCLX_VER"
+    count=`/bin/ls $TCL_DIR/lib$libsuff/libtclx${TCLX_LIB_VER}.* 2> /dev/null | wc -l`
+    if test "$count" -lt 1; then
+        TCLX_LIB_VER=`echo $TCLX_LIB_VER | sed -e 's/\.//'`
+        count=`/bin/ls $TCL_DIR/lib$libsuff/libtk${TCLX_LIB_VER}.* | wc -l`
+        if test "$count" -lt 1; then
+            { echo "configure: error: cannot find a TclX library for version $TCLX_VER" 1>&2; exit 1; }
+        fi
+    fi
                 TCLX_DIR="$tclx_dir"
-    TCL_LIBS=$TCL_LIBS' -L$(TCLX_DIR)/lib'
+    TCL_LIBS=$TCL_LIBS' -L$(TCLX_DIR)/lib'$libsuff
     TCL_INCS=$TCL_INCS' -I$(TCLX_DIR)/include'
-    TCL_LIBS=$TCL_LIBS' -ltclx -ltkx'
+    TCL_LIBS="$TCL_LIBS -ltclx${TCLX_LIB_VER} -ltkx${TCLX_LIB_VER}"
 fi
 
 if test "$TCL" -eq 1; then
     TCL_DIR="$tcl_dir"
 
                         if test "$tcl_dir" != "$tclx_dir"; then
-        TCL_LIBS=$TCL_LIBS' -L$(TCL_DIR)/lib'
+        TCL_LIBS=$TCL_LIBS' -L$(TCL_DIR)/lib'$libsuff
     fi
 
                         count=`/bin/ls -d ${tcl_dir}/include/tcl${TCL_VER} 2> /dev/null | wc -l`
@@ -1275,12 +1586,12 @@ if test "$x_libraries" != "NONE" ; then
     echo "configure: warning: "X11 libraries not found"" 1>&2
   fi
 else
-  count=`/bin/ls /usr/lib/libX11* 2> /dev/null | wc -l`
+  count=`/bin/ls /usr/lib$libsuff/libX11* 2> /dev/null | wc -l`
   if test "$count" -eq 0 ; then
     for d in /usr/X11R6 /usr/local /usr/X11R5 ; do
-      count=`/bin/ls $d/lib/libX11* 2> /dev/null | wc -l`
+      count=`/bin/ls $d/lib$libsuff/libX11* 2> /dev/null | wc -l`
       if test "$count" -gt 0 ; then
-        X11LIB="-L$d/lib"
+        X11LIB="-L$d/lib$libsuff"
         break
       fi
     done
@@ -1294,26 +1605,6 @@ fi
 
 
 
-
-
-user_set_cc_val=no
-
-# Check whether --set-cc was given.
-if test "${set_cc+zzq}" = zzq; then
-  setval="$set_cc"
-  CC="${setval}"; user_set_cc_val=yes
-fi
-test "$CC" = yes && { CC=cc; user_set_cc_val=no; }
-
-
-# Check whether --set-cflags was given.
-if test "${set_cflags+zzq}" = zzq; then
-  setval="$set_cflags"
-  cflags="${setval}"
-else
-  cflags="not_set"
-fi
-test "$cflags" = yes && cflags=""
 
 
 # Check whether --enable-debug or --disable-debug was given.
@@ -1369,17 +1660,20 @@ PBS_SERVER_HOME="${pbs_server_home}"
 # Check whether --set-server_name_file was given.
 if test "${set_server_name_file+zzq}" = zzq; then
   setval="$set_server_name_file"
-  PBS_DEFAULT_FILE="${setval}"
+  pbs_default_file="${setval}"
 else
-  PBS_DEFAULT_FILE="server_name"
+  pbs_default_file="server_name"
 fi
 
-case "${PBS_DEFAULT_FILE}" in
-  /*)     PBS_DEFAULT_FILE="${PBS_DEFAULT_FILE}" ;;
-  *)      PBS_DEFAULT_FILE="${pbs_server_home}/${PBS_DEFAULT_FILE}" ;;
+case "${pbs_default_file}" in
+  /*)     PBS_DEFAULT_FILE="${pbs_default_file}"
+          _PBS_DEFAULT_FILE="${pbs_default_file}" ;;
+  *)      PBS_DEFAULT_FILE="\${PBS_SERVER_HOME}/${pbs_default_file}"
+          _PBS_DEFAULT_FILE="${PBS_SERVER_HOME}/${pbs_default_file}" ;;
 esac
+
 cat >> confdefs.h <<EOF
-#define PBS_DEFAULT_FILE "${PBS_DEFAULT_FILE}"
+#define PBS_DEFAULT_FILE "${_PBS_DEFAULT_FILE}"
 EOF
 
 
@@ -1404,12 +1698,15 @@ fi
 
 case "${pbs_environ}" in
   yes) { echo "configure: error: --with-environ=PATH must be given a path" 1>&2; exit 1; } ;;
-  no)  PBS_ENVIRON="${pbs_server_home}/pbs_environment" ;;
-  /*)  PBS_ENVIRON="${pbs_environ}" ;;
-  *)   PBS_ENVIRON="${pbs_server_home}/${pbs_environ}" ;;
+  no)  PBS_ENVIRON="\${PBS_SERVER_HOME}/pbs_environment"
+       _PBS_ENVIRON="${PBS_SERVER_HOME}/pbs_environment" ;;
+  /*)  PBS_ENVIRON="${pbs_environ}"
+       _PBS_ENVIRON="${pbs_environ}" ;;
+  *)   PBS_ENVIRON="\${PBS_SERVER_HOME}/${pbs_environ}"
+       _PBS_ENVIRON="${PBS_SERVER_HOME}/${pbs_environ}" ;;
 esac
 cat >> confdefs.h <<EOF
-#define PBS_ENVIRON "${PBS_ENVIRON}"
+#define PBS_ENVIRON "${_PBS_ENVIRON}"
 EOF
 
 
@@ -1430,13 +1727,14 @@ fi
 
 
 # Check whether --enable-syslog or --disable-syslog was given.
+enableval=yes
 if test "${enable_syslog+set}" = set; then
   enableval="$enable_syslog"
   :
 fi
 
 
-if test "${enable_syslog}" = "yes" ; then
+if test "${enableval}" = "yes" ; then
     cat >> confdefs.h <<\EOF
 #define SYSLOG 1
 EOF
@@ -1529,7 +1827,7 @@ EOF
 
 
 # Check whether --with-scp or --without-scp was given.
-if test "${with_scp+set}" = set; then
+if test "${with_scp+set}" = set && test "${with_scp}" != no; then
   withval="$with_scp"
   
 # Extract the first word of ""scp"", so it can be a program name with args.
@@ -1544,6 +1842,11 @@ else
   ac_cv_path_SCP_PATH="$SCP_PATH" # Let the user override the test with a path.
   ;;
   *)
+  case "$withval" in
+  /*)
+  ac_cv_path_SCP_PATH="$withval"
+  ;;
+  *)
   IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS="${IFS}:"
   for ac_dir in $PATH; do
     test -z "$ac_dir" && ac_dir=.
@@ -1554,6 +1857,8 @@ else
   done
   IFS="$ac_save_ifs"
   test -z "$ac_cv_path_SCP_PATH" && ac_cv_path_SCP_PATH=""error""
+  ;;
+  esac
   ;;
 esac
 fi
@@ -1569,15 +1874,18 @@ case "${SCP_PATH}" in
   *)     cat >> confdefs.h <<EOF
 #define SCP_PATH "${SCP_PATH}"
 EOF
+MOM_RCP=""
  ;;
 esac
+else
+MOM_RCP=mom_rcp
 fi
 
 
 
 
 
-# Check whether --enable-shell_pipe or --disable-shell_pipe was given.
+# Check whether --enable-shell-pipe or --disable-shell-pipe was given.
 if test "${enable_shell_pipe+set}" = set; then
   enableval="$enable_shell_pipe"
   case "${enableval}" in
@@ -1589,6 +1897,18 @@ else
   SHELL_INVOKE=1
 fi
 
+
+# Check whether --enable-shell-use-argv or --disable-shell-use-argv was given.
+if test "${enable_shell_use_argv+set}" = set; then
+  enableval="$enable_shell_use_argv"
+  case "${enableval}" in
+  yes) SHELL_USE_ARGV=1 ;;
+  no)  SHELL_USE_ARGV=0 ;;
+  *)   SHELL_USE_ARGV=0 ;;
+esac
+else
+  SHELL_USE_ARGV=0
+fi
 
 
 #
@@ -1622,11 +1942,31 @@ if test "$PBS_MACH" = darwin; then
 cat >> confdefs.h <<EOF
 #define __TDARWIN
 EOF
+
+case `uname -r` in
+  8*) cat >> confdefs.h <<EOF
+#define __TDARWIN_8
+EOF
+;;
+esac
+
+fi
+
+if test "$PBS_MACH" = sunos4; then
+cat >> confdefs.h <<EOF
+#define __TSUNOS4
+EOF
 fi
 
 if test "$PBS_MACH" = digitalunix; then
 cat >> confdefs.h <<EOF
 #define __TDIGITAL
+EOF
+fi
+
+if test "$PBS_MACH" = aix5; then
+cat >> confdefs.h <<EOF
+#define __TAIX_5
 EOF
 fi
 
@@ -1636,33 +1976,63 @@ cat >> confdefs.h <<EOF
 EOF
 fi
 
-# NOTE:  END not included in configure.in
-
-cat >> confdefs.h <<EOF
-#define MACH_RESC_DEFS "resc_def_${PBS_MACH}.c"
-EOF
-
 
 # Check whether --disable-filesync was given.
-if test "${disable-filesync+set}" = set; then
-  disableval="$disable_filesync"
-  if test "${disable_filesync}" = "no" ; then
+if test "${enable_filesync+set}" = set; then
+  enableval="$enable_filesync"
+  if test "${enableval}" = "no" ; then
     cat >> confdefs.h <<\EOF
-#define TDISABLEFILESYNC 0
+#define TDISABLEFILESYNC 1
 EOF
 
 else
     cat >> confdefs.h <<\EOF
-#define TDISABLEFILESYNC 1
+#define TDISABLEFILESYNC 0
 EOF
 
 fi
 else
   cat >> confdefs.h <<\EOF
-#define TDISABLEFILESYNC 0
+#define TDISABLEFILESYNC 1
+EOF
+
+fi # END filesync
+
+
+# Check whether --disable-spool was given.
+if test "${enable_spool+set}" = set; then
+  enableval="$enable_spool"
+  if test "${enableval}" = "no" ; then
+    cat >> confdefs.h <<\EOF
+#define NO_SPOOL_OUTPUT 1
+EOF
+
+else
+    cat >> confdefs.h <<\EOF
+#define NO_SPOOL_OUTPUT 0
 EOF
 
 fi
+else
+  cat >> confdefs.h <<\EOF
+#define NO_SPOOL_OUTPUT 0
+EOF
+
+fi # END disable-spool
+
+
+# Check whether --maildomain was given.
+if test "${maildomain+set}" = set; then
+  cat >> confdefs.h <<EOF
+#define TMAILDOMAIN "$maildomain"
+EOF
+fi
+
+# NOTE:  END not included in configure.in
+
+cat >> confdefs.h <<EOF
+#define MACH_RESC_DEFS "resc_def_${PBS_MACH}.c"
+EOF
 
 
 
@@ -1811,12 +2181,18 @@ if test "${enable_array+set}" = set; then
     else
         { echo "configure: error: Cannot use \"--en/disable-array\" unless configuring for IRIX 6.x or above" 1>&2; exit 1; }
     fi
-
 fi
-
 
 if test "$PBS_MACH" = aix4; then
     MOMLIBS="$MOMLIBS -lodm -lcfg"
+fi
+
+if test "$PBS_MACH" = aix5; then
+    MOMLIBS="$MOMLIBS -lodm -lcfg"
+fi
+
+if test "$PBS_MACH" = linux; then
+    MOMLIBS="$MOMLIBS -lutil"
 fi
 
 if test "$PBS_MACH" = irix6array; then
@@ -1949,6 +2325,9 @@ cat >> confdefs.h <<EOF
 #define SHELL_INVOKE ${SHELL_INVOKE}
 EOF
 
+cat >> confdefs.h <<EOF
+#define SHELL_USE_ARGV ${SHELL_USE_ARGV}
+EOF
 
 # Extract the first word of "flex", so it can be a program name with args.
 set dummy flex; ac_word=$2
@@ -2123,7 +2502,6 @@ else
     fi
   done
   IFS="$ac_save_ifs"
-  test -z "$ac_cv_prog_AR" && ac_cv_prog_AR=":"
 fi
 fi
 AR="$ac_cv_prog_AR"
@@ -2132,6 +2510,7 @@ if test -n "$AR"; then
 else
   echo "$ac_t""no" 1>&6
 fi
+test -z "$AR" && { echo "configure: error: no acceptable ar found in \$PATH" 1>&2; exit 1; }
 
 for ac_prog in 'bison -y' byacc
 do
@@ -2352,202 +2731,6 @@ else
 fi
 
 
-
-test "$cflags" = not_set || CFLAGS="$cflags"
-pbs_save_CFLAGS="$CFLAGS"
-# Extract the first word of "gcc", so it can be a program name with args.
-set dummy gcc; ac_word=$2
-echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:2277: checking for $ac_word" >&5
-if eval "test \"`echo '$''{'ac_cv_prog_CC'+set}'`\" = set"; then
-  echo $ac_n "(cached) $ac_c" 1>&6
-else
-  if test -n "$CC"; then
-  ac_cv_prog_CC="$CC" # Let the user override the test.
-else
-  IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS="${IFS}:"
-  for ac_dir in $PATH; do
-    test -z "$ac_dir" && ac_dir=.
-    if test -f $ac_dir/$ac_word; then
-      ac_cv_prog_CC="gcc"
-      break
-    fi
-  done
-  IFS="$ac_save_ifs"
-fi
-fi
-CC="$ac_cv_prog_CC"
-if test -n "$CC"; then
-  echo "$ac_t""$CC" 1>&6
-else
-  echo "$ac_t""no" 1>&6
-fi
-
-if test -z "$CC"; then
-  # Extract the first word of "cc", so it can be a program name with args.
-set dummy cc; ac_word=$2
-echo $ac_n "checking for $ac_word""... $ac_c" 1>&6
-echo "configure:2306: checking for $ac_word" >&5
-if eval "test \"`echo '$''{'ac_cv_prog_CC'+set}'`\" = set"; then
-  echo $ac_n "(cached) $ac_c" 1>&6
-else
-  if test -n "$CC"; then
-  ac_cv_prog_CC="$CC" # Let the user override the test.
-else
-  IFS="${IFS= 	}"; ac_save_ifs="$IFS"; IFS="${IFS}:"
-  ac_prog_rejected=no
-  for ac_dir in $PATH; do
-    test -z "$ac_dir" && ac_dir=.
-    if test -f $ac_dir/$ac_word; then
-      if test "$ac_dir/$ac_word" = "/usr/ucb/cc"; then
-        ac_prog_rejected=yes
-	continue
-      fi
-      ac_cv_prog_CC="cc"
-      break
-    fi
-  done
-  IFS="$ac_save_ifs"
-if test $ac_prog_rejected = yes; then
-  # We found a bogon in the path, so make sure we never use it.
-  set dummy $ac_cv_prog_CC
-  shift
-  if test $# -gt 0; then
-    # We chose a different compiler from the bogus one.
-    # However, it has the same basename, so the bogon will be chosen
-    # first if we set CC to just the basename; use the full file name.
-    shift
-    set dummy "$ac_dir/$ac_word" "$@"
-    shift
-    ac_cv_prog_CC="$@"
-  fi
-fi
-fi
-fi
-CC="$ac_cv_prog_CC"
-if test -n "$CC"; then
-  echo "$ac_t""$CC" 1>&6
-else
-  echo "$ac_t""no" 1>&6
-fi
-
-  test -z "$CC" && { echo "configure: error: no acceptable cc found in \$PATH" 1>&2; exit 1; }
-fi
-
-echo $ac_n "checking whether the C compiler ($CC $CFLAGS $LDFLAGS) works""... $ac_c" 1>&6
-echo "configure:2354: checking whether the C compiler ($CC $CFLAGS $LDFLAGS) works" >&5
-
-ac_ext=c
-# CFLAGS is not in ac_cpp because -g, -O, etc. are not valid cpp options.
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='${CC-cc} -c $CFLAGS $CPPFLAGS conftest.$ac_ext 1>&5'
-ac_link='${CC-cc} -o conftest $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS 1>&5'
-cross_compiling=$ac_cv_prog_cc_cross
-
-cat > conftest.$ac_ext <<EOF
-#line 2364 "configure"
-#include "confdefs.h"
-main(){return(0);}
-EOF
-if { (eval echo configure:2368: \"$ac_link\") 1>&5; (eval $ac_link) 2>&5; } && test -s conftest; then
-  ac_cv_prog_cc_works=yes
-  # If we can't run a trivial program, we are probably using a cross compiler.
-  if (./conftest; exit) 2>/dev/null; then
-    ac_cv_prog_cc_cross=no
-  else
-    ac_cv_prog_cc_cross=yes
-  fi
-else
-  echo "configure: failed program was:" >&5
-  cat conftest.$ac_ext >&5
-  ac_cv_prog_cc_works=no
-fi
-rm -fr conftest*
-
-echo "$ac_t""$ac_cv_prog_cc_works" 1>&6
-if test $ac_cv_prog_cc_works = no; then
-  { echo "configure: error: installation or configuration problem: C compiler cannot create executables." 1>&2; exit 1; }
-fi
-echo $ac_n "checking whether the C compiler ($CC $CFLAGS $LDFLAGS) is a cross-compiler""... $ac_c" 1>&6
-echo "configure:2388: checking whether the C compiler ($CC $CFLAGS $LDFLAGS) is a cross-compiler" >&5
-echo "$ac_t""$ac_cv_prog_cc_cross" 1>&6
-cross_compiling=$ac_cv_prog_cc_cross
-
-echo $ac_n "checking whether we are using GNU C""... $ac_c" 1>&6
-echo "configure:2393: checking whether we are using GNU C" >&5
-if eval "test \"`echo '$''{'ac_cv_prog_gcc'+set}'`\" = set"; then
-  echo $ac_n "(cached) $ac_c" 1>&6
-else
-  cat > conftest.c <<EOF
-#ifdef __GNUC__
-  yes;
-#endif
-EOF
-if { ac_try='${CC-cc} -E conftest.c'; { (eval echo configure:2402: \"$ac_try\") 1>&5; (eval $ac_try) 2>&5; }; } | egrep yes >/dev/null 2>&1; then
-  ac_cv_prog_gcc=yes
-else
-  ac_cv_prog_gcc=no
-fi
-fi
-
-echo "$ac_t""$ac_cv_prog_gcc" 1>&6
-
-if test $ac_cv_prog_gcc = yes; then
-  GCC=yes
-  ac_test_CFLAGS="${CFLAGS+set}"
-  ac_save_CFLAGS="$CFLAGS"
-  CFLAGS=
-  echo $ac_n "checking whether ${CC-cc} accepts -g""... $ac_c" 1>&6
-echo "configure:2417: checking whether ${CC-cc} accepts -g" >&5
-if eval "test \"`echo '$''{'ac_cv_prog_cc_g'+set}'`\" = set"; then
-  echo $ac_n "(cached) $ac_c" 1>&6
-else
-  echo 'void f(){}' > conftest.c
-if test -z "`${CC-cc} -g -c conftest.c 2>&1`"; then
-  ac_cv_prog_cc_g=yes
-else
-  ac_cv_prog_cc_g=no
-fi
-rm -f conftest*
-
-fi
-
-echo "$ac_t""$ac_cv_prog_cc_g" 1>&6
-  if test "$ac_test_CFLAGS" = set; then
-    CFLAGS="$ac_save_CFLAGS"
-  elif test $ac_cv_prog_cc_g = yes; then
-#    CFLAGS="-g -O2"
-    CFLAGS="-g"
-  else
-#    CFLAGS="-O2"
-    CFLAGS=""
-  fi
-else
-  GCC=
-  test "${CFLAGS+set}" = set || CFLAGS="-g"
-fi
-
-CFLAGS="$pbs_save_CFLAGS"
-
-if test -z "$CFLAGS"; then
-        if   test "$GCC" = "yes"; then
-#    CFLAGS="-g -O2"
-    CFLAGS="-g"
-  elif test "$CC" = "xlc"; then
-    CFLAGS="-O3 -qstrict -qnoansialias -qlibansi -qinfo -qro -qmaxmem=20000"
-  else
-    case "$canonical" in
-      *-*-irix*) CFLAGS='-O -Wl,-woff,84' ;;
-      *-*-hpux*) CFLAGS='-Ae' ;;
-      *-*-osf*)  CFLAGS='-std1' ;;
-      *-*-solaris2.7) if test -n "`isainfo -kv | grep 64-bit`" ; then
-			CFLAGS=-xarch=v9
-		      else
-			CFLAGS=-O
-		      fi ;;
-      *)	 CFLAGS="-O" ;;     esac
-  fi
-fi
 
 
 MOM_CHECKPOINT=0
@@ -3284,8 +3467,14 @@ EOF
 
 fi
 
+if test "${enable_wordexp+set}" = set; then
+  case $enable_wordexp in
+    yes) wordexp_func=wordexp
+  esac
+fi
 
-for ac_func in setresuid setresgid seteuid setegid
+
+for ac_func in setresuid setresgid seteuid setegid $wordexp_func
 do
 echo $ac_n "checking for $ac_func""... $ac_c" 1>&6
 echo "configure:3204: checking for $ac_func" >&5
@@ -3340,6 +3529,11 @@ else
 fi
 done
 
+if test "${wordexp_func+set}" = set; then
+  if eval "test \"`echo '$''{'ac_cv_func_$wordexp_func'}'`\" != yes"; then
+    { echo "configure: error: $wordexp_func not found" 1>&2; exit 1; }
+  fi
+fi
 
 
 #
@@ -3519,6 +3713,8 @@ fi
 
 fi
 
+case $PBS_MACH in
+aix4|aix5|sunos4|solaris5|freebsd|darwin|fujitsu)
 echo $ac_n "checking for nlist in -lc""... $ac_c" 1>&6
 echo "configure:3436: checking for nlist in -lc" >&5
 ac_lib_var=`echo c'_'nlist | sed 'y%./+-%__p_%'`
@@ -3605,7 +3801,11 @@ else
 fi
 
 fi
+;;
+esac
 
+case $PBS_MACH in
+sunos4|solaris5|netbsd|freebsd|darwin)
 echo $ac_n "checking for kvm_open in -lkvm""... $ac_c" 1>&6
 echo "configure:3523: checking for kvm_open in -lkvm" >&5
 ac_lib_var=`echo kvm'_'kvm_open | sed 'y%./+-%__p_%'`
@@ -3652,8 +3852,12 @@ EOF
 else
   echo "$ac_t""no" 1>&6
 fi
+;;
+esac
 
 
+case $PBS_MACH in
+none)
 echo $ac_n "checking for dlopen in -ldl""... $ac_c" 1>&6
 echo "configure:3571: checking for dlopen in -ldl" >&5
 ac_lib_var=`echo dl'_'dlopen | sed 'y%./+-%__p_%'`
@@ -3700,6 +3904,8 @@ EOF
 else
   echo "$ac_t""no" 1>&6
 fi
+;;
+esac
 
 
 
@@ -4002,6 +4208,7 @@ pbs_makefile_list="
     buildutils/mkincludes/tail.mk
     buildutils/mkincludes/tcl.mk
     buildutils/Makefile
+    buildutils/self-extract-head-sh
 
     ./Makefile
     src/Makefile
@@ -4168,6 +4375,7 @@ s%@libdir@%$libdir%g
 s%@includedir@%$includedir%g
 s%@oldincludedir@%$oldincludedir%g
 s%@infodir@%$infodir%g
+s%@maildomain@%$maildomain%g
 s%@mandir@%$mandir%g
 s%@PBS_MKDIRS@%$PBS_MKDIRS%g
 s%@host@%$host%g
@@ -4205,6 +4413,7 @@ s%@X11INC@%$X11INC%g
 s%@X11LIB@%$X11LIB%g
 s%@SCHD_CODE_SUBDIR@%$SCHD_CODE_SUBDIR%g
 s%@SCP_PATH@%$SCP_PATH%g
+s%@MOM_RCP@%$MOM_RCP%g
 s%@PBSPOE@%$PBSPOE%g
 s%@PBSPOEO@%$PBSPOEO%g
 s%@EXTRA_QSTAT_LIBS@%$EXTRA_QSTAT_LIBS%g

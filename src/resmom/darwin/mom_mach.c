@@ -113,6 +113,7 @@
 #include	<nlist.h>
 #include	<fstab.h>
 #include	<kvm.h>
+#include        <sys/socket.h>
 #include	<sys/types.h>
 #include	<sys/time.h>
 #include	<sys/param.h>
@@ -127,7 +128,24 @@
 #include	<sys/sysctl.h>
 #include	<sys/vmmeter.h>
 #include	<ufs/ufs/quota.h>
+#include	<net/if.h>
+#include	<ifaddrs.h>
 #include	<mach/vm_map.h>
+
+/* where to put these defines?? */
+/* #define VM_SWAPUSAGE 0 - no this is only for Tiger!! */
+/* #define HW_MEMSIZE 1 - and this is defined in sysctl.h - so will be defined!! */
+#define TUSEMEMSIZE 1
+
+/*  additional header files required for darwin 8.0.0 */
+#ifdef __TDARWIN_8
+#include 	<mach/mach_host.h>
+#include	<mach/mach_port.h>
+#include	<mach/mach_traps.h>
+#include	<mach/shared_memory_server.h>
+#include	<mach/task.h>
+#include	<mach/thread_act.h>
+#endif /* __TDARWIN_8 */
 
 /* uncomment the following two header files if required for local build */
 /*
@@ -161,28 +179,42 @@ extern	int			rm_errno;
 extern	unsigned	int	reqnum;
 extern	double	cputfactor;
 extern	double	wallfactor;
+extern  int     LOGLEVEL;
+extern  long    system_ncpus;
+extern  int     ignwalltime;
 
 /*
 ** local functions
 */
-static char	*resi		A_((struct rm_attribute *attrib));
-static char	*physmem	A_((struct rm_attribute *attrib));
-static char	*walltime	A_((struct rm_attribute *attrib));
-static char	*quota		A_((struct rm_attribute *attrib));
-static char	*ncpus		A_((struct rm_attribute *attrib));
 
-extern char	*loadave	A_((struct rm_attribute *attrib));
-extern char	*nullproc	A_((struct rm_attribute *attrib));
+static char *resi	A_((struct rm_attribute *attrib));
+static char *physmem	A_((struct rm_attribute *attrib));
+static char *walltime	A_((struct rm_attribute *attrib));
+static char *quota	A_((struct rm_attribute *attrib));
+static char *ncpus	A_((struct rm_attribute *attrib));
+static char *totmem	A_((struct rm_attribute *attrib));
+static char *availmem	A_((struct rm_attribute *attrib));
+static char *netload	A_((struct rm_attribute *attrib));
+extern char *loadave	A_((struct rm_attribute *attrib));
+extern char *nullproc	A_((struct rm_attribute *attrib));
+
+#ifdef __TDARWIN_8
+int		get_tinfo_by_pid  A_((struct task_basic_info *t_info, unsigned int pid));
+#else /* __TDARWIN_8 */
+int		bs_cmp		A_((const void *key, const void *member));
+#endif /* __TDARWIN_8 */
 
 struct	config	dependent_config[] = {
-	{ "resi",	{resi} },
-	{ "physmem",	{physmem} },
-	{ "ncpus",	{ncpus} },
-	{ "loadave",	{loadave} },
-	{ "walltime",	{walltime} },
-	{ "quota",	{quota} },
-	{ NULL,		{nullproc} },
-};
+  { "resi",	{resi} },
+  { "physmem",	{physmem} },
+  { "ncpus",	{ncpus} },
+  { "loadave",	{loadave} },
+  { "walltime",	{walltime} },
+  { "quota",	{quota} },
+  { "totmem",	{totmem} },
+  { "availmem", {availmem} },
+  { "netload",	{netload} },
+  { NULL,	{nullproc} } };
 
 struct nlist nl[] = {
 	{ "_anoninfo" },	/* 0 */
@@ -207,50 +239,69 @@ char			nokernel[] = "kernel not available";
 char			noproc[] = "process %d does not exist";
 static  int		nncpus = 0;
 
-void
-dep_initialize()
-{
-	char	*id = "dep_initialize";
-	int	 mib[2];
-	size_t	 len;
+void dep_initialize()
 
-	if (kd == NULL) {
-		kd = kvm_open(NULL, NULL, NULL, O_RDONLY, "resmom");
-		if (kd == NULL) {
-			log_err(errno, id, "kvm_open");
-			return;
-		}
-	}
+  {
+  char  *id = "dep_initialize";
+  int    mib[2];
+  size_t len;
 
-	if (kvm_nlist(kd, nl) == -1) {
-		log_err(errno, id, "kvm_nlist");
-		return;
-	}
+  if (kd == NULL) 
+    {
+    kd = kvm_open(NULL,NULL,NULL,O_RDONLY,"resmom");
 
-	mib[0] = CTL_HW;	/* get number of processors */
-	mib[1] = HW_NCPU;
-	len    = sizeof(nncpus);
-	(void)sysctl(mib, 2, &nncpus, &len, NULL,  0);
+    if (kd == NULL) 
+      {
+      log_err(errno,id,"kvm_open");
 
-	return;
-}
+      return;
+      }
+    }
 
-void
-dep_cleanup()
-{
-	char	*id = "dep_cleanup";
+  if (kvm_nlist(kd,nl) == -1) 
+    {
+    log_err(errno,id,"kvm_nlist");
 
-	log_record(PBSEVENT_SYSTEM, 0, id, "dependent cleanup");
-	if (kd)
-		kvm_close(kd);
-	kd = NULL;
-}
+    return;
+    }
 
-void
-end_proc()
-{
-	return;
-}
+  mib[0] = CTL_HW;	/* get number of processors */
+  mib[1] = HW_NCPU;
+
+  len = sizeof(nncpus);
+
+  sysctl(mib,2,&nncpus,&len,NULL,0);
+
+  return;
+  }
+
+
+
+
+void dep_cleanup()
+
+  {
+  char *id = "dep_cleanup";
+
+  log_record(PBSEVENT_SYSTEM,0,id,"dependent cleanup");
+
+  if (kd != NULL)
+    kvm_close(kd);
+
+  kd = NULL;
+
+  return;
+  }
+
+
+
+
+
+void end_proc()
+
+  {
+  return;
+  }
 
 extern	struct	pbs_err_to_txt	pbs_err_to_txt[];
 extern	time_t			time_now;
@@ -330,24 +381,33 @@ static int gettime(pres, ret)
 **	Scan a list of tasks and return true if one of them matches
 **	the process (sid or pid) represented by *psp.
 */
-static
-int
-injob(pjob, sesid)
-    job		*pjob;
-    pid_t	sesid;
-{
-	task		*ptask;
 
-	for (ptask = (task *)GET_NEXT(pjob->ji_tasks);
-			ptask;
-			ptask = (task *)GET_NEXT(ptask->ti_jobtask)) {
-		if (ptask->ti_qs.ti_sid <= 1)
-			continue;
-		if (ptask->ti_qs.ti_sid == sesid)
-			return TRUE;
-	}
-	return FALSE;
-}
+static int injob(
+
+  job   *pjob,
+  pid_t  sesid)
+
+  {
+  task *ptask;
+
+  for (ptask = (task *)GET_NEXT(pjob->ji_tasks);
+       ptask;
+       ptask = (task *)GET_NEXT(ptask->ti_jobtask)) 
+    {
+    if (ptask->ti_qs.ti_sid <= 1)
+      continue;
+ 
+    if (ptask->ti_qs.ti_sid == sesid)
+      {
+      DBPRT(("ti_sid: %d -- sesid: %d\n",
+        ptask->ti_qs.ti_sid,sesid));
+
+      return(TRUE);
+      }
+    }
+
+  return(FALSE);
+  }
 
 #define	MINPROC	10
 #define	MAXPROC	10000
@@ -363,6 +423,7 @@ injob(pjob, sesid)
  */
 
 static unsigned long cput_sum(
+
   job *pjob)
 
   {
@@ -433,9 +494,9 @@ static unsigned long cput_sum(
        
       total_time = mystats.user_time;
       system_time = mystats.system_time;
-      time_value_add(&total_time, &tutime)
-      time_value_add(&system_time, &tstime)
-      time_value_add(&total_time, &system_time)
+      time_value_add(&total_time,&tutime)
+      time_value_add(&system_time,&tstime)
+      time_value_add(&total_time,&system_time)
       cputime += total_time.seconds;
       }
     else
@@ -446,28 +507,28 @@ static unsigned long cput_sum(
         id,
         (u_long)pp->kp_proc.p_ru))
        
-       if (kvm_read(kd,(u_long)pp->kp_proc.p_ru,&ru,sizeof(ru)) != sizeof(ru))
-         {
-         log_err(errno, id, "kvm_read(session)");
+      if (kvm_read(kd,(u_long)pp->kp_proc.p_ru,&ru,sizeof(ru)) != sizeof(ru))
+        {
+        log_err(errno,id,"kvm_read(session)");
        
-         continue;
-         }
-       
-        cputime += tv(ru.ru_utime) + tv(ru.ru_stime);
+        continue;
         }
-
-      DBPRT(("%s: ses %d pid %d cputime %d\n", 
-        id,
-        sess_tbl[i], 
-        pp->kp_proc.p_pid, 
-        cputime))
+       
+      cputime += tv(ru.ru_utime) + tv(ru.ru_stime);
       }
- 
-    if (nps == 0)
-      pjob->ji_flags |= MOM_NO_PROC;
 
-    return((unsigned long)((double)cputime * cputfactor));
-    } /* END cput_sum() */
+    DBPRT(("%s: ses %d pid %d cputime %d\n", 
+      id,
+      sess_tbl[i], 
+      pp->kp_proc.p_pid, 
+      cputime))
+    }  /* END for (i) */
+ 
+  if (nps == 0)
+    pjob->ji_flags |= MOM_NO_PROC;
+
+  return((unsigned long)((double)cputime * cputfactor));
+  } /* END cput_sum() */
   
 
 
@@ -483,30 +544,47 @@ static unsigned long cput_sum(
 
 static unsigned long mem_sum(
 
-  job *pjob)
+  job *pjob)  /* I */
 
   {
-	char		*id="mem_sum";
-	int		i;
-	unsigned long	memsize;
+  char         *id = "mem_sum";
+  int           i;
+  unsigned long memsize = 0;
 
-	memsize = 0;
-	for (i=0; i<nproc; i++) {
-		struct kinfo_proc	*pp = &proc_tbl[i];
+#ifdef __TDARWIN_8
+  struct task_basic_info t_info;
 
-		if (!injob(pjob, sess_tbl[i]))
-			continue;
+  unsigned int pid;
+#endif /* __TDARWIN_8 */
 
-		memsize += ctob(pp->kp_eproc.e_vm.vm_tsize +
-			pp->kp_eproc.e_vm.vm_dsize +
-			pp->kp_eproc.e_vm.vm_ssize);
-		DBPRT(("%s: ses %d pid=%d totmem=%lu\n", id,
-		       sess_tbl[i], pp->kp_proc.p_pid, memsize))
-	}
+  DBPRT(("mem_sum entered.\n"));
 
-	return (memsize);
-}
+  for (i = 0;i < nproc;i++)
+    {
+    struct kinfo_proc *pp = &proc_tbl[i];
 
+    if (!injob(pjob,sess_tbl[i]))
+      continue;
+
+#ifdef __TDARWIN_8
+    pid = pp->kp_proc.p_pid;
+
+    if (get_tinfo_by_pid(&t_info,pid) != 0)
+      continue;
+
+    memsize += ctob(t_info.virtual_size);	
+#else /* __TDARWIN_8 */
+    memsize += ctob(pp->kp_eproc.e_vm.vm_tsize +
+      pp->kp_eproc.e_vm.vm_dsize +
+      pp->kp_eproc.e_vm.vm_ssize);
+#endif /* __TDARWIN_8 */
+
+    DBPRT(("%s: ses %d pid=%d totmem=%lu\n", 
+      id, sess_tbl[i], pp->kp_proc.p_pid, memsize))
+    }  /* END for (i) */
+
+  return(memsize);
+  }  /* END mem_sum */
 
 
 
@@ -514,52 +592,102 @@ static unsigned long mem_sum(
 /*
  * Internal session mem (workingset) size function.
  */
-static unsigned long resi_sum(pjob)
-    job		*pjob;
-{
-	char		*id="resi_sum";
-	int		i;
-	unsigned long	memsize;
 
-	memsize = 0;
-	for (i=0; i<nproc; i++) {
-		struct kinfo_proc	*pp = &proc_tbl[i];
+static unsigned long resi_sum(
 
-		if (!injob(pjob, sess_tbl[i]))
-			continue;
+  job *pjob)
 
-		memsize += ctob(pp->kp_eproc.e_vm.vm_rssize);
-		DBPRT(("%s: pid=%d ses=%d mem=%d totmem=%d\n", id,
-			pp->kp_proc.p_pid, sess_tbl[i],
-			pp->kp_eproc.e_vm.vm_rssize, memsize))
-	}
+  {
+  char          *id = "resi_sum";
+  int		 i;
+  unsigned long	 memsize = 0;
 
-	return (memsize);
-}
+#ifdef __TDARWIN_8
+  struct task_basic_info t_info;	
+  unsigned int pid;
+#endif /* __TDARWIN_8 */
+
+  for (i = 0;i < nproc;i++) 
+    {
+    struct kinfo_proc *pp = &proc_tbl[i];
+
+    if (!injob(pjob,sess_tbl[i]))
+      continue;
+
+#ifdef __TDARWIN_8
+    pid = pp->kp_proc.p_pid;
+
+    if (get_tinfo_by_pid(&t_info,pid) != 0)
+      continue;
+
+    memsize += ctob(t_info.resident_size);	
+
+    DBPRT(("%s: pid=%d ses=%d mem=%d totmem=%d\n", 
+     id,pp->kp_proc.p_pid,sess_tbl[i],t_info.resident_size,memsize))
+#else /* __TDARWIN_8 */
+    memsize += ctob(pp->kp_eproc.e_vm.vm_rssize);
+
+    DBPRT(("%s: pid=%d ses=%d mem=%d totmem=%d\n",
+      id,pp->kp_proc.p_pid,sess_tbl[i],pp->kp_eproc.e_vm.vm_rssize,memsize))
+#endif /* __TDARWIN_8 */
+    }  /* END for (i) */
+
+  return(memsize);
+  }  /* END resi_sum() */
+
+
+
+
 
 /*
  * Return TRUE if any task in the job is over limit for memory usage.
  */
-static int overmem_proc(pjob, limit)
-    job			*pjob;
-    unsigned long	limit;
-{
-	int			i;
 
-	for (i=0; i<nproc; i++) {
-		struct kinfo_proc	*pp = &proc_tbl[i];
+static int overmem_proc(
 
-		if (!injob(pjob, sess_tbl[i]))
-			continue;
+  job           *pjob,
+  unsigned long	 limit)
 
-		if (ctob(pp->kp_eproc.e_vm.vm_tsize +
-				pp->kp_eproc.e_vm.vm_dsize +
-				pp->kp_eproc.e_vm.vm_ssize) > limit)
-			return (TRUE);
-	}
+  {
+  int i;
 
-	return (FALSE);
-}
+#ifdef __TDARWIN_8
+  struct task_basic_info t_info;	
+  unsigned int pid;	
+#endif /* __TDARWIN_8 */
+
+  for (i = 0;i < nproc;i++) 
+    {
+    struct kinfo_proc *pp = &proc_tbl[i];
+
+    if (!injob(pjob,sess_tbl[i]))
+      continue;
+
+#ifdef __TDARWIN_8
+    pid = pp->kp_proc.p_pid;
+
+    if (get_tinfo_by_pid(&t_info,pid) != 0)
+      continue;
+
+    if (ctob(t_info.virtual_size) > limit)
+      {
+      return(TRUE);	
+      }
+#else /* __TDARWIN_8 */
+    if (ctob(pp->kp_eproc.e_vm.vm_tsize +
+             pp->kp_eproc.e_vm.vm_dsize +
+             pp->kp_eproc.e_vm.vm_ssize) > limit)
+      {
+      return(TRUE);
+      }
+#endif /* __TDARWIN_8 */
+    }  /* END for (i) */
+
+  return(FALSE);
+  }
+
+
+
 
 extern char *msg_momsetlim;
 
@@ -627,6 +755,8 @@ int mom_set_limits(pjob, set_mode)
        	struct rlimit	reslim;
 	unsigned long	mem_limit  = 0;
 
+        log_buffer[0] = '\0';
+
 	DBPRT(("%s: entered\n", id))
 	assert(pjob != NULL);
 	assert(pjob->ji_wattr[(int)JOB_ATR_resource].at_type == ATR_TYPE_RESC);
@@ -663,7 +793,7 @@ int mom_set_limits(pjob, set_mode)
 			    retval = getsize(pres, &value);
 			    if (retval != PBSE_NONE)
 			        return (error(pname, retval));
-			    if (value > INT_MAX)
+			    if (value > ULONG_MAX)
 			        return (error(pname, PBSE_BADATVAL));
 			    reslim.rlim_cur = reslim.rlim_max = value;
 			    if (setrlimit(RLIMIT_FSIZE, &reslim) < 0)
@@ -680,7 +810,7 @@ int mom_set_limits(pjob, set_mode)
 			    retval = getsize(pres, &value);
 			    if (retval != PBSE_NONE)
 			        return (error(pname, retval));
-			    if (value > INT_MAX)
+			    if (value > ULONG_MAX)
 			        return (error(pname, PBSE_BADATVAL));
 			if ((mem_limit == 0) || (value < mem_limit))
 				mem_limit = value;
@@ -756,55 +886,86 @@ int mom_do_poll(pjob)
 		    strcmp(pname, "pvmem") == 0 ||
 		    strcmp(pname, "vmem") == 0)
 			return (TRUE);
-		pres = (resource *)GET_NEXT(pres->rs_link);
-	}
 
-	return (FALSE);
-}
+    pres = (resource *)GET_NEXT(pres->rs_link);
+    }
+
+  return(FALSE);
+  }
+
+
+
 
 /*
  * Setup for polling.
  *
  *	Open kernel device and get namelist info.
  */
+
 int mom_open_poll()
-{
-	char		*id = "mom_open_poll";
 
-	DBPRT(("%s: entered\n", id))
-	if (kd == NULL) {
-		kd = kvm_open(NULL, NULL, NULL, O_RDONLY, "mom");
-		if (kd == NULL) {
-			log_err(errno, id, "kvm_open");
-			return (PBSE_SYSTEM);
-		}
-	}
-	/*
-	if (kvm_nlist(kd, nl) == -1) {
-		log_err(errno, id, "kvm_nlist");
-		return (PBSE_SYSTEM);
-	}
-	*/
+  {
+  char *id = "mom_open_poll";
 
-	return (PBSE_NONE);
-}
+  DBPRT(("%s: entered\n", 
+    id))
+
+  if (kd == NULL) 
+    {
+    kd = kvm_open(NULL,NULL,NULL,O_RDONLY,"mom");
+
+    if (kd == NULL) 
+      {
+      log_err(errno,id,"kvm_open");
+
+      return(PBSE_SYSTEM);
+      }
+    }
+
+  /*
+  if (kvm_nlist(kd,nl) == -1) 
+    {
+    log_err(errno,id,"kvm_nlist");
+
+    return(PBSE_SYSTEM);
+    }
+  */
+
+  return(PBSE_NONE);
+  }
 
 
-int
-qs_cmp(a, b)
-    struct	kinfo_proc	*a;
-    struct	kinfo_proc	*b;
-{
-	return((int)a->kp_eproc.e_paddr - (int)b->kp_eproc.e_paddr);
-}
 
-int
-bs_cmp(key, member)
-    struct	session		*key;
-    struct	kinfo_proc	*member;
-{
-	return((int)key->s_leader - (int)member->kp_eproc.e_paddr);
-}
+
+int qs_cmp(
+
+  const void *a,
+  const void *b)
+
+  {
+  return((int)((struct kinfo_proc *)a)->kp_eproc.e_paddr - (int)((struct kinfo_proc *)b)->kp_eproc.e_paddr);
+  }
+
+
+
+/* removed 5/22/05 MAINE OSX 10.5 patch 
+ * Only needs to be removed if __TDARWIN_8
+ * is defined
+ */
+
+
+#ifndef __TDARWIN_8
+
+int bs_cmp(
+
+  const void *key,
+  const void *member)
+
+  {
+  return((int)((struct session *)key)->s_leader - (int)((struct kinfo_proc *)member)->kp_eproc.e_paddr);
+  }
+
+#endif /* __TDARWIN_8 */
 
 typedef struct kinfo_proc kinfo_proc;
 
@@ -815,14 +976,17 @@ static kinfo_proc *GetBSDProcessList(
 
   {
   int                 err;
-//    kinfo_proc *        result;
   bool                done;
   static const int    name[] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
 
   size_t              length;
 
- //   assert( procList != NULL);
- //   assert(*procList == NULL);
+  /*
+  kinfo_proc *result; 
+
+  assert(procList != NULL);
+  assert(*procList == NULL);
+  */
 
   assert(procCount != NULL);
 
@@ -835,35 +999,48 @@ static kinfo_proc *GetBSDProcessList(
     result = NULL;
     }
 
-    done = false;
-    do {
-        assert(result == NULL);
+  done = false;
 
-        // Call sysctl with a NULL buffer.
+  do 
+    {
+    assert(result == NULL);
 
-        length = 0;
-        err = sysctl( (int *) name, (sizeof(name) / sizeof(*name)) - 1,
-                      NULL, &length,
-                      NULL, 0);
-        if (err == -1) {
-            err = errno;
+    /* Call sysctl with a NULL buffer. */
+
+    length = 0;
+
+    err = sysctl(
+      (int *)name,
+      (sizeof(name)/sizeof(*name)) - 1,
+      NULL, 
+      &length,
+      NULL, 
+      0);
+
+    if (err == -1) 
+      {
+      err = errno;
+      }
+
+    /* Allocate an appropriately sized buffer based on the results of previous call */
+
+    if (err == 0) 
+      {
+      result = malloc(length);
+
+      /* fprintf(logfile, "aloc buffer %d\n", result); */
+
+      if (result == NULL) 
+        {
+        err = ENOMEM;
         }
+      }
 
-        // Allocate an appropriately sized buffer based on the results
-        // from the previous call.
+    /* Call sysctl again with the new buffer.  If we get an ENOMEM
+     * error, toss away our buffer and start again. */
 
-        if (err == 0) {
-            result = malloc(length);
-//            fprintf(logfile, "aloc buffer %d\n", result);
-            if (result == NULL) {
-                err = ENOMEM;
-            }
-        }
-
-        // Call sysctl again with the new buffer.  If we get an ENOMEM
-        // error, toss away our buffer and start again.
-
-        if (err == 0) {
+    if (err == 0) 
+      {
             err = sysctl( (int *) name, (sizeof(name) / sizeof(*name)) - 1,
                           result, &length,
                           NULL, 0);
@@ -881,21 +1058,29 @@ static kinfo_proc *GetBSDProcessList(
         }
     } while (err == 0 && ! done);
 
-    // Clean up and establish post conditions.
+    /* Clean up and establish post conditions. */
 
     if (err != 0 && result != NULL) {
         free(result);
         result = NULL;
     }
- //   *procList = result;
+
+  /* *procList = result; */
+
     if (err == 0) {
         *procCount = length / sizeof(kinfo_proc);
     }
 
     assert( (err == 0) == (result != NULL) );
-//    fprintf(logfile, "end buffer %d\n", result);
-    return result;
-}
+
+  /* fprintf(logfile, "end buffer %d\n", result); */
+
+  return(result);
+  }
+
+
+
+
 
 /*
  * Declare start of polling loop.
@@ -904,65 +1089,170 @@ static kinfo_proc *GetBSDProcessList(
  *	use the same data.  Returns a PBS error code.
  */
 
-int
-mom_get_sample()
-{
-	char			*id = "mom_get_sample";
-	int			i;
-	struct	session		ss;
-	struct	kinfo_proc	*kp;
-	struct	kinfo_proc	*leader;
-	pid_t			sid;
+#ifndef __TDARWIN_8
 
-	DBPRT(("%s: entered\n", id))
-	if (sess_tbl)
-		free(sess_tbl);
+int mom_get_sample()
 
-	if (kd == NULL)
-		return (PBSE_INTERNAL);
+  {
+  char		*id = "mom_get_sample";
+  int		i;
+  
+  struct session ss; 
 
-	/* proc_tbl = kvm_getprocs(kd, KERN_PROC_ALL, 0, &nproc); */
-	proc_tbl = GetBSDProcessList(proc_tbl, &nproc);
-	if (proc_tbl == NULL) {
-		sprintf(log_buffer,
-		    "kvm_getprocs: %s", kvm_geterr(kd));
-		log_err(errno, id, log_buffer);
-		return (PBSE_SYSTEM);
-	}
-	sess_tbl = (pid_t *)calloc(nproc, sizeof(pid_t));
-	if (sess_tbl == NULL) {
-		sprintf(log_buffer,
-		    "can't allocate memory for session table");
-		log_err(errno, id, log_buffer);
-		return (PBSE_SYSTEM);
-	}
+  struct	kinfo_proc	*kp;
+  struct	kinfo_proc	*leader;
+  pid_t		sid;
 
-	qsort(proc_tbl, nproc, sizeof(struct kinfo_proc), qs_cmp);
+  DBPRT(("%s: entered\n", 
+    id))
 
-	for (i=0, kp=proc_tbl; i<nproc; i++, kp++) {
-		if (kp->kp_eproc.e_sess != NULL)  {
-			if (kvm_read(kd, (u_long)kp->kp_eproc.e_sess, &ss, sizeof(ss))
-					!= sizeof(ss)) {
-				sprintf(log_buffer,
-					"kvm_read: %s", kvm_geterr(kd));
-				log_err(errno, id, log_buffer);
-				return (PBSE_SYSTEM);
-			}
-			if (ss.s_leader == kp->kp_eproc.e_paddr ||
-					ss.s_leader == NULL) {
-				sid = kp->kp_proc.p_pid;
-			}
-			else {
-				leader = bsearch(&ss, proc_tbl, nproc,
-					sizeof(struct kinfo_proc), bs_cmp);
-				sid = leader ? leader->kp_proc.p_pid : 0;
-			}
-			sess_tbl[i] = sid;
-		}
-	}
+  if (sess_tbl != NULL)
+    free(sess_tbl);
 
-	return (PBSE_NONE);
-}
+  if (kd == NULL)
+    {
+    return(PBSE_INTERNAL);
+    }
+
+  /* proc_tbl = kvm_getprocs(kd, KERN_PROC_ALL, 0, &nproc); */
+
+  proc_tbl = GetBSDProcessList(proc_tbl,&nproc);
+
+  if (proc_tbl == NULL) 
+    {
+    sprintf(log_buffer,"kvm_getprocs: %s", 
+      kvm_geterr(kd));
+
+    log_err(errno,id,log_buffer);
+
+    return(PBSE_SYSTEM);
+    }
+
+  sess_tbl = (pid_t *)calloc(nproc,sizeof(pid_t));
+
+  if (sess_tbl == NULL) 
+    {
+    sprintf(log_buffer,"can't allocate memory for session table");
+
+    log_err(errno,id,log_buffer);
+
+    return(PBSE_SYSTEM);
+    }
+
+  qsort(proc_tbl,nproc,sizeof(struct kinfo_proc),qs_cmp);
+
+  for (i = 0,kp = proc_tbl;i < nproc;i++,kp++) 
+    {
+    if (kp->kp_eproc.e_sess != NULL)  
+      {
+      if (kvm_read(
+            kd, 
+            (u_long)kp->kp_eproc.e_sess, 
+            &ss, 
+            sizeof(ss)) != sizeof(ss)) 
+        {
+        sprintf(log_buffer,"kvm_read: %s", 
+          kvm_geterr(kd));
+
+        log_err(errno,id,log_buffer);
+
+        return(PBSE_SYSTEM);
+        }
+
+      if ((ss.s_leader == kp->kp_eproc.e_paddr) ||
+          (ss.s_leader == NULL)) 
+        {
+        sid = kp->kp_proc.p_pid;
+        }
+      else 
+        {
+        leader = bsearch(
+          &ss, 
+          proc_tbl, 
+          nproc,
+          sizeof(struct kinfo_proc), 
+          bs_cmp);
+
+        sid = leader ? leader->kp_proc.p_pid : 0;
+        }
+
+      sess_tbl[i] = sid;
+      }
+    }
+
+  return(PBSE_NONE);
+  }
+
+#else /* __TDARWIN_8 */
+
+int mom_get_sample()
+
+  {
+  char          *id = "mom_get_sample";
+  int           i;
+
+  struct        kinfo_proc      *kp;
+  struct        kinfo_proc      *leader;
+  pid_t         sid;
+
+  DBPRT(("%s: entered\n",
+    id))
+
+  if (sess_tbl != NULL)
+    free(sess_tbl);
+
+  if (kd == NULL)
+    {
+    return(PBSE_INTERNAL);
+    }
+
+  proc_tbl = GetBSDProcessList(proc_tbl,&nproc);
+
+  /* proc_tbl now contains array of pairs of struct proc followed by
+   * corresponding struct eproc's.
+   *
+   * The entire process table resides in proc_tbl.
+   * nproc = number of processes.
+   */
+
+  if (proc_tbl == NULL)
+    {
+    sprintf(log_buffer,"kvm_getprocs: %s",
+      kvm_geterr(kd));
+
+    log_err(errno,id,log_buffer);
+
+    return(PBSE_SYSTEM);
+    }
+
+  sess_tbl = (pid_t *)calloc(nproc,sizeof(pid_t));
+
+  /* Create array of size nproc */
+
+  if (sess_tbl == NULL)
+    {
+    sprintf(log_buffer,"can't allocate memory for session table");
+
+    log_err(errno,id,log_buffer);
+
+    return(PBSE_SYSTEM);
+    }
+
+  qsort(proc_tbl,nproc,sizeof(struct kinfo_proc),qs_cmp);
+
+  for (i = 0,kp = proc_tbl;i < nproc;i++,kp++)
+    {
+    sess_tbl[i] = getsid(kp->kp_proc.p_pid);
+    }
+
+  return(PBSE_NONE);
+  }
+
+#endif /* !__TDARWIN_8 */
+
+
+
+
 
 /*
  * Measure job resource usage and compare with its limits.
@@ -971,71 +1261,122 @@ mom_get_sample()
  *	Otherwise, return FALSE.
  */
 
-int mom_over_limit(pjob)
-    job			*pjob;
-{
-	char		*id = "mom_over_limit";
-	char		*pname;
-	int		retval;
-	unsigned long	value, num;
-	resource	*pres;
+int mom_over_limit(
 
-	assert(pjob != NULL);
-	assert(pjob->ji_wattr[(int)JOB_ATR_resource].at_type == ATR_TYPE_RESC);
-	pres = (resource *)
-	    GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
+  job *pjob)
 
-	DBPRT(("%s: entered\n", id))
-	for ( ; pres != NULL; pres = (resource *)GET_NEXT(pres->rs_link)) {
-		assert(pres->rs_defin != NULL);
-		pname = pres->rs_defin->rs_name;
-		assert(pname != NULL);
-		assert(*pname != '\0');
-		if (strcmp(pname, "cput") == 0) {
-			retval = gettime(pres, &value);
-			if (retval != PBSE_NONE)
-				continue;
-			if ((num = cput_sum(pjob)) > value) {
-				sprintf(log_buffer,
-					"cput %lu exceeded limit %lu",
-					num, value);
-				return (TRUE);
-			}
-		} else if (strcmp(pname, "vmem") == 0) {
-			retval = getsize(pres, &value);
-			if (retval != PBSE_NONE)
-				continue;
-			if ((num = mem_sum(pjob)) > value) {
-				sprintf(log_buffer,
-					"vmem %lu exceeded limit %lu",
-					num, value);
-				return (TRUE);
-			}
-		} else if (strcmp(pname, "pvmem") == 0) {
-			retval = getsize(pres, &value);
-			if (retval != PBSE_NONE)
-				continue;
-			if (overmem_proc(pjob, value)) {
-				sprintf(log_buffer, "pvmem exceeded limit %lu",
-					value);
-				return (TRUE);
-			}
-		} else if (strcmp(pname, "walltime") == 0) {
-			retval = gettime(pres, &value);
-			if (retval != PBSE_NONE)
-				continue;
-			num = (unsigned long)(wallfactor * (double)(time_now - pjob->ji_qs.ji_stime));
-			if (num > value) {
-				sprintf(log_buffer,
-					"walltime %d exceeded limit %lu",
-					num, value);
-				return (TRUE);
-			}
-		}
-	}
+  {
+  char		*id = "mom_over_limit";
+  char		*pname;
+  int		retval;
+  unsigned long	value, num;
+  resource	*pres;
 
-	return (FALSE);
-}
+  assert(pjob != NULL);
+  assert(pjob->ji_wattr[(int)JOB_ATR_resource].at_type == ATR_TYPE_RESC);
+
+  pres = (resource *)GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
+
+  DBPRT(("%s: entered\n",id))
+
+  for (;pres != NULL;pres = (resource *)GET_NEXT(pres->rs_link)) 
+    {
+    assert(pres->rs_defin != NULL);
+
+    pname = pres->rs_defin->rs_name;
+
+    assert(pname != NULL);
+    assert(*pname != '\0');
+
+    if (!strcmp(pname,"cput")) 
+      {
+      retval = gettime(pres, &value);
+
+      if (retval != PBSE_NONE)
+        continue;
+
+      if ((num = cput_sum(pjob)) > value) 
+        {
+        sprintf(log_buffer,"cput %lu exceeded limit %lu",
+          num,value);
+
+        return(TRUE);
+        }
+      } 
+    else if (!strcmp(pname,"mem")) 
+      {
+      retval = getsize(pres,&value);
+
+      if (retval != PBSE_NONE)
+        continue;
+
+      if ((num = resi_sum(pjob)) > value) 
+        {
+        sprintf(log_buffer,"mem %lu exceeded limit %lu",
+          num,value);
+
+        return(TRUE);
+        }
+      }
+    else if (!strcmp(pname,"vmem")) 
+      {
+      retval = getsize(pres,&value);
+
+      if (retval != PBSE_NONE)
+        continue;
+
+      if ((num = mem_sum(pjob)) > value) 
+        {
+        sprintf(log_buffer,"vmem %lu exceeded limit %lu",
+          num,value);
+
+        return(TRUE);
+        }
+      } 
+    else if (!strcmp(pname,"pvmem")) 
+      {
+      retval = getsize(pres,&value);
+
+      if (retval != PBSE_NONE)
+        continue;
+
+      if (overmem_proc(pjob,value)) 
+        {
+        sprintf(log_buffer,"pvmem exceeded limit %lu",
+          value);
+
+        return(TRUE);
+        }
+      } 
+    else if (!strcmp(pname,"walltime")) 
+      {
+      if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
+        continue;
+
+      retval = gettime(pres,&value);
+
+      if (retval != PBSE_NONE)
+        continue;
+
+      num = (unsigned long)(wallfactor * (double)(time_now - pjob->ji_qs.ji_stime));
+
+      if (num > value) 
+        {
+        sprintf(log_buffer,"walltime %d exceeded limit %lu",
+          num,value);
+
+	if (ignwalltime == 0)
+        	return(TRUE);
+        }
+      }
+    }
+
+  return(FALSE);
+  }
+
+
+
+
 
 /*
  * Update the job attribute for resources used.
@@ -1134,60 +1475,133 @@ int mom_set_use(pjob)
 	return (PBSE_NONE);
 }
 
+
+
+
 /*
  *	Kill a job task.
  *	Call with the job and a signal number.
  */
-int kill_task(ptask, sig)
-    task	*ptask;
-    int		sig;
-{
-	char	*id = "kill_task";
-	int	ct = 0;
-	int	i, err;
-	int	sesid;
 
-	DBPRT(("%s entered\n", id))
+int kill_task(
 
-	sesid = ptask->ti_qs.ti_sid;
-	if (sesid <= 1)
-		return 0;
+  task *ptask,
+  int   sig,
+  int   pg)
 
-	if ((err = mom_get_sample()) != PBSE_NONE)
-		return 0;
+  {
+  char	*id = "kill_task";
+  int	ct = 0;
+  int	i, err;
+  int	sesid;
 
-	for (i=0; i<nproc; i++) {
-		struct	kinfo_proc	*pp = &proc_tbl[i];
+  sesid = ptask->ti_qs.ti_sid;
 
-		if (sesid != sess_tbl[i])
-			continue;
+  if (sesid <= 1)
+    {
+    return(0);
+    }
 
-		DBPRT(("%s: send signal %d to pid %d\n", id,
-				sig, pp->kp_proc.p_pid))
-		(void)kill(pp->kp_proc.p_pid, sig);
-		++ct;
-	}
-	return ct;
-}
+  DBPRT(("%s sending %d\n", 
+    id, 
+    sig))
+
+  if ((err = mom_get_sample()) != PBSE_NONE)
+    {
+    return(0);
+    }
+
+  for (i = 0;i < nproc;i++) 
+    {
+    struct kinfo_proc *pp = &proc_tbl[i];
+
+    if (sesid != sess_tbl[i])
+      continue;
+
+    if (sig == SIGKILL)
+      {
+      struct timespec req;
+      int i;
+
+      req.tv_sec = 0;
+      req.tv_nsec = 250000000;
+
+      /* give the process some time to quit gracefully first */
+
+      if (kill(pp->kp_proc.p_pid,SIGTERM) == -1)
+        break;
+ 
+      for (i = 0;i < 20;i++)
+        {
+        if (kill(pp->kp_proc.p_pid,0) == -1)
+          break;
+ 
+        nanosleep(&req,NULL);
+        }  /* END for (i = 0) */
+      }
+ 
+    sprintf(log_buffer,"%s: killing pid %d task %d with sig %d",
+      (char *)__func__,
+      pp->kp_proc.p_pid,
+      ptask->ti_qs.ti_task,
+      sig);
+ 
+    log_record(
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      ptask->ti_job->ji_qs.ji_jobid,
+      log_buffer);
+
+    DBPRT(("%s: send signal %d to pid %d\n", 
+      id,
+      sig, 
+      pp->kp_proc.p_pid))
+
+    kill(pp->kp_proc.p_pid,sig);
+
+    ++ct;
+    }
+
+  return(ct);
+  }  /* END kill_task() */
+
+
+
+
 
 /*
  * Clean up everything related to polling.
  *
  *	In the case of the sun, close the kernal if it is open.
  */
-int mom_close_poll()
-{
-	DBPRT(("mom_close_poll entered\n"))
-	if (kd) {
-		if (kvm_close(kd) != 0) {
-			log_err(errno, "mom_close_poll", "kvm_close");
-			return (PBSE_SYSTEM);
-		}
-		kd = NULL;
-	}
 
-	return (PBSE_NONE);
-}
+int mom_close_poll()
+
+  {
+  char *id = "mom_close_poll";
+
+  if (LOGLEVEL >= 4)
+    {
+    log_record(PBSEVENT_SYSTEM,0,id,"entered");
+    }
+
+  if (kd != NULL) 
+    {
+    if (kvm_close(kd) != 0) 
+      {
+      log_err(errno,id,"kvm_close");
+
+      return(PBSE_SYSTEM);
+      }
+
+    kd = NULL;
+    }
+
+  return(PBSE_NONE);
+  }
+
+
+
 
 /*
  * mom_does_chkpnt - return 1 if mom supports checkpoint
@@ -1248,6 +1662,9 @@ getprocs()
 	return 1;
 }
 
+
+
+
 char	*
 cput_job(jobid)
 pid_t	jobid;
@@ -1303,59 +1720,96 @@ pid_t	jobid;
 	}
 
 	sprintf(ret_string, "%.2f", (double)cputime * cputfactor);
-	return ret_string;
-}
+  
+  return(ret_string);
+  }
 
-char	*
-cput_proc(pid)
-pid_t	pid;
-{
-	char			*id = "cput_proc";
-	struct	pstats		ps;
-	uint			i, cputime;
 
-	for (i=0; i<nproc; i++) {
-		struct kinfo_proc	*pp = &proc_tbl[i];
 
-		if (pid != pp->kp_proc.p_pid)
-			continue;
 
-		cputime = tvk(pp->kp_proc.p_rtime);
+char *cput_proc(
 
-		if (pp->kp_proc.p_ru == NULL) {
-			struct	pstats	ps;
+  pid_t pid)
 
-			if (pp->kp_proc.p_stat == NULL)
-				break;
+  {
+  char		*id = "cput_proc";
+  struct	pstats		ps;
+  uint		i, cputime;
 
-			if (kvm_read(kd, (u_long)pp->kp_proc.p_stat, &ps,
-					sizeof(ps)) != sizeof(ps)) {
-				log_err(errno, id, "kvm_read(pstats)");
-				break;
-			}
-			cputime += tv(ps.p_ru.ru_utime) +
-				tv(ps.p_ru.ru_stime) +
-				tv(ps.p_cru.ru_utime) +
-				tv(ps.p_cru.ru_stime);
-		}
-		else {
-			struct	rusage	ru;
+  if (kd == NULL)
+    {
+    log_err(errno,id,"null kd");
 
-			if (kvm_read(kd, (u_long)pp->kp_proc.p_ru, &ru,
-					sizeof(ru)) != sizeof(ru)) {
-				log_err(errno, id, "kvm_read(session)");
-				break;
-			}
-			cputime += tv(ru.ru_utime) + tv(ru.ru_stime);
-		}
-		DBPRT(("%s: pid %d cputime %d\n", id, pid, cputime))
+    rm_errno = RM_ERR_EXIST;
 
-		sprintf(ret_string, "%.2f", (double)cputime * cputfactor);
-		return ret_string;
-	}
-	rm_errno = RM_ERR_EXIST;
-	return NULL;
-}
+    return(NULL);
+    }
+
+  for (i = 0;i < nproc;i++) 
+    {
+    struct kinfo_proc	*pp = &proc_tbl[i];
+
+    if (pid != pp->kp_proc.p_pid)
+      continue;
+
+    cputime = tvk(pp->kp_proc.p_rtime);
+
+    if (pp->kp_proc.p_ru == NULL) 
+      {
+      struct pstats ps;
+
+      if (pp->kp_proc.p_stat == NULL)
+        break;
+
+      if (kvm_read(
+           kd,
+           (u_long)pp->kp_proc.p_stat,
+           &ps,
+           sizeof(ps)) != sizeof(ps)) 
+        {
+        log_err(errno,id,"kvm_read(pstats)");
+
+        break;
+        }
+
+      cputime += tv(ps.p_ru.ru_utime) +
+                 tv(ps.p_ru.ru_stime) +
+                 tv(ps.p_cru.ru_utime) +
+                 tv(ps.p_cru.ru_stime);
+      }
+    else 
+      {
+      struct rusage ru;
+
+      if (kvm_read(
+            kd,
+            (u_long)pp->kp_proc.p_ru, 
+            &ru,
+            sizeof(ru)) != sizeof(ru)) 
+        {
+        log_err(errno,id,"kvm_read(session)");
+
+        break;
+        }
+
+      cputime += tv(ru.ru_utime) + tv(ru.ru_stime);
+      }
+
+    DBPRT(("%s: pid %d cputime %d\n", id, pid, cputime))
+
+    sprintf(ret_string,"%.2f", 
+      (double)cputime * cputfactor);
+
+    return(ret_string);
+    }
+
+  rm_errno = RM_ERR_EXIST;
+
+  return(NULL);
+  }
+
+
+
 
 char	*
 cput(attrib)
@@ -1391,68 +1845,133 @@ struct	rm_attribute	*attrib;
 	}
 }
 
-char	*
-mem_job(jobid)
-pid_t	jobid;
-{
-	char			*id = "mem_job";
-	int			i;
-	int			memsize, addmem;
-	int			found = 0;
 
-	if (getprocs() == 0) {
-		rm_errno = RM_ERR_SYSTEM;
-		return NULL;
-	}
-	memsize = 0;
-	for (i=0; i<nproc; i++) {
-		struct kinfo_proc	*pp = &proc_tbl[i];
 
-		if (jobid != sess_tbl[i])
-			continue;
 
-		found = 1;
-		addmem = pp->kp_eproc.e_vm.vm_tsize +
-				pp->kp_eproc.e_vm.vm_dsize +
-				pp->kp_eproc.e_vm.vm_ssize;
-		memsize += addmem;
-	}
-	if (found) {
-		sprintf(ret_string, "%ukb", ctob(memsize) >> 10); /* KB */
-		return ret_string;
-	}
+char *mem_job(
 
-	rm_errno = RM_ERR_EXIST;
-	return NULL;
-}
+  pid_t jobid)
 
-char	*
-mem_proc(pid)
-pid_t	pid;
-{
-	char			*id = "mem_proc";
-	int			i, memsize;
+  {
+  char *id = "mem_job";
+  int   i;
+  int   memsize, addmem;
+  int   found = 0;
 
-	if (getprocs() == 0) {
-		rm_errno = RM_ERR_SYSTEM;
-		return NULL;
-	}
-	for (i=0; i<nproc; i++) {
-		struct kinfo_proc	*pp = &proc_tbl[i];
+#ifdef __TDARWIN_8
+  struct task_basic_info t_info;
+  unsigned int pid;
+#endif /* __TDARWIN_8 */
 
-		if (pid != pp->kp_proc.p_pid)
-			continue;
+  if (getprocs() == 0) 
+    {
+    rm_errno = RM_ERR_SYSTEM;
 
-		memsize = pp->kp_eproc.e_vm.vm_tsize +
-				pp->kp_eproc.e_vm.vm_dsize +
-				pp->kp_eproc.e_vm.vm_ssize;
-		sprintf(ret_string, "%ukb", ctob(memsize) >> 10); /* KB */
-		return ret_string;
-	}
+    return(NULL);
+    }
 
-	rm_errno = RM_ERR_EXIST;
-	return NULL;
-}
+  memsize = 0;
+
+  for (i = 0;i < nproc;i++) 
+    {
+    struct kinfo_proc *pp = &proc_tbl[i];
+
+    if (jobid != sess_tbl[i])
+      continue;
+
+    found = 1;
+
+#ifdef __TDARWIN_8
+    pid = pp->kp_proc.p_pid;
+
+    if (get_tinfo_by_pid(&t_info,pid) != 0)
+      continue;
+
+    addmem = t_info.virtual_size;
+#else /* __TDARWIN_8 */
+    addmem = pp->kp_eproc.e_vm.vm_tsize +
+             pp->kp_eproc.e_vm.vm_dsize +
+             pp->kp_eproc.e_vm.vm_ssize;
+#endif /* !__TDARWIN_8 */
+
+    memsize += addmem;
+
+    DBPRT(("%s: ses %d pid=%d totmem=%lu\n", 
+      id, sess_tbl[i], pp->kp_proc.p_pid, memsize));
+    }
+
+  if (found) 
+    {
+    sprintf(ret_string,"%ukb", 
+      ctob(memsize) >> 10); /* KB */
+
+    return(ret_string);
+    }
+
+  rm_errno = RM_ERR_EXIST;
+
+  return(NULL);
+  }
+
+
+
+
+char *mem_proc(
+
+  pid_t pid)
+
+  {
+  char *id = "mem_proc";
+  int   i;
+  int   memsize;
+
+#ifdef __TDARWIN_8
+  struct task_basic_info t_info;
+#endif /* __TDARWIN_8 */
+
+  if (getprocs() == 0)
+    {
+    rm_errno = RM_ERR_SYSTEM;
+
+    return(NULL);
+    }
+
+  memsize = 0;
+
+  for (i = 0;i < nproc;i++)
+    {
+    struct kinfo_proc *pp = &proc_tbl[i];
+
+    if (pid != sess_tbl[i])
+      continue;
+
+#ifdef __TDARWIN_8
+    pid = pp->kp_proc.p_pid;
+
+    if (get_tinfo_by_pid(&t_info,pid) != 0)
+      continue;
+
+    memsize = t_info.virtual_size;
+#else /* __TDARWIN_8 */
+    memsize = pp->kp_eproc.e_vm.vm_tsize +
+              pp->kp_eproc.e_vm.vm_dsize +
+              pp->kp_eproc.e_vm.vm_ssize;
+#endif /* !__TDARWIN_8 */
+
+    sprintf(ret_string,"%ukb", 
+      ctob(memsize) >> 10); /* KB */
+
+    return(ret_string);
+    }
+
+  rm_errno = RM_ERR_EXIST;
+
+  return(NULL);
+  }
+
+
+
+
 
 char	*
 mem(attrib)
@@ -1488,109 +2007,190 @@ struct	rm_attribute	*attrib;
 	}
 }
 
-static char	*
-resi_job(jobid)
-pid_t	jobid;
-{
-	char			*id = "resi_job";
-	int			i, found;
-	int			resisize;
 
-	if (getprocs() == 0) {
-		rm_errno = RM_ERR_SYSTEM;
-		return NULL;
-	}
-	resisize = 0;
-	found = 0;
-	for (i=0; i<nproc; i++) {
-		struct kinfo_proc	*pp = &proc_tbl[i];
 
-		if (jobid != sess_tbl[i])
-			continue;
 
-		found = 1;
-		resisize += pp->kp_eproc.e_vm.vm_rssize;
-	}
-	if (found) {
-		sprintf(ret_string, "%ukb", ctob(resisize) >> 10); /* KB */
-		return ret_string;
-	}
+static char *resi_job(
 
-	rm_errno = RM_ERR_EXIST;
-	return NULL;
-}
+  pid_t jobid)
 
-static char	*
-resi_proc(pid)
-pid_t	pid;
-{
-	char			*id = "resi_proc";
-	int			i;
-	int			resisize;
+  {
+  char	*id = "resi_job";
+  int	i, found;
+  int	resisize;
 
-	if (getprocs() == 0) {
-		rm_errno = RM_ERR_SYSTEM;
-		return NULL;
-	}
-	resisize = 0;
-	for (i=0; i<nproc; i++) {
-		struct kinfo_proc	*pp = &proc_tbl[i];
+#ifdef __TDARWIN_8
+  struct task_basic_info t_info;
+  unsigned int pid;
+#endif /* __TDARWIN_8 */
 
-		if (pid != pp->kp_proc.p_pid)
-			continue;
+  if (getprocs() == 0) 
+    {
+    rm_errno = RM_ERR_SYSTEM;
 
-		resisize = pp->kp_eproc.e_vm.vm_rssize;
-		sprintf(ret_string, "%ukb", ctob(resisize) >> 10); /* KB */
-		return ret_string;
-	}
+    return(NULL);
+    }
 
-	rm_errno = RM_ERR_EXIST;
-	return NULL;
-}
+  resisize = 0;
+  found = 0;
 
-static char	*
-resi(attrib)
-struct	rm_attribute	*attrib;
-{
-	char			*id = "resi";
-	int			value;
+  for (i = 0;i < nproc;i++) 
+    {
+    struct kinfo_proc *pp = &proc_tbl[i];
 
-	if (attrib == NULL) {
-		log_err(-1, id, no_parm);
-		rm_errno = RM_ERR_NOPARAM;
-		return NULL;
-	}
-	if ((value = atoi(attrib->a_value)) == 0) {
-		sprintf(log_buffer, "bad param: %s", attrib->a_value);
-		log_err(-1, id, log_buffer);
-		rm_errno = RM_ERR_BADPARAM;
-		return NULL;
-	}
-	if (momgetattr(NULL)) {
-		log_err(-1, id, extra_parm);
-		rm_errno = RM_ERR_BADPARAM;
-		return NULL;
-	}
+    if (jobid != sess_tbl[i])
+      continue;
 
-	if (strcmp(attrib->a_qualifier, "session") == 0)
-		return (resi_job((pid_t)value));
-	else if (strcmp(attrib->a_qualifier, "proc") == 0)
-		return (resi_proc((pid_t)value));
-	else {
-		rm_errno = RM_ERR_BADPARAM;
-		return NULL;
-	}
-}
+    found = 1;
 
-char	*
-sessions(attrib)
-struct	rm_attribute	*attrib;
-{
-	char			*id = "sessions";
-	int			i, j;
-	char			*fmt;
-	int			njids = 0;
-	pid_t			*jids, jobid;
+#ifdef __TDARWIN_8
+    pid = pp->kp_proc.p_pid;
+
+    if (get_tinfo_by_pid(&t_info,pid ) != 0)
+      continue;
+
+    resisize += t_info.resident_size;
+#else /* __TDARWIN_8 */
+    resisize += pp->kp_eproc.e_vm.vm_rssize;
+#endif /* __TDARWIN_8 */
+    }
+
+  if (found) 
+    {
+    sprintf(ret_string,"%ukb", 
+      ctob(resisize) >> 10); /* KB */
+
+    return(ret_string);
+    }
+
+  rm_errno = RM_ERR_EXIST;
+
+  return(NULL);
+  }
+
+
+
+
+static char *resi_proc(
+
+  pid_t pid)
+
+  {
+  char	*id = "resi_proc";
+  int	i;
+  int	resisize;
+
+#ifdef __TDARWIN_8
+  struct task_basic_info t_info;
+#endif /* __TDARWIN_8 */
+
+  if (getprocs() == 0) 
+    {
+    rm_errno = RM_ERR_SYSTEM;
+
+    return(NULL);
+    }
+
+  resisize = 0;
+
+  for (i = 0;i < nproc;i++) 
+    {
+    struct kinfo_proc *pp = &proc_tbl[i];
+
+    if (pid != pp->kp_proc.p_pid)
+      continue;
+
+#ifdef __TDARWIN_8
+    if (get_tinfo_by_pid(&t_info,pp->kp_proc.p_pid) != 0)
+      continue;
+
+    resisize = t_info.resident_size;
+#else /* __TDARWIN_8 */
+    resisize = pp->kp_eproc.e_vm.vm_rssize;
+#endif /* __TDARWIN_8 */
+
+    sprintf(ret_string,"%ukb",
+      ctob(resisize) >> 10); /* KB */
+
+    return(ret_string);
+    }
+
+  rm_errno = RM_ERR_EXIST;
+
+  return(NULL);
+  }
+
+
+
+
+static char *resi(
+
+  struct rm_attribute *attrib)
+
+  {
+  char *id = "resi";
+  int   value;
+
+  if (attrib == NULL) 
+    {
+    log_err(-1,id,no_parm);
+
+    rm_errno = RM_ERR_NOPARAM;
+   
+    return(NULL);
+    }
+
+  if ((value = atoi(attrib->a_value)) == 0) 
+    {
+    sprintf(log_buffer,"bad param: %s", 
+      attrib->a_value);
+
+    log_err(-1,id,log_buffer);
+
+    rm_errno = RM_ERR_BADPARAM;
+
+    return(NULL);
+    }
+
+  if (momgetattr(NULL)) 
+    {
+    log_err(-1,id,extra_parm);
+
+    rm_errno = RM_ERR_BADPARAM;
+
+    return(NULL);
+    }
+
+  if (!strcmp(attrib->a_qualifier,"session"))
+    {
+    return(resi_job((pid_t)value));
+    }
+  else if (!strcmp(attrib->a_qualifier,"proc"))
+    {
+    return(resi_proc((pid_t)value));
+    }
+
+  /* FAILURE */
+
+  rm_errno = RM_ERR_BADPARAM;
+
+  return(NULL);
+  }  /* END resi() */
+
+
+
+
+
+char *sessions(
+
+  struct rm_attribute *attrib)
+
+  {
+  char			*id = "sessions";
+  int			i, j;
+  char			*fmt;
+  int			njids = 0;
+  pid_t			*jids, jobid;
 
 	if (attrib) {
 		log_err(-1, id, extra_parm);
@@ -1627,25 +2227,52 @@ struct	rm_attribute	*attrib;
 			jids[njids++] = jobid;	/* so add it to list */
 	}
 
-	fmt = ret_string;
-	for (j=0; j<njids; j++) {
-		checkret(&fmt, 100);
-		sprintf(fmt, " %d", (int)jids[j]);
-		fmt += strlen(fmt);
-	}
-	free(jids);
-	return ret_string;
-}
+  fmt = ret_string;
+  for (j=0; j<njids; j++)
+    {
+    checkret(&fmt, 100);
 
-char	*
-nsessions(attrib)
-struct	rm_attribute	*attrib;
-{
-	char	*result, *ch;
-	int	num = 0;
+    if (j == 0)
+      {
+      sprintf(fmt, "%d", (int)jids[j]);
+      }
+    else
+      {
+      sprintf(fmt, " %d", (int)jids[j]);
+      }
 
-	if ((result = sessions(attrib)) == NULL)
-		return result;
+    fmt += strlen(fmt);
+    }
+
+  free(jids);
+
+  if (njids == 0) 
+    {
+    return(NULL);            /* by analogy with linux version */
+    }
+
+  return(ret_string);
+  }  /* END sessions() */
+
+
+
+
+
+char *nsessions(
+
+  struct rm_attribute *attrib)
+
+  {
+  char *result, *ch;
+  int   num = 0;
+
+  if ((result = sessions(attrib)) == NULL)
+    { 
+    sprintf(ret_string,"%d", 
+      num); 
+
+    return(ret_string); 
+    }
 
 	for (ch=result; *ch; ch++) {
 		if (*ch == ' ')		/* count blanks */
@@ -1654,6 +2281,9 @@ struct	rm_attribute	*attrib;
 	sprintf(ret_string, "%d", num);
 	return ret_string;
 }
+
+
+
 
 char	*
 pids(attrib)
@@ -1715,14 +2345,18 @@ struct	rm_attribute	*attrib;
 	return ret_string;
 }
 
-char	*
-nusers(attrib)
-struct	rm_attribute	*attrib;
-{
-	char			*id = "nusers";
-	int			i, j;
-	int			nuids = 0;
-	uid_t			*uids, uid;
+
+
+
+char *nusers(
+
+  struct rm_attribute *attrib)
+
+  {
+  char			*id = "nusers";
+  int			i, j;
+  int			nuids = 0;
+  uid_t			*uids, uid;
 
 	if (attrib) {
 		log_err(-1, id, extra_parm);
@@ -1755,23 +2389,274 @@ struct	rm_attribute	*attrib;
 			uids[nuids++] = uid;	/* so add it to list */
 	}
 
-	sprintf(ret_string, "%d", nuids);
-	free(uids);
-	return ret_string;
-}
+  sprintf(ret_string,"%d", 
+    nuids);
 
-static char	*
-ncpus(attrib)
-struct rm_attribute	*attrib;
-{
-	if (attrib) {
-		log_err(-1, "ncpus", extra_parm);
-		rm_errno = RM_ERR_BADPARAM;
-		return NULL;
-	}
-	sprintf(ret_string, "%d", nncpus);
-	return ret_string;
-}
+  free(uids);
+
+  return(ret_string);
+  }  /* END nusers() */
+
+
+
+
+static char *totmem( 
+
+  struct rm_attribute *attrib)
+
+  {
+  char             *id = "totmem";
+  uint64_t          mem = 0;
+  int               mib[2];
+  size_t            len;
+
+#ifdef VM_SWAPUSAGE
+  struct xsw_usage  swap;
+#endif /* VM_SWAPUSAGE */
+
+  extern int        errno;
+
+  if (attrib != NULL)
+    {
+    log_err(-1,id,extra_parm);
+
+    rm_errno = RM_ERR_BADPARAM;
+
+    return(NULL);
+    }
+
+  /* Get Physical Memory Size
+   * We have to be careful as hw.memsize is not
+   * defined on pre 10.3
+   */
+
+  len = sizeof( uint64_t );
+
+#ifdef HW_MEMSIZE
+  if (sysctlbyname("hw.memsize",&mem,&len,NULL,0) != 0)
+    {
+    sprintf(log_buffer,"sysctl failed with errno %d", 
+      errno);
+
+    log_err(-1,id,log_buffer);
+
+    return(NULL);
+    }
+#else /* HW_MEMSIZE */
+  if (sysctlbyname("hw.physmem",&mem,&len,NULL,0) != 0)
+    {
+    sprintf(log_buffer,"sysctl failed with errno %d", 
+      errno);
+
+    log_err(-1,id,log_buffer);
+
+    return(NULL);
+    }
+#endif /* HW_MEMSIZE */
+
+  /* Get Swap Size */
+
+#ifdef VM_SWAPUSAGE
+  mib[0] = CTL_VM;
+  mib[1] = VM_SWAPUSAGE;
+
+  len = sizeof(struct xsw_usage);
+
+  if (sysctl(mib,2,&swap,&len,NULL,0) != 0)
+    {
+    sprintf(log_buffer,"sysctl failed with errno %d", 
+      errno);
+
+    log_err(-1,id,"log_buffer");
+
+    return(NULL);
+    }
+
+  mem += swap.xsu_total;
+#else /* VM_SWAPUSAGE */
+  /* need to load swap info from alternate source */
+
+  /* (not implemented) */
+#endif /* VM_SWAPUSAGE */
+
+  if (LOGLEVEL >= 6)
+    {
+    sprintf(log_buffer,"%s: total mem=%lu\n", 
+      id, 
+      (unsigned long) mem);
+
+    log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+    }
+
+  sprintf(ret_string,"%lukb", 
+    (unsigned long)(mem / 1024.0 )); /* KB */
+
+  return(ret_string);
+  }  /* END totmem() */
+
+
+
+static char *availmem(
+ 
+  struct rm_attribute *attrib)
+
+  {
+  char *id = "availmem";
+  struct vm_statistics stat;
+  int              count = HOST_VM_INFO_COUNT;
+  uint64_t         mem = 0;
+  int              mib[2];
+  size_t           len;
+#ifdef VM_SWAPUSAGE
+  struct xsw_usage swap;
+#endif /* VM_SWAPUSAGE */
+  extern int errno;
+
+  if (attrib != NULL)
+    {
+    log_err(-1,id,extra_parm);
+
+    rm_errno = RM_ERR_BADPARAM;
+
+    return(NULL);
+    }
+
+  /* Get Swap Info */
+
+#ifdef VM_SWAPUSAGE
+  mib[0] = CTL_VM;
+  mib[1] = VM_SWAPUSAGE;
+
+  len = sizeof(struct xsw_usage);
+
+  if (sysctl(mib,2,&swap,&len,NULL,0) != 0)
+    {
+    sprintf(log_buffer,"sysctl failed with errno %d",
+      errno);
+
+    log_err(-1,id,"log_buffer");
+
+    return(NULL);
+    }
+	
+  mem += swap.xsu_avail;
+#else /* VM_SWAPUSAGE */
+  /* need to load swap info */
+
+  /* (not implemented) */
+#endif /* VM_SWAPUSAGE */
+
+  if (host_statistics(mach_host_self(),HOST_VM_INFO,(host_info_t)&stat,&count) != KERN_SUCCESS)
+    {
+    log_err(-1,id,"host_statistics failed");
+
+    rm_errno = RM_ERR_SYSTEM;
+
+    return(NULL);
+    }
+
+  /* assume 4k blocks - NOTE: this should be looked up */
+
+  mem += (uint64_t)stat.free_count * 4096;
+
+  if (LOGLEVEL >= 6)
+    {
+    sprintf(log_buffer,"%s: free mem=%lu\n", 
+      id, 
+      (unsigned long)mem);
+ 
+    log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+    }
+
+  sprintf(ret_string,"%lukb", 
+    (unsigned long)(mem / 1024)); /* KB */
+
+  return(ret_string);
+  }  /* END availmem() */
+
+
+
+
+/*
+ *  netload.  right now this just sums the number of bytes sent/recieved on an interface
+ *  this appears to be what netload in linux/res_mom.c does, but I think it would make
+ *  more sense to report bytes per second instead.
+ */
+
+static char *netload(
+
+  struct rm_attribute *attrib)
+
+  {
+  char *id = "netload";
+
+  struct ifaddrs *ifap, *ifa;
+  struct if_data *ifd;
+  unsigned long bytes = 0;
+
+  if (attrib != NULL)
+    {
+    log_err(-1,id,extra_parm);
+
+    rm_errno = RM_ERR_BADPARAM;
+
+    return(NULL);
+    }
+
+
+  if (getifaddrs(&ifap) < 0)
+    {
+    sprintf(log_buffer,"getifaddrs error");
+    log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+
+    return(NULL);
+    }
+ 
+  for (ifa = ifap; ifa != NULL; ifa = ifa->ifa_next)
+    {
+    if ((ifa->ifa_flags & IFF_UP) && !(ifa->ifa_flags & IFF_LOOPBACK))
+      {
+      if (ifa->ifa_addr->sa_family != AF_LINK)
+        continue;
+
+      ifd = (struct if_data *)ifa->ifa_data;
+      bytes += ifd->ifi_ibytes;
+      bytes += ifd->ifi_obytes;
+      }
+    }    /* END for (ifa) */
+
+  freeifaddrs(ifap);
+
+  sprintf(ret_string,"%lu", 
+    bytes);
+
+  return(ret_string);
+  }  /* END netload() */
+
+
+
+
+static char *ncpus(
+
+  struct rm_attribute *attrib)
+
+  {
+  if (attrib != NULL) 
+    {
+    log_err(-1,"ncpus",extra_parm);
+
+    rm_errno = RM_ERR_BADPARAM;
+
+    return(NULL);
+    }
+
+  sprintf(ret_string,"%d", 
+    nncpus);
+
+  system_ncpus=nncpus;
+
+  return(ret_string);
+  }
 
 
 
@@ -1795,9 +2680,11 @@ static char *physmem(
 #ifdef TUSEMEMSIZE
 
   {
+  /* NOTE:  patch by UMaine */
+
   uint64_t physmem = 0;
 
-  /* NOTE:  patch by UMaine */
+  size_t len = sizeof(physmem);
 
   if (sysctlbyname("hw.memsize",&physmem,&len,NULL,0) < 0)
     {
@@ -2344,4 +3231,77 @@ void scan_non_child_tasks(void)
   return;
   }  /* END scan_non_child_tasks() */
 
+
+
+
+#ifdef __TDARWIN_8
+
+/* This is basically a wrapper for the MACH t_info and vm_region calls */
+
+int get_tinfo_by_pid( 
+
+  struct task_basic_info *t_info, 
+  unsigned int            pid)
+  
+  {
+  task_t				task;
+  mach_msg_type_number_t		t_info_count = TASK_BASIC_INFO_COUNT;
+  mach_msg_type_number_t		vm_info_count = VM_REGION_BASIC_INFO_COUNT_64;
+  struct vm_region_basic_info_64 	vm_info;
+  vm_size_t			size;
+  mach_port_t			object_name;
+  vm_address_t			address = GLOBAL_SHARED_TEXT_SEGMENT;
+  kern_return_t			errno;
+
+  if (task_for_pid(mach_task_self(),pid,&task) != KERN_SUCCESS)
+    {
+    DBPRT(("get_tinfo_by_pid:  pid is not a valid process id.\n"));
+
+    return(-1);
+    }
+
+  if ((errno = task_info(
+          task,
+          TASK_BASIC_INFO,
+          (task_info_t)t_info,
+          &t_info_count) != KERN_SUCCESS))
+    {
+    DBPRT(("get_tinfo_by_pid: error(%d) in task_info\n", 
+      errno));
+
+    return(errno);
+    }
+
+  if ((errno = vm_region_64(
+          task,
+          &address,
+          &size,
+          VM_REGION_BASIC_INFO,
+          (vm_region_info_t)&vm_info,
+          &vm_info_count, 
+          &object_name)) != KERN_SUCCESS)
+    {
+    DBPRT(("get_tinfo_by_pid: error(%d) in vm_region_64\n", 
+      errno));
+
+    return(errno);
+    }
+
+  /*
+   * From 'ps' source
+   * "Check for firmware split libraries"
+   * We'll modify t_info inline here.
+   */
+
+  if (vm_info.reserved && 
+     (size == SHARED_TEXT_REGION_SIZE) && 
+     (t_info->virtual_size > (SHARED_DATA_REGION_SIZE + SHARED_TEXT_REGION_SIZE)))
+    {
+    t_info->virtual_size -= (SHARED_DATA_REGION_SIZE + SHARED_TEXT_REGION_SIZE);
+    }
+
+  return(0);
+  }
+
+#endif /* __TDARWIN_8 */
 

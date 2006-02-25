@@ -128,6 +128,7 @@ enum queueattr {
         QA_ATR_AclGroupEnabled,
         QA_ATR_AclGroup,
         QA_ATR_AclLogic,
+        QA_ATR_AclGroupSloppy,
 
 	/* The following attributes apply only to exection queues */
 
@@ -140,6 +141,7 @@ enum queueattr {
 	QE_ATR_KillDelay,
 	QE_ATR_MaxUserRun,
 	QE_ATR_MaxGrpRun,
+	QE_ATR_KeepCompleted,
 
 	/* The following attribute apply only to routing queues... */
 

@@ -103,10 +103,18 @@ Format: boolean, "TRUE", "True", "true", "Y", "y", "1", "FALSE", "False",
 .if !\n(Pb .ig Ig
 [internal type: boolean]
 .Ig
+.Al acl_group_sloppy
+Search a job user's secondary groups if the effective group doesn't match the group acl.
+Warning, this can be very slow and expensive.
+Format: boolean, "TRUE", "True", "true", "Y", "y", "1", "FALSE", "False",
+"false", "N", "n", "0"; default value: false = disabled.
+.if !\n(Pb .ig Ig
+[internal type: boolean]
+.Ig
 .Al acl_groups
 List which allows or denies enqueuing of jobs owned by members of the listed
 groups.  The groups in the list are groups on the server host, not submitting
-hosts.
+hosts.  If acl_group_enable is set to true, only groups listed in the acl_groups attribute will be allowed access to the queue.
 See section 10.1, Authorization, in the PBS External Reference Specification.
 Format: "[+|-]group_name[,...]"; default value: all groups allowed.
 .if !\n(Pb .ig Ig
@@ -157,7 +165,9 @@ Format: boolean (see acl_group_enable); default value: disabled.
 .Ig
 .Al acl_users
 List of users allowed or denied the ability to enqueue jobs in this queue.
-See section 10.1, Authorization, in the PBS External Reference Specification.
+See section 10.1, Authorization, in the PBS External Reference Specification.  If acl_user_enable is set to true, only users listed in the acl_groups attribute w
+ill be allowed access to the queue.
+
 Format: "[+|-]user[@host][,...]";
 default value: all users allowed.
 .if !\n(Pb .ig Ig
@@ -262,6 +272,12 @@ Advisory to the Scheduler, not enforced by the server.
 Format: "resources_available.resource_name=value", see qmgr(1B).
 .if !\n(Pb .ig Ig
 [internal type: resource]
+.Ig
+.Al keep_completed
+Number of seconds to retain completed jobs in the C state.  EXPERIMENTAL
+Format: integer; default value: 0.
+.if !\n(Pb .ig Ig
+[internal type: integer]
 .Ig
 .Al kill_delay
 The amount of the time delay between the sending of SIGTERM and SIGKILL

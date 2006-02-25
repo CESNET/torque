@@ -107,10 +107,12 @@
 /* Extenal functions called */
 
 extern int   status_job A_((job *, struct batch_request *, svrattrl *, list_head *, int *));
+extern int   svr_authorize_jobreq A_((struct batch_request *,job *));
 
 
 /* Global Data Items  */
 
+extern struct server server;
 extern int	 resc_access_perm;
 extern list_head svr_alljobs;
 extern time_t	 time_now;
@@ -217,51 +219,72 @@ static attribute_def state_sel = {
  *		1. Determine if any job that qualifies is running and has
  *		   stale data from MOM.   If so get new from MOM.
  *		2. Build the status reply for any job that qualifies.
+ *	
+ *	And just like regular status requests, if poll_job is enabled,
+ *	we skip over sending update requests to MOM.
  */
 
-void req_selectjobs(preq)
-	struct batch_request *preq;
-{
-	int		    bad = 0;
-	struct stat_cntl   *cntl;
-	svrattrl	   *plist;
-	pbs_queue	   *pque;
-	int		    rc;
-	struct select_list *selistp;
+void req_selectjobs(
 
-	plist = (svrattrl *)GET_NEXT(preq->rq_ind.rq_select);
+  struct batch_request *preq)
 
-	rc = build_selist(plist, preq->rq_perm, &selistp, &pque, &bad);
+  {
+  int		    bad = 0;
+  struct stat_cntl *cntl;
+  svrattrl	   *plist;
+  pbs_queue	   *pque;
+  int		    rc;
+  struct select_list *selistp;
 
-	if (rc != 0) {
-		reply_badattr(rc, bad, plist, preq);
-		free_sellist(selistp);
-		return;
-	}
+  plist = (svrattrl *)GET_NEXT(preq->rq_ind.rq_select);
 
-	if ((cntl=(struct stat_cntl *)malloc(sizeof (struct stat_cntl))) == 0) {
-		free_sellist(selistp);
-		req_reject(PBSE_SYSTEM, 0, preq,NULL,NULL);
-		return;
-	}
-	if (pque)
-		cntl->sc_type = 2;     /* 2: all jobs in a queue, see sc_pque */
-	else
-		cntl->sc_type = 3;     /* 3: all jobs in the server */
-	cntl->sc_conn = -1;	       /* no connection (yet) to mom */
-	cntl->sc_pque = pque;	       /* queue or null */
-	cntl->sc_origrq = preq;	       /* the original request */
-	cntl->sc_jobid[0] = '\0';      /* null job id, start from the top */
-	cntl->sc_select = selistp;     /* the select list */
+  rc = build_selist(plist,preq->rq_perm,&selistp,&pque,&bad);
 
-	if (preq->rq_type == PBS_BATCH_SelectJobs) {
-		sel_step3(cntl);
-	} else {
-		cntl->sc_post   = sel_step2;
-		sel_step2(cntl);
-	}
-	return;
-}
+  if (rc != 0) 
+    {
+    reply_badattr(rc,bad,plist,preq);
+
+    free_sellist(selistp);
+
+    return;
+    }
+
+  if ((cntl = (struct stat_cntl *)malloc(sizeof(struct stat_cntl))) == NULL) 
+    {
+    free_sellist(selistp);
+
+    req_reject(PBSE_SYSTEM,0,preq,NULL,NULL);
+
+    return;
+    }
+
+  if (pque != NULL)
+    cntl->sc_type = 2;     /* 2: all jobs in a queue, see sc_pque */
+  else
+    cntl->sc_type = 3;     /* 3: all jobs in the server */
+
+  cntl->sc_conn = -1;	      /* no connection (yet) to mom */
+  cntl->sc_pque = pque;	      /* queue or null */
+  cntl->sc_origrq = preq;     /* the original request */
+  cntl->sc_jobid[0] = '\0';   /* null job id, start from the top */
+  cntl->sc_select = selistp;  /* the select list */
+
+  if (preq->rq_type == PBS_BATCH_SelectJobs) 
+    {
+    sel_step3(cntl);
+    } 
+  else if (server.sv_attr[(int)SRV_ATR_PollJobs].at_val.at_long) 
+    {
+    sel_step3(cntl);
+    }
+  else 
+    {
+    cntl->sc_post   = sel_step2;
+    sel_step2(cntl);
+    }
+
+  return;
+  }  /* END req_selectjobs() */
 
 
 
@@ -274,6 +297,8 @@ static void sel_step2(
   {
   job *pjob;
   int  rc;
+  int		      exec_only = 0;
+  pbs_queue           *pque = NULL;
 
   /* do first pass of finding jobs that match the selection criteria */
 
@@ -281,6 +306,10 @@ static void sel_step2(
     pjob = NULL;
   else
     pjob = find_job(cntl->sc_jobid);
+
+  if (cntl->sc_origrq->rq_extend != NULL)
+    if (!strncmp(cntl->sc_origrq->rq_extend,EXECQUEONLY,strlen(EXECQUEONLY)))
+      exec_only = 1;
 
   while (1) 
     {
@@ -309,6 +338,14 @@ static void sel_step2(
     if (pjob == NULL)
       break;
 
+    if (exec_only)
+      {
+      pque=find_queuebyname(pjob->ji_qs.ji_queue);
+
+      if (pque->qu_qs.qu_type != QTYPE_Execution)
+         continue;
+      }
+
     if (server.sv_attr[(int)SRV_ATR_query_others].at_val.at_long ||
        (svr_authorize_jobreq(cntl->sc_origrq,pjob) == 0)) 
       {
@@ -317,7 +354,7 @@ static void sel_step2(
       if (select_job(pjob,cntl->sc_select)) 
         {
         if ((pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING) &&
-           ((time_now - pjob->ji_momstat) > PBS_RESTAT_JOB)) 
+           ((time_now - pjob->ji_momstat) > JobStatRate)) 
           {
           /* need to ask MOM for new status */
 
@@ -363,6 +400,8 @@ static void sel_step3(
   struct brp_select    *pselect;
   struct brp_select   **pselx;
   int		      rc = 0;
+  int		      exec_only = 0;
+  pbs_queue           *pque = NULL;
 
   /* setup the appropriate return */
 
@@ -382,6 +421,10 @@ static void sel_step3(
 
   pselx = &preply->brp_un.brp_select;
 
+  if (preq->rq_extend != NULL)
+    if (!strncmp(preq->rq_extend,EXECQUEONLY,strlen(EXECQUEONLY)))
+      exec_only = 1;
+
   /* now start checking for jobs that match the selection criteria */
 
   if (cntl->sc_pque) 
@@ -392,9 +435,17 @@ static void sel_step3(
   while (pjob != NULL) 
     {
     if (server.sv_attr[(int)SRV_ATR_query_others].at_val.at_long ||
-       (svr_authorize_jobreq(preq,pjob) == 0) ) 
+        (svr_authorize_jobreq(preq,pjob) == 0) ) 
       {
       /* either job owner or has special permission to look at job */
+
+      if (exec_only)
+        {
+        pque=find_queuebyname(pjob->ji_qs.ji_queue);
+
+        if (pque->qu_qs.qu_type != QTYPE_Execution)
+           goto nextjob;
+        }
 
       if (select_job(pjob,cntl->sc_select))  
         {
@@ -404,36 +455,39 @@ static void sel_step3(
           {
           /* Select Jobs */
 
-			pselect = (struct brp_select *)
-					malloc(sizeof (struct brp_select));
-			if (pselect == (struct brp_select *)0) {
-				rc = PBSE_SYSTEM;
-				break;
-			}
-			pselect->brp_next = (struct brp_select*)0;
-			(void)strcpy(pselect->brp_jobid, pjob->ji_qs.ji_jobid);
-			*pselx = pselect;
-			pselx = &pselect->brp_next;
-			preq->rq_reply.brp_auxcode++;
+	  pselect = malloc(sizeof (struct brp_select));
 
-		    } else {
-
-			/* Select-Status */
-
-			rc = status_job(pjob, preq, (svrattrl *)0,
-					&preply->brp_un.brp_status, &bad);
-			if (rc && (rc != PBSE_PERM)) {
-				break;
-			}
-
-		    }
-		}
+	  if (pselect == NULL)
+            {
+	    rc = PBSE_SYSTEM;
+	    break;
 	    }
-	    if (cntl->sc_pque)
-		pjob = (job *)GET_NEXT(pjob->ji_jobque);
-	    else
-		pjob = (job *)GET_NEXT(pjob->ji_alljobs);
-	}
+	  pselect->brp_next = NULL;
+
+	  strcpy(pselect->brp_jobid,pjob->ji_qs.ji_jobid);
+	  *pselx = pselect;
+	  pselx = &pselect->brp_next;
+	  preq->rq_reply.brp_auxcode++;
+
+	  }
+        else
+          {
+	  /* Select-Status */
+
+	  rc = status_job(pjob,preq,NULL,&preply->brp_un.brp_status,&bad);
+          if (rc && (rc != PBSE_PERM))
+	    break;
+          }
+        }
+      }
+
+nextjob:
+
+    if (cntl->sc_pque)
+      pjob = (job *)GET_NEXT(pjob->ji_jobque);
+    else
+      pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+  }
 
   free_sellist(cntl->sc_select);
 
@@ -619,7 +673,7 @@ static int build_selentry(
 
     free(entry);
 
-    log_err(0,"build_selentry","cannot select attribute");
+    log_err(-1,"build_selentry","cannot select attribute");
 
     return(PBSE_IVALREQ);
     }

@@ -126,6 +126,7 @@
 #include "pbs_error.h"
 #include "svrfunc.h"
 #include "acct.h"
+#include "net_connect.h"
 
 
 /* External functions */
@@ -146,18 +147,25 @@ static void job_init_wattr A_((job *));
 
 #ifndef PBS_MOM
 extern struct server   server;
+#else
+extern gid_t pbsgroup;
 #endif	/* PBS_MOM */
 extern char *msg_abt_err;
 extern char *path_jobs;
 extern char *path_spool;
+extern char *path_aux;
 extern char  server_name[];
 extern time_t time_now;
+extern int   LOGLEVEL;
+
 extern list_head svr_newjobs;
 extern list_head svr_alljobs;
 
 
 #ifdef PBS_MOM
 void nodes_free A_((job *));
+int TTmpDirName A_((job *,char *));
+
 
 void tasks_free(
 
@@ -230,7 +238,7 @@ int remtree(
 	int		rtnv = 0;
 	struct stat	sb;
 
-	if (stat(dirname, &sb) == -1) {
+	if (lstat(dirname, &sb) == -1) {
 		if (errno != ENOENT)
 			log_err(errno, id, "stat");
 		return -1;
@@ -254,7 +262,7 @@ int remtree(
 
 		(void)strcpy(filnam, pdir->d_name);
 
-		if (stat(namebuf, &sb) == -1) {
+		if (lstat(namebuf, &sb) == -1) {
 			log_err(errno, id, "stat");
 			rtnv = -1;
 			continue;
@@ -271,7 +279,7 @@ int remtree(
 	    }
 	    (void)closedir(dir);
 	    if (rmdir(dirname) < 0) {
-		if (errno != ENOENT) {
+		if ((errno != ENOENT) && (errno != EINVAL)) {
 			sprintf(log_buffer, "rmdir failed on %s", dirname);
 			log_err(errno, id, log_buffer);
 			rtnv = -1;
@@ -299,6 +307,8 @@ int remtree(
  *	to the job owner.
  */
 
+/* NOTE:  this routine is called under the following conditions:  ??? */
+
 int job_abt(
 
   job  **pjobp, /* I (modified/freed) */
@@ -325,7 +335,7 @@ int job_abt(
     {	
     /* req_delete sends own mail and acct record */
 
-    account_record(PBS_ACCT_ABT,pjob, "");
+    account_record(PBS_ACCT_ABT,pjob,"");
     svr_mailowner(pjob,MAIL_ABORT,MAIL_NORMAL,text);
     }
 
@@ -344,9 +354,14 @@ int job_abt(
         {
         /* notify creator that job is exited */
 
-        pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char='E';
+        pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char = 'E';
    
         issue_track(pjob);
+        }
+
+      if (pjob->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET)
+        {
+        depend_on_term(pjob);
         }
 
       job_purge(pjob);
@@ -374,6 +389,11 @@ int job_abt(
       /* notify creator that job is exited */
 
       issue_track(pjob);
+      }
+
+    if (pjob->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET)
+      {
+      depend_on_term(pjob);
       }
 
     job_purge(pjob);
@@ -453,7 +473,7 @@ job *job_alloc()
 
 void job_free(
 
-  job *pj)
+  job *pj)  /* I (modified) */
 
   {
   int			 i;
@@ -462,6 +482,16 @@ void job_free(
   struct work_task	*pwt;
   badplace		*bp;
 #endif /* PBS_MOM */
+
+  if (LOGLEVEL >= 8)
+    {
+    sprintf(log_buffer,"freeing job");
+
+    log_record(PBSEVENT_DEBUG,
+      PBS_EVENTCLASS_JOB,
+      pj->ji_qs.ji_jobid,
+      log_buffer);
+    }
 
   /* remove any malloc working attribute space */
 
@@ -557,18 +587,107 @@ void job_purge(
   job *pjob)
 
   {
-  static	char	id[] = "job_purge";
+  static char   id[] = "job_purge";
 
-  char		namebuf[MAXPATHLEN + 1];
-  extern	char	*msg_err_purgejob;
-
+  char          namebuf[MAXPATHLEN + 1];
+  extern char  *msg_err_purgejob;
+#ifdef PBS_MOM
+  int           rc;
+#endif
 
 #ifdef PBS_MOM
+
+  if (pjob->ji_flags & MOM_HAS_TMPDIR)
+    {
+    if (TTmpDirName(pjob,namebuf))
+      {
+      sprintf(log_buffer,"removing transient job directory %s",
+        namebuf);
+      
+      log_record(PBSEVENT_DEBUG,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+      
+#if defined(HAVE_SETEUID) && defined(HAVE_SETEGID)
+
+      /* most systems */
+
+      if ((setegid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1) ||
+          (seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) == -1))
+        {
+        /* FAILURE */
+ 
+        return;
+        }
+
+      rc = remtree(namebuf);
+
+      seteuid(0);
+      setegid(pbsgroup);
+
+#elif defined(HAVE_SETRESUID) && defined(HAVE_SETRESGID)
+
+      /* HPUX and the like */
+
+      if ((setresgid(-1,pjob->ji_qs.ji_un.ji_momt.ji_exgid,-1) == -1) ||
+          (setresuid(-1,pjob->ji_qs.ji_un.ji_momt.ji_exuid,-1) == -1))
+        {
+        /* FAILURE */
+
+        return;
+        }
+    
+      rc = remtree(namebuf);
+
+      setresuid(-1,0,-1);
+      setresgid(-1,pbsgroup,-1);
+
+#endif  /* HAVE_SETRESUID */
+
+      if ((rc != 0) && (LOGLEVEL >= 5))
+        {
+        sprintf(log_buffer,
+          "recursive remove of job transient tmpdir %s failed",
+          namebuf);
+    
+        log_err(errno, "recursive (r)rmdir",log_buffer);
+        }
+         
+      pjob->ji_flags &= ~MOM_HAS_TMPDIR;
+      }
+    }
+
+  /* delete the nodefile if still hanging around */
+
+  if (pjob->ji_flags & MOM_HAS_NODEFILE)
+    {
+    char file[MAXPATHLEN + 1];
+
+    sprintf(file,"%s/%s",
+      path_aux,
+      pjob->ji_qs.ji_jobid);
+
+    unlink(file);
+
+    pjob->ji_flags &= ~MOM_HAS_NODEFILE;
+    }
 
   delete_link(&pjob->ji_jobque);
   delete_link(&pjob->ji_alljobs);
 
+  if (LOGLEVEL >= 6)
+    {
+    sprintf(log_buffer,"removing job");
+
+    log_record(PBSEVENT_DEBUG,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      log_buffer);
+    }
 #else /* PBS_MOM */
+
+  /* server only */
 
   if ((pjob->ji_qs.ji_substate != JOB_SUBSTATE_TRANSIN) &&
       (pjob->ji_qs.ji_substate != JOB_SUBSTATE_TRANSICM))
@@ -586,6 +705,15 @@ void job_purge(
     {
     if (errno != ENOENT)
       log_err(errno,id,msg_err_purgejob);
+    }
+  else if (LOGLEVEL >= 6)
+    {
+    sprintf(log_buffer,"removed job script");
+
+    log_record(PBSEVENT_DEBUG,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      log_buffer);
     }
 
 #ifdef PBS_MOM
@@ -617,6 +745,15 @@ void job_purge(
     if (errno != ENOENT)
       log_err(errno,id,msg_err_purgejob);
     }
+  else if (LOGLEVEL >= 6)
+    {
+    sprintf(log_buffer,"removed job stdout");
+
+    log_record(PBSEVENT_DEBUG,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      log_buffer);
+    }
 
   strcpy(namebuf,path_spool);	/* delete any spooled stderr */
   strcat(namebuf,pjob->ji_qs.ji_fileprefix);
@@ -626,6 +763,15 @@ void job_purge(
     {
     if (errno != ENOENT)
       log_err(errno,id,msg_err_purgejob);
+    }
+  else if (LOGLEVEL >= 6)
+    {
+    sprintf(log_buffer,"removed job stderr");
+
+    log_record(PBSEVENT_DEBUG,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      log_buffer);
     }
 #endif	/* PBS_MOM */
 
@@ -637,6 +783,15 @@ void job_purge(
     {
     if (errno != ENOENT)
       log_err(errno,id,msg_err_purgejob);
+    }
+  else if (LOGLEVEL >= 6)
+    {
+    sprintf(log_buffer,"removed job file");
+
+    log_record(PBSEVENT_DEBUG,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      log_buffer);
     }
 
   job_free(pjob);

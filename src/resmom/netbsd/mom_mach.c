@@ -154,6 +154,8 @@ extern	int			rm_errno;
 extern	unsigned	int	reqnum;
 extern	double	cputfactor;
 extern	double	wallfactor;
+/* wow, no ncpus on netbsd - extern  long    system_ncpus; */
+extern  int     ignwalltime;
 
 /*
 ** local functions
@@ -518,6 +520,8 @@ int mom_set_limits(pjob, set_mode)
        	struct rlimit	reslim;
 	unsigned long	mem_limit  = 0;
 
+        log_buffer[0] = '\0';
+
 	DBPRT(("%s: entered\n", id))
 	assert(pjob != NULL);
 	assert(pjob->ji_wattr[(int)JOB_ATR_resource].at_type == ATR_TYPE_RESC);
@@ -673,21 +677,21 @@ int mom_open_poll()
 }
 
 
-int
-qs_cmp(a, b)
-    struct	kinfo_proc	*a;
-    struct	kinfo_proc	*b;
-{
-	return((int)a->kp_eproc.e_paddr - (int)b->kp_eproc.e_paddr);
-}
+int qs_cmp(
 
-int
-bs_cmp(key, member)
-    struct	session		*key;
-    struct	kinfo_proc	*member;
-{
-	return((int)key->s_leader - (int)member->kp_eproc.e_paddr);
-}
+    const void	*a,
+    const void	*b)
+  {
+  return((int)((struct kinfo_proc *)a)->kp_eproc.e_paddr - (int)((struct kinfo_proc *)b)->kp_eproc.e_paddr);
+  }
+
+int bs_cmp(
+    const void	*key,
+    const void	*member)
+  
+  {
+  return((int)((struct session *)key)->s_leader - (int)((struct kinfo_proc *)member)->kp_eproc.e_paddr);
+  }
 
 /*
  * Declare start of polling loop.
@@ -813,6 +817,8 @@ int mom_over_limit(pjob)
 				return (TRUE);
 			}
 		} else if (strcmp(pname, "walltime") == 0) {
+			if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
+				continue;
 			retval = gettime(pres, &value);
 			if (retval != PBSE_NONE)
 				continue;
@@ -821,7 +827,8 @@ int mom_over_limit(pjob)
 				sprintf(log_buffer,
 					"walltime %lu exceeded limit %lu",
 					num, value);
-				return (TRUE);
+				if (ignwalltime == 0)
+					return (TRUE);
 			}
 		}
 	}
@@ -930,9 +937,10 @@ int mom_set_use(pjob)
  *	Kill a job task.
  *	Call with the job and a signal number.
  */
-int kill_task(ptask, sig)
+int kill_task(ptask, sig,pg)
     task	*ptask;
     int		sig;
+    int         pg;
 {
 	char	*id = "kill_task";
 	int	ct = 0;

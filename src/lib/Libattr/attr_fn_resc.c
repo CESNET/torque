@@ -127,7 +127,7 @@ int resc_access_perm;
 int comp_resc_gt;	/* count of resources compared > */
 int comp_resc_eq;	/* count of resources compared = */
 int comp_resc_lt;	/* count of resources compared < */
-int comp_resc_nc;	/* count of resources not compared  */
+int comp_resc_nc;	/* count of resources not compared */
 
 extern resource_def svr_resc_def[];
 extern int	    svr_resc_size;
@@ -142,55 +142,83 @@ extern int	    svr_resc_size;
  *		*patr members set
  */
 
-int decode_resc(patr, name, rescn, val)
-	struct attribute *patr;		/* Modified on Return */
-	char *name;			/* attribute name */
-	char *rescn;			/* resource name - is used here */
-	char *val;			/* resource value */
-{
-	resource	*prsc;
-	resource_def	*prdef;
-	int		 rc = 0;
-	int		 rv;
+int decode_resc(
 
-	if (patr == (attribute *)0)
-		return (PBSE_INTERNAL);
-	if (rescn == (char *)0)
-		return (PBSE_UNKRESC);
-	if ( !(patr->at_flags & ATR_VFLAG_SET))
-		CLEAR_HEAD(patr->at_val.at_list);
+  struct attribute *patr,  /* Modified on Return */
+  char             *name,  /* attribute name */
+  char             *rescn, /* I: resource name - is used here */
+  char             *val)   /* resource value */
+
+  {
+  resource	*prsc;
+  resource_def	*prdef;
+  int		 rc = 0;
+  int		 rv;
+
+  if (patr == NULL)
+    {
+    return(PBSE_INTERNAL);
+    }
+
+  if (rescn == NULL)
+    {
+    return(PBSE_UNKRESC);
+    }
+
+  if (!(patr->at_flags & ATR_VFLAG_SET))
+    CLEAR_HEAD(patr->at_val.at_list);
 	
+  prdef = find_resc_def(svr_resc_def,rescn,svr_resc_size);
 
-	prdef = find_resc_def(svr_resc_def, rescn, svr_resc_size);
-	if (prdef == (resource_def *)0) {
-		/*
-		 * didn't find resource with matching name, use unknown;
-		 * but return PBSE_UNKRESC incase caller dosn`t wish to
-		 * accept unknown resources
- 		 */
-		rc = PBSE_UNKRESC;
-		prdef = svr_resc_def + (svr_resc_size-1);
-	}
+  if (prdef == NULL) 
+    {
+    /*
+     * didn't find resource with matching name, use unknown;
+     * but return PBSE_UNKRESC in case caller doesn`t wish to
+     * accept unknown resources
+     */
 
-	prsc = find_resc_entry(patr, prdef);
-	if (prsc == (resource *)0) 	/* no current resource entry, add it */
-		if ((prsc = add_resource_entry(patr,prdef)) == (resource *)0) {
-			return (PBSE_SYSTEM);
-		}
+    rc = PBSE_UNKRESC;
 
-	/* note special use of ATR_DFLAG_ACCESS, see server/attr_recov() */
+    prdef = svr_resc_def + (svr_resc_size - 1);
+    }
 
-	if (((prsc->rs_defin->rs_flags&resc_access_perm&ATR_DFLAG_WRACC) ==0) &&
-	    (resc_access_perm != ATR_DFLAG_ACCESS))
-		return (PBSE_ATTRRO);
+  prsc = find_resc_entry(patr,prdef);
 
-	patr->at_flags |= ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
-	rv = prdef->rs_decode(&prsc->rs_value, name, rescn, val);
-	if (rv)
-		return (rv);
-	else
-		return (rc);
-}
+  if (prsc == NULL) /* no current resource entry, add it */
+
+  if ((prsc = add_resource_entry(patr,prdef)) == NULL) 
+    {
+    return(PBSE_SYSTEM);
+    }
+
+  /* note special use of ATR_DFLAG_ACCESS, see server/attr_recov() */
+
+  if (((prsc->rs_defin->rs_flags&resc_access_perm&ATR_DFLAG_WRACC) == 0) &&
+       (resc_access_perm != ATR_DFLAG_ACCESS))
+    {
+    return(PBSE_ATTRRO);
+    }
+
+  patr->at_flags |= ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
+
+  rv = prdef->rs_decode(&prsc->rs_value,name,rescn,val);
+
+  if (rv == 0)
+    {
+    /* FAILURE */
+
+    return(rc);
+    }
+
+  /* SUCCESS */
+
+  return(rv);
+  }
+
+
+
+
 
 /*
  * encode_resc - encode attr of type ATR_TYPE_RESR into attr_extern form
@@ -215,13 +243,15 @@ int decode_resc(patr, name, rescn, val)
  *		 <0 if some resource entry had an encode error.
  */
 
-int encode_resc(attr, phead, atname, rsname, mode)
-	attribute	*attr;	  /* ptr to attribute to encode */
-	list_head	*phead;	  /* head of attrlist list */
-	char		*atname;   /* attribute name */
-	char		*rsname;   /* resource name, null on call */
-	int		 mode;	  /* encode mode */
-{
+int encode_resc(
+
+  attribute	*attr,	  /* ptr to attribute to encode */
+  list_head	*phead,	  /* head of attrlist list */
+  char		*atname,   /* attribute name */
+  char		*rsname,   /* resource name, null on call */
+  int		 mode)	  /* encode mode */
+
+  {
 	int	    dflt;
 	resource   *prsc;
 	int	    rc;
@@ -278,15 +308,17 @@ int encode_resc(attr, phead, atname, rsname, mode)
  *		>0 if error
  */
 
-int set_resc(old, new, op)
-	struct attribute *old;
-	struct attribute *new;
-	enum batch_op op;
-{
-	enum batch_op local_op;
-	resource *newresc;
-	resource *oldresc;
-	int	  rc;
+int set_resc(
+
+  struct attribute *old,
+  struct attribute *new,
+  enum batch_op     op)
+
+  {
+  enum batch_op local_op;
+  resource *newresc;
+  resource *oldresc;
+  int	  rc;
 
 	assert(old && new);
 
@@ -327,12 +359,113 @@ int set_resc(old, new, op)
 
 		newresc = (resource *)GET_NEXT(newresc->rs_link);
 	}
-	old->at_flags |= ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
-	return (0);
-}
+
+  old->at_flags |= ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
+
+  return(0);
+  }
+
+
+
 
 /*
  * comp_resc - compare two attributes of type ATR_TYPE_RESR
+ *
+ *      DANGER Will Robinson, DANGER
+ *
+ *      As you can see from the returns, this is different from the
+ *      at_comp model...
+ *
+ *      Returns: 0 if compare successful:
+ *                 sets comp_resc_gt to count of "greater than" compares
+ *                              attr > with
+ *                 sets comp_resc_eq to count of "equal to" compares
+ *                              attr == with
+ *                 sets comp_resc_lt to count of "less than" compares
+ *                              attr < with
+ *              -1 if error
+ */
+
+/* NOTE:  if IsQueueCentric is 0, enforce for every job attr set,
+          if IsQueueCentric is 1, enforce for every queue attr set
+          old default behavior was '1' */
+
+int comp_resc(
+
+  struct attribute *attr,  /* I queue's min/max attributes */
+  struct attribute *with)  /* I job's current requirements/attributes */
+
+  {
+  resource *atresc;
+  resource *wiresc;
+  int rc;
+
+  comp_resc_gt = 0;
+  comp_resc_eq = 0;
+  comp_resc_lt = 0;
+  comp_resc_nc = 0;
+
+  if ((attr == NULL) || (with == NULL))
+    {
+    /* FAILURE */
+
+    return(-1);
+    }
+
+  /* comparison is job centric */
+
+  /* NOTE:  this check only enforces attributes if the job specifies the
+            attribute.  If the queue has a min requirement of resource X
+            and the job has no value set for this resource, this routine
+            will not trigger comp_resc_lt */
+
+  wiresc = (resource *)GET_NEXT(with->at_val.at_list);
+
+  while (wiresc != NULL)
+    {
+    if ((wiresc->rs_value.at_flags & ATR_VFLAG_SET) &&
+       ((wiresc->rs_value.at_flags & ATR_VFLAG_DEFLT) == 0))
+      {
+      atresc = find_resc_entry(attr,wiresc->rs_defin);
+
+      if (atresc != NULL)
+        {
+        if (atresc->rs_value.at_flags & ATR_VFLAG_SET)
+          {
+          if ((rc = atresc->rs_defin->rs_comp(
+              &atresc->rs_value,
+              &wiresc->rs_value)) > 0)
+            {
+            comp_resc_gt++;
+            }
+          else if (rc < 0)
+            {
+            comp_resc_lt++;
+            }
+          else
+            {
+            comp_resc_eq++;
+            }
+          }
+        }
+      else
+        {
+        comp_resc_nc++;
+        }
+      }
+
+    wiresc = (resource *)GET_NEXT(wiresc->rs_link);
+    }  /* END while() */
+
+  return(0);
+  }  /* END comp_resc() */
+
+
+
+
+
+/*
+ * comp_resc2 - compare two attributes of type ATR_TYPE_RESR
  *
  *	DANGER Will Robinson, DANGER
  *
@@ -349,10 +482,16 @@ int set_resc(old, new, op)
  *		-1 if error
  */
 
-int comp_resc(
+/* NOTE:  if IsQueueCentric is 0, enforce for every job attr set, 
+          if IsQueueCentric is 1, enforce for every queue attr set
+          old default behavior was '1' */
 
-  struct attribute *attr,
-  struct attribute *with)
+int comp_resc2(
+
+  struct attribute *attr,           /* I queue's min/max attributes */
+  struct attribute *with,           /* I job's current requirements/attributes */
+  int               IsQueueCentric, /* I */
+  char             *EMsg)           /* O (optional,minsize=1024) */
 
   {
   resource *atresc;
@@ -364,51 +503,126 @@ int comp_resc(
   comp_resc_lt = 0;
   comp_resc_nc = 0;
 
-  if ((attr == (attribute *)0) || (with == (attribute *)0))
+  char *LimitName;
+
+  if (EMsg != NULL)
+    EMsg[0] = '\0';
+
+  if ((attr == NULL) || (with == NULL))
     {
+    /* FAILURE */
+
     return(-1);
     }
 
-  wiresc = (resource *)GET_NEXT(with->at_val.at_list);
-
-  while (wiresc != (resource *)0) 
+  if (IsQueueCentric == 1)
     {
-    if ((wiresc->rs_value.at_flags & ATR_VFLAG_SET) &&
-       ((wiresc->rs_value.at_flags & ATR_VFLAG_DEFLT) == 0)) 
+    /* comparison is queue centric */
+
+    atresc = (resource *)GET_NEXT(attr->at_val.at_list);
+
+    while (atresc != NULL)
       {
-      atresc = find_resc_entry(attr,wiresc->rs_defin);
-
-      if (atresc != (resource *)0) 
+      if (atresc->rs_value.at_flags & ATR_VFLAG_SET) 
         {
-	if (atresc->rs_value.at_flags & ATR_VFLAG_SET)
-          {
-          if ((rc = atresc->rs_defin->rs_comp(
-              &atresc->rs_value,
-              &wiresc->rs_value)) > 0)
-            {
-            comp_resc_gt++;
-            }
-          else if (rc < 0)
-            {
-            comp_resc_lt++;
-            }
-          else
-            {
-            comp_resc_eq++;
-            }
-          } 
-        } 
-      else 
-        {	
-        comp_resc_nc++;
-        }
-      }
+        wiresc = find_resc_entry(with,atresc->rs_defin);
 
-    wiresc = (resource *)GET_NEXT(wiresc->rs_link);
-    }  /* END while() */
+        if (wiresc != NULL)
+          {
+          if ((wiresc->rs_value.at_flags & ATR_VFLAG_SET) &&
+              (wiresc->rs_value.at_flags & ATR_VFLAG_DEFLT))
+            {
+            if ((rc = atresc->rs_defin->rs_comp(
+                &atresc->rs_value,
+                &wiresc->rs_value)) > 0)
+              {
+              if ((EMsg != NULL) && (EMsg[0] == '\0'))
+                {
+                LimitName = atresc->rs_defin->rs_name;
+
+                sprintf(EMsg,"cannot satisfy queue min %s requirement",
+                  (LimitName != NULL) ? LimitName : "resource");
+                }
+
+              comp_resc_gt++;
+              }
+            else if (rc < 0)
+              {
+              comp_resc_lt++;
+              }
+            else
+              {
+              comp_resc_eq++;
+              }
+            }
+          }
+        else
+          {
+          comp_resc_nc++;
+          }
+        }
+
+      atresc = (resource *)GET_NEXT(atresc->rs_link);
+      }
+    }
+  else
+    {
+    /* comparison is job centric */
+
+    /* NOTE:  this check only enforces attributes if the job specifies the
+              attribute.  If the queue has a min requirement of resource X
+              and the job has no value set for this resource, this routine
+              will not trigger comp_resc_lt */
+
+    wiresc = (resource *)GET_NEXT(with->at_val.at_list);
+
+    while (wiresc != NULL) 
+      {
+      if ((wiresc->rs_value.at_flags & ATR_VFLAG_SET) &&
+         ((wiresc->rs_value.at_flags & ATR_VFLAG_DEFLT) == 0)) 
+        {
+        atresc = find_resc_entry(attr,wiresc->rs_defin);
+
+        if (atresc != NULL) 
+          {
+          if (atresc->rs_value.at_flags & ATR_VFLAG_SET)
+            {
+            if ((rc = atresc->rs_defin->rs_comp(
+                &atresc->rs_value,
+                &wiresc->rs_value)) > 0)
+              {
+              if ((EMsg != NULL) && (EMsg[0] == '\0'))
+                {
+                LimitName = atresc->rs_defin->rs_name;
+
+                sprintf(EMsg,"cannot satisfy queue min %s requirement",
+                  (LimitName != NULL) ? LimitName : "resource");
+                }
+
+              comp_resc_gt++;
+              }
+            else if (rc < 0)
+              {
+              comp_resc_lt++;
+              }
+            else
+              {
+              comp_resc_eq++;
+              }
+            } 
+          } 
+        else 
+          {	
+          comp_resc_nc++;
+          }
+        }
+
+      wiresc = (resource *)GET_NEXT(wiresc->rs_link);
+      }  /* END while() */
+    }
 
   return(0);
-  }  /* END comp_resc() */
+  }  /* END comp_resc2() */
 
 
 
@@ -463,18 +677,29 @@ void free_resc(
  *	Returns: pointer to the structure or NULL
  */
 
-resource_def *find_resc_def (rscdf, name, limit)
-	resource_def *rscdf;	/* address of array of resource_def structs */
-	char         *name;	/* name of resource */
-	int	      limit;	/* number of members in resource_def array */
-{
-	while (limit--) {
-		if (strcmp(rscdf->rs_name, name) == 0)
-			return (rscdf);
-		rscdf++;
-	}
-	return ((resource_def *)0);
-}
+resource_def *find_resc_def(
+
+  resource_def *rscdf,	/* address of array of resource_def structs */
+  char         *name,	/* name of resource */
+  int           limit)	/* number of members in resource_def array */
+
+  {
+  while (limit--) 
+    {
+    if (!strcmp(rscdf->rs_name,name))
+      {
+      /* SUCCESS */
+
+      return(rscdf);
+      }
+
+    rscdf++;
+    }
+
+  return(NULL);
+  }  /* END find_resc_def() */
+
+
 
 /*
  * find_resc_entry - find a resource (value) entry in a list headed in an

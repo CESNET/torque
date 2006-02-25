@@ -87,27 +87,30 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
-#include 	<sys/types.h>
-#include	<netinet/in.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <stdarg.h>
 
-#include	"portability.h"
-#include	"libpbs.h"
-#include	"server_limits.h"
-#include 	"svrfunc.h"
-#include	"list_link.h"
-#include	"attribute.h"
-#include	"resource.h"
-#include	"server.h"
-#include	"net_connect.h"
-#include	"work_task.h"
-#include	"job.h"
-#include	"log.h"
-#include	"pbs_nodes.h"
-#include	"rpp.h"
-#include	"dis.h"
-#include	"dis_init.h"
-#include	"resmon.h"
-#include        "query_configs.h"
+#include "portability.h"
+#include "libpbs.h"
+#include "server_limits.h"
+#include "list_link.h"
+#include "attribute.h"
+#include "resource.h"
+#include "server.h"
+#include "net_connect.h"
+#include "batch_request.h"
+#include "work_task.h"
+#include "svrfunc.h"
+#include "job.h"
+#include "log.h"
+#include "pbs_nodes.h"
+#include "rpp.h"
+#include "dis.h"
+#include "dis_init.h"
+#include "resmon.h"
+#include "query_configs.h"
+#include "mcom.h"
 
 extern void DIS_rpp_reset A_((void));
 
@@ -127,8 +130,6 @@ struct pbsnode **pbsndmast = NULL;
 static int	 svr_numnodes = 0;	/* number nodes currently available */
 static int	 exclusive;		/* node allocation type */
 
-static char      extra_parm[] = "extra parameter(s)";
-static char      no_parm[]    = "required parameter not found";
 static FILE 	*nstatef = NULL;
 
 extern int	 server_init_type;
@@ -141,12 +142,14 @@ extern char	*path_home;
 extern char	*path_nodes;
 extern char	*path_nodes_new;
 extern char	*path_nodestate;
+extern unsigned int pbs_mom_port;
+extern char  server_name[];
 
 extern struct server server;
 
-#define		SKIP_NONE	0
-#define		SKIP_EXCLUSIVE	1
-#define		SKIP_ANYINUSE	2
+#define	SKIP_NONE	0
+#define	SKIP_EXCLUSIVE	1
+#define	SKIP_ANYINUSE	2
 
 static int hasprop(struct pbsnode *, struct prop *);
 
@@ -236,6 +239,20 @@ struct pbsnode *tfind(
 
 
 
+
+
+struct pbsnode *tfind_addr(
+
+  const u_long key)
+
+  {
+  return tfind(key,&ipaddrs);
+  }
+
+
+
+
+
 void tinsert(
 
   const	u_long     key,		/* key to be located */
@@ -255,15 +272,17 @@ void tinsert(
     */
     }
 
-  if (rootp == (struct tree_t **)0)
+  if (rootp == NULL)
     {
     return;
     }
 
-  while (*rootp != (struct tree_t *)0) 
+  while (*rootp != NULL) 
     {	/* Knuth's T1: */
     if (key == (*rootp)->key)	/* T2: */
+      {
       return;			/* we found it! */
+      }
 
     rootp = (key < (*rootp)->key) ?
       &(*rootp)->left :	/* T3: follow left branch */
@@ -300,39 +319,64 @@ void *tdelete(
 
   if (LOGLEVEL >= 6)
     {
-    DBPRT(("tdelete: %lu\n", 
-      key))
+    sprintf(log_buffer,"deleting key %lu",
+      key);
+
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      "tdelete",
+      log_buffer);
     }
 
-  if (rootp == (struct tree_t **)0 || (p = *rootp) == (struct tree_t *)0)
+  if ((rootp == NULL) || ((p = *rootp) == NULL))
     {
     return(NULL);
     }
 
-	while (key != (*rootp)->key) {
-		p = *rootp;
-		rootp = (key < (*rootp)->key) ?
-			&(*rootp)->left :		/* left branch */
-			&(*rootp)->right;		/* right branch */
-		if (*rootp == NULL)
-			return ((void *)0);		/* key not found */
-	}
-	r = (*rootp)->right;				/* D1: */
-	if ((q = (*rootp)->left) == NULL)		/* Left */
-		q = r;
-	else if (r != (struct tree_t *)0) {		/* Right is null? */
-		if (r->left == (struct tree_t *)0) {	/* D2: Find successor */
-			r->left = q;
-			q = r;
-		}
-		else {		/* D3: Find (struct tree_t *)0 link */
-			for (q = r->left; q->left != NULL; q = r->left)
-				r = q;
-			r->left = q->right;
-			q->left = (*rootp)->left;
-			q->right = (*rootp)->right;
-		}
-	}
+  while (key != (*rootp)->key) 
+    {
+    p = *rootp;
+
+    rootp = (key < (*rootp)->key) ?
+      &(*rootp)->left :		/* left branch */
+      &(*rootp)->right;		/* right branch */
+
+    if (*rootp == NULL)
+      {
+      return(NULL);		/* key not found */
+      }
+    }
+
+  r = (*rootp)->right;				/* D1: */
+
+  if ((q = (*rootp)->left) == NULL)		/* Left */
+    {
+    q = r;
+    }
+  else if (r != NULL) 
+    {		/* Right is null? */
+    if (r->left == NULL) 
+      {	/* D2: Find successor */
+      r->left = q;
+
+      q = r;
+      }
+    else 
+      {	
+      /* D3: Find (struct tree_t *)0 link */
+
+      for (q = r->left;q->left != NULL;q = r->left)
+        {
+        r = q;
+        }
+
+      r->left = q->right;
+
+      q->left = (*rootp)->left;
+      q->right = (*rootp)->right;
+      }
+    }
 
   free((struct tree_t *)*rootp);     /* D4: Free node */
 
@@ -367,6 +411,339 @@ void tfree(
 
 
 
+
+/* update_node_state - central location for updating node state */
+
+void update_node_state(
+
+  struct pbsnode *np,         /* I (modified) */
+  int             newstate)   /* I (one of INUSE_*) */
+
+  {
+  char *id = "update_node_state";
+
+  struct pbssubn *sp;
+
+  /*
+   * LOGLEVEL >= 4 logs all state changes
+   *          >= 2 logs down->(busy|free) changes
+   *          (busy|free)->down changes are always logged
+   */          
+
+  log_buffer[0] = '\0';
+
+  if (newstate & INUSE_DOWN)
+    {
+    if (!(np->nd_state & INUSE_DOWN))
+      {
+      sprintf(log_buffer,"node %s marked down",
+        (np->nd_name != NULL) ? np->nd_name : "NULL");
+
+      np->nd_state |= INUSE_DOWN; 
+      np->nd_state &= ~INUSE_UNKNOWN; 
+
+      /* mark all subnodes down */
+
+      for (sp = np->nd_psn;sp != NULL;sp = sp->next)
+        {
+        sp->inuse |= INUSE_DOWN;
+        }
+      }
+          
+    /* ignoring the obvious possiblity of a "down,busy" node */
+    }
+  else if (newstate & INUSE_BUSY)
+    { 
+    if ((!(np->nd_state & INUSE_BUSY) && (LOGLEVEL >= 4)) ||  
+        ((np->nd_state & INUSE_DOWN) && (LOGLEVEL >= 2)))
+      {
+      sprintf(log_buffer,"node %s marked busy",
+        (np->nd_name != NULL) ? np->nd_name : "NULL");
+      }
+
+    np->nd_state |= INUSE_BUSY; 
+    np->nd_state &= ~INUSE_UNKNOWN; 
+
+    if (np->nd_state & INUSE_DOWN)
+      {
+      np->nd_state &= ~INUSE_DOWN; 
+
+      /* clear down on all subnodes */
+
+      for (sp = np->nd_psn;sp != NULL;sp = sp->next)
+        {
+        sp->inuse &= ~INUSE_DOWN;
+        }
+      }
+    }
+  else if (newstate == INUSE_FREE)
+    {
+    if (((np->nd_state & INUSE_DOWN) && (LOGLEVEL >= 2)) ||
+        ((np->nd_state & INUSE_BUSY) && (LOGLEVEL >= 4)))
+      {
+      sprintf(log_buffer,"node %s marked free",
+        (np->nd_name != NULL) ? np->nd_name : "NULL");
+      }
+
+    np->nd_state &= ~INUSE_BUSY; 
+    np->nd_state &= ~INUSE_UNKNOWN; 
+
+    /* FIXME - what about job exclusive? */
+
+    if ((np->nd_state & INUSE_JOB) || (np->nd_state & INUSE_JOBSHARE))
+      {
+      int snjcount;
+      struct jobinfo *jp;
+      struct jobinfo *jpprev;
+
+      char   tmpLine[1024];
+
+      /* count for jobs on all subnodes */
+
+      snjcount = 0;
+
+      for (sp = np->nd_psn;sp != NULL;sp = sp->next)
+        {
+        if (sp->jobs != NULL)
+          {
+          snjcount++;
+
+          sp->inuse &= ~(INUSE_JOB|INUSE_JOBSHARE);
+
+          /* look for and remove duplicate job entries in subnode job list */
+
+          jpprev = NULL;
+
+          for (jp = sp->jobs;jp != NULL;jp = jp->next)
+            {
+            if ((jpprev != NULL) && (jpprev->job == jp->job))
+              {
+              /* duplicate job entry detected */
+
+              sprintf(tmpLine,"ALERT:  duplicate entry for job '%s' detected on node %s (clearing entry)",
+                (jp->job != NULL) ? jp->job->ji_qs.ji_jobid : "???",
+               np->nd_name);
+
+              log_record(
+                PBSEVENT_SCHED,
+                PBS_EVENTCLASS_REQUEST,
+                id,
+                tmpLine);
+
+              jpprev->next = jp->next;
+
+              free(jp);
+
+              np->nd_nsnfree++;
+
+              break;
+              }
+ 
+            jpprev = jp;
+            }  /* END for (jp); */
+          }
+        }
+
+      if (snjcount == 0)
+        {
+        /* node has no jobs but is in allocated state - free subnodes */
+
+        np->nd_nsnfree = np->nd_nsn;
+
+        sprintf(log_buffer,"job allocation released on node %s - node marked free",
+          (np->nd_name != NULL) ? np->nd_name : "NULL");
+
+        np->nd_state &= ~(INUSE_JOB|INUSE_JOBSHARE);
+        }
+      else
+        {
+        if (np->nd_nsnfree < np->nd_nsn - snjcount)
+          {
+          np->nd_nsnfree = np->nd_nsn - snjcount;
+
+          sprintf(log_buffer,"job allocation released on node %s",
+            (np->nd_name != NULL) ? np->nd_name : "NULL");
+
+          np->nd_state &= ~INUSE_JOBSHARE;
+          }
+
+        if (snjcount < np->nd_nsn)
+          {
+          /* if any sub-nodes are free, job cannot be in job-exclusive */
+
+          np->nd_state &= ~INUSE_JOB;
+          }
+        }
+      }    /* END if ((np->nd_state & INUSE_JOB) || ...) */
+
+    if (np->nd_state & INUSE_DOWN)
+      {
+      np->nd_state &= ~INUSE_DOWN; 
+
+      /* clear down on all subnodes */
+
+      for (sp = np->nd_psn;sp != NULL;sp = sp->next)
+        {
+        sp->inuse &= ~INUSE_DOWN;
+        }
+      }
+    }    /* END else if (newstate == INUSE_FREE) */
+
+  if (newstate & INUSE_UNKNOWN)
+    {
+    np->nd_state |= INUSE_UNKNOWN;
+    }                                                                                    
+
+  if (log_buffer[0] != '\0')
+    {
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+    }
+
+  return;
+  }  /* END update_node_state() */
+
+
+
+
+
+/*
+ * find_job_by_node - return a job structure by looking for a jobid in a
+ * specific node struct 
+ *
+ * probably only useful as a test to see if a job exists on a given node
+ * and it's much faster than find_job()
+ */
+
+job *find_job_by_node(
+
+  struct pbsnode *pnode, /* I */
+  char           *jobid) /* I */
+
+  {
+  struct pbssubn *np;
+  struct jobinfo *jp;
+  struct job     *pjob = NULL;
+
+  char *at;
+
+  if ((at = strchr(jobid,(int)'@')) != NULL)
+    *at = '\0'; /* strip off @server_name */
+
+  /* for each subnode on node ... */
+
+  for (np = pnode->nd_psn;np != NULL;np = np->next)
+    {
+    /* for each jobinfo on subnode on node ... */
+
+    for (jp = np->jobs;jp != NULL;jp = jp->next)
+      {
+      if ((jp->job != NULL) && 
+          (jp->job->ji_qs.ji_jobid != NULL) && 
+          (strcmp(jobid,jp->job->ji_qs.ji_jobid) == 0))
+        {
+        /* desired job located on node */
+
+        pjob = jp->job;
+
+        break;
+        }
+      }
+    }    /* END for (np) */
+
+  if (at != NULL)     
+    *at = '@';  /* restore @server_name */
+
+  return(pjob);
+  }  /* END find_job_by_node() */
+
+
+
+
+/*
+ * sync_node_jobs() - determine if a MOM has a stale job and possibly delete it
+ */
+
+void sync_node_jobs(
+
+  struct pbsnode *np,            /* I */
+  char           *jobstring_in)  /* I (space delimited list of jobs 'seen' by mom) */
+
+  {
+  char      *id = "sync_node_jobs";
+  char      *joblist;
+  char      *jobidstr;
+  struct batch_request *preq;
+  int conn;
+
+  struct job *pjob;
+
+  if ((jobstring_in == NULL) || (!isdigit(*jobstring_in)))
+    {
+    return;
+    }
+
+  /* FORMAT <JOBID>[ <JOBID>]... */
+
+  joblist = strdup(jobstring_in);
+
+  jobidstr = strtok(joblist," ");
+
+  while ((jobidstr != NULL) && isdigit(*jobidstr))
+    {
+    if (strstr(jobidstr,server_name) != NULL)
+      {
+      if (find_job_by_node(np,jobidstr) == NULL)
+        {
+        pjob = find_job(jobidstr);
+
+        if ((pjob == NULL) || 
+           ((pjob->ji_qs.ji_substate != JOB_SUBSTATE_SUSPEND) &&
+            (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)))
+          {
+          /* job is reported by mom but server has no record of job on node */
+
+          sprintf(log_buffer,"stray job %s found on %s (substate=%d)",
+            jobidstr,
+            np->nd_name,
+            (pjob != NULL) ? pjob->ji_qs.ji_substate : -1);
+
+          log_err(-1,id,log_buffer);
+
+          if ((preq = alloc_br(PBS_BATCH_DeleteJob)) == NULL)
+            {
+            log_err(-1,id,"unable to allocate DeleteJob request - big trouble!");
+
+            break;
+            }
+
+          conn = svr_connect(
+            np->nd_addrs[0],
+            pbs_mom_port,
+            process_Dreply,
+            ToServerDIS);
+
+          strcpy(preq->rq_ind.rq_delete.rq_objname,jobidstr);
+
+          issue_Drequest(conn,preq,release_req,0);
+  
+          /* release_req will free preq and close connection */
+          }
+        }
+      }
+
+    jobidstr = strtok(NULL," ");
+    }
+
+  free(joblist);
+  }  /* END sync_node_jobs() */
+
+
+
+
 int is_stat_get(
 		
   struct pbsnode *np)  /* I (modified) */
@@ -380,6 +757,7 @@ int is_stat_get(
   char      *ret_info;
   attribute  temp;
   char       date_attrib[100];
+  int        msg_error = 0;
 
   if (LOGLEVEL >= 3)
     {
@@ -427,7 +805,7 @@ int is_stat_get(
 
       if (decode_arst(&temp,NULL,NULL,ret_info))
         {
-        DBPRT(("is_get_stat: cannot add attributes\n"));
+        DBPRT(("is_stat_get: cannot add attributes\n"));
 
         free_arst(&temp);
 
@@ -436,9 +814,56 @@ int is_stat_get(
         return(DIS_NOCOMMIT);
         }
 
+      if (!strncmp(ret_info,"state",5))
+        {
+        /* MOM currently never sends multiple states - bad assumption for the future? */
+
+        if (!strncmp(ret_info,"state=down",10))
+          {
+          update_node_state(np,INUSE_DOWN);
+          }
+        else if (!strncmp(ret_info,"state=busy",10))
+          {
+          update_node_state(np,INUSE_BUSY);
+          }
+        else if (!strncmp(ret_info,"state=free",10))
+          {
+          update_node_state(np,INUSE_FREE);
+          }
+        else 
+          {
+          sprintf(log_buffer,"unknown %s from node %s",
+            ret_info,
+            (np->nd_name != NULL) ? np->nd_name : "NULL");
+
+          log_err(-1,id,log_buffer);
+
+          update_node_state(np,INUSE_UNKNOWN);
+          }                        
+        }
+      else if (!strncmp(ret_info,"me",2))  /* shorter str compare than "message" */
+        {
+        if (!strncmp(ret_info,"message=ERROR",13))
+          {
+          msg_error = 1;
+          }
+        }
+      else if (server.sv_attr[(int)SRV_ATR_MomJobSync].at_val.at_long && 
+               !strncmp(ret_info,"jobs=",5))
+        {
+        /* walk job list reported by mom */
+
+        sync_node_jobs(np,ret_info + strlen("jobs="));
+        }
+
       free(ret_info);
       }
     }    /* END while (rc != DIS_EOD) */
+
+  if (msg_error && server.sv_attr[(int)SRV_ATR_DownOnError].at_val.at_long)
+    {
+    update_node_state(np,INUSE_DOWN);
+    }
 
   /* it's nice to know when the last update happened */
 
@@ -447,7 +872,7 @@ int is_stat_get(
 
   if (decode_arst(&temp,NULL,NULL,date_attrib))
     {
-    DBPRT(("is_get_stat:  cannot add date_attrib\n"));
+    DBPRT(("is_stat_get:  cannot add date_attrib\n"));
 
     free_arst(&temp);
 
@@ -462,29 +887,12 @@ int is_stat_get(
 
   if (node_status_list(&temp,np,ATR_ACTION_ALTER))
     {
-    DBPRT(("is_get_stat: cannot set node status list\n"));
+    DBPRT(("is_stat_get: cannot set node status list\n"));
 
     return(DIS_NOCOMMIT);
     }
 
-  /* adjust node state */
-
-  if (np->nd_state & INUSE_DOWN)
-    {
-    if (LOGLEVEL >= 0)
-      {
-      sprintf(log_buffer,"node %s marked available",
-        (np != NULL) ? np->nd_name : "NULL");
-
-      log_record(
-        PBSEVENT_SCHED,
-        PBS_EVENTCLASS_REQUEST,
-        id,
-        log_buffer);
-      }
-    }
-
-  np->nd_state &= ~(INUSE_DOWN|INUSE_UNKNOWN|INUSE_NEEDS_HELLO_PING); 
+  /* NOTE:  node state adjusted in update_node_state() */
 
   return(DIS_SUCCESS);
   }  /* END is_stat_get() */
@@ -551,13 +959,12 @@ void stream_eof(
   {
   static char     id[] = "stream_eof";
   struct pbsnode *np;
-  struct pbssubn *sp;
 
   rpp_close(stream);
 
   np = NULL;
 
-  if (stream != 0)
+  if (stream >= 0)
     {
     /* find who the stream belongs to and mark down */
 
@@ -576,30 +983,23 @@ void stream_eof(
     return;
     }
 
-  sprintf(log_buffer, "connection to %s dropped.  setting node state to down in %s\n",
+  sprintf(log_buffer, "connection to %s dropped (%s).  setting node state to down\n",
     np->nd_name,
-    id);
+    dis_emsg[ret]);
 
-  log_err(errno,id,log_buffer);
+  log_err(-1,id,log_buffer);
 
   /* mark down node and all subnodes */
 
-  np->nd_state |= INUSE_DOWN;
+  update_node_state(np,INUSE_DOWN);
 
   /* remove stream from list of valid connections */
 
-  if (stream > 0)
+  if (stream >= 0)
     {
     np->nd_stream = -1;
 
     tdelete((u_long)stream,&streams);
-    }
-
-  /* mark all submodes as down */
-
-  for (sp = np->nd_psn;sp != NULL;sp = sp->next)
-    {
-    sp->inuse |= INUSE_DOWN;
     }
 
   return;
@@ -619,21 +1019,35 @@ void stream_eof(
 
 void ping_nodes(
 
-  struct work_task *ptask)
+  struct work_task *ptask)  /* I (optional) */
 
   {
   static  char	        *id = "ping_nodes";
   struct  pbsnode	*np;
-  struct  pbssubn	*sp;
   struct  sockaddr_in	*addr;
-  int     i, ret, com;
-  extern  int		pbs_rm_port;
+  int                    i, ret, com;
+  extern  int            pbs_rm_port;
 
-  DBPRT(("%s: entered\n",
-    id))
+  static  int            startcount = 0;
+
+  extern int RPPConfigure(int,int);
+  extern int RPPReset(void);
+
+  if (LOGLEVEL >= 6)
+    {
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      "starting");
+    }
 
   sprintf(log_buffer,"ping attempting to contact %d nodes\n",
-    svr_totnodes);
+    (svr_totnodes - startcount > 256) ? 
+      256 : 
+      (svr_totnodes - startcount < 0) ? 
+        svr_totnodes : 
+        svr_totnodes - startcount); /* phew! */
 
   log_record(
     PBSEVENT_SCHED, 
@@ -641,8 +1055,19 @@ void ping_nodes(
     id,
     log_buffer);
 
-  for (i = 0;i < svr_totnodes;i++) 
+  /* change RPP to report node state quickly */
+
+  RPPConfigure(2,2); /* (timeout,retry) retry must be at least 2 */
+
+  for (i = startcount;i < svr_totnodes;i++) 
     {
+    if (i - startcount > 256)
+      {
+      /* only ping 256 nodes at a time, ping next batch later */
+
+      break;
+      }
+
     np = pbsndmast[i];
 
     if (np->nd_state & (INUSE_DELETED|INUSE_OFFLINE))
@@ -650,11 +1075,11 @@ void ping_nodes(
 
     if (np->nd_stream < 0) 
       {
-      np->nd_stream = rpp_open(np->nd_name, pbs_rm_port);
-      np->nd_state |= INUSE_DOWN;
+      /* open new stream */
 
-      for (sp = np->nd_psn; sp; sp = sp->next)
-	sp->inuse |= INUSE_DOWN;
+      np->nd_stream = rpp_open(np->nd_name,pbs_rm_port,NULL);
+
+      update_node_state(np,INUSE_DOWN);
 
       if (np->nd_stream == -1) 
         {
@@ -665,7 +1090,31 @@ void ping_nodes(
 
 	continue;
 	}
-      else
+
+      tinsert((u_long)np->nd_stream,np,&streams);
+      }
+
+    if (LOGLEVEL >= 6)
+      {
+      sprintf(log_buffer,"sending ping to %s",
+        np->nd_name);
+
+      log_record(
+        PBSEVENT_SCHED,
+        PBS_EVENTCLASS_REQUEST,
+        id,
+        log_buffer);
+      }
+
+    /* nodes are down until proven otherwise */
+
+    com = IS_HELLO;
+
+    ret = is_compose(np->nd_stream,com);
+
+    if (ret == DIS_SUCCESS) 
+      {
+      if (rpp_flush(np->nd_stream) == 0)
         {
         sprintf(log_buffer,"successful ping to node %s\n",
           np->nd_name);
@@ -675,36 +1124,16 @@ void ping_nodes(
           PBS_EVENTCLASS_REQUEST,
           id,
           log_buffer);
-        }
 
-      com = IS_HELLO;
-
-      tinsert((u_long)np->nd_stream,np,&streams);
-      }
-    else
-      {
-      com = IS_NULL;
-      }
-
-    DBPRT(("%s: ping %s\n",
-      id,
-      np->nd_name))
-
-    /* nodes are down until proven otherwise */
-
-    com = IS_HELLO;
-
-    np->nd_state |= INUSE_DOWN;
-
-    ret = is_compose(np->nd_stream,com);
-
-    if (ret == DIS_SUCCESS) 
-      {
-      if (rpp_flush(np->nd_stream) == 0)
         continue;
+        }
 
       ret = DIS_NOCOMMIT;
       }
+
+    /* ping unsuccessful, mark node down, clear stream */
+
+    update_node_state(np,INUSE_DOWN);
 
     addr = rpp_getaddr(np->nd_stream);
 
@@ -717,22 +1146,23 @@ void ping_nodes(
     log_err(-1,id,log_buffer);
 
     rpp_close(np->nd_stream);
-    tdelete((u_long)np->nd_stream, &streams);
-    np->nd_stream = -1;
-    np->nd_state |= INUSE_DOWN;
 
-    for (sp = np->nd_psn; sp; sp = sp->next)
-      sp->inuse |= INUSE_DOWN;
+    tdelete((u_long)np->nd_stream,&streams);
+
+    np->nd_stream = -1;
     }  /* END for (i) */
 
-  if (ptask->wt_parm1 == NULL) 
-    {
-    if (server_init_type == RECOV_HOT)
-      i = 15;		/* rapid ping rate while hot restart */
-    else
-      i = 120;
+  RPPReset();
 
-    set_task(WORK_Timed,time_now + i,ping_nodes,NULL);
+  startcount = i;
+
+  /* only ping nodes once (disable new task) */
+
+  if (startcount < svr_totnodes)
+    {
+    /* continue outstanding pings in 3 seconds */
+
+    set_task(WORK_Timed,time_now + 3,ping_nodes,NULL); 
     }
 
   return;
@@ -753,9 +1183,9 @@ void check_nodes(
   struct work_task *ptask)  /* I (modified) */
 
   {
-  static     char    id[] = "check_nodes";
-  struct     pbsnode       *np;
-  int                       i,chk_len;
+  static char     id[] = "check_nodes";
+  struct pbsnode *np;
+  int             i,chk_len;
 
   /* load min refresh interval */
 
@@ -763,8 +1193,7 @@ void check_nodes(
 
   if (LOGLEVEL >= 5)
     {
-    sprintf(log_buffer,"%s: verifying nodes are active (min refresh = %d seconds)",
-      id,
+    sprintf(log_buffer,"verifying nodes are active (min_refresh = %d seconds)",
       chk_len);
 
     log_event(
@@ -780,7 +1209,7 @@ void check_nodes(
     {
     np = pbsndmast[i];
 
-    if (np->nd_state & (INUSE_DELETED|INUSE_OFFLINE|INUSE_DOWN))
+    if (np->nd_state & (INUSE_DELETED|INUSE_DOWN))
       continue;
 
     if (np->nd_lastupdate < (time_now - chk_len))
@@ -798,7 +1227,7 @@ void check_nodes(
           log_buffer);
         }
 
-      np->nd_state |= INUSE_DOWN;
+      update_node_state(np,(INUSE_DOWN));
       }
     }    /* END for (i = 0) */
 
@@ -823,6 +1252,15 @@ void check_nodes(
 
 
 
+/* sync w/#define IS_XXX */
+
+const char *PBSServerCmds2[] = {
+  "NULL",
+  "HELLO",
+  "CLUSTER_ADDRS",
+  "UPDATE",
+  "STATUS",
+  NULL };
 
 /*
 **	Input is coming from another server (MOM) over a DIS rpp stream.
@@ -841,8 +1279,6 @@ void is_request(
   int		ret = DIS_SUCCESS;
   int		i, j;
 
-  int           firstCon = 0;  /* first contact from node */
-
   unsigned long	ipaddr;
   struct	sockaddr_in *addr;
   struct	pbsnode	*np = NULL, *node;
@@ -853,7 +1289,7 @@ void is_request(
 
   if (LOGLEVEL >= 4)
     {
-    sprintf(log_buffer,"message received from stream %d (version %d)\n",
+    sprintf(log_buffer,"message received from stream %d (version %d)",
       stream,
       version);
 
@@ -883,7 +1319,7 @@ void is_request(
 
   if (LOGLEVEL >= 3)
     {
-    sprintf(log_buffer,"message received from stream %s\n",
+    sprintf(log_buffer,"message received from stream %s",
       netaddr(addr));
 
     log_event(
@@ -946,13 +1382,22 @@ void is_request(
   
     tinsert((u_long)stream,node,&streams);
 
-    firstCon = 1;
-
     goto found;
     }  /* END if ((node = tfind(ipaddr,&ipaddrs)) != NULL) */
 
-  sprintf(log_buffer,"bad attempt to connect from %s",
+  /* node not listed in trusted ipaddrs list */
+
+  sprintf(log_buffer,"bad attempt to connect from %s (address not trusted)",
     netaddr(addr));
+
+  if (LOGLEVEL >= 2)
+    {
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+    }
 
   log_err(-1,id,log_buffer);
 
@@ -964,15 +1409,16 @@ found:
 
   command = disrsi(stream,&ret);
 
-  if (cmdp != NULL)
-    *cmdp = command;
-
   if (ret != DIS_SUCCESS)
     goto err;
 
+  if (cmdp != NULL)
+    *cmdp = command;
+
   if (LOGLEVEL >= 3)
     {
-    sprintf(log_buffer,"message '%d' received from %s (%s)",
+    sprintf(log_buffer,"message %s (%d) received from mom on host %s (%s)",
+      PBSServerCmds2[command],
       command,
       node->nd_name,
       netaddr(addr));
@@ -997,7 +1443,7 @@ found:
 
       if (LOGLEVEL >= 1)
         {
-        sprintf(log_buffer,"HELLO received from %s\n",
+        sprintf(log_buffer,"HELLO received from %s",
           node->nd_name);
 
         log_event(PBSEVENT_ADMIN,PBS_EVENTCLASS_SERVER,id,log_buffer);
@@ -1015,7 +1461,7 @@ found:
         if (np->nd_state & INUSE_DELETED)
           continue;
 
-        if (LOGLEVEL >= 7)
+        if (LOGLEVEL == 7)  /* higher loglevel gets more info below */
           {
           sprintf(log_buffer,"adding node[%d] %s to hello response\n",
             i,
@@ -1064,12 +1510,7 @@ found:
 
       /* CLUSTER_ADDRS successful */
 
-      node->nd_state &= ~(INUSE_DOWN|INUSE_UNKNOWN|INUSE_NEEDS_HELLO_PING);
-
-      for (sp = node->nd_psn;sp != NULL;sp = sp->next)
-        {
-        sp->inuse &= ~INUSE_DOWN;
-        }
+      node->nd_state &= ~(INUSE_NEEDS_HELLO_PING);
 
       break;
 
@@ -1080,16 +1521,26 @@ found:
 
       i = disrui(stream,&ret);
 
-      if (ret == DIS_SUCCESS) 
+      if (ret != DIS_SUCCESS)
         {
-        DBPRT(("%s: IS_UPDATE %s 0x%x\n",
-          id,node->nd_name,i))
+        if (LOGLEVEL >= 1)
+          {
+          sprintf(log_buffer,"IS_UPDATE error %d on node %s\n",
+            ret,
+            node->nd_name);
+ 
+          log_err(ret,id,log_buffer);
+          }
 
-        i &= (INUSE_DOWN|INUSE_BUSY);
-
-        node->nd_state &= ~(INUSE_DOWN|INUSE_BUSY);
-        node->nd_state |= i;
+        goto err;
         }
+
+      DBPRT(("%s: IS_UPDATE %s 0x%x\n",
+        id,
+        node->nd_name,
+        i))
+
+      update_node_state(node,i);
 
       break;
 
@@ -1097,38 +1548,53 @@ found:
 
       /* pbs_server brought up 
          pbs_mom brought up  
-         pbs_mom sends IS_STATUS message to pbs_server
-         pbs_server sends IS_CLUSTER_ADDRS message to pbs_mom 
+         they send IS_HELLO to each other
+         pbs_mom sends IS_STATUS message to pbs_server (replying to IS_HELLO)
+         pbs_server sends IS_CLUSTER_ADDRS message to pbs_mom  (replying to IS_HELLO)
          pbs_mom uses IS_CLUSTER_ADDRS message to authorize contacts from sisters */
 
       if (LOGLEVEL >= 2)
         {
-        sprintf(log_buffer,"IS_STATUS received from %s\n",
+        sprintf(log_buffer,"IS_STATUS received from %s",
           node->nd_name);
 
         log_event(PBSEVENT_ADMIN,PBS_EVENTCLASS_SERVER,id,log_buffer);
         }
 
-      if (node->nd_state & INUSE_DOWN)
+      ret = is_stat_get(node);
+
+      if (ret != DIS_SUCCESS) 
         {
-        if (LOGLEVEL >= 4)
+        if (LOGLEVEL >= 1)
           {
-          sprintf(log_buffer,"setting node state to 'up' on node %s\n",
+          sprintf(log_buffer,"IS_STATUS error %d on node %s",
+            ret,
             node->nd_name);
-                                                                              
-          log_event(PBSEVENT_ADMIN,PBS_EVENTCLASS_SERVER,id,log_buffer);
+
+          log_err(ret,id,log_buffer);
           }
+ 
+        goto err;
         }
 
-      node->nd_state &= ~(INUSE_DOWN|INUSE_UNKNOWN|INUSE_NEEDS_HELLO_PING); 
+      node->nd_lastupdate = time_now;
 
-      /*node->nd_state &= ~(INUSE_DOWN|INUSE_UNKNOWN);*/
+      if (LOGLEVEL >= 9)
+        {
+        sprintf(log_buffer,"node '%s' is at state '0x%x'\n",
+          node->nd_name,
+          node->nd_state);
+
+        log_event(PBSEVENT_ADMIN,PBS_EVENTCLASS_SERVER,id,log_buffer);
+        }
 
       for (sp = node->nd_psn;sp != NULL;sp = sp->next)
         {
         if (!(node->nd_state & INUSE_OFFLINE) &&
              (sp->inuse & INUSE_OFFLINE))
           {
+          /* this doesn't seem to ever happen */
+
           if (LOGLEVEL >= 2)
             {
             sprintf(log_buffer,"sync'ing subnode state '%s' with node state on node %s\n",
@@ -1143,86 +1609,6 @@ found:
 
         sp->inuse &= ~INUSE_DOWN;
         }
-
-      ret = is_stat_get(node);
-
-      if (ret != DIS_SUCCESS) 
-        {
-        if (LOGLEVEL >= 1)
-          {
-          sprintf(log_buffer,"IS_STATUS error %d on node %s\n",
-            ret,node->nd_name);
-
-          log_err(ret,id,log_buffer);
-          }
-
-        goto err;
-        }
-
-      node->nd_lastupdate = time_now;
-
-      if (firstCon != 0)
-        {
-        /* first time node has been contacted, send cluster-addrs */
-
-        ret = is_compose(stream,IS_CLUSTER_ADDRS);
-
-        if (ret != DIS_SUCCESS)
-          goto err;
-
-        for (i = 0;i < svr_totnodes;i++) 
-          {
-          np = pbsndmast[i];
-
-          if (np->nd_state & INUSE_DELETED)
-            continue;
-
-          if (LOGLEVEL >= 5)
-            {
-            sprintf(log_buffer,"node[%d] %s added to IS_CLUSTER_ADDRS response",
-              i,
-              np->nd_name);
-
-            log_event(PBSEVENT_ADMIN,PBS_EVENTCLASS_SERVER,id,log_buffer);
-            }
-
-          /* determine all nodes this node should have access to */
-          /* NOTE:  this includes all nodes in cluster */
-
-          for (j = 0;np->nd_addrs[j];j++) 
-            {
-            u_long ipaddr = np->nd_addrs[j];
-
-            if (LOGLEVEL >= 7)
-              { 
-              sprintf(log_buffer,"node[%d] interface[%d] address %ld.%ld.%ld.%ld added to IS_CLUSTER_ADDRS response",
-                i,
-                j,
-                (ipaddr & 0xff000000) >> 24,
-                (ipaddr & 0x00ff0000) >> 16,
-                (ipaddr & 0x0000ff00) >> 8,
-                (ipaddr & 0x000000ff));
-
-              log_event(PBSEVENT_ADMIN,PBS_EVENTCLASS_SERVER,id,log_buffer);
-              }
-
-            ret = diswul(stream,ipaddr);
-
-            if (ret != DIS_SUCCESS)
-              goto err;
-            }
-          }    /* END for (i) */
-
-        rpp_flush(stream);
-
-        if (LOGLEVEL >= 2)
-          {
-          sprintf(log_buffer,"IS_CLUSTER_ADDRS sent to %s",
-            node->nd_name);
-
-          log_event(PBSEVENT_ADMIN,PBS_EVENTCLASS_SERVER,id,log_buffer);
-          }
-        }  /* END if (firstCon != 0) */
 
       break;
 
@@ -1251,7 +1637,7 @@ err:
     {
     DBPRT(("%s: error processing node %s\n",
       id,
-      np->nd_name))
+      node->nd_name))
     }
 
   sprintf(log_buffer,"%s from %s(%s)",
@@ -1263,10 +1649,7 @@ err:
 
   rpp_close(stream);
 
-  node->nd_state |= INUSE_DOWN;
-
-  for (sp = node->nd_psn; sp; sp = sp->next)
-    sp->inuse |= INUSE_DOWN;
+  update_node_state(node,INUSE_DOWN);
 
   return;
   }  /* END is_request() */
@@ -1281,13 +1664,23 @@ void write_node_state()
   static char *fmt = "%s %d\n";
   int	i;
 
+  int   savemask;
+
   if (LOGLEVEL >= 5)
     DBPRT(("write_node_state: entered\n"))
+
+  /* don't store volatile states like down and unknown */
+
+  savemask = INUSE_OFFLINE|INUSE_DELETED|INUSE_RESERVE|INUSE_JOB|INUSE_JOBSHARE;
 
   if (nstatef != NULL) 
     {
     fseek(nstatef, 0L, SEEK_SET);	/* rewind and clear */
-    ftruncate(fileno(nstatef),(off_t)0);
+    if (ftruncate(fileno(nstatef),(off_t)0) != 0)
+      {
+      log_err(errno,"write_node_state","could not truncate file");
+      return;
+      }
     } 
   else 
     {
@@ -1298,7 +1691,7 @@ void write_node_state()
       log_err(
         errno,
         "write_node_state",
-        "could open file");
+        "could not open file");
 
       return;
       }
@@ -1320,11 +1713,14 @@ void write_node_state()
       {
       fprintf(nstatef,fmt,
         np->nd_name, 
-        np->nd_state);
+        np->nd_state & savemask);
       }
     }    /* END for (i) */
 
-  fflush(nstatef);
+  if (fflush(nstatef) != 0)
+    {
+    log_err(errno,"write_node_state","failed saving node state to disk");
+    }
 
   return;
   }  /* END write_node_state() */
@@ -1547,6 +1943,9 @@ static int search(
       if (pnode->nd_flag != okay)
         continue;
 
+      if (pnode->nd_state & pass)
+        continue;
+
       if (!hasprop(pnode,glorf))
         continue;
 
@@ -1574,7 +1973,7 @@ static int search(
       pnode->nd_needed = vpreq;
       pnode->nd_order  = order;
 
-      /* success */
+      /* SUCCESS */
 
       return(1);
       }
@@ -1582,7 +1981,7 @@ static int search(
 
   if (glorf == NULL)		/* no property */
     {
-    /* failure */
+    /* FAILURE */
 
     return(0);			/* can't retry */
     }
@@ -1630,11 +2029,15 @@ static int search(
 
         pnode->nd_needed = vpreq;
         pnode->nd_order  = order;
-			
+		
+        /* SUCCESS */
+	
         return(1);
         }
       }
     }    /* END for (i) */
+
+  /* FAILURE */
 
   return(0);	/* not found */
   }  /* END search() */
@@ -1662,18 +2065,24 @@ static int number(
     holder[i++] = *str++;
 
   if (i == 0)
-    return 1;
+    {
+    return(1);
+    }
 
-	holder[i] = '\0';
-	if ((i = atoi(holder)) == 0) {
-		sprintf(log_buffer, "zero illegal");
-		return -1;
-	}
+  holder[i] = '\0';
 
-	*ptr = str;
-	*num = i;
-	return 0;
-}
+  if ((i = atoi(holder)) == 0) 
+    {
+    sprintf(log_buffer,"zero illegal");
+
+    return(-1);
+    }
+
+  *ptr = str;
+  *num = i;
+
+  return(0);
+  }  /* END number() */
 
 
 
@@ -1903,56 +2312,90 @@ done:
 
 /*
 **	Add the "global" spec to every sub-spec in "spec".
+**      RETURNS:  allocated string buffer (must be freed externally) 
 */
-static
-char    *
-mod_spec(spec, global)
-    char	*spec;
-    char	*global;
-{
-	static	char	line[512];
-	char	*cp;
-	int	len;
 
-	len = strlen(global);
-	cp = line;
-	while (*spec) {
-		if (*spec == '+') {
-			*cp++ = ':';
-			strcpy(cp, global);
-			cp += len;
-		}
-		*cp++ = *spec++;
-	}
-	*cp++ = ':';
-	strcpy(cp, global);
+static char *mod_spec(
 
-	return line;
-}
+  char *spec,    /* I */
+  char *global)  /* I */
+
+  {
+  char  *line;
+  char	*cp;
+  int    len;
+  int    nsubspec;
+
+  nsubspec = 1;
+
+  for (cp = spec;*cp != '\0';cp++)
+    {
+    if (*cp == '+') 
+      {
+       nsubspec++;
+      }
+    }
+
+  len = strlen(global);
+
+  line = malloc(nsubspec * (len + 1) + strlen(spec) + 1);
+
+  cp = line;
+
+  while (*spec) 
+    {
+    if (*spec == '+') 
+      {
+      *cp++ = ':';
+
+      strcpy(cp,global);
+
+      cp += len;
+      }
+
+    *cp++ = *spec++;
+    }
+
+  *cp++ = ':';
+
+  strcpy(cp,global);
+
+  return(line);
+  }  /* END mod_spec() */
+
+
+
 
 /* cntjons - count jobs on (shared) nodes */
 
-static int
-cntjons(pn)
-    struct pbsnode *pn;
-{
-    	struct pbssubn *psn;
-	int ct = 0;
-	int n;
-	struct jobinfo *pj;
+static int cntjons(
 
-	psn = pn->nd_psn;
-	for (n=0; n<pn->nd_nsn; ++n) {
+  struct pbsnode *pn)
 
-	    pj = psn->jobs;
-	    while (pj) {
-		++ct;
-		pj = pj->next;
-	    }
-	    psn = psn->next;
-	}
-	return (ct);
-}
+  {
+  struct pbssubn *psn;
+  int ct = 0;
+  int n;
+  struct jobinfo *pj;
+
+  psn = pn->nd_psn;
+
+  for (n = 0;n < pn->nd_nsn;++n) 
+    {
+    pj = psn->jobs;
+
+    while (pj) 
+      {
+      ++ct;
+
+      pj = pj->next;
+      }
+
+    psn = psn->next;
+    }
+
+  return(ct);
+  }
 
 
 
@@ -1978,6 +2421,8 @@ static int nodecmp(
   struct pbsnode	*a = *(struct pbsnode **)aa;
   struct pbsnode	*b = *(struct pbsnode **)bb;
   int	aprim, bprim;
+
+  /* exclusive is global */
 
   if (exclusive) 
     {	
@@ -2014,7 +2459,7 @@ static int nodecmp(
 
   if (aprim == bprim) 
     {
-    return (a->nd_nprops - b->nd_nprops);
+    return(a->nd_nprops - b->nd_nprops);
     } 
 
   return (aprim - bprim);
@@ -2022,6 +2467,43 @@ static int nodecmp(
 
 
 
+
+int MSNPrintF(
+
+  char **BPtr,   /* I */
+  int   *BSpace, /* I */
+  char  *Format, /* I */
+  ...)           /* I */
+
+  {
+  int len;
+
+  va_list Args;
+
+  if ((BPtr == NULL) ||
+      (BSpace == NULL) ||
+      (Format == NULL) ||
+      (*BSpace <= 0))
+    {
+    return(FAILURE);
+    }
+
+  va_start(Args,Format);
+
+  len = vsnprintf(*BPtr,*BSpace,Format,Args);
+
+  va_end(Args);
+
+  if (len <= 0)
+    {
+    return(FAILURE);
+    }
+
+  *BPtr += len;
+  *BSpace -= len;
+
+  return(SUCCESS);
+  }  /* END MSNPrintF() */
 
 
 /*
@@ -2038,17 +2520,25 @@ static int node_spec(
 
   char	*spec,       /* I */
   int	 early,      /* I (boolean) */
-  int    exactmatch) /* I (boolean) */
+  int    exactmatch, /* I (boolean) */
+  char  *FailNode,   /* O (optional,minsize=1024) */
+  char  *EMsg)       /* O (optional,minsize=1024) */
 
   {
-  static char	id[] = "node_spec";
+  static char id[] = "node_spec";
 
   struct pbsnode *pnode;
   struct pbssubn *snp;
   char	*str, *globs, *cp, *hold;
-  int	i, num;
-  int	rv;
+  int	 i, num;
+  int	 rv;
   static char shared[] = "shared";
+
+  if (EMsg != NULL)
+    EMsg[0] = '\0';
+
+  if (FailNode != NULL)
+    FailNode[0] = '\0';
 
   if (LOGLEVEL >= 6)
     {
@@ -2073,7 +2563,7 @@ static int node_spec(
 
       if (strcmp(cp,shared) != 0) 
         {
-        hold = strdup(mod_spec(spec,cp));
+        hold = mod_spec(spec,cp);
 
         free(spec);
 
@@ -2087,7 +2577,7 @@ static int node_spec(
 
     if (strcmp(globs,shared) != 0) 
       {
-      hold = strdup(mod_spec(spec,globs));
+      hold = mod_spec(spec,globs);
 
       free(spec);
 
@@ -2099,7 +2589,7 @@ static int node_spec(
       }
 
     free(globs);
-    }
+    }  /* END if ((globs = strchr(spec,'#')) != NULL) */
 
   str = spec;
 		
@@ -2107,14 +2597,26 @@ static int node_spec(
 
   if (num > svr_clnodes) 
     {
+    /* FAILURE */
+
     free(spec);
+
+    sprintf(log_buffer,"job allocation request exceeds available cluster nodes, %d requested, %d available",
+      num,
+      svr_clnodes);
 
     if (LOGLEVEL >= 6)
       {
-      DBPRT(("%s: requested nodes exceeds available cluster nodes (%d > %d)\n",
+      log_record(
+        PBSEVENT_SCHED,
+        PBS_EVENTCLASS_REQUEST,
         id,
-        num,
-        svr_clnodes))
+        log_buffer);
+      }
+
+    if (EMsg != NULL)
+      {
+      strncpy(EMsg,log_buffer,1024);
       }
 
     return(-1);
@@ -2135,7 +2637,7 @@ static int node_spec(
 
   svr_numnodes = 0;
 
-  for (i=0;i < svr_totnodes;i++) 
+  for (i = 0;i < svr_totnodes;i++) 
     {
     pnode = pbsndlist[i];
 
@@ -2191,7 +2693,7 @@ static int node_spec(
       break;
 
     str++;
-    }
+    }  /* END for (i) */
 
   i = (int)*str;
 
@@ -2199,12 +2701,22 @@ static int node_spec(
 
   if (i != 0)					/* garbled list */
     {
-    /* failure */
+    /* FAILURE */
+
+    sprintf(log_buffer,"job allocation request is corrupt");
 
     if (LOGLEVEL >= 6)
       {
-      DBPRT(("%s: request is corrupt\n",
-        id))
+      log_record(
+        PBSEVENT_SCHED,
+        PBS_EVENTCLASS_REQUEST,
+        id,
+        log_buffer);
+      }
+
+    if (EMsg != NULL)
+      {
+      strncpy(EMsg,log_buffer,1024);
       }
 
     return(-1);
@@ -2212,12 +2724,24 @@ static int node_spec(
 
   if ((num > svr_numnodes) && early)	/* temp fail, not available */
     {
+    /* FAILURE */
+
+    sprintf(log_buffer,"job allocation request exceeds currently available cluster nodes, %d requested, %d available",
+      num,
+      svr_numnodes);
+
     if (LOGLEVEL >= 6)
       {
-      DBPRT(("%s: inadequate nodes currently in cluster (%d > %d)\n",
+      log_record(
+        PBSEVENT_SCHED,
+        PBS_EVENTCLASS_REQUEST,
         id,
-        num,
-        svr_numnodes))
+        log_buffer);
+      }
+
+    if (EMsg != NULL)
+      {
+      strncpy(EMsg,log_buffer,1024);
       }
 
     return(0);
@@ -2234,25 +2758,45 @@ static int node_spec(
     pnode = pbsndlist[i];
 
     if (pnode->nd_ntype != NTYPE_CLUSTER)
+      {
+      /* node is ok */
+ 
       continue;	
+      }
 
     if (pnode->nd_flag != thinking)  /* thinking is global */
+      {
+      /* node is ok */
+
       continue;
+      }
 
     if (pnode->nd_state == INUSE_FREE)  
       {
       if (pnode->nd_needed <= pnode->nd_nsnfree) 
+        {
+        /* adequate virtual nodes available - node is ok */
+
         continue;
+        }
 
       if (!exclusive && 
          (pnode->nd_needed < pnode->nd_nsnfree + pnode->nd_nsnshared))
-        continue;		/* shared node */
+        {
+        /* shared node - node is ok */
+
+        continue;
+        }
       } 
     else 
       {
       if (!exclusive && 
          (pnode->nd_needed <= pnode->nd_nsnfree + pnode->nd_nsnshared))
-        continue;		/* shared node */
+        {
+        /* shared node - node is ok */
+
+        continue;
+        }
       }
 
     /* otherwise find replacement node */
@@ -2265,29 +2809,103 @@ static int node_spec(
         pnode->nd_first,
         pnode->nd_needed, 
         (exclusive != 0) ? SKIP_ANYINUSE : SKIP_EXCLUSIVE,
-        pnode->nd_order,0)) 
+        pnode->nd_order,
+        0)) 
       {
+      /* node is ok */
+
       continue;
       }
 
     if (early != 0)
       {
+      /* FAILURE */
+
       /* specified node not available and replacement cannot be located */
+
+      if (pnode->nd_needed > pnode->nd_nsnfree)
+        {
+        char JobList[1024];
+
+        struct pbssubn *np;
+        struct jobinfo *jp;
+
+        char   *BPtr;
+        int     BSpace;
+
+        int     nindex;
+
+        JobList[0] = '\0';
+
+        BPtr = JobList;
+        BSpace = sizeof(JobList);
+
+        /* scheduler and pbs_server disagree on np availability - report current allocation */
+
+        /* show allocating jobs */
+
+        /* examine all subnodes in node */
+
+        nindex = 0;
+
+        for (np = pnode->nd_psn;np != NULL;np = np->next)
+          {
+          /* examine all jobs allocated to subnode */
+
+          for (jp = np->jobs;jp != NULL;jp = jp->next)
+            {
+            MSNPrintF(&BPtr,&BSpace,"%s%s:%d",
+              (JobList[0] != '\0') ? "," : "",
+              (jp->job != NULL) ? jp->job->ji_qs.ji_jobid : "???",
+              nindex);
+            }
+
+          nindex++;
+          }  /* END for (np) */
+
+        sprintf(log_buffer,"cannot allocate node '%s' to job - node not currently available (nps needed/free: %d/%d,  joblist: %s)",
+          pnode->nd_name,
+          pnode->nd_needed,
+          pnode->nd_nsnfree,
+          JobList);
+        }
+      else
+        {
+        char NodeState[1024];
+
+        __PNodeStateToString(pnode->nd_state,NodeState,sizeof(NodeState));
+
+        sprintf(log_buffer,"cannot allocate node '%s' to job - node not currently available (state: %s)",
+          pnode->nd_name,
+          NodeState);
+        }
 
       if (LOGLEVEL >= 6)
         {
-        DBPRT(("%s: cannot locate requested resource '%s'\n",
+        log_record(
+          PBSEVENT_SCHED,
+          PBS_EVENTCLASS_REQUEST,
           id,
-          pnode->nd_name))
+          log_buffer);
         }
 
+      if (EMsg != NULL)
+        {
+        strncpy(EMsg,log_buffer,1024);
+        }
+
+      if (FailNode != NULL)
+        strncpy(FailNode,pnode->nd_name,1024);
+
       return(0);
-      }
+      }  /* END if (early != 0) */
 
     num = 0;
     }  /* END for (i) */
 
-  return(num);	/* spec ok */
+  /* SUCCESS - spec is ok */
+
+  return(num);	
   }  /* END node_spec() */
 
 
@@ -2302,9 +2920,11 @@ static int node_spec(
 
 int set_nodes(
 
-  job   *pjob,    /* I */
-  char	*spec,    /* I */
-  char **rtnlist) /* O */
+  job   *pjob,      /* I */
+  char	*spec,      /* I */
+  char **rtnlist,   /* O */
+  char  *FailHost,  /* O (optional,minsize=1024) */
+  char  *EMsg)      /* O (optional,minsize=1024) */
 
   {
   struct howl {
@@ -2319,11 +2939,17 @@ int set_nodes(
 
   int     NCount;
 
-  static char	*id = "set_nodes";
+  static char *id = "set_nodes";
 
   struct pbsnode *pnode;
   struct pbssubn *snp;
-  char	*nodelist;
+  char           *nodelist;
+
+  if (FailHost != NULL)
+    FailHost[0] = '\0';
+
+  if (EMsg != NULL)
+    EMsg[0] = '\0';
 
   if (LOGLEVEL >= 3)
     {
@@ -2340,9 +2966,22 @@ int set_nodes(
 
   /* allocate nodes */
 
-  if ((i = node_spec(spec,1,1)) == 0)	/* check spec */
+  if ((i = node_spec(spec,1,1,FailHost,EMsg)) == 0)	/* check spec */
     {
     /* no resources located, request failed */
+
+    if (EMsg != NULL)
+      {
+      sprintf(log_buffer,"could not locate requested resources '%s' (node_spec failed) %s",
+        spec,
+        EMsg);
+
+      log_record(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+      }
 
     return(PBSE_RESCUNAV);
     }
@@ -2403,23 +3042,36 @@ int set_nodes(
           log_buffer);
         }
 
-      if (snp->inuse == INUSE_FREE) 
+      /* NOTE:  search existing job array.  add job only if job not already in place */
+
+      for (jp = snp->jobs;jp != NULL;jp = jp->next)
         {
-        snp->inuse = newstate;
-
-        pnode->nd_nsnfree--;		/* reduce free count */
-
-        if (!exclusive)
-          pnode->nd_nsnshared++;
+        if (jp->job == pjob)
+          break;
         }
 
-      jp  = (struct jobinfo *)malloc(sizeof(struct jobinfo));
+      if (jp == NULL)
+        {
+        /* add job to front of subnode job array */
 
-      jp->next = snp->jobs;
+        jp = (struct jobinfo *)malloc(sizeof(struct jobinfo));
 
-      snp->jobs = jp;
+        jp->next = snp->jobs;
 
-      jp->job = pjob;
+        snp->jobs = jp;
+
+        jp->job = pjob;
+
+        if (snp->inuse == INUSE_FREE)
+          {
+          snp->inuse = newstate;
+
+          pnode->nd_nsnfree--;            /* reduce free count */
+
+          if (!exclusive)
+            pnode->nd_nsnshared++;
+          }
+        }
 
       /* build list of nodes ordered to match request */
 
@@ -2432,7 +3084,7 @@ int set_nodes(
         {
         if (curr->order <= hp->order)
           break;
-        }
+        }  /* END for (prev) */
 
       curr->next = hp;
 
@@ -2452,7 +3104,7 @@ int set_nodes(
     {
     if (LOGLEVEL >= 1)
       {
-      sprintf(log_buffer,"ALERT:  no nodes can be allocated to job %s",
+      sprintf(log_buffer,"no nodes can be allocated to job %s",
         pjob->ji_qs.ji_jobid);
 
       log_record(
@@ -2503,7 +3155,7 @@ int set_nodes(
 
   if (LOGLEVEL >= 3)
     {
-    sprintf(log_buffer,"job %s allocated %d nodes (nodelist=%s)",
+    snprintf(log_buffer,sizeof(log_buffer),"job %s allocated %d nodes (nodelist=%s)",
       pjob->ji_qs.ji_jobid,
       NCount,
       nodelist);
@@ -2534,11 +3186,11 @@ int set_nodes(
 
 int node_avail_complex(
 
-  char	*spec,		/* In  - node spec */
-  int 	*navail,	/* Out - number available */
-  int	*nalloc,	/* Out - number allocated */
-  int	*nresvd,	/* Out - number reserved  */
-  int	*ndown)		/* Out - number down	  */
+  char	*spec,		/* I - node spec */
+  int 	*navail,	/* O - number available */
+  int	*nalloc,	/* O - number allocated */
+  int	*nresvd,	/* O - number reserved  */
+  int	*ndown)		/* O - number down      */
 
   {
   int	holdnum;
@@ -2546,7 +3198,7 @@ int node_avail_complex(
 
   holdnum = svr_numnodes;
 
-  ret = node_spec(spec,1,0);
+  ret = node_spec(spec,1,0,NULL,NULL);
 
   svr_numnodes = holdnum;
 
@@ -2563,7 +3215,7 @@ int node_avail_complex(
 
 
 /*
- * node_avail - report if nodes requested is available
+ * node_avail - report if nodes requested are available
  *	Does NOT even consider Time Shared Nodes 
  *
  *	Return 0 when no error in request and
@@ -2576,11 +3228,11 @@ int node_avail_complex(
 
 int node_avail(
 
-  char	*spec,		/* In  - node spec */
-  int 	*navail,	/* Out - number available */
-  int	*nalloc,	/* Out - number allocated */
-  int	*nresvd,	/* Out - number reserved  */
-  int	*ndown)		/* Out - number down	  */
+  char	*spec,		/* I  - node spec */
+  int 	*navail,	/* O - number available */
+  int	*nalloc,	/* O - number allocated */
+  int	*nresvd,	/* O - number reserved  */
+  int	*ndown)		/* O - number down      */
 
   {
   char	*id = "node_avail";
@@ -2599,7 +3251,7 @@ int node_avail(
 
   if (spec == NULL) 
     {
-    log_event(PBSEVENT_ADMIN, PBS_EVENTCLASS_SERVER, id, "no spec");
+    log_event(PBSEVENT_ADMIN,PBS_EVENTCLASS_SERVER,id,"no spec");
 
     return(RM_ERR_NOPARAM);
     }
@@ -2617,53 +3269,64 @@ int node_avail(
     xresvd = 0;
     xdown  = 0;
 
-		/* find number of a specific type of node */
+    /* find number of a specific type of node */
 
-		if (*pc)
-			if (proplist(&pc, &prop, &node_req))
-				return (RM_ERR_BADPARAM);
+    if (*pc)
+      {
+      if (proplist(&pc,&prop,&node_req))
+        {
+        return(RM_ERR_BADPARAM);
+        }
+      }
 
-		for (i=0; i<svr_totnodes; i++) {
-			pn = pbsndlist[i];
+    for (i = 0;i < svr_totnodes;i++) 
+      {
+      pn = pbsndlist[i];
 
-		     if ((pn->nd_ntype == NTYPE_CLUSTER) && hasprop(pn, prop)) {
-			if (pn->nd_state &
-				     (INUSE_OFFLINE|INUSE_DOWN))
-				++xdown;
-			else if (hasppn(pn,node_req,SKIP_ANYINUSE))
-				++xavail;
-			else if (hasppn(pn,node_req,SKIP_NONE)) {
-			    /*
-			     * has enought processor, are they busy or reserved
-			     */
-			    j = 0;
-			    for (psn=pn->nd_psn; psn; psn=psn->next) {
-				if (psn->inuse  & INUSE_RESERVE)
-					j++;
-			    }
-			    if (j >= node_req)
-				++xresvd;
-			    else
-				++xalloc;
-			}
-		    }
-		}
-		free_prop(prop);
+      if ((pn->nd_ntype == NTYPE_CLUSTER) && hasprop(pn,prop)) 
+        {
+        if (pn->nd_state & (INUSE_OFFLINE|INUSE_DOWN))
+          ++xdown;
+        else if (hasppn(pn,node_req,SKIP_ANYINUSE))
+          ++xavail;
+        else if (hasppn(pn,node_req,SKIP_NONE)) 
+          {
+          /* node has enough processors, are they busy or reserved? */
 
-		*navail = xavail;
-		*nalloc = xalloc;
-		*nresvd = xresvd;
-		*ndown  = xdown;
-		return 0;
+          j = 0;
 
-	} else if (number(&pc, &holdnum) == -1) {
-		    /* invalid spec */
-		    return (RM_ERR_BADPARAM);
-	}
+          for (psn = pn->nd_psn;psn;psn = psn->next) 
+            {
+            if (psn->inuse & INUSE_RESERVE)
+              j++;
+            }
 
+          if (j >= node_req)
+            ++xresvd;
+          else
+            ++xalloc;
+          }
+        }
+      }    /* END for (i) */
+
+    free_prop(prop);
+
+    *navail = xavail;
+    *nalloc = xalloc;
+    *nresvd = xresvd;
+    *ndown  = xdown;
+
+    return(0);
+    }
+  else if (number(&pc,&holdnum) == -1) 
+    {
+    /* invalid spec */
+
+    return(RM_ERR_BADPARAM);
+    }
 
   /* not a simple spec - determine if supplied complex	*/
-  /* node spec can be satisified from avail nodes		*/
+  /* node spec can be satisified from avail nodes	*/
   /* navail set to >0 if can be satified now		*/
   /*		  0 if not now but possible		*/
   /*		 -l if never possible			*/
@@ -2671,7 +3334,7 @@ int node_avail(
   node_avail_complex(spec,navail,nalloc,nresvd,ndown);
 
   return(0);
-  }
+  }  /* END node_avail() */
 
 
 
@@ -2691,10 +3354,10 @@ int node_reserve(
   resource_t  tag)   /* In/Out - tag for resource if reserved */
 
   {
-  static	char	id[] = "node_reserve";
+  static char    id[] = "node_reserve";
   int		 nrd;
-  struct  pbsnode *pnode;
-  struct	pbssubn	*snp;
+  struct pbsnode *pnode;
+  struct pbssubn *snp;
   int		 ret_val;
   int		 i;
 
@@ -2712,7 +3375,7 @@ int node_reserve(
     return(-1);
     }
 
-  if ((ret_val = node_spec(nspec,0,0)) >= 0) 
+  if ((ret_val = node_spec(nspec,0,0,NULL,NULL)) >= 0) 
     {
     /*
     ** Zero or more of the needed Nodes are available to be 
@@ -2732,12 +3395,14 @@ int node_reserve(
         {
         if (snp->inuse == INUSE_FREE) 
           {
-          DBPRT(("hold %s/%d\n", pnode->nd_name, snp->index))
+          DBPRT(("hold %s/%d\n", 
+            pnode->nd_name, 
+            snp->index))
 
           snp->inuse |= INUSE_RESERVE;
           snp->allocto = tag;
  
-          pnode->nd_nsnfree--;
+          pnode->nd_nsnfree--;  /* in reserve, not reached? */
 
           --pnode->nd_needed;
 
@@ -2789,12 +3454,15 @@ int is_ts_node(
     {
     np = pbsndmast[i];
 
-		if ( ((np->nd_state & INUSE_DELETED) == 0) &&
-		     (np->nd_ntype == NTYPE_TIMESHARED) ) {
-			if (strcmp(nodestr, np->nd_name) == 0)
-				return 0;
-		}
-	}
+    if (((np->nd_state & INUSE_DELETED) == 0) &&
+         (np->nd_ntype == NTYPE_TIMESHARED)) 
+      {
+      if (!strcmp(nodestr,np->nd_name))
+        {
+        return(0);
+        }
+      }
+    }
 
   return(1);
   }  /* END is_ts_node() */
@@ -2827,7 +3495,7 @@ char *find_ts_node()
     }
 
   return(NULL);
-  }
+  }  /* END find_ts_node() */
 
 
 
@@ -2842,9 +3510,9 @@ void free_nodes(
   job *pjob)  /* I (modified) */
 
   {
-  static char	id[] = "free_nodes";
+  static char id[] = "free_nodes";
+
   struct pbssubn *np;
-  struct pbssubn *xnp;
   struct pbsnode *pnode;
   struct jobinfo *jp, *prev;
   int             i;
@@ -2861,12 +3529,18 @@ void free_nodes(
       log_buffer);
     }
 
+  /* examine all nodes in cluster */
+
   for (i = 0;i < svr_totnodes;i++) 
     {
     pnode = pbsndlist[i];
 
+    /* examine all subnodes in node */
+
     for (np = pnode->nd_psn;np != NULL;np = np->next) 
       {
+      /* examine all jobs allocated to subnode */
+
       for (prev = NULL,jp = np->jobs;jp != NULL;prev = jp,jp = jp->next) 
         {
         if (jp->job != pjob)
@@ -2874,7 +3548,7 @@ void free_nodes(
 
         if (LOGLEVEL >= 4)
           {
-          sprintf(log_buffer,"freeing node %s/%d for job %s",
+          sprintf(log_buffer,"freeing node %s/%d from job %s",
             pnode->nd_name,
             np->index,
             pjob->ji_qs.ji_jobid);
@@ -2893,35 +3567,39 @@ void free_nodes(
 
         free(jp);
 
+        /* if no jobs are associated with subnode, mark subnode as free */
+
         if (np->jobs == NULL) 
           {
           pnode->nd_nsnfree++;	/* up count of free */
 
           if (LOGLEVEL >= 6)
             {
-            DBPRT(("%s: upping free count to %d\n", 
-              id, 
-              pnode->nd_nsnfree))
+            sprintf(log_buffer,"increased sub-node free count to %d of %d\n", 
+              pnode->nd_nsnfree,
+              pnode->nd_nsn);
+
+            log_record(
+              PBSEVENT_SCHED,
+              PBS_EVENTCLASS_REQUEST,
+              id,
+              log_buffer);
             }
 
           if (np->inuse & INUSE_JOBSHARE)
             pnode->nd_nsnshared--;
 
-          np->inuse &= ~(INUSE_JOB|INUSE_JOBSHARE);
+          /* adjust node state (turn off job/job-exclusive) */
 
-          for (xnp = pnode->nd_psn;xnp;xnp = xnp->next) 
-            {
-            if (xnp->inuse & (INUSE_JOB|INUSE_JOBSHARE))
-              break;
-            }
+          np->inuse &= ~(INUSE_JOB|INUSE_JOBSHARE);
 
           pnode->nd_state &= ~(INUSE_JOB|INUSE_JOBSHARE);
           }
 
         break;
-        }
-      }
-    }    /* END for (i) */
+        }  /* END for (prev) */
+      }    /* END for (np) */
+    }      /* END for (i) */
 
   pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_HasNodes;
 
@@ -2933,7 +3611,7 @@ void free_nodes(
 
 
 /*
- * set_one_old - set a named node as allocated to a a job
+ * set_one_old - set a named node as allocated to a job
  */
 
 static void set_one_old(
@@ -2943,60 +3621,73 @@ static void set_one_old(
   int   shared)	/* how used flag, either INUSE_JOB or INUSE_JOBSHARE */
 
   {
-	int		i;
-	int		index;
-	struct pbsnode *pnode;
-	struct pbssubn *snp;
-	struct jobinfo *jp;
-	char	       *pc;
-
+  int		i;
+  int		index;
+  struct pbsnode *pnode;
+  struct pbssubn *snp;
+  struct jobinfo *jp;
+  char	       *pc;
 	
-	if ((pc = strchr(name, (int)'/')))  {
-		index = atoi(pc+1);
-		*pc = '\0';
-	} else
-		index = 0;
+  if ((pc = strchr(name,(int)'/'))) 
+    {
+    index = atoi(pc + 1);
 
-	for (i=0; i<svr_totnodes; i++) {
-	    pnode = pbsndmast[i];
+    *pc = '\0';
+    } 
+  else
+    {
+    index = 0;
+    }
 
-	    if (strcmp(name, pnode->nd_name) == 0) {
+  for (i = 0;i < svr_totnodes;i++) 
+    {
+    pnode = pbsndmast[i];
 
-		/* Mark node as being IN USE ...  */
+    if (strcmp(name,pnode->nd_name) == 0) 
+      {
+      /* Mark node as being IN USE ...  */
 
-		 if (pnode->nd_ntype == NTYPE_CLUSTER) {
-		    for (snp = pnode->nd_psn; snp; snp = snp->next) {
-			if (snp->index == index) {
+      if (pnode->nd_ntype == NTYPE_CLUSTER) 
+        {
+        for (snp = pnode->nd_psn;snp;snp = snp->next) 
+          {
+          if (snp->index == index) 
+            {
+            snp->inuse = shared;
 
-				snp->inuse = shared;
-				jp  = (struct jobinfo *)malloc(sizeof(struct jobinfo));
-				jp->next = snp->jobs;
-				snp->jobs = jp;
-				jp->job = pjob;
+            jp = (struct jobinfo *)malloc(sizeof(struct jobinfo));
 
-				if (--pnode->nd_nsnfree == 0)
-				    pnode->nd_state = shared;
-				return;
-			}
+            jp->next = snp->jobs;
 
-		    }
-		}
-	    }
-	}
-}
+            snp->jobs = jp;
+
+            jp->job = pjob;
+
+            if (--pnode->nd_nsnfree == 0)
+              pnode->nd_state = shared;
+
+            return;
+            }
+          }    /* END for (snp) */
+        }
+      }
+    }
+
+  return;
+  }  /* END set_one_old() */
 
 
 
 
 	
 /*
- * set_old_nodes - set "old" nodes as in use - called from pbsd_init
+ * set_old_nodes - set "old" nodes as in use - called from pbsd_init()
  *	when recovering a job in the running state.
  */
 
 void set_old_nodes(
 
-  job *pjob)
+  job *pjob)  /* I (modified) */
 
   {
   char *old;
@@ -3004,37 +3695,41 @@ void set_old_nodes(
   resource *presc;
   int   shared = INUSE_JOB;
 
-	if ((pbsndmast != NULL) && 
-	    (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_flags & ATR_VFLAG_SET)) {
+  if ((pbsndmast != NULL) && 
+      (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_flags & ATR_VFLAG_SET)) 
+    {
+    /* are the nodes being used shared? Look in "neednodes" */
 
-		/* are the nodes being used shared? Look in "neednodes" */
+    presc = find_resc_entry(
+      &pjob->ji_wattr[(int)JOB_ATR_resource],
+      find_resc_def(svr_resc_def,"neednodes",svr_resc_size));
 
-		presc = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],
-					find_resc_def(svr_resc_def, "neednodes",
-					svr_resc_size) );
-		if ( (presc != NULL) && 
-		     (presc->rs_value.at_flags & ATR_VFLAG_SET) ) {
-			if ((po = strchr(presc->rs_value.at_val.at_str, '#'))) {
-				if (strstr(++po, "shared") != NULL) 
-					shared = INUSE_JOBSHARE;
-			}
-		}
+    if ((presc != NULL) && (presc->rs_value.at_flags & ATR_VFLAG_SET)) 
+      {
+      if ((po = strchr(presc->rs_value.at_val.at_str,'#'))) 
+        {
+        if (strstr(++po,"shared") != NULL) 
+          shared = INUSE_JOBSHARE;
+        }
+      }
 
-		
-		old = strdup(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
-		while ((po = strrchr(old, (int)'+')) != NULL) {
+    old = strdup(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
 
-			*po++ = '\0';
-			set_one_old(po, pjob, shared);
-		}
-		set_one_old(old, pjob, shared);
+    while ((po = strrchr(old,(int)'+')) != NULL) 
+      {
+      *po++ = '\0';
 
-		free(old);
-	}
+      set_one_old(po,pjob,shared);
+      }
+
+    set_one_old(old,pjob,shared);
+
+    free(old);
+    }
 
   return;
-  }
-
+  }  /* END set_old_nodes() */
 
 
 /* END node_manager.c */
+

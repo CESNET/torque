@@ -107,7 +107,7 @@
 extern char	*msg_nosupport;
 extern char     *PBatchReqType[];
 
-
+extern int       LOGLEVEL;
 
 
 /*
@@ -144,10 +144,10 @@ int dis_request_read(
       return(EOF);
       }
 
-    sprintf(log_buffer,"Req Header bad, dis error %d", 
+    sprintf(log_buffer,"req header bad, dis error %d", 
       rc);
 
-    LOG_EVENT(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST,"?",
+    LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_REQUEST,"?",
       log_buffer);
 
     return(PBSE_DISPROTO);
@@ -155,10 +155,30 @@ int dis_request_read(
 
   if (proto_ver != PBS_BATCH_PROT_VER) 
     {
+    sprintf(log_buffer,"conflicting version numbers, %d detected, %d expected",
+      proto_ver,
+      PBS_BATCH_PROT_VER);
+
+    LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_REQUEST,"?",
+      log_buffer);
+
     return(PBSE_DISPROTO);
     }
 
   /* Decode the Request Body based on the type */
+
+  if (LOGLEVEL >= 5)
+    {
+    sprintf(log_buffer,"decoding command %s from %s",
+      PBatchReqType[request->rq_type],
+      request->rq_user);
+
+    LOG_EVENT(
+      PBSEVENT_DEBUG,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+    }
 
   switch (request->rq_type) 
     {
@@ -235,7 +255,7 @@ int dis_request_read(
 
     case PBS_BATCH_LocateJob:
 
-      rc = decode_DIS_JobId(sfds, request->rq_ind.rq_locate);
+      rc = decode_DIS_JobId(sfds,request->rq_ind.rq_locate);
 
       break;
 
@@ -249,7 +269,7 @@ int dis_request_read(
     case PBS_BATCH_MoveJob:
     case PBS_BATCH_OrderJob:
 
-      rc = decode_DIS_MoveJob(sfds, request);
+      rc = decode_DIS_MoveJob(sfds,request);
 
       break;
 
@@ -347,8 +367,10 @@ int dis_request_read(
 
     if ((rc = decode_DIS_ReqExtend(sfds,request))) 
       {  
-      sprintf(log_buffer,"Req Extension bad, dis error %d", 
-        rc);
+      sprintf(log_buffer,"req extension bad, dis error %d (%s), type=%s", 
+        rc,
+        dis_emsg[rc],
+        PBatchReqType[request->rq_type]);
 
       LOG_EVENT(
         PBSEVENT_DEBUG, 
@@ -361,11 +383,12 @@ int dis_request_read(
     } 
   else if (rc != PBSE_UNKREQ) 
     {
-    sprintf(log_buffer, "Req Body bad, dis error %d, type %d",
+    sprintf(log_buffer,"req body bad, dis error %d (%s), type=%s",
       rc, 
-      request->rq_type);
+      dis_emsg[rc],
+      PBatchReqType[request->rq_type]);
 
-    LOG_EVENT(PBSEVENT_DEBUG, PBS_EVENTCLASS_REQUEST, "?", log_buffer);
+    LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_REQUEST,"?",log_buffer);
 
     rc = PBSE_DISPROTO;
     }
@@ -388,7 +411,7 @@ int dis_request_read(
 
 int DIS_reply_read(
 
-  int    sock,
+  int                 sock,
   struct batch_reply *preply)
 
   {

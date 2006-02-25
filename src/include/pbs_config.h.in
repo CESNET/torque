@@ -111,11 +111,14 @@
 /* PBS specific: defined if this is a digital unix system */
 #undef __TDIGITAL
 
+/* PBS specific: defined if this is an AIX 5 system */
+#undef __TAIX_5
+
 /* PBS specific: defined if this is a linux system */
 #undef __TLINUX
 
-/* PBS specific: defined if this is a SUN OS system */
-#undef IS_SUNOS4
+/* PBS specific: defined if this is a SUN OS 4 system */
+#undef __TSUNOS4
 
 /* PBS specific: defined if this is an SP2 */
 #undef IBM_SP2
@@ -162,6 +165,9 @@
 /* PBS specific: set whether job scripts use a pipe */
 #undef SHELL_INVOKE
 
+/* PBS specific: set whether shell is invoked with job script on command line */
+#undef SHELL_USE_ARGV
+
 /* PBS Specific: Define if one should use NODEMASK on SGI O2k or Cray T3e */
 #undef NODEMASK
 
@@ -189,8 +195,14 @@
 /* PBS specific: Define if PBS should use RPP/UDP for resource queries */
 #undef RPP
 
+/* PBS specific: Define default mail domain if other than localhost */
+#undef TMAILDOMAIN
+
 /* PBS specific: Define if PBS should use disable O_FSYNC for file open() calls */
 #undef TDISABLEFILESYNC
+
+/* PBS specific: Define if PBS should use spool job stdout/stderr before moving to $HOME */
+#undef NO_SPOOL_OUTPUT
 
 /* The number of bytes in a double.  */
 #undef SIZEOF_DOUBLE
@@ -251,6 +263,9 @@
 
 /* Define if you have the socket library (-lsocket).  */
 #undef HAVE_LIBSOCKET
+
+/* Define if you have the wordexp function. */
+#undef HAVE_WORDEXP
 
 #ifndef NEED_BLOCKING_CONNECTIONS
 #define write(a,b,c) write_nonblocking_socket(a,b,c)

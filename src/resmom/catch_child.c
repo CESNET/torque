@@ -110,6 +110,11 @@
 #include "mom_func.h"
 #include "pbs_error.h"
 #include "pbs_proto.h"
+#include "rpp.h"
+
+#if defined(PENABLE_DYNAMIC_CPUSETS)
+#include <cpuset.h>
+#endif /* PENABLE_DYNAMIC_CPUSETS */
 
 /* External Functions */
 
@@ -125,7 +130,7 @@ extern char		*msg_daemonname;
 extern int		termin_child;
 extern struct connection svr_conn[];
 extern int		resc_access_perm;
-extern char		*path_home;
+extern char		*path_aux;
 
 extern int              LOGLEVEL;
 
@@ -137,6 +142,13 @@ extern char            *PJobSubState[];
 
 u_long resc_used(job *,char *,u_long (*f) A_((resource *)));
 static void obit_reply A_((int));
+extern int tm_reply A_((int,int,tm_event_t));
+extern u_long addclient A_((char *));
+extern void encode_used A_((job *,list_head *));
+extern void job_nodes A_((job *));
+extern int task_recov A_((job *));
+
+
 
 /* END external prototypes */
 
@@ -335,7 +347,9 @@ void scan_for_exiting()
   int im_compose A_((int,char *,char *,int,tm_event_t,tm_task_id));
 
 #ifdef  PENABLE_DYNAMIC_CPUSETS
-  char          cQueue[16];
+  char           cQueueName[8];
+  char           cPermFile[1024];
+  struct passwd *pwdp;
 #endif  /* PENABLE_DYNAMIC_CPUSETS */
 
   /*
@@ -434,7 +448,7 @@ void scan_for_exiting()
 
           tp = task_find(pjob,pobit->oe_info.fe_taskid);
 
-          assert(tp != NULL);
+          assert(tp != NULL); 
 
           if (tp->ti_fd != -1) 
             {  
@@ -472,7 +486,10 @@ void scan_for_exiting()
 
       ptask->ti_fd = -1;
       ptask->ti_qs.ti_status = TI_STATE_DEAD;
-  
+ 
+      DBPRT(("%s: task is dead\n",
+        id));
+ 
       task_save(ptask);
       }  /* END for (ptask) */
 
@@ -481,8 +498,7 @@ void scan_for_exiting()
     ** in any state other than EXITING continue on.
     */
 
-    if ((pjob->ji_qs.ji_substate != JOB_SUBSTATE_EXITING) &&
-        (pjob->ji_qs.ji_substate != JOB_SUBSTATE_EXITED))
+    if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_EXITING)
       continue;
 
     /*
@@ -509,6 +525,15 @@ void scan_for_exiting()
 
       if (stream == -1) 
         {
+        if (LOGLEVEL >= 6)
+          {
+          LOG_EVENT(
+            PBSEVENT_JOB,
+            PBS_EVENTCLASS_JOB,
+            pjob->ji_qs.ji_jobid,
+            "connection to server lost - killing job");
+          }
+
         kill_job(pjob,SIGKILL);
 
         job_purge(pjob);
@@ -559,8 +584,18 @@ void scan_for_exiting()
 
       diswul(stream,resc_used(pjob,"cput",gettime));
       diswul(stream,resc_used(pjob,"mem",getsize));
+      diswul(stream,resc_used(pjob,"vmem",getsize));
 
       rpp_flush(stream);
+
+      if (LOGLEVEL >= 6)
+        {
+        LOG_EVENT(
+          PBSEVENT_JOB,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          "all tasks complete - purging job as sister");
+        }
 
       job_purge(pjob);
 
@@ -728,39 +763,28 @@ void scan_for_exiting()
 
 #ifdef PENABLE_DYNAMIC_CPUSETS
 
-    /* clear queue name */
+    /* FIXME: this is the wrong place for this code.
+     * it should be called from job_purge() */
+    pwdp = getpwuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid);
+    strncpy(cQueueName,pwdp->pw_name,3);
+    strncat(cQueueName,pjob->ji_qs.ji_jobid,5);
 
-    memset(cQueue,'\0',sizeof(cQueue));
+    /* FIXME: use the path_jobs variable */
+    strcpy(cPermFile,PBS_SERVER_HOME);
+    strcat(cPermFile,"/mom_priv/jobs/");
+    strcat(cPermFile,cQueueName);
+    strcat(cPermFile,".CS");
 
-    /* remove dynamic cpuset(s) */
+    cpusetDestroy(cQueueName);
+    unlink(cPermFile);
 
-    execute_dynamo( 
-      1, 
-      pjob->ji_qs.ji_jobid,
-      pjob->ji_qs.ji_un.ji_momt.ji_exuid,
-      pjob->ji_qs.ji_un.ji_momt.ji_exgid,
-      path_home, 
-      cQueue);
+    memset(cQueueName,0,sizeof(cQueueName));
+    memset(cPermFile,0,sizeof(cPermFile));
 
-   /* NOTE:  must clear cpusets even if child not captured, ie, mom is down when job completes */
+    /* NOTE:  must clear cpusets even if child not captured, ie, mom is down when job completes */
 
 #endif /* PENABLE_DYNAMIC_CPUSETS */
 
-    /* get rid of HOSTFILE if any */
-
-    if (pjob->ji_flags & MOM_HAS_NODEFILE) 
-      {
-      char file[MAXPATHLEN + 1];
-
-      sprintf(file,"%s/aux/%s",
-        path_home, 
-        pjob->ji_qs.ji_jobid);
-
-      unlink(file);
-
-      pjob->ji_flags &= ~MOM_HAS_NODEFILE;
-      }
-		
     /* send the job obiturary notice to the server */
 
     preq = alloc_br(PBS_BATCH_JobObit);
@@ -806,7 +830,7 @@ void scan_for_exiting()
 
 
 
-
+/* is sock associated with a peer MOM or with pbs_server? */
 
 /*
  * obit_reply - read and process the reply from the server acknowledging
@@ -913,7 +937,7 @@ static void obit_reply(
           {
           char tmpLine[1024];
 
-          switch(preq->rq_reply.brp_code)
+          switch (preq->rq_reply.brp_code)
             {
             case PBSE_BADSTATE:
 
@@ -1001,22 +1025,25 @@ void init_abort_jobs(
   char          *id = "init_abort_jobs";
 
   DIR		*dir;
-  int		i, sisters, rc;
+  int            i;
+  int            j;
+  int            sisters, rc;
   struct dirent	*pdirent;
   job		*pj;
   char		*job_suffix = JOB_FILE_SUFFIX;
-  int		job_suf_len = strlen(job_suffix);
+  int            job_suf_len = strlen(job_suffix);
   char		*psuffix;
 #if	MOM_CHECKPOINT == 1
-  char		path[MAXPATHLEN+1];
-  char		oldp[MAXPATHLEN+1];
-  struct	stat	statbuf;
-  extern char	*path_checkpoint;
+  char           path[MAXPATHLEN + 1];
+  char           oldp[MAXPATHLEN + 1];
+  struct stat    statbuf;
+  extern char   *path_checkpoint;
 #endif
 
   if (LOGLEVEL >= 6)
     {
-    sprintf(log_buffer,"init_abort_jobs: recover=%d\n",
+    sprintf(log_buffer,"%s: recover=%d",
+      id,
       recover);
 
     log_record(
@@ -1056,9 +1083,35 @@ void init_abort_jobs(
 
     if (pj == NULL)
       {
-      DBPRT(("init_abort_jobs: NULL job pointer\n"))
-        continue;
+      sprintf(log_buffer,"%s: NULL job pointer",
+        id);
+
+      log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_SERVER,
+        msg_daemonname,
+        log_buffer);
+
+      continue;
       }
+
+    for (j = 0;j < pj->ji_numnodes;j++)
+      {
+      if (LOGLEVEL >= 6)
+        {
+        sprintf(log_buffer,"%s: adding client %s",
+          id,
+          pj->ji_hosts[j].hn_host);
+
+        log_record(
+          PBSEVENT_ERROR,
+          PBS_EVENTCLASS_SERVER,
+          msg_daemonname,
+          log_buffer);
+        }
+
+      addclient(pj->ji_hosts[j].hn_host);
+      }  /* END for (j) */
 
     if (LOGLEVEL >= 4)
       {
@@ -1170,7 +1223,12 @@ void init_abort_jobs(
           {
           sprintf(log_buffer,"local host is not mother-superior, deleting job %s",
             pj->ji_qs.ji_jobid);
-                                                                                                     log_record(                                                                                  PBSEVENT_DEBUG,                                                                            PBS_EVENTCLASS_JOB,                                                                        id,                                                                                        log_buffer);
+
+          log_record(
+            PBSEVENT_DEBUG,
+            PBS_EVENTCLASS_JOB,
+            id,
+            log_buffer); 
           }
 
         mom_deljob(pj);
@@ -1192,7 +1250,7 @@ void init_abort_jobs(
         }
 
       /* set exit status to:
-       *   JOB_EXEC_INITABT - init abort and no chkpnt
+       *   JOB_EXEC_INITABT - init abort and no chkpt
        *   JOB_EXEC_INITRST - init and chkpt, no mig
        *   JOB_EXEC_INITRMG - init and chkpt, migrate
        * to indicate recovery abort
@@ -1292,7 +1350,6 @@ void mom_deljob(
   job *pjob)  /* I (modified) */
 
   {
-  char *id = "mom_deljob";
 
 #ifdef _CRAY
   /* remove any temporary directories */
@@ -1309,7 +1366,7 @@ void mom_deljob(
     log_record(
       PBSEVENT_DEBUG,
       PBS_EVENTCLASS_JOB,
-      id,
+      pjob->ji_qs.ji_jobid,
       log_buffer);
     }
 

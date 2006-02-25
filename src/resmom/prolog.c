@@ -99,11 +99,15 @@
 #include "mom_func.h"
 #include "resource.h"
 #include "pbs_proto.h"
+#include "net_connect.h"
 
 
 #define PBS_PROLOG_TIME 300
 
 extern char PBSNodeMsgBuf[];
+extern int  MOMPrologTimeoutCount;
+extern int  MOMPrologFailureCount;
+
 extern int  LOGLEVEL;
 extern int  lockfds;
 
@@ -114,6 +118,8 @@ static int run_exit;
 /* external prototypes */
 
 extern int pe_input A_((char *));
+extern int TTmpDirName A_((job *,char *tmpdir));
+extern void encode_used A_((job *,list_head *));
 
 /* END extern prototypes */
 
@@ -133,44 +139,85 @@ const char *PPEType[] = {
 
 static char *resc_to_string(
 
-  attribute *pattr,	/* the attribute to convert */
-  char      *buf,	/* the buffer into which to convert */
-  int	     buflen)	/* the length of the above buffer */
+  job       *pjob,      /* I (optional - if specified, report total job resources) */
+  int        aindex,    /* I which attribute to convert */
+  char      *buf,	/* O the buffer into which to convert */
+  int	     buflen)	/* I the length of the above buffer */
 
   {
-  int       need;
-  svrattrl *patlist;
-  list_head svlist;
+  int        need;
+  svrattrl  *patlist;
+  list_head  svlist;
+  attribute *pattr;
+
+  int       isfirst = 1;
 
   CLEAR_HEAD(svlist);
 
   *buf = '\0';
 
-  if (encode_resc(pattr,&svlist,"x",(char *)0,ATR_ENCODE_CLIENT) <= 0)
+  pattr=&pjob->ji_wattr[aindex];
+
+  /* pack the list of resources into svlist */
+
+  if (aindex == JOB_ATR_resource)
+    {
+    if (encode_resc(pattr,&svlist,"x",NULL,ATR_ENCODE_CLIENT) <= 0)
+      {
+      return(buf);
+      }
+    }
+  else if (aindex == JOB_ATR_resc_used)
+    {
+    encode_used(pjob,&svlist);
+    }
+  else
     {
     return(buf);
     }
 
+  /* unpack svlist into a comma-delimited string */
+
   patlist = (svrattrl *)GET_NEXT(svlist);
 
-  while (patlist) 
+  while (patlist != NULL) 
     {
     need = strlen(patlist->al_resc) + strlen(patlist->al_value) + 3;
 
-    if (need < buflen) 
+    if (need >= buflen) 
       {
-      strcat(buf, patlist->al_resc);
-      strcat(buf,"=");
-      strcat(buf, patlist->al_value);
+      patlist = (svrattrl *)GET_NEXT(patlist->al_link);
 
-      buflen -= need;
+      continue;
       }
 
-    patlist = (svrattrl *)GET_NEXT(patlist->al_link);
+    if (LOGLEVEL >= 7)
+      {
+      fprintf(stderr,"Epilog:  %s=%s\n",
+        patlist->al_resc,
+        patlist->al_value);
+      }
 
-    if (patlist)
-      strcat(buf, ",");
-    }
+    if (isfirst == 1)
+      {
+      isfirst = 0;
+      }
+    else
+      {
+      strcat(buf,",");
+      buflen--; 
+      }
+
+    strcat(buf,patlist->al_resc);
+    strcat(buf,"=");
+    strcat(buf,patlist->al_value);
+
+    buflen -= need;
+
+    patlist = (svrattrl *)GET_NEXT(patlist->al_link);
+    }  /* END while (patlist != NULL) */
+
+  free_attrlist(&svlist);
 
   return(buf);
   }  /* END resc_to_string() */
@@ -191,21 +238,15 @@ static int pelog_err(
   char *text)  /* I */
 
   {
-  sprintf(log_buffer,"prolog/epilog failed, file: %s, exit: %d, %s\n", 
+  sprintf(log_buffer,"prolog/epilog failed, file: %s, exit: %d, %s", 
     file, 
     n, 
     text);
 
-  sprintf(PBSNodeMsgBuf,"ERROR: prolog/epilog failed, file: %s, exit: %d, %s\n",
-    file,
-    n,
-    text);
-
-  LOG_EVENT(
-    PBSEVENT_ERROR, 
-    PBS_EVENTCLASS_JOB,
-    pjob->ji_qs.ji_jobid, 
+  sprintf(PBSNodeMsgBuf,"ERROR: %s",
     log_buffer);
+
+  log_err(-1,"run_pelog",log_buffer);
 
   return(n);
   }  /* END pelog_err() */
@@ -244,7 +285,7 @@ static void pelogalm(
  *		- argv[1] is the jobid
  *		- argv[2] is the user's name
  *		- argv[3] is the user's group name
- *		- the input file is a architecture dependent file
+ *		- the input file is an architecture-dependent file
  *		- the output and error are the job's output and error
  *	The epilogue also has:
  *		- argv[4] is the job name
@@ -265,7 +306,7 @@ int run_pelog(
   {
   char *id = "run_pelog";
 
-  struct sigaction act;
+  struct sigaction act, oldact;
   char	        *arg[11];
   int		 fds1 = 0;
   int		 fds2 = 0;
@@ -275,6 +316,7 @@ int run_pelog(
   struct stat	 sbuf;
   char		 sid[20];
   int		 waitst;
+  char		 buf[MAXPATHLEN + 2];
 
   if (stat(pelog,&sbuf) == -1) 
     {
@@ -346,11 +388,18 @@ int run_pelog(
 
     act.sa_flags = 0;
 
-    sigaction(SIGALRM,&act,0);
+    sigaction(SIGALRM,&act,&oldact);
 
-    /* it would be nice if the harvest routine could block for 5 seconds, and if the prolog is not complete in that time, mark job as prolog pending, append prolog child, and continue */
+    /* it would be nice if the harvest routine could block for 5 seconds, 
+       and if the prolog is not complete in that time, mark job as prolog 
+       pending, append prolog child, and continue */
   
-    /* main loop should attempt to harvest prolog in non-blocking mode.  If unsuccessful after timeout, job should be terminated, and failure reported.  If successful, mom should unset prolog pending, and continue with job start sequence.  Mom should report job as running while prologpending flag is set.  (NOTE:  must track per job prolog start time)
+    /* main loop should attempt to harvest prolog in non-blocking mode.  
+       If unsuccessful after timeout, job should be terminated, and failure 
+       reported.  If successful, mom should unset prolog pending, and 
+       continue with job start sequence.  Mom should report job as running 
+       while prologpending flag is set.  (NOTE:  must track per job prolog 
+       start time)
     */
 
     alarm(pe_alarm_time);
@@ -363,6 +412,8 @@ int run_pelog(
 
         run_exit = -3;
 
+        MOMPrologFailureCount++;
+
         break;
         }
 
@@ -370,6 +421,8 @@ int run_pelog(
         {
         if (KillSent == FALSE)
           {
+          MOMPrologTimeoutCount++;
+
           /* timeout occurred */
 
           KillSent = TRUE;
@@ -393,9 +446,8 @@ int run_pelog(
 
     alarm(0);
 
-    act.sa_handler = SIG_DFL;
-
-    sigaction(SIGALRM,&act,0);
+    /* restore the previous handler */
+    sigaction(SIGALRM,&oldact,0);
 
     if (run_exit == 0) 
       {
@@ -430,19 +482,6 @@ int run_pelog(
 
       setuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid);
 
-      if (chdir(pjob->ji_grpcache->gc_homedir) != 0)
-        {
-        /* warn only, no failure */
-
-        if (LOGLEVEL >= 2)
-          {
-          log_record(
-            PBSEVENT_DEBUG,
-            PBS_EVENTCLASS_JOB,
-            pjob->ji_qs.ji_jobid,
-            "cannot chdir to user home as root - running pro/epi script in current directory");
-          }
-        }
       }
 
     if (fd_input != 0) 
@@ -495,32 +534,56 @@ int run_pelog(
         }
       }
 
+    if ((which == PE_PROLOGUSER) || (which == PE_EPILOGUSER))
+      {
+      if (chdir(pjob->ji_grpcache->gc_homedir) != 0)
+        {
+        /* warn only, no failure */
+
+        sprintf(log_buffer,
+          "PBS: chdir to %s failed: %s (running user %s in current directory)",
+          pjob->ji_grpcache->gc_homedir,
+          strerror(errno),
+          which == PE_PROLOGUSER ? "prologue" : "epilogue");
+
+        write(2,log_buffer,strlen(log_buffer));
+
+        fsync(2);
+        }
+      }
+
     /* for both prolog and epilog */
 
     arg[0] = pelog;
     arg[1] = pjob->ji_qs.ji_jobid;
     arg[2] = pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str;
     arg[3] = pjob->ji_wattr[(int)JOB_ATR_egroup].at_val.at_str;
+    arg[4] = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
 
-    /* for epilog only */
+    /* NOTE:  inside child */
 
     if (which == PE_EPILOG) 
       {
-      arg[4] = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
+      /* for epilog only */
 
       sprintf(sid,"%ld",
         pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long);
 
       arg[5] = sid;
-      arg[6] = resc_to_string(&pjob->ji_wattr[(int)JOB_ATR_resource],resc_list,2048);
-      arg[7] = resc_to_string(&pjob->ji_wattr[(int)JOB_ATR_resc_used],resc_used,2048);
+      arg[6] = resc_to_string(pjob,(int)JOB_ATR_resource,resc_list,sizeof(resc_list));
+      arg[7] = resc_to_string(pjob,(int)JOB_ATR_resc_used,resc_used,sizeof(resc_used)); 
       arg[8] = pjob->ji_wattr[(int)JOB_ATR_in_queue].at_val.at_str;
       arg[9] = pjob->ji_wattr[(int)JOB_ATR_account].at_val.at_str;
       arg[10] = NULL;
       } 
     else 
       {
-      arg[4] = NULL;
+      /* prolog */
+
+      arg[5] = resc_to_string(pjob,(int)JOB_ATR_resource,resc_list,sizeof(resc_list));
+      arg[6] = pjob->ji_wattr[(int)JOB_ATR_in_queue].at_val.at_str;
+      arg[7] = pjob->ji_wattr[(int)JOB_ATR_account].at_val.at_str;
+      arg[8] = NULL;		
       }
 
     {
@@ -557,11 +620,50 @@ int run_pelog(
 
       putenv(envstr);
       }  /* END if (r != NULL) */
+
+    if (TTmpDirName(pjob,buf))
+      {
+      const char *envname = "TMPDIR=";
+      char *envstr;
+
+      envstr = malloc(
+        (strlen(envname) + strlen(buf) + 1) * sizeof(char)); 
+
+      strcpy(envstr,envname);
+
+      strcat(envstr,buf);
+
+      /* do _not_ free the string when using putenv */
+
+      putenv(envstr);
+      }  /* END if (TTmpDirName(pjob,&buf)) */
     }    /* END BLOCK */
+
+    /* Set PBS_SCHED_HINT */
+    {
+    char *envname = "PBS_SCHED_HINT";
+    char *envval;
+    char *envstr;
+    extern char *__get_variable(job *,char *);
+  
+    if ((envval = __get_variable(pjob,envname)) != NULL)
+      {
+      envstr = malloc((strlen(envname) + strlen(envval) + 2) * sizeof(char));
+
+      sprintf(envstr,"%s=%s",envname,envval);
+      putenv(envstr);
+      }
+    }
 
     execv(pelog,arg);
 
-    log_err(errno,"run_pelog","execv of prologue failed");
+    sprintf(log_buffer,"execv of %s failed: %s\n",
+      pelog,
+      strerror(errno));
+
+    write(2,log_buffer,strlen(log_buffer));
+
+    fsync(2);
 
     exit(255);
     }  /* END else () */

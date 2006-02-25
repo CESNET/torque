@@ -117,6 +117,7 @@
 #include "rpp.h"
 #include "net_connect.h"
 #include "pbs_proto.h"
+#include "batch_request.h"
 
 
 #ifndef SIGKILL
@@ -131,6 +132,14 @@
 #ifndef FAILURE
 #define FAILURE 0
 #endif /* FAILURE */
+
+#ifndef TRUE
+#define TRUE 1
+#endif /* TRUE */
+
+#ifndef FALSE
+#define FALSE 0
+#endif /* FALSE */
 
 /* global Data Items */
 
@@ -187,24 +196,26 @@ extern struct server server;
 
 extern void   on_job_exit A_((struct work_task *));
 extern void   on_job_rerun A_((struct work_task *));
-extern void   set_resc_assigned A_((job *, enum batch_op));
+extern void   set_resc_assigned A_((job *,enum batch_op));
 extern void   set_old_nodes A_((job *));
 extern void   acct_close A_((void));
+extern struct work_task *apply_job_delete_nanny A_((struct job *,int));
+extern int     net_move A_((job *,struct batch_request *));
 
 
 /* Private functions in this file */
 
 static void  init_abt_job A_((job *));
-static char *build_path A_((char *parent, char *name, char *subdir));
+static char *build_path A_((char *,char *,char *));
 static void  catch_child A_((int));
 static void  catch_abort A_((int));
 static void  change_logs A_((int));
-static int   chk_save_file A_((char *filename));
+static int   chk_save_file A_((char *));
 static void  need_y_response A_((int));
-static int   pbsd_init_job A_((job *pjob, int type));
-static void  pbsd_init_reque A_((job *job, int change_state));
+static int   pbsd_init_job A_((job *,int));
+static void  pbsd_init_reque A_((job *,int));
 static void  resume_net_move A_((struct work_task *));
-static void  rm_files A_((char *dirname));
+static void  rm_files A_((char *));
 static void  stop_me A_((int));
 
 /* private data */
@@ -246,7 +257,7 @@ int pbsd_init(
   struct sigaction act;
   struct sigaction oact;
 
-  /* The following is code to reduce security risks                */
+  /* The following is code to reduce security risks */
 
   if (setup_env(PBS_ENVIRON) == -1) 
     {
@@ -350,11 +361,11 @@ int pbsd_init(
    * Chris Samuel - VPAC
    * csamuel@vpac.org - 29th July 2003
    *
-   * Now conditional on PSBCOREDUMP environment variable.
+   * Now conditional on PBSCOREDUMP environment variable.
    * 13th August 2003.
    */
 
-  if (getenv("PSBCOREDUMP"))
+  if (getenv("PBSCOREDUMP"))
     {
     act.sa_handler = catch_abort;   /* make sure we core dump */
 
@@ -462,17 +473,26 @@ int pbsd_init(
     0,
     PBS_DEFAULT_MAIL);
 
+  /* disable ping_rate.  no longer used */
+
+/*
   server.sv_attr[(int)SRV_ATR_ping_rate].at_val.at_long =
     PBS_NORMAL_PING_RATE;
   server.sv_attr[(int)SRV_ATR_ping_rate].at_flags = ATR_VFLAG_SET;
+*/
 
   server.sv_attr[(int)SRV_ATR_tcp_timeout].at_val.at_long =
     PBS_TCPTIMEOUT;
   server.sv_attr[(int)SRV_ATR_tcp_timeout].at_flags = ATR_VFLAG_SET;
 
   server.sv_attr[(int)SRV_ATR_check_rate].at_val.at_long =
-    2 * PBS_NORMAL_PING_RATE;
+    PBS_NORMAL_PING_RATE / 2;
   server.sv_attr[(int)SRV_ATR_check_rate].at_flags = ATR_VFLAG_SET;
+
+  server.sv_attr[(int)SRV_ATR_JobStatRate].at_val.at_long =
+    PBS_RESTAT_JOB;
+
+  server.sv_attr[(int)SRV_ATR_PollJobs].at_val.at_long = PBS_POLLJOBS;
 
   /* 4. force logging of all types */
 
@@ -486,7 +506,7 @@ int pbsd_init(
   if (type != RECOV_CREATE) 
     {
     /* Open the server database (save file) and read it in */
-	
+
     if ((rc != 0) || ((rc = svr_recov(path_svrdb)) == -1)) 
       {
       log_err(rc,"pbsd_init",msg_init_baddb);
@@ -687,17 +707,11 @@ int pbsd_init(
             {
             /* ignore/remove completed job */
 
+	    /* for some reason, if a completed job is recovered, and it is
+             * forcibly purged with 'qdel -p', it will get deleted a second
+             * time resulting in a segfault */
+
             job_purge(pjob);
-
-            strcpy(basen,pdirent->d_name);
- 
-            psuffix = basen + baselen;
-
-            strcpy(psuffix,JOB_BAD_SUFFIX);
-
-            link(pdirent->d_name,basen);
-
-            unlink(pdirent->d_name);
 
             continue;
             }
@@ -750,9 +764,14 @@ int pbsd_init(
 
           strcpy(psuffix,JOB_BAD_SUFFIX);
       
-          link(pdirent->d_name,basen);
-
-          unlink(pdirent->d_name);
+          if (link(pdirent->d_name,basen) < 0)
+            {
+            log_err(errno,"pbsd_init","failed to link corrupt .JB file to .BD");
+            }
+          else
+            {
+            unlink(pdirent->d_name);
+            }
           }
         }
       }
@@ -815,7 +834,7 @@ int pbsd_init(
 
   if (fd < 0) 
     {
-    log_err(errno,"pbsd_init", "unable to open tracking file");
+    log_err(errno,"pbsd_init","unable to open tracking file");
 
     return(-1);
     }
@@ -831,7 +850,7 @@ int pbsd_init(
 
   if (fstat(fd,&statbuf) < 0) 
     {
-    log_err(errno, "pbs_init", "unable to stat tracking file");
+    log_err(errno,"pbs_init","unable to stat tracking file");
 
     return(-1);
     } 
@@ -848,7 +867,14 @@ int pbsd_init(
   for (i = 0;i < server.sv_tracksize;i++)
     (server.sv_track + i)->tk_mtime = 0;
 
-  read(fd,(char *)server.sv_track,server.sv_tracksize * sizeof(struct tracking));
+  /* NOTE:  tracking file records are optional */
+
+  i = read(fd,(char *)server.sv_track,server.sv_tracksize * sizeof(struct tracking));
+
+  if (i < 0)
+    {
+    log_err(errno,"pbs_init","unable to read tracksize from tracking file");
+    }
 
   close(fd);
 
@@ -859,7 +885,7 @@ int pbsd_init(
   set_task(WORK_Timed,(long)(time_now + PBS_SAVE_TRACK_TM),track_save,0);
 
   return(0);
-  }
+  }  /* END pbsd_init() */
 
 
 
@@ -1069,6 +1095,11 @@ static int pbsd_init_job(
     case JOB_SUBSTATE_EXITED:
     case JOB_SUBSTATE_ABORT:
 
+      /* This is delayed because it is highly likely MS is "state-unknown"
+       * at this time, and there's no real hurry anyways. */
+
+      apply_job_delete_nanny(pjob,time_now + 60);
+
       set_task(WORK_Immed,0,on_job_exit,(void *)pjob);
 
       pbsd_init_reque(pjob,KEEP_STATE);
@@ -1077,9 +1108,12 @@ static int pbsd_init_job(
 
     case JOB_SUBSTATE_COMPLETE:
 
-      /* should completed jobs clean up at this point or is this already handled earlier? */
+      /* NOOP - completed jobs are already purged above */
+      /* for some reason, this doesn't actually work */
 
-      /* NO-OP */
+      set_task(WORK_Immed,0,on_job_exit,(void *)pjob);
+
+      pbsd_init_reque(pjob,KEEP_STATE);
 
       break;
 
@@ -1386,51 +1420,81 @@ static int chk_save_file(
  *	in JOB_SUBSTATE_TRNOUTCM state.
  */
 
-static void resume_net_move(ptask)
-	struct work_task *ptask;
-{
-	net_move((job *)ptask->wt_parm1, 0);
-}
+static void resume_net_move(
+
+  struct work_task *ptask)
+
+  {
+  net_move((job *)ptask->wt_parm1,0);
+
+  return;
+  }
 
 /*
  * need_y_response - on create/clean initialization that would delete
  *	information, obtain the operator approval first.
  */
 
-static void need_y_response(type)
-	int type;
-{
-	static int answ = -2;
-	int c;
+static void need_y_response(
 
-	if (answ > 0)
-		return;		/* already gotten a response */
+  int type)  /* I */
 
-	fflush(stdin);
-	if (type == RECOV_CREATE)
-		printf(msg_startup3, msg_daemonname, server_name, "Create","server database");
-	else
-		printf(msg_startup3, msg_daemonname, server_name, "Cold", "jobs");
-	while (1) {
-		answ = getchar();
-		c    = answ;
-		while ((c != '\n') && (c != EOF))
-			c = getchar();
-		switch (answ) {
-		    case 'y':
-		    case 'Y':
-			return;
+  {
+  static int answ = -2;
+  int c;
+
+  if (answ > 0)
+    {
+    return;		/* already received a response */
+    }
+
+  fflush(stdin);
+
+  if (type == RECOV_CREATE)
+    printf(msg_startup3, msg_daemonname, server_name, "Create","server database");
+  else
+    printf(msg_startup3, msg_daemonname, server_name, "Cold", "jobs");
+  
+  while (1) 
+    {
+    answ = getchar();
+
+    c = answ;
+
+    while ((c != '\n') && (c != EOF))
+      c = getchar();
+
+    switch (answ) 
+      {
+      case 'y':
+      case 'Y':
+
+        return;
 	
-		    case  EOF:
-		    case '\n':
-		    case 'n':
-		    case 'N':
-			printf("PBS server %s initialization aborted\n", server_name);
-			exit(0);
-		}
-		printf("y(es) or n(o) please:\n");
-	}
-}
+        /*NOTREACHED*/
+
+        break;
+
+      case  EOF:
+      case '\n':
+      case 'n':
+      case 'N':
+
+        printf("PBS server %s initialization aborted\n", 
+          server_name);
+
+        exit(0);
+
+        /*NOTREACHED*/
+
+        break;
+      }
+
+    printf("y(es) or n(o) please:\n");
+    }
+
+  return;
+  }
 
 
 
@@ -1441,45 +1505,58 @@ static void need_y_response(type)
  *	directory (path_priv) and any subdirectory except under "jobs".
  */
 
-static void rm_files(dirname)
-	char *dirname;
-{
-	DIR *dir;
-	int  i;
-	struct stat    stb;
-	struct dirent *pdirt;
-	char path[1024];
+static void rm_files(
 
-	/* list of directories in which files are removed */
-	static char *byebye[] = {
-		"acl_groups",
-		"acl_hosts",
-		"acl_svr",
-		"acl_users",
-		"queues",
-		(char *)0		/* keep as last entry */
-	};
+  char *dirname)
 
-	dir = opendir(dirname);
-	if (dir) {
-		while ((pdirt = readdir(dir)) != NULL) {
-			(void)strcpy(path, dirname);
-			(void)strcat(path, "/");
-			(void)strcat(path, pdirt->d_name);
-			if (stat(path, &stb) == 0) {
-				if (S_ISDIR(stb.st_mode)) {
-					for (i=0; byebye[i]; ++i) {
-						if (strcmp(pdirt->d_name, byebye[i]) == 0) {
-							rm_files(path);
-				    		}
-					}
-				} else if (unlink(path) == -1) {
-					(void)strcpy(log_buffer,"cant unlink");
-					(void)strcat(log_buffer, path);
-					log_err(errno, "pbsd_init", log_buffer);
-				}
-			}
-		}
+  {
+  DIR *dir;
+  int  i;
+  struct stat    stb;
+  struct dirent *pdirt;
+  char path[1024];
+
+  /* list of directories in which files are removed */
+
+  static char *byebye[] = {
+    "acl_groups",
+    "acl_hosts",
+    "acl_svr",
+    "acl_users",
+    "queues",
+    NULL };      /* keep as last entry */
+
+  dir = opendir(dirname);
+
+  if (dir != NULL) 
+    {
+    while ((pdirt = readdir(dir)) != NULL) 
+      {
+      strcpy(path,dirname);
+      strcat(path,"/");
+      strcat(path,pdirt->d_name);
+
+      if (stat(path,&stb) == 0) 
+        {
+        if (S_ISDIR(stb.st_mode)) 
+          {
+          for (i = 0;byebye[i];++i) 
+            {
+            if (strcmp(pdirt->d_name,byebye[i]) == 0) 
+              {
+              rm_files(path);
+              }
+            }
+          } 
+        else if (unlink(path) == -1) 
+          {
+          strcpy(log_buffer,"cannot unlink");
+          strcat(log_buffer,path);
+
+          log_err(errno,"pbsd_init",log_buffer);
+          }
+        }
+      }
     }
 
   return;

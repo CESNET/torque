@@ -129,7 +129,7 @@ Format: boolean (see acl_group_enable); default value: disabled.
 .Al acl_users
 List of users allowed or denied the ability to make any requests of this 
 server.
-See section 10.1, Authorization, in the PBS External Reference Specification.
+See section 10.1, Authorization, in the PBS External Reference Specification.  If acl_user_enable is set to true, only users listed in acl_users may submit to or execute jobs in the queue.
 Requires full manager privilege to set or alter.
 Format: "[+|-]user[@host][,...]";
 default value: all users allowed.
@@ -172,12 +172,56 @@ default value: none, must be set to an existing queue.
 .if !\n(Pb .ig Ig
 [internal type: string]
 .Ig
+.Al down_on_error
+Set a node's state to "down" if MOM reports a message beginning with the string
+"ERROR".  This might interfere with moab's node error handling.  See the HEALTH
+CHECK section in pbs_mom(8B).  This is an EXPERIMENTAL feature and may be
+removed in the future.  Format: boolean; default value: false.
+.if !\n(Pb .ig Ig
+[internal type: boolean]
+.Ig
+.Al job_nanny
+Enables the experimental "job deletion nanny" feature.  All job cancels will
+create a repeating task that will resend KILL signals if the initial job cancel
+failed.  Further job cancels will be rejected with the message "job cancel in
+progress." This is useful for temporary failures with a job's execution node
+during a job delete request.  It is possible that the job nanny might interfere
+with job restarts, migrations, and checkpointing.  This is an EXPERIMENTAL
+feature and may be removed in the future.  Format: boolean; default value: false.
+.if !\n(Pb .ig Ig
+[internal type: boolean]
+.Ig
+.Al job_stat_rate
+Moderates how often job stat requests will be issued from pbs_server
+to the MOM daemons.  If poll_jobs is unset or false, then all jobs that
+haven't been updated in job_stat_rate seconds will trigger a stat request.  
+If poll_jobs is true, then all jobs will be updated every job_stat_rate.
+ (see poll_jobs)  On active clusters, 60 or 120 might be reasonable.
+Default value: 45 seconds  (PBS_RESTAT_JOB in server_limits.h)
+Minimum value: 4 seconds  (PBS_JOBSTAT_MIN in server_limits.h)
+.if !\n(Pb .ig Ig
+[internal type: integer]
+.Ig
 .Al log_events
 A bit string which specifies the type of events which are logged, see
 the section on Event Logging in chapter 3 of the ERS.  Format: integer;
 default value: 511, all events.
 .if !\n(Pb .ig Ig
 [internal type: integer]
+.Ig
+.Al log_level
+Controls the verbosity of server logs.  This value ranges from 0 to 7 with
+7 representing maximum verbosity.  Format: integer; default value: 0, 
+minimum verbosity.
+.if !\n(Pb .ig Ig
+[internal type: integer]
+.Ig
+.Al mail_domain
+Override the default domain for outgoing mail messages.  If set, emails will be
+addressed to "euser@mail_domain".  If unset, the job's Job_Owner attribute will
+be used.  Format: a domain name; Default value: none.
+.if !\n(Pb .ig Ig
+[internal type: string]
 .Ig
 .Al mail_uid
 The uid from which server generated mail is sent to users.
@@ -222,6 +266,23 @@ Format: integer; default value: none.
 .if !\n(Pb .ig Ig
 [internal type: integer]
 .Ig
+.Al mom_job_sync
+Enables the experimental "job sync on MOM" feature.   When MOMs send a status
+update, and it includes a list of jobs, server will issue job deletes for any
+jobs that don't actually exist.  This is an EXPERIMENTAL feature and may be
+removed in the future.  Format: boolean; default value: false.
+.if !\n(Pb .ig Ig
+[internal type: boolean]
+.Ig
+.Al node_check_rate
+In OpenPBS, this was the rate at which pbs_server would poll each node.  In
+TORQUE, nodes periodically send updates without solicitation from pbs_server;
+this attribute is now used as the maximum number of seconds allowed without
+an update before pbs_server will consider the node down.
+Format: integer; default value: 150
+.if !\n(Pb .ig Ig
+[internal type: integer]
+.Ig
 .Al node_pack
 Controls how multiple processor nodes are allocated to jobs.
 If this attribute is set to true, jobs will be assigned to the multiple
@@ -245,6 +306,18 @@ Requires full manager privilege to set or alter.
 Default value: root on the local host.
 .if !\n(Pb .ig Ig
 [internal type: access control list]
+.Ig
+.Al poll_jobs
+Controls how pbs_server will send job status requests to MOMs.  When unset or
+false, statjob requests from clients (ie: qstat(1B) or the scheduler) may
+trigger job status requests to MOMs and and must wait until the MOMs have
+replied; this is suitable for small to medium sized clusters.  When set to
+true, pbs_server will send periodic job status requests; this is suitable for
+busy clusters with lots of jobs, lots of clients, qstat(1B) is too slow, or
+your scheduler times out.  (see job_stat_rate) 
+Default value: TRUE
+.if !\n(Pb .ig Ig
+[internal type: boolean]
 .Ig
 .Al query_other_jobs
 The setting of this attribute controls if general users, other than the

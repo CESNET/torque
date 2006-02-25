@@ -120,6 +120,7 @@
 #include "rpp.h"
 #include "dis.h"
 #include "dis_init.h"
+#include "batch_request.h"
 #include "pbs_version.h"
 #include "pbs_proto.h"
 
@@ -129,9 +130,17 @@ extern int  pbsd_init A_((int));
 extern void shutdown_ack ();
 extern void update_nodes_file A_((void));
 extern void tcp_settimeout(long);
+extern void poll_job_task(struct work_task *);
+extern int  schedule_jobs(void);
+extern void queue_route A_((pbs_queue *));
+extern void svr_shutdown(int);
+extern void acct_close(void);
+extern int  svr_startjob A_((job *,struct batch_request *,char *,char *)); 
+
 
 /* external data items */
-extern	int	svr_chngNodesfile;
+
+extern int    svr_chngNodesfile;
 
 
 /* Local Private Functions */
@@ -147,7 +156,7 @@ char	       *acct_file = NULL;
 char	       *log_file  = NULL;
 char	       *path_home = PBS_SERVER_HOME;
 char	       *path_acct;
-char	        path_log[MAXPATHLEN+1];
+char	        path_log[MAXPATHLEN + 1];
 char	       *path_priv;
 char	       *path_jobs;
 char	       *path_queues;
@@ -188,6 +197,8 @@ time_t		time_now = 0;
 
 int             LOGLEVEL = 0;
 int             DEBUGMODE = 0;
+int             TAllowComputeHostSubmit = FALSE;
+char          **TAllowSubmitHostList = NULL;
 
 char           *ProgName;
 
@@ -247,14 +258,6 @@ void do_rpp(
 
   if (ret != DIS_SUCCESS) 
     {
-    if (LOGLEVEL >= 3)
-      {
-      sprintf(log_buffer,"cannot get rpp protocol, %s\n",
-        dis_emsg[ret]);
-
-      log_err(errno,id,log_buffer);
-      }
-
     stream_eof(stream,0,ret);
 
     return;
@@ -264,14 +267,6 @@ void do_rpp(
 
   if (ret != DIS_SUCCESS) 
     {
-    if (LOGLEVEL >= 3)
-      {
-      sprintf(log_buffer,"cannot get rpp protocol version, %s\n",
-        dis_emsg[ret]);
-
-      log_err(errno,id,log_buffer);
-      }
-
     stream_eof(stream,0,ret);
 
     return;
@@ -283,7 +278,7 @@ void do_rpp(
 
       if (LOGLEVEL >= 6)
         {
-        sprintf(log_buffer,"inter-server request received\n");
+        sprintf(log_buffer,"inter-server request received");
 
         log_record(
           PBSEVENT_SCHED,
@@ -370,14 +365,74 @@ int PBSShowUsage(
 
 
 
+#define TCONST_CFGFILE "torque.cfg"
+
+int TLoadConfig(
+
+  char *Buffer,    /* O */
+  int   BufSize)   /* I */
+
+  {
+  FILE *config_stream;
+
+  char home_dir[MAXPATHLEN];
+
+  int  length = strlen(PBS_SERVER_HOME) + strlen(TCONST_CFGFILE) + 2;
+
+  if (Buffer == NULL)
+    {
+    /* FAILURE */
+
+    return(1);
+    }
+
+  if (length >= MAXPATHLEN)
+    {
+    /* FAILURE */
+
+    return(1);
+    }
+
+  home_dir[0] = '\0';
+
+  strcat(home_dir,PBS_SERVER_HOME);
+
+  strcat(home_dir,"/");
+
+  strcat(home_dir,TCONST_CFGFILE);
+
+  if ((config_stream = fopen(home_dir,"r")) == NULL)
+    {
+    /* FAILURE */
+
+    return(1);
+    }
+
+  if ((fread(Buffer,BufSize,1,config_stream) <= 0) && 
+      (ferror(config_stream) != 0))
+    {
+    /* FAILURE */
+
+    return(1);
+    }
+
+  fclose(config_stream);
+
+  /* SUCCESS */
+
+  return(0);
+  }  /* END TLoadConfig() */
+
+
+
 /*
  * main - the initialization and main loop of pbs_daemon
  */
 
 int main(
 
-  int   argc,
-  char *argv[])
+  int   argc,    /* I */
+  char *argv[])  /* I */
 
   {
   int	 c;
@@ -391,10 +446,18 @@ int main(
   char	*pc;
   job	*pjob;
   pbs_queue *pque;
-  char	*servicename;
+  char	*servicename = NULL;
+  pbs_net_t def_pbs_server_addr;
   pid_t	 sid;
   long  *state;
   time_t waittime;
+  time_t last_jobstat_time;
+  int    when;
+
+  int    BufSize;
+
+  char   *Buffer;
+
   void	 ping_nodes A_((struct work_task *ptask));
   void   check_nodes A_((struct work_task *ptask));
 
@@ -408,16 +471,20 @@ int main(
    { "create",	RECOV_CREATE },
    { "",	RECOV_Invalid } };
 
-  extern  int   optind;
-  extern	char *optarg;
-  extern  char *msg_daemonname;
-  extern  char *msg_svrdown;	/* log message   */
-  extern  char *msg_startup1;	/* log message   */
-  extern  char *msg_startup2;	/* log message   */
+  extern int   optind;
+  extern char *optarg;
+  extern char *msg_daemonname;
+  extern char *msg_svrdown;	/* log message   */
+  extern char *msg_startup1;	/* log message   */
+  extern char *msg_startup2;	/* log message   */
 
   ProgName = argv[0];
 
-  /* if we are not run with real and effective uid of 0, forget it */
+  BufSize = 65536;
+
+  Buffer = calloc(1,BufSize);
+
+  /* if we are not running with real and effective uid of 0, forget it */
 
   if ((getuid() != 0) || (geteuid() != 0)) 
     {
@@ -433,10 +500,105 @@ int main(
 
   time_now = time((time_t *)0);
 
+  last_jobstat_time = time_now;
+
   /* find out who we are (hostname) */
 
-  if ((gethostname(server_host, PBS_MAXHOSTNAME) == -1) ||
-      (get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME) == -1)) 
+  server_host[0] = '\0';
+
+  /* load/process config file first then override values with command line parameters */
+
+  if (TLoadConfig(Buffer,BufSize) == 0)
+    {
+    char *ptr;
+    char *tptr;
+
+    char *ltokptr;  /* line token pointer */
+    char *vtokptr;  /* value token pointer */
+
+    /* success - process config file */
+
+    ptr = strtok_r(Buffer,"\n",&ltokptr);
+
+    while (ptr != NULL)
+      {
+      if (ptr[0] == '#')
+        {
+        /* ignore comments */
+
+        ptr = strtok_r(NULL,"\n",&ltokptr);
+
+        continue;
+        }
+
+      if (!strncmp(ptr,"SERVERHOST",strlen("SERVERHOST")))
+        {
+        tptr = ptr + strlen("SERVERHOST");
+
+        while (isspace(*tptr) && (*tptr != '\0'))
+          tptr++;
+
+        if (sscanf(tptr,"%64s",server_host) != 1)
+          {
+          log_err(-1,"pbsd_main","parse error in config at SERVERHOST");
+
+          return(-1);
+          }
+        }
+      else if (!strncmp(ptr,"ALLOWCOMPUTEHOSTSUBMIT",strlen("ALLOWCOMPUTEHOSTSUBMIT")))
+        {
+        /* FORMAT:  ALLOWCOMPUTEHOSTSUBMIT  true */
+
+        tptr = ptr + strlen("ALLOWCOMPUTEHOSTSUBMIT");
+
+        while (isspace(*tptr) && (*tptr != '\0'))
+          tptr++;
+
+        if (!strncasecmp(tptr,"true",strlen("true")) ||
+            !strncasecmp(tptr,"on",strlen("on")) ||
+            !strncasecmp(tptr,"yes",strlen("yes")) ||
+            (*tptr == '1'))
+          {
+          TAllowComputeHostSubmit = TRUE;
+          }
+        }
+      else if (!strncmp(ptr,"SUBMITHOSTS",strlen("SUBMITHOSTS")))
+        {
+        int hcount;
+
+        /* FORMAT:  SUBMITHOSTS  <HOST>[,<HOST>]... */
+
+        tptr = ptr + strlen("SUBMITHOSTS");
+
+        TAllowSubmitHostList = (char **)calloc(1,sizeof(char *) * (2048 + 1));
+
+        hcount = 0;
+
+        tptr = strtok_r(tptr,"+,: \t\n",&vtokptr);
+
+        while (tptr != NULL)
+          {
+          TAllowSubmitHostList[hcount] = strdup(tptr);
+
+          hcount++;
+
+          if (hcount >= 2048)
+            break;
+
+          tptr = strtok_r(NULL,"+,: \t\n",&vtokptr);
+          }  /* END while (tptr != NULL) */
+
+        TAllowSubmitHostList[hcount] = NULL;
+        }  /* END else if (!strncmp(ptr,"SUBMITHOSTS",strlen("SUBMITHOSTS"))) */
+
+      ptr = strtok_r(NULL,"\n",&ltokptr);
+      }  /* END while (ptr != NULL) */
+    }    /* END if (TLoadConfig(Buffer,sizeof(Buffer)) == 0) */
+
+  free(Buffer);
+
+  if (((server_host[0] == '\0') && (gethostname(server_host,PBS_MAXHOSTNAME) == -1)) ||
+       (get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME) == -1)) 
     {
     log_err(-1,"pbsd_main","Unable to get my host name");
 
@@ -445,16 +607,16 @@ int main(
 
   /* initialize service port numbers for self, Scheduler, and MOM */
 
-  pbs_server_port_dis = get_svrport(PBS_BATCH_SERVICE_NAME, "tcp", 
+  pbs_server_port_dis = get_svrport(PBS_BATCH_SERVICE_NAME,"tcp", 
     PBS_BATCH_SERVICE_PORT_DIS);
 
-  pbs_scheduler_port = get_svrport(PBS_SCHEDULER_SERVICE_NAME, "tcp",
+  pbs_scheduler_port = get_svrport(PBS_SCHEDULER_SERVICE_NAME,"tcp",
     PBS_SCHEDULER_SERVICE_PORT);
 
-  pbs_mom_port = get_svrport(PBS_MOM_SERVICE_NAME, "tcp",
+  pbs_mom_port = get_svrport(PBS_MOM_SERVICE_NAME,"tcp",
     PBS_MOM_SERVICE_PORT);
 
-  pbs_rm_port = get_svrport(PBS_MANAGER_SERVICE_NAME, "tcp",
+  pbs_rm_port = get_svrport(PBS_MANAGER_SERVICE_NAME,"tcp",
     PBS_MANAGER_SERVICE_PORT);
 
   strcpy(server_name,server_host);	/* by default server = host */
@@ -465,7 +627,7 @@ int main(
 
   /* parse the parameters from the command line */
 
-  while ((c = getopt(argc,argv,"A:a:d:p:t:L:M:R:S:-:")) != -1) 
+  while ((c = getopt(argc,argv,"A:a:d:h:p:t:L:M:R:S:-:")) != -1) 
     {
     switch (c) 
       {
@@ -508,6 +670,62 @@ int main(
 
         break;
 
+      case 'h':
+
+        /* overwrite locally detected hostname with specified hostname */
+        /*  (used for multi-homed hosts) */
+
+        strncpy(server_host,optarg,PBS_MAXHOSTNAME);
+
+        if (get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME) == -1)
+          {
+          log_err(-1,"pbsd_main","Unable to get host name");
+
+          return(1);
+          }
+
+        strcpy(server_name,server_host);
+
+        def_pbs_server_addr = pbs_server_addr;
+
+        pbs_server_addr = get_hostaddr(server_host);
+
+        if (pbs_mom_addr == def_pbs_server_addr)
+          pbs_mom_addr = pbs_server_addr;
+
+        if (pbs_scheduler_addr == def_pbs_server_addr)
+          pbs_scheduler_addr = pbs_server_addr;
+
+        if ((servicename != NULL) && (strlen(servicename) > 0))
+          {
+          if (strlen(server_name) + strlen(servicename) + 1 > (size_t)PBS_MAXSERVERNAME)
+            {
+            fprintf(stderr,"%s: -h host too long\n", 
+              argv[0]);
+
+            return(1);
+            }
+
+          strcat(server_name,":");
+          strcat(server_name,servicename);
+
+          if ((pbs_server_port_dis = atoi(servicename)) == 0)
+            {
+            fprintf(stderr,"%s: host: %s, port: %s, max: %i\n", 
+              argv[0],
+              server_name,
+              servicename,
+              PBS_MAXSERVERNAME);
+
+            fprintf(stderr, "%s: -h host invalid\n", 
+              argv[0]);
+
+            return(1);
+            }
+          }    /* END if (strlen(servicename) > 0) */
+
+        break;
+
       case 'p':
 
         servicename = optarg;
@@ -520,8 +738,8 @@ int main(
           return(1);
           }
 
-        strcat(server_name, ":");
-        strcat(server_name, servicename);
+        strcat(server_name,":");
+        strcat(server_name,servicename);
 
         if ((pbs_server_port_dis = atoi(servicename)) == 0) 
           {
@@ -749,11 +967,11 @@ int main(
       return(2);
       }
 
-    lock_out(lockfds, F_WRLCK);
+    lock_out(lockfds,F_WRLCK);
 
-    (void)fclose(stdin);
-    (void)fclose(stdout);
-    (void)fclose(stderr);
+    fclose(stdin);
+    fclose(stdout);
+    fclose(stderr);
 
     dummyfile = fopen("/dev/null","r");
     assert((dummyfile != 0) && (fileno(dummyfile) == 0));
@@ -775,10 +993,17 @@ int main(
     setvbuf(stderr,NULL,_IOLBF,0);
     }
 
-  (void)sprintf(log_buffer, "%ld\n", (long)sid);
-  (void)write(lockfds, log_buffer, strlen(log_buffer));
+  sprintf(log_buffer,"%ld\n", 
+    (long)sid);
+
+  if (write(lockfds,log_buffer,strlen(log_buffer)) != (ssize_t)strlen(log_buffer))
+    {
+    log_err(errno,msg_daemonname,"failed to write pid to lockfile");
+
+    return(-1);
+    }
 #if (PLOCK_DAEMONS & 1)
-  (void)plock(PROCLOCK);
+  plock(PROCLOCK);
 #endif
 
   if ((rppfd = rpp_bind(pbs_server_port_dis)) == -1) 
@@ -791,6 +1016,8 @@ int main(
   rpp_fd = -1;		/* force rpp_bind() to get another socket */
 
   tryport = IPPORT_RESERVED;
+
+  privfd = -1;
 
   while (--tryport > 0) 
     {
@@ -808,12 +1035,21 @@ int main(
     return(1);
     }
 
+  if (LOGLEVEL >= 5)
+    {
+    log_event(
+      PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+      PBS_EVENTCLASS_SERVER,
+      msg_daemonname,
+      "creating rpp and private interfaces");
+    }
+
   add_conn(rppfd,Primary,(pbs_net_t)0,0,rpp_request);
   add_conn(privfd,Primary,(pbs_net_t)0,0,rpp_request);
 
   /* record the fact that we are up and running */
 
-  sprintf(log_buffer,msg_startup2,sid);
+  sprintf(log_buffer,msg_startup2,sid,LOGLEVEL);
 
   log_event(
     PBSEVENT_SYSTEM | PBSEVENT_FORCE, 
@@ -821,11 +1057,14 @@ int main(
     msg_daemonname, 
     log_buffer);
 
-  set_task(WORK_Immed,0,check_nodes,NULL);
+  /* do not check nodes immediately as they will initially be marked 
+     down unless they have already reported in */
+
+  set_task(WORK_Immed,time_now + 60,check_nodes,NULL);
 
   /* Just check the nodes with check_nodes above and don't ping anymore. */
 
-  /* set_task(WORK_Immed, 0, ping_nodes, NULL); */
+  set_task(WORK_Immed,0,ping_nodes,NULL); 
 
   /*
    * Now at last, we are ready to do some batch work.  The
@@ -845,7 +1084,12 @@ int main(
     {
     /* first process any task whose time delay has expired */
 
-    waittime = next_task();
+    if (server.sv_attr[(int)SRV_ATR_PollJobs].at_val.at_long)
+      waittime = MIN(next_task(),JobStatRate - (time_now - last_jobstat_time));
+    else
+      waittime = next_task();
+
+    waittime = MAX(0,waittime);
 
     if (*state == SV_STATE_RUN) 
       {	
@@ -889,7 +1133,7 @@ int main(
 
     pque = (pbs_queue *)GET_NEXT(svr_queues);
 
-    while (pque) 
+    while (pque != NULL) 
       {
       if (pque->qu_qs.qu_type == QTYPE_RoutePush)
         queue_route(pque);
@@ -903,10 +1147,42 @@ int main(
 
     /* wait for a request and process it */
 
-    if (wait_request(waittime) != 0) 
+    if (wait_request(waittime,state) != 0) 
       {
-      log_err(-1, msg_daemonname, "wait_requst failed");
+      log_err(-1,msg_daemonname,"wait_request failed");
       }
+
+    /* update dynamic loglevel specification */
+
+    /* FIXME: This overrides PBSLOGLEVEL and PBSDEBUG */
+
+    /* if (!getenv("PBSLOGLEVEL") && !getenv("PBSDEBUG"))
+     * (and SRV_ATR_LogLevel's at_action can set LOGLEVEL */
+
+    if (!getenv("PBSLOGLEVEL"))
+      LOGLEVEL = server.sv_attr[(int)SRV_ATR_LogLevel].at_val.at_long;
+
+    /* any running jobs need a status update? */ 
+
+    if (server.sv_attr[(int)SRV_ATR_PollJobs].at_val.at_long && 
+       (last_jobstat_time + JobStatRate <= time_now))
+      {
+      for (pjob = (job *)GET_NEXT(svr_alljobs);
+           pjob != NULL;
+           pjob = (job *)GET_NEXT(pjob->ji_alljobs)) 
+        {
+        if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING)
+          {
+          /* spread these out over the next JobStatRate seconds */
+
+          when = pjob->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long % JobStatRate;
+    
+          set_task(WORK_Timed,when + time_now,poll_job_task,pjob);
+          }
+        }
+
+      last_jobstat_time = time_now;
+      }  /* END if (...) */
 
     if (*state == SV_STATE_SHUTSIG) 
       svr_shutdown(SHUT_SIG);	/* caught sig */
@@ -919,22 +1195,24 @@ int main(
     if ((*state > SV_STATE_RUN) &&
         (server.sv_jobstates[JOB_STATE_RUNNING] == 0) &&
         (server.sv_jobstates[JOB_STATE_EXITING] == 0) &&
-       ((void *)GET_NEXT(task_list_event) == (void *)0))
+        (GET_NEXT(task_list_event) == NULL))
       {
       *state = SV_STATE_DOWN;
       }
-    }
+    }    /* END while (*state != SV_STATE_DOWN) */
 
   svr_save(&server,SVR_SAVE_FULL);	/* final recording of server */
 
-  track_save((struct work_task *)0);	/* save tracking data	     */
+  track_save(NULL);                     /* save tracking data */
 
   /* save any jobs that need saving */
 
-  for (pjob = (job *)GET_NEXT(svr_alljobs);pjob;pjob = (job *)GET_NEXT(pjob->ji_alljobs)) 
+  for (pjob = (job *)GET_NEXT(svr_alljobs);
+       pjob != NULL;
+       pjob = (job *)GET_NEXT(pjob->ji_alljobs)) 
     {
     if (pjob->ji_modified)
-      job_save(pjob, SAVEJOB_FULL);
+      job_save(pjob,SAVEJOB_FULL);
     }
 
   if (svr_chngNodesfile) 
@@ -977,7 +1255,7 @@ int main(
 
 static int get_port(
 
-  char	       *arg,		/* "host", "port", ":port", or "host:port" */
+  char	       *arg,	/* "host", "port", ":port", or "host:port" */
   unsigned int *port,	/* RETURN: new port iff one given 	   */
   pbs_net_t    *addr)	/* RETURN: daemon's address iff host given */
 
@@ -995,7 +1273,7 @@ static int get_port(
     } 
   else 
     {
-    name = parse_servername(arg, port);
+    name = parse_servername(arg,port);
 
     if (name != NULL) 
       {
@@ -1032,10 +1310,10 @@ static int get_port(
 static time_t next_task()
 
   {
-  time_t	   delay;
+  time_t	     delay;
   struct work_task  *nxt;
   struct work_task  *ptask;
-  time_t	   tilwhen = server.sv_attr[(int)SRV_ATR_schedule_iteration].at_val.at_long;
+  time_t	     tilwhen = server.sv_attr[(int)SRV_ATR_schedule_iteration].at_val.at_long;
 
   time_now = time((time_t *)0);
 
@@ -1043,7 +1321,7 @@ static time_t next_task()
     {
     ptask = (struct work_task *)GET_NEXT(task_list_event);
 
-    while (ptask) 
+    while (ptask != NULL) 
       {
       nxt = (struct work_task *)GET_NEXT(ptask->wt_linkall);
 
@@ -1114,7 +1392,7 @@ static int start_hot_jobs(void)
         pjob->ji_qs.ji_jobid, 
         "attempting to hot start job");
 
-      svr_startjob(pjob,0);
+      svr_startjob(pjob,NULL,NULL,NULL);
 
       ct++;
       }

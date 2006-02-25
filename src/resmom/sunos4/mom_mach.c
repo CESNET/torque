@@ -158,6 +158,8 @@ extern	int			rm_errno;
 extern	unsigned	int	reqnum;
 extern	double	cputfactor;
 extern	double	wallfactor;
+/* wow, no ncpus - extern  long    system_ncpus; */
+extern  int     ignwalltime;
 
 /*
 ** local functions
@@ -544,6 +546,8 @@ int mom_set_limits(pjob, set_mode)
 	resource	*pres;
        	struct rlimit	reslim;
 
+        log_buffer[0] = '\0';
+
 	DBPRT(("%s: entered\n", id))
 	assert(pjob != NULL);
 	assert(pjob->ji_wattr[(int)JOB_ATR_resource].at_type == ATR_TYPE_RESC);
@@ -844,6 +848,8 @@ int mom_over_limit(pjob)
 				return (TRUE);
 			}
 		} else if (strcmp(pname, "walltime") == 0) {
+			if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
+				continue;
 			retval = gettime(pres, &value);
 			if (retval != PBSE_NONE)
 				continue;
@@ -852,7 +858,8 @@ int mom_over_limit(pjob)
 				sprintf(log_buffer,
 					"walltime %d exceeded limit %d",
 					num, value);
-				return (TRUE);
+				if (ignwalltime == 0)
+					return (TRUE);
 			}
 		}
 	}
@@ -961,9 +968,10 @@ int mom_set_use(pjob)
  *	Kill a job task.
  *	Call with the job and a signal number.
  */
-int kill_task(ptask, sig)
+int kill_task(ptask, sig, pg)
     task	*ptask;
     int		sig;
+    int         pg;
 {
 	char	*id = "kill_task";
 	int	ct = 0;

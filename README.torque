@@ -1,16 +1,16 @@
 #
-# TORQUE 1.1.0p5  README (released Nov 16, 2004)
+# TORQUE 2.0.0p7  README (released Jan 27, 2006)
 #
 
 Homepage:                     http://clusterresources.com/torque
 Latest release available at:  http://clusterresources.com/downloads/torque
-Documentation:                http://clusterresources.com/torquedocs
+Documentation:                http://clusterresources.com/torquedocs20
 Mailing list:                 torqueusers@supercluster.org
 
 OVERVIEW --------------------
 
-  Torque (Terascale Open-source Resource and QUEue manger) is an open source
-project based on the original OpenPBS* resource manager developed by NASA, 
+  TORQUE (Terascale Open-source Resource and QUEue manger) is an open source
+project based on the original PBS* resource manager developed by NASA, 
 LLNL, and MRJ.  It possesses a large number of enhancements contributed by 
 organizations such as OSC, NCSA, TeraGrid, the U.S Dept of Energy, USC, and 
 many, many others.  It continues to incorporate significant advancements in
@@ -34,5 +34,5 @@ available in the 'doc' subdirectory or at
 
   http://clusterresources.com/torquedocs/admin_guide.ps
 
-* Torque is not endorsed by nor affiliated with Altair.
+* TORQUE is not endorsed by nor affiliated with Altair.
 

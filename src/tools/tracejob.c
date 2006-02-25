@@ -103,8 +103,12 @@ int ll_cur_amm;
 int ll_max_amm;
 
 
-int main( int argc, char *argv[] )
-{
+int main( 
+
+  int   argc, 
+  char *argv[])
+
+  {
   /* Array for the log entries for the specified job */
   FILE *fp;
   int i, j;
@@ -133,13 +137,15 @@ int main( int argc, char *argv[] )
   excessive_count = EXCESSIVE_COUNT;
 #endif
 
-  while( ( c = getopt(argc, argv, "zvamslw:p:n:f:c:" ) ) != EOF )
-  {
-    switch(c)
+  while ((c = getopt(argc,argv,"zvamslw:p:n:f:c:")) != EOF)
     {
+    switch(c)
+      {
       case 'v':
+
 	verbose = 1;
-      break;
+
+        break;
 
       case 'a':
 	no_acct = 1;
@@ -218,12 +224,12 @@ int main( int argc, char *argv[] )
   }
 
 
-	       /* no jobs */
-  if( error || argc == optind )
-  {
-    printf(
-"USAGE: %s [-a|s|l|m|v] [-w size] [-p path] [-n days] [-f filter_type]\n", 
-		strip_path(argv[0]));
+  /* no jobs */
+
+  if (error || argc == optind)
+    {
+    printf("USAGE: %s [-a|s|l|m|v] [-w size] [-p path] [-n days] [-f filter_type]\n", 
+      strip_path(argv[0]));
 
     printf(
 "   -p : path to PBS_SERVER_HOME\n"
@@ -291,20 +297,24 @@ int main( int argc, char *argv[] )
       printf("\nJob: %s\n\n", log_lines[0].name);
     for( i = 0; i < ll_cur_amm; i++ )
     {
-      if( log_lines[i].log_file == 'A' )
+      if (log_lines[i].log_file == 'A')
 	event_type = 0;
       else
         event_type = strtol(log_lines[i].event, &endp, 16);
-      if( !( log_filter & event_type ) && !(log_lines[i].no_print) )
-      {
+
+      if (!( log_filter & event_type) && !(log_lines[i].no_print))
+        {
 	printf("%-20s %-5c", log_lines[i].date, log_lines[i].log_file);
 	line_wrap(log_lines[i].msg, 26, wrap);
+        }
       }
     }
+
+  return(0);
   }
 
-  return 0;
-}
+
+
 
 /*
  *
@@ -319,10 +329,16 @@ int main( int argc, char *argv[] )
  *	modifies global variables: loglines, ll_cur_amm, ll_max_amm
  *
  */
-void parse_log(FILE *fp, char *job, int ind)
-{
+
+void parse_log(
+
+  FILE *fp,   /* I */
+  char *job,  /* I */
+  int   ind)  /* I */
+
+  {
   struct log_entry tmp;	/* temporary log entry */
-  char buf[4096];	/* buffer to read in from file */
+  char buf[32768];	/* buffer to read in from file */
   char *p;		/* pointer to use for strtok */
   int field_count;	/* which field in log entry */
   int j = 0;
@@ -332,24 +348,31 @@ void parse_log(FILE *fp, char *job, int ind)
 
   tms.tm_isdst = -1;	/* mktime() will attempt to figure it out */
 
-  while( fgets(buf, sizeof(buf), fp) != NULL )
-  {
+  while (fgets(buf,sizeof(buf),fp) != NULL)
+    {
     lineno++;
     j++;
-    buf[strlen(buf)-1] = '\0';
-    p = strtok(buf, ";");
-    field_count = 0;
-    memset(&tmp, 0, sizeof(struct log_entry));
 
-    for(field_count = 0; field_count < 6 && p != NULL; field_count++)
-    {
-      switch(field_count)
+    buf[strlen(buf) - 1] = '\0';
+
+    p = strtok(buf,";");
+
+    field_count = 0;
+
+    memset(&tmp,0,sizeof(struct log_entry));
+
+    for (field_count = 0;(field_count < 6) && (p != NULL);field_count++)
       {
+      switch (field_count)
+        {
 	case FLD_DATE:
+
 	  tmp.date = p;
+
 	  if( ind == IND_ACCT )
 	    field_count = 2;
-	break;
+
+          break;
 
 	case FLD_EVENT:
 	  tmp.event = p;
@@ -372,21 +395,26 @@ void parse_log(FILE *fp, char *job, int ind)
 	break;
 
 	default:
+
 	  printf("Field count too big!\n");
 	  printf("%s\n", p);
-      }
+
+          break;
+        }
 
       p = strtok(NULL, ";");
-    }
+      }
 
-    if( tmp.name != NULL && strncmp(job, tmp.name, strlen(job) ) == 0 )
+  if ((tmp.name != NULL) && 
+      !strncmp(job,tmp.name,strlen(job)) &&
+      !isdigit(tmp.name[strlen(job)]))
     {
-      if( ll_cur_amm >= ll_max_amm )
-	alloc_more_space();
+    if (ll_cur_amm >= ll_max_amm)
+      alloc_more_space();
 
-      free_log_entry(&log_lines[ll_cur_amm]);
+    free_log_entry(&log_lines[ll_cur_amm]);
 
-      if( tmp.date != NULL )
+    if (tmp.date != NULL)
       {
         log_lines[ll_cur_amm].date = strdup(tmp.date);
 	if( sscanf( tmp.date, "%d/%d/%d %d:%d:%d", &tms.tm_mon, &tms.tm_mday, &tms.tm_year, &tms.tm_hour, &tms.tm_min, &tms.tm_sec) != 6 )

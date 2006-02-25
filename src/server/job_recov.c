@@ -113,6 +113,11 @@
 #define JOBBUFSIZE 2048
 #define MAX_SAVE_TRIES 3
 
+#ifdef PBS_MOM
+int save_tmsock(job *);
+int recov_tmsock(int,job *);
+#endif
+
 /* global data items */
 
 extern char  *path_jobs;
@@ -122,7 +127,7 @@ extern time_t time_now;
 
 /* data global only to this file */
 
-const static unsigned int quicksize = sizeof(struct jobfix);
+static const unsigned int quicksize = sizeof(struct jobfix);
 
 /*
  * job_save() - Saves (or updates) a job structure image on disk
@@ -144,6 +149,8 @@ const static unsigned int quicksize = sizeof(struct jobfix);
  *
  *	For a new file write, first time, the data is written directly to
  *	the file.
+ *
+ *      RETURN:  0 - success, -1 - failure 
  */
 
 int job_save(
@@ -173,7 +180,7 @@ int job_save(
 
   if (updatetype == SAVEJOB_QUICK) 
     {
-    openflags = O_WRONLY | O_Sync;
+    openflags = O_WRONLY|O_Sync;
 
     /* NOTE:  open, do not create */
 
@@ -198,7 +205,7 @@ int job_save(
 
     /* just write the "critical" base structure to the file */
 
-    while ((i = write(fds,(char *)&pjob->ji_qs,quicksize)) != quicksize) 
+    while ((i = write(fds,(char *)&pjob->ji_qs,quicksize)) != (ssize_t)quicksize) 
       {
       if ((i < 0) && (errno == EINTR)) 
         {
@@ -244,7 +251,7 @@ int job_save(
 		
     strcat(namebuf2,JOB_FILE_COPY);
 
-    openflags = O_CREAT | O_WRONLY | O_Sync;
+    openflags = O_CREAT|O_WRONLY|O_Sync;
 
     /* NOTE:  create file if required */
 
@@ -269,11 +276,17 @@ int job_save(
       if (save_struct((char *)&pjob->ji_qs,(size_t)quicksize) != 0) 
         {
         redo++;
-        } 
+        }
       else if (save_attr(job_attr_def,pjob->ji_wattr,(int)JOB_ATR_LAST) != 0) 
         {
         redo++;
         } 
+#ifdef PBS_MOM
+      else if (save_tmsock(pjob) != 0) 
+        {
+        redo++;
+        } 
+#endif  /* PBS_MOM */
       else if (save_flush() != 0) 
         {
         redo++;
@@ -369,7 +382,10 @@ job *job_recov(
 
   if (fds < 0) 
     {
-    log_err(errno,"job_recov","open of job file");
+    sprintf(log_buffer,"unable to open %s",
+      namebuf);
+
+    log_err(errno,"job_recov",log_buffer);
 
     free((char *)pj);
 
@@ -380,15 +396,18 @@ job *job_recov(
 
   /* read in job quick save sub-structure */
 
-  if (read(fds,(char *)&pj->ji_qs,quicksize) != quicksize) 
+  if (read(fds,(char *)&pj->ji_qs,quicksize) != (ssize_t)quicksize) 
     {
-    log_err(errno,"job_recov","read");
+    sprintf(log_buffer,"Unable to read %s",
+      namebuf);
+
+    log_err(errno,"job_recov",log_buffer);
 
     free((char *)pj);
 
     close(fds);
 
-    return (NULL);
+    return(NULL);
     }
 
   /* Does file name match the internal name? */
@@ -423,7 +442,10 @@ job *job_recov(
         (int)JOB_ATR_LAST,
         (int)JOB_ATR_UNKN) != 0) 
     {
-    log_err(errno,"job_recov","err from recov_attr");
+    sprintf(log_buffer,"unable to recover %s (file is likely corrupted)",
+      namebuf);
+
+    log_err(-1,"job_recov",log_buffer);
 
     job_free(pj);
 
@@ -432,6 +454,18 @@ job *job_recov(
     return(NULL);
     }
 
+#ifdef PBS_MOM
+  /* read in tm sockets and ips */
+
+  if (recov_tmsock(fds,pj) != 0) 
+    {
+    sprintf(log_buffer,"warning: tmsockets not recovered from %s (written by an older pbs_mom?)",
+      namebuf);
+
+    log_err(-1,"job_recov",log_buffer);
+    }
+#endif /* PBS_MOM */
+
   close(fds);
 
   /* all done recovering the job */
@@ -439,6 +473,7 @@ job *job_recov(
   return(pj);
   }  /* END job_recov() */
 
+/* END job_recov.c */
 
 
 

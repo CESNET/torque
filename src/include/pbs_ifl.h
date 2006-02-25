@@ -158,6 +158,7 @@
 #define ATTR_qrank	"queue_rank"
 #define ATTR_altid	"alt_id"
 #define ATTR_etime	"etime"
+#define ATTR_exitstat	"exit_status"
 
 /* additional queue attributes names */
 
@@ -192,31 +193,51 @@
 #define ATTR_count	"state_count"
 #define ATTR_number	"number_jobs"
 #define ATTR_acllogic   "acl_logic_or"
+#define ATTR_aclgrpslpy "acl_group_sloppy"
+#define ATTR_keepcompleted "keep_completed"
 
 
 /* additional server attributes names */
 
-#define ATTR_aclroot	"acl_roots"
-#define ATTR_managers	"managers"
-#define ATTR_dfltque	"default_queue"
-#define ATTR_defnode	"default_node"
-#define ATTR_locsvrs	"location_servers"
-#define ATTR_logevents	"log_events"
-#define ATTR_logfile	"log_file"
-#define ATTR_mailfrom	"mail_from"
-#define ATTR_nodepack	"node_pack"
-#define ATTR_operators	"operators"
-#define ATTR_queryother	"query_other_jobs"
-#define ATTR_resccost	"resources_cost"
-#define ATTR_rescavail	"resources_available"
-#define ATTR_schedit	"scheduler_iteration"
-#define ATTR_scheduling	"scheduling"
-#define ATTR_status	"server_state"
-#define ATTR_syscost	"system_cost"
-#define ATTR_pingrate   "node_ping_rate"
-#define ATTR_ndchkrate  "node_check_rate"
-#define ATTR_tcptimeout "tcp_timeout"
+/* NOTE: steps for adding new attribute described in ??? */
+/*  - create #define ATTR_* in include/pbs_ifl.h
+    - insert SRV_ATR_* in include/server.h
+    - add SRV_ATR_* in include/qmgr_svr_public.h
+    - insert structure in server/svr_attr_def.c
+        NOTE:  structure must be in same relative position as SRV_ATR_*
+    - insert usage code in proper location 
+*/
 
+#define ATTR_aclroot	 "acl_roots"
+#define ATTR_managers	 "managers"
+#define ATTR_dfltque	 "default_queue"
+#define ATTR_defnode	 "default_node"
+#define ATTR_locsvrs	 "location_servers"
+#define ATTR_logevents	 "log_events"
+#define ATTR_logfile	 "log_file"
+#define ATTR_loglevel    "log_level"
+#define ATTR_mailfrom	 "mail_from"
+#define ATTR_nodepack	 "node_pack"
+#define ATTR_operators	 "operators"
+#define ATTR_queryother	 "query_other_jobs"
+#define ATTR_resccost	 "resources_cost"
+#define ATTR_rescavail	 "resources_available"
+#define ATTR_schedit	 "scheduler_iteration"
+#define ATTR_scheduling	 "scheduling"
+#define ATTR_status      "server_state"
+#define ATTR_syscost     "system_cost"
+#define ATTR_pingrate    "node_ping_rate"
+#define ATTR_ndchkrate   "node_check_rate"
+#define ATTR_tcptimeout  "tcp_timeout"
+#define ATTR_jobstatrate "job_stat_rate"
+#define ATTR_polljobs    "poll_jobs"
+#define ATTR_downonerror "down_on_error"
+#define ATTR_jobnanny    "job_nanny"
+#define ATTR_ownerpurge  "owner_purge"
+#define ATTR_qcqlimits   "queue_centric_limits"
+#define ATTR_momjobsync  "mom_job_sync"
+#define ATTR_maildomain  "mail_domain"
+#define ATTR_pbsversion  "pbs_version"
 
 
 /* additional node "attributes" names */
@@ -240,6 +261,9 @@
 
 
 #define DELDELAY  "deldelay="	/* see qdel.c */
+#define DELPURGE  "delpurge="   /* see qdel.c */
+#define EXECQUEONLY  "exec_queue_only"   /* see req_stat.c */
+
 #define USER_HOLD "u"
 #define OTHER_HOLD "o"
 #define SYSTEM_HOLD "s"
