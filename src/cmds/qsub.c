@@ -145,6 +145,77 @@ char PBS_RootDir[256];
 int do_dir(char *);
 int process_opts(int,char **,int);
 
+/* adapted from openssh */
+static void
+x11_get_proto(char **_proto, char **_data, char **_screen)
+{       
+        char line[512];
+        static char proto[512], data[512], screen[512];
+        FILE *f;
+        int got_data = 0, i;
+        char *display, *p;
+        struct stat st;
+
+        *_proto = proto;
+        *_data = data;
+        *_screen = screen;
+        proto[0] = data[0] = screen[0] = '\0';
+
+        if ((display = getenv("DISPLAY")) == NULL) {
+                fprintf(stderr,"x11_get_proto: DISPLAY not set\n");
+                return;
+        }
+        /* Try to get Xauthority information for the display. */
+        if (strncmp(display, "localhost:", 10) == 0)
+                /*
+                 * Handle FamilyLocal case where $DISPLAY does
+                 * not match an authorization entry.  For this we
+                 * just try "xauth list unix:displaynum.screennum".
+                 * XXX: "localhost" match to determine FamilyLocal
+                 *      is not perfect.
+                 */
+                snprintf(line, sizeof line, "xauth list unix:%s 2>/dev/null",
+                    display+10);
+        else    
+                snprintf(line, sizeof line, "xauth list %.200s 2>/dev/null",
+                    display);
+
+	p = strchr(display,':');
+        if (p)
+          p = strchr(p,'.');
+        if (p)
+          strncpy(screen,p+1,512);
+
+        fprintf(stderr,"x11_get_proto: %s\n", line);
+        f = popen(line, "r");
+        if (f && fgets(line, sizeof(line), f) &&
+            sscanf(line, "%*s %511s %511s", proto, data) == 2)
+                got_data = 1;
+        if (f)  
+                pclose(f);
+
+        /*
+         * If we didn't get authentication data, just make up some
+         * data.  The forwarding code will check the validity of the
+         * response anyway, and substitute this data.  The X11
+         * server, however, will ignore this fake data and use
+         * whatever authentication mechanisms it was using otherwise
+         * for the local connection.
+         */
+        if (!got_data) {
+                u_int32_t _rand = 0;                                                         
+
+                fprintf(stderr,"Warning: No xauth data; using fake authentication data for X11 forwarding.\n");
+                strncpy(proto, "MIT-MAGIC-COOKIE-1", sizeof proto);
+                for (i = 0; i < 16; i++) {
+                        if (i % 4 == 0)
+                                _rand = rand();
+                        snprintf(data + 2 * i, sizeof data - 2 * i, "%02x", _rand & 0xff);
+                        _rand >>= 8;
+                }
+        }
+}
+
 
 
 char *set_dir_prefix(
@@ -751,7 +822,12 @@ int Interact_opt  = FALSE;
 int Stagein_opt   = FALSE;
 int Stageout_opt  = FALSE;
 int Grouplist_opt = FALSE;
+int Forwardx11_opt = FALSE;
 char *v_value = NULL;
+char *x11authdata;
+char *x11authproto;
+char *x11authscreen;
+char *x11authstr;
 
 
 char *copy_env_value(
@@ -1286,7 +1362,7 @@ final:
  *	will be connected to this socket.
  */
 
-char *interactive_port()
+char *interactive_port(int *sock)
 
   {
   socklen_t namelen;
@@ -1300,9 +1376,9 @@ char *interactive_port()
       exit(1);
     }
 
-  inter_sock = socket(AF_INET, SOCK_STREAM, 0);
+  *sock = socket(AF_INET, SOCK_STREAM, 0);
 
-  if (inter_sock < 0) 
+  if (*sock < 0) 
     {
     perror("qsub: unable to obtain socket");
 
@@ -1314,7 +1390,7 @@ char *interactive_port()
   myaddr.sin_addr.s_addr = INADDR_ANY;
   myaddr.sin_port = 0;
 
-  if (bind(inter_sock,(struct sockaddr *)&myaddr,namelen) < 0) 
+  if (bind(*sock,(struct sockaddr *)&myaddr,namelen) < 0) 
     {
     perror("qsub: unable to bind to socket");
 
@@ -1323,7 +1399,7 @@ char *interactive_port()
 
   /* get port number assigned */
 
-  if (getsockname(inter_sock,(struct sockaddr *)&myaddr,&namelen) < 0) 
+  if (getsockname(*sock,(struct sockaddr *)&myaddr,&namelen) < 0) 
     {
     perror("qsub: unable to get port number");
 
@@ -1335,7 +1411,7 @@ char *interactive_port()
   sprintf(portstring,"%u", 
     (unsigned int)port);
 
-  if (listen(inter_sock,1) < 0) 
+  if (listen(*sock,1) < 0) 
     {
     perror("qsub: listen on interactive socket");
 
@@ -2168,12 +2244,10 @@ int process_opts(
   int tmpfd;
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
-#define GETOPT_ARGS "a:A:c:C:d:D:e:hIj:k:l:m:M:N:o:p:q:r:S:u:v:VW:z-:"
+#define GETOPT_ARGS "a:A:c:C:d:D:e:hIj:k:l:m:M:N:o:p:q:r:S:u:v:VW:Xz-:"
 #else
 #define GETOPT_ARGS "a:A:c:C:e:hj:k:l:m:M:N:o:p:q:r:S:u:v:VW:z"
 #endif	/* PBS_NO_POSIX_VIOLATION */
-
-#define MAX_RES_LIST_LEN 64  /* doesn't seem to be used? */
 
 /* The following macro, together the value of passet (pass + 1) is used	*/
 /* to enforce the following rules: 1. option on the command line take	*/
@@ -2471,7 +2545,7 @@ int process_opts(
           {
           Interact_opt = passet;
 
-          set_attr(&attrib,ATTR_inter,interactive_port());
+          set_attr(&attrib,ATTR_inter,interactive_port(&inter_sock));
           }
 
         break;
@@ -2959,7 +3033,7 @@ int process_opts(
                 break;
                 }
 
-              set_attr(&attrib,ATTR_inter,interactive_port());
+              set_attr(&attrib,ATTR_inter,interactive_port(&inter_sock));
               }
             } 
           else 
@@ -2977,6 +3051,32 @@ int process_opts(
           fprintf(stderr,"qsub: illegal -W value\n");
  
           errflg++;
+          }
+
+        break;
+
+      case 'X':
+
+        if_cmd_line(Forwardx11_opt) 
+          {
+          Forwardx11_opt = passet;
+
+          if (!getenv("DISPLAY"))
+            {
+            fprintf(stderr,"qsub: DISPLAY not set\n");
+
+            errflg++;
+            }
+
+          /* get the DISPLAY's auth proto, data, and screen number */
+          x11_get_proto(&x11authproto,&x11authdata,&x11authscreen);
+
+          /* stuff this info into the job */
+          x11authstr = malloc(strlen(x11authproto) + strlen(x11authdata) + strlen(x11authscreen) +4);
+          sprintf(x11authstr,"%s:%s:%s",x11authproto, x11authdata, x11authscreen);
+          set_attr(&attrib,ATTR_forwardx11,x11authstr);
+
+fprintf(stderr,"%s\n",x11authstr);
           }
 
         break;
@@ -3316,7 +3416,7 @@ int main(
 [-C directive_prefix] [-d path] --D path] [-e path] [-h] [-I] [-j oe] [-k {oe}]\n\
 [-l resource_list] [-m {abe}] [-M user_list] [-N jobname] [-o path]\n\
 [-p priority] [-q queue] [-r y|n] [-S path] [-u user_list]\n\
-[-W otherattributes=value...] [-v variable_list] [-V ] [-z] [script]\n";
+[-W otherattributes=value...] [-X] [-v variable_list] [-V ] [-z] [script]\n";
 
     fprintf(stderr,usage);
 
