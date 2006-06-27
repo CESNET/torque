@@ -105,6 +105,9 @@
 #include "server_limits.h"
 #include "net_connect.h"
 #include "log.h"
+#include "list_link.h"
+#include "attribute.h"
+#include "job.h"
 
 static char cc_array[PBS_TERM_CCA];
 static struct winsize wsz;
@@ -112,6 +115,7 @@ static struct winsize wsz;
 extern int mom_reader_go;
 
 static int IPv4or6 = AF_UNSPEC;
+extern int conn_qsub(char *,int);
 
 /*
  * read_net - read data from network till received amount expected
@@ -429,22 +433,40 @@ int mom_writer(
  * Returns a suitable display number (>0) for the DISPLAY variable
  * or -1 if an error occurs.
  */
+struct x11sock {
+  int sock;
+  int type;
+  int remote;
+};
+
 #define NUM_SOCKS 10
 #define MAX_DISPLAYS 500
 #define X11OFFSET 50
+#define XAUTHPATH "/usr/X11R6/bin/xauth"
 int
-x11_create_display_inet(int x11_use_localhost, char *x11authstr, char *display)
+x11_create_display(int x11_use_localhost, char *display,job *pjob)
 {       
         int display_number, sock;
         u_short port;
         struct addrinfo hints, *ai, *aitop;
         char strport[NI_MAXSERV];
         int gaierr, n, num_socks = 0;
-	static int socks[NUM_SOCKS];
+	static struct x11sock socks[NUM_SOCKS];
         char x11proto[512],x11data[512],x11screen[512],cmd[512];
         char auth_display[512];
         char *p;
 	FILE *f;
+        char x11authstr[512];
+        char *phost;
+        int  pport;
+        char xauthorityfile[512];
+
+        strcpy(x11authstr,pjob->ji_wattr[(int)JOB_ATR_forwardx11].at_val.at_str);
+        phost = arst_string("PBS_O_HOST",&pjob->ji_wattr[(int)JOB_ATR_variables]);
+	phost = strchr(phost,'='); phost++;
+        pport = pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long;
+        sprintf(xauthorityfile,"%s/%s",pjob->ji_grpcache->gc_homedir,".Xauthority");
+
 
         x11proto[0] = x11data[0] = x11screen[0] = '\0';
 
@@ -456,7 +478,7 @@ x11_create_display_inet(int x11_use_localhost, char *x11authstr, char *display)
                 hints.ai_socktype = SOCK_STREAM;
                 snprintf(strport, sizeof strport, "%d", port);
                 if ((gaierr = getaddrinfo(NULL, strport, &hints, &aitop)) != 0) {
-                        DBPRT(("getaddrinfo: %.100s", gai_strerror(gaierr)));
+                        DBPRT(("getaddrinfo: %.100s\n", gai_strerror(gaierr)));
                         return -1;
                 }
                 /* create a socket and bind it to display_number foreach address */
@@ -466,10 +488,10 @@ x11_create_display_inet(int x11_use_localhost, char *x11authstr, char *display)
                         sock = socket(ai->ai_family, SOCK_STREAM, 0);
                         if (sock < 0) {
                                 if ((errno != EINVAL) && (errno != EAFNOSUPPORT)) {
-                                        DBPRT(("socket: %.100s", strerror(errno)));
+                                        DBPRT(("socket: %.100s\n", strerror(errno)));
                                         return -1;
                                 } else {
-                                        DBPRT(("x11_create_display_inet: Socket family %d not supported",
+                                        DBPRT(("x11_create_display: Socket family %d not supported\n",
                                                  ai->ai_family));
                                         continue;
                                 }
@@ -478,23 +500,24 @@ x11_create_display_inet(int x11_use_localhost, char *x11authstr, char *display)
                         if (ai->ai_family == AF_INET6) {
                                 int on = 1;
                                 if (setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on)) < 0)
-                                        DBPRT(("setsockopt IPV6_V6ONLY: %.100s", strerror(errno)));
+                                        DBPRT(("setsockopt IPV6_V6ONLY: %.100s\n", strerror(errno)));
                         }
 #endif                  
                         if (bind(sock, ai->ai_addr, ai->ai_addrlen) < 0) {
-                                DBPRT(("bind port %d: %.100s", port, strerror(errno)));
+                                DBPRT(("bind port %d: %.100s\n", port, strerror(errno)));
                                 close(sock);                                                
                                                                                             
                                 if (ai->ai_next)
                                         continue;
 
                                 for (n = 0; n < num_socks; n++) {
-                                        close(socks[n]);
+                                        close(socks[n].sock);
                                 }
                                 num_socks = 0;
                                 break;
                         }
-                        socks[num_socks++] = sock;
+                        socks[num_socks++].sock = sock;
+                        socks[num_socks].type=0;
 #ifndef DONT_TRY_OTHER_AF
                         if (num_socks == NUM_SOCKS)
                                 break;
@@ -512,15 +535,14 @@ x11_create_display_inet(int x11_use_localhost, char *x11authstr, char *display)
                         break;
         }                                                                                   
         if (display_number >= MAX_DISPLAYS) {
-                DBPRT(("Failed to allocate internet-domain X11 display socket."));
+                DBPRT(("Failed to allocate internet-domain X11 display socket.\n"));
                 return -1;
         }
         /* Start listening for connections on the socket. */
         for (n = 0; n < num_socks; n++) {
-                sock = socks[n];
-                if (listen(sock, 5) < 0) {
+                if (listen(socks[n].sock, 5) < 0) {
                         DBPRT(("listen: %.100s", strerror(errno)));
-                        close(sock);
+                        close(socks[n].sock);
                         return -1;
                 }
         }
@@ -541,7 +563,7 @@ x11_create_display_inet(int x11_use_localhost, char *x11authstr, char *display)
         snprintf(auth_display, sizeof auth_display, "unix:%u.%s",
           display_number, x11screen);
 
-        snprintf(cmd, sizeof cmd, "/usr/X11R6/bin/xauth -q -");
+        snprintf(cmd, sizeof cmd, "%s -f %s -",XAUTHPATH,xauthorityfile);
         f = popen(cmd, "w");
         if (f) {
           fprintf(f, "remove %s\n", auth_display);
@@ -552,17 +574,100 @@ x11_create_display_inet(int x11_use_localhost, char *x11authstr, char *display)
             cmd);
         }
 
-        /* fork off the handler for X11 connections */
-        for (n = 0; n < num_socks; n++) {
-                sock = socks[n];
-/*
-                nc = channel_new("x11 listener",
-                    SSH_CHANNEL_X11_LISTENER, sock, sock, -1,
-                    CHAN_X11_WINDOW_DEFAULT, CHAN_X11_PACKET_DEFAULT,
-                    0, xstrdup("X11 inet listener"), 1);
-                nc->single_connection = single_connection;
-*/
-        }
+        if (fork() == 0)
+          {
+          fd_set fdset;
+          int rc, maxsock=0;
+          struct sockaddr_in from;
+          socklen_t fromlen;
+          struct timeval timeout;
+  extern ssize_t read_blocking_socket(int fd, void *buf, ssize_t count);
+  char buf[1024];
+  int c;
+          int localsock, remotesock;
+
+
+          fromlen = sizeof(from);
+
+          while (1) {
+
+            FD_ZERO(&fdset);
+            maxsock=0;
+            for (n = 0; n < num_socks; n++) {
+               FD_SET(socks[n].sock,&fdset);
+               maxsock = n > maxsock ? n : maxsock;
+            }
+            maxsock++;
+
+            timeout.tv_sec  = 1;
+            timeout.tv_usec = 0;
+
+            rc = select(maxsock,&fdset,NULL,NULL,&timeout);
+            if (rc > 0)
+              {
+              for (n = 0; n < num_socks; n++)
+                {
+                if (FD_ISSET(socks[n].sock, &fdset))
+                  {
+                  if (socks[n].type == 0)
+                    {
+                    if ((sock = accept(socks[n].sock,(struct sockaddr *)&from,&fromlen)) < 0)
+                      {
+                      DBPRT(("accept error for sock %d\n",socks[n].sock));
+                      close(socks[n].sock);
+                      FD_CLR(socks[n].sock,&fdset);
+                      continue;
+                      }
+                    num_socks++;
+                    socks[num_socks].sock=sock;
+                    socks[num_socks].type=1;
+                    socks[num_socks].remote=conn_qsub(phost,pport);
+                    socks[num_socks+1].sock=socks[num_socks].remote;
+                    socks[num_socks+1].type=1;
+                    socks[num_socks+1].remote=sock;
+                    num_socks++;
+                    }
+                  else
+                    {
+                    localsock=socks[n].sock;
+                    remotesock=socks[n].remote;
+                    }
+                
+                  /* read from sock, write to remote sock */
+     
+                  c = read_blocking_socket(localsock,buf,sizeof(buf));
+                  if (c > 0)
+                    {
+                    int   wc;
+                    char *p = buf;
+              
+                    while (c > 0)
+                      {
+                      if ((wc = write(remotesock,p,c)) < 0)
+                        {
+                        if (errno == EINTR) 
+                          {
+                          /* write interrupted - retry */
+              
+                          continue;
+                          }
+                
+                        /* FAILURE - write failed */
+              
+                        return(-1);
+                        }
+                      
+                      c -= wc;
+                      p += wc;
+                      }  /* END while (c > 0) */
+                    }   
+                  } /* END FD_ISSET */
+                } /* END foreach sock */
+              } /* select success */
+            } /* while 1 */
+          } /* END fork */
+
+
 
         return (display_number);
 }

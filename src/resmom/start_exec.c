@@ -203,7 +203,7 @@ static int search_env_and_open(const char *,u_long);
 extern int TMOMJobGetStartInfo(job *,pjobexec_t **);
 extern int mom_reader(int,int);
 extern int mom_writer(int,int);
-extern int x11_create_display_inet(int, char *,char *);
+extern int x11_create_display(int, char *,job *);
 
 
 /* END prototypes */
@@ -2135,7 +2135,6 @@ int TMomFinalizeChild(
   if (TJE->is_interactive == TRUE) 
     {
     struct sigaction act;
-    char display[512];
 
     /*************************************************************/
     /*	We have an "interactive" job, connect the standard	 */
@@ -2155,12 +2154,6 @@ int TMomFinalizeChild(
     /* only giving ourselves 5 seconds to connect to qsub
      * and get term settings */
     alarm(5);
-
-    if (pjob->ji_wattr[(int)JOB_ATR_forwardx11].at_val.at_str)
-      {
-      x11_create_display_inet(1, pjob->ji_wattr[(int)JOB_ATR_forwardx11].at_val.at_str,display);
-      bld_env_variables(&vtable,"DISPLAY",display);
-      }
 
     /* once we connect to qsub and open a pty, the user can send us
      * a ctrl-c.  It is important that we block this until we exec()
@@ -2634,9 +2627,6 @@ int TMomFinalizeChild(
     return(-1);
     }
 
-  /* NULL terminate the envp array, This is MUST DO */
-
-  *(vtable.v_envp + vtable.v_used) = NULL;
 
   endpwent();
 
@@ -2723,6 +2713,17 @@ int TMomFinalizeChild(
       }
     }
 	
+  if ((TJE->is_interactive == TRUE) && pjob->ji_wattr[(int)JOB_ATR_forwardx11].at_val.at_str)
+    {
+    char display[512];
+    x11_create_display(1, display, pjob);
+    bld_env_variables(&vtable,"DISPLAY",display);
+    }
+
+  /* NULL terminate the envp array, This is MUST DO */
+
+  *(vtable.v_envp + vtable.v_used) = NULL;
+
   /* tell mom we are going */
 
   starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_OK,&sjr);
