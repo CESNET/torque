@@ -89,6 +89,7 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
+#include <stdlib.h>
 #ifdef sun
 #include <sys/stream.h>
 #include <sys/stropts.h>
@@ -109,6 +110,17 @@
 #include "attribute.h"
 #include "job.h"
 
+#define BUF_SIZE 1024
+struct x11sock {
+  int sock;
+  int listening;
+  int remotesock;
+  int bufavail;
+  int bufwritten;
+  int active;
+  int peer;
+  char buff[BUF_SIZE];
+};
 static char cc_array[PBS_TERM_CCA];
 static struct winsize wsz;
 
@@ -116,6 +128,7 @@ extern int mom_reader_go;
 
 static int IPv4or6 = AF_UNSPEC;
 extern int conn_qsub(char *,int);
+int port_forwarder(struct x11sock *socks,char *phost,int pport);
 
 /*
  * read_net - read data from network till received amount expected
@@ -433,11 +446,6 @@ int mom_writer(
  * Returns a suitable display number (>0) for the DISPLAY variable
  * or -1 if an error occurs.
  */
-struct x11sock {
-  int sock;
-  int type;
-  int remote;
-};
 
 #define NUM_SOCKS 10
 #define MAX_DISPLAYS 500
@@ -451,7 +459,6 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
         struct addrinfo hints, *ai, *aitop;
         char strport[NI_MAXSERV];
         int gaierr, n, num_socks = 0;
-	static struct x11sock socks[NUM_SOCKS];
         char x11proto[512],x11data[512],x11screen[512],cmd[512];
         char auth_display[512];
         char *p;
@@ -460,6 +467,10 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
         char *phost;
         int  pport;
         char xauthorityfile[512];
+        pid_t childpid;
+        struct x11sock *socks;
+
+        socks=calloc(sizeof (struct x11sock),NUM_SOCKS);
 
         strcpy(x11authstr,pjob->ji_wattr[(int)JOB_ATR_forwardx11].at_val.at_str);
         phost = arst_string("PBS_O_HOST",&pjob->ji_wattr[(int)JOB_ATR_variables]);
@@ -467,6 +478,8 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
         pport = pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long;
         sprintf(xauthorityfile,"%s/%s",pjob->ji_grpcache->gc_homedir,".Xauthority");
 
+        for (n=0;n<NUM_SOCKS;n++)
+           (socks+n)->active=0;
 
         x11proto[0] = x11data[0] = x11screen[0] = '\0';
 
@@ -511,13 +524,14 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
                                         continue;
 
                                 for (n = 0; n < num_socks; n++) {
-                                        close(socks[n].sock);
+                                        close((socks+n)->sock);
                                 }
                                 num_socks = 0;
                                 break;
                         }
-                        socks[num_socks++].sock = sock;
-                        socks[num_socks].type=0;
+                        (socks+num_socks)->sock = sock;
+                        (socks+num_socks)->active=1;
+                        num_socks++;
 #ifndef DONT_TRY_OTHER_AF
                         if (num_socks == NUM_SOCKS)
                                 break;
@@ -540,11 +554,13 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
         }
         /* Start listening for connections on the socket. */
         for (n = 0; n < num_socks; n++) {
-                if (listen(socks[n].sock, 5) < 0) {
-                        DBPRT(("listen: %.100s", strerror(errno)));
-                        close(socks[n].sock);
+DBPRT(("listening on fd %d\n",(socks+n)->sock));
+                if (listen((socks+n)->sock, 5) < 0) {
+                        DBPRT(("listen: %.100s\n", strerror(errno)));
+                        close((socks+n)->sock);
                         return -1;
                 }
+                (socks+n)->listening=1;
         }
 
         /* setup local xauth */
@@ -574,153 +590,166 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
             cmd);
         }
 
-        if (fork() == 0)
+        
+        if ((childpid=fork()) > 0)
           {
-          fd_set fdset;
-          int rc, maxsock=0;
-          struct sockaddr_in from;
-          socklen_t fromlen;
-          struct timeval timeout;
-  extern ssize_t read_blocking_socket(int fd, void *buf, ssize_t count);
-  char buf[1024];
-  int c;
-          int localsock, remotesock;
+          free(socks);
+          return (display_number);
+          }
+        else if (childpid < 0)
+          {
+          free(socks);
+          return(-1);
+          }
+        else
+          {
+          port_forwarder(socks,phost,pport);
+          }
 
-
-          fromlen = sizeof(from);
-
-          while (1) {
-
-            FD_ZERO(&fdset);
-            maxsock=0;
-            for (n = 0; n < num_socks; n++) {
-               FD_SET(socks[n].sock,&fdset);
-               maxsock = n > maxsock ? n : maxsock;
-            }
-            maxsock++;
-
-            timeout.tv_sec  = 1;
-            timeout.tv_usec = 0;
-
-            rc = select(maxsock,&fdset,NULL,NULL,&timeout);
-            if (rc > 0)
-              {
-              for (n = 0; n < num_socks; n++)
-                {
-                if (FD_ISSET(socks[n].sock, &fdset))
-                  {
-                  if (socks[n].type == 0)
-                    {
-                    if ((sock = accept(socks[n].sock,(struct sockaddr *)&from,&fromlen)) < 0)
-                      {
-                      DBPRT(("accept error for sock %d\n",socks[n].sock));
-                      close(socks[n].sock);
-                      FD_CLR(socks[n].sock,&fdset);
-                      continue;
-                      }
-                    num_socks++;
-                    socks[num_socks].sock=sock;
-                    socks[num_socks].type=1;
-                    socks[num_socks].remote=conn_qsub(phost,pport);
-                    socks[num_socks+1].sock=socks[num_socks].remote;
-                    socks[num_socks+1].type=1;
-                    socks[num_socks+1].remote=sock;
-                    num_socks++;
-                    }
-                  else
-                    {
-                    localsock=socks[n].sock;
-                    remotesock=socks[n].remote;
-                    }
-                
-                  /* read from sock, write to remote sock */
-     
-                  c = read_blocking_socket(localsock,buf,sizeof(buf));
-                  if (c > 0)
-                    {
-                    int   wc;
-                    char *p = buf;
-              
-                    while (c > 0)
-                      {
-                      if ((wc = write(remotesock,p,c)) < 0)
-                        {
-                        if (errno == EINTR) 
-                          {
-                          /* write interrupted - retry */
-              
-                          continue;
-                          }
-                
-                        /* FAILURE - write failed */
-              
-                        return(-1);
-                        }
-                      
-                      c -= wc;
-                      p += wc;
-                      }  /* END while (c > 0) */
-                    }   
-                  } /* END FD_ISSET */
-                } /* END foreach sock */
-              } /* select success */
-            } /* while 1 */
-          } /* END fork */
-
-
-
-        return (display_number);
+        exit(EXIT_FAILURE);
 }
 
 
-
-#if 0
-/*
- * conn_qsub - connect to the qsub that submitted this interactive job
- * return >= 0 on SUCCESS, < 0 on FAILURE 
- */
-
-int conn_qsub(
-
-  char *hostname,
-  long  port)
-
+int port_forwarder(struct x11sock *socks,char *phost,int pport)
   {
-  pbs_net_t hostaddr;
-  int s;
+  char id[]="port_forwarder";
 
-  int flags;
+  fd_set rfdset, wfdset, efdset;
+  int rc, lastsock=0,maxsock=0;
+  struct sockaddr_in from;
+  socklen_t fromlen;
+  extern ssize_t read_blocking_socket(int fd, void *buf, ssize_t count);
+  char buf[BUF_SIZE];
+  int n, c, sock;
+  int localsock, remotesock;
 
-  if ((hostaddr = get_hostaddr(hostname)) == (pbs_net_t)0)
+
+  fromlen = sizeof(from);
+
+  while (1)
     {
-    return(-1);
-    }
 
-  s = client_to_svr(hostaddr,(unsigned int)port,0);
+    FD_ZERO(&rfdset);
+    FD_ZERO(&wfdset);
+    FD_ZERO(&efdset);
+    maxsock=0;
+    for (n = 0; n < NUM_SOCKS && (socks+n)->active; n++)
+      {
+      if ((socks+n)->listening)
+        {
+        FD_SET((socks+n)->sock,&rfdset);
+        }
+      else
+        {
+        if ((socks+n)->bufavail < BUF_SIZE)
+          FD_SET((socks+n)->sock,&rfdset);
+        if ((socks+((socks+n)->peer))->bufavail - (socks+((socks+n)->peer))->bufwritten > 0)
+          FD_SET((socks+n)->sock,&wfdset);
+        /*FD_SET((socks+n)->sock,&efdset);*/
+        }
 
-  /* NOTE:  client_to_svr() can return 0 for SUCCESS */
+      maxsock = (socks+n)->sock > maxsock ? (socks+n)->sock : maxsock;
+      }
+    maxsock++;
+    lastsock=n;
 
-  /* assume SUCCESS requires s > 0 (USC) was 'if (s >= 0)' */
-  /* above comment not enabled */
+    rc = select(maxsock,&rfdset,&wfdset,&efdset,NULL);
+    if (rc == -1 && errno == EINTR)
+      continue;
+    if (rc < 0)
+      {
+      perror("port forwarding select()");
+      exit(EXIT_FAILURE);
+      }
 
-  if (s < 0)
-    {
-    /* FAILURE */
+DBPRT(("%s: an fd was tickled\n",id));
 
-    return(-1);
-    }
+    for (n = 0; n < NUM_SOCKS; n++)
+      {
+      if (FD_ISSET((socks+n)->sock, &rfdset))
+        {
+DBPRT(("%s: fd %d tickled\n",id,(socks+n)->sock));
+        if ((socks+n)->listening)
+          {
+          if ((sock = accept((socks+n)->sock,(struct sockaddr *)&from,&fromlen)) < 0)
+            {
+            DBPRT(("accept error for sock %d\n",(socks+n)->sock));
+            if ((errno==EAGAIN)||(errno==EWOULDBLOCK)||(errno==EINTR)||(errno==ECONNABORTED))
+              continue;
 
-  /* this socket should be blocking */
+            close((socks+n)->sock);
+            (socks+n)->active=0;
 
-  flags = fcntl(s,F_GETFL);
+            continue;
+            }
 
-  flags &= ~O_NONBLOCK;
+DBPRT(("%s: accepted sock %d from sock %d\n",id,sock,(socks+n)->sock));
+          (socks+lastsock)->sock     =(socks+lastsock+1)->remotesock=sock;
+          (socks+lastsock)->listening=(socks+lastsock+1)->listening =0;
+          (socks+lastsock)->active   =(socks+lastsock+1)->active   =1;
+          (socks+lastsock)->peer   =(socks+lastsock+1)->sock      =conn_qsub(phost,pport);
+          (socks+lastsock)->bufwritten   =(socks+lastsock+1)->bufwritten      =0;
+          (socks+lastsock)->bufavail =(socks+lastsock+1)->bufavail  =0;
+          (socks+lastsock)->buff[0]  =(socks+lastsock+1)->buff[0]   = '\0';
+          (socks+lastsock)->peer=lastsock+1;
+          (socks+lastsock+1)->peer=lastsock;
+DBPRT(("%s: conn_qsub sock %d\n",id,(socks+lastsock)->peer));
+          lastsock+=2;
 
-  fcntl(s,F_SETFL,flags);
+          }
+        else
+          {
+          /* non-listening socket to be read */
+          rc=read((socks+n)->sock,(socks+n)->buff + (socks+n)->bufavail,BUF_SIZE - (socks+n)->bufavail);
+DBPRT(("%s: read from sock %d returned %d\n",id,(socks+n)->sock,rc));
+          if (rc<1)
+            {
+            shutdown ((socks+n)->sock, SHUT_RDWR);
+            close ((socks+n)->sock);
+            (socks+n)->active=0;
+            }
+          else
+            {
+            (socks+n)->bufavail += rc;
+            }
+          }
+        } /* END if rfdset */
 
-  return(s);
-  }  /* END conn_qsub() */
-#endif
+      if (FD_ISSET((socks+n)->sock, &wfdset))
+        {
+        int peer=(socks+n)->peer;
+        rc=write((socks+n)->sock,
+                 (socks+peer)->buff + (socks+peer)->bufwritten,
+                 (socks+peer)->bufavail - (socks+peer)->bufwritten);
+DBPRT(("%s: write to sock %d returned %d\n",id,(socks+n)->sock,rc));
+        if (rc < 1)
+          {
+          shutdown ((socks+n)->sock, SHUT_RDWR);
+          close ((socks+n)->sock);
+          (socks+n)->active=0;
+          }
+        else
+          {
+          (socks+peer)->bufwritten+=rc;
+          if (!(socks+peer)->active && (socks+peer)->bufwritten == (socks+peer)->bufavail)
+            {
+            shutdown ((socks+n)->sock, SHUT_RDWR);
+            (socks+n)->active=0;
+            }
+            
+          }
+        } /* END if wfdset */
+
+      } /* END foreach fd */
+
+    for (n = 0; n < NUM_SOCKS; n++)
+      {
+      if ((socks+n)->bufwritten == (socks+n)->bufavail)
+        (socks+n)->bufwritten = (socks+n)->bufavail = 0;
+      }
+   } /* END while(1) */
+}
+
 
 
 /* END mom_inter.c */

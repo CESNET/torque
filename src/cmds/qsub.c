@@ -99,6 +99,8 @@
 #include <sys/time.h>
 #include <sys/wait.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sys/un.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <netdb.h>
@@ -107,6 +109,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <assert.h>
+
 
 #ifdef sun
 #include <sys/stream.h>
@@ -135,12 +138,15 @@ static char *DefaultFilterPath = "/usr/local/sbin/torque_submitfilter";
 
 #define MAX_QSUB_PREFIX_LEN 32
 
+#define _PATH_UNIX_X "/tmp/.X11-unix/X%u"
+
 static char PBS_DPREFIX_DEFAULT[] = "#PBS";
 
 char PBS_Filter[256];
 char PBS_InitDir[256];
 char PBS_RootDir[256];
 
+static int IPv4or6 = AF_UNSPEC;
 
 int do_dir(char *);
 int process_opts(int,char **,int);
@@ -1492,21 +1498,32 @@ void stopme(
 
 int reader(
 
-  int s)	/* socket */
+  int s,	/* socket */
+  int d)
 
   {
   char buf[4096];
   int  c;
   char *p;
   int  wc;
+  int debug=0;
+
+if (getenv("PBSX11DEBUG") != NULL)
+  debug=1;
 
   /* read from the socket, and write to stdout */
 
   /* NOTE:  s should be blocking */
 
+if (debug)
+  fprintf(stderr,"qsub: entered reader(%d -> %d)\n",s,d);
+
   while (1) 
     {
     c = read(s,buf,sizeof(buf));
+
+if (debug)
+  fprintf(stderr,"qsub: read returned %d from fd %d\n",c,s);
 
     if (c > 0) 
       {
@@ -1514,7 +1531,7 @@ int reader(
 
       while (c) 
         {
-        if ((wc = write(1,p,c)) < 0) 
+        if ((wc = write(d,p,c)) < 0) 
           {
           if (errno == EINTR) 
             {
@@ -1528,6 +1545,8 @@ int reader(
             }
           }
 
+if (debug)
+  fprintf(stderr,"qsub: read wrote %d bytes from %d to %d\n",wc,s,d);
          c -= wc;
          p += wc;
          }
@@ -1568,7 +1587,8 @@ int reader(
 
 void writer(
 
-  int s)  /* socket */
+  int s,  /* socket */
+  int d)
 
   {
   char c;
@@ -1581,7 +1601,7 @@ void writer(
 
   while (1) 
     {
-    i = read(0,&c,1);
+    i = read(d,&c,1);
 
     if (i > 0) 
       {  
@@ -1595,7 +1615,7 @@ void writer(
 
           /* read next character to check */
 
-          while ((i = read(0,&c,1)) != 1) 
+          while ((i = read(d,&c,1)) != 1) 
             {
             if ((i == -1) && (errno == EINTR))
               continue;
@@ -1967,6 +1987,202 @@ void catchint(
   }  /* END catchint() */
 
 
+/* disable nagle */
+void
+set_nodelay(int fd)
+{       
+        int opt;
+        socklen_t optlen;
+
+        optlen = sizeof opt;
+        if (getsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, &optlen) == -1) {
+                fprintf(stderr,"getsockopt TCP_NODELAY: %.100s", strerror(errno));
+                return;
+        }
+        if (opt == 1) {
+                fprintf(stderr,"fd %d is TCP_NODELAY", fd);
+                return;
+        }
+        opt = 1;
+        fprintf(stderr,"fd %d setting TCP_NODELAY", fd);
+        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof opt) == -1)
+                fprintf(stderr,"setsockopt TCP_NODELAY: %.100s", strerror(errno));
+}
+
+static int      
+connect_local_xsocket(u_int dnr)
+{               
+        int sock;
+        struct sockaddr_un addr;
+                    
+        sock = socket(AF_UNIX, SOCK_STREAM, 0);
+        if (sock < 0)
+                fprintf(stderr,"socket: %.100s", strerror(errno));
+        memset(&addr, 0, sizeof(addr));
+        addr.sun_family = AF_UNIX;
+        snprintf(addr.sun_path, sizeof addr.sun_path, _PATH_UNIX_X, dnr);
+        if (connect(sock, (struct sockaddr *) & addr, sizeof(addr)) == 0)
+                return sock;
+        close(sock);    
+        fprintf(stderr,"connect %.100s: %.100s", addr.sun_path, strerror(errno));
+        return -1;      
+}                       
+
+int
+x11_connect_display(void)
+{
+        int display_number, sock = 0;
+        const char *display;
+        char buf[1024], *cp;
+        struct addrinfo hints, *ai, *aitop;
+        char strport[NI_MAXSERV];
+        int gaierr;
+
+        /* Try to open a socket for the local X server. */
+        display = getenv("DISPLAY");
+        if (!display) {
+                fprintf(stderr,"DISPLAY not set.");
+                return -1;
+        }
+        /*
+         * Now we decode the value of the DISPLAY variable and make a
+         * connection to the real X server.
+         */
+
+        /*
+         * Check if it is a unix domain socket.  Unix domain displays are in
+         * one of the following formats: unix:d[.s], :d[.s], ::d[.s]
+         */
+        if (strncmp(display, "unix:", 5) == 0 ||
+            display[0] == ':') {
+                /* Connect to the unix domain socket. */
+                if (sscanf(strrchr(display, ':') + 1, "%d", &display_number) != 1) {
+                        fprintf(stderr,"Could not parse display number from DISPLAY: %.100s",
+                            display);
+                        return -1;
+                }
+                /* Create a socket. */
+                sock = connect_local_xsocket(display_number);
+                if (sock < 0)
+                        return -1;
+
+                /* OK, we now have a connection to the display. */
+                return sock;
+        }
+        /*
+         * Connect to an inet socket.  The DISPLAY value is supposedly
+         * hostname:d[.s], where hostname may also be numeric IP address.
+         */
+        strncpy(buf, display, sizeof(buf));
+        cp = strchr(buf, ':');
+        if (!cp) {
+                fprintf(stderr,"Could not find ':' in DISPLAY: %.100s", display);
+                return -1;
+        }
+        *cp = 0;
+        /* buf now contains the host name.  But first we parse the display number. */
+        if (sscanf(cp + 1, "%d", &display_number) != 1) {
+                fprintf(stderr,"Could not parse display number from DISPLAY: %.100s",
+                    display);
+                return -1;
+        }
+        
+        /* Look up the host address */
+        memset(&hints, 0, sizeof(hints));
+        hints.ai_family = IPv4or6;
+        hints.ai_socktype = SOCK_STREAM;
+        snprintf(strport, sizeof strport, "%d", 6000 + display_number);
+        if ((gaierr = getaddrinfo(buf, strport, &hints, &aitop)) != 0) {
+                fprintf(stderr,"%100s: unknown host. (%s)", buf, gai_strerror(gaierr));
+                return -1;
+        }
+        for (ai = aitop; ai; ai = ai->ai_next) {
+                /* Create a socket. */
+                sock = socket(ai->ai_family, SOCK_STREAM, 0);
+                if (sock < 0) {
+                        fprintf(stderr,"socket: %.100s", strerror(errno));
+                        continue;
+                }
+                /* Connect it to the display. */
+                if (connect(sock, ai->ai_addr, ai->ai_addrlen) < 0) {
+                        fprintf(stderr,"connect %.100s port %d: %.100s", buf,
+                            6000 + display_number, strerror(errno));
+                        close(sock);
+                        continue;
+                }
+                /* Success */
+                break;
+        }
+        freeaddrinfo(aitop);
+        if (!ai) {
+                fprintf(stderr,"connect %.100s port %d: %.100s", buf, 6000 + display_number,
+                    strerror(errno));
+                return -1;
+        }
+        set_nodelay(sock);
+        return sock;
+}                                                         
+void x11handler(int mastersock)
+  {
+  fd_set fdset;
+  struct sockaddr_in from;
+  socklen_t fromlen;
+  struct timeval timeout;
+  int rc;
+  int newsock,x11sock;
+
+  fromlen=sizeof(from);
+
+  while (1)
+    {
+    FD_ZERO(&fdset);
+    FD_SET(mastersock,&fdset);
+        
+    timeout.tv_sec  = 1;
+    timeout.tv_usec = 0;
+        
+    rc=select(mastersock+1,&fdset,NULL,NULL,&timeout);
+
+    if (rc < 0)
+      {
+      perror("mastersock failed:");
+      exit (EXIT_FAILURE);
+      }
+
+    if (rc == 0)
+      continue;
+
+    if ((rc==1) && FD_ISSET(mastersock,&fdset))
+      {
+      int flags;
+fprintf(stderr,"qsub: mastersock tickled\n");
+      if ((newsock = accept(inter_sock,(struct sockaddr *)&from,&fromlen)) < 0) 
+        {
+        perror("qsub: x11 accept error");
+
+        exit(1);
+        }
+                      flags = fcntl(newsock,F_GETFL);
+                      flags |= O_NONBLOCK;
+                      fcntl(newsock,F_SETFL,flags);
+
+      if (fork() == 0)
+        {
+setenv("PBSX11DEBUG","9",1);
+        x11sock = x11_connect_display();
+        if (fork() == 0)
+          {
+          reader(newsock,x11sock);
+          exit(EXIT_SUCCESS);
+          }
+        reader(x11sock,newsock);
+        exit(EXIT_SUCCESS);
+        }
+      }
+    }
+  }
+
+
 
 
 /*
@@ -1978,7 +2194,6 @@ void interactive()
   {
   int  amt;
   char cur_server[PBS_MAXSERVERNAME + PBS_MAXPORTNUM + 2];
-  socklen_t fromlen;
 
   char momjobid[LOG_BUF_SIZE+1];
   int  news;
@@ -1987,6 +2202,7 @@ void interactive()
   fd_set selset;
   struct sigaction act;
   struct sockaddr_in from;
+  socklen_t fromlen;
   struct timeval timeout;
   struct winsize wsz;
   int child;
@@ -2167,7 +2383,7 @@ void interactive()
 
     settermraw(&oldtio);
 
-    reader(news);
+    reader(news,fileno(stdout));
 
     /* reset terminal */
 
@@ -2181,6 +2397,7 @@ void interactive()
   else if (child > 0) 
     {
     /* parent - start the writer function */
+    pid_t x11handlerpid;
 
     act.sa_handler = catchchild;
 
@@ -2189,11 +2406,20 @@ void interactive()
       exit(1);
       }
 
-    writer(news);
+    if (Forwardx11_opt)
+      {
+      if ((x11handlerpid=fork()) == 0)
+        {
+        x11handler(inter_sock);
+        }
+      }
+
+    writer(news,fileno(stdin));
 
     /* all done - make sure reader child is gone and reset terminal */
 
     kill(child,SIGTERM);
+    kill(x11handlerpid,SIGTERM);
 
     tcsetattr(0,TCSANOW,&oldtio);
 
