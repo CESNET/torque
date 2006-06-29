@@ -129,6 +129,7 @@ extern int mom_reader_go;
 static int IPv4or6 = AF_UNSPEC;
 extern int conn_qsub(char *,int);
 int port_forwarder(struct x11sock *socks,char *phost,int pport);
+extern xauth_path[];
 
 /*
  * read_net - read data from network till received amount expected
@@ -579,7 +580,7 @@ DBPRT(("listening on fd %d\n",(socks+n)->sock));
         snprintf(auth_display, sizeof auth_display, "unix:%u.%s",
           display_number, x11screen);
 
-        snprintf(cmd, sizeof cmd, "%s -f %s -",XAUTHPATH,xauthorityfile);
+        snprintf(cmd, sizeof cmd, "%s -f %s -",xauth_path,xauthorityfile);
         f = popen(cmd, "w");
         if (f) {
           fprintf(f, "remove %s\n", auth_display);

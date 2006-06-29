@@ -110,6 +110,7 @@ SENDMAIL_CMD = @SENDMAIL_CMD@
 STRIP = @STRIP@
 TBL = @TBL@
 VERSION = @VERSION@
+XAUTH_PATH = @XAUTH_PATH@
 YACC = @YACC@
 am__include = @am__include@
 am__quote = @am__quote@
@@ -119,6 +120,7 @@ program_suffix = @program_suffix@
 spec_name = @spec_name@
 spec_snap = @spec_snap@
 spec_version = @spec_version@
+xauth_path = @xauth_path@
 AUTOMAKE_OPTIONS = foreign
 
 PBS_MKDIRS = $(SHELL) $(top_builddir)/buildutils/pbs_mkdirs

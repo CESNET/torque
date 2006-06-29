@@ -147,6 +147,7 @@ struct x11sock {
 };
 
 static char *DefaultFilterPath = "/usr/local/sbin/torque_submitfilter";
+static char *DefaultXauthPath = XAUTH_PATH;
 
 #define SUBMIT_FILTER_ADMIN_REJECT_CODE -1 
 
@@ -159,6 +160,8 @@ static char PBS_DPREFIX_DEFAULT[] = "#PBS";
 char PBS_Filter[256];
 char PBS_InitDir[256];
 char PBS_RootDir[256];
+
+char xauth_path[256];
 
 static int IPv4or6 = AF_UNSPEC;
   int interactivechild=0;
@@ -196,11 +199,11 @@ x11_get_proto(char **_proto, char **_data, char **_screen)
                  * XXX: "localhost" match to determine FamilyLocal
                  *      is not perfect.
                  */
-                snprintf(line, sizeof line, "xauth list unix:%s 2>/dev/null",
-                    display+10);
+                snprintf(line, sizeof line, "%s list unix:%s 2>/dev/null",
+                    xauth_path,display+10);
         else    
-                snprintf(line, sizeof line, "xauth list %.200s 2>/dev/null",
-                    display);
+                snprintf(line, sizeof line, "%s list %.200s 2>/dev/null",
+                    xauth_path,display);
 
 	p = strchr(display,':');
         if (p)
@@ -3877,6 +3880,7 @@ int main(
   /* check TORQUE config settings */
 
   strcpy(PBS_Filter,DefaultFilterPath);
+  strcpy(xauth_path,DefaultXauthPath);
   server_host[0] = '\0';
 
   if (load_config(config_buf,sizeof(config_buf)) == 0)
@@ -3896,6 +3900,12 @@ int main(
       {
       strncpy(server_host,param_val,sizeof(server_host));
       server_host[sizeof(server_host) - 1] = '\0';
+      }
+
+    if ((param_val = get_param("XAUTHPATH",config_buf)) != NULL)
+      {
+      strncpy(xauth_path,param_val,sizeof(xauth_path));
+      xauth_path[sizeof(xauth_path) - 1] = '\0';
       }
     }
 
