@@ -129,7 +129,7 @@ extern int mom_reader_go;
 static int IPv4or6 = AF_UNSPEC;
 extern int conn_qsub(char *,int);
 int port_forwarder(struct x11sock *socks,char *phost,int pport);
-extern xauth_path[];
+extern char xauth_path[];
 
 /*
  * read_net - read data from network till received amount expected
@@ -467,9 +467,11 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
         char x11authstr[512];
         char *phost;
         int  pport;
-        char xauthorityfile[512];
         pid_t childpid;
         struct x11sock *socks;
+        char *homeenv;
+
+        *display='\0';
 
         socks=calloc(sizeof (struct x11sock),NUM_SOCKS);
 
@@ -477,7 +479,10 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
         phost = arst_string("PBS_O_HOST",&pjob->ji_wattr[(int)JOB_ATR_variables]);
 	phost = strchr(phost,'='); phost++;
         pport = pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long;
-        sprintf(xauthorityfile,"%s/%s",pjob->ji_grpcache->gc_homedir,".Xauthority");
+
+        homeenv=malloc(strlen("HOME=") + strlen(pjob->ji_grpcache->gc_homedir) + 2);
+        sprintf(homeenv,"HOME=%s",pjob->ji_grpcache->gc_homedir);
+        putenv(homeenv);
 
         for (n=0;n<NUM_SOCKS;n++)
            (socks+n)->active=0;
@@ -493,6 +498,7 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
                 snprintf(strport, sizeof strport, "%d", port);
                 if ((gaierr = getaddrinfo(NULL, strport, &hints, &aitop)) != 0) {
                         DBPRT(("getaddrinfo: %.100s\n", gai_strerror(gaierr)));
+                        free(socks);
                         return -1;
                 }
                 /* create a socket and bind it to display_number foreach address */
@@ -503,6 +509,7 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
                         if (sock < 0) {
                                 if ((errno != EINVAL) && (errno != EAFNOSUPPORT)) {
                                         DBPRT(("socket: %.100s\n", strerror(errno)));
+                                        free(socks);
                                         return -1;
                                 } else {
                                         DBPRT(("x11_create_display: Socket family %d not supported\n",
@@ -551,6 +558,7 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
         }                                                                                   
         if (display_number >= MAX_DISPLAYS) {
                 DBPRT(("Failed to allocate internet-domain X11 display socket.\n"));
+                free(socks);
                 return -1;
         }
         /* Start listening for connections on the socket. */
@@ -559,6 +567,7 @@ DBPRT(("listening on fd %d\n",(socks+n)->sock));
                 if (listen((socks+n)->sock, 5) < 0) {
                         DBPRT(("listen: %.100s\n", strerror(errno)));
                         close((socks+n)->sock);
+                        free(socks);
                         return -1;
                 }
                 (socks+n)->listening=1;
@@ -580,7 +589,7 @@ DBPRT(("listening on fd %d\n",(socks+n)->sock));
         snprintf(auth_display, sizeof auth_display, "unix:%u.%s",
           display_number, x11screen);
 
-        snprintf(cmd, sizeof cmd, "%s -f %s -",xauth_path,xauthorityfile);
+        snprintf(cmd, sizeof cmd, "%s -",xauth_path);
         f = popen(cmd, "w");
         if (f) {
           fprintf(f, "remove %s\n", auth_display);
@@ -589,6 +598,8 @@ DBPRT(("listening on fd %d\n",(socks+n)->sock));
         } else {
           fprintf(stderr, "Could not run %s\n",
             cmd);
+          free(socks);
+          return(-1);
         }
 
         

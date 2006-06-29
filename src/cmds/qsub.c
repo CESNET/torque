@@ -3521,16 +3521,6 @@ int process_opts(
 
             errflg++;
             }
-
-          /* get the DISPLAY's auth proto, data, and screen number */
-          x11_get_proto(&x11authproto,&x11authdata,&x11authscreen);
-
-          /* stuff this info into the job */
-          x11authstr = malloc(strlen(x11authproto) + strlen(x11authdata) + strlen(x11authscreen) +4);
-          sprintf(x11authstr,"%s:%s:%s",x11authproto, x11authdata, x11authscreen);
-          set_attr(&attrib,ATTR_forwardx11,x11authstr);
-
-fprintf(stderr,"%s\n",x11authstr);
           }
 
         break;
@@ -3883,6 +3873,7 @@ int main(
   strcpy(xauth_path,DefaultXauthPath);
   server_host[0] = '\0';
 
+fprintf(stderr,"xauth_path=%s\n",xauth_path);
   if (load_config(config_buf,sizeof(config_buf)) == 0)
     {
     if ((param_val = get_param("QSUBSLEEP",config_buf)) != NULL)
@@ -3911,6 +3902,20 @@ int main(
 
   if (optind < argc) 
     strcpy(script,argv[optind]);
+
+
+  if (Forwardx11_opt)
+    {
+    /* get the DISPLAY's auth proto, data, and screen number */
+    x11_get_proto(&x11authproto,&x11authdata,&x11authscreen);
+
+    /* stuff this info into the job */
+    x11authstr = malloc(strlen(x11authproto) + strlen(x11authdata) + strlen(x11authscreen) +4);
+    sprintf(x11authstr,"%s:%s:%s",x11authproto, x11authdata, x11authscreen);
+    set_attr(&attrib,ATTR_forwardx11,x11authstr);
+
+    DBPRT(("x11auth string: %s\n",x11authstr));
+    }
 
   /* if script is empty, get standard input */
 

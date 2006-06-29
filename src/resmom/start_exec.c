@@ -2716,8 +2716,11 @@ int TMomFinalizeChild(
   if ((TJE->is_interactive == TRUE) && pjob->ji_wattr[(int)JOB_ATR_forwardx11].at_val.at_str)
     {
     char display[512];
-    x11_create_display(1, display, pjob);
-    bld_env_variables(&vtable,"DISPLAY",display);
+
+    if(x11_create_display(1, display, pjob) >= 0)
+      {
+      bld_env_variables(&vtable,"DISPLAY",display);
+      }
     }
 
   /* NULL terminate the envp array, This is MUST DO */
