@@ -109,18 +109,8 @@
 #include "list_link.h"
 #include "attribute.h"
 #include "job.h"
+#include "port_forwarding.h"
 
-#define BUF_SIZE 1024
-struct x11sock {
-  int sock;
-  int listening;
-  int remotesock;
-  int bufavail;
-  int bufwritten;
-  int active;
-  int peer;
-  char buff[BUF_SIZE];
-};
 static char cc_array[PBS_TERM_CCA];
 static struct winsize wsz;
 
@@ -128,7 +118,6 @@ extern int mom_reader_go;
 
 static int IPv4or6 = AF_UNSPEC;
 extern int conn_qsub(char *,int);
-int port_forwarder(struct x11sock *socks,char *phost,int pport);
 extern char xauth_path[];
 
 /*
@@ -448,46 +437,44 @@ int mom_writer(
  * or -1 if an error occurs.
  */
 
-#define NUM_SOCKS 100
-#define MAX_DISPLAYS 500
-#define X11OFFSET 50
-#define XAUTHPATH "/usr/X11R6/bin/xauth"
 int
-x11_create_display(int x11_use_localhost, char *display,job *pjob)
+x11_create_display(int x11_use_localhost, char *display,char *phost,int pport,char *homedir,char *x11authstr)
 {       
         int display_number, sock;
         u_short port;
         struct addrinfo hints, *ai, *aitop;
         char strport[NI_MAXSERV];
         int gaierr, n, num_socks = 0;
-        char x11proto[512],x11data[512],x11screen[512],cmd[512];
+	unsigned int x11screen;
+        char x11proto[512],x11data[512],cmd[512];
         char auth_display[512];
         char *p;
 	FILE *f;
-        char x11authstr[512];
-        char *phost;
-        int  pport;
         pid_t childpid;
-        struct x11sock *socks;
+        struct pfwdsock *socks;
         char *homeenv;
 
         *display='\0';
 
-        socks=calloc(sizeof (struct x11sock),NUM_SOCKS);
+        socks=calloc(sizeof (struct pfwdsock),NUM_SOCKS);
 
-        strcpy(x11authstr,pjob->ji_wattr[(int)JOB_ATR_forwardx11].at_val.at_str);
-        phost = arst_string("PBS_O_HOST",&pjob->ji_wattr[(int)JOB_ATR_variables]);
-	phost = strchr(phost,'='); phost++;
-        pport = pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long;
-
-        homeenv=malloc(strlen("HOME=") + strlen(pjob->ji_grpcache->gc_homedir) + 2);
-        sprintf(homeenv,"HOME=%s",pjob->ji_grpcache->gc_homedir);
+        homeenv=malloc(strlen("HOME=") + strlen(homedir) + 2);
+        sprintf(homeenv,"HOME=%s",homedir);
         putenv(homeenv);
 
         for (n=0;n<NUM_SOCKS;n++)
            (socks+n)->active=0;
 
-        x11proto[0] = x11data[0] = x11screen[0] = '\0';
+        x11proto[0] = x11data[0] = '\0';
+
+        errno=0;
+        if ((n=sscanf(x11authstr,"%511[^:]:%511[^:]:%u",x11proto,x11data,&x11screen)) != 3)
+          {
+          fprintf(stderr,"sscanf(%s)=%d failed: %s\n",x11authstr,n,strerror(errno));
+          free(socks);
+          return -1;
+          }
+
 
         for (display_number = X11OFFSET; display_number < MAX_DISPLAYS; display_number++) {
                 port = 6000 + display_number;
@@ -497,7 +484,7 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
                 hints.ai_socktype = SOCK_STREAM;
                 snprintf(strport, sizeof strport, "%d", port);
                 if ((gaierr = getaddrinfo(NULL, strport, &hints, &aitop)) != 0) {
-                        DBPRT(("getaddrinfo: %.100s\n", gai_strerror(gaierr)));
+                        fprintf(stderr,"getaddrinfo: %.100s\n", gai_strerror(gaierr));
                         free(socks);
                         return -1;
                 }
@@ -508,7 +495,7 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
                         sock = socket(ai->ai_family, SOCK_STREAM, 0);
                         if (sock < 0) {
                                 if ((errno != EINVAL) && (errno != EAFNOSUPPORT)) {
-                                        DBPRT(("socket: %.100s\n", strerror(errno)));
+                                        fprintf(stderr,"socket: %.100s\n", strerror(errno));
                                         free(socks);
                                         return -1;
                                 } else {
@@ -557,15 +544,15 @@ x11_create_display(int x11_use_localhost, char *display,job *pjob)
                         break;
         }                                                                                   
         if (display_number >= MAX_DISPLAYS) {
-                DBPRT(("Failed to allocate internet-domain X11 display socket.\n"));
+                fprintf(stderr,"Failed to allocate internet-domain X11 display socket.\n");
                 free(socks);
                 return -1;
         }
         /* Start listening for connections on the socket. */
         for (n = 0; n < num_socks; n++) {
-DBPRT(("listening on fd %d\n",(socks+n)->sock));
+                DBPRT(("listening on fd %d\n",(socks+n)->sock));
                 if (listen((socks+n)->sock, 5) < 0) {
-                        DBPRT(("listen: %.100s\n", strerror(errno)));
+                        fprintf(stderr,"listen: %.100s\n", strerror(errno));
                         close((socks+n)->sock);
                         free(socks);
                         return -1;
@@ -574,19 +561,9 @@ DBPRT(("listening on fd %d\n",(socks+n)->sock));
         }
 
         /* setup local xauth */
-        strcpy(x11proto,x11authstr);
-        p = strchr(x11proto,':');
-        *p = '\0';
-        p++;
-        strcpy(x11data,p);
-        p=strchr(x11data,':');
-        *p = '\0';
-        p++;
-        strcpy(x11screen,p);
-
-        sprintf(display, "localhost:%u.%s",
+        sprintf(display, "localhost:%u.%u",
           display_number, x11screen);
-        snprintf(auth_display, sizeof auth_display, "unix:%u.%s",
+        snprintf(auth_display, sizeof auth_display, "unix:%u.%u",
           display_number, x11screen);
 
         snprintf(cmd, sizeof cmd, "%s -",xauth_path);
@@ -606,190 +583,22 @@ DBPRT(("listening on fd %d\n",(socks+n)->sock));
         if ((childpid=fork()) > 0)
           {
           free(socks);
+          DBPRT(("successful x11 init, returning display %d\n",display_number));
           return (display_number);
           }
         else if (childpid < 0)
           {
+          fprintf(stderr,"failed x11 init fork\n");
           free(socks);
           return(-1);
           }
         else
           {
-          port_forwarder(socks,phost,pport);
+          DBPRT(("entering port_forwarder\n"));
+          port_forwarder(socks,conn_qsub,phost,pport);
           }
 
         exit(EXIT_FAILURE);
-}
-
-
-int port_forwarder(struct x11sock *socks,char *phost,int pport)
-  {
-  char id[]="port_forwarder";
-
-  fd_set rfdset, wfdset, efdset;
-  int rc, maxsock=0;
-  struct sockaddr_in from;
-  socklen_t fromlen;
-  extern ssize_t read_blocking_socket(int fd, void *buf, ssize_t count);
-  char buf[BUF_SIZE];
-  int n,n2, c, sock;
-  int localsock, remotesock;
-
-
-  fromlen = sizeof(from);
-
-  while (1)
-    {
-
-    FD_ZERO(&rfdset);
-    FD_ZERO(&wfdset);
-    FD_ZERO(&efdset);
-    maxsock=0;
-    for (n = 0; n < NUM_SOCKS; n++)
-      {
-      if (!(socks+n)->active)
-        continue;
-
-      if ((socks+n)->listening)
-        {
-        FD_SET((socks+n)->sock,&rfdset);
-        }
-      else
-        {
-        if ((socks+n)->bufavail < BUF_SIZE)
-          FD_SET((socks+n)->sock,&rfdset);
-        if ((socks+((socks+n)->peer))->bufavail - (socks+((socks+n)->peer))->bufwritten > 0)
-          FD_SET((socks+n)->sock,&wfdset);
-        /*FD_SET((socks+n)->sock,&efdset);*/
-        }
-
-      maxsock = (socks+n)->sock > maxsock ? (socks+n)->sock : maxsock;
-      }
-    maxsock++;
-
-    rc = select(maxsock,&rfdset,&wfdset,&efdset,NULL);
-    if (rc == -1 && errno == EINTR)
-      continue;
-    if (rc < 0)
-      {
-      perror("port forwarding select()");
-      exit(EXIT_FAILURE);
-      }
-
-    for (n = 0; n < NUM_SOCKS; n++)
-      {
-      if (!(socks+n)->active)
-        continue;
-
-      if (FD_ISSET((socks+n)->sock, &rfdset))
-        {
-        if ((socks+n)->listening)
-          {
-          int newsock=0, peersock=0;
-          if ((sock = accept((socks+n)->sock,(struct sockaddr *)&from,&fromlen)) < 0)
-            {
-            DBPRT(("accept error for sock %d\n",(socks+n)->sock));
-            if ((errno==EAGAIN)||(errno==EWOULDBLOCK)||(errno==EINTR)||(errno==ECONNABORTED))
-              continue;
-
-            close((socks+n)->sock);
-            (socks+n)->active=0;
-
-            continue;
-            }
-
-          newsock=peersock=0;
-          for (n2 = 0; n2 < NUM_SOCKS; n2++)
-            {
-            if ((socks+n2)->active || ((socks+n2)->peer != 0 && (socks+((socks+n2)->peer))->active))
-              continue;
-            if (newsock==0)
-              newsock=n2;
-            else if (peersock==0)
-              peersock=n2;
-            else
-              break;
-            }
-DBPRT(("%s: accepted sock %d from sock %d (newsock=%d peersock=%d)\n",id,sock,(socks+n)->sock,newsock,peersock));       
-          (socks+newsock)->sock     =(socks+peersock)->remotesock=sock;
-          (socks+newsock)->listening=(socks+peersock)->listening =0;
-          (socks+newsock)->active   =(socks+peersock)->active   =1;                            
-          (socks+newsock)->peer   =(socks+peersock)->sock      =conn_qsub(phost,pport);
-          (socks+newsock)->bufwritten   =(socks+peersock)->bufwritten      =0;
-          (socks+newsock)->bufavail =(socks+peersock)->bufavail  =0;
-          (socks+newsock)->buff[0]  =(socks+peersock)->buff[0]   = '\0';
-          (socks+newsock)->peer=peersock;
-          (socks+peersock)->peer=newsock;
-DBPRT(("%s: conn_qsub sock %d\n",id,(socks+newsock)->peer));
-
-          }
-        else
-          {
-          /* non-listening socket to be read */
-          rc=read((socks+n)->sock,(socks+n)->buff + (socks+n)->bufavail,BUF_SIZE - (socks+n)->bufavail);
-          if (rc<1)
-            {
-            shutdown ((socks+n)->sock, SHUT_RDWR);
-            close ((socks+n)->sock);
-            (socks+n)->active=0;
-            }
-          else
-            {
-            (socks+n)->bufavail += rc;
-            }
-          }
-        } /* END if rfdset */
-      } /* END foreach fd */
-
-    for (n = 0; n < NUM_SOCKS; n++)
-      {
-      if (!(socks+n)->active)
-        continue;
-
-      if (FD_ISSET((socks+n)->sock, &wfdset))
-        {
-        int peer=(socks+n)->peer;
-        rc=write((socks+n)->sock,
-                 (socks+peer)->buff + (socks+peer)->bufwritten,
-                 (socks+peer)->bufavail - (socks+peer)->bufwritten);
-        if (rc < 1)
-          {
-          shutdown ((socks+n)->sock, SHUT_RDWR);
-          close ((socks+n)->sock);
-          (socks+n)->active=0;
-          }
-        else
-          {
-          (socks+peer)->bufwritten+=rc;
-          }
-        } /* END if wfdset */
-
-      } /* END foreach fd */
-
-    for (n2=0; n2<=1;n2++) 
-    for (n = 0; n < NUM_SOCKS; n++)
-      {
-      int peer;
-
-      if (!(socks+n)->active || (socks+n)->listening)
-        continue;
-
-      peer=(socks+n)->peer;
-
-      if ((socks+n)->bufwritten == (socks+n)->bufavail)
-        {
-        (socks+n)->bufwritten = (socks+n)->bufavail = 0;
-        }
-
-      if (!(socks+peer)->active && (socks+peer)->bufwritten == (socks+peer)->bufavail)
-        {
-DBPRT(("%s: peer not active, buffer empty, closing %d\n",id,(socks+n)->sock));
-        shutdown ((socks+n)->sock, SHUT_RDWR);
-        close ((socks+n)->sock);
-        (socks+n)->active=0;
-        }
-      }
-   } /* END while(1) */
 }
 
 

@@ -865,7 +865,6 @@ if test -z "$xauth_path" ; then
 fi
 AC_DEFINE_UNQUOTED(XAUTH_PATH, "$xauth_path", [Define to the path of xauth])
 XAUTH_PATH=$xauth_path
-AC_SUBST(XAUTH_PATH)
 
 
 
