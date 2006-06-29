@@ -132,6 +132,20 @@
 #include "net_connect.h"
 #include "log.h"
 
+#define BUF_SIZE 1024
+#define NUM_SOCKS 100
+
+struct x11sock {
+  int sock;
+  int listening;
+  int remotesock;
+  int bufavail;
+  int bufwritten;
+  int active;
+  int peer;
+  char buff[BUF_SIZE];
+};
+
 static char *DefaultFilterPath = "/usr/local/sbin/torque_submitfilter";
 
 #define SUBMIT_FILTER_ADMIN_REJECT_CODE -1 
@@ -147,6 +161,8 @@ char PBS_InitDir[256];
 char PBS_RootDir[256];
 
 static int IPv4or6 = AF_UNSPEC;
+  int interactivechild=0;
+  int x11child=0;
 
 int do_dir(char *);
 int process_opts(int,char **,int);
@@ -1506,24 +1522,14 @@ int reader(
   int  c;
   char *p;
   int  wc;
-  int debug=0;
-
-if (getenv("PBSX11DEBUG") != NULL)
-  debug=1;
 
   /* read from the socket, and write to stdout */
 
   /* NOTE:  s should be blocking */
 
-if (debug)
-  fprintf(stderr,"qsub: entered reader(%d -> %d)\n",s,d);
-
   while (1) 
     {
     c = read(s,buf,sizeof(buf));
-
-if (debug)
-  fprintf(stderr,"qsub: read returned %d from fd %d\n",c,s);
 
     if (c > 0) 
       {
@@ -1545,8 +1551,6 @@ if (debug)
             }
           }
 
-if (debug)
-  fprintf(stderr,"qsub: read wrote %d bytes from %d to %d\n",wc,s,d);
          c -= wc;
          p += wc;
          }
@@ -1858,8 +1862,12 @@ void catchchild(
       }
     }
    
-  /* reset terminal to cooked mode */
+    if (interactivechild > 0)
+    kill(interactivechild,SIGTERM);
+    if (x11child > 0)
+    kill(x11child,SIGTERM);
 
+  /* reset terminal to cooked mode */
   tcsetattr(0,TCSANOW,&oldtio);
 
   exit(0);
@@ -2015,9 +2023,11 @@ connect_local_xsocket(u_int dnr)
         int sock;
         struct sockaddr_un addr;
                     
-        sock = socket(AF_UNIX, SOCK_STREAM, 0);
-        if (sock < 0)
-                fprintf(stderr,"socket: %.100s", strerror(errno));
+        if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
+          {
+          fprintf(stderr,"socket: %.100s", strerror(errno));
+          return -1;
+          }
         memset(&addr, 0, sizeof(addr));
         addr.sun_family = AF_UNIX;
         snprintf(addr.sun_path, sizeof addr.sun_path, _PATH_UNIX_X, dnr);
@@ -2122,7 +2132,199 @@ x11_connect_display(void)
         set_nodelay(sock);
         return sock;
 }                                                         
-void x11handler(int mastersock)
+
+
+int port_forwarder(struct x11sock *socks)
+  {
+  char id[]="(qsub)port_forwarder";
+
+  fd_set rfdset, wfdset, efdset;
+  int rc, maxsock=0;
+  struct sockaddr_in from;
+  socklen_t fromlen;
+  extern ssize_t read_blocking_socket(int fd, void *buf, ssize_t count);
+  char buf[BUF_SIZE];
+  int n,n2, c, sock;
+  int localsock, remotesock;
+  
+  
+  fromlen = sizeof(from);
+
+  while (1)
+    {
+    
+    FD_ZERO(&rfdset);
+    FD_ZERO(&wfdset);
+    FD_ZERO(&efdset);
+    maxsock=0;
+    for (n = 0; n < NUM_SOCKS; n++)
+      {
+      if (!(socks+n)->active)
+        continue;
+
+      if ((socks+n)->listening)
+        {
+        FD_SET((socks+n)->sock,&rfdset);
+        }
+      else
+        {
+        if ((socks+n)->bufavail < BUF_SIZE)
+          FD_SET((socks+n)->sock,&rfdset);
+        if ((socks+((socks+n)->peer))->bufavail - (socks+((socks+n)->peer))->bufwritten > 0)
+          FD_SET((socks+n)->sock,&wfdset);
+        /*FD_SET((socks+n)->sock,&efdset);*/
+        }
+      
+      maxsock = (socks+n)->sock > maxsock ? (socks+n)->sock : maxsock;
+      }
+    maxsock++;
+
+    rc = select(maxsock,&rfdset,&wfdset,&efdset,NULL);
+    if (rc == -1 && errno == EINTR)
+      continue;
+    if (rc < 0)
+      {                                                                                     
+      perror("port forwarding select()");
+      exit(EXIT_FAILURE);
+      }
+
+    for (n = 0; n < NUM_SOCKS; n++)
+      {
+      if (!(socks+n)->active)
+        continue;
+
+      if (FD_ISSET((socks+n)->sock, &rfdset))
+        {
+        if ((socks+n)->listening)
+          {
+          int newsock=0, peersock=0;
+          if ((sock = accept((socks+n)->sock,(struct sockaddr *)&from,&fromlen)) < 0)
+            {
+            DBPRT(("accept error for sock %d\n",(socks+n)->sock));
+            if ((errno==EAGAIN)||(errno==EWOULDBLOCK)||(errno==EINTR)||(errno==ECONNABORTED))
+              continue;
+
+            close((socks+n)->sock);
+            (socks+n)->active=0;
+
+            continue;
+            }
+
+          newsock=peersock=0;
+          for (n2 = 0; n2 < NUM_SOCKS; n2++)
+            {
+            if ((socks+n2)->active || ((socks+n2)->peer != 0 && (socks+((socks+n2)->peer))->active))
+              continue;
+            if (newsock==0)
+              newsock=n2;
+            else if (peersock==0)
+              peersock=n2;
+            else
+              break;
+            }
+DBPRT(("%s: accepted sock %d from sock %d (newsock=%d peersock=%d)\n",id,sock,(socks+n)->sock,newsock,peersock));
+          (socks+newsock)->sock     =(socks+peersock)->remotesock=sock;
+          (socks+newsock)->listening=(socks+peersock)->listening =0;
+          (socks+newsock)->active   =(socks+peersock)->active   =1;
+          (socks+newsock)->peer   =(socks+peersock)->sock      =x11_connect_display();
+          (socks+newsock)->bufwritten   =(socks+peersock)->bufwritten      =0;
+          (socks+newsock)->bufavail =(socks+peersock)->bufavail  =0;
+          (socks+newsock)->buff[0]  =(socks+peersock)->buff[0]   = '\0';
+          (socks+newsock)->peer=peersock;
+          (socks+peersock)->peer=newsock;
+DBPRT(("%s: x11 peer sock %d\n",id,(socks+newsock)->peer));
+          }
+        else
+          {
+          /* non-listening socket to be read */
+          rc=read((socks+n)->sock,(socks+n)->buff + (socks+n)->bufavail,BUF_SIZE - (socks+n)->bufavail);
+          if (rc<1)                                                                         
+            {
+            shutdown ((socks+n)->sock, SHUT_RDWR);
+            close ((socks+n)->sock);
+            (socks+n)->active=0;
+            }
+          else
+            {
+            (socks+n)->bufavail += rc;
+            }
+          }
+        } /* END if rfdset */
+      } /* END foreach fd */
+
+    for (n = 0; n < NUM_SOCKS; n++)
+      {
+      if (!(socks+n)->active)
+        continue;
+
+      if (FD_ISSET((socks+n)->sock, &wfdset))
+        {
+        int peer=(socks+n)->peer;
+        rc=write((socks+n)->sock,
+                 (socks+peer)->buff + (socks+peer)->bufwritten,
+                 (socks+peer)->bufavail - (socks+peer)->bufwritten);
+        if (rc < 1)
+          {
+          shutdown ((socks+n)->sock, SHUT_RDWR);
+          close ((socks+n)->sock);
+          (socks+n)->active=0;
+          }
+        else
+          {
+          (socks+peer)->bufwritten+=rc;
+          }
+        } /* END if wfdset */
+
+      } /* END foreach fd */
+
+
+    for (n2=0; n2<=1;n2++)
+    for (n = 0; n < NUM_SOCKS; n++)
+      {
+      int peer;
+      
+      if (!(socks+n)->active || (socks+n)->listening)
+        continue;
+
+      peer=(socks+n)->peer;
+
+      if ((socks+n)->bufwritten == (socks+n)->bufavail)
+        {                                                                                   
+        (socks+n)->bufwritten = (socks+n)->bufavail = 0;
+        }
+
+      if (!(socks+peer)->active && (socks+peer)->bufwritten == (socks+peer)->bufavail)
+        {
+DBPRT(("%s: peer not active, buffer empty, closing %d\n",id,(socks+n)->sock));
+        shutdown ((socks+n)->sock, SHUT_RDWR);
+        close ((socks+n)->sock);
+        (socks+n)->active=0;
+        }
+      }
+   } /* END while(1) */
+}
+
+void x11handler(int inter_sock)
+  {
+  struct x11sock *socks;
+  int n;
+
+  socks=calloc(sizeof (struct x11sock),NUM_SOCKS);
+  for (n=0;n<NUM_SOCKS;n++)
+    (socks+n)->active=0;
+
+  (socks+0)->sock = inter_sock;
+  (socks+0)->active=1;
+  (socks+0)->listening=1;
+
+  port_forwarder(socks);
+
+  exit(EXIT_FAILURE);
+}
+
+
+#if 0
+void x11handlerOLD(int mastersock)
   {
   fd_set fdset;
   struct sockaddr_in from;
@@ -2130,8 +2332,15 @@ void x11handler(int mastersock)
   struct timeval timeout;
   int rc;
   int newsock,x11sock;
+  struct sigaction act;
+
 
   fromlen=sizeof(from);
+
+  sigemptyset(&act.sa_mask);
+  act.sa_flags   = 0;
+  act.sa_handler = SIG_IGN;
+  sigaction(SIGCHLD,&act,NULL);
 
   while (1)
     {
@@ -2173,14 +2382,25 @@ setenv("PBSX11DEBUG","9",1);
         if (fork() == 0)
           {
           reader(newsock,x11sock);
+fprintf(stderr,"qsub: (X child) closing both X sockets\n");
+          shutdown(newsock,SHUT_RDWR);
+          close(newsock);
+          shutdown(x11sock,SHUT_RDWR);
+          close(x11sock);
           exit(EXIT_SUCCESS);
           }
         reader(x11sock,newsock);
+fprintf(stderr,"qsub: (Xparent) closing both X sockets\n");
+          shutdown(newsock,SHUT_RDWR);
+          close(newsock);
+        shutdown(x11sock,SHUT_RDWR);
+        close(x11sock);
         exit(EXIT_SUCCESS);
         }
       }
     }
   }
+#endif
 
 
 
@@ -2205,7 +2425,6 @@ void interactive()
   socklen_t fromlen;
   struct timeval timeout;
   struct winsize wsz;
-  int child;
     
   /* Catch SIGINT and SIGTERM, and */
   /* setup to catch Death of child */
@@ -2372,9 +2591,9 @@ void interactive()
     exit(1);
     }
 
-  child = fork();
+  interactivechild = fork();
 
-  if (child == 0) 
+  if (interactivechild == 0) 
     {
     /*
      * child process - start the reader function
@@ -2394,10 +2613,9 @@ void interactive()
 
     exit(0);
     } 
-  else if (child > 0) 
+  else if (interactivechild > 0) 
     {
     /* parent - start the writer function */
-    pid_t x11handlerpid;
 
     act.sa_handler = catchchild;
 
@@ -2408,8 +2626,11 @@ void interactive()
 
     if (Forwardx11_opt)
       {
-      if ((x11handlerpid=fork()) == 0)
+      if ((x11child=fork()) == 0)
         {
+        act.sa_handler = SIG_DFL;
+
+        sigaction(SIGTERM,&act,(struct sigaction *)0);
         x11handler(inter_sock);
         }
       }
@@ -2418,9 +2639,13 @@ void interactive()
 
     /* all done - make sure reader child is gone and reset terminal */
 
-    kill(child,SIGTERM);
-    kill(x11handlerpid,SIGTERM);
+    if (interactivechild > 0)
+    kill(interactivechild,SIGTERM);
+    if (x11child > 0)
+    kill(x11child,SIGTERM);
 
+    shutdown(inter_sock,SHUT_RDWR);
+    close(inter_sock);
     tcsetattr(0,TCSANOW,&oldtio);
 
     exit(0);

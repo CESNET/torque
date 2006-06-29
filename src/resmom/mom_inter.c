@@ -447,7 +447,7 @@ int mom_writer(
  * or -1 if an error occurs.
  */
 
-#define NUM_SOCKS 10
+#define NUM_SOCKS 100
 #define MAX_DISPLAYS 500
 #define X11OFFSET 50
 #define XAUTHPATH "/usr/X11R6/bin/xauth"
@@ -615,12 +615,12 @@ int port_forwarder(struct x11sock *socks,char *phost,int pport)
   char id[]="port_forwarder";
 
   fd_set rfdset, wfdset, efdset;
-  int rc, lastsock=0,maxsock=0;
+  int rc, maxsock=0;
   struct sockaddr_in from;
   socklen_t fromlen;
   extern ssize_t read_blocking_socket(int fd, void *buf, ssize_t count);
   char buf[BUF_SIZE];
-  int n, c, sock;
+  int n,n2, c, sock;
   int localsock, remotesock;
 
 
@@ -633,8 +633,11 @@ int port_forwarder(struct x11sock *socks,char *phost,int pport)
     FD_ZERO(&wfdset);
     FD_ZERO(&efdset);
     maxsock=0;
-    for (n = 0; n < NUM_SOCKS && (socks+n)->active; n++)
+    for (n = 0; n < NUM_SOCKS; n++)
       {
+      if (!(socks+n)->active)
+        continue;
+
       if ((socks+n)->listening)
         {
         FD_SET((socks+n)->sock,&rfdset);
@@ -651,7 +654,6 @@ int port_forwarder(struct x11sock *socks,char *phost,int pport)
       maxsock = (socks+n)->sock > maxsock ? (socks+n)->sock : maxsock;
       }
     maxsock++;
-    lastsock=n;
 
     rc = select(maxsock,&rfdset,&wfdset,&efdset,NULL);
     if (rc == -1 && errno == EINTR)
@@ -662,15 +664,16 @@ int port_forwarder(struct x11sock *socks,char *phost,int pport)
       exit(EXIT_FAILURE);
       }
 
-DBPRT(("%s: an fd was tickled\n",id));
-
     for (n = 0; n < NUM_SOCKS; n++)
       {
+      if (!(socks+n)->active)
+        continue;
+
       if (FD_ISSET((socks+n)->sock, &rfdset))
         {
-DBPRT(("%s: fd %d tickled\n",id,(socks+n)->sock));
         if ((socks+n)->listening)
           {
+          int newsock=0, peersock=0;
           if ((sock = accept((socks+n)->sock,(struct sockaddr *)&from,&fromlen)) < 0)
             {
             DBPRT(("accept error for sock %d\n",(socks+n)->sock));
@@ -683,25 +686,35 @@ DBPRT(("%s: fd %d tickled\n",id,(socks+n)->sock));
             continue;
             }
 
-DBPRT(("%s: accepted sock %d from sock %d\n",id,sock,(socks+n)->sock));
-          (socks+lastsock)->sock     =(socks+lastsock+1)->remotesock=sock;
-          (socks+lastsock)->listening=(socks+lastsock+1)->listening =0;
-          (socks+lastsock)->active   =(socks+lastsock+1)->active   =1;
-          (socks+lastsock)->peer   =(socks+lastsock+1)->sock      =conn_qsub(phost,pport);
-          (socks+lastsock)->bufwritten   =(socks+lastsock+1)->bufwritten      =0;
-          (socks+lastsock)->bufavail =(socks+lastsock+1)->bufavail  =0;
-          (socks+lastsock)->buff[0]  =(socks+lastsock+1)->buff[0]   = '\0';
-          (socks+lastsock)->peer=lastsock+1;
-          (socks+lastsock+1)->peer=lastsock;
-DBPRT(("%s: conn_qsub sock %d\n",id,(socks+lastsock)->peer));
-          lastsock+=2;
+          newsock=peersock=0;
+          for (n2 = 0; n2 < NUM_SOCKS; n2++)
+            {
+            if ((socks+n2)->active || ((socks+n2)->peer != 0 && (socks+((socks+n2)->peer))->active))
+              continue;
+            if (newsock==0)
+              newsock=n2;
+            else if (peersock==0)
+              peersock=n2;
+            else
+              break;
+            }
+DBPRT(("%s: accepted sock %d from sock %d (newsock=%d peersock=%d)\n",id,sock,(socks+n)->sock,newsock,peersock));       
+          (socks+newsock)->sock     =(socks+peersock)->remotesock=sock;
+          (socks+newsock)->listening=(socks+peersock)->listening =0;
+          (socks+newsock)->active   =(socks+peersock)->active   =1;                            
+          (socks+newsock)->peer   =(socks+peersock)->sock      =conn_qsub(phost,pport);
+          (socks+newsock)->bufwritten   =(socks+peersock)->bufwritten      =0;
+          (socks+newsock)->bufavail =(socks+peersock)->bufavail  =0;
+          (socks+newsock)->buff[0]  =(socks+peersock)->buff[0]   = '\0';
+          (socks+newsock)->peer=peersock;
+          (socks+peersock)->peer=newsock;
+DBPRT(("%s: conn_qsub sock %d\n",id,(socks+newsock)->peer));
 
           }
         else
           {
           /* non-listening socket to be read */
           rc=read((socks+n)->sock,(socks+n)->buff + (socks+n)->bufavail,BUF_SIZE - (socks+n)->bufavail);
-DBPRT(("%s: read from sock %d returned %d\n",id,(socks+n)->sock,rc));
           if (rc<1)
             {
             shutdown ((socks+n)->sock, SHUT_RDWR);
@@ -714,6 +727,12 @@ DBPRT(("%s: read from sock %d returned %d\n",id,(socks+n)->sock,rc));
             }
           }
         } /* END if rfdset */
+      } /* END foreach fd */
+
+    for (n = 0; n < NUM_SOCKS; n++)
+      {
+      if (!(socks+n)->active)
+        continue;
 
       if (FD_ISSET((socks+n)->sock, &wfdset))
         {
@@ -721,7 +740,6 @@ DBPRT(("%s: read from sock %d returned %d\n",id,(socks+n)->sock,rc));
         rc=write((socks+n)->sock,
                  (socks+peer)->buff + (socks+peer)->bufwritten,
                  (socks+peer)->bufavail - (socks+peer)->bufwritten);
-DBPRT(("%s: write to sock %d returned %d\n",id,(socks+n)->sock,rc));
         if (rc < 1)
           {
           shutdown ((socks+n)->sock, SHUT_RDWR);
@@ -731,21 +749,33 @@ DBPRT(("%s: write to sock %d returned %d\n",id,(socks+n)->sock,rc));
         else
           {
           (socks+peer)->bufwritten+=rc;
-          if (!(socks+peer)->active && (socks+peer)->bufwritten == (socks+peer)->bufavail)
-            {
-            shutdown ((socks+n)->sock, SHUT_RDWR);
-            (socks+n)->active=0;
-            }
-            
           }
         } /* END if wfdset */
 
       } /* END foreach fd */
 
+    for (n2=0; n2<=1;n2++) 
     for (n = 0; n < NUM_SOCKS; n++)
       {
+      int peer;
+
+      if (!(socks+n)->active || (socks+n)->listening)
+        continue;
+
+      peer=(socks+n)->peer;
+
       if ((socks+n)->bufwritten == (socks+n)->bufavail)
+        {
         (socks+n)->bufwritten = (socks+n)->bufavail = 0;
+        }
+
+      if (!(socks+peer)->active && (socks+peer)->bufwritten == (socks+peer)->bufavail)
+        {
+DBPRT(("%s: peer not active, buffer empty, closing %d\n",id,(socks+n)->sock));
+        shutdown ((socks+n)->sock, SHUT_RDWR);
+        close ((socks+n)->sock);
+        (socks+n)->active=0;
+        }
       }
    } /* END while(1) */
 }
