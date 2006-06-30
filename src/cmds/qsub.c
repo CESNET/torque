@@ -1777,7 +1777,6 @@ void send_winsize(
     exit(2);
     }
 
-fprintf(stderr,"winsize: %s\n",buf);
   return;
   } 
 
