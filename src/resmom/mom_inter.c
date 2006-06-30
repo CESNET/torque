@@ -119,6 +119,7 @@ extern int mom_reader_go;
 static int IPv4or6 = AF_UNSPEC;
 extern int conn_qsub(char *,int);
 extern char xauth_path[];
+extern int DEBUGMODE;
 
 /*
  * read_net - read data from network till received amount expected
@@ -437,8 +438,15 @@ int mom_writer(
  * or -1 if an error occurs.
  */
 
-int
-x11_create_display(int x11_use_localhost, char *display,char *phost,int pport,char *homedir,char *x11authstr)
+int x11_create_display(
+
+  int x11_use_localhost, /* non-zero to use localhost only */
+  char *display,         /* O */
+  char *phost,           /* hostname where qsub is waiting */
+  int pport,             /* port where qsub is waiting */
+  char *homedir,         /* need to set $HOME for xauth */
+  char *x11authstr)      /* proto:data:screen */
+
 {       
         int display_number, sock;
         u_short port;
@@ -448,7 +456,6 @@ x11_create_display(int x11_use_localhost, char *display,char *phost,int pport,ch
 	unsigned int x11screen;
         char x11proto[512],x11data[512],cmd[512];
         char auth_display[512];
-        char *p;
 	FILE *f;
         pid_t childpid;
         struct pfwdsock *socks;
@@ -499,11 +506,13 @@ x11_create_display(int x11_use_localhost, char *display,char *phost,int pport,ch
                                         free(socks);
                                         return -1;
                                 } else {
-                                        DBPRT(("x11_create_display: Socket family %d not supported\n",
+                                        DBPRT(("x11_create_display: Socket family %d *NOT* supported\n",
                                                  ai->ai_family));
                                         continue;
                                 }
                         }
+                        DBPRT(("x11_create_display: Socket family %d is supported\n",
+                          ai->ai_family));
 #ifdef IPV6_V6ONLY      
                         if (ai->ai_family == AF_INET6) {
                                 int on = 1;
@@ -566,7 +575,7 @@ x11_create_display(int x11_use_localhost, char *display,char *phost,int pport,ch
         snprintf(auth_display, sizeof auth_display, "unix:%u.%u",
           display_number, x11screen);
 
-        snprintf(cmd, sizeof cmd, "%s -",xauth_path);
+        snprintf(cmd, sizeof cmd, "%s %s -",xauth_path,DEBUGMODE?"-v":"-q");
         f = popen(cmd, "w");
         if (f) {
           fprintf(f, "remove %s\n", auth_display);

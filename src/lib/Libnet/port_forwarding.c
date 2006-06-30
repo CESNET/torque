@@ -19,8 +19,6 @@
 
 #include "port_forwarding.h"
 
-static int IPv4or6 = AF_UNSPEC;
-
 /* handy utility to handle forwarding socket connections to another host
  * pass in an initialized pfwdsock struct with sockets to listen on, a function
  * pointer to get a new socket for forwarding, and a hostname and port number to 
@@ -29,15 +27,11 @@ static int IPv4or6 = AF_UNSPEC;
 
 int port_forwarder(struct pfwdsock *socks,int(*connfunc)(char *,int),char *phost,int pport)
   {
-  char id[]="port_forwarder";
-
   fd_set rfdset, wfdset, efdset;
   int rc, maxsock=0;
   struct sockaddr_in from;
   socklen_t fromlen;
-  char buf[BUF_SIZE];
-  int n,n2, c, sock;
-  int localsock, remotesock;
+  int n,n2,sock;
 
 
   fromlen = sizeof(from);
@@ -209,7 +203,6 @@ set_nodelay(int fd)
                 return;
         }
         opt = 1;
-        fprintf(stderr,"fd %d setting TCP_NODELAY", fd);
         if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof opt) == -1)
                 fprintf(stderr,"setsockopt TCP_NODELAY: %.100s", strerror(errno)); 
 }                           
@@ -290,7 +283,7 @@ x11_connect_display(char *display,int alsounused)
                                                                                             
         /* Look up the host address */
         memset(&hints, 0, sizeof(hints));
-        hints.ai_family = IPv4or6;
+        hints.ai_family = AF_UNSPEC;
         hints.ai_socktype = SOCK_STREAM;
         snprintf(strport, sizeof strport, "%d", 6000 + display_number);
         if ((gaierr = getaddrinfo(buf, strport, &hints, &aitop)) != 0) {

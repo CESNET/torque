@@ -139,8 +139,6 @@ static char *DefaultXauthPath = XAUTH_PATH;
 
 #define MAX_QSUB_PREFIX_LEN 32
 
-#define _PATH_UNIX_X "/tmp/.X11-unix/X%u"
-
 static char PBS_DPREFIX_DEFAULT[] = "#PBS";
 
 char PBS_Filter[256];
@@ -156,13 +154,14 @@ int do_dir(char *);
 int process_opts(int,char **,int);
 
 /* adapted from openssh */
-static void
+static char *
 x11_get_proto(char **_proto, char **_data, char **_screen)
 {       
         char line[512];
-        static char proto[512], data[512], screen[512];
+        char proto[512], data[512], screen[512];
+        char *authstring;
         FILE *f;
-        int got_data = 0, i;
+        int got_data = 0;
         char *display, *p;
         struct stat st;
 
@@ -171,10 +170,18 @@ x11_get_proto(char **_proto, char **_data, char **_screen)
         *_screen = screen;
         proto[0] = data[0] = screen[0] = '\0';
 
-        if ((display = getenv("DISPLAY")) == NULL) {
-                fprintf(stderr,"x11_get_proto: DISPLAY not set\n");
-                return;
-        }
+        if ((display = getenv("DISPLAY")) == NULL)
+          {
+          fprintf(stderr,"qsub: DISPLAY not set\n");
+          return (NULL);
+          }
+
+        if (stat(xauth_path,&st))
+          {
+          perror("qsub: xauth: ");
+          return (NULL);
+          }
+
         /* Try to get Xauthority information for the display. */
         if (strncmp(display, "localhost:", 10) == 0)
                 /*
@@ -195,8 +202,12 @@ x11_get_proto(char **_proto, char **_data, char **_screen)
           p = strchr(p,'.');
         if (p)
           strncpy(screen,p+1,512);
+        else
+          strcpy(screen,"0");
 
-        fprintf(stderr,"x11_get_proto: %s\n", line);
+        if (getenv("PBSDEBUG") != NULL)
+          fprintf(stderr,"x11_get_proto: %s\n", line);
+
         f = popen(line, "r");
         if (f && fgets(line, sizeof(line), f) &&
             sscanf(line, "%*s %511s %511s", proto, data) == 2)
@@ -204,6 +215,7 @@ x11_get_proto(char **_proto, char **_data, char **_screen)
         if (f)  
                 pclose(f);
 
+#if 0 /* we aren't inspecting the returned xauth data yet */
         /*
          * If we didn't get authentication data, just make up some
          * data.  The forwarding code will check the validity of the
@@ -214,6 +226,7 @@ x11_get_proto(char **_proto, char **_data, char **_screen)
          */
         if (!got_data) {
                 u_int32_t _rand = 0;                                                         
+                int i;
 
                 fprintf(stderr,"Warning: No xauth data; using fake authentication data for X11 forwarding.\n");
                 strncpy(proto, "MIT-MAGIC-COOKIE-1", sizeof proto);
@@ -224,6 +237,16 @@ x11_get_proto(char **_proto, char **_data, char **_screen)
                         _rand >>= 8;
                 }
         }
+#endif
+
+    if (!got_data)
+      return(NULL);
+
+    authstring = malloc(strlen(proto) + strlen(data) + strlen(screen) +4);
+    sprintf(authstring,"%s:%s:%s",proto, data, screen);
+
+    return(authstring);
+
 }
 
 
@@ -795,7 +818,6 @@ int do_dir(
 
 int inter_sock;
 struct termios oldtio;
-struct winsize wsz;
 
 struct attrl *attrib = NULL;
 char *new_jobname;                  /* return from submit request */
@@ -1722,7 +1744,7 @@ void writer(
 
 int getwinsize(
 
-  struct winsize *pwsz)
+  struct winsize *wsz)
 
   {
   if (ioctl(0,TIOCGWINSZ,&wsz) < 0) 
@@ -1745,16 +1767,17 @@ int getwinsize(
 
 void send_winsize(
 
-  int sock)
+  int sock,
+  struct winsize *wsz)
 
   {
   char  buf[PBS_TERM_BUF_SZ];
 
   sprintf(buf,"WINSIZE %hu,%hu,%hu,%hu", 
-    wsz.ws_row, 
-    wsz.ws_col,
-    wsz.ws_xpixel, 
-    wsz.ws_ypixel);
+    wsz->ws_row, 
+    wsz->ws_col,
+    wsz->ws_xpixel, 
+    wsz->ws_ypixel);
 
   if (write(sock,buf,PBS_TERM_BUF_SZ) != PBS_TERM_BUF_SZ)
     {
@@ -2177,7 +2200,7 @@ void interactive()
    */
 
   send_term(news);
-  send_winsize(news);
+  send_winsize(news,&wsz);
 
   printf("qsub: job %s ready\n\n", 
     new_jobname);
@@ -3476,7 +3499,9 @@ int main(
   strcpy(xauth_path,DefaultXauthPath);
   server_host[0] = '\0';
 
-fprintf(stderr,"xauth_path=%s\n",xauth_path);
+  if (getenv("PBSDEBUG") != NULL)
+    fprintf(stderr,"xauth_path=%s\n",xauth_path);
+
   if (load_config(config_buf,sizeof(config_buf)) == 0)
     {
     if ((param_val = get_param("QSUBSLEEP",config_buf)) != NULL)
@@ -3510,14 +3535,21 @@ fprintf(stderr,"xauth_path=%s\n",xauth_path);
   if (Forwardx11_opt)
     {
     /* get the DISPLAY's auth proto, data, and screen number */
-    x11_get_proto(&x11authproto,&x11authdata,&x11authscreen);
+    if ((x11authstr = x11_get_proto(&x11authproto,&x11authdata,&x11authscreen)) != NULL)
+      {
 
-    /* stuff this info into the job */
-    x11authstr = malloc(strlen(x11authproto) + strlen(x11authdata) + strlen(x11authscreen) +4);
-    sprintf(x11authstr,"%s:%s:%s",x11authproto, x11authdata, x11authscreen);
-    set_attr(&attrib,ATTR_forwardx11,x11authstr);
+      /* stuff this info into the job */
+      set_attr(&attrib,ATTR_forwardx11,x11authstr);
 
-    DBPRT(("x11auth string: %s\n",x11authstr));
+      if (getenv("PBSDEBUG") != NULL)
+        fprintf(stderr,"x11auth string: %s\n",x11authstr);
+      }
+    else
+      {
+      fprintf(stderr,"qsub: Failed to get xauth data.\n");
+
+      exit(1);
+      }
     }
 
   /* if script is empty, get standard input */

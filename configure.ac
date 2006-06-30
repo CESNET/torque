@@ -861,10 +861,9 @@ AC_ARG_WITH(xauth,
 )
 
 if test -z "$xauth_path" ; then
-        XAUTH_PATH="/usr/X11R6/bin/xauth"
+        xauth_path="/usr/X11R6/bin/xauth"
 fi
-AC_DEFINE_UNQUOTED(XAUTH_PATH, "$xauth_path", [Define to the path of xauth])
-XAUTH_PATH=$xauth_path
+AC_DEFINE_UNQUOTED(XAUTH_PATH, "${xauth_path}", [Define to the path of xauth])
 
 
 
