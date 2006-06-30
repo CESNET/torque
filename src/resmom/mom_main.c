@@ -5194,9 +5194,6 @@ int job_over_limit(
 
     if (pnode->hn_sister != 0)
       {
-      char *KillDone = "KillDone";
-      char *BadPoll  = "BadPoll";
-   
       switch (pnode->hn_sister)
         {
         case SISTER_KILLDONE:
@@ -5562,7 +5559,6 @@ int main(
 
   int           sindex;  /* server index */
   int           TotalClusterAddrsCount;
-  FILE          *file;
 
 #if MOM_CHECKPOINT == 1
   resource	*prscput;
