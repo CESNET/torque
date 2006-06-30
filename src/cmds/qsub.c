@@ -108,7 +108,6 @@
 #include <stdlib.h>
 #include <assert.h>
 
-
 #ifdef sun
 #include <sys/stream.h>
 #endif /* sun */
@@ -131,7 +130,6 @@
 #include "log.h"
 #include "port_forwarding.h"
 
-
 static char *DefaultFilterPath = "/usr/local/sbin/torque_submitfilter";
 static char *DefaultXauthPath = XAUTH_PATH;
 
@@ -147,15 +145,15 @@ char PBS_RootDir[256];
 
 char xauth_path[256];
 
-  int interactivechild=0;
-  int x11child=0;
+int interactivechild=0;
+int x11child=0;
 
 int do_dir(char *);
 int process_opts(int,char **,int);
 
 /* adapted from openssh */
 static char *
-x11_get_proto(char **_proto, char **_data, char **_screen)
+x11_get_proto(void)
 {       
         char line[512];
         char proto[512], data[512], screen[512];
@@ -165,9 +163,6 @@ x11_get_proto(char **_proto, char **_data, char **_screen)
         char *display, *p;
         struct stat st;
 
-        *_proto = proto;
-        *_data = data;
-        *_screen = screen;
         proto[0] = data[0] = screen[0] = '\0';
 
         if ((display = getenv("DISPLAY")) == NULL)
@@ -856,10 +851,6 @@ int Stageout_opt  = FALSE;
 int Grouplist_opt = FALSE;
 int Forwardx11_opt = FALSE;
 char *v_value = NULL;
-char *x11authdata;
-char *x11authproto;
-char *x11authscreen;
-char *x11authstr;
 
 
 char *copy_env_value(
@@ -1524,8 +1515,8 @@ void stopme(
 
 int reader(
 
-  int s,	/* socket */
-  int d)
+  int s,	/* reading socket */
+  int d)        /* writing socket */
 
   {
   char buf[4096];
@@ -1533,7 +1524,7 @@ int reader(
   char *p;
   int  wc;
 
-  /* read from the socket, and write to stdout */
+  /* read from the socket, and write to d */
 
   /* NOTE:  s should be blocking */
 
@@ -1601,8 +1592,8 @@ int reader(
 
 void writer(
 
-  int s,  /* socket */
-  int d)
+  int s,  /* writing socket */
+  int d)  /* reader socket */
 
   {
   char c;
@@ -1875,11 +1866,12 @@ void catchchild(
     }
    
     if (interactivechild > 0)
-    kill(interactivechild,SIGTERM);
+      kill(interactivechild,SIGTERM);
     if (x11child > 0)
-    kill(x11child,SIGTERM);
+      kill(x11child,SIGTERM);
 
   /* reset terminal to cooked mode */
+
   tcsetattr(0,TCSANOW,&oldtio);
 
   exit(0);
@@ -2014,6 +2006,14 @@ void x11handler(int inter_sock)
   char *display;
 
   socks=calloc(sizeof (struct pfwdsock),NUM_SOCKS);
+
+  if (!socks)
+    {
+    perror("x11handler malloc: ");
+
+    exit(EXIT_FAILURE);
+    }
+
   for (n=0;n<NUM_SOCKS;n++)
     (socks+n)->active=0;
 
@@ -2270,9 +2270,9 @@ void interactive()
     /* all done - make sure reader child is gone and reset terminal */
 
     if (interactivechild > 0)
-    kill(interactivechild,SIGTERM);
+      kill(interactivechild,SIGTERM);
     if (x11child > 0)
-    kill(x11child,SIGTERM);
+      kill(x11child,SIGTERM);
 
     shutdown(inter_sock,SHUT_RDWR);
     close(inter_sock);
@@ -3535,8 +3535,10 @@ int main(
 
   if (Forwardx11_opt)
     {
+    char *x11authstr;
+
     /* get the DISPLAY's auth proto, data, and screen number */
-    if ((x11authstr = x11_get_proto(&x11authproto,&x11authdata,&x11authscreen)) != NULL)
+    if ((x11authstr = x11_get_proto()) != NULL)
       {
 
       /* stuff this info into the job */
