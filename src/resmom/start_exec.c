@@ -1734,8 +1734,8 @@ int TMomFinalizeChild(
   char                  buf[MAXPATHLEN + 2];
   pid_t                 cpid;
   int                   i, j, vnodenum;
-  char                 *phost;
-  int                   pport;
+  char                 *phost = NULL;
+  int                   pport = 0;
   int                   pts;
   int                   qsub_sock;
   char                  *shell;
