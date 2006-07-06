@@ -28,6 +28,7 @@ datadir = @datadir@
 sysconfdir = @sysconfdir@
 sharedstatedir = @sharedstatedir@
 localstatedir = @localstatedir@
+libdir = @libdir@
 infodir = @infodir@
 mandir = @mandir@
 includedir = @includedir@
@@ -64,8 +65,6 @@ host_triplet = @host@
 EXEEXT = @EXEEXT@
 OBJEXT = @OBJEXT@
 PATH_SEPARATOR = @PATH_SEPARATOR@
-
-libdir = /lib/security
 AMTAR = @AMTAR@
 AR = @AR@
 AS = @AS@
@@ -115,6 +114,8 @@ YACC = @YACC@
 am__include = @am__include@
 am__quote = @am__quote@
 install_sh = @install_sh@
+
+pammoddir = @pammoddir@
 program_prefix = @program_prefix@
 program_suffix = @program_suffix@
 spec_name = @spec_name@
@@ -132,19 +133,19 @@ DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 
-lib_LTLIBRARIES = pam_pbssimpleauth.la
+pammod_LTLIBRARIES = pam_pbssimpleauth.la
 
 AM_CFLAGS = -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\"
 
 EXTRA_DIST = README.pam
 
 pam_pbssimpleauth_la_SOURCES = pam_pbssimpleauth.c
-pam_pbssimpleauth_la_LDFLAGS = -module
+pam_pbssimpleauth_la_LDFLAGS = -no-undefined -module -avoid-version
 subdir = src/pam
 mkinstalldirs = $(SHELL) $(top_srcdir)/buildutils/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/src/include/pbs_config.h
 CONFIG_CLEAN_FILES =
-LTLIBRARIES = $(lib_LTLIBRARIES)
+LTLIBRARIES = $(pammod_LTLIBRARIES)
 
 pam_pbssimpleauth_la_LIBADD =
 am_pam_pbssimpleauth_la_OBJECTS = pam_pbssimpleauth.lo
@@ -179,36 +180,36 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ Makefile.am $(top_srcdir)/builduti
 	  $(AUTOMAKE) --foreign  src/pam/Makefile
 Makefile: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.in  $(top_builddir)/config.status
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@ $(am__depfiles_maybe)
-libLTLIBRARIES_INSTALL = $(INSTALL)
-install-libLTLIBRARIES: $(lib_LTLIBRARIES)
+pammodLTLIBRARIES_INSTALL = $(INSTALL)
+install-pammodLTLIBRARIES: $(pammod_LTLIBRARIES)
 	@$(NORMAL_INSTALL)
-	$(mkinstalldirs) $(DESTDIR)$(libdir)
-	@list='$(lib_LTLIBRARIES)'; for p in $$list; do \
+	$(mkinstalldirs) $(DESTDIR)$(pammoddir)
+	@list='$(pammod_LTLIBRARIES)'; for p in $$list; do \
 	  if test -f $$p; then \
 	    f="`echo $$p | sed -e 's|^.*/||'`"; \
-	    echo " $(LIBTOOL) --mode=install $(libLTLIBRARIES_INSTALL) $(INSTALL_STRIP_FLAG) $$p $(DESTDIR)$(libdir)/$$f"; \
-	    $(LIBTOOL) --mode=install $(libLTLIBRARIES_INSTALL) $(INSTALL_STRIP_FLAG) $$p $(DESTDIR)$(libdir)/$$f; \
+	    echo " $(LIBTOOL) --mode=install $(pammodLTLIBRARIES_INSTALL) $(INSTALL_STRIP_FLAG) $$p $(DESTDIR)$(pammoddir)/$$f"; \
+	    $(LIBTOOL) --mode=install $(pammodLTLIBRARIES_INSTALL) $(INSTALL_STRIP_FLAG) $$p $(DESTDIR)$(pammoddir)/$$f; \
 	  else :; fi; \
 	done
 
-uninstall-libLTLIBRARIES:
+uninstall-pammodLTLIBRARIES:
 	@$(NORMAL_UNINSTALL)
-	@list='$(lib_LTLIBRARIES)'; for p in $$list; do \
+	@list='$(pammod_LTLIBRARIES)'; for p in $$list; do \
 	    p="`echo $$p | sed -e 's|^.*/||'`"; \
-	  echo " $(LIBTOOL) --mode=uninstall rm -f $(DESTDIR)$(libdir)/$$p"; \
-	  $(LIBTOOL) --mode=uninstall rm -f $(DESTDIR)$(libdir)/$$p; \
+	  echo " $(LIBTOOL) --mode=uninstall rm -f $(DESTDIR)$(pammoddir)/$$p"; \
+	  $(LIBTOOL) --mode=uninstall rm -f $(DESTDIR)$(pammoddir)/$$p; \
 	done
 
-clean-libLTLIBRARIES:
-	-test -z "$(lib_LTLIBRARIES)" || rm -f $(lib_LTLIBRARIES)
-	@list='$(lib_LTLIBRARIES)'; for p in $$list; do \
+clean-pammodLTLIBRARIES:
+	-test -z "$(pammod_LTLIBRARIES)" || rm -f $(pammod_LTLIBRARIES)
+	@list='$(pammod_LTLIBRARIES)'; for p in $$list; do \
 	  dir="`echo $$p | sed -e 's|/[^/]*$$||'`"; \
 	  test -z "$dir" && dir=.; \
 	  echo "rm -f \"$${dir}/so_locations\""; \
 	  rm -f "$${dir}/so_locations"; \
 	done
 pam_pbssimpleauth.la: $(pam_pbssimpleauth_la_OBJECTS) $(pam_pbssimpleauth_la_DEPENDENCIES) 
-	$(LINK) -rpath $(libdir) $(pam_pbssimpleauth_la_LDFLAGS) $(pam_pbssimpleauth_la_OBJECTS) $(pam_pbssimpleauth_la_LIBADD) $(LIBS)
+	$(LINK) -rpath $(pammoddir) $(pam_pbssimpleauth_la_LDFLAGS) $(pam_pbssimpleauth_la_OBJECTS) $(pam_pbssimpleauth_la_LIBADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT) core *.core
@@ -316,7 +317,7 @@ check: check-am
 all-am: Makefile $(LTLIBRARIES)
 
 installdirs:
-	$(mkinstalldirs) $(DESTDIR)$(libdir)
+	$(mkinstalldirs) $(DESTDIR)$(pammoddir)
 
 install: install-am
 install-exec: install-exec-am
@@ -344,7 +345,7 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic clean-libLTLIBRARIES clean-libtool \
+clean-am: clean-generic clean-libtool clean-pammodLTLIBRARIES \
 	mostlyclean-am
 
 distclean: distclean-am
@@ -360,9 +361,11 @@ info: info-am
 
 info-am:
 
-install-data-am:
+install-data-am: install-pammodLTLIBRARIES
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
 
-install-exec-am: install-libLTLIBRARIES
+install-exec-am:
 
 install-info: install-info-am
 
@@ -379,20 +382,34 @@ mostlyclean: mostlyclean-am
 mostlyclean-am: mostlyclean-compile mostlyclean-generic \
 	mostlyclean-libtool
 
-uninstall-am: uninstall-info-am uninstall-libLTLIBRARIES
+uninstall-am: uninstall-info-am uninstall-pammodLTLIBRARIES
 
 .PHONY: GTAGS all all-am check check-am clean clean-generic \
-	clean-libLTLIBRARIES clean-libtool distclean distclean-compile \
-	distclean-depend distclean-generic distclean-libtool \
-	distclean-tags distdir dvi dvi-am info info-am install \
-	install-am install-data install-data-am install-exec \
-	install-exec-am install-info install-info-am \
-	install-libLTLIBRARIES install-man install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
+	clean-libtool clean-pammodLTLIBRARIES distclean \
+	distclean-compile distclean-depend distclean-generic \
+	distclean-libtool distclean-tags distdir dvi dvi-am info \
+	info-am install install-am install-data install-data-am \
+	install-exec install-exec-am install-info install-info-am \
+	install-man install-pammodLTLIBRARIES install-strip \
+	installcheck installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-libtool tags uninstall \
-	uninstall-am uninstall-info-am uninstall-libLTLIBRARIES
+	uninstall-am uninstall-info-am uninstall-pammodLTLIBRARIES
 
+
+# ugly, ugly, gross, yuck, ugly... but this is the cleanest way to
+# avoid libtool droppings in the PAM module directory
+install-data-hook:
+	@$(NORMAL_INSTALL)
+	$(mkinstalldirs) $(DESTDIR)$(pammoddir)
+	@list='$(pammod_LTLIBRARIES)'; for p in $$list; do \
+          if test -f $$p; then \
+            f="`echo $$p | sed -e 's|^.*/||'`"; \
+            b="`echo $$f | sed -e 's|\.la$$||'`"; \
+          echo " rm -f $(DESTDIR)$(pammoddir)/$$b.a $(DESTDIR)$(pammoddir)/$$b.la"; \
+          rm -f $(DESTDIR)$(pammoddir)/$$b.a $(DESTDIR)$(pammoddir)/$$b.la; \
+          else :; fi; \
+        done
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

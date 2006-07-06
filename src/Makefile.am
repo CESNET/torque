@@ -24,7 +24,11 @@ if INCLUDE_GUI
 GUI_DIRS = gui tools
 endif
 
-SUBDIRS = include lib $(SERVER_DIRS) $(MOM_DIRS) $(CLIENTS_DIRS) $(GUI_DIRS) pam
+if INCLUDE_PAM
+PAM_DIRS = pam
+endif
+
+SUBDIRS = include lib $(SERVER_DIRS) $(MOM_DIRS) $(CLIENTS_DIRS) $(GUI_DIRS) $(PAM_DIRS)
 
 install_mom:
 	for dir in $(MOM_DIRS) lib ;do (cd $$dir && $(MAKE) install);done

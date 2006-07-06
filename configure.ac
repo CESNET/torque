@@ -839,6 +839,15 @@ AC_DEFINE_UNQUOTED(SENDMAIL_CMD, "${SENDMAIL_CMD}",
 	[full pathname of sendmail])
 
 
+dnl attempt to find a location to install PAM modules
+case "${PBS_MACH}" in
+  linux) pammoddir=/lib$libsuff/security; AC_MSG_WARN([building PAM module to ${pammoddir}]);;
+  *) AC_MSG_WARN([building PAM module disabled]);;
+esac
+AC_SUBST(pammoddir)
+AM_CONDITIONAL(INCLUDE_PAM, [test "x$pammoddir" != "x"])
+      
+
 dnl
 dnl  ######################################################################
 dnl  Tcl/Tk settings
