@@ -1267,5 +1267,6 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/scheduler.tcl/Makefile
 	  src/server/Makefile
 	  src/tools/Makefile
-	  src/tools/xpbsmon/Makefile)
+	  src/tools/xpbsmon/Makefile
+	  src/pam/Makefile)
 
