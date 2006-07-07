@@ -127,6 +127,9 @@
 #include "svrfunc.h"
 #include "acct.h"
 #include "net_connect.h"
+#ifdef GSSAPI
+#include "pbsgss.h"
+#endif
 
 int conn_qsub(char *,long);
 
@@ -159,6 +162,9 @@ extern char *path_aux;
 extern char  server_name[];
 extern time_t time_now;
 extern int   LOGLEVEL;
+#ifdef GSSAPI
+extern char *path_creds;
+#endif
 
 extern list_head svr_newjobs;
 extern list_head svr_alljobs;
@@ -695,6 +701,10 @@ void job_purge(
   int           rc;
   extern void MOMCheckRestart A_((void));
 #endif
+#ifdef GSSAPI
+  char          *ccname;
+  char          *kdestroy;
+#endif
 
 #ifdef PBS_MOM
 
@@ -894,6 +904,19 @@ void job_purge(
       pjob->ji_qs.ji_jobid,
       log_buffer);
     }
+
+#ifdef GSSAPI
+  ccname = ccname_for_job(pjob->ji_qs.ji_jobid,path_creds);
+  if (ccname) {
+    kdestroy = malloc(sizeof(char) * (strlen(ccname) + strlen("/usr/bin/kdestroy -c ") + 1));
+    if (kdestroy) {
+      sprintf(kdestroy,"/usr/bin/kdestroy -c %s",ccname);
+      system(kdestroy);
+      free(kdestroy);
+    }
+    free(ccname);
+  }
+#endif
 
   job_free(pjob);
 

@@ -139,6 +139,10 @@ extern char *path_spool;
 extern struct server server;
 extern char  server_name[];
 extern int   queue_rank;
+#ifdef GSSAPI
+extern char *path_creds;
+extern struct connection svr_conn[PBS_NET_MAX_CONNECTIONS];
+#endif /* GSSAPI */
 #endif	/* !PBS_MOM */
 
 extern const char *PJobSubState[];
@@ -209,6 +213,9 @@ void req_quejob(
   svrattrl	*psatl;
   int		 rc;
   int		 sock = preq->rq_conn;
+#ifdef GSSAPI
+  char          *ccname;
+#endif
 
 #ifndef PBS_MOM
   int		 i;
@@ -369,6 +376,21 @@ void req_quejob(
 
     return;
     }
+#ifdef GSSAPI
+  /* save gssapi/krb5 creds for this job */
+  sprintf(log_buffer,"saving creds.  conn is %d, creds %p, princ %s",
+	  preq->rq_conn, svr_conn[preq->rq_conn].creds, svr_conn[preq->rq_conn].principal);
+  log_event(PBSEVENT_DEBUG, 
+	    PBS_EVENTCLASS_SERVER,"req_quejob",log_buffer);
+  ccname = ccname_for_job(jid,path_creds);
+  if (pbsgss_save_creds(svr_conn[preq->rq_conn].creds,
+			svr_conn[preq->rq_conn].principal,
+			ccname) != 0) {
+    req_reject(rc,0,preq,NULL,"cannot save creds");
+  }
+  free(ccname);
+
+#endif /* GSSAPI */
 
   /*
    * make up job file name, it is based on the jobid, however the

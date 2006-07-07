@@ -207,6 +207,10 @@ int site_check_user_map(
   if (dptr != NULL)
     *dptr = '.';
 
+#ifdef GSSAPI
+  return 0;
+#endif
+
   rc = ruserok(orighost,0,owner,luser);
 
 #ifdef sun

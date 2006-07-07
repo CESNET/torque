@@ -111,6 +111,13 @@
 #ifdef _CRAY
 #include <sys/category.h>
 #endif
+#ifdef GSSAPI
+#include <sys/utsname.h>
+#include <sys/types.h>
+#include <pwd.h>
+#include <time.h>
+#include "pbsgss.h"
+#endif
 
 #ifdef HAVE_WORDEXP
 #include <wordexp.h>
@@ -169,6 +176,15 @@ extern char PBSNodeMsgBuf[1024];
 extern int  LOGLEVEL;
 
 extern int im_compose A_((int,char *,char *,int,tm_event_t,tm_task_id));
+#ifdef GSSAPI
+/* used when server forwards creds to us */
+extern        char          *path_creds;
+gss_cred_id_t forwarded_creds;
+char *forwarded_princ;
+gss_cred_id_t server_creds;
+char *service_name = NULL;
+time_t lastcredstime = 0;
+#endif
 
 
 /* prototypes */
@@ -2602,6 +2618,9 @@ void req_cpyfile(
   job 		*pjob;
   int		 wordexperr = 0;
 #endif
+#ifdef GSSAPI
+  char          *ccname;
+#endif
 
   if (LOGLEVEL >= 3)
     {
@@ -2664,6 +2683,19 @@ void req_cpyfile(
     }
 
   /* child */
+#ifdef GSSAPI
+  ccname = ccname_for_job(preq->rq_ind.rq_cpyfile.rq_jobid,path_creds);
+  if (ccname) {
+    if (authenticate_as_job(ccname,1) != 0) {
+      sprintf(log_buffer,"Couldn't authenticate as job %s",preq->rq_ind.rq_cpyfile.rq_jobid);
+      log_err(0,"req_cpyfile",log_buffer);
+    }
+    free(ccname);
+  } else {
+    sprintf(log_buffer,"Couldn't get CCNAME for %s",preq->rq_ind.rq_cpyfile.rq_jobid);
+    log_err(errno,"ccname_for_job",log_buffer);
+  }
+#endif
 
   /* now running as user in the user's home directory */
 
@@ -3577,5 +3609,96 @@ int start_checkpoint(
 
 #endif	/* MOM_CHECKPOINT */
 
+#ifdef GSSAPI
+/* runs pbsgss_server_establish_context on the provided socket and                               
+   saves the delegated client credentials to forwarded_creds.  Also                              
+   sets forwarded_princ.  If save is set, then the credentials are saved                         
+   into the default credentials cache for the specified jobname*/
+int req_accept_forwarded_creds(struct batch_request *request, int socket, int save) {
+  gss_ctx_id_t context;
+  gss_cred_id_t client_creds;
+  gss_buffer_desc client_name;
+  int i;
+  OM_uint32 ret_flags;
+  time_t now;
+  char *ccname, *atindex;
+  struct passwd *pwinfo;
+
+  if (forwarded_princ != NULL) {
+    free(forwarded_princ);
+    forwarded_princ = NULL;
+  }
+
+  if (service_name == NULL) {
+    struct utsname buf;
+    if (uname(&buf) != 0) {
+      perror("couldn't uname");
+      return -1;
+    }
+    /* this never gets freed because we just keep reusing it */
+    service_name = malloc(sizeof(buf.nodename) + 6);
+    sprintf(service_name,"host@%s",buf.nodename);
+  }
+  now = time(NULL);
+  if (now - lastcredstime > 60*60) {
+    lastcredstime = now;
+    if (pbsgss_server_acquire_creds(service_name,&server_creds) < 0) {
+      log_err(0,"req_accept_forwarded_creds","acquire creds didn't work");
+      return -1;
+    }
+  }
+  if ((i = pbsgss_server_establish_context(socket, server_creds, &client_creds, &context,
+                                           &client_name, &ret_flags)) < 0) {
+    sprintf(log_buffer,"server_establish_context failed : %d",i);
+    log_event(PBSEVENT_DEBUG,
+              PBS_EVENTCLASS_SERVER,"req_accept_forwarded_creds",log_buffer);
+    return -1;
+  }
+  if (context == GSS_C_NO_CONTEXT) {
+    log_event(
+	      PBSEVENT_DEBUG,
+	      PBS_EVENTCLASS_SERVER,"req_accept_forwarded_creds","Accepted unauthenticated connection.")\
+      ;
+    return -1;
+  }
+  log_event(PBSEVENT_DEBUG,
+            PBS_EVENTCLASS_SERVER,"req_accept_forwarded_creds",log_buffer);
+
+  forwarded_princ = malloc(sizeof(char) * (1+client_name.length));
+  strncpy(forwarded_princ,client_name.value,client_name.length);
+  forwarded_princ[client_name.length] = '\0';
+  memcpy(&forwarded_creds,&client_creds,sizeof(client_creds));
+  gss_delete_sec_context(&ret_flags,&context,GSS_C_NO_BUFFER);
+
+  ccname = ccname_for_job(request->rq_ind.rq_queuejob.rq_jid,path_creds);
+  if (ccname) {
+    sprintf(ccname,"/tmp/krb5cc_%s",request->rq_ind.rq_queuejob.rq_jid);
+    pbsgss_save_creds(forwarded_creds,
+                      forwarded_princ,
+                      ccname);
+    atindex = index(forwarded_princ,'@');
+    if (*atindex == '@') {
+      *atindex = '\0';
+      pwinfo = getpwnam(forwarded_princ);
+      if (pwinfo != NULL) {
+        chown(ccname,pwinfo->pw_uid,pwinfo->pw_gid);
+      }
+      *atindex = '@';
+    } 
+    free(ccname);
+  } else {
+    return -1;
+  }
+  return 0;
+}
+void req_free_forwarded_creds() {
+  OM_uint32 ret_flags;
+  if (forwarded_princ != NULL) {
+    free(forwarded_princ);
+    forwarded_princ = NULL;
+    gss_release_cred(&ret_flags,forwarded_creds);
+  }
+}
+#endif /* GSSAPI */
 
 /* END requests.c */

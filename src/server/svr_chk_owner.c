@@ -222,6 +222,7 @@ int svr_get_privilege(
   int   is_root = 0;
   int   priv = (ATR_DFLAG_USRD | ATR_DFLAG_USWR);
   char  uh[PBS_MAXUSER + PBS_MAXHOSTNAME + 2];
+  char  *rootprinc;
 
   strcpy(uh,user);
   strcat(uh,"@");
@@ -229,15 +230,29 @@ int svr_get_privilege(
 
   /* NOTE:  enable case insensitive host check (CRI) */
 
+#ifndef GSSAPI
   if ((strcmp(user,PBS_DEFAULT_ADMIN) == 0) &&
       !strcasecmp(host,server_host)) 
+#else
+  rootprinc = malloc(sizeof(char) * (6 + strlen(PBS_DEFAULT_SERVER)));
+  if (!rootprinc) {return 0;}
+  sprintf(rootprinc,"host/%s",PBS_DEFAULT_SERVER);
+  if (strcmp(uh,rootprinc))
+#endif /*GSSAPI */
     {
     is_root = 1;
 
 #ifdef PBS_ROOT_ALWAYS_ADMIN
+#ifdef GSSAPI
+    free(rootprinc);
+#endif 
     return(priv|ATR_DFLAG_MGRD|ATR_DFLAG_MGWR|ATR_DFLAG_OPRD|ATR_DFLAG_OPWR);
 #endif
     }
+
+#ifdef GSSAPI
+  free(rootprinc);
+#endif 
 
   if (!(server.sv_attr[(int)SRV_ATR_managers].at_flags & ATR_VFLAG_SET)) 
     {

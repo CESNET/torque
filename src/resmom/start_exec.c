@@ -128,6 +128,9 @@
 #include "batch_request.h"
 #include "md5.h"
 #include "mcom.h"
+#ifdef GSSAPI
+#include "pbsgss.h"
+#endif
 
 #define EXTRA_VARIABLE_SPACE 2000
 #define EXTRA_ENV_PTRS	       32
@@ -148,6 +151,9 @@ extern  char            *path_prologp;
 extern  char            *path_prologuserp;
 extern	char		*path_spool;
 extern	char		*path_aux;
+#ifdef GSSAPI
+extern  char            *path_creds;
+#endif
 extern	gid_t		 pbsgroup;
 extern	time_t		time_now;
 extern	unsigned int	pbs_rm_port;
@@ -952,6 +958,9 @@ int InitUserEnv(
   int ebsize=0;
   char  buf[MAXPATHLEN + 2];
   int usertmpdir=0;
+#ifdef GSSAPI
+  char  *tmp;
+#endif  
 
   if (pjob == NULL)
     {
@@ -1107,6 +1116,18 @@ int InitUserEnv(
 
   if (!usertmpdir && TTmpDirName(pjob,buf))
     bld_env_variables(&vtable,variables_else[12],buf);
+
+#ifdef GSSAPI
+  /* set krb5 credentials cache filename */
+  tmp = ccname_for_job(pjob->ji_qs.ji_jobid,path_creds);
+  if (tmp) {
+    bld_env_variables(&vtable,
+		      "KRB5CCNAME",
+		      tmp);
+    free(tmp);
+  }
+
+#endif
 
   /* passed-in environment for tasks */
 
@@ -1609,6 +1630,9 @@ int TMomFinalizeJob2(
 
   job                  *pjob;
   task                 *ptask;
+#ifdef GSSAPI
+  char                 *ccname;
+#endif
 
   pjob  = (job *)TJE->pjob;
   ptask = (task *)TJE->ptask;
@@ -1641,6 +1665,16 @@ int TMomFinalizeJob2(
     {
     /* CHILD:  handle child activities */
 
+#ifdef GSSAPI
+    ccname = ccname_for_job(((job *)TJE->pjob)->ji_qs.ji_jobid,path_creds);
+    if (ccname) {
+      if (authenticate_as_job(ccname,1)) {
+	return FAILURE;
+      }
+      free(ccname);
+    }
+
+#endif
     TMomFinalizeChild(TJE);
 
     /*NOTREACHED*/

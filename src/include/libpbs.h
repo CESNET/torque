@@ -240,6 +240,10 @@ enum PBatchReqTypeEnum {
   PBS_BATCH_Rescq	= 24,
   PBS_BATCH_ReserveResc	= 25,
   PBS_BATCH_ReleaseResc	= 26,
+#ifdef GSSAPI
+  PBS_BATCH_GSSAuthenUser = 46,
+  PBS_BATCH_ForwardCreds = 47,
+#endif
   PBS_BATCH_StageIn	= 48,
   PBS_BATCH_AuthenUser	= 49,
   PBS_BATCH_OrderJob	= 50,

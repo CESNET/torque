@@ -185,6 +185,9 @@ char	       *path_undeliv;
 char	       *path_aux;
 char	       *path_server_name;
 char           *path_home = PBS_SERVER_HOME;
+#ifdef GSSAPI
+char           *path_creds;
+#endif
 char           *mom_home;
 extern char    *msg_daemonname;          /* for logs     */
 extern int	pbs_errno;
@@ -5491,6 +5494,9 @@ int MOMInitialize(void)
   int sindex;
 
   MOMConfigVersion[0] = '\0';
+#ifdef GSSAPI
+  path_creds = "/tmp";
+#endif
 
   for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {

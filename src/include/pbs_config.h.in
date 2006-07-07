@@ -9,6 +9,9 @@
 /* are FD_SET and friends defined in sys/select.h */
 #undef FD_SET_IN_SYS_SELECT_H
 
+/* Use GSSAPI/Krb5 */
+#undef GSSAPI
+
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #undef HAVE_ARPA_INET_H
 
@@ -42,6 +45,24 @@
 
 /* Define to 1 if you have the `gettimeofday' function. */
 #undef HAVE_GETTIMEOFDAY
+
+/* Define to 1 if you have the <gssapi_generic.h> header file. */
+#undef HAVE_GSSAPI_GENERIC_H
+
+/* Define to 1 if you have the <gssapi/gssapi_generic.h> header file. */
+#undef HAVE_GSSAPI_GSSAPI_GENERIC_H
+
+/* Define to 1 if you have the <gssapi/gssapi.h> header file. */
+#undef HAVE_GSSAPI_GSSAPI_H
+
+/* Define to 1 if you have the <gssapi/gssapi_krb5.h> header file. */
+#undef HAVE_GSSAPI_GSSAPI_KRB5_H
+
+/* Define to 1 if you have the <gssapi.h> header file. */
+#undef HAVE_GSSAPI_H
+
+/* Define to 1 if you have the <gssapi_krb5.h> header file. */
+#undef HAVE_GSSAPI_KRB5_H
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
@@ -176,6 +197,9 @@
 
 /* Define to 1 if you have the `wordexp' function. */
 #undef HAVE_WORDEXP
+
+/* Using Heimdal instead of MIT krb */
+#undef HEIMDAL
 
 /* is the global int h_errno declared in netdb.h */
 #undef H_ERRNO_DECLARED

@@ -545,6 +545,105 @@ fi
 
 AC_SUBST(SCHD_CODE)
 
+dnl
+dnl ######################################################################
+dnl GSSAPI/Krb5
+dnl 
+
+GSSAPI_MSG="no"
+AC_ARG_WITH(gssapi,
+	[  --with-gssapi=PATH   Enable GSSAPI/Krb5 support.],
+	[ if test "x$withval" != "xno" ; then
+		PBSGSSLIBDIR=Libgss        
+	  	if test "x$withval" = "xyes" ; then
+		   	GSSAPIROOT="/usr"
+		else
+			GSSAPIROOT=${withval}
+		fi
+
+		AC_MSG_CHECKING(for krb5-config)
+		if test -x  $GSSAPIROOT/bin/krb5-config ; then
+			KRB5CONF=$GSSAPIROOT/bin/krb5-config
+			AC_MSG_RESULT($KRB5CONF)
+
+			AC_MSG_CHECKING(for gssapi support)
+			if $KRB5CONF | grep gssapi >/dev/null ; then
+				AC_MSG_RESULT(yes)
+				AC_DEFINE(GSSAPI,1,[Use GSSAPI/Krb5])
+				GSSAPI_MSG="yes"
+				k5confopts=gssapi
+			fi
+			K5CFLAGS="`$KRB5CONF --cflags $k5confopts`"
+			K5LIBS="`$KRB5CONF --libs $k5confopts`"
+			CPPFLAGS="$CPPFLAGS $K5CFLAGS"
+			AC_MSG_CHECKING(whether we are using Heimdal)
+			AC_TRY_COMPILE([ #include <krb5.h> ],
+				       [ char *tmp = heimdal_version; ],
+				       [ AC_MSG_RESULT(yes)
+					 AC_DEFINE(HEIMDAL,1,[Using Heimdal instead of MIT krb]) ],
+				         AC_MSG_RESULT(no)
+			)
+		else
+			AC_MSG_RESULT(no)
+			CPPFLAGS="$CPPFLAGS -I${GSSAPIROOT}/include"
+			LDFLAGS="$LDFLAGS -L${GSSAPIROOT}/lib"
+			AC_MSG_CHECKING(whether we are using Heimdal)
+			AC_TRY_COMPILE([ #include <krb5.h> ],
+				       [ char *tmp = heimdal_version; ],
+				       [ AC_MSG_RESULT(yes)
+					 AC_DEFINE(HEIMDAL,1,[Using Heimdal instead of MIT krb])
+					 K5LIBS="-lkrb5 -ldes -lcom_err -lasn1 -lroken"
+				       ],
+				       [ AC_MSG_RESULT(no)
+					 K5LIBS="-lkrb5 -lk5crypto -lcom_err"
+				       ]
+			)
+			AC_SEARCH_LIBS(dn_expand, resolv)
+
+			AC_CHECK_LIB(gssapi,gss_init_sec_context,
+				[ AC_DEFINE(GSSAPI,1,[Use GSSAPI/Krb5])
+				  GSSAPI_MSG="yes"
+				  K5LIBS="-lgssapi $K5LIBS" ],
+				[ AC_CHECK_LIB(gssapi_krb5,gss_init_sec_context,
+					[ AC_DEFINE(GSSAPI,1,[Use GSSAPI/Krb5])
+					  GSSAPI_MSG="yes"
+					  K5LIBS="-lgssapi_krb5 $K5LIBS" ],
+					AC_MSG_WARN([Cannot find any suitable gss-api library - build may fail]),
+					$K5LIBS)
+				],
+				$K5LIBS)
+			
+			AC_CHECK_HEADER(gssapi.h, ,
+				[ unset ac_cv_header_gssapi_h
+				  CPPFLAGS="$CPPFLAGS -I${GSSAPIROOT}/include/gssapi"
+				  AC_CHECK_HEADERS(gssapi.h, ,
+					AC_MSG_WARN([Cannot find any suitable gss-api header - build may fail])
+				  )
+				]
+			)
+
+			oldCPP="$CPPFLAGS"
+			CPPFLAGS="$CPPFLAGS -I${GSSAPIROOT}/include/gssapi"
+			AC_CHECK_HEADER(gssapi_krb5.h, ,
+					[ CPPFLAGS="$oldCPP" ])
+
+		fi
+		if test ! -z "$need_dash_r" ; then
+			LDFLAGS="$LDFLAGS -R${GSSAPIROOT}/lib"
+		fi
+		if test ! -z "$blibpath" ; then
+			blibpath="$blibpath:${GSSAPIROOT}/lib"
+		fi
+	fi
+
+	AC_CHECK_HEADERS(gssapi.h gssapi/gssapi.h)
+	AC_CHECK_HEADERS(gssapi_krb5.h gssapi/gssapi_krb5.h)
+	AC_CHECK_HEADERS(gssapi_generic.h gssapi/gssapi_generic.h)
+
+	LIBS="$LIBS $K5LIBS"
+	]
+)
+AC_SUBST(PBSGSSLIBDIR)
 
 dnl
 dnl  ######################################################################
@@ -1235,6 +1334,7 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/lib/Libnet/Makefile
 	  src/lib/Libpbs/Makefile
 	  src/lib/Libsite/Makefile
+	  src/lib/Libgss/Makefile
 	  src/mom_rcp/Makefile
 	  src/resmom/Makefile
 	  src/resmom/aix4/Makefile

@@ -22,6 +22,7 @@ pbs_server_SOURCES = accounting.c attr_recov.c dis_read.c geteusernam.c \
 		     req_track.c resc_def_all.c run_sched.c stat_job.c \
 		     svr_attr_def.c svr_chk_owner.c svr_connect.c \
 		     svr_func.c svr_jobfunc.c svr_mail.c svr_movejob.c \
+			  req_gssauthenuser.c \
 		     svr_recov.c svr_resccost.c svr_task.c
 
 install-exec-hook:

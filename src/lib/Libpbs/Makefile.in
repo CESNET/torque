@@ -88,6 +88,7 @@ MY_TCL_INCS = @MY_TCL_INCS@
 MY_TCL_LIBS = @MY_TCL_LIBS@
 OBJDUMP = @OBJDUMP@
 PACKAGE = @PACKAGE@
+PBSGSSLIBDIR = @PBSGSSLIBDIR@
 PBSPOE = @PBSPOE@
 PBSPOEO = @PBSPOEO@
 PBS_DEFAULT_FILE = @PBS_DEFAULT_FILE@
@@ -199,7 +200,8 @@ libtorque_la_SOURCES = ../Libdis/dis.c ../Libdis/discui_.c ../Libdis/discul_.c \
 		   ../Liblog/chk_file_sec.c ../Liblog/log_event.c ../Liblog/pbs_log.c ../Liblog/pbs_messages.c \
                     ../Liblog/setup_env.c \
 		   ../Libnet/get_hostaddr.c ../Libnet/get_hostname.c ../Libnet/md5.c ../Libnet/net_client.c \
-                    ../Libnet/net_server.c ../Libnet/net_set_clse.c ../Libnet/rm.c
+                    ../Libnet/net_server.c ../Libnet/net_set_clse.c ../Libnet/rm.c \
+		   ../Libgss/pbsgss.c ../Libnet/get_hostnamefromaddr.c
 
 subdir = src/lib/Libpbs
 mkinstalldirs = $(SHELL) $(top_srcdir)/buildutils/mkinstalldirs
@@ -243,7 +245,8 @@ am_libtorque_la_OBJECTS = dis.lo discui_.lo discul_.lo disi10d_.lo \
 	prt_job_err.lo set_attr.lo set_resource.lo chk_file_sec.lo \
 	log_event.lo pbs_log.lo pbs_messages.lo setup_env.lo \
 	get_hostaddr.lo get_hostname.lo md5.lo net_client.lo \
-	net_server.lo net_set_clse.lo rm.lo
+	net_server.lo net_set_clse.lo rm.lo pbsgss.lo \
+	get_hostnamefromaddr.lo
 libtorque_la_OBJECTS = $(am_libtorque_la_OBJECTS)
 
 DEFS = @DEFS@
@@ -318,6 +321,7 @@ am__depfiles_maybe = depfiles
 @AMDEP_TRUE@	./$(DEPDIR)/enc_svrattrl.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/get_hostaddr.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/get_hostname.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/get_hostnamefromaddr.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/get_server.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/get_svrport.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/list_link.Plo \
@@ -358,7 +362,7 @@ am__depfiles_maybe = depfiles
 @AMDEP_TRUE@	./$(DEPDIR)/pbs_geterrmg.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/pbs_log.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/pbs_messages.Plo \
-@AMDEP_TRUE@	./$(DEPDIR)/pbs_statfree.Plo \
+@AMDEP_TRUE@	./$(DEPDIR)/pbs_statfree.Plo ./$(DEPDIR)/pbsgss.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/prepare_path.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/prt_job_err.Plo ./$(DEPDIR)/rm.Plo \
 @AMDEP_TRUE@	./$(DEPDIR)/rpp.Plo ./$(DEPDIR)/set_attr.Plo \
@@ -562,6 +566,8 @@ net_client.lo: ../Libnet/net_client.c
 net_server.lo: ../Libnet/net_server.c
 net_set_clse.lo: ../Libnet/net_set_clse.c
 rm.lo: ../Libnet/rm.c
+pbsgss.lo: ../Libgss/pbsgss.c
+get_hostnamefromaddr.lo: ../Libnet/get_hostnamefromaddr.c
 libtorque.la: $(libtorque_la_OBJECTS) $(libtorque_la_DEPENDENCIES) 
 	$(LINK) -rpath $(libdir) $(libtorque_la_LDFLAGS) $(libtorque_la_OBJECTS) $(libtorque_la_LIBADD) $(LIBS)
 
@@ -667,6 +673,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/enc_svrattrl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_hostaddr.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_hostname.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_hostnamefromaddr.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_server.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_svrport.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/list_link.Plo@am__quote@
@@ -710,6 +717,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbs_log.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbs_messages.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbs_statfree.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbsgss.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/prepare_path.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/prt_job_err.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rm.Plo@am__quote@
@@ -3404,6 +3412,42 @@ rm.lo: ../Libnet/rm.c
 @AMDEP_TRUE@	depfile='$(DEPDIR)/rm.Plo' tmpdepfile='$(DEPDIR)/rm.TPlo' @AMDEPBACKSLASH@
 @AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o rm.lo `test -f '../Libnet/rm.c' || echo '$(srcdir)/'`../Libnet/rm.c
+
+pbsgss.o: ../Libgss/pbsgss.c
+@AMDEP_TRUE@	source='../Libgss/pbsgss.c' object='pbsgss.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/pbsgss.Po' tmpdepfile='$(DEPDIR)/pbsgss.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pbsgss.o `test -f '../Libgss/pbsgss.c' || echo '$(srcdir)/'`../Libgss/pbsgss.c
+
+pbsgss.obj: ../Libgss/pbsgss.c
+@AMDEP_TRUE@	source='../Libgss/pbsgss.c' object='pbsgss.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/pbsgss.Po' tmpdepfile='$(DEPDIR)/pbsgss.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pbsgss.obj `cygpath -w ../Libgss/pbsgss.c`
+
+pbsgss.lo: ../Libgss/pbsgss.c
+@AMDEP_TRUE@	source='../Libgss/pbsgss.c' object='pbsgss.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/pbsgss.Plo' tmpdepfile='$(DEPDIR)/pbsgss.TPlo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pbsgss.lo `test -f '../Libgss/pbsgss.c' || echo '$(srcdir)/'`../Libgss/pbsgss.c
+
+get_hostnamefromaddr.o: ../Libnet/get_hostnamefromaddr.c
+@AMDEP_TRUE@	source='../Libnet/get_hostnamefromaddr.c' object='get_hostnamefromaddr.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/get_hostnamefromaddr.Po' tmpdepfile='$(DEPDIR)/get_hostnamefromaddr.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o get_hostnamefromaddr.o `test -f '../Libnet/get_hostnamefromaddr.c' || echo '$(srcdir)/'`../Libnet/get_hostnamefromaddr.c
+
+get_hostnamefromaddr.obj: ../Libnet/get_hostnamefromaddr.c
+@AMDEP_TRUE@	source='../Libnet/get_hostnamefromaddr.c' object='get_hostnamefromaddr.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/get_hostnamefromaddr.Po' tmpdepfile='$(DEPDIR)/get_hostnamefromaddr.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o get_hostnamefromaddr.obj `cygpath -w ../Libnet/get_hostnamefromaddr.c`
+
+get_hostnamefromaddr.lo: ../Libnet/get_hostnamefromaddr.c
+@AMDEP_TRUE@	source='../Libnet/get_hostnamefromaddr.c' object='get_hostnamefromaddr.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/get_hostnamefromaddr.Plo' tmpdepfile='$(DEPDIR)/get_hostnamefromaddr.TPlo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o get_hostnamefromaddr.lo `test -f '../Libnet/get_hostnamefromaddr.c' || echo '$(srcdir)/'`../Libnet/get_hostnamefromaddr.c
 CCDEPMODE = @CCDEPMODE@
 
 mostlyclean-libtool:

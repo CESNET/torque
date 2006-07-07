@@ -166,6 +166,10 @@ void req_rescfree(struct batch_request *preq);
 #endif
 #ifdef PBS_MOM
 void req_rerunjob(struct batch_request *preq);
+#ifdef GSSAPI
+int req_accept_forwarded_creds(struct batch_request *preq, int sfds, int save);
+void req_free_forwarded_creds();
+#endif
 #endif
 void req_shutdown(struct batch_request *preq);
 void req_signaljob(struct batch_request *preq);
@@ -295,6 +299,28 @@ void process_request(
 
     return;
     }
+
+#ifdef GSSAPI
+  if (request->rq_type == PBS_BATCH_GSSAuthenUser) {
+#ifdef PBS_MOM
+    req_reject(PBSE_BADCRED,0,request,NULL,"pbs_mom didn't expect PBS_BATCH_GSSAuthenUser");
+    return;
+#else
+    /* gss_gssauthenuser will already have called req_reject */
+    if (req_gssauthenuser(request,sfds) < 0) {
+      return;
+    }
+#endif
+  }
+#ifndef PBS_MOM
+  /* normally the hostname field is taken from the connection information.  However,
+     if there's GSSAPI authentication, then use the realm name as the hostname */
+  if (svr_conn[sfds].principal != NULL) {
+    strcpy(request->rq_user,conn_credent[sfds].username);
+    strcpy(request->rq_host,conn_credent[sfds].hostname);
+  }
+#endif /* PBS_MOM */
+#endif /* GSSAPI */
 
   sprintf(
     log_buffer,
@@ -755,6 +781,26 @@ void dispatch_request(
       break;
 
 #endif /* !PBS_MOM */
+
+#ifdef GSSAPI
+    case PBS_BATCH_ForwardCreds:
+      /* client -> server uses GSSAuthenUser which is handled earlier.  
+	 server -> mom uses ForwardCreds, which we handle here */
+#ifdef PBS_MOM
+      fprintf(stderr,"Accepting user creds for %s\n",request->rq_ind.rq_queuejob.rq_jid);
+      if (req_accept_forwarded_creds(request,sfds,1) != 0) {
+	req_reject(PBSE_BADCRED,0,request,NULL,"no forwarded principal!");
+      }
+      req_free_forwarded_creds();
+#else
+      req_reject(PBSE_BADCRED,0,request,NULL,"pbs_server didn't expect PBS_BATCH_ForwardCreds");
+#endif
+      break;
+
+    case PBS_BATCH_GSSAuthenUser:
+      /* already handled */
+      break;
+#endif /* GSSAPI */
 
     default:
 

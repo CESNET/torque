@@ -159,6 +159,9 @@ extern unsigned int pbs_server_port_dis;
 extern time_t	pbs_tcp_timeout;
 extern int	resc_access_perm;
 extern int      LOGLEVEL;
+#ifdef GSSAPI
+extern char    *path_creds;
+#endif
 
 int net_move A_((job *,struct batch_request *));
 
@@ -578,6 +581,13 @@ int send_job(
   mbool_t        Timeout = FALSE;
 
   char          *pc;
+  
+#ifdef GSSAPI
+  struct passwd *pwinfo;
+  char          *hostname;
+  char          *ccname;
+  int           retries;
+#endif
 
   sigemptyset(&child_set);
   sigaddset(&child_set,SIGCHLD);
@@ -837,6 +847,43 @@ int send_job(
         }
 
       pqjatr = &((svrattrl *)GET_NEXT(attrl))->al_atopl;
+
+#ifdef GSSAPI
+      DIS_tcp_setup(connection[con].ch_socket);
+      if (encode_DIS_ReqHdr(connection[con].ch_socket,
+			    PBS_BATCH_ForwardCreds,
+			    pbs_current_user) ||
+	  encode_DIS_JobId(connection[con].ch_socket,jobp->ji_qs.ji_jobid) ||
+	  encode_DIS_ReqExtend(connection[con].ch_socket,0)) {
+	exit(1);
+      }
+      DIS_tcp_wflush(connection[con].ch_socket);
+    
+      /* do client gss auth */
+      hostname = get_hostnamefromaddr(hostaddr);
+      if (hostname == NULL) {
+	sprintf(log_buffer,"send job failed: couldn't get hostname for %x\n",hostaddr);
+	log_err(0,"svr_movejob get_hostname",log_buffer);
+	exit(1);
+      }
+
+      /* Forward job's credentials to the server.
+	 in a child, so ok to block */
+      ccname = ccname_for_job(jobp->ji_qs.ji_jobid,path_creds);
+      if (setenv("KRB5CCNAME",ccname,1)) {
+	perror("Couldn't put KRB5CCNAME into environment");
+	exit(1);
+      }
+      retries = 0;
+      while ((i = pbsgss_client_authenticate(hostname, connection[con].ch_socket,1)) != 0) {
+	fprintf(stderr,"send job failed: Couldn't authenticate as user to %s:%d : %d\n",hostname,con,i);      
+	if (retries++ > 2) {
+	  exit(1);
+	}
+      }  
+      free(ccname);
+      free(hostname);
+#endif
 
       if ((pc = PBSD_queuejob(
             con,

@@ -176,6 +176,9 @@ extern char	*path_track;
 extern char	*path_nodes;
 extern char	*path_nodes_new;
 extern char	*path_nodestate;
+#ifdef GSSAPI
+extern char     *path_creds;
+#endif
 
 extern int	 queue_rank;
 extern char	 server_name[];
@@ -424,6 +427,9 @@ int pbsd_init(
   path_nodes	 = build_path(path_priv, NODE_DESCRIP, NULL);
   path_nodes_new = build_path(path_priv, NODE_DESCRIP, new_tag);
   path_nodestate = build_path(path_priv, NODE_STATUS,  NULL);
+#ifdef GSSAPI
+  path_creds     = build_path(path_home, PBS_SVR_PRIVATE, "/creds/");
+#endif
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 

@@ -87,6 +87,10 @@ typedef unsigned long pbs_net_t;        /* for holding host addresses */
 #define PBS_NET_TYPE
 #endif
 
+#ifdef GSSAPI
+#include "pbsgss.h"
+#endif
+
 #define PBS_NET_MAXCONNECTIDLE  900
 #define PBS_NET_CONN_AUTHENTICATED 1
 #define PBS_NET_CONN_FROM_PRIVIL   2
@@ -154,7 +158,7 @@ void net_close A_((int));
 int  wait_request(time_t waittime,long *);
 void net_add_close_func A_((int,void(*)()));
 void net_set_type A_((enum conn_type,enum conn_type));
-
+char *get_hostnamefromaddr(pbs_net_t hostaddr);
 
 struct connection {
 	pbs_net_t	cn_addr;	/* internet address of client */
@@ -165,4 +169,8 @@ struct connection {
 	time_t		cn_lasttime;	/* time last active */
 	void		(*cn_func) A_((int)); /* read function when data rdy */
 	void		(*cn_oncl) A_((int)); /* func to call on close */
+#ifdef GSSAPI
+        char            *principal;      /* client principal for use with GSS auth */
+        gss_cred_id_t   creds;           /* client creds, for use with GSS auth */
+#endif
 };

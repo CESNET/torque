@@ -88,6 +88,7 @@ MY_TCL_INCS = @MY_TCL_INCS@
 MY_TCL_LIBS = @MY_TCL_LIBS@
 OBJDUMP = @OBJDUMP@
 PACKAGE = @PACKAGE@
+PBSGSSLIBDIR = @PBSGSSLIBDIR@
 PBSPOE = @PBSPOE@
 PBSPOEO = @PBSPOEO@
 PBS_DEFAULT_FILE = @PBS_DEFAULT_FILE@
@@ -131,7 +132,7 @@ DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 
-SUBDIRS = Libattr Libcmds Libdis Libifl Liblog Libnet Libpbs Libsite
+SUBDIRS = Libattr Libcmds Libdis Libifl Liblog Libnet Libpbs Libsite @PBSGSSLIBDIR@
 subdir = src/lib
 mkinstalldirs = $(SHELL) $(top_srcdir)/buildutils/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/src/include/pbs_config.h
