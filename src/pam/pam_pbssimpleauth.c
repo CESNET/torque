@@ -145,7 +145,10 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc,
 
       if (debug) syslog(LOG_INFO,"state=%d, substate=%d",xjob.ji_qs.ji_state,xjob.ji_qs.ji_substate);
 
-      if (user_pwd->pw_uid == xjob.ji_qs.ji_un.ji_momt.ji_exuid)
+      if ((xjob.ji_qs.ji_un.ji_momt.ji_exuid == user_pwd->pw_uid) &&
+          ((xjob.ji_qs.ji_substate == JOB_SUBSTATE_PRERUN) ||
+           (xjob.ji_qs.ji_substate == JOB_SUBSTATE_STARTING) ||
+           (xjob.ji_qs.ji_substate == JOB_SUBSTATE_RUNNING)))
         {
         /* success! */
         close(fp);
