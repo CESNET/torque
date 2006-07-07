@@ -72,7 +72,7 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc,
 
   if ((jobdir = opendir(jobdirpath)) == NULL)
     {
-    if (debug) syslog(LOG_INFO,"failed to open jobs dir");
+    if (debug) syslog(LOG_INFO,"failed to open jobs dir: %s",strerror(errno));
     closelog();
     return PAM_IGNORE;
     }
@@ -117,7 +117,7 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc,
       if (strstr(jdent->d_name,".JB") == NULL)
         continue;
 
-      snprintf(jobpath,PATH_MAX-1,"%s/%s/%s",PBS_SERVER_HOME,"mom_priv/jobs",jdent->d_name);
+      snprintf(jobpath,PATH_MAX-1,"%s/%s",jobdirpath,jdent->d_name);
       if (debug) syslog(LOG_INFO,"opening %s",jobpath);
 
       fp = open(jobpath, O_RDONLY, 0);
