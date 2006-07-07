@@ -1,0 +1,26 @@
+#!/bin/bash
+#
+# start and stop the pbs server processes (scheduler and server)
+
+
+case "$1" in
+    start)
+	ulimit -c 1000000000
+	/usr/local/sbin/pbs_server &
+        #/usr/local/sbin/pbs_sched &
+	su -c "kinit -k -t /etc/krb5.keytab.maui -c /tmp/krb5cc_maui host/skn7.csail.mit.edu" maui
+	export KRB5CCNAME=/tmp/krb5cc_maui
+	su -c /usr/local/maui/sbin/maui -p maui  &
+	;;
+    stop)
+        kill `cat /var/spool/torque/server_priv/server.lock`
+        kill `cat /var/spool/torque/sched_priv/sched.lock`
+	;;
+    *)
+	echo "Usage: /etc/init.d/pbsserver {start|stop}"
+	exit 1
+	;;
+esac
+
+exit 0
+

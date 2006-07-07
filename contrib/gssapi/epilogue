@@ -1,0 +1,7 @@
+#!/bin/bash
+
+pidfile="/tmp/${4}.renewpid"
+if [ -e "${pidfile}" ]; then
+  /bin/kill -9 `cat "${pidfile}"`
+  rm "$pidfile"
+fi

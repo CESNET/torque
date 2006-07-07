@@ -1,0 +1,4 @@
+#!/bin/sh
+echo $$ > "$1"
+kinit -R
+while [ $? -eq 0 ] ; do aklog csail.mit.edu && sleep 3600 && kinit -R  ; done

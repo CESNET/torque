@@ -1,0 +1,36 @@
+/afs/csail/group/psrg/projects/cluster/torque/torque-kerberos/torque-package-devel-linux-x86_64.sh --install
+/afs/csail/group/psrg/projects/cluster/torque/torque-kerberos/torque-package-clients-linux-x86_64.sh --install
+if [ ${HOST} = skn7.csail.mit.edu ]; then
+   # this is the server
+   /afs/csail/group/psrg/projects/cluster/torque/torque-kerberos/torque-package-server-linux-x86_64.sh --install
+   cp /afs/csail.mit.edu/group/psrg/projects/cluster/public/nodes /var/spool/torque/server_priv/nodes
+   cp /afs/csail.mit.edu/group/psrg/projects/cluster/public/init.pbsserver /etc/init.d/pbsserver
+   ln -s /etc/init.d/pbsserver /etc/rc2.d/98pbsserver
+   cp /afs/csail.mit.edu/group/psrg/projects/cluster/public/serverrenew /usr/local/sbin/serverrenew
+   echo "15 0,3,6,9,12,15,18,21 * * * /usr/local/sbin/serverrenew" >> /var/spool/cron/crontabs/root
+   (cd /afs/csail.mit.edu/group/psrg/projects/cluster/torque/maui-3.2.6p16 && make install)
+   adduser maui
+   chown -R maui /usr/local/maui/log /usr/local/maui/spool /usr/local/maui/maui.pid 
+   cp /afs/csail.mit.edu/group/psrg/projects/cluster/public/maui.cfg /usr/local/maui
+   chmod 755 /usr/local/maui/maui*.cfg
+   chmod 755 /usr/local/maui/sbin/*
+   chmod 755 /usr/local/maui/bin/*
+   rm /tmp/krb5cc_maui
+   cp /etc/krb5.keytab /etc/krb5.keytab.maui
+   chown maui /etc/krb5.keytab.maui
+   echo "15 0,3,6,9,12,15,18,21 * * * kinit -k -t /etc/krb5.keytab.maui -c /tmp/krb5cc_maui host/skn7.csail.mit.edu" >> /var/spool/cron/crontabs/maui
+else
+   # this is for the moms
+   /afs/csail/group/psrg/projects/cluster/torque/torque-kerberos/torque-package-mom-linux-x86_64.sh --install
+   cp /afs/csail.mit.edu/group/psrg/projects/cluster/public/init.pbsmom /etc/init.d/pbsmom
+   ln -s /etc/init.d/pbsmom /etc/rc2.d/98pbsmom
+   chmod 1777 /var/spool/torque/undelivered
+   cp /afs/csail.mit.edu/group/psrg/projects/cluster/public/clientrenew /usr/local/bin/clientrenew
+   cp /afs/csail.mit.edu/group/psrg/projects/cluster/public/prologue /var/spool/torque/mom_priv/
+   cp /afs/csail.mit.edu/group/psrg/projects/cluster/public/epilogue /var/spool/torque/mom_priv/
+   cp /afs/csail.mit.edu/group/psrg/projects/cluster/public/momconfig /var/spool/torque/mom_priv/config 
+   chmod 700 /var/spool/torque/mom_priv/prologue
+   chmod 700 /var/spool/torque/mom_priv/epilogue
+fi
+# shouldn't have to do this; it's sort of a bug from building in AFS
+chmod 1777 /var/spool/torque/spool 

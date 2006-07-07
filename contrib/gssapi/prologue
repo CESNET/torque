@@ -1,0 +1,4 @@
+#!/bin/bash
+
+pidfile="/tmp/${4}.renewpid"
+su "$2" -c "/usr/local/bin/clientrenew '${pidfile}' &"

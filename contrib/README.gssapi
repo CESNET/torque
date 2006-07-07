@@ -1,0 +1,87 @@
+Compiling with --with-gssapi will compile in support for kerberos
+credentials forwarding and AFS support.  I've only compiled against MIT
+kerberos, so I don't know if Heimdal will work.  Almost all of the code
+is written against GSSAPI rather than the krb5 API.
+
+The machine running the pbs_server and each machine running the mom will
+need a keytab for that machine's "host" service.  It should be installed
+in the default keytab location.
+
+The serverrenew script should be run from a cronjob every few hours.  It
+renews the credentials that the pbs_server has stored on disk for jobs
+that are in the queue or running.
+
+The prologue and epilogue scripts start and stop the clientrenew script
+(also included) that runs a loop around 'kinit -R && aklog' to keep
+tickets and tokens for a job.  You'll need to 
+
+If you're using Maui, you'll need a cronjob that gets tickets from the
+machine's keytab (also for host@<machine name>).  The credentials cache
+should be /tmp/krb5cc_maui and must be owned by the user as whom maui
+runs (see init.pbsserver for an example of getting tickets like this).
+
+When you're first configuring your server, you'll need to get tickets as
+the host principal of the machine on which the server is running.  For
+example, if my server is running on foo.bar.edu, I'd do
+  kinit -k -t /etc/krb5.keytab host/foo.bar.edu
+Instead of adding user@host to the operators or managers lists in the
+server configuration, you should add kerberos principals.
+
+If you compile in AFS, then you'll need to run 
+   chmod 1777 /var/spool/torque/spool 
+   chmod 1777 /var/spool/torque/undelivered  # mom only
+otherwise those directories won't have the sticky bit set.
+
+For users, the gssapi/krb5 modifications should be basically
+transparent.  You'll need to configure your machines to get renewable
+tickets by default.  The only catch with this system is that a job must
+be completely finished and out of the system before the end of the
+ticket's renewable lifetime.
+
+
+
+
+Parts of the GSSAPI/Krb5 support use code from the gssapi sample
+programs in the MIT krb5 distribution.  Therefore, the following
+copyright notices are included:
+ Copyright 1994 by OpenVision Technologies, Inc.
+ 
+ Permission to use, copy, modify, distribute, and sell this software
+ and its documentation for any purpose is hereby granted without fee,
+ provided that the above copyright notice appears in all copies and
+ that both that copyright notice and this permission notice appear in
+ supporting documentation, and that the name of OpenVision not be used
+ in advertising or publicity pertaining to distribution of the software
+ without specific, written prior permission. OpenVision makes no
+ representations about the suitability of this software for any
+ purpose.  It is provided "as is" without express or implied warranty.
+ 
+ OPENVISION DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE,
+ INCLUDING ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS, IN NO
+ EVENT SHALL OPENVISION BE LIABLE FOR ANY SPECIAL, INDIRECT OR
+ CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF
+ USE, DATA OR PROFITS, WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR
+ OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR
+ PERFORMANCE OF THIS SOFTWARE.
+
+ Copyright (C) 2003, 2004, 2005 by the Massachusetts Institute of Technology.
+ All rights reserved.
+
+ Export of this software from the United States of America may
+   require a specific license from the United States Government.
+   It is the responsibility of any person or organization contemplating
+   export to obtain such a license before exporting.
+ 
+ WITHIN THAT CONSTRAINT, permission to use, copy, modify, and
+ distribute this software and its documentation for any purpose and
+ without fee is hereby granted, provided that the above copyright
+ notice appear in all copies and that both that copyright notice and
+ this permission notice appear in supporting documentation, and that
+ the name of M.I.T. not be used in advertising or publicity pertaining
+ to distribution of the software without specific, written prior
+ permission.  Furthermore if you modify this software you must label
+ your software as modified software and not distribute it in such a
+ fashion that it might be confused with the original M.I.T. software.
+ M.I.T. makes no representations about the suitability of
+ this software for any purpose.  It is provided "as is" without express
+ or implied warranty.

@@ -1,0 +1,21 @@
+#!/bin/bash
+#
+# start and stop the pbs mom process
+
+
+case "$1" in
+    start)
+	ulimit -c 10000000
+	/usr/local/sbin/pbs_mom >> /var/spool/torque/mom_logs/mom.err &
+	;;
+    stop)
+        kill `cat /var/spool/torque/mom_priv/mom.lock`
+	;;
+    *)
+	echo "Usage: /etc/init.d/pbsmom {start|stop}"
+	exit 1
+	;;
+esac
+
+exit 0
+
