@@ -195,7 +195,7 @@ int pam_sm_acct_mgmt(pam_handle_t *pamh, int flags, int argc,
 /* static module data */
 /* this only exists for the unlikely event that this built *with* libpam */
 struct pam_module _pam_pbssimpleauth_modstruct = {
-     "pam_pbssimpleauth",
+     MODNAME,
      pam_sm_authenticate,
      pam_sm_setcred,
      pam_sm_acct_mgmt,

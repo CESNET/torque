@@ -398,7 +398,7 @@ uninstall-am: uninstall-info-am uninstall-pammodLTLIBRARIES
 
 
 # ugly, ugly, gross, yuck, ugly... but this is the cleanest way to
-# avoid libtool droppings in the PAM module directory
+# avoid libtool droppings in the PAM module directory.
 install-data-hook:
 	@$(NORMAL_INSTALL)
 	$(mkinstalldirs) $(DESTDIR)$(pammoddir)

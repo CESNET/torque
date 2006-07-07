@@ -10,3 +10,6 @@ then use the pam_access module after the pam_pbssimpleauth module.
    account    sufficient   pam_pbssimpleauth.so debug
    account    required     pam_access.so
 
+/etc/security/access.conf can then have something like:
+  -:ALL EXCEPT root admgroup:ALL
+

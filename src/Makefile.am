@@ -47,3 +47,6 @@ install_devel:
 
 install_lib:
 	for dir in lib ;do (cd $$dir && $(MAKE) install);done
+
+install_pam:
+	for dir in $(PAM_DIRS) ;do (cd $$dir && $(MAKE) install);done
