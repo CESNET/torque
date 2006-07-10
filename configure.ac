@@ -861,6 +861,34 @@ AC_SUBST(pammoddir)
 AM_CONDITIONAL(INCLUDE_PAM, [test "x$pammoddir" != "xdisabled"])
       
 
+dnl find default xauth run-time path
+AC_ARG_WITH(xauth,
+        [  --with-xauth=PATH       Specify path to xauth program ],
+        [
+                if test "x$withval" != "xno" ; then
+                        xauth_path=$withval
+                fi
+        ],
+        [       
+                TestPath="$PATH"
+                TestPath="${TestPath}${PATH_SEPARATOR}/usr/X/bin"
+                TestPath="${TestPath}${PATH_SEPARATOR}/usr/bin/X11"
+                TestPath="${TestPath}${PATH_SEPARATOR}/usr/X11R6/bin"
+                TestPath="${TestPath}${PATH_SEPARATOR}/usr/openwin/bin"
+                AC_PATH_PROG(xauth_path, xauth, , $TestPath)
+                if (test ! -z "$xauth_path" && test -x "/usr/openwin/bin/xauth") ; then
+                        xauth_path="/usr/openwin/bin/xauth"
+                fi
+        ]
+)
+
+if test -z "$xauth_path" ; then
+        xauth_path="/usr/X11R6/bin/xauth"
+fi
+AC_DEFINE_UNQUOTED(XAUTH_PATH, "${xauth_path}", [Define to the path of xauth])
+
+
+
 dnl
 dnl  ######################################################################
 dnl  Tcl/Tk settings
