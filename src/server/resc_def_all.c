@@ -658,9 +658,13 @@ int init_resc_defs(char *path)
   /* copy our dynamic resources */
   if (fp)
     {
-    for (dindex=0; *(tmpresc+dindex)->rs_decode; rindex++, dindex++)
+    for (dindex=0; (tmpresc+dindex)->rs_decode; dindex++)
       {
-      memcpy(svr_resc_def+rindex,tmpresc+dindex,sizeof(resource_def));
+      if (find_resc_def(svr_resc_def,(tmpresc+dindex)->rs_name,rindex) == NULL)
+        {
+        memcpy(svr_resc_def+rindex,tmpresc+dindex,sizeof(resource_def));
+        rindex++;
+        }
       }
 
     fclose(fp);
@@ -673,6 +677,12 @@ int init_resc_defs(char *path)
 
   svr_resc_size = rindex + 1;
   
+/* uncomment if you feel like debugging this
+  for (rindex=0; rindex<svr_resc_size; rindex++)
+    {
+    fprintf(stderr,"resource: %s (%d)\n",(svr_resc_def+rindex)->rs_name,rindex);
+    }
+*/
   return 0;
   }
     
