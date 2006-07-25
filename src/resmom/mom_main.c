@@ -184,6 +184,7 @@ char	       *path_spool;
 char	       *path_undeliv;
 char	       *path_aux;
 char	       *path_server_name;
+char	       *path_resources;
 char           *path_home = PBS_SERVER_HOME;
 char           *mom_home;
 extern char    *msg_daemonname;          /* for logs     */
@@ -5906,6 +5907,7 @@ int main(
   path_epiloguserp = mk_dirs("mom_priv/epilogue.user.parallel");
   path_prologuserp = mk_dirs("mom_priv/prologue.user.parallel");
   path_epilogpdel  = mk_dirs("mom_priv/epilogue.precancel");
+  path_resources   = mk_dirs("mom_priv/" PBS_RESOURCES);
 
   path_log         = mk_dirs("mom_logs");
   path_spool       = mk_dirs("spool/");
@@ -5928,6 +5930,8 @@ int main(
 
 #endif  /* not DEBUG and not NO_SECURITY_CHECK */
 #endif	/* MOM_CHECKPOINT */
+
+  init_resc_defs(path_resources);
 
   /* change working directory to mom_priv */
 
