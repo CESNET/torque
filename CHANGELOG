@@ -4,6 +4,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 
   b - correct run-time symbol in pam module on RHEL4
   b - some minor hpux11 build fixes (PACCAR)
+  b - fix bug with log roll and automatic log filenames
 
 2.1.2
 
