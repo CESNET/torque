@@ -92,6 +92,7 @@
 #include "pbs_error.h"
 #include "log.h"
 #include "svrfunc.h"
+#include "pbsgss.h"
 
 /* Global Data */
 
@@ -105,6 +106,9 @@ extern time_t time_now;
 
 extern int site_allow_u(char *,char *);
 
+#ifdef GSSAPI
+char  *rootprinc;
+#endif
 
 /*
  * svr_chk_owner - compare a user name from a request and the name of
@@ -193,9 +197,6 @@ int svr_authorize_jobreq(
   }
 
 
-
-
-
 /*
  * svr_get_privilege - get privilege level of a user.
  *
@@ -221,38 +222,38 @@ int svr_get_privilege(
   {
   int   is_root = 0;
   int   priv = (ATR_DFLAG_USRD | ATR_DFLAG_USWR);
-  char  uh[PBS_MAXUSER + PBS_MAXHOSTNAME + 2];
-  char  *rootprinc;
 
-  strcpy(uh,user);
-  strcat(uh,"@");
-  strcat(uh,host);
+#ifdef GSSAPI
+  int uhlen = PBS_MAXUSER + PBS_MAXHOSTNAME + 102;
+  char  uh[uhlen];
+#endif
 
   /* NOTE:  enable case insensitive host check (CRI) */
 
-#ifndef GSSAPI
+#ifdef GSSAPI
+  snprintf(uh,uhlen,"%s@%s",user,host);
+  if (!rootprinc) {
+    rootprinc = pbsgss_get_host_princname();
+  }
+  if (!rootprinc) {return 0;}
+  if (strcmp(uh,rootprinc) == 0) {
+    is_root = 1;
+#ifdef PBS_ROOT_ALWAYS_ADMIN
+    return(priv|ATR_DFLAG_MGRD|ATR_DFLAG_MGWR|ATR_DFLAG_OPRD|ATR_DFLAG_OPWR);
+#endif  // PBS_ROOT_ALWAYS_ADMIN
+    }
+#endif // GSSAPI
+  /* Run this even if we aren't doing GSSAPI.  This lets the scheduler run
+     without tickets */
   if ((strcmp(user,PBS_DEFAULT_ADMIN) == 0) &&
       !strcasecmp(host,server_host)) 
-#else
-  rootprinc = malloc(sizeof(char) * (6 + strlen(PBS_DEFAULT_SERVER)));
-  if (!rootprinc) {return 0;}
-  sprintf(rootprinc,"host/%s",PBS_DEFAULT_SERVER);
-  if (strcmp(uh,rootprinc))
-#endif /*GSSAPI */
     {
     is_root = 1;
 
 #ifdef PBS_ROOT_ALWAYS_ADMIN
-#ifdef GSSAPI
-    free(rootprinc);
-#endif 
     return(priv|ATR_DFLAG_MGRD|ATR_DFLAG_MGWR|ATR_DFLAG_OPRD|ATR_DFLAG_OPWR);
 #endif
     }
-
-#ifdef GSSAPI
-  free(rootprinc);
-#endif 
 
   if (!(server.sv_attr[(int)SRV_ATR_managers].at_flags & ATR_VFLAG_SET)) 
     {

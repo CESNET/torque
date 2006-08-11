@@ -371,6 +371,9 @@ int pbs_connect(
   struct hostent *hp;
   int out;
   int i;
+#ifdef GSSAPI
+  int neediff = 0;
+#endif
   struct passwd *pw;
 
   char  *ptr;
@@ -506,8 +509,57 @@ int pbs_connect(
 
     return(-1);
     }
+  /* setup DIS support routines for following pbs_* calls */
 
-#ifndef GSSAPI
+  DIS_tcp_setup(connection[out].ch_socket);
+
+  if ((ptr = getenv("PBSAPITIMEOUT")) != NULL)
+    {
+    pbs_tcp_timeout = strtol(ptr,NULL,0);	
+
+    if (pbs_tcp_timeout <= 0)
+      {
+      pbs_tcp_timeout = 10800;      /* set for 3 hour time out */
+      }
+    }
+  else
+    {
+    pbs_tcp_timeout = 10800;      /* set for 3 hour time out */
+    }
+
+
+  /* If we have GSSAPI, then try gssapi authentication first.  If that fails, fall back to iff.
+     If there's no GSSAPI, then just use iff.
+   */
+#ifdef GSSAPI
+  if (pbsgss_can_get_creds()) {
+    if (encode_DIS_ReqHdr(connection[out].ch_socket,
+			  PBS_BATCH_GSSAuthenUser,
+			  pbs_current_user) ||
+	encode_DIS_ReqExtend(connection[out].ch_socket,0)) {
+      if (getenv("PBSDEBUG")) {
+	fprintf(stderr,"ERROR:  cannot authenticate connection with gssapi, errno=%d (%s)\n",
+		errno,
+		strerror(errno));
+      }    
+      neediff = 1;
+    } else {
+      DIS_tcp_wflush(connection[out].ch_socket);
+      if (pbsgss_client_authenticate(server,connection[out].ch_socket,1) != 0) {
+	neediff = 1;
+	if (getenv("PBSDEBUG")) {
+	  fprintf(stderr,"ERROR:  cannot authenticate connection, errno=%d (%s)\n",
+		  errno,
+		  strerror(errno));
+	}    
+      }
+    }
+  } else {
+    neediff = 1;
+  }
+  if (neediff) {
+#endif
+
   /* Have pbs_iff authencate connection */
 
   if (PBSD_authenticate(connection[out].ch_socket) != 0) 
@@ -527,53 +579,8 @@ int pbs_connect(
 
     return(-1);
     }
-#endif
-
-  /* setup DIS support routines for following pbs_* calls */
-
-  DIS_tcp_setup(connection[out].ch_socket);
-
-  if ((ptr = getenv("PBSAPITIMEOUT")) != NULL)
-    {
-    pbs_tcp_timeout = strtol(ptr,NULL,0);	
-
-    if (pbs_tcp_timeout <= 0)
-      {
-      pbs_tcp_timeout = 10800;      /* set for 3 hour time out */
-      }
-    }
-  else
-    {
-    pbs_tcp_timeout = 10800;      /* set for 3 hour time out */
-    }
 #ifdef GSSAPI
-  if (encode_DIS_ReqHdr(connection[out].ch_socket,
-                        PBS_BATCH_GSSAuthenUser,
-                        pbs_current_user) ||
-      encode_DIS_ReqExtend(connection[out].ch_socket,0)) {
-    close(connection[out].ch_socket);
-    connection[out].ch_inuse = 0;
-    pbs_errno = PBSE_PERM;
-    if (getenv("PBSDEBUG")) {
-      fprintf(stderr,"ERROR:  cannot authenticate connection, errno=%d (%s)\n",
-              errno,
-              strerror(errno));
-    }    
-    return(-1);
   }
-  DIS_tcp_wflush(connection[out].ch_socket);
-  if (pbsgss_client_authenticate(server,connection[out].ch_socket,1) != 0) {
-    close(connection[out].ch_socket);
-    connection[out].ch_inuse = 0;
-    pbs_errno = PBSE_PERM;
-    if (getenv("PBSDEBUG")) {
-      fprintf(stderr,"ERROR:  cannot authenticate connection, errno=%d (%s)\n",
-              errno,
-              strerror(errno));
-    }    
-    return(-1);
-  }
-
 #endif
 
   return(out);

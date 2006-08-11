@@ -2004,6 +2004,13 @@ int manager_oper_chk(
   int   		 i;
   struct array_strings	*pstr;
 
+  /* with gssapi, the entries in the list are probably kerberos principals,
+     and there's no quick way to verify them.  So just return 0.
+  */
+#ifdef GSSAPI
+  return 0;
+#endif
+
   if (actmode == ATR_ACTION_FREE)
     {
     return(0);	/* no checking on free */

@@ -220,8 +220,8 @@ const char *PBatchReqType[] = {
   "NONE",
   "NONE",
 #ifdef GSSAPI
-  "GSSAuthenUser"
-  "GSSForwardCreds"
+  "GSSAuthenUser",
+  "GSSForwardCreds",
 #else
   "NONE",
   "NONE",

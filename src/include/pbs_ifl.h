@@ -323,7 +323,11 @@
 #define MAXNAMLEN		255
 #endif
 
+#ifdef GSSAPI
+#define PBS_MAXUSER             120
+#else
 #define PBS_MAXUSER		16	/* max user name length */
+#endif
 #define PBS_MAXGRPN		16	/* max group name length */
 #define PBS_MAXQUEUENAME	15	/* max queue name length */
 #define PBS_MAXSERVERNAME	PBS_MAXHOSTNAME	/* max server name length */

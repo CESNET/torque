@@ -126,7 +126,9 @@
 #include "svrfunc.h"
 #include "sched_cmds.h"
 #include "pbs_proto.h"
-
+#ifdef GSSAPI
+#include "pbsgss.h"
+#endif
 
 /* Private Functions */
 
@@ -147,6 +149,7 @@ extern int    comp_resc_lt;
 extern int    comp_resc_gt;
 extern int    svr_do_schedule;
 extern int    LOGLEVEL;
+extern char  *path_creds;
 
 extern time_t time_now;
 
@@ -1777,3 +1780,22 @@ static void correct_ct(
   }  /* END correct_ct() */
 
 #endif 	/* NDEBUG */
+
+#ifdef GSSAPI
+void renew_job_credentials (struct work_task *ptask) {
+  job *pjob;
+  char *jobname = (char *)ptask->wt_parm1;
+  int retval = pbsgss_renew_creds(jobname,path_creds);
+  time_t time_now = time((time_t *)0);
+  /* if the renew worked, then set up another job.
+     reuse the jobname parameter.  If the renew failed, then free
+     jobname because nothing else is going to use that memory (it was
+     allocated in req_quejob.c just to hold the jobname for the renewal tasks 
+  */
+  if (retval == 0) {
+    set_task(WORK_Timed,time_now + 3600*3,renew_job_credentials,jobname);
+  } else {
+    free(jobname);
+  }
+}
+#endif

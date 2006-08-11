@@ -124,6 +124,11 @@
 #include "mom_func.h"
 #endif	/* PBS_MOM */
 
+#ifdef GSSAPI
+#include "work_task.h"
+#include "pbsgss.h"
+#endif
+
 /* External Functions Called: */
 
 extern int  reply_jid A_((char *));
@@ -142,6 +147,7 @@ extern int   queue_rank;
 #ifdef GSSAPI
 extern char *path_creds;
 extern struct connection svr_conn[PBS_NET_MAX_CONNECTIONS];
+extern int renew_job_credentials(struct work_task *ptask);
 #endif /* GSSAPI */
 #endif	/* !PBS_MOM */
 
@@ -214,6 +220,7 @@ void req_quejob(
   int		 rc;
   int		 sock = preq->rq_conn;
 #ifdef GSSAPI
+  char          *jobidcopy;
   char          *ccname;
 #endif
 
@@ -388,6 +395,9 @@ void req_quejob(
 			ccname) != 0) {
     req_reject(rc,0,preq,NULL,"cannot save creds");
   }
+  jobidcopy = malloc(sizeof(char) * (strlen(jid) + 2));
+  strcpy(jobidcopy,jid);
+  set_task(WORK_Timed,time((time_t *)0) + 3600*3,renew_job_credentials,jobidcopy);
   free(ccname);
 
 #endif /* GSSAPI */
