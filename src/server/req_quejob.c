@@ -147,7 +147,7 @@ extern int   queue_rank;
 #ifdef GSSAPI
 extern char *path_creds;
 extern struct connection svr_conn[PBS_NET_MAX_CONNECTIONS];
-extern int renew_job_credentials(struct work_task *ptask);
+extern void renew_job_credentials(struct work_task *ptask);
 #endif /* GSSAPI */
 #endif	/* !PBS_MOM */
 
