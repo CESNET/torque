@@ -105,8 +105,6 @@
 
 static uid_t pbs_current_uid;               /* only one uid per requestor */
 
-extern char pbs_current_user[PBS_MAXUSER];  /* only one uname per requestor */
-
 extern time_t pbs_tcp_timeout;              /* source? */
 
 static unsigned int dflt_port = 0;
@@ -364,12 +362,15 @@ int pbs_connect(
   char *server)  /* I (FORMAT:  NULL | HOSTNAME | HOSTNAME:PORT )*/
 
   {
-#ifdef ENABLE_IPV6
-  struct sockaddr_in6 server_addr;
-#else
-  struct sockaddr_in  server_addr;
-#endif
+#if defined(HAVE_GETADDRINFO) && defined(ENABLE_IPV6)
+  struct addrinfo hints, *ai, *aitop;
+  char strport[NI_MAXSERV];
+  int gaierr;
+#else /* HAVE_GETADDRINFO */
+  struct sockaddr_in server_addr;
   struct hostent *hp;
+#endif /* HAVE_GETADDRINFO */
+
   int out;
   int i;
   struct passwd *pw;
@@ -441,6 +442,83 @@ int pbs_connect(
 
   strcpy(pbs_current_user,pw->pw_name);
 
+  /* determine where we are going */
+
+  pbs_server = server;    /* set for error messages from commands */
+	
+#if defined(HAVE_GETADDRINFO) && defined(ENABLE_IPV6)
+  /* Look up the host address */
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_STREAM;
+  snprintf(strport, sizeof strport, "%d", server_port);
+
+  if ((gaierr = getaddrinfo(server, strport, &hints, &aitop)) != 0)
+    {
+    fprintf(stderr,"%100s: unknown host. (%s)", server, gai_strerror(gaierr));
+    connection[out].ch_inuse = 0;
+    pbs_errno = PBSE_BADHOST;
+
+    return -1;
+    }
+  for (ai = aitop; ai; ai = ai->ai_next)
+    {
+    /* Create a socket. */
+    connection[out].ch_socket = socket(ai->ai_family, SOCK_STREAM, 0);
+
+    if (connection[out].ch_socket < 0)
+      {
+      fprintf(stderr,"socket: %.100s", strerror(errno));
+      continue;
+      }
+
+    /* Connect it to the display. */
+    if (connect(connection[out].ch_socket, ai->ai_addr, ai->ai_addrlen) < 0)
+      {
+      fprintf(stderr,"connect %.100s port %d: %.100s", server,
+        server_port, strerror(errno));
+      close(connection[out].ch_socket);
+      continue;
+      }
+    /* Success */
+    break;
+    }
+
+  freeaddrinfo(aitop);
+
+  if (!ai)
+    {
+    fprintf(stderr,"connect %.100s port %d: %.100s", server, server_port,
+      strerror(errno));
+    connection[out].ch_inuse = 0;
+    pbs_errno = errno;
+    return -1;
+    }
+
+#else /* HAVE_GETADDRINFO */
+  server_addr.sin_family = AF_INET;
+  hp = NULL;
+  hp = gethostbyname(server);
+
+  if (hp == NULL) 
+    {
+    connection[out].ch_inuse = 0;
+    pbs_errno = PBSE_BADHOST;
+
+    if (getenv("PBSDEBUG"))
+      {
+      fprintf(stderr,"ERROR:  cannot get servername (%s) errno=%d (%s)\n",
+        (server != NULL) ? server : "NULL",
+        errno,
+        strerror(errno));
+      }
+
+    return(-1);
+    }
+
+  memcpy((char *)&server_addr.sin_addr,hp->h_addr_list[0],hp->h_length);
+  server_addr.sin_port = htons(server_port);
+	
   /* get socket	*/
 
   connection[out].ch_socket = socket(AF_INET,SOCK_STREAM,0);
@@ -462,41 +540,6 @@ int pbs_connect(
 
   /* and connect... */
 
-  pbs_server = server;    /* set for error messages from commands */
-	
-#ifdef ENABLE_IPV6
-  server_addr.sin6_family = AF_INET6;
-#else
-  server_addr.sin_family  = AF_INET;
-#endif
-  hp = NULL;
-  hp = gethostbyname(server);
-
-  if (hp == NULL) 
-    {
-    close(connection[out].ch_socket);
-    connection[out].ch_inuse = 0;
-    pbs_errno = PBSE_BADHOST;
-
-    if (getenv("PBSDEBUG"))
-      {
-      fprintf(stderr,"ERROR:  cannot get servername (%s) errno=%d (%s)\n",
-        (server != NULL) ? server : "NULL",
-        errno,
-        strerror(errno));
-      }
-
-    return(-1);
-    }
-
-#ifdef ENABLE_IPV6
-  memcpy((char *)&server_addr.sin6_addr,hp->h_addr_list[0],hp->h_length);
-  server_addr.sin6_port = htons(server_port);
-#else
-  memcpy((char *)&server_addr.sin_addr,hp->h_addr_list[0],hp->h_length);
-  server_addr.sin_port = htons(server_port);
-#endif
-	
   if (connect(
         connection[out].ch_socket,
         (struct sockaddr *)&server_addr,
@@ -516,8 +559,18 @@ int pbs_connect(
 
     return(-1);
     }
+#endif /* HAVE_GETADDRINFO */
 
-  /* Have pbs_iff authencate connection */
+/* FIXME: is this necessary?  Contributed by one user that fixes a problem, 
+   but doesn't fix the same problem for another user! */
+#if 0
+#if defined(__hpux)
+   /*HP-UX : avoiding socket caching */
+   send(connection[out].ch_socket, '?', 1, MSG_OOB);
+#endif
+#endif
+
+  /* Have pbs_iff authenticate connection */
 
   if (PBSD_authenticate(connection[out].ch_socket) != 0) 
     {
