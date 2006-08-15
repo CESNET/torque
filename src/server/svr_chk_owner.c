@@ -92,7 +92,9 @@
 #include "pbs_error.h"
 #include "log.h"
 #include "svrfunc.h"
+#ifdef GSSAPI
 #include "pbsgss.h"
+#endif
 
 /* Global Data */
 
@@ -226,6 +228,8 @@ int svr_get_privilege(
 #ifdef GSSAPI
   int uhlen = PBS_MAXUSER + PBS_MAXHOSTNAME + 102;
   char  uh[uhlen];
+#else 
+  char  uh[PBS_MAXUSER + PBS_MAXHOSTNAME + 2];
 #endif
 
   /* NOTE:  enable case insensitive host check (CRI) */
