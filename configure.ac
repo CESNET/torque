@@ -644,6 +644,7 @@ AC_ARG_WITH(gssapi,
 	]
 )
 AC_SUBST(PBSGSSLIBDIR)
+AM_CONDITIONAL(INCLUDE_GSSAPI, [test "$PBSGSSLIBDIR" = "Libgss"])
 
 dnl
 dnl  ######################################################################
