@@ -134,7 +134,9 @@ XPBSMON_DIR = $(libdir)/xpbsmon
 
 DIST_SUBDIRS = Libattr Libcmds Libdis Libifl Liblog Libnet Libpbs Libsite Libgss
 
-SUBDIRS = Libattr Libcmds Libdis Libifl Liblog Libnet Libpbs Libsite @PBSGSSLIBDIR@
+@INCLUDE_GSSAPI_TRUE@LIBGSS = Libgss
+
+SUBDIRS = $(LIBGSS) Libattr Libcmds Libdis Libifl Liblog Libnet Libpbs Libsite
 subdir = src/lib
 mkinstalldirs = $(SHELL) $(top_srcdir)/buildutils/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/src/include/pbs_config.h
