@@ -15,16 +15,13 @@
 /* are FD_SET and friends defined in sys/select.h */
 #undef FD_SET_IN_SYS_SELECT_H
 
-<<<<<<< .working
-/* Use GSSAPI/Krb5 */
-#undef GSSAPI
-
-=======
 /* Define to the type of elements in the array set by `getgroups'. Usually
    this is either `int' or `gid_t'. */
 #undef GETGROUPS_T
 
->>>>>>> .merge-right.r948
+/* Use GSSAPI/Krb5 */
+#undef GSSAPI
+
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #undef HAVE_ARPA_INET_H
 

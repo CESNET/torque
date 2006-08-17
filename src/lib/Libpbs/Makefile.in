@@ -205,16 +205,11 @@ libtorque_la_SOURCES = ../Libdis/dis.c ../Libdis/discui_.c ../Libdis/discul_.c \
 		    ../Liblog/chk_file_sec.c ../Liblog/log_event.c \
 		    ../Liblog/pbs_log.c ../Liblog/pbs_messages.c \
                     ../Liblog/setup_env.c \
-<<<<<<< .working
-		   ../Libnet/get_hostaddr.c ../Libnet/get_hostname.c ../Libnet/md5.c ../Libnet/net_client.c \
-                    ../Libnet/net_server.c ../Libnet/net_set_clse.c ../Libnet/rm.c \
-		   ../Libgss/pbsgss.c ../Libnet/get_hostnamefromaddr.c
-=======
 		    ../Libnet/get_hostaddr.c ../Libnet/get_hostname.c \
 		    ../Libnet/md5.c ../Libnet/net_client.c \
                     ../Libnet/net_server.c ../Libnet/net_set_clse.c \
-		    ../Libnet/rm.c ../Libnet/port_forwarding.c
->>>>>>> .merge-right.r948
+		    ../Libnet/rm.c ../Libnet/port_forwarding.c \
+		   ../Libgss/pbsgss.c ../Libnet/get_hostnamefromaddr.c
 
 subdir = src/lib/Libpbs
 mkinstalldirs = $(SHELL) $(top_srcdir)/buildutils/mkinstalldirs
@@ -258,12 +253,8 @@ am_libtorque_la_OBJECTS = dis.lo discui_.lo discul_.lo disi10d_.lo \
 	prt_job_err.lo set_attr.lo set_resource.lo chk_file_sec.lo \
 	log_event.lo pbs_log.lo pbs_messages.lo setup_env.lo \
 	get_hostaddr.lo get_hostname.lo md5.lo net_client.lo \
-<<<<<<< .working
-	net_server.lo net_set_clse.lo rm.lo pbsgss.lo \
-	get_hostnamefromaddr.lo
-=======
-	net_server.lo net_set_clse.lo rm.lo port_forwarding.lo
->>>>>>> .merge-right.r948
+	net_server.lo net_set_clse.lo rm.lo port_forwarding.lo \
+	pbsgss.lo get_hostnamefromaddr.lo
 libtorque_la_OBJECTS = $(am_libtorque_la_OBJECTS)
 
 DEFS = @DEFS@
@@ -584,12 +575,9 @@ net_client.lo: ../Libnet/net_client.c
 net_server.lo: ../Libnet/net_server.c
 net_set_clse.lo: ../Libnet/net_set_clse.c
 rm.lo: ../Libnet/rm.c
-<<<<<<< .working
+port_forwarding.lo: ../Libnet/port_forwarding.c
 pbsgss.lo: ../Libgss/pbsgss.c
 get_hostnamefromaddr.lo: ../Libnet/get_hostnamefromaddr.c
-=======
-port_forwarding.lo: ../Libnet/port_forwarding.c
->>>>>>> .merge-right.r948
 libtorque.la: $(libtorque_la_OBJECTS) $(libtorque_la_DEPENDENCIES) 
 	$(LINK) -rpath $(libdir) $(libtorque_la_LDFLAGS) $(libtorque_la_OBJECTS) $(libtorque_la_LIBADD) $(LIBS)
 
@@ -739,11 +727,8 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbs_log.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbs_messages.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbs_statfree.Plo@am__quote@
-<<<<<<< .working
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbsgss.Plo@am__quote@
-=======
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/port_forwarding.Plo@am__quote@
->>>>>>> .merge-right.r948
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/prepare_path.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/prt_job_err.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/rm.Plo@am__quote@
@@ -3438,7 +3423,24 @@ rm.lo: ../Libnet/rm.c
 @AMDEP_TRUE@	depfile='$(DEPDIR)/rm.Plo' tmpdepfile='$(DEPDIR)/rm.TPlo' @AMDEPBACKSLASH@
 @AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o rm.lo `test -f '../Libnet/rm.c' || echo '$(srcdir)/'`../Libnet/rm.c
-<<<<<<< .working
+
+port_forwarding.o: ../Libnet/port_forwarding.c
+@AMDEP_TRUE@	source='../Libnet/port_forwarding.c' object='port_forwarding.o' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/port_forwarding.Po' tmpdepfile='$(DEPDIR)/port_forwarding.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o port_forwarding.o `test -f '../Libnet/port_forwarding.c' || echo '$(srcdir)/'`../Libnet/port_forwarding.c
+
+port_forwarding.obj: ../Libnet/port_forwarding.c
+@AMDEP_TRUE@	source='../Libnet/port_forwarding.c' object='port_forwarding.obj' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/port_forwarding.Po' tmpdepfile='$(DEPDIR)/port_forwarding.TPo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o port_forwarding.obj `cygpath -w ../Libnet/port_forwarding.c`
+
+port_forwarding.lo: ../Libnet/port_forwarding.c
+@AMDEP_TRUE@	source='../Libnet/port_forwarding.c' object='port_forwarding.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@	depfile='$(DEPDIR)/port_forwarding.Plo' tmpdepfile='$(DEPDIR)/port_forwarding.TPlo' @AMDEPBACKSLASH@
+@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o port_forwarding.lo `test -f '../Libnet/port_forwarding.c' || echo '$(srcdir)/'`../Libnet/port_forwarding.c
 
 pbsgss.o: ../Libgss/pbsgss.c
 @AMDEP_TRUE@	source='../Libgss/pbsgss.c' object='pbsgss.o' libtool=no @AMDEPBACKSLASH@
@@ -3475,26 +3477,6 @@ get_hostnamefromaddr.lo: ../Libnet/get_hostnamefromaddr.c
 @AMDEP_TRUE@	depfile='$(DEPDIR)/get_hostnamefromaddr.Plo' tmpdepfile='$(DEPDIR)/get_hostnamefromaddr.TPlo' @AMDEPBACKSLASH@
 @AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o get_hostnamefromaddr.lo `test -f '../Libnet/get_hostnamefromaddr.c' || echo '$(srcdir)/'`../Libnet/get_hostnamefromaddr.c
-=======
-
-port_forwarding.o: ../Libnet/port_forwarding.c
-@AMDEP_TRUE@	source='../Libnet/port_forwarding.c' object='port_forwarding.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@	depfile='$(DEPDIR)/port_forwarding.Po' tmpdepfile='$(DEPDIR)/port_forwarding.TPo' @AMDEPBACKSLASH@
-@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o port_forwarding.o `test -f '../Libnet/port_forwarding.c' || echo '$(srcdir)/'`../Libnet/port_forwarding.c
-
-port_forwarding.obj: ../Libnet/port_forwarding.c
-@AMDEP_TRUE@	source='../Libnet/port_forwarding.c' object='port_forwarding.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@	depfile='$(DEPDIR)/port_forwarding.Po' tmpdepfile='$(DEPDIR)/port_forwarding.TPo' @AMDEPBACKSLASH@
-@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o port_forwarding.obj `cygpath -w ../Libnet/port_forwarding.c`
-
-port_forwarding.lo: ../Libnet/port_forwarding.c
-@AMDEP_TRUE@	source='../Libnet/port_forwarding.c' object='port_forwarding.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@	depfile='$(DEPDIR)/port_forwarding.Plo' tmpdepfile='$(DEPDIR)/port_forwarding.TPlo' @AMDEPBACKSLASH@
-@AMDEP_TRUE@	$(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-	$(LIBTOOL) --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o port_forwarding.lo `test -f '../Libnet/port_forwarding.c' || echo '$(srcdir)/'`../Libnet/port_forwarding.c
->>>>>>> .merge-right.r948
 CCDEPMODE = @CCDEPMODE@
 
 mostlyclean-libtool:
