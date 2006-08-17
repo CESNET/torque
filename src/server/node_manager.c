@@ -91,6 +91,10 @@
 #include <netinet/in.h>
 #include <stdarg.h>
 #include <assert.h>
+#if defined(NTOHL_NEEDS_ARPA_INET_H) && defined(HAVE_ARPA_INET_H)
+#include <arpa/inet.h>
+#endif
+
 
 #include "portability.h"
 #include "libpbs.h"
@@ -105,7 +109,7 @@
 #include "svrfunc.h"
 #include "job.h"
 #include "log.h"
-#include "pbs_nodes.h"
+#include "pbs_nodes.h" 
 #include "rpp.h"
 #include "dis.h"
 #include "dis_init.h"
@@ -148,7 +152,8 @@ extern unsigned int pbs_mom_port;
 extern char  server_name[];
 
 extern struct server server;
-extern list_head svr_newnodes;
+extern tlist_head svr_newnodes;
+extern attribute_def  node_attr_def[];   /* node attributes defs */
 
 #define	SKIP_NONE	0
 #define	SKIP_EXCLUSIVE	1
@@ -203,14 +208,8 @@ static void funcs_dis() /* The equivalent of DIS_tcp_funcs() */
 **      Modified by Tom Proett <proett@nas.nasa.gov> for PBS.
 */
 
-typedef struct tree_t {
-  u_long		key;
-  struct pbsnode	*nodep;
-  struct tree_t	*left, *right;
-  } tree;
-
-tree	*ipaddrs = NULL;	/* tree of ip addrs */
-tree	*streams = NULL;	/* tree of stream numbers */
+tree *ipaddrs = NULL;	/* tree of ip addrs */
+tree *streams = NULL;	/* tree of stream numbers */
 
 
 
@@ -218,20 +217,20 @@ tree	*streams = NULL;	/* tree of stream numbers */
 
 struct pbsnode *tfind(
 
-  const u_long   key,	/* key to be located */
-  tree         **rootp)	/* address of tree root */
+  const u_long   key,	/* I - key to be located */
+  tree         **rootp)	/* O - address of tree root */
 
   {
   if (rootp == NULL)
     {
-    return NULL;
+    return(NULL);
     }
 
   while (*rootp != NULL) 
     {		/* Knuth's T1: */
     if (key == (*rootp)->key)	/* T2: */
       {
-      return(*rootp)->nodep;	/* we found it! */
+      return((*rootp)->nodep);	/* we found it! */
       }
 
     rootp = (key < (*rootp)->key) ?
@@ -438,6 +437,20 @@ void update_node_state(
    *          (busy|free)->down changes are always logged
    */          
 
+  if (LOGLEVEL >= 3)
+    {
+    sprintf(log_buffer,"adjusting state for node %s - state=%d, newstate=%d",
+      (np->nd_name != NULL) ? np->nd_name : "NULL",
+      np->nd_state,
+      newstate);
+
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+    }
+
   log_buffer[0] = '\0';
 
   if (newstate & INUSE_DOWN)
@@ -496,9 +509,10 @@ void update_node_state(
     np->nd_state &= ~INUSE_BUSY; 
     np->nd_state &= ~INUSE_UNKNOWN; 
 
-    /* FIXME - what about job exclusive? */
-
-    if ((np->nd_state & INUSE_JOB) || (np->nd_state & INUSE_JOBSHARE))
+#ifdef BROKENVNODECHECKS
+    if ((np->nd_state & INUSE_JOB) || 
+        (np->nd_state & INUSE_JOBSHARE) ||
+        (np->nd_nsn != np->nd_nsnfree))
       {
       int snjcount;   /* total number of jobs assigned to nodes */
       int snjacount;  /* number of subnodes with job array associated with them */
@@ -539,7 +553,8 @@ void update_node_state(
             if (jp->job != NULL)
               {
               if ((jp->job->ji_qs.ji_state != JOB_STATE_RUNNING) ||
-                  (jp->job->ji_qs.ji_substate == JOB_SUBSTATE_SUSPEND))
+                  (jp->job->ji_qs.ji_substate == JOB_SUBSTATE_SUSPEND) ||
+                  (jp->job->ji_wattr[JOB_ATR_state].at_val.at_char == 'S'))
                 {
                 /* only count suspended and running jobs */
 
@@ -613,15 +628,53 @@ void update_node_state(
  
           np->nd_state &= ~INUSE_JOBSHARE;
           }
+        else
+          {
+          /* subnode availability values are correct */
+
+          if (LOGLEVEL >= 7)
+            {
+            sprintf(log_buffer,"subnode allocation correct on node %s (%d free, %d configured)",
+              (np->nd_name != NULL) ? np->nd_name : "NULL",
+              np->nd_nsnfree,
+              np->nd_nsn);
+            }
+          }
 
         if (np->nd_nsnfree > 0)
           {
           /* if any sub-nodes are free, job cannot be in job-exclusive */
 
           np->nd_state &= ~INUSE_JOB;
+
+          if (LOGLEVEL >= 3)
+            {
+            if (log_buffer[0] == '\0')
+              sprintf(log_buffer,"unset job-exclusive state for node %s in state %d (%d free, %d configured)",
+                (np->nd_name != NULL) ? np->nd_name : "NULL",
+                np->nd_state,
+                np->nd_nsnfree,
+                np->nd_nsn);
+            else
+              strcat(log_buffer,"(unset job-exclusive state)");
+            }
           }
         }    /* END else (snjcount == 0) */
       }      /* END if ((np->nd_state & INUSE_JOB) || ...) */
+    else
+      {
+      /* skipping subnode allocation check */
+
+      if (LOGLEVEL >= 7)
+        {
+        sprintf(log_buffer,"skipping subnode allocation test for node %s in state %d (%d free, %d configured)\n",
+          (np->nd_name != NULL) ? np->nd_name : "NULL",
+          np->nd_state,
+          np->nd_nsnfree,
+          np->nd_nsn);
+        }
+      }
+#endif /* BROKENVNODECHECKS */
 
     if (np->nd_state & INUSE_DOWN)
       {
@@ -639,7 +692,7 @@ void update_node_state(
   if (newstate & INUSE_UNKNOWN)
     {
     np->nd_state |= INUSE_UNKNOWN;
-    }                                                                                    
+    } 
 
   if ((LOGLEVEL >= 2) && (log_buffer[0] != '\0'))
     {
@@ -757,6 +810,18 @@ void sync_node_jobs(
         {
         pjob = find_job(jobidstr);
 
+        if (pjob != NULL)
+          {
+          /* job exists, but doesn't currently have resources assigned to this node */
+
+          /* double check the job struct because we could be in the middle of moving
+             the job around because of data staging, suspend, or rerun */
+          if (strstr(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,np->nd_name) == NULL)
+            {
+            pjob=NULL;
+            }
+          }
+          
         if (pjob == NULL)
           {
           /* job is reported by mom but server has no record of job */
@@ -1453,7 +1518,7 @@ void ping_nodes(
 
 int add_cluster_addrs(
 
-  int stream)
+  int stream) /* I */
 
   {
   char id[] = "add_cluster_addrs";
@@ -1977,7 +2042,7 @@ void write_node_state()
 
   /* don't store volatile states like down and unknown */
 
-  savemask = INUSE_OFFLINE|INUSE_DELETED|INUSE_RESERVE|INUSE_JOB|INUSE_JOBSHARE;
+  savemask = INUSE_OFFLINE|INUSE_RESERVE;
 
   if (nstatef != NULL) 
     {
@@ -2866,9 +2931,14 @@ static int node_spec(
 
   if (LOGLEVEL >= 6)
     {
-    DBPRT(("%s: entered spec=%s\n", 
-      id, 
-      spec))
+    sprintf(log_buffer,"entered spec=%.4000s",spec);
+      log_record(
+        PBSEVENT_SCHED,
+        PBS_EVENTCLASS_REQUEST,
+        id,
+        log_buffer);
+
+    DBPRT(("%s\n", log_buffer));
     }
 
   exclusive = 1;	/* by default, nodes (VPs) are requested exclusively */
@@ -2946,6 +3016,21 @@ static int node_spec(
     return(-1);
     }
 
+  if (LOGLEVEL >=6)
+    {
+    sprintf(log_buffer,"job allocation debug: %d requested, %d svr_clnodes, %d svr_totnodes",
+      num,
+      svr_clnodes, svr_totnodes);
+
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    DBPRT(("%s\n", log_buffer));
+    }
+
   /*
    * if SRV_ATR_NodePack set (true or false), then
    * sort nodes by state, number of VPs and number of attributes;
@@ -2971,11 +3056,12 @@ static int node_spec(
 
     if (LOGLEVEL >= 6)
       {
-      DBPRT(("%s: %s nsn %d, nsnfree %d\n", 
+      DBPRT(("%s: %s nsn %d, nsnfree %d, nsnshared %d\n", 
         id, 
         pnode->nd_name,
         pnode->nd_nsn, 
-        pnode->nd_nsnfree))
+        pnode->nd_nsnfree,
+        pnode->nd_nsnshared))
       }
 
     pnode->nd_flag   = okay;
@@ -3085,6 +3171,20 @@ static int node_spec(
     return(0);
     }  /* END if ((num > svr_numnodes) && early) */
 
+  if (LOGLEVEL >=6)
+    {
+    sprintf(log_buffer,"job allocation debug(2): %d requested, %d svr_numnodes",
+      num,
+      svr_numnodes);
+
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    DBPRT(("%s\n", log_buffer));
+    }
   /*
    * 	At this point we know the spec is legal.
    *	Here we find a replacement for any nodes chosen above
@@ -3204,18 +3304,20 @@ static int node_spec(
           nindex++;
           }  /* END for (np) */
 
-        sprintf(log_buffer,"cannot allocate node '%s' to job - node not currently available (nps needed/free: %d/%d,  joblist: %s)",
+        snprintf(log_buffer,sizeof(log_buffer),"cannot allocate node '%s' to job - node not currently available (nps needed/free: %d/%d,  joblist: %s)",
           pnode->nd_name,
           pnode->nd_needed,
           pnode->nd_nsnfree,
           JobList);
 
+#ifdef BROKENVNODECHECKS
         /* NOTE:  hack - should be moved to update node state */
 
         if (JobList[0] == '\0')
           {
           pnode->nd_nsnfree = pnode->nd_nsn;
           }
+#endif
         }
       else
         {
@@ -3252,6 +3354,20 @@ static int node_spec(
     }  /* END for (i) */
 
   /* SUCCESS - spec is ok */
+
+  if (LOGLEVEL >=6)
+    {
+    sprintf(log_buffer,"job allocation debug(3): returning %d requested",
+      num);
+
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    DBPRT(("%s\n", log_buffer));
+    }
 
   return(num);	
   }  /* END node_spec() */
@@ -3301,7 +3417,7 @@ int set_nodes(
 
   if (LOGLEVEL >= 3)
     {
-    sprintf(log_buffer,"allocating nodes for job %s with node expression '%s'",
+    sprintf(log_buffer,"allocating nodes for job %s with node expression '%.4000s'",
       pjob->ji_qs.ji_jobid,
       spec);
 
@@ -3320,7 +3436,7 @@ int set_nodes(
 
     if (EMsg != NULL)
       {
-      sprintf(log_buffer,"could not locate requested resources '%s' (node_spec failed) %s",
+      sprintf(log_buffer,"could not locate requested resources '%.4000s' (node_spec failed) %s",
         spec,
         EMsg);
 
@@ -3381,16 +3497,18 @@ int set_nodes(
 
       if (LOGLEVEL >= 5)
         {
-        sprintf(log_buffer,"allocated node %s/%d to job %s",
+        sprintf(log_buffer,"allocated node %s/%d to job %s (nsnfree=%d)",
           pnode->nd_name, 
           snp->index,
-          pjob->ji_qs.ji_jobid);
+          pjob->ji_qs.ji_jobid,
+          pnode->nd_nsnfree);
 
         log_record(
           PBSEVENT_SCHED,
           PBS_EVENTCLASS_REQUEST,
           id,
           log_buffer);
+DBPRT(("%s\n",log_buffer));
         }
 
       /* NOTE:  search existing job array.  add job only if job not already in place */
@@ -3413,11 +3531,11 @@ int set_nodes(
 
         jp->job = pjob;
 
+        pnode->nd_nsnfree--;            /* reduce free count */
+
         if (snp->inuse == INUSE_FREE)
           {
           snp->inuse = newstate;
-
-          pnode->nd_nsnfree--;            /* reduce free count */
 
           if (!exclusive)
             pnode->nd_nsnshared++;
@@ -3447,7 +3565,7 @@ int set_nodes(
       --pnode->nd_needed;
       }  /* END for (snp) */
 
-    if (pnode->nd_nsnfree == 0)	    /* if no free VPs, set node state */
+    if (pnode->nd_nsnfree <= 0)	    /* if no free VPs, set node state */
       pnode->nd_state = newstate;
     }    /* END for (i) */
 
@@ -3506,7 +3624,7 @@ int set_nodes(
 
   if (LOGLEVEL >= 3)
     {
-    snprintf(log_buffer,sizeof(log_buffer),"job %s allocated %d nodes (nodelist=%s)",
+    snprintf(log_buffer,sizeof(log_buffer),"job %s allocated %d nodes (nodelist=%.4000s)",
       pjob->ji_qs.ji_jobid,
       NCount,
       nodelist);
@@ -3775,7 +3893,7 @@ int node_reserve(
     {
     /* could never satisfy the reservation */
 
-    sprintf(log_buffer,"can never reserve %s",
+    snprintf(log_buffer,sizeof(log_buffer),"can never reserve %s",
       nspec);
 
     log_record(
@@ -3908,10 +4026,11 @@ void free_nodes(
 
         if (LOGLEVEL >= 4)
           {
-          sprintf(log_buffer,"freeing node %s/%d from job %s",
+          sprintf(log_buffer,"freeing node %s/%d from job %s (nsnfree=%d)",
             pnode->nd_name,
             np->index,
-            pjob->ji_qs.ji_jobid);
+            pjob->ji_qs.ji_jobid,
+            pnode->nd_nsnfree);
 
           log_record(
             PBSEVENT_SCHED,
@@ -3927,33 +4046,32 @@ void free_nodes(
 
         free(jp);
 
+        pnode->nd_nsnfree++;	/* up count of free */
+
+        if (LOGLEVEL >= 6)
+          {
+          sprintf(log_buffer,"increased sub-node free count to %d of %d\n", 
+            pnode->nd_nsnfree,
+            pnode->nd_nsn);
+
+          log_record(
+            PBSEVENT_SCHED,
+            PBS_EVENTCLASS_REQUEST,
+            id,
+            log_buffer);
+          }
+        pnode->nd_state &= ~(INUSE_JOB|INUSE_JOBSHARE);
+
         /* if no jobs are associated with subnode, mark subnode as free */
 
         if (np->jobs == NULL) 
           {
-          pnode->nd_nsnfree++;	/* up count of free */
-
-          if (LOGLEVEL >= 6)
-            {
-            sprintf(log_buffer,"increased sub-node free count to %d of %d\n", 
-              pnode->nd_nsnfree,
-              pnode->nd_nsn);
-
-            log_record(
-              PBSEVENT_SCHED,
-              PBS_EVENTCLASS_REQUEST,
-              id,
-              log_buffer);
-            }
-
           if (np->inuse & INUSE_JOBSHARE)
             pnode->nd_nsnshared--;
 
           /* adjust node state (turn off job/job-exclusive) */
 
           np->inuse &= ~(INUSE_JOB|INUSE_JOBSHARE);
-
-          pnode->nd_state &= ~(INUSE_JOB|INUSE_JOBSHARE);
           }
 
         break;
@@ -4023,8 +4141,8 @@ static void set_one_old(
 
             jp->job = pjob;
 
-            if (--pnode->nd_nsnfree == 0)
-              pnode->nd_state = shared;
+            if (--pnode->nd_nsnfree <= 0)
+              pnode->nd_state |= shared;
 
             return;
             }

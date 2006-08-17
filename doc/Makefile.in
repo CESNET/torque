@@ -83,7 +83,6 @@ LN_S = @LN_S@
 MAINT = @MAINT@
 MAKE = @MAKE@
 MOMLIBS = @MOMLIBS@
-MOM_ADDTL_OBJS = @MOM_ADDTL_OBJS@
 MY_TCL_INCS = @MY_TCL_INCS@
 MY_TCL_LIBS = @MY_TCL_LIBS@
 OBJDUMP = @OBJDUMP@
@@ -115,11 +114,13 @@ YACC = @YACC@
 am__include = @am__include@
 am__quote = @am__quote@
 install_sh = @install_sh@
+pammoddir = @pammoddir@
 program_prefix = @program_prefix@
 program_suffix = @program_suffix@
 spec_name = @spec_name@
 spec_snap = @spec_snap@
 spec_version = @spec_version@
+xauth_path = @xauth_path@
 AUTOMAKE_OPTIONS = foreign
 
 PBS_MKDIRS = $(SHELL) $(top_builddir)/buildutils/pbs_mkdirs
@@ -746,33 +747,42 @@ uninstall-man: uninstall-man1 uninstall-man3 uninstall-man7 \
 
 
 .so.7B:
-	cp $< $@
+	@echo "Creating $@"
+	@cp $< $@
 
 .1B.1: soelim
-	./soelim -d $(srcdir)/ers $< > $@.tmp
-	sed -e 's/^\.Sh/.SH/' < $@.tmp >$@ && rm -f $@.tmp
-	rm -f $@.tmp
+	@echo "Creating $@"
+	@./soelim -d $(srcdir)/ers $< > $@.tmp
+	@sed -e 's/^\.Sh/.SH/' < $@.tmp >$@ && rm -f $@.tmp
 
 .3B.3: soelim
-	./soelim -d $(srcdir)/ers $< > $@.tmp
-	sed -e 's/^\.Sh/.SH/' < $@.tmp >$@ && rm -f $@.tmp
+	@echo "Creating $@"
+	@./soelim -d $(srcdir)/ers $< > $@.tmp
+	@sed -e 's/^\.Sh/.SH/' < $@.tmp >$@ && rm -f $@.tmp
 
 .7B.7: soelim
-	./soelim -d $(srcdir)/ers $< > $@.tmp
-	sed -e 's/^\.Sh/.SH/' < $@.tmp >$@ && rm -f $@.tmp
+	@echo "Creating $@"
+	@./soelim -d $(srcdir)/ers $< > $@.tmp
+	@sed -e 's/^\.Sh/.SH/' < $@.tmp >$@ && rm -f $@.tmp
 
 .8B.8: soelim
-	./soelim -d $(srcdir)/ers $< > $@.tmp
-	sed -e 's/^\.Sh/.SH/' < $@.tmp >$@ && rm -f $@.tmp
+	@echo "Creating $@"
+	@./soelim -d $(srcdir)/ers $< > $@.tmp
+	@sed -e 's/^\.Sh/.SH/' < $@.tmp >$@ && rm -f $@.tmp
 
 install_doc: install
 
 install-data-hook:
 	rm -f $(DESTDIR)$(man7dir)/$(program_prefix)pbs_resources$(program_suffix).7 \
 	      $(DESTDIR)$(man8dir)/$(program_prefix)pbs_sched$(program_suffix).8
-	$(LN_S) $(program_prefix)pbs_resources_$(PBS_MACH)$(program_suffix).7 $(DESTDIR)$(man7dir)/$(program_prefix)pbs_resources$(program_suffix).7
-	case $(SCHD_TYPE) in \
-	  cc|tcl|basl) $(LN_S) $(program_prefix)pbs_sched_$(SCHD_TYPE)$(program_suffix).8 $(DESTDIR)$(man8dir)/$(program_prefix)pbs_sched$(program_suffix).8 ;; \
+	@case $(PBS_MACH) in \
+	  unknown) : ;; \
+	  *) echo $(LN_S) $(program_prefix)pbs_resources_$(PBS_MACH)$(program_suffix).7 $(DESTDIR)$(man7dir)/$(program_prefix)pbs_resources$(program_suffix).7 ; \
+	     $(LN_S) $(program_prefix)pbs_resources_$(PBS_MACH)$(program_suffix).7 $(DESTDIR)$(man7dir)/$(program_prefix)pbs_resources$(program_suffix).7 ;; \
+	esac
+	@case $(SCHD_TYPE) in \
+	  cc|tcl|basl) echo $(LN_S) $(program_prefix)pbs_sched_$(SCHD_TYPE)$(program_suffix).8 $(DESTDIR)$(man8dir)/$(program_prefix)pbs_sched$(program_suffix).8 ; \
+	               $(LN_S) $(program_prefix)pbs_sched_$(SCHD_TYPE)$(program_suffix).8 $(DESTDIR)$(man8dir)/$(program_prefix)pbs_sched$(program_suffix).8 ;; \
 	  none) : ;; \
 	  *) echo "Unknown scheduler type"; exit 1 ;; \
 	esac

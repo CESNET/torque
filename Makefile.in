@@ -83,7 +83,6 @@ LN_S = @LN_S@
 MAINT = @MAINT@
 MAKE = @MAKE@
 MOMLIBS = @MOMLIBS@
-MOM_ADDTL_OBJS = @MOM_ADDTL_OBJS@
 MY_TCL_INCS = @MY_TCL_INCS@
 MY_TCL_LIBS = @MY_TCL_LIBS@
 OBJDUMP = @OBJDUMP@
@@ -115,11 +114,13 @@ YACC = @YACC@
 am__include = @am__include@
 am__quote = @am__quote@
 install_sh = @install_sh@
+pammoddir = @pammoddir@
 program_prefix = @program_prefix@
 program_suffix = @program_suffix@
 spec_name = @spec_name@
 spec_snap = @spec_snap@
 spec_version = @spec_version@
+xauth_path = @xauth_path@
 AUTOMAKE_OPTIONS = foreign
 
 PBS_MKDIRS = $(SHELL) $(top_builddir)/buildutils/pbs_mkdirs
@@ -194,7 +195,9 @@ PKGROOT = $(PWD)/tpackages
 
 @INCLUDE_GUI_TRUE@GUI_PKG = gui
 
-ALL_PKGS = $(SERVER_PKG) $(MOM_PKG) $(CLIENTS_PKG) $(GUI_PKG) devel doc
+@INCLUDE_PAM_TRUE@PAM_PKG = pam
+
+ALL_PKGS = $(SERVER_PKG) $(MOM_PKG) $(CLIENTS_PKG) $(GUI_PKG) $(PAM_PKG) devel doc
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 mkinstalldirs = $(SHELL) $(top_srcdir)/buildutils/mkinstalldirs
@@ -589,7 +592,7 @@ rpm: dist
 	  --with includedir=$(includedir) \
 	  --with prefix=$(prefix)
 
-install_server install_mom install_clients install_gui install_lib:
+install_server install_mom install_clients install_gui install_lib install_pam:
 	(cd src && $(MAKE) $@)
 install_doc:
 	(cd doc && $(MAKE) $@)
@@ -631,6 +634,7 @@ packages:
                            `test -d .$(libdir) && echo .$(libdir)/*` \
                            `test -d .$(mandir) && echo .$(mandir)/*/*` \
                            `test -d .$(includedir) && echo .$(includedir)/*` \
+                           `test -d .$(pammoddir) && echo .$(pammoddir)/*` \
                            `test -d .$(PBS_SERVER_HOME) && echo .$(PBS_SERVER_HOME)/*` ) \
                            | gzip > $$tarball && \
            cat ./buildutils/self-extract-head-sh > $$pkgfile && \

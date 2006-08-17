@@ -560,7 +560,7 @@ int send_job(
   void	    *data)	/* ptr to optional batch_request to be put */
 			/* in the work task structure */
   {
-  list_head	 attrl;
+  tlist_head	 attrl;
   enum conn_type cntype = ToServerDIS;
   int		 con;
   char		*destin = jobp->ji_qs.ji_destin;
@@ -929,7 +929,7 @@ int send_job(
 
       if (jobp->ji_qs.ji_svrflags & JOB_SVFLG_SCRIPT) 
         {
-        if (PBSD_jscript(con,script_name) != 0)
+        if (PBSD_jscript(con,script_name,jobp->ji_qs.ji_jobid) != 0)
           continue;
         }
 

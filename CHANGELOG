@@ -1,10 +1,48 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
+2.2.0
+
+  e - improve RPP logging for corruption issues
+  f - dynamic resources
+  b - correct run-time symbol in pam module on RHEL4
+  f - allow manager to set "next job number" vi hidden qmgr attribute next_job_number
+  b - some minor hpux11 build fixes (PACCAR)
+  e - allow pam_pbssimpleauth to be built on OSX and Solaris
+  b - fix bug with log roll and automatic log filenames
+  e - use mlockall() in pbs_mom if _POSIX_MEMLOCK
+  f - consumable resource "tokens" support (Harte-Hanks)
+  b - networking fixes for HPUX, fixes pbs_iff (PACCAR)
+  e - fix "list_head" symbol clash on Solaris 10
+  f - Linux 2.6 cpuset support
+  b - compile error with size_fs() on digitalunix
+
 2.1.2
+
   b - fix momctl queries with multiple hosts
   b - don't fail make install if --without-sched
-  b - correctly MOM compile error with atol()
+  b - correct MOM compile error with atol()
   f - qsub will now retry connecting to pbs_server (see manpage)
+  f - X11 forwarding for single-node, interactive jobs with qsub -X
+  f - new pam_pbssimpleauth PAM module, requires --with-pam=DIR
+  e - add logging for node state adjustment
+  f - correctly track node state and allocation based for suspended jobs
+  e - entries can always be deleted from manager ACL, even if ACL contains host(s) 
+      that no longer exist
+  e - more informative error message when modifying manager ACL
+  f - all queue create, set, and unset operations now set a queue mtime
+  f - added support for log rolling to libtorque
+  f - pbs_server and pbs_mom have two new attributes log_file_max_size, log_file_roll_depth
+  e - support installing client libs and cmds on unsupported OSes (like cygwin)
+  b - fix subnode allocation with pbs_sched
+  b - fix node allocation with suspend-resume
+  b - fix stale job-exclusive state when restarting pbs_server
+  b - don't fall over when duplicate subnodes are assigned after suspend-resume
+  b - handle suspended jobs correctly when restarting pbs_server
+  b - allow long host lists in runjob request
+  b - fix truncated XML output in qstat and pbsnodes
+  b - typo broke compile on irix6array and unicos8
+  e - momctl now skips down nodes when selecting by property
+  f - added submit_args job attribute
 
 2.1.1
 

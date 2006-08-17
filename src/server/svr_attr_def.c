@@ -92,18 +92,26 @@
 extern int manager_oper_chk A_((attribute *pattr, void *pobject, int actmode));
 extern int servername_chk A_((attribute *pattr, void *pobject, int actmode));
 extern int schiter_chk A_((attribute *pattr, void *pobject, int actmode));
+
+extern int nextjobnum_chk A_((attribute *pattr, void *pobject, int actmode));
+extern int set_nextjobnum A_((attribute *attr, attribute *new, enum batch_op op));
+
 extern int poke_scheduler A_((attribute *pattr, void *pobject, int actmode));
 
-extern int encode_svrstate A_((attribute *pattr, list_head *phead, char *aname,
+extern int encode_svrstate A_((attribute *pattr, tlist_head *phead, char *aname,
 			       char *rsname, int mode));
 
 extern int decode_rcost A_((attribute *patr, char *name, char *rn, char *val));
-extern int encode_rcost A_((attribute *attr, list_head *phead, char *atname,
+extern int encode_rcost A_((attribute *attr, tlist_head *phead, char *atname,
 			    char *rsname, int mode));
 extern int set_rcost A_((attribute *attr,attribute *new, enum batch_op));
 extern void free_rcost A_((attribute *attr));
 extern int decode_null A_((attribute *patr, char *name, char *rn, char *val));
 extern int set_null A_((attribute *patr, attribute *new, enum batch_op op));
+
+extern int token_chk A_((attribute *pattr, void *pobject, int actmode));
+extern int set_tokens A_((struct attribute *attr, struct attribute *new, enum batch_op op));
+
 
 /*
  * The entries for each attribute are (see attribute.h):
@@ -745,6 +753,56 @@ attribute_def svr_attr_def[] = {
         ATR_TYPE_LONG,
         PARENT_TYPE_SERVER
     },
+/* SRV_ATR_LogFileMaxSize */
+    {   ATTR_logfilemaxsize,
+        decode_l,
+        encode_l,
+        set_l,
+        comp_l,
+        free_null,
+	NULL_FUNC,
+        NO_USER_SET,
+        ATR_TYPE_LONG,
+        PARENT_TYPE_SERVER
+    },
+/* SRV_ATR_LogFileRollDepth */
+    {   ATTR_logfilerolldepth,
+        decode_l,
+        encode_l,
+        set_l,
+        comp_l,
+        free_null,
+	NULL_FUNC,
+        NO_USER_SET,
+        ATR_TYPE_LONG,
+        PARENT_TYPE_SERVER
+    },
+/* SVR_ATR_NextJobNumber */
+    {	ATTR_nextjobnum,
+	decode_l,
+	encode_l,
+	set_nextjobnum,
+	comp_l,
+	free_noop,
+	nextjobnum_chk,
+	MGR_ONLY_SET,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_SERVER
+    },
+/* SVR_ATR_tokens */
+    { ATTR_tokens,
+	decode_arst,
+	encode_arst,
+	set_tokens,
+	comp_arst,
+	free_arst,
+	token_chk,
+	MGR_ONLY_SET,
+	ATR_TYPE_ARST,
+	PARENT_TYPE_SERVER
+    },
+
+	
 
 /* site supplied server attribute definitions if any, see site_svr_attr_*.h  */
 #include "site_svr_attr_def.h"
@@ -761,4 +819,5 @@ attribute_def svr_attr_def[] = {
         ATR_TYPE_STR,
         PARENT_TYPE_SERVER
     }
+
 };

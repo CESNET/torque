@@ -114,7 +114,7 @@ typedef struct resource {
 typedef struct resource_def {
   char   *rs_name;
   int   (*rs_decode)A_((attribute *,char *,char *,char *));
-  int   (*rs_encode)A_((attribute *,list_head *,char *,char *,int));
+  int   (*rs_encode)A_((attribute *,tlist_head *,char *,char *,int));
   int   (*rs_set)A_((attribute *,attribute *,enum batch_op));
   int   (*rs_comp)A_((attribute *,attribute *));
   void  (*rs_free)A_((attribute *));
@@ -126,8 +126,8 @@ typedef struct resource_def {
 /* the resource definition array, only the fixed resources */
 extern resource_def svr_resc_def_const[];  
 
-/* svr_resc_def_const + resource in $PBSCONFDIR/server_priv/resources */
-extern resource_def svr_resc_def[];        
+/* svr_resc_def_const + resource in $PBS_SERVER_HOME/resourcedef */
+extern resource_def *svr_resc_def;        
 
 /* size (num elements) in above  */
 extern int         svr_resc_size;       

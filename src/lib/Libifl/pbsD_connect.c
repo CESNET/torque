@@ -108,8 +108,6 @@
 
 static uid_t pbs_current_uid;               /* only one uid per requestor */
 
-extern char pbs_current_user[PBS_MAXUSER];  /* only one uname per requestor */
-
 extern time_t pbs_tcp_timeout;              /* source? */
 
 static unsigned int dflt_port = 0;
@@ -560,7 +558,16 @@ int pbs_connect(
   if (neediff) {
 #endif
 
-  /* Have pbs_iff authencate connection */
+/* FIXME: is this necessary?  Contributed by one user that fixes a problem, 
+   but doesn't fix the same problem for another user! */
+#if 0
+#if defined(__hpux)
+   /*HP-UX : avoiding socket caching */
+   send(connection[out].ch_socket, '?', 1, MSG_OOB);
+#endif
+#endif
+
+  /* Have pbs_iff authenticate connection */
 
   if (PBSD_authenticate(connection[out].ch_socket) != 0) 
     {

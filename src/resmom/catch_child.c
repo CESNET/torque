@@ -111,6 +111,9 @@
 #include "pbs_error.h"
 #include "pbs_proto.h"
 #include "rpp.h"
+#ifdef ENABLE_CPA
+#include "pbs_cpa.h"
+#endif
 
 #if defined(PENABLE_DYNAMIC_CPUSETS)
 #include <cpuset.h>
@@ -126,7 +129,7 @@ extern char             *path_epilogp;
 extern char             *path_epiloguserp;
 extern char		*path_jobs;
 extern unsigned int	default_server_port;
-extern list_head	svr_alljobs, mom_polljobs;
+extern tlist_head	svr_alljobs, mom_polljobs;
 extern int		exiting_tasks;
 extern char		*msg_daemonname;
 extern int		termin_child;
@@ -145,7 +148,7 @@ u_long resc_used(job *,char *,u_long (*f) A_((resource *)));
 static void obit_reply A_((int));
 extern int tm_reply A_((int,int,tm_event_t));
 extern u_long addclient A_((char *));
-extern void encode_used A_((job *,list_head *));
+extern void encode_used A_((job *,tlist_head *));
 extern void job_nodes A_((job *));
 extern int task_recov A_((job *));
 
@@ -342,9 +345,9 @@ void scan_for_exiting()
   char		*svrport;
   char		*cookie;
   unsigned int	port;
-  u_long	gettime		A_((resource *pres));
-  u_long	getsize		A_((resource *pres));
-  task         *task_find	A_((job	*pjob,tm_task_id taskid));
+  u_long	gettime		A_((resource *));
+  u_long	getsize		A_((resource *));
+  task         *task_find	A_((job	*,tm_task_id));
   int im_compose A_((int,char *,char *,int,tm_event_t,tm_task_id));
 
 #ifdef  PENABLE_DYNAMIC_CPUSETS
@@ -419,13 +422,14 @@ void scan_for_exiting()
           PBSEVENT_JOB, 
           PBS_EVENTCLASS_JOB,
           pjob->ji_qs.ji_jobid, 
-          "Terminated");
+          "job was terminated");
 
         DBPRT(("Terminating job, sending IM_KILL_JOB to sisters\n"));
 
         if (send_sisters(pjob,IM_KILL_JOB) == 0) 
           {
           pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+          job_save(pjob,SAVEJOB_QUICK);
           }
         }
 
@@ -650,6 +654,11 @@ void scan_for_exiting()
     pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Suspend;
 
     kill_job(pjob,SIGKILL);
+
+#ifdef ENABLE_CPA
+    if (CPADestroyPartition(pjob) != 0)
+      continue;
+#endif
 
     delete_link(&pjob->ji_jobque);	/* unlink for poll list */
 
@@ -1365,6 +1374,11 @@ void init_abort_jobs(
     }    /* while ((pdirent = readdir(dir)) != NULL) */
 
   closedir(dir);
+
+#if defined(PENABLE_LINUX26_CPUSETS)
+  /* Create the top level torque cpuset if it doesn't already exist. */
+  initialize_root_cpuset();
+#endif
 
   return;
   }  /* END init_abort_jobs() */

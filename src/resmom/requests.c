@@ -145,7 +145,7 @@ extern int TTmpDirName( job*,char *);
 
 extern unsigned int	default_server_port;
 extern int		exiting_tasks;
-extern list_head	svr_alljobs;
+extern tlist_head	svr_alljobs;
 extern char		mom_host[];
 extern char		*msg_err_unlink;
 extern char		*path_checkpoint;
@@ -1235,7 +1235,7 @@ void req_modifyjob(
             newattr[i].at_val.at_long);
           }         
 
-        sprintf(log_buffer,"modifying attribute %s of job (value: '%s'",
+        sprintf(log_buffer,"modifying attribute %s of job (value: '%s')",
           TJobAttr[i],
           tmpLine);
 
@@ -1580,6 +1580,7 @@ static void resume_suspend(
       /* couldn't send signal, don't signal more tasks */
 
       savederr = errno;
+
       break;
       }  /* END if (stat < 0) */
     }    /* END for (tp) */
@@ -1828,6 +1829,8 @@ void req_signaljob(
 
     pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
+    job_save(pjob,SAVEJOB_QUICK);
+
     exiting_tasks = 1;
     }
 
@@ -1835,16 +1838,13 @@ void req_signaljob(
     {
     /* force issue of (another) job obit */
 
-    sprintf(log_buffer,"job recycled into exiting on SIGKILL from substate %d",
-      pjob->ji_qs.ji_substate);
+    sprintf(log_buffer,"job recycled into exiting on SIGKILL from substate exiting");
 
     LOG_EVENT(
       PBSEVENT_ERROR, 
       PBS_EVENTCLASS_JOB,
       pjob->ji_qs.ji_jobid, 
       log_buffer);
-
-    pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
     exiting_tasks = 1;
     }
@@ -1859,7 +1859,7 @@ void req_signaljob(
 void encode_used(
 
   job       *pjob,   /* I */
-  list_head *phead)  /* O */
+  tlist_head *phead)  /* O */
 
   {
   unsigned long		lnum;

@@ -81,9 +81,10 @@
 **	Header file used for the node tracking routines.
 */
 
+/* NOTE:  requires server_limits.h */
 
 
-enum	psit {
+enum psit {
 	okay,
 	thinking,
 	conflict,
@@ -112,7 +113,7 @@ struct	pbssubn {
   short           index;		/* subnode index */
   };
 
-struct	pbsnode {
+struct pbsnode {
   char			*nd_name;	/* node's host name */
   struct pbssubn	*nd_psn;	/* ptr to list of subnodes */
   struct prop           *nd_first;	/* first and last property */
@@ -137,10 +138,31 @@ struct	pbsnode {
   time_t                 nd_lastupdate; /* time of last update. */
   };
 	
+typedef struct tree_t {
+  u_long          key;
+  struct pbsnode *nodep;
+  struct tree_t  *left;
+  struct tree_t  *right;
+  } tree;
+
+/* NOTE:  should remove all node references and replace with 'tree' objects (NYI) */
+
+/*
+typedef struct node_t {
+  u_long         key;
+  struct node_t *left;
+  struct node_t *right;
+  } node;
+*/
+
+struct pbsnode *tfind(const u_long,tree **);
+int tlist(tree *,char *,int);
+
 
 /*
  * The following INUSE_ are used in both subnode.inuse and in node.nd_state
  */
+
 #define	INUSE_FREE	 0x00	/* Node/VP is available			*/
 #define	INUSE_OFFLINE	 0x01	/* Node was removed by administrator	*/
 #define	INUSE_DOWN	 0x02	/* Node is down/unresponsive 		*/
@@ -188,28 +210,27 @@ struct	pbsnode {
  */
 
 enum nodeattr {
-	ND_ATR_state,
-	NODE_ATR_np,
-	ND_ATR_properties,
-	ND_ATR_ntype,
-	ND_ATR_jobs,
-        NODE_ATR_status,
-	ND_ATR_LAST	/* WARNING: Must be the highest valued enum */
-};
+  ND_ATR_state,
+  NODE_ATR_np,
+  ND_ATR_properties,
+  ND_ATR_ntype,
+  ND_ATR_jobs,
+  NODE_ATR_status,
+  ND_ATR_LAST }; /* WARNING: Must be the highest valued enum */
 
-extern struct attribute_def  node_attr_def[];	/* node attributes defs */
-extern	struct pbsnode	**pbsndmast;		/* array of ptr to nodes  */
-extern	struct pbsnode	**pbsndlist;		/* array of ptr to nodes  */
-extern  int		  svr_totnodes;		/* number of nodes (hosts) */
-extern  int		  svr_tsnodes;		/* number of timeshared nodes */
-extern	int		  svr_clnodes;		/* number of cluster nodes */
-extern	struct tree_t	 *ipaddrs;
-extern	struct tree_t	 *streams;
 
-extern	int	update_nodes_file A_(());
+extern struct pbsnode	**pbsndmast;		/* array of ptr to nodes  */
+extern struct pbsnode	**pbsndlist;		/* array of ptr to nodes  */
+extern int		  svr_totnodes;		/* number of nodes (hosts) */
+extern int		  svr_tsnodes;		/* number of timeshared nodes */
+extern int		  svr_clnodes;		/* number of cluster nodes */
+extern struct tree_t	 *ipaddrs;
+extern struct tree_t	 *streams;
 
-extern void bad_node_warning(pbs_net_t addr);
-extern int addr_ok(pbs_net_t addr);
+extern int update_nodes_file A_((void));
+
+extern void bad_node_warning(pbs_net_t);
+extern int addr_ok(pbs_net_t);
 
 #ifdef BATCH_REQUEST_H
 extern	void	initialize_pbssubn A_((struct pbsnode *,struct pbssubn *,struct prop *));

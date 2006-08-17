@@ -179,18 +179,19 @@ extern char	*path_nodestate;
 #ifdef GSSAPI
 extern char     *path_creds;
 #endif
+extern char	*path_resources;
 
 extern int	 queue_rank;
 extern char	 server_name[];
 extern int	 svr_delay_entry;
-extern list_head svr_newjobs;
-extern list_head svr_alljobs;
-extern list_head svr_queues;
-extern list_head svr_requests;
-extern list_head svr_newnodes;
-extern list_head task_list_immed;
-extern list_head task_list_timed;
-extern list_head task_list_event;
+extern tlist_head svr_newjobs;
+extern tlist_head svr_alljobs;
+extern tlist_head svr_queues;
+extern tlist_head svr_requests;
+extern tlist_head svr_newnodes;
+extern tlist_head task_list_immed;
+extern tlist_head task_list_timed;
+extern tlist_head task_list_event;
 extern time_t	 time_now;
 
 extern struct server server;
@@ -430,6 +431,9 @@ int pbsd_init(
 #ifdef GSSAPI
   path_creds     = build_path(path_home, PBS_SVR_PRIVATE, "/creds/");
 #endif
+  path_resources = build_path(path_home, PBS_RESOURCES,  NULL);
+
+  init_resc_defs(path_resources);
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 
@@ -1088,7 +1092,11 @@ static int pbsd_init_job(
 
       set_resc_assigned(pjob,INCR);
 
-      set_old_nodes(pjob);
+      /* suspended jobs don't get reassigned to nodes */
+      if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) == 0)
+        {
+        set_old_nodes(pjob);
+        }
 
       if (type == RECOV_HOT)
         pjob->ji_qs.ji_svrflags |= JOB_SVFLG_HOTSTART;

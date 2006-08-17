@@ -136,8 +136,6 @@ int conn_qsub(char *,long);
 
 /* External functions */
 
-void on_job_exit A_((struct work_task *));
-
 #ifdef PBS_MOM
 #if IBM_SP2==2		/* IBM SP PSSP 3.1 */
 void unload_sp_switch A_((job *pjob));
@@ -166,8 +164,8 @@ extern int   LOGLEVEL;
 extern char *path_creds;
 #endif
 
-extern list_head svr_newjobs;
-extern list_head svr_alljobs;
+extern tlist_head svr_newjobs;
+extern tlist_head svr_alljobs;
 
 
 #ifdef PBS_MOM
@@ -700,10 +698,13 @@ void job_purge(
 #ifdef PBS_MOM
   int           rc;
   extern void MOMCheckRestart A_((void));
+#ifdef PENABLE_LINUX26_CPUSETS 
+  char                 cpuset_name[MAXPATHLEN + 1];
 #endif
 #ifdef GSSAPI
   char          *ccname;
   char          *kdestroy;
+#endif
 #endif
 
 #ifdef PBS_MOM
@@ -768,6 +769,14 @@ void job_purge(
       pjob->ji_flags &= ~MOM_HAS_TMPDIR;
       }
     }
+
+#ifdef PENABLE_LINUX26_CPUSETS 
+
+    /* Delete the cpuset for the job. */
+    sprintf (cpuset_name, "torque/%s", pjob->ji_qs.ji_jobid);
+    cpuset_delete(cpuset_name);
+
+#endif /* PENABLE_CPUSETS */
 
   /* delete the nodefile if still hanging around */
 

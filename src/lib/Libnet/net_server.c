@@ -97,6 +97,10 @@
 #if defined(FD_SET_IN_SYS_SELECT_H)
 #  include <sys/select.h>
 #endif
+#if defined(NTOHL_NEEDS_ARPA_INET_H) && defined(HAVE_ARPA_INET_H)
+#include <arpa/inet.h>
+#endif
+
 
 #include "portability.h"
 #include "server_limits.h"
@@ -388,7 +392,7 @@ static void accept_conn(
   int newsock;
   struct sockaddr_in from;
 
-  socklen_t fromsize;
+  torque_socklen_t fromsize;
 	
   /* update lasttime of main socket */
 
@@ -611,7 +615,7 @@ int get_connecthost(
             sizeof(struct in_addr),
             AF_INET)) == NULL)
       {
-      server_name = strdup(inet_ntoa(addr));
+      server_name = strdup(inet_ntoa(serveraddr));
       }
     else
       {

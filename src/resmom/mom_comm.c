@@ -100,6 +100,9 @@
 #include	<netinet/in.h>
 #include	<sys/time.h>
 #include	<sys/resource.h>
+#if defined(NTOHL_NEEDS_ARPA_INET_H) && defined(HAVE_ARPA_INET_H)
+#include <arpa/inet.h>
+#endif
 
 #include 	"libpbs.h"
 #include 	"pbs_ifl.h"
@@ -108,6 +111,7 @@
 #include	"resource.h"
 #include	"server_limits.h"
 #include	"job.h"
+#include        "pbs_nodes.h"
 #include	"pbs_error.h"
 #include	"log.h"
 #include	"net_connect.h"
@@ -130,11 +134,11 @@ extern	int		pbs_errno;
 extern	unsigned int	pbs_mom_port;
 extern	unsigned int	pbs_rm_port;
 extern	unsigned int	pbs_tm_port;
-extern	list_head	mom_polljobs;	/* must have resource limits polled */
-extern	list_head	svr_alljobs;	/* all jobs under MOM's control */
+extern	tlist_head	mom_polljobs;	/* must have resource limits polled */
+extern	tlist_head	svr_alljobs;	/* all jobs under MOM's control */
 extern	int		termin_child;
 extern	time_t		time_now;
-extern	void           *okclients;	/* accept connections from */
+extern	tree           *okclients;	/* accept connections from */
 extern	int		SStream[];
 extern  int             SIndex;         /* master server index */
 extern  int             port_care;
@@ -172,8 +176,7 @@ extern int TMomFinalizeJob3(pjobexec_t *,int,int,int *);
 extern int TMOMJobGetStartInfo(job *,pjobexec_t **) ;
 extern int TMomCheckJobChild(pjobexec_t *,int,int *,int *);
 extern void job_nodes(job *);
-extern int tfind(const u_long,void **);
-extern int tlist(void **,char *,int);
+extern int tlist(tree *,char *,int);
 extern void DIS_tcp_funcs();
 extern int TTmpDirName (job *,char *);
 extern int TMakeTmpDir (job *,char *);
@@ -386,7 +389,7 @@ task *pbs_task_create(
   memset(ptask->ti_qs.ti_parentjobid,0,sizeof(ptask->ti_qs.ti_parentjobid));
 
   ptask->ti_qs.ti_parentnode = TM_ERROR_NODE;
-  ptask->ti_qs.ti_parenttask = 0;
+  ptask->ti_qs.ti_parenttask = TM_NULL_TASK;
   ptask->ti_qs.ti_task = ((taskid == TM_NULL_TASK) ?
     pjob->ji_taskid++ : 
     taskid);
@@ -1097,6 +1100,8 @@ void node_bailout(
 
           pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
+          job_save(pjob,SAVEJOB_QUICK);
+
           exiting_tasks = 1;
           }
 
@@ -1523,7 +1528,7 @@ char *resc_string(
   attribute		*at;
   attribute_def		*ad;
   svrattrl		*pal;
-  list_head		lhead;
+  tlist_head		lhead;
   int			len, used, tot;
   char			*res_str, *ch;
   char			*getuname();
@@ -1626,20 +1631,20 @@ void im_request(
   int			nodenum, index;
   int			num;
   int			sig;
-  char			**argv=NULL, **envp = NULL, *cp, *globid;
+  char			**argv = NULL, **envp = NULL, *cp, *globid;
   char			*name;
   void			*info;
   size_t		len;
   tm_event_t		event;
   fwdevent		efwd;
-  list_head		lhead;
+  tlist_head		lhead;
   svrattrl		*psatl;
   attribute_def		*pdef;
   struct passwd		*check_pwd();
   extern int		resc_access_perm;
-  int	start_process	A_((task *pt, char **argv, char **envp));
-  u_long gettime	A_((resource *pres));
-  u_long getsize	A_((resource *pres));
+  int start_process	A_((task *,char **,char **));
+  u_long gettime	A_((resource *));
+  u_long getsize	A_((resource *));
 
   if (version != IM_PROTOCOL_VER) 
     {
@@ -1670,7 +1675,7 @@ void im_request(
       log_buffer);
     }
 
-  if (!tfind(ipaddr,&okclients)) 
+  if (tfind(ipaddr,&okclients) == NULL) 
     {
     char tmpLine[1024];
 
@@ -2315,6 +2320,8 @@ void im_request(
 
       pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
       pjob->ji_obit = event;
+
+      job_save(pjob,SAVEJOB_QUICK);
 
       exiting_tasks = 1;
 
@@ -3325,6 +3332,8 @@ void im_request(
 
             pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
       
+            job_save(pjob,SAVEJOB_QUICK);
+
             exiting_tasks = 1;
             }
 
@@ -3828,6 +3837,8 @@ void im_request(
 
             pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
+            job_save(pjob,SAVEJOB_QUICK);
+
             exiting_tasks = 1;
             }
 
@@ -4295,12 +4306,12 @@ int tm_request(
       if (ret != DIS_SUCCESS)
         goto done;
 
-      ret = diswsi(fd, ptask->ti_qs.ti_parentnode);	/* dad node */
+      ret = diswsi(fd,ptask->ti_qs.ti_parentnode);	/* dad node */
 
       if (ret != DIS_SUCCESS)
         goto done;
 
-      ret = diswsi(fd, ptask->ti_qs.ti_parenttask);	/* dad task */
+      ret = diswsi(fd,ptask->ti_qs.ti_parenttask);	/* dad task */
 
       if (ret != DIS_SUCCESS)
         goto done;

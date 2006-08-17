@@ -116,7 +116,7 @@
 #include <sys/ioctl.h>
 #endif	/* HAVE_SYS_IOCTL_H */
 
-#if !defined(sgi) && !defined(_AIX) && !defined(linux)
+#if defined(HAVE_SYS_TTY_H)
 #include <sys/tty.h>
 #endif
 
@@ -128,8 +128,10 @@
 #include "cmds.h"
 #include "net_connect.h"
 #include "log.h"
+#include "port_forwarding.h"
 
 static char *DefaultFilterPath = "/usr/local/sbin/torque_submitfilter";
+static char *DefaultXauthPath = XAUTH_PATH;
 
 #define SUBMIT_FILTER_ADMIN_REJECT_CODE -1 
 
@@ -141,9 +143,106 @@ char PBS_Filter[256];
 char PBS_InitDir[256];
 char PBS_RootDir[256];
 
+char xauth_path[256];
+
+int interactivechild=0;
+int x11child=0;
 
 int do_dir(char *);
 int process_opts(int,char **,int);
+
+/* adapted from openssh */
+static char *
+x11_get_proto(void)
+{       
+        char line[512];
+        char proto[512], data[512], screen[512];
+        char *authstring;
+        FILE *f;
+        int got_data = 0;
+        char *display, *p;
+        struct stat st;
+
+        proto[0] = data[0] = screen[0] = '\0';
+
+        if ((display = getenv("DISPLAY")) == NULL)
+          {
+          fprintf(stderr,"qsub: DISPLAY not set\n");
+          return (NULL);
+          }
+
+        if (stat(xauth_path,&st))
+          {
+          perror("qsub: xauth: ");
+          return (NULL);
+          }
+
+        /* Try to get Xauthority information for the display. */
+        if (strncmp(display, "localhost:", 10) == 0)
+                /*
+                 * Handle FamilyLocal case where $DISPLAY does
+                 * not match an authorization entry.  For this we
+                 * just try "xauth list unix:displaynum.screennum".
+                 * XXX: "localhost" match to determine FamilyLocal
+                 *      is not perfect.
+                 */
+                snprintf(line, sizeof line, "%s list unix:%s 2>/dev/null",
+                    xauth_path,display+10);
+        else    
+                snprintf(line, sizeof line, "%s list %.200s 2>/dev/null",
+                    xauth_path,display);
+
+	p = strchr(display,':');
+        if (p)
+          p = strchr(p,'.');
+        if (p)
+          strncpy(screen,p+1,512);
+        else
+          strcpy(screen,"0");
+
+        if (getenv("PBSDEBUG") != NULL)
+          fprintf(stderr,"x11_get_proto: %s\n", line);
+
+        f = popen(line, "r");
+        if (f && fgets(line, sizeof(line), f) &&
+            sscanf(line, "%*s %511s %511s", proto, data) == 2)
+                got_data = 1;
+        if (f)  
+                pclose(f);
+
+#if 0 /* we aren't inspecting the returned xauth data yet */
+        /*
+         * If we didn't get authentication data, just make up some
+         * data.  The forwarding code will check the validity of the
+         * response anyway, and substitute this data.  The X11
+         * server, however, will ignore this fake data and use
+         * whatever authentication mechanisms it was using otherwise
+         * for the local connection.
+         */
+        if (!got_data) {
+                u_int32_t _rand = 0;                                                         
+                int i;
+
+                fprintf(stderr,"Warning: No xauth data; using fake authentication data for X11 forwarding.\n");
+                strncpy(proto, "MIT-MAGIC-COOKIE-1", sizeof proto);
+                for (i = 0; i < 16; i++) {
+                        if (i % 4 == 0)
+                                _rand = rand();
+                        snprintf(data + 2 * i, sizeof data - 2 * i, "%02x", _rand & 0xff);
+                        _rand >>= 8;
+                }
+        }
+#endif
+
+    if (!got_data)
+      return(NULL);
+
+    authstring = malloc(strlen(proto) + strlen(data) + strlen(screen) +4);
+    sprintf(authstring,"%s:%s:%s",proto, data, screen);
+
+    return(authstring);
+
+}
 
 
 
@@ -738,6 +837,7 @@ int o_opt = FALSE;
 int p_opt = FALSE;
 int q_opt = FALSE;
 int r_opt = FALSE;
+int t_opt = FALSE;
 int u_opt = FALSE;
 int v_opt = FALSE;
 int z_opt = FALSE;
@@ -752,6 +852,7 @@ int Interact_opt  = FALSE;
 int Stagein_opt   = FALSE;
 int Stageout_opt  = FALSE;
 int Grouplist_opt = FALSE;
+int Forwardx11_opt = FALSE;
 char *v_value = NULL;
 
 
@@ -1287,10 +1388,10 @@ final:
  *	will be connected to this socket.
  */
 
-char *interactive_port()
+char *interactive_port(int *sock)
 
   {
-  socklen_t namelen;
+  torque_socklen_t namelen;
   static char portstring[8];
   struct sockaddr_in myaddr;
   unsigned short port;
@@ -1301,9 +1402,9 @@ char *interactive_port()
       exit(1);
     }
 
-  inter_sock = socket(AF_INET, SOCK_STREAM, 0);
+  *sock = socket(AF_INET, SOCK_STREAM, 0);
 
-  if (inter_sock < 0) 
+  if (*sock < 0) 
     {
     perror("qsub: unable to obtain socket");
 
@@ -1315,7 +1416,7 @@ char *interactive_port()
   myaddr.sin_addr.s_addr = INADDR_ANY;
   myaddr.sin_port = 0;
 
-  if (bind(inter_sock,(struct sockaddr *)&myaddr,namelen) < 0) 
+  if (bind(*sock,(struct sockaddr *)&myaddr,namelen) < 0) 
     {
     perror("qsub: unable to bind to socket");
 
@@ -1324,7 +1425,7 @@ char *interactive_port()
 
   /* get port number assigned */
 
-  if (getsockname(inter_sock,(struct sockaddr *)&myaddr,&namelen) < 0) 
+  if (getsockname(*sock,(struct sockaddr *)&myaddr,&namelen) < 0) 
     {
     perror("qsub: unable to get port number");
 
@@ -1336,7 +1437,7 @@ char *interactive_port()
   sprintf(portstring,"%u", 
     (unsigned int)port);
 
-  if (listen(inter_sock,1) < 0) 
+  if (listen(*sock,1) < 0) 
     {
     perror("qsub: listen on interactive socket");
 
@@ -1417,7 +1518,8 @@ void stopme(
 
 int reader(
 
-  int s)	/* socket */
+  int s,	/* reading socket */
+  int d)        /* writing socket */
 
   {
   char buf[4096];
@@ -1425,7 +1527,7 @@ int reader(
   char *p;
   int  wc;
 
-  /* read from the socket, and write to stdout */
+  /* read from the socket, and write to d */
 
   /* NOTE:  s should be blocking */
 
@@ -1439,7 +1541,7 @@ int reader(
 
       while (c) 
         {
-        if ((wc = write(1,p,c)) < 0) 
+        if ((wc = write(d,p,c)) < 0) 
           {
           if (errno == EINTR) 
             {
@@ -1493,7 +1595,8 @@ int reader(
 
 void writer(
 
-  int s)  /* socket */
+  int s,  /* writing socket */
+  int d)  /* reader socket */
 
   {
   char c;
@@ -1506,7 +1609,7 @@ void writer(
 
   while (1) 
     {
-    i = read(0,&c,1);
+    i = read(d,&c,1);
 
     if (i > 0) 
       {  
@@ -1520,7 +1623,7 @@ void writer(
 
           /* read next character to check */
 
-          while ((i = read(0,&c,1)) != 1) 
+          while ((i = read(d,&c,1)) != 1) 
             {
             if ((i == -1) && (errno == EINTR))
               continue;
@@ -1764,6 +1867,11 @@ void catchchild(
       }
     }
    
+    if (interactivechild > 0)
+      kill(interactivechild,SIGTERM);
+    if (x11child > 0)
+      kill(x11child,SIGTERM);
+
   /* reset terminal to cooked mode */
 
   tcsetattr(0,TCSANOW,&oldtio);
@@ -1893,6 +2001,39 @@ void catchint(
   }  /* END catchint() */
 
 
+void x11handler(int inter_sock)
+  {
+  struct pfwdsock *socks;
+  int n;
+  char *display;
+
+  socks=calloc(sizeof (struct pfwdsock),NUM_SOCKS);
+
+  if (!socks)
+    {
+    perror("x11handler malloc: ");
+
+    exit(EXIT_FAILURE);
+    }
+
+  for (n=0;n<NUM_SOCKS;n++)
+    (socks+n)->active=0;
+
+  (socks+0)->sock = inter_sock;
+  (socks+0)->active=1;
+  (socks+0)->listening=1;
+
+  /* Try to open a socket for the local X server. */
+  display = getenv("DISPLAY");
+  if (!display) {
+    fprintf(stderr,"DISPLAY not set.");
+    return;
+  }
+
+  port_forwarder(socks,x11_connect_display,display,0);
+
+  exit(EXIT_FAILURE);
+}
 
 
 /*
@@ -1904,7 +2045,6 @@ void interactive()
   {
   int  amt;
   char cur_server[PBS_MAXSERVERNAME + PBS_MAXPORTNUM + 2];
-  socklen_t fromlen;
 
   char momjobid[LOG_BUF_SIZE+1];
   int  news;
@@ -1913,9 +2053,9 @@ void interactive()
   fd_set selset;
   struct sigaction act;
   struct sockaddr_in from;
+  torque_socklen_t fromlen;
   struct timeval timeout;
   struct winsize wsz;
-  int child;
     
   /* Catch SIGINT and SIGTERM, and */
   /* setup to catch Death of child */
@@ -2082,9 +2222,9 @@ void interactive()
     exit(1);
     }
 
-  child = fork();
+  interactivechild = fork();
 
-  if (child == 0) 
+  if (interactivechild == 0) 
     {
     /*
      * child process - start the reader function
@@ -2093,7 +2233,7 @@ void interactive()
 
     settermraw(&oldtio);
 
-    reader(news);
+    reader(news,fileno(stdout));
 
     /* reset terminal */
 
@@ -2104,7 +2244,7 @@ void interactive()
 
     exit(0);
     } 
-  else if (child > 0) 
+  else if (interactivechild > 0) 
     {
     /* parent - start the writer function */
 
@@ -2115,12 +2255,29 @@ void interactive()
       exit(1);
       }
 
-    writer(news);
+    if (Forwardx11_opt)
+      {
+      if ((x11child=fork()) == 0)
+        {
+        act.sa_handler = SIG_DFL;
+
+        sigaction(SIGTERM,&act,(struct sigaction *)0);
+
+        x11handler(inter_sock);
+        }
+      }
+
+    writer(news,fileno(stdin));
 
     /* all done - make sure reader child is gone and reset terminal */
 
-    kill(child,SIGTERM);
+    if (interactivechild > 0)
+      kill(interactivechild,SIGTERM);
+    if (x11child > 0)
+      kill(x11child,SIGTERM);
 
+    shutdown(inter_sock,SHUT_RDWR);
+    close(inter_sock);
     tcsetattr(0,TCSANOW,&oldtio);
 
     exit(0);
@@ -2170,12 +2327,10 @@ int process_opts(
   int tmpfd;
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
-#define GETOPT_ARGS "a:A:b:c:C:d:D:e:hIj:k:l:m:M:N:o:p:q:r:S:u:v:VW:z-:"
+#define GETOPT_ARGS "a:A:b:c:C:d:D:e:hIj:k:l:m:M:N:o:p:q:r:S:t:u:v:VW:Xz-:"
 #else
 #define GETOPT_ARGS "a:A:c:C:e:hj:k:l:m:M:N:o:p:q:r:S:u:v:VW:z"
 #endif	/* PBS_NO_POSIX_VIOLATION */
-
-#define MAX_RES_LIST_LEN 64  /* doesn't seem to be used? */
 
 /* The following macro, together the value of passet (pass + 1) is used	*/
 /* to enforce the following rules: 1. option on the command line take	*/
@@ -2187,7 +2342,7 @@ int process_opts(
 
   passet = pass + 1;
 
-  if ( pass > 0 ) 
+  if (pass > 0) 
     {
 #ifdef linux
     optind = 0;  /* prime getopt's starting point */
@@ -2267,7 +2422,7 @@ int process_opts(
           {
           b_opt = passet;
 
-          cnt2server_retry=atoi(optarg);
+          cnt2server_retry = atoi(optarg);
           }
 
         break;
@@ -2484,7 +2639,7 @@ int process_opts(
           {
           Interact_opt = passet;
 
-          set_attr(&attrib,ATTR_inter,interactive_port());
+          set_attr(&attrib,ATTR_inter,interactive_port(&inter_sock));
           }
 
         break;
@@ -2788,6 +2943,25 @@ int process_opts(
 
         break;
 
+      case 't':
+
+        if_cmd_line(t_opt)
+          {
+          t_opt = passet;
+          i = atoi(optarg);
+          if (i <= 0)
+            {
+            fprintf(stderr, "qsub: illegal -t value\n");
+
+            errflg++;
+
+            break;
+            }
+          set_attr(&attrib,ATTR_t,optarg);
+          }
+
+        break;
+
       case 'u':
 
         if_cmd_line(u_opt) 
@@ -2934,6 +3108,23 @@ int process_opts(
  
               set_attr(&attrib,ATTR_stageout,valuewd);
               }
+            }
+          else if (!strcmp(keyword,ATTR_t))
+            {
+            if_cmd_line(t_opt)
+              {
+              t_opt = passet;
+
+              if (atoi(valuewd) <= 0)
+                {
+                fprintf(stderr, "qsub: illegal -t value\n");
+
+                errflg++;
+
+                break;
+                }
+              set_attr(&attrib,ATTR_t,valuewd);
+              }
             } 
           else if (!strcmp(keyword,ATTR_g)) 
             {
@@ -2972,7 +3163,7 @@ int process_opts(
                 break;
                 }
 
-              set_attr(&attrib,ATTR_inter,interactive_port());
+              set_attr(&attrib,ATTR_inter,interactive_port(&inter_sock));
               }
             } 
           else 
@@ -2990,6 +3181,22 @@ int process_opts(
           fprintf(stderr,"qsub: illegal -W value\n");
  
           errflg++;
+          }
+
+        break;
+
+      case 'X':
+
+        if_cmd_line(Forwardx11_opt) 
+          {
+          Forwardx11_opt = passet;
+
+          if (!getenv("DISPLAY"))
+            {
+            fprintf(stderr,"qsub: DISPLAY not set\n");
+
+            errflg++;
+            }
           }
 
         break;
@@ -3319,12 +3526,15 @@ int main(
   char config_buf[MAX_LINE_LEN];      /* Buffer holds config file */
   char *param_val;                    /* value of parameter returned from config */
 
-  if ((param_val=getenv("PBS_CLIENTRETRY")) != NULL)
+  char *submit_args_str;              /* buffer to hold args */
+  int   argi, argslen = 0;
+
+  if ((param_val = getenv("PBS_CLIENTRETRY")) != NULL)
     {
-    cnt2server_retry=atoi(param_val);
+    cnt2server_retry = atoi(param_val);
     }
 
-  errflg = process_opts(argc,argv,0);  /* get cmd-line options */
+  errflg = process_opts(argc,argv,0); /* get cmd-line options */
 
   if (errflg || ((optind + 1) < argc)) 
     {
@@ -3333,8 +3543,8 @@ int main(
 [-c { c[=<INTERVAL>] | s | n }] [-C directive_prefix] [-d path] [-D path]\n\
 [-e path] [-h] [-I] [-j oe] [-k {oe}] [-l resource_list] [-m {abe}]\n\
 [-M user_list] [-N jobname] [-o path] [-p priority] [-q queue] [-r y|n]\n\
-[-S path] [-u user_list] [-W otherattributes=value...] [-v variable_list]\n\
-[-V ] [-z] [script]\n";
+[-S path] [-t number_to_submit] [-u user_list] [-X] [-W otherattributes=value...]\n\
+[-v variable_list] [-V ] [-z] [script]\n";
 
     fprintf(stderr,usage);
 
@@ -3344,7 +3554,11 @@ int main(
   /* check TORQUE config settings */
 
   strcpy(PBS_Filter,DefaultFilterPath);
+  strcpy(xauth_path,DefaultXauthPath);
   server_host[0] = '\0';
+
+  if (getenv("PBSDEBUG") != NULL)
+    fprintf(stderr,"xauth_path=%s\n",xauth_path);
 
   if (load_config(config_buf,sizeof(config_buf)) == 0)
     {
@@ -3365,15 +3579,78 @@ int main(
       server_host[sizeof(server_host) - 1] = '\0';
       }
 
+    if ((param_val = get_param("XAUTHPATH",config_buf)) != NULL)
+      {
+      strncpy(xauth_path,param_val,sizeof(xauth_path));
+      xauth_path[sizeof(xauth_path) - 1] = '\0';
+      }
+
     if ((param_val = get_param("CLIENTRETRY",config_buf)) != NULL)
       {
       if (cnt2server_retry == -100)
-        cnt2server_retry=atoi(param_val);
+        cnt2server_retry = atoi(param_val);
       }
     }
 
   if (optind < argc) 
     strcpy(script,argv[optind]);
+
+  /* set the submit_args */
+  for (argi = 1; argi < optind; argi++)
+    {
+    argslen += strlen(argv[argi]) + 1;
+    }
+
+  if (argslen > 0)
+    {
+    submit_args_str = malloc(sizeof(char) * argslen);
+
+    if (submit_args_str == NULL)
+      {
+      fprintf(stderr,"qsub: out of memory\n");
+  
+      exit(2);
+      }
+
+    *submit_args_str = '\0';
+
+    for (argi = 1;argi < optind;argi++)
+      {
+      strcat(submit_args_str,argv[argi]);
+
+      if (argi != optind - 1)
+        {
+        strcat(submit_args_str," ");
+        }
+      }
+
+    set_attr(&attrib,ATTR_submit_args,submit_args_str);
+
+    free(submit_args_str);
+    }
+  /* end setting submit_args */
+
+  if (Forwardx11_opt)
+    {
+    char *x11authstr;
+
+    /* get the DISPLAY's auth proto, data, and screen number */
+    if ((x11authstr = x11_get_proto()) != NULL)
+      {
+
+      /* stuff this info into the job */
+      set_attr(&attrib,ATTR_forwardx11,x11authstr);
+
+      if (getenv("PBSDEBUG") != NULL)
+        fprintf(stderr,"x11auth string: %s\n",x11authstr);
+      }
+    else
+      {
+      fprintf(stderr,"qsub: Failed to get xauth data.\n");
+
+      exit(1);
+      }
+    }
 
   /* if script is empty, get standard input */
 

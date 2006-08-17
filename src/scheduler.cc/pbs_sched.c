@@ -143,6 +143,7 @@ sigset_t	allsigs;
 int		alarm_time;
 static char    *logfile = (char *)0;
 static char	path_log[_POSIX_PATH_MAX];
+char	path_acct[_POSIX_PATH_MAX];
 int 		pbs_rm_port;
 
 int	schedreq();
@@ -576,7 +577,7 @@ int server_command()
   char	*id = "server_command";
 
   int           new_socket;
-  socklen_t	slen;
+  torque_socklen_t	slen;
   int		i, cmd;
   pbs_net_t	addr;
 
@@ -797,6 +798,7 @@ int main(
 		exit(1);
 	}
 	(void)sprintf(path_log,   "%s/sched_logs", homedir);
+	(void)sprintf(path_acct,   "%s/%s", log_buffer,PBS_ACCT );
 
 
 	/* The following is code to reduce security risks                */

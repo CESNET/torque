@@ -6,12 +6,25 @@
 /* turns on the compilation of DEBUG code */
 #undef DEBUG
 
+/* Define to enable BLCR support */
+#undef ENABLE_BLCR
+
+/* Define to enable Cray's CPA support */
+#undef ENABLE_CPA
+
 /* are FD_SET and friends defined in sys/select.h */
 #undef FD_SET_IN_SYS_SELECT_H
 
+<<<<<<< .working
 /* Use GSSAPI/Krb5 */
 #undef GSSAPI
 
+=======
+/* Define to the type of elements in the array set by `getgroups'. Usually
+   this is either `int' or `gid_t'. */
+#undef GETGROUPS_T
+
+>>>>>>> .merge-right.r948
 /* Define to 1 if you have the <arpa/inet.h> header file. */
 #undef HAVE_ARPA_INET_H
 
@@ -20,6 +33,9 @@
 
 /* Define to 1 if you have the `bindresvport' function. */
 #undef HAVE_BINDRESVPORT
+
+/* Define to 1 if you have the <cpalib.h> header file. */
+#undef HAVE_CPALIB_H
 
 /* Define to 1 if you have the <dirent.h> header file, and it defines `DIR'.
    */
@@ -37,11 +53,11 @@
 /* Define to 1 if you have the <float.h> header file. */
 #undef HAVE_FLOAT_H
 
-/* Define if the C complier supports __func__ */
-#undef HAVE_FUNC
+/* Define to 1 if you have the `getaddrinfo' function. */
+#undef HAVE_GETADDRINFO
 
-/* Define if the C complier supports __FUNCTION__ */
-#undef HAVE_FUNCTION
+/* Define to 1 if your system has a working `getgroups' function. */
+#undef HAVE_GETGROUPS
 
 /* Define to 1 if you have the `gettimeofday' function. */
 #undef HAVE_GETTIMEOFDAY
@@ -100,11 +116,20 @@
 /* Define to 1 if you have the `on_exit' function. */
 #undef HAVE_ON_EXIT
 
+/* Define to 1 if you have the <pam/pam_modules.h> header file. */
+#undef HAVE_PAM_PAM_MODULES_H
+
 /* Define to 1 if you have the `poll' function. */
 #undef HAVE_POLL
 
 /* include readline support */
 #undef HAVE_READLINE
+
+/* Define to 1 if you have the <security/pam_appl.h> header file. */
+#undef HAVE_SECURITY_PAM_APPL_H
+
+/* Define to 1 if you have the <security/pam_modules.h> header file. */
+#undef HAVE_SECURITY_PAM_MODULES_H
 
 /* Define to 1 if you have the `setegid' function. */
 #undef HAVE_SETEGID
@@ -180,6 +205,9 @@
 /* Define to 1 if you have the <sys/time.h> header file. */
 #undef HAVE_SYS_TIME_H
 
+/* Define to 1 if you have the <sys/tty.h> header file. */
+#undef HAVE_SYS_TTY_H
+
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
 
@@ -230,6 +258,9 @@
 /* directly use homedirs instead of $TORQUEHOME/spool */
 #undef NO_SPOOL_OUTPUT
 
+/* Define if ntohl() is declared in arpa/inet.h */
+#undef NTOHL_NEEDS_ARPA_INET_H
+
 /* Name of package */
 #undef PACKAGE
 
@@ -253,6 +284,9 @@
 
 /* the PBS style machine type name */
 #undef PBS_MACH
+
+/* Define to enable Linux 2.6 cpusets */
+#undef PENABLE_LINUX26_CPUSETS
 
 /* use pemask-based scheduling on Cray T3e */
 #undef PE_MASK
@@ -341,9 +375,6 @@
 /* Define if PBS should build qstat with Tcl */
 #undef TCL_QSTAT
 
-/* Define if on Darwin 8.x */
-#undef TDARWIN8
-
 /* Define to prevent sync writes */
 #undef TDISABLEFILESYNC
 
@@ -359,11 +390,17 @@
 /* The pathname of the Cray temporary directory for mom */
 #undef TMP_DIR
 
+/* Define if building on unsupported OS */
+#undef UNSUPPORTED_MACH
+
 /* Define on ancient linux distros */
 #undef USEOLDTTY
 
 /* Version number of package */
 #undef VERSION
+
+/* Define to the path of xauth */
+#undef XAUTH_PATH
 
 /* Define to 1 if `lex' declares `yytext' as a `char *' by default, not a
    `char[]'. */
@@ -374,11 +411,19 @@
 # undef __CHAR_UNSIGNED__
 #endif
 
-#ifndef HAVE_FUNC
-#define __func__ __FUNCTION__
-#endif
+/* Define to `int' if <sys/types.h> doesn't define. */
+#undef gid_t
+
+/* type to use for 2nd arg of pam_get_user */
+#undef pam_get_user_2nd_arg_t
+
+/* Define to `unsigned' if <sys/types.h> does not define. */
+#undef size_t
 
 /* type to use in place of socklen_t if not defined */
-#undef socklen_t
+#undef torque_socklen_t
+
+/* Define to `int' if <sys/types.h> doesn't define. */
+#undef uid_t
 
 #endif /* _PBS_CONFIG_H_ */

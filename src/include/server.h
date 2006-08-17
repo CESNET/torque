@@ -140,6 +140,10 @@ enum srv_atr {
 	SRV_ATR_SubmitHosts,
 	SRV_ATR_AllowNodeSubmit,
 	SRV_ATR_AutoNodeNP,
+	SRV_ATR_LogFileMaxSize,
+	SRV_ATR_LogFileRollDepth,
+	SRV_ATR_NextJobNum,
+	SVR_ATR_tokens,
 #include "site_svr_attr_enum.h"
 	SRV_ATR_ServerName,
 	/* This must be last */
@@ -173,6 +177,7 @@ struct server {
 
 extern struct server server;
 
+
 /*
  * server state values 
  */
@@ -195,6 +200,7 @@ extern struct server server;
 
 #define SVR_HOT_CYCLE	15	/* retry mom every n sec on hot start     */
 #define SVR_HOT_LIMIT	300	/* after n seconds, drop out of hot start */
+
 
 /* function prototypes */
 

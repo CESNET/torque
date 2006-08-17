@@ -253,6 +253,19 @@ default value: 511, all events.
 .if !\n(Pb .ig Ig
 [internal type: integer]
 .Ig
+.Al log_file_max_size
+If this is set to a value > 0 then pbs_server will roll the current log file
+to logfile.1 when its size is greater than or equal to the value of
+log_file_max_size. This value is interpreted as kilobytes.
+.if !\n(Pb .ig Ig
+[internal type: integer]
+.Ig
+.Al log_file_roll_depth
+If this is set to a value >=1 and log_file_max_size is set then pbs_server
+will continue rolling the log files to logfile.log_file_roll_depth.
+.if !\n(Pb .ig Ig
+[internal type: integer]
+.Ig
 .Al log_level
 Controls the verbosity of server logs.  This value ranges from 0 to 7 with
 7 representing maximum verbosity.  Format: integer; default value: 0, 
@@ -317,6 +330,19 @@ jobs that don't actually exist.  This is an EXPERIMENTAL feature and may be
 removed in the future.  Format: boolean; default value: false.
 .if !\n(Pb .ig Ig
 [internal type: boolean]
+.Ig
+.Al next_job_number
+This hidden attribute is used to allow a manager to set the value of the 
+next job ID via qmgr. This attribute should rarely be modified. Some sites 
+may find it useful if they need to recreate their pbs_server 
+database (perhaps due to a format change between major TORQUE versions) and 
+they keep a database of job information indexed by the job ID. The manager 
+should be careful to avoid setting the value to something that would allow 
+the next job number to conflict with a job already queued, however Torque 
+will handle this in a sane manner: the job submission will be rejected and 
+the next job number will be incremented.
+.if !\n(Pb .ig Ig
+[internal type: integer]
 .Ig
 .Al node_check_rate
 In OpenPBS, this was the rate at which pbs_server would poll each node.  In
@@ -444,6 +470,15 @@ been set, the value is "false".
 .if !\n(Pb .ig Ig
 [internal type: boolean]
 .Ig
+.Al server_name
+The name of the server which is the same as the host name.  If the hostname resolves
+to an external IP address, then set this to a name that resolves to the internal IP.
+.if !\n(Pb .ig Ig
+If the server is listening to a non-standard port, the port number is
+appended, with a colon, to the host name.  For example: 
+.Ty host.domain:9999 .
+[internal type: string]
+.Ig
 .Al submit_hosts
 A list of hostnames allowed to submit jobs to this batch server regardless of
 ruserok().
@@ -474,14 +509,6 @@ and cannot be changed by a client.
 The total amount of certain types of resources allocated to running jobs.
 .if !\n(Pb .ig Ig
 [internal type: resource]
-.Ig
-.Al server_name
-The name of the server which is the same as the host name.
-.if !\n(Pb .ig Ig
-If the server is listening to a non-standard port, the port number is
-appended, with a colon, to the host name.  For example: 
-.Ty host.domain:9999 .
-[internal type: string]
 .Ig
 .Al server_state
 The current state of the server: 
@@ -522,5 +549,5 @@ The release version number of the server.
 .if \n(Pb .ig Ig
 .\" man page only
 .SH SEE ALSO
-the PBS ERS, qmgr(1B)
+the PBS ERS, qmgr(1B), pbs_resources(7B)
 .Ig

@@ -1299,6 +1299,8 @@ int mom_set_limits(
           return(error("RLIMIT_STACK",PBSE_SYSTEM));
           }
 
+        /* set address space */
+
         if (setrlimit(RLIMIT_AS,&reslim) < 0)
           {
           return(error("RLIMIT_AS",PBSE_SYSTEM));
@@ -1309,6 +1311,8 @@ int mom_set_limits(
 
         if (getrlimit(RLIMIT_STACK,&reslim) >= 0)
           {
+          /* NOTE:  mem_limit no longer used with UMU patch in place */
+
           mem_limit = value + reslim.rlim_cur;
           }
         }
@@ -2723,14 +2727,12 @@ char *nsessions(
 
   {
   char	*result, *ch;
-  int    num;
+  int    num = 1;
 
   if ((result = sessions(attrib)) == NULL)
     {
     return(result);
     }
-
-  num = 1;
 
   for (ch = result;*ch;ch++) 
     {
@@ -3332,7 +3334,7 @@ void scan_non_child_tasks(void)
   char *id = "scan_non_child_tasks";
 
   job *job;
-  extern list_head svr_alljobs;
+  extern tlist_head svr_alljobs;
 
   DIR *pdir;  /* use local pdir to prevent race conditions associated w/global pdir (VPAC) */
 

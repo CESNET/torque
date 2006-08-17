@@ -164,8 +164,8 @@ const char *TJobFileType[] = {
   NULL };
 
 extern int	 resc_access_perm;
-extern list_head svr_alljobs;
-extern list_head svr_newjobs;
+extern tlist_head svr_alljobs;
+extern tlist_head svr_newjobs;
 extern attribute_def job_attr_def[];
 extern char *path_jobs;
 extern char *pbs_o_host;
@@ -1090,7 +1090,7 @@ void req_jobscript(
 
   errno = 0;
 
-  pj = locate_new_job(preq->rq_conn,NULL);
+  pj = locate_new_job(preq->rq_conn,preq->rq_ind.rq_jobfile.rq_jobid);
 
   if (pj == NULL) 
     {
@@ -1898,6 +1898,9 @@ void req_commit(
  *	The job must (also) match the socket specified and the host associated
  *	with the socket unless ji_fromsock == -1, then its a recovery situation.
  */
+/* FIXME: why bother checking for matching sock if a jobid is supplied?  Seems
+ * to me that a reconnect immediately invalidates fromsock.
+ */
 
 static job *locate_new_job(
 
@@ -1915,7 +1918,7 @@ static job *locate_new_job(
        ((pj->ji_qs.ji_un.ji_newt.ji_fromsock == sock) &&
         (pj->ji_qs.ji_un.ji_newt.ji_fromaddr == get_connectaddr(sock)))) 
       {
-      if (jobid != NULL) 
+      if ((jobid != NULL) && (*jobid != '\0')) 
         {
         if (!strncmp(pj->ji_qs.ji_jobid,jobid,PBS_MAXSVRJOBID))
           {

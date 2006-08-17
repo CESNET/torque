@@ -109,12 +109,13 @@
 /* Global Data Items: */
 
 extern struct server   server;
-extern list_head       svr_alljobs;
-extern list_head       svr_queues;
+extern tlist_head       svr_alljobs;
+extern tlist_head       svr_queues;
 extern char            server_name[];
 extern attribute_def   svr_attr_def[];
 extern attribute_def   que_attr_def[];
 extern attribute_def   job_attr_def[];
+extern attribute_def  node_attr_def[];   /* node attributes defs */
 extern int	       pbs_mom_port;
 extern time_t	       time_now;
 extern char	      *msg_init_norerun;
@@ -123,10 +124,10 @@ extern int             LOGLEVEL;
 
 /* Extern Functions */
 
-int status_job A_((job *,struct batch_request *,svrattrl *,list_head *,int *));
-int status_attrib A_((svrattrl *,attribute_def *,attribute *,int,int,list_head *,int *,int));
+int status_job A_((job *,struct batch_request *,svrattrl *,tlist_head *,int *));
+int status_attrib A_((svrattrl *,attribute_def *,attribute *,int,int,tlist_head *,int *,int));
 extern int   svr_connect A_((pbs_net_t, unsigned int, void (*)(int), enum conn_type));
-extern int status_nodeattrib(svrattrl *,attribute_def *,struct pbsnode *,int,int,list_head *,int*);
+extern int status_nodeattrib(svrattrl *,attribute_def *,struct pbsnode *,int,int,tlist_head *,int*);
 extern int hasprop(struct pbsnode *, struct prop *);
 
 /* Private Data Definitions */
@@ -136,8 +137,8 @@ static int bad;
 /* The following private support functions are included */
 
 static void update_state_ct A_((attribute *, int *, char *));
-static int  status_que A_((pbs_queue *, struct batch_request *, list_head *));
-static int status_node A_(( struct pbsnode *, struct batch_request *, list_head *));
+static int  status_que A_((pbs_queue *, struct batch_request *, tlist_head *));
+static int status_node A_(( struct pbsnode *, struct batch_request *, tlist_head *));
 static void req_stat_job_step2 A_((struct stat_cntl *));
 static void stat_update A_((struct work_task *));
 
@@ -337,13 +338,13 @@ static void req_stat_job_step2(
     if (cntl->sc_conn >= 0)
       svr_disconnect(cntl->sc_conn); 	/* close connection to MOM */
 
-    if (rc) 
+    if (rc != 0) 
       {
       free(cntl);
 
       reply_free(preply);
 
-      req_reject(rc,0,preq,NULL,NULL);
+      req_reject(rc,0,preq,NULL,"cannot get update from mom");
 
       return;
       }
@@ -383,7 +384,7 @@ static void req_stat_job_step2(
 
     rc = status_job(pjob,preq,pal,&preply->brp_un.brp_status,&bad);
 
-    if (rc && (rc != PBSE_PERM)) 
+    if ((rc != 0) && (rc != PBSE_PERM)) 
       {
       req_reject(rc,bad,preq,NULL,NULL);
 
@@ -695,7 +696,7 @@ void req_stat_que(
 
     if (pque == NULL) 
       {
-      req_reject(PBSE_UNKQUE,0,preq,NULL,NULL);
+      req_reject(PBSE_UNKQUE,0,preq,NULL,"cannot located queue");
 
       return;
       }
@@ -738,7 +739,7 @@ void req_stat_que(
     {
     reply_free(preply);
 
-    req_reject(rc,bad,preq,NULL,NULL);
+    req_reject(rc,bad,preq,NULL,"status_queue failed");
     } 
   else 
     {
@@ -760,7 +761,7 @@ static int status_que(
 
   pbs_queue *pque,	/* ptr to que to status */
   struct batch_request *preq,
-  list_head *pstathd)	/* head of list to append status to */
+  tlist_head *pstathd)	/* head of list to append status to */
 
   {
   struct brp_status *pstat;
@@ -868,7 +869,7 @@ void req_stat_node(
 
   if ((pbsndmast == NULL) || (svr_totnodes <= 0)) 
     {
-    req_reject(PBSE_NONODES,0,preq,NULL,NULL);
+    req_reject(PBSE_NONODES,0,preq,NULL,"node list is empty");
 
     return;
     }
@@ -899,7 +900,7 @@ void req_stat_node(
 
     if (pnode == NULL) 
       {
-      req_reject(PBSE_UNKNODE,0,preq,NULL,NULL);
+      req_reject(PBSE_UNKNODE,0,preq,NULL,"cannot located specified node");
 
       return;
       }
@@ -967,7 +968,7 @@ static int status_node(
 
   struct pbsnode       *pnode,    /* ptr to node receiving status query */
   struct batch_request *preq,
-  list_head            *pstathd)  /* head of list to append status to  */
+  tlist_head            *pstathd)  /* head of list to append status to  */
 
   {
   int		     rc = 0;

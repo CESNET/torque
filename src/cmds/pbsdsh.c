@@ -690,14 +690,14 @@ build_listener(int *port)
 {
     int s;
     struct sockaddr_in addr;
-    socklen_t len = sizeof(addr);
+    torque_socklen_t len = sizeof(addr);
 
     if ((s = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-        fprintf(stderr,"%s: %s: socket",id, __func__);
+        fprintf(stderr,"%s: socket",id);
     if (listen(s, 1024) < 0)
-        fprintf(stderr,"%s: %s: listen",id, __func__);
+        fprintf(stderr,"%s: listen",id);
     if (getsockname(s, (struct sockaddr *)&addr, &len) < 0)
-        fprintf(stderr,"%s: %s: getsockname",id, __func__);
+        fprintf(stderr,"%s: getsockname",id);
     *port = ntohs(addr.sin_port);
     return s;
 }

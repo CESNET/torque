@@ -131,9 +131,10 @@
 /* Global Data Items: */
 
 extern struct server server;
-extern list_head     svr_queues;
+extern tlist_head     svr_queues;
 extern attribute_def que_attr_def[];
 extern attribute_def svr_attr_def[];
+extern attribute_def  node_attr_def[];   /* node attributes defs */
 extern int  svr_chngNodesfile;
 extern char *msg_attrtype;
 extern char *msg_daemonname;
@@ -385,9 +386,13 @@ static int mgr_set_attr(
         {
         if ((rc = (pdef + index)->at_action(new + index,parent,mode))) 
           {
-          attr_atomic_kill(new,pdef,limit);
+             /* always allow removing from ACLs */
+          if (!((plist->al_op == DECR) && (pdef + index)->at_type == ATR_TYPE_ACL))
+            {
+            attr_atomic_kill(new,pdef,limit);
 
-          return(rc);
+            return(rc);
+            }
           }
         }
 
@@ -1004,6 +1009,7 @@ void mgr_server_set(
   svrattrl *plist;
   int	    rc;
 
+
   plist = (svrattrl *)GET_NEXT(preq->rq_ind.rq_manager.rq_attr);
 
   rc = mgr_set_attr(
@@ -1016,7 +1022,106 @@ void mgr_server_set(
     (void *)&server,
     ATR_ACTION_ALTER);
 
-  if (rc != 0)
+  /* PBSE_BADACLHOST - lets show the user the first bad host in the ACL  */
+  if (rc == PBSE_BADACLHOST)
+    {
+    char     *bad_host;
+    char     *host_entry;
+    char      hostname[PBS_MAXHOSTNAME + 1];
+    attribute temp;
+    int       index;
+    int       i;
+    struct    array_strings *pstr;
+    int       bhstrlen;
+
+    bhstrlen = PBS_MAXHOSTNAME + 17;
+    bad_host = malloc(sizeof(char) * (bhstrlen+1));
+
+    if (bad_host==NULL)
+      {
+      reply_badattr(PBSE_BADHOST, bad_attr, plist, preq);
+
+      return;
+      }
+
+    /* look into plist to find an offending attr */
+    while (plist != NULL)
+      {
+      /* only concerned about operators and managers */
+      if (strcmp(plist->al_name,ATTR_managers) && strcmp(plist->al_name,ATTR_operators))
+        {
+        plist = (svrattrl *)GET_NEXT(plist->al_link);
+        continue;
+        }
+
+      index = find_attr(svr_attr_def, plist->al_name, SRV_ATR_LAST); 
+
+      clear_attr(&temp, &svr_attr_def[index]);
+      svr_attr_def[index].at_decode(&temp,plist->al_name,plist->al_resc,plist->al_value); 
+
+      pstr = temp.at_val.at_arst;
+    
+      bad_host[0] = '\0';
+    
+      /* loop over all hosts in the request and perform same
+         check as manager_oper_chk*/
+      for (i = 0; i < pstr->as_usedptr; ++i)
+        {
+        host_entry = strchr(pstr->as_string[i], (int)'@');
+ 
+        /* if wildcard, we can't check */
+        if ((host_entry != NULL) && host_entry[1] != '*')
+          {
+          if (get_fullhostname(host_entry+1,hostname,PBS_MAXHOSTNAME) ||
+              strncmp(host_entry+1,hostname,PBS_MAXHOSTNAME))
+            {
+            snprintf(bad_host,bhstrlen,"First bad host: %s",host_entry+1);
+            break;
+            }
+          }
+        }
+
+      if (bad_host[0] != '\0')
+        break;
+
+      /* nothing wrong found in the request, let's try again
+         with the server's list */
+      pstr = server.sv_attr[(int)index].at_val.at_arst;
+
+      for (i = 0; i < pstr->as_usedptr; ++i)
+        {
+        host_entry = strchr(pstr->as_string[i], (int)'@');
+
+        /* if wildcard, we can't check */
+        if ((host_entry != NULL) && host_entry[1] != '*')
+          {
+          if (get_fullhostname(host_entry+1,hostname,PBS_MAXHOSTNAME) ||
+              strncmp(host_entry+1,hostname,PBS_MAXHOSTNAME))
+            {
+            snprintf(bad_host,bhstrlen,"First bad host: %s",host_entry+1);
+            break;
+            }
+          }
+        }
+
+      if (bad_host[0] != '\0')
+        break;
+
+      plist = (svrattrl *)GET_NEXT(plist->al_link);
+      }
+
+    if (bad_host[0] != '\0') /* we found a fully qualified host that was bad */
+      {
+      req_reject(PBSE_BADACLHOST, 0, preq, NULL, bad_host); 
+      }
+    else /* this shouldn't happen (return PBSE_BADACLHOST, but now we can't find the bad host) */
+      {
+      reply_badattr(PBSE_BADHOST, bad_attr, plist, preq);
+      }
+
+    return;
+    } /* end PBSE_BADACLHOST */
+  else if (rc != 0)
     {
     reply_badattr(rc,bad_attr,plist,preq);
  
@@ -1981,8 +2086,6 @@ void req_manager(
 
 
 
-
-
 /*
  * manager_oper_chk - check the @host part of a manager or operator acl
  *	entry to insure it is fully qualified.  This is to prevent
@@ -2050,13 +2153,20 @@ int manager_oper_chk(
           sprintf(log_buffer,"bad entry in acl: %s",
             pstr->as_string[i]);
 
-          log_err(PBSE_BADHOST, 
+          log_err(PBSE_BADACLHOST, 
             "manager_oper_chk",
             log_buffer);
           } 
         else 
           {
-          err = PBSE_BADHOST;
+          sprintf(log_buffer,"bad entry in acl: %s",
+            pstr->as_string[i]);
+
+          log_err(PBSE_BADACLHOST,
+            "manager_oper_chk",
+            log_buffer);
+
+          err = PBSE_BADACLHOST;
           }
         }
       }
@@ -2180,5 +2290,58 @@ int schiter_chk(
   return(mgr_long_action_helper(pattr,actmode,1,PBS_SCHEDULE_CYCLE));
   }  /* END schiter_chk() */
 
+/* nextjobnum_action - makes sure value is sane (>=0)
+   actually updates server.sv_qs.sv_jobidnumber
+   unsets attribute so it is "hidden" in qmgr */
+int nextjobnum_chk(
+
+  attribute *pattr,
+  void      *pobject,
+  int        actmode)
+  {
+  if (pattr->at_val.at_long > PBS_SEQNUMTOP)
+    {
+    return(PBSE_EXLIMIT);
+    }
+  else if (pattr->at_val.at_long >= 0)
+    {
+    server.sv_qs.sv_jobidnumber = pattr->at_val.at_long;
+    pattr->at_flags &= ~ATR_VFLAG_SET;
+    svr_save(&server,SVR_SAVE_FULL);
+    return(PBSE_NONE);
+    }
+  else
+    {
+    return(PBSE_BADATVAL);
+    } 
+  }
+
+int set_nextjobnum(
+
+  struct attribute *attr,
+  struct attribute *new,
+  enum batch_op op)
+
+  {
+  /* this is almost identical to set_l, but we need to grab the 
+     current value of server.sv_qs.sv_jobidnumber before we INCR/DECR the value of 
+     attr->at_val.at_long.  In fact, it probably should be moved to Libattr/ */
+
+
+  switch (op) 
+    {
+    case SET:   attr->at_val.at_long = new->at_val.at_long;
+                break;
+
+    case INCR:  attr->at_val.at_long = server.sv_qs.sv_jobidnumber += new->at_val.at_long;
+                break;
+
+    case DECR:  attr->at_val.at_long = server.sv_qs.sv_jobidnumber -= new->at_val.at_long;
+                break;
+    default: return(PBSE_SYSTEM);
+    }
+  attr->at_flags |= ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
+  return 0;
+  }
 /* END req_manager.c */
 

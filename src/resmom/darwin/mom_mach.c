@@ -133,26 +133,14 @@
 #include	<ifaddrs.h>
 #include	<mach/vm_map.h>
 
-/* where to put these defines?? */
-/* #define VM_SWAPUSAGE 0 - no this is only for Tiger!! */
-/* #define HW_MEMSIZE 1 - and this is defined in sysctl.h - so will be defined!! */
-#define TUSEMEMSIZE 1
 
-/*  additional header files required for darwin 8.0.0 */
-#ifdef TDARWIN8
 #include 	<mach/mach_host.h>
 #include	<mach/mach_port.h>
 #include	<mach/mach_traps.h>
 #include	<mach/shared_memory_server.h>
 #include	<mach/task.h>
 #include	<mach/thread_act.h>
-#endif /* TDARWIN8 */
 
-/* uncomment the following two header files if required for local build */
-/*
-#include        <mach_shared_memory_server.h>
-#include        <mach_time_value.h>
-*/
 
 #include	"portability.h"
 #include	"pbs_error.h"
@@ -200,11 +188,7 @@ static char *netload	A_((struct rm_attribute *attrib));
 extern char *loadave	A_((struct rm_attribute *attrib));
 extern char *nullproc	A_((struct rm_attribute *attrib));
 
-#ifdef TDARWIN8
 int		get_tinfo_by_pid  A_((struct task_basic_info *t_info, unsigned int pid));
-#else /* TDARWIN8 */
-int		bs_cmp		A_((const void *key, const void *member));
-#endif /* TDARWIN8 */
 
 struct	config	dependent_config[] = {
   { "resi",	{resi} },
@@ -555,11 +539,9 @@ static unsigned long mem_sum(
   int           i;
   unsigned long memsize = 0;
 
-#ifdef TDARWIN8
   struct task_basic_info t_info;
 
   unsigned int pid;
-#endif /* TDARWIN8 */
 
   DBPRT(("mem_sum entered.\n"));
 
@@ -570,18 +552,12 @@ static unsigned long mem_sum(
     if (!injob(pjob,sess_tbl[i]))
       continue;
 
-#ifdef TDARWIN8
     pid = pp->kp_proc.p_pid;
 
     if (get_tinfo_by_pid(&t_info,pid) != 0)
       continue;
 
     memsize += ctob(t_info.virtual_size);	
-#else /* TDARWIN8 */
-    memsize += ctob(pp->kp_eproc.e_vm.vm_tsize +
-      pp->kp_eproc.e_vm.vm_dsize +
-      pp->kp_eproc.e_vm.vm_ssize);
-#endif /* TDARWIN8 */
 
     DBPRT(("%s: ses %d pid=%d totmem=%lu\n", 
       id, sess_tbl[i], pp->kp_proc.p_pid, memsize))
@@ -606,10 +582,8 @@ static unsigned long resi_sum(
   int		 i;
   unsigned long	 memsize = 0;
 
-#ifdef TDARWIN8
   struct task_basic_info t_info;	
   unsigned int pid;
-#endif /* TDARWIN8 */
 
   for (i = 0;i < nproc;i++) 
     {
@@ -618,7 +592,6 @@ static unsigned long resi_sum(
     if (!injob(pjob,sess_tbl[i]))
       continue;
 
-#ifdef TDARWIN8
     pid = pp->kp_proc.p_pid;
 
     if (get_tinfo_by_pid(&t_info,pid) != 0)
@@ -628,12 +601,6 @@ static unsigned long resi_sum(
 
     DBPRT(("%s: pid=%d ses=%d mem=%d totmem=%d\n", 
      id,pp->kp_proc.p_pid,sess_tbl[i],t_info.resident_size,memsize))
-#else /* TDARWIN8 */
-    memsize += ctob(pp->kp_eproc.e_vm.vm_rssize);
-
-    DBPRT(("%s: pid=%d ses=%d mem=%d totmem=%lu\n",
-      id,pp->kp_proc.p_pid,sess_tbl[i],pp->kp_eproc.e_vm.vm_rssize,memsize))
-#endif /* TDARWIN8 */
     }  /* END for (i) */
 
   return(memsize);
@@ -655,10 +622,8 @@ static int overmem_proc(
   {
   int i;
 
-#ifdef TDARWIN8
   struct task_basic_info t_info;	
   unsigned int pid;	
-#endif /* TDARWIN8 */
 
   for (i = 0;i < nproc;i++) 
     {
@@ -667,7 +632,6 @@ static int overmem_proc(
     if (!injob(pjob,sess_tbl[i]))
       continue;
 
-#ifdef TDARWIN8
     pid = pp->kp_proc.p_pid;
 
     if (get_tinfo_by_pid(&t_info,pid) != 0)
@@ -677,14 +641,6 @@ static int overmem_proc(
       {
       return(TRUE);	
       }
-#else /* TDARWIN8 */
-    if ((unsigned long)ctob(pp->kp_eproc.e_vm.vm_tsize +
-             pp->kp_eproc.e_vm.vm_dsize +
-             pp->kp_eproc.e_vm.vm_ssize) > limit)
-      {
-      return(TRUE);
-      }
-#endif /* TDARWIN8 */
     }  /* END for (i) */
 
   return(FALSE);
@@ -952,24 +908,6 @@ int qs_cmp(
 
 
 
-/* removed 5/22/05 MAINE OSX 10.5 patch 
- * Only needs to be removed if TDARWIN8
- * is defined
- */
-
-
-#ifndef TDARWIN8
-
-int bs_cmp(
-
-  const void *key,
-  const void *member)
-
-  {
-  return((int)((struct session *)key)->s_leader - (int)((struct kinfo_proc *)member)->kp_eproc.e_paddr);
-  }
-
-#endif /* TDARWIN8 */
 
 typedef struct kinfo_proc kinfo_proc;
 
@@ -1093,102 +1031,6 @@ static kinfo_proc *GetBSDProcessList(
  *	use the same data.  Returns a PBS error code.
  */
 
-#ifndef TDARWIN8
-
-int mom_get_sample()
-
-  {
-  char		*id = "mom_get_sample";
-  int		i;
-  
-  struct session ss; 
-
-  struct	kinfo_proc	*kp;
-  struct	kinfo_proc	*leader;
-  pid_t		sid;
-
-  DBPRT(("%s: entered\n", 
-    id))
-
-  if (sess_tbl != NULL)
-    free(sess_tbl);
-
-  if (kd == NULL)
-    {
-    return(PBSE_INTERNAL);
-    }
-
-  /* proc_tbl = kvm_getprocs(kd, KERN_PROC_ALL, 0, &nproc); */
-
-  proc_tbl = GetBSDProcessList(proc_tbl,&nproc);
-
-  if (proc_tbl == NULL) 
-    {
-    sprintf(log_buffer,"kvm_getprocs: %s", 
-      kvm_geterr(kd));
-
-    log_err(errno,id,log_buffer);
-
-    return(PBSE_SYSTEM);
-    }
-
-  sess_tbl = (pid_t *)calloc(nproc,sizeof(pid_t));
-
-  if (sess_tbl == NULL) 
-    {
-    sprintf(log_buffer,"can't allocate memory for session table");
-
-    log_err(errno,id,log_buffer);
-
-    return(PBSE_SYSTEM);
-    }
-
-  qsort(proc_tbl,nproc,sizeof(struct kinfo_proc),qs_cmp);
-
-  for (i = 0,kp = proc_tbl;i < nproc;i++,kp++) 
-    {
-    if (kp->kp_eproc.e_sess != NULL)  
-      {
-      if (kvm_read(
-            kd, 
-            (u_long)kp->kp_eproc.e_sess, 
-            &ss, 
-            sizeof(ss)) != sizeof(ss)) 
-        {
-        sprintf(log_buffer,"kvm_read: %s", 
-          kvm_geterr(kd));
-
-        log_err(errno,id,log_buffer);
-
-        return(PBSE_SYSTEM);
-        }
-
-      if ((ss.s_leader == kp->kp_eproc.e_paddr) ||
-          (ss.s_leader == NULL)) 
-        {
-        sid = kp->kp_proc.p_pid;
-        }
-      else 
-        {
-        leader = bsearch(
-          &ss, 
-          proc_tbl, 
-          nproc,
-          sizeof(struct kinfo_proc), 
-          bs_cmp);
-
-        sid = leader ? leader->kp_proc.p_pid : 0;
-        }
-
-      sess_tbl[i] = sid;
-      }
-    }
-
-  return(PBSE_NONE);
-  }
-
-#else /* TDARWIN8 */
-
 int mom_get_sample()
 
   {
@@ -1251,8 +1093,6 @@ int mom_get_sample()
 
   return(PBSE_NONE);
   }
-
-#endif /* !TDARWIN8 */
 
 
 
@@ -1545,7 +1385,7 @@ int kill_task(
       }
  
     sprintf(log_buffer,"%s: killing pid %d task %d with sig %d",
-      (char *)__func__,
+      id,
       pp->kp_proc.p_pid,
       ptask->ti_qs.ti_task,
       sig);
@@ -1863,10 +1703,8 @@ char *mem_job(
   int   memsize, addmem;
   int   found = 0;
 
-#ifdef TDARWIN8
   struct task_basic_info t_info;
   unsigned int pid;
-#endif /* TDARWIN8 */
 
   if (getprocs() == 0) 
     {
@@ -1886,18 +1724,12 @@ char *mem_job(
 
     found = 1;
 
-#ifdef TDARWIN8
     pid = pp->kp_proc.p_pid;
 
     if (get_tinfo_by_pid(&t_info,pid) != 0)
       continue;
 
     addmem = t_info.virtual_size;
-#else /* TDARWIN8 */
-    addmem = pp->kp_eproc.e_vm.vm_tsize +
-             pp->kp_eproc.e_vm.vm_dsize +
-             pp->kp_eproc.e_vm.vm_ssize;
-#endif /* !TDARWIN8 */
 
     memsize += addmem;
 
@@ -1930,9 +1762,7 @@ char *mem_proc(
   int   i;
   int   memsize;
 
-#ifdef TDARWIN8
   struct task_basic_info t_info;
-#endif /* TDARWIN8 */
 
   if (getprocs() == 0)
     {
@@ -1950,18 +1780,12 @@ char *mem_proc(
     if (pid != sess_tbl[i])
       continue;
 
-#ifdef TDARWIN8
     pid = pp->kp_proc.p_pid;
 
     if (get_tinfo_by_pid(&t_info,pid) != 0)
       continue;
 
     memsize = t_info.virtual_size;
-#else /* TDARWIN8 */
-    memsize = pp->kp_eproc.e_vm.vm_tsize +
-              pp->kp_eproc.e_vm.vm_dsize +
-              pp->kp_eproc.e_vm.vm_ssize;
-#endif /* !TDARWIN8 */
 
     sprintf(ret_string,"%ukb", 
       ctob(memsize) >> 10); /* KB */
@@ -2024,10 +1848,8 @@ static char *resi_job(
   int	i, found;
   int	resisize;
 
-#ifdef TDARWIN8
   struct task_basic_info t_info;
   unsigned int pid;
-#endif /* TDARWIN8 */
 
   if (getprocs() == 0) 
     {
@@ -2048,16 +1870,12 @@ static char *resi_job(
 
     found = 1;
 
-#ifdef TDARWIN8
     pid = pp->kp_proc.p_pid;
 
     if (get_tinfo_by_pid(&t_info,pid ) != 0)
       continue;
 
     resisize += t_info.resident_size;
-#else /* TDARWIN8 */
-    resisize += pp->kp_eproc.e_vm.vm_rssize;
-#endif /* TDARWIN8 */
     }
 
   if (found) 
@@ -2085,9 +1903,7 @@ static char *resi_proc(
   int	i;
   int	resisize;
 
-#ifdef TDARWIN8
   struct task_basic_info t_info;
-#endif /* TDARWIN8 */
 
   if (getprocs() == 0) 
     {
@@ -2105,14 +1921,10 @@ static char *resi_proc(
     if (pid != pp->kp_proc.p_pid)
       continue;
 
-#ifdef TDARWIN8
     if (get_tinfo_by_pid(&t_info,pp->kp_proc.p_pid) != 0)
       continue;
 
     resisize = t_info.resident_size;
-#else /* TDARWIN8 */
-    resisize = pp->kp_eproc.e_vm.vm_rssize;
-#endif /* TDARWIN8 */
 
     sprintf(ret_string,"%ukb",
       ctob(resisize) >> 10); /* KB */
@@ -2269,7 +2081,7 @@ char *nsessions(
 
   {
   char *result, *ch;
-  int   num = 0;
+  int   num = 1;
 
   if ((result = sessions(attrib)) == NULL)
     { 
@@ -2682,7 +2494,7 @@ static char *physmem(
     return(NULL);
     }
 
-#ifdef TUSEMEMSIZE
+#ifdef HW_MEMSIZE
 
   {
   /* NOTE:  patch by UMaine */
@@ -2732,7 +2544,7 @@ static char *physmem(
 
   }  /* END BLOCK */
 
-#endif /* TUSEMEMSIZE */
+#endif /* HW_MEMSIZE */
 
   return(ret_string);
   }  /* END physmem() */
@@ -3239,7 +3051,6 @@ void scan_non_child_tasks(void)
 
 
 
-#ifdef TDARWIN8
 
 /* This is basically a wrapper for the MACH t_info and vm_region calls */
 
@@ -3308,5 +3119,4 @@ int get_tinfo_by_pid(
   return(0);
   }
 
-#endif /* TDARWIN8 */
 

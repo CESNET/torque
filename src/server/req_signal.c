@@ -154,6 +154,9 @@ void req_signaljob(
     preq->rq_extra = pjob;  /* save job ptr for post_signal_req() */
     }
 
+/* FIXME: need a race-free check for available free subnodes before
+ * resuming a suspended job */
+
 #ifdef DONOTSUSPINTJOB
   /* interactive jobs don't resume correctly so don't allow a suspend */
 
@@ -193,27 +196,42 @@ void req_signaljob(
  * issue_signal - send an internally generated signal to a running job
  */
 
-int issue_signal(pjob, signame, func, extra)
-	job  *pjob;
-	char *signame;	/* name of the signal to send */
-	void (*func) A_((struct work_task *));
-	void *extra;	/* extra parameter to be stored in sig request */
-{
-	struct batch_request *newreq;
+int issue_signal(
 
-	/* build up a Signal Job batch request */
+  job  *pjob,
+  char *signame,	/* name of the signal to send */
+  void (*func) A_((struct work_task *)),
+  void *extra)	/* extra parameter to be stored in sig request */
 
-	if ((newreq = alloc_br(PBS_BATCH_SignalJob))==(struct batch_request *)0)
-		return (PBSE_SYSTEM);
+  {
+  int rc;
 
-	newreq->rq_extra = extra;
-	(void)strcpy(newreq->rq_ind.rq_signal.rq_jid, pjob->ji_qs.ji_jobid);
-	(void)strncpy(newreq->rq_ind.rq_signal.rq_signame, signame, PBS_SIGNAMESZ);
-	return (relay_to_mom(pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
-			      newreq, func)); 
+  struct batch_request *newreq;
 
-	/* when MOM replies, we just free the request structure */
-}
+  /* build up a Signal Job batch request */
+
+  if ((newreq = alloc_br(PBS_BATCH_SignalJob)) == NULL)
+    {
+    /* FAILURE */
+
+    return(PBSE_SYSTEM);
+    }
+
+  newreq->rq_extra = extra;
+
+  strcpy(newreq->rq_ind.rq_signal.rq_jid,pjob->ji_qs.ji_jobid);
+
+  strncpy(newreq->rq_ind.rq_signal.rq_signame,signame,PBS_SIGNAMESZ);
+
+  rc = relay_to_mom(
+    pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+    newreq,
+    func); 
+
+  /* when MOM replies, we just free the request structure */
+
+  return(rc);
+  }  /* END issue_signal() */
 
 
 
@@ -255,27 +273,33 @@ static void post_signal_req(
 
     if (strcmp(preq->rq_ind.rq_signal.rq_signame,SIG_SUSPEND) == 0) 
       {
-      pjob->ji_qs.ji_svrflags |= JOB_SVFLG_Suspend;
+      if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) == 0)
+        {
+        pjob->ji_qs.ji_svrflags |= JOB_SVFLG_Suspend;
 
-      set_statechar(pjob);
+        set_statechar(pjob);
 
-      job_save(pjob,SAVEJOB_QUICK);
+        job_save(pjob,SAVEJOB_QUICK);
 
-      /* release resources allocated to suspended job - NORWAY */
+        /* release resources allocated to suspended job - NORWAY */
 
-      free_nodes(pjob);
-      } 
+        free_nodes(pjob);
+        } 
+      }
     else if (strcmp(preq->rq_ind.rq_signal.rq_signame,SIG_RESUME) == 0) 
       {
-      /* re-allocate assigned node to resumed job - NORWAY */
+      if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend)
+        {
+        /* re-allocate assigned node to resumed job - NORWAY */
 
-      set_old_nodes(pjob);
+        set_old_nodes(pjob);
 
-      pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Suspend;
+        pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Suspend;
 
-      set_statechar(pjob);
+        set_statechar(pjob);
 
-      job_save(pjob,SAVEJOB_QUICK);
+        job_save(pjob,SAVEJOB_QUICK);
+        }
       }
 			
     reply_ack(preq);

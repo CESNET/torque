@@ -243,6 +243,7 @@ void free_null(
 
   attr->at_val.at_size.atsv_num   = 0;
   attr->at_val.at_size.atsv_shift = 0;
+  attr->at_val.at_size.atsv_units = 0;
   attr->at_flags &= ~ATR_VFLAG_SET;
 
   return;
@@ -393,7 +394,7 @@ svrattrl *attrlist_create(
  */
 
 void free_attrlist(pattrlisthead)
-	list_head *pattrlisthead;
+	tlist_head *pattrlisthead;
 {
 	svrattrl *pal;
 	svrattrl *nxpal;
@@ -643,7 +644,7 @@ int	count_substrings( val, pcnt )
  */
 
 void attrl_fixlink(phead)
-	list_head *phead;	/* pointer to head of svrattrl list */
+	tlist_head *phead;	/* pointer to head of svrattrl list */
 {
 	svrattrl *pal;
 	svrattrl *pnxt;
