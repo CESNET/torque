@@ -19,6 +19,7 @@
 
 #include "port_forwarding.h"
 
+
 /* handy utility to handle forwarding socket connections to another host
  * pass in an initialized pfwdsock struct with sockets to listen on, a function
  * pointer to get a new socket for forwarding, and a hostname and port number to 
@@ -29,12 +30,8 @@ int port_forwarder(struct pfwdsock *socks,int(*connfunc)(char *,int),char *phost
   {
   fd_set rfdset, wfdset, efdset;
   int rc, maxsock=0;
-#ifdef ENABLE_IPV6
-  struct sockaddr_in6 from;
-#else
-  struct sockaddr_in  from;
-#endif
-  socklen_t fromlen;
+  struct sockaddr_storage from;
+  torque_socklen_t fromlen;
   int n,n2,sock;
 
 
@@ -195,7 +192,7 @@ void
 set_nodelay(int fd)
 {       
         int opt;
-        socklen_t optlen;
+        torque_socklen_t optlen;
         
         optlen = sizeof opt;
         if (getsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, &optlen) == -1) {
@@ -236,6 +233,13 @@ connect_local_xsocket(u_int dnr)
 int
 x11_connect_display(char *display,int alsounused)
 {       
+#ifndef HAVE_GETADDRINFO
+  /* this was added for cygwin which doesn't seem to have a working
+   * getaddrinfo() yet.
+   * this will have to be figured out later */
+  return -1;
+#else
+
         int display_number, sock = 0;
         char buf[1024], *cp;
         struct addrinfo hints, *ai, *aitop;
@@ -319,6 +323,7 @@ x11_connect_display(char *display,int alsounused)
         }
         set_nodelay(sock);
         return sock;                                                                        
+#endif /* HAVE_GETADDRINFO */
 }
 
 

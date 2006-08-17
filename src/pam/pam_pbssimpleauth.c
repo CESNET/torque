@@ -1,5 +1,7 @@
 /* pam_pbssimpleauth module */
 
+#define NEED_BLOCKING_CONNECTIONS
+#include "pbs_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,6 +14,7 @@
 #include <dirent.h>
 #include <syslog.h>
 #include <errno.h>
+#include <string.h>
 
 #include "portability.h"
 #include "list_link.h"
@@ -31,10 +34,25 @@
 
 #define PAM_SM_AUTH
 #define PAM_SM_ACCOUNT
-#include <security/pam_modules.h>
 
-#define PAM_GETPWNAM_R
-#include <security/_pam_macros.h>
+#ifdef HAVE_SECURITY_PAM_APPL_H
+#include <security/pam_appl.h>
+#endif
+
+#ifdef HAVE_SECURITY_PAM_MODULES_H
+#include <security/pam_modules.h>
+#else
+#ifdef HAVE_PAM_PAM_MODULES_H
+#include <pam/pam_modules.h>
+#endif
+#endif
+
+/* this isn't defined on solaris */
+#ifndef PAM_EXTERN
+#define PAM_EXTERN
+#endif
+
+
 
 /* --- authentication management functions (only) --- */
 
@@ -43,10 +61,9 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc,
                         const char **argv)
 {
   int retval = PAM_SERVICE_ERR;
-  const char *username;
-  struct passwd pwd, *user_pwd;
+  pam_get_user_2nd_arg_t *username;
+  struct passwd *user_pwd;
   char *ubuf = NULL;
-  size_t ubuflen;
   struct dirent *jdent;
   DIR *jobdir=NULL;
   int fp;
@@ -81,11 +98,14 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc,
 
   /* get the username and passwd, allow uid 0 */
   retval = pam_get_user(pamh, &username, NULL);
+
+#if defined(PAM_CONV_AGAIN) && defined(PAM_INCOMPLETE)
   if (retval == PAM_CONV_AGAIN)
     {
     closelog();
     return PAM_INCOMPLETE;
     }
+#endif
 
   if ((retval != PAM_SUCCESS) || !username)
     {
@@ -94,8 +114,7 @@ int pam_sm_authenticate(pam_handle_t *pamh, int flags, int argc,
     return PAM_SERVICE_ERR;
     }
 
-  if (_pam_getpwnam_r(username, &pwd, &ubuf, &ubuflen, &user_pwd) != 0)
-    user_pwd = NULL;
+  user_pwd = getpwnam(username);
 
   /* no early returns from this point on because we need to free ubuf */
 

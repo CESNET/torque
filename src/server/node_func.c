@@ -103,6 +103,10 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <time.h>
+#if defined(NTOHL_NEEDS_ARPA_INET_H) && defined(HAVE_ARPA_INET_H)
+#include <arpa/inet.h>
+#endif
+
 #include "pbs_ifl.h"
 #include "libpbs.h"
 #include "list_link.h"
@@ -121,7 +125,7 @@
 #if !defined(H_ERRNO_DECLARED)
 extern int h_errno;
 #endif
-extern time_t      time_now;
+extern time_t  time_now;
 
 
 /* Global Data */
@@ -133,6 +137,7 @@ extern char	*path_nodes_new;
 extern char	*path_nodes;
 extern char	*path_nodestate;
 extern int       LOGLEVEL;
+extern attribute_def  node_attr_def[];   /* node attributes defs */
 
 
 /* Functions in this file
@@ -344,11 +349,6 @@ int addr_ok(
 
 
 /* FIXME: this should all be in a seperate header file */
-typedef struct tree_t {
-       u_long          key;
-       struct pbsnode  *nodep;
-       struct tree_t   *left, *right;
-} tree;
 
 extern void tinsert(const u_long key, struct pbsnode *nodep, tree **rootp);
 extern void *tdelete(const u_long key, tree **rootp);
@@ -571,7 +571,7 @@ int status_nodeattrib(
   int              limit,	/*number of array elts in padef */
   int              priv,	/*requester's privilege		*/
 
-  list_head       *phead,	/*heads list of svrattrl structs that hang */
+  tlist_head       *phead,	/*heads list of svrattrl structs that hang */
 				/*off the brp_attr member of the status sub*/
 				/*structure in the request's "reply area"  */
 
@@ -1456,7 +1456,7 @@ int setup_nodes(void)
   char      xchar;
   svrattrl *pal;
   int	  perm = ATR_DFLAG_MGRD|ATR_DFLAG_MGWR;
-  list_head atrlist;
+  tlist_head atrlist;
 
   extern char server_name[];
   extern resource_t next_resource_tag;
@@ -1677,9 +1677,9 @@ int setup_nodes(void)
         if (strcmp(np->nd_name,line) == 0) 
           {
           np->nd_state = num|INUSE_NEEDS_HELLO_PING;
-#ifdef VNODETESTING
+
+          /* exclusive bits are calculated later in set_old_nodes() */
           np->nd_state &= ~(INUSE_JOB|INUSE_JOBSHARE);
-#endif
 
           break;
           }

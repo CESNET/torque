@@ -106,6 +106,7 @@
 extern char *msg_manager;
 extern char *msg_jobrerun;
 
+extern void rel_resc(job *);
 
 /*
  * post_rerun - handler for reply from mom on signal_job sent in req_rerunjob
@@ -161,54 +162,168 @@ static void post_rerun(
  *		marking the job as being rerun by setting the substate.
  */
 
-void req_rerunjob(preq)
-	struct batch_request *preq;
-{
-	job		 *pjob;
+void req_rerunjob(
 
-	if ((pjob = chk_job_request(preq->rq_ind.rq_rerun, preq)) == 0)
-		return;
+  struct batch_request *preq) /* I */
 
-	if ((preq->rq_perm & ( ATR_DFLAG_MGWR | ATR_DFLAG_OPWR )) == 0) {
-		req_reject(PBSE_PERM, 0, preq,NULL,NULL);
-		return;
-	}
+  {
+  job *pjob;
 
-	/* the job must be running */
+  int  Force;
 
-	if (pjob->ji_qs.ji_state != JOB_STATE_RUNNING) {
-		req_reject(PBSE_BADSTATE, 0, preq,NULL,NULL);
-		return;
-	}
+  int  rc;
 
-	/* the job must be rerunnable */
+  if ((pjob = chk_job_request(preq->rq_ind.rq_rerun,preq)) == 0)
+    {
+    /* FAILURE */
 
-	if (pjob->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long == 0) {
-		req_reject(PBSE_NORERUN, 0, preq,NULL,NULL);
-		return;
-	}
+    /* chk_job_request calls req_reject() */
 
-	/* ask MOM to kill off the job */
+    return;
+    }
 
-	if (issue_signal(pjob, "SIGKILL", post_rerun, 0) != 0) {
-		req_reject(PBSE_MOMREJECT, 0, preq,NULL,NULL);
-		return;
-	}
-	
-	/* So job has run and is to be rerun (not restarted) */
+  if (preq->rq_extend && !strncasecmp(preq->rq_extend,RERUNFORCE,strlen(RERUNFORCE)))
+    Force = 1;
+  else
+    Force = 0;
 
-	pjob->ji_qs.ji_substate  = JOB_SUBSTATE_RERUN;
-	pjob->ji_qs.ji_svrflags = (pjob->ji_qs.ji_svrflags & 
-				  ~(JOB_SVFLG_CHKPT | JOB_SVFLG_ChkptMig)) |
-				  JOB_SVFLG_HASRUN;
+  if ((preq->rq_perm & (ATR_DFLAG_MGWR|ATR_DFLAG_OPWR)) == 0) 
+    {
+    /* FAILURE */
+
+    req_reject(PBSE_PERM,0,preq,NULL,NULL);
+
+    return;
+    }
+
+  /* the job must be running */
+
+  if (pjob->ji_qs.ji_state != JOB_STATE_RUNNING) 
+    {
+    /* FAILURE */
+
+    req_reject(PBSE_BADSTATE,0,preq,NULL,NULL);
+
+    return;
+    }
+
+  /* the job must be rerunnable */
+
+  if (pjob->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long == 0) 
+    {
+    /* NOTE:  should force override this constraint? maybe (???) */
+    /*          no, the user is saying that the job will break, and
+                IEEE Std 1003.1 specifically says rerun is to be rejected
+                if rerunable==FALSE -garrick */
+
+    req_reject(PBSE_NORERUN,0,preq,NULL,NULL);
+
+    return;
+    }
+
+  /* ask MOM to kill off the job */
+
+  rc = issue_signal(pjob,"SIGKILL",post_rerun,0);
+
+  switch (rc) 
+    {
+    case 0:
+
+      /* requeue request successful */
+
+      pjob->ji_qs.ji_substate  = JOB_SUBSTATE_RERUN;
+
+      break;
+
+    case PBSE_SYSTEM:
+
+      req_reject(PBSE_SYSTEM,0,preq,NULL,"cannot allocate memory");
+
+      return;
+
+      /*NOTREACHED*/
+
+      break;
+
+    default:
+
+      if (Force == 0)
+        {
+        req_reject(PBSE_MOMREJECT,0,preq,NULL,NULL);
+
+        return;
+        }
+      else
+        {
+        int newstate, newsubst;
+        unsigned int dummy;
+
+        /* Cannot communicate with MOM, forcibly requeue job.
+           This is a relatively disgusting thing to do */
+
+        sprintf(log_buffer,"rerun req to %s failed (rc=%d), forcibly requeueing job",
+          parse_servername(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,&dummy),
+          rc);
+
+        log_event(
+          PBSEVENT_ERROR|PBSEVENT_ADMIN|PBSEVENT_JOB,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          log_buffer);
+
+        log_err(-1,"req_rerunjob",log_buffer);
+
+        strcat(log_buffer,", previous output files may be lost");
+
+        svr_mailowner(pjob,MAIL_OTHER,MAIL_FORCE,log_buffer);
+
+        svr_setjobstate(pjob,JOB_STATE_EXITING,JOB_SUBSTATE_RERUN3);
+
+        rel_resc(pjob); /* free resc assigned to job */
+
+        if ((pjob->ji_qs.ji_svrflags | JOB_SVFLG_HOTSTART) == 0)
+          {
+          /* in case of server shutdown, don't clear exec_host */
+          /* will use it on hotstart when next comes up        */
+
+          job_attr_def[(int)JOB_ATR_exec_host].at_free(
+            &pjob->ji_wattr[(int)JOB_ATR_exec_host]);
+          }
+      
+        pjob->ji_modified = 1;    /* force full job save */
+        pjob->ji_momhandle = -1;
+        pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_StagedIn;
+
+        svr_evaljobstate(pjob,&newstate,&newsubst,0);
+
+        svr_setjobstate(pjob,newstate,newsubst);
+        }
+  
+      break;
+    }  /* END switch (rc) */
+  	
+  /* So job has run and is to be rerun (not restarted) */
+
+  pjob->ji_qs.ji_svrflags = (pjob->ji_qs.ji_svrflags & 
+    ~(JOB_SVFLG_CHKPT|JOB_SVFLG_ChkptMig)) | JOB_SVFLG_HASRUN;
 		
-	(void)sprintf(log_buffer, msg_manager, msg_jobrerun, 
-		      preq->rq_user, preq->rq_host);
-	log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid,
-		  log_buffer);
-	reply_ack(preq);
+  sprintf(log_buffer,msg_manager, 
+    msg_jobrerun, 
+    preq->rq_user, 
+    preq->rq_host);
 
-	/* note in accounting file */
+  log_event(
+    PBSEVENT_JOB,
+    PBS_EVENTCLASS_JOB, 
+    pjob->ji_qs.ji_jobid,
+    log_buffer);
 
-	account_record(PBS_ACCT_RERUN, pjob, (char *)0);
-}
+  reply_ack(preq);
+
+  /* note in accounting file */
+
+  account_record(PBS_ACCT_RERUN,pjob,NULL);
+  }  /* END req_rerunjob() */
+
+
+

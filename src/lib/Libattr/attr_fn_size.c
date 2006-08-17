@@ -172,7 +172,7 @@ int decode_size(
 int encode_size(
 
   attribute *attr,    /* ptr to attribute */
-  list_head *phead,   /* head of attrlist list */
+  tlist_head *phead,   /* head of attrlist list */
   char      *atname,  /* attribute name */
   char      *rsname,  /* resource name (optional) */
   int        mode)    /* encode mode (not used) */
@@ -402,7 +402,8 @@ int to_size(
 
   switch (*pc) 
     {
-    case '\0':	break;
+    case '\0':	psize->atsv_shift = 0;
+        break;
     case 'k':
     case 'K':	psize->atsv_shift = 10;
 	break;

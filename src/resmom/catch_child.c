@@ -129,7 +129,7 @@ extern char             *path_epilogp;
 extern char             *path_epiloguserp;
 extern char		*path_jobs;
 extern unsigned int	default_server_port;
-extern list_head	svr_alljobs, mom_polljobs;
+extern tlist_head	svr_alljobs, mom_polljobs;
 extern int		exiting_tasks;
 extern char		*msg_daemonname;
 extern int		termin_child;
@@ -148,7 +148,7 @@ u_long resc_used(job *,char *,u_long (*f) A_((resource *)));
 static void obit_reply A_((int));
 extern int tm_reply A_((int,int,tm_event_t));
 extern u_long addclient A_((char *));
-extern void encode_used A_((job *,list_head *));
+extern void encode_used A_((job *,tlist_head *));
 extern void job_nodes A_((job *));
 extern int task_recov A_((job *));
 
@@ -1374,6 +1374,11 @@ void init_abort_jobs(
     }    /* while ((pdirent = readdir(dir)) != NULL) */
 
   closedir(dir);
+
+#if defined(PENABLE_LINUX26_CPUSETS)
+  /* Create the top level torque cpuset if it doesn't already exist. */
+  initialize_root_cpuset();
+#endif
 
   return;
   }  /* END init_abort_jobs() */

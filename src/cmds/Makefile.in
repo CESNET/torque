@@ -83,7 +83,6 @@ LN_S = @LN_S@
 MAINT = @MAINT@
 MAKE = @MAKE@
 MOMLIBS = @MOMLIBS@
-MOM_ADDTL_OBJS = @MOM_ADDTL_OBJS@
 MY_TCL_INCS = @MY_TCL_INCS@
 MY_TCL_LIBS = @MY_TCL_LIBS@
 OBJDUMP = @OBJDUMP@
@@ -742,7 +741,7 @@ uninstall-am: uninstall-binPROGRAMS uninstall-binSCRIPTS \
 
 
 install-exec-hook:
-	$(PBS_MKDIRS) aux
+	$(PBS_MKDIRS) aux || :
 	$(PBS_MKDIRS) default
 
 uninstall-hook:

@@ -111,6 +111,7 @@
 #include "job.h"
 #include "queue.h"
 #include "server.h"
+#include "pbs_nodes.h"
 #include "net_connect.h"
 #include "credential.h"
 #include "svrfunc.h"
@@ -127,7 +128,7 @@
 
 extern int  pbsd_init A_((int));
 extern void shutdown_ack ();
-extern void update_nodes_file A_((void));
+extern int  update_nodes_file A_((void));
 extern void tcp_settimeout(long);
 extern void poll_job_task(struct work_task *);
 extern int  schedule_jobs(void);
@@ -167,6 +168,7 @@ char 	       *path_track;
 char	       *path_nodes;
 char	       *path_nodes_new;
 char	       *path_nodestate;
+char	       *path_resources;
 extern char    *msg_daemonname;
 extern int	pbs_errno;
 char	       *pbs_o_host = "PBS_O_HOST";
@@ -185,13 +187,13 @@ int	 	server_init_type = RECOV_WARM;
 char	        server_name[PBS_MAXSERVERNAME + 1]; /* host_name[:service|port] */
 int		svr_delay_entry = 0;
 int		svr_do_schedule = SCH_SCHEDULE_NULL;
-list_head	svr_queues;            /* list of queues                   */
-list_head	svr_alljobs;           /* list of all jobs in server       */
-list_head	svr_newjobs;           /* list of incoming new jobs        */
-list_head	svr_newnodes;          /* list of newly created nodes      */
-list_head	task_list_immed;
-list_head	task_list_timed;
-list_head	task_list_event;
+tlist_head	svr_queues;            /* list of queues                   */
+tlist_head	svr_alljobs;           /* list of all jobs in server       */
+tlist_head	svr_newjobs;           /* list of incoming new jobs        */
+tlist_head	svr_newnodes;          /* list of newly created nodes      */
+tlist_head	task_list_immed;
+tlist_head	task_list_timed;
+tlist_head	task_list_event;
 
 time_t		time_now = 0;
 
@@ -260,8 +262,19 @@ void do_rpp(
     {
     if (LOGLEVEL >= 1)
       {
-      sprintf(log_buffer,"corrupt rpp request received on stream %d (invalid protocol)\n",
-        stream);
+      struct pbsnode *node;
+
+      extern tree *streams;        /* tree of stream numbers */
+
+      /* NOTE:  report IP associated w/stream - NYI */
+
+      node = tfind((u_long)stream,&streams);
+
+      sprintf(log_buffer,"corrupt rpp request received on stream %d (node: %s) - invalid protocol - rc=%d (%s)\n",
+        stream,
+        (node != NULL) ? node->nd_name : "NULL",
+        ret,
+        dis_emsg[ret]);
 
       log_record(
         PBSEVENT_SCHED,
@@ -281,8 +294,10 @@ void do_rpp(
     {
     if (LOGLEVEL >= 1)
       {
-      sprintf(log_buffer,"corrupt rpp request received on stream %d (invalid version)\n",
-        stream);
+      sprintf(log_buffer,"corrupt rpp request received on stream %d - invalid version - rc=%d (%s)\n",
+        stream,
+        ret,
+        dis_emsg[ret]);
 
       log_record(
         PBSEVENT_SCHED,
@@ -421,6 +436,7 @@ int main(
 
   void	 ping_nodes A_((struct work_task *ptask));
   void   check_nodes A_((struct work_task *ptask));
+  void   check_log A_((struct work_task *ptask));
 
   static struct {
     char *it_name;
@@ -781,6 +797,7 @@ int main(
 
   log_open(log_file,path_log);
 
+
   sprintf(log_buffer,msg_startup1,server_name,server_init_type);
 
   log_event(
@@ -953,6 +970,9 @@ int main(
   /* Just check the nodes with check_nodes above and don't ping anymore. */
 
   set_task(WORK_Timed,time_now+5,ping_nodes,NULL); 
+  
+
+  set_task(WORK_Immed, time_now + 5, check_log, NULL);
 
   /*
    * Now at last, we are ready to do some batch work.  The
@@ -1142,6 +1162,42 @@ int main(
   }  /* END main() */
 
 
+void check_log(
+
+ struct work_task *ptask)
+
+ {
+ long depth = 1;
+
+ if ((server.sv_attr[(int)SRV_ATR_LogFileMaxSize].at_flags 
+      & ATR_VFLAG_SET) != 0)
+   {
+   if (log_size() >= server.sv_attr[(int)SRV_ATR_LogFileMaxSize].at_val.at_long)
+     {
+     log_event(
+       PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+       PBS_EVENTCLASS_SERVER,
+       msg_daemonname,
+       "Rolling log file");
+
+      if ((server.sv_attr[(int)SRV_ATR_LogFileRollDepth].at_flags 
+           & ATR_VFLAG_SET) != 0)
+        {
+        depth = server.sv_attr[(int)SRV_ATR_LogFileRollDepth].at_val.at_long;
+        }
+
+      if ((depth >= INT_MAX) || (depth < 1))
+        {
+        log_err(-1,"check_log","log roll cancelled, logfile depth is out of range");
+        }
+      else
+        {
+        log_roll(depth);
+        }
+      }
+    }
+ set_task(WORK_Timed,time_now + PBS_LOG_CHECK_RATE, check_log, NULL);   
+ } /* END check_log */
 
 
 

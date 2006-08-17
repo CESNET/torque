@@ -129,8 +129,8 @@ int main(
   uid_t          myeuid;
   unsigned int	 parentport;
   int		 parentsock = -1;
-  struct passwd   *pwent;
-  int	 	servport = -1;
+  struct passwd *pwent;
+  int            servport = -1;
   int 		 sock;
 #ifdef ENABLE_IPV6
   struct sockaddr_in6 sockname;
@@ -138,7 +138,7 @@ int main(
   struct sockaddr_in  sockname;
 #endif
 
-  socklen_t socknamelen;
+  torque_socklen_t socknamelen;
 
   int		 testmode = 0;
   int		 rc;
@@ -148,7 +148,6 @@ int main(
   extern char *optarg;
 
   char *ptr;
-
 
   int PBSLOGLEVEL = 0;
 
@@ -210,6 +209,7 @@ int main(
 
   myeuid = geteuid();
 
+#ifndef __CYGWIN__
   if (!testmode && (myeuid != 0))
     {
     fprintf(stderr,"pbs_iff: file not setuid root, likely misconfigured\n");
@@ -218,8 +218,8 @@ int main(
      syslog(LOG_ERR|LOG_DAEMON,"not setuid 0, likely misconfigured");
 #endif
 
-    return(1);
     }  /* END if (!testmode && (myeuid != 0)) */
+#endif
 
   /* first, make sure we have a valid server (host), and ports */
 
@@ -271,8 +271,15 @@ int main(
 
   if (testmode == 0) 
     {
-    if ((parentsock = atoi(argv[++optind])) < 0)
+    optind++;
+
+    if ((parentsock = atoi(argv[optind])) < 0)
       {
+      /* FAILURE */
+
+      fprintf(stderr,"pbs_iff: invalid parent socket '%s' specified\n",
+        argv[optind]);
+
       return(1);
       }
     } 
@@ -291,18 +298,32 @@ int main(
 
   if (pwent == NULL)
     {
+    /* FAILURE */
+
+    fprintf(stderr,"pbs_iff: cannot get account info for uid %d, errno=%d (%s)\n",
+      myrealuid,
+      errno,
+      strerror(errno));
+
     return(3);
     }
 
   /* now get the parent's client-side port */
 
-  socknamelen = sizeof (sockname);
+  socknamelen = sizeof(sockname);
 
   if (getsockname(
         parentsock,
         (struct sockaddr *)&sockname,
         &socknamelen) < 0)
     {
+    /* FAILURE */
+
+    fprintf(stderr,"pbs_iff: cannot get sockname for socket %d, errno=%d (%s)\n",
+      parentsock,
+      errno,
+      strerror(errno));
+
     return(3);
     }
 
@@ -318,11 +339,23 @@ int main(
       (rc = diswui(sock,parentport)) ||
       (rc = encode_DIS_ReqExtend(sock,NULL))) 
     {
+    /* FAILURE */
+
+    fprintf(stderr,"pbs_iff: cannot send request to pbs_server, rc=%d\n",
+      rc);
+
     return(2);
     }
 
-  if (DIS_tcp_wflush(sock)) 
+  rc = DIS_tcp_wflush(sock);
+
+  if (rc != 0) 
     {
+    /* FAILURE */
+
+    fprintf(stderr,"pbs_iff: cannot flush request to pbs_server, rc=%d\n",
+      rc);
+
     return(2);
     }
 
@@ -332,15 +365,26 @@ int main(
 
   if (reply == NULL) 
     {
+    /* FAILURE */
+
+    fprintf(stderr,"pbs_iff: cannot read reply from pbs_server\n");
+
     return(1);
     }
 
   if (reply->brp_code != 0) 
     {
+    /* FAILURE */
+
     if (reply->brp_choice == BATCH_REPLY_CHOICE_Text)
       {
       fprintf(stderr,"pbs_iff: %s\n",
         reply->brp_un.brp_txt.brp_str);
+      }
+    else
+      {
+      fprintf(stderr,"pbs_iff: pbs_server returned failure code %d\n",
+        reply->brp_code);
       }
 
     return(1);

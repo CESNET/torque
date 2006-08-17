@@ -129,8 +129,6 @@ int comp_resc_eq;	/* count of resources compared = */
 int comp_resc_lt;	/* count of resources compared < */
 int comp_resc_nc;	/* count of resources not compared */
 
-extern resource_def svr_resc_def[];
-extern int	    svr_resc_size;
 
 
 /*
@@ -246,7 +244,7 @@ int decode_resc(
 int encode_resc(
 
   attribute	*attr,	  /* ptr to attribute to encode */
-  list_head	*phead,	  /* head of attrlist list */
+  tlist_head	*phead,	  /* head of attrlist list */
   char		*atname,   /* attribute name */
   char		*rsname,   /* resource name, null on call */
   int		 mode)	  /* encode mode */

@@ -110,7 +110,7 @@ static int await_connect(
   int n, val, rc;
   struct timeval tv;
 
-  socklen_t len;
+  torque_socklen_t len;
 
   tv.tv_sec = timeout;
   tv.tv_usec = 0;
@@ -197,7 +197,11 @@ retry:  /* retry goto added (rentec) */
 
   /* get socket */
 
+#ifdef ENABLE_IPV6
+  sock = socket(AF_INET6,SOCK_STREAM,0);
+#else
   sock = socket(AF_INET,SOCK_STREAM,0);
+#endif
 
   if (sock < 0) 
     {
@@ -235,7 +239,7 @@ retry:  /* retry goto added (rentec) */
 
 #ifndef NOPRIVPORTS
 
-#ifdef HAVE_BINDRESVPORT
+#if defined(HAVE_BINDRESVPORT) && !defined(ENABLE_IPV6) || defined(HAVE_BINDRESVPORT_SA)
     /*
      * bindresvport seems to cause connect() failures in some odd corner case when
      * talking to a local daemon.  So we'll only try this once and fallback to
@@ -246,7 +250,7 @@ retry:  /* retry goto added (rentec) */
 
     if (tryport == (IPPORT_RESERVED - 1))
       {
-#ifdef ENABLE_IPV6
+#if defined(HAVE_BINDRESVPORT_SA) && defined(ENABLE_IPV6)
       if (bindresvport_sa(sock,&local) < 0)
 #else
       if (bindresvport(sock,&local) < 0)
@@ -297,7 +301,7 @@ retry:  /* retry goto added (rentec) */
       local.sin_port = htons(tryport);
 #endif
       }  /* END while (bind() < 0) */
-#ifdef HAVE_BINDRESVPORT
+#if defined(HAVE_BINDRESVPORT) && !defined(ENABLE_IPV6) || defined(HAVE_BINDRESVPORT_SA)
       } /* END if (tryport == (IPPORT_RESERVED - 1)) else */
 #endif /* HAVE_BINDRESVPORT */
 #endif /* !NOPRIVPORTS */

@@ -90,6 +90,7 @@
 #include "libpbs.h"
 #include "pbs_error.h"
 #include "server_limits.h"
+#include "pbs_nodes.h"
 #include "list_link.h"
 #include "attribute.h"
 #include "job.h"
@@ -116,13 +117,13 @@
 
 /* global data items */
 
-list_head svr_requests;
+tlist_head svr_requests;
 
 extern struct    connection svr_conn[];
 extern struct    credential conn_credent[PBS_NET_MAX_CONNECTIONS];
 extern struct server server;
 extern char      server_host[];
-extern list_head svr_newjobs;
+extern tlist_head svr_newjobs;
 extern time_t    time_now;
 extern char  *msg_err_noqueue;
 extern char  *msg_err_malloc;
@@ -179,9 +180,6 @@ void req_stagein(struct batch_request *preq);
 
 /* END request processing prototypes */
 
-#ifdef PBS_MOM
-extern int tfind(const u_long,void **);
-#endif
                        
 
 /*
@@ -419,7 +417,7 @@ void process_request(
 #else	/* THIS CODE FOR MOM ONLY */
 
   {
-  extern void *okclients;
+  extern tree *okclients;
   
   extern int  MOMLastRecvFromServerTime;
   extern char MOMLastRecvFromServerCmd[];
@@ -1024,10 +1022,8 @@ void free_br(
     case PBS_BATCH_RunJob:
     case PBS_BATCH_AsyrunJob:
 
-#ifdef SCALABLERUNJOB
       if (preq->rq_ind.rq_run.rq_destin)
         free(preq->rq_ind.rq_run.rq_destin);
-#endif
 
       break;
 

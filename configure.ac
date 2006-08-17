@@ -20,7 +20,7 @@ dnl  bi-arches, pbs-config script, and updated to TORQUE 2.x
 dnl  by Garrick Staples (garrick@usc.edu)
 
 AC_PREREQ(2.53)
-AC_INIT([torque], [2.1.2], [torqueusers@supercluster.org])
+AC_INIT([torque], [2.2.0], [torqueusers@supercluster.org])
 AC_REVISION($Revision$)
 AC_CONFIG_SRCDIR([src/cmds/qrun.c])
 AC_CONFIG_AUX_DIR([buildutils])
@@ -59,7 +59,8 @@ AC_CACHE_CHECK([PBS machine type], pbs_cv_type_mach,
 	       [pbs_cv_type_mach=`$ac_aux_dir/pbs_mach_type`])
 PBS_MACH=$pbs_cv_type_mach
 if test "x$PBS_MACH" = "xunknown"; then
-	AC_MSG_ERROR([Machine type "$PBS_MACH" is not supported.])
+	AC_MSG_WARN([MOM Machine type "$host_os" is not supported.])
+        AC_DEFINE(UNSUPPORTED_MACH,1,[Define if building on unsupported OS])
 fi
 AC_SUBST(PBS_MACH)
 AC_DEFINE_UNQUOTED(PBS_MACH, "${PBS_MACH}",
@@ -70,16 +71,6 @@ AC_DEFINE_UNQUOTED(PBS_MACH, "${PBS_MACH}",
 AC_DEFINE_UNQUOTED(MACH_RESC_DEFS, "resc_def_${PBS_MACH}.c",
 		   [the machine specific resc_def_* file name])
 
-
-# All of these need to go away!  The code needs to be fixed to use
-# feature-based defines with proper tests here
-case $PBS_MACH in
-  darwin*)
-    case `uname -r` in
-      8*) AC_DEFINE(TDARWIN8,1,[Define if on Darwin 8.x]) ;;
-    esac
-    ;;
-esac
 
 
 dnl
@@ -100,10 +91,14 @@ dnl
 dnl  ######################################################################
 dnl  Let the user choose, what parts of PBS he wants to compile and install
 dnl
+partdefault=yes
+if test "x$PBS_MACH" = "xunknown"; then
+    partdefault=no
+fi
 AC_MSG_CHECKING([whether to include server and scheduler])
 AC_ARG_ENABLE(server,
     [  --disable-server        do not include server and scheduler],
-    include_server=$enableval, include_server=yes)
+    include_server=$enableval, include_server=$partdefault)
 AC_MSG_RESULT($include_server)
 AM_CONDITIONAL(INCLUDE_SERVER, [test "x$include_server" = "xyes"])
 
@@ -111,7 +106,7 @@ AM_CONDITIONAL(INCLUDE_SERVER, [test "x$include_server" = "xyes"])
 AC_MSG_CHECKING([whether to include the mom daemon])
 AC_ARG_ENABLE(mom,
     [  --disable-mom           do not include the mom daemon],
-    include_mom=$enableval, include_mom=yes)
+    include_mom=$enableval, include_mom=$partdefault)
 AC_MSG_RESULT($include_mom)
 AM_CONDITIONAL(INCLUDE_MOM, [test "x$include_mom" = "xyes"])
 
@@ -173,6 +168,13 @@ case $host_os in
   ;;
 esac
 
+# patch libtool to remove that annoying lib install warning
+test -f libtool.old || (mv libtool libtool.old && cp libtool.old libtool)
+sed -e '/.*has not been installed in.*/d' <libtool >libtool.new
+(test -s libtool.new || rm libtool.new) 2>/dev/null
+test -f libtool.new && mv libtool.new libtool # not 2>/dev/null !!
+test -f libtool     || mv libtool.old libtool
+test -f libtool.old && rm -f libtool.old
 
 dnl
 dnl  ######################################################################
@@ -185,84 +187,48 @@ AC_HEADER_SYS_WAIT
 
 
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h float.h limits.h malloc.h netdb.h \
-		  netinet/in.h stddef.h sys/file.h sys/param.h \
+		  netinet/in.h stddef.h sys/file.h sys/param.h sys/tty.h \
 		  sys/socket.h sys/time.h sys/ioctl.h sys/mount.h \
                   sys/vfs.h sys/statfs.h sys/statvfs.h syslog.h \
-                  termios.h err.h sys/poll.h security/pam_modules.h])
+                  termios.h err.h sys/poll.h pam/pam_modules.h security/pam_appl.h])
+
+# On Solaris, pam_modules.h requires pam_appl.h
+AC_CHECK_HEADERS([security/pam_modules.h], [], [],
+[#if HAVE_SECURITY_PAM_APPL_H
+# include <security/pam_appl.h>
+# endif
+])
 
 
-dnl Check for socklen_t.  In traditional BSD this is an int, but some
-dnl OSes use a different type.  Test until we find something that will
-dnl work properly.  Test taken from curl, which was borrowed from a
-dnl patch submitted for Python.
-AC_CHECK_TYPE([socklen_t], ,[
-  AC_MSG_CHECKING([for socklen_t equivalent])
-  AC_CACHE_VAL([torque_cv_socklen_t_equiv],
-  [
-dnl Systems have either "struct sockaddr*" or "void*" as second
-dnl arg to getpeername.
-    torque_cv_socklen_t_equiv=no
-    for arg2 in "struct sockaddr" void ; do
-      for t in int size_t socklen_t unsigned long "unsigned long" void ; do
-        AC_TRY_COMPILE(
-[#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif
-extern int getsockname (int, $arg2 *, $t *);],[],
-  [torque_cv_socklen_t_equiv="$t"
-  break])
-      done
-    done
-  ])
-  if test "$torque_cv_socklen_t_equiv" = "void"; then
-      torque_cv_socklen_t_equiv=int
-  fi
-  AC_MSG_RESULT($torque_cv_socklen_t_equiv)
-
-  if test "$torque_cv_socklen_t_equiv" = "no"; then
-      AC_MSG_ERROR([unable to find socklen_t equivalent])
-  fi
-  AC_DEFINE_UNQUOTED(socklen_t, $torque_cv_socklen_t_equiv,
-      [type to use in place of socklen_t if not defined])],
-  [#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#ifdef HAVE_SYS_SOCKET_H
-#include <sys/socket.h>
-#endif])
+dnl
+dnl get socklen_t or equivalent.  If hpux and gcc, force the XOPEN interface.
+AC_MSG_CHECKING([whether to force XOPEN networking stack])
+AC_ARG_ENABLE(xopen_networking,
+    [  --disable-xopen-networking      With HPUX and GCC, don't force usage of XOPEN and libxnet])
+if test "${enable_xopen_networking}" != "no" ; then
+case $GCC,$PBS_MACH in
+  yes,hpux*) AC_MSG_RESULT([yes])
+             AC_MSG_WARN([On HPUX and gcc, forcing XOPEN network stack.])
+             AC_MSG_WARN([Use --disable-xopen-networking to prevent it])
+             AC_CHECK_LIB([xnet], [getpeername], 
+              [LIBS="-lxnet $LIBS"
+               CFLAGS="$CFLAGS -D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED=1"],
+              [AC_MSG_WARN([This build will likely fail in mysterious ways at run-time])
+               sleep 10])
+  ;;
+  *) AC_MSG_RESULT([no... phew!])
+esac
+else
+  AC_MSG_RESULT([disabled])
+fi
+AC_CHECK_TYPE([socklen_t],
+  [AC_DEFINE_UNQUOTED([torque_socklen_t],[socklen_t],[type to use in place of socklen_t])],
+  [TAC_SOCKLEN_EQUIV([torque_socklen_t])])
 
 
-dnl this is causing problems with solaris procfs.h
-dnl AC_SYS_LARGEFILE
 
-dnl largefile support: try 2!
-dnl this seems to work well, but did I over-design this?
-orig_CFLAGS="$CFLAGS"
-AC_CHECK_FUNC(stat64,
-  AC_DEFINE(HAVE_STAT64,1,[Define if stat64() is available]),
-  [CFLAGS="$CFLAGS -D_LARGEFILE64_SOURCE"
-   unset ac_cv_func_stat64
-   AC_CHECK_FUNC(stat64,
-    AC_DEFINE(HAVE_STAT64,1,[Define if stat64() is available]),
-     [CFLAGS="$orig_CFLAGS"])])
-
-AC_CHECK_MEMBER(struct stat64.st_mode,
-  AC_DEFINE(HAVE_STRUCT_STAT64,1,[Define if struct stat64 is available]),
-  CFLAGS="$CFLAGS -D_LARGEFILE64_SOURCE"
-  unset ac_cv_member_struct_stat64_st_mode
-  AC_CHECK_MEMBER(struct stat64.st_mode,
-    AC_DEFINE(HAVE_STRUCT_STAT64,1,[Define if struct stat64 is available]),
-                          [CFLAGS="$orig_CFLAGS"],
-[#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>]),
-[#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>])
-
+dnl Torque's own largefile support
+TAC_SYS_LARGEFILE
 
 
 AC_PROG_LN_S
@@ -372,6 +338,16 @@ AC_DEFINE_UNQUOTED(IBM_SP2, ${IBM_SP2}, [defined if this is an SP2])
 AC_SUBST(PBSPOE)    
 AC_SUBST(PBSPOEO)
 
+AC_ARG_ENABLE(cpuset,[--disable-cpuset  enable Linux 2.6 kernel cpusets])
+if test "x$enable_cpuset" != "xno" ;then
+  AC_CHECK_LIB(cpuset, cpuset_cpus_weight, 
+    [AC_CHECK_LIB(bitmask, bitmask_alloc,
+      [MOMLIBS="$MOMLIBS -lcpuset -lbitmask"
+       AC_DEFINE(PENABLE_LINUX26_CPUSETS, 1, [Define to enable Linux 2.6 cpusets])
+      ])
+    ])
+fi
+
 
 dnl  irix6 can be changed to irix6array explicitly with an
 dnl  --enable-array and irix6array can be made into irix6 with a
@@ -448,6 +424,7 @@ LDFLAGS_cpasave="$LDFLAGS"
 if test "x$cpalib" != "xnone" ;then
   LDFLAGS="$LDFLAGS -L$cpalib"
 fi
+buildcpa="no"
 case "$CPA" in
   yes) AC_DEFINE([ENABLE_CPA], 1, [Define to enable Cray's CPA support])
     AC_CHECK_HEADERS([cpalib.h], [ :],
@@ -459,10 +436,12 @@ case "$CPA" in
       else
         MOMLIBS="$MOMLIBS -lcpalib"
       fi
+      buildcpa="yes"
       ;;
   no) : ;;
   *) AC_MSG_ERROR([--enable-cpa should be yes or no]) ;;
 esac
+AM_CONDITIONAL([BUILDCPA], test "$buildcpa" = yes)
 LDFLAGS="$LDFLAGS_cpasave"
 
 
@@ -470,12 +449,11 @@ LDFLAGS="$LDFLAGS_cpasave"
 dnl
 dnl arch-specific libs
 dnl
-MOM_ADDTL_OBJS=""
 case $PBS_MACH in
   aix4|aix5) MOMLIBS="$MOMLIBS -lodm -lcfg"
     ;;
 
-  irix6array) MOMLIBS="-larray"
+  irix6array) MOMLIBS="$MOMLIBS -larray"
     ;;
 
   linux)
@@ -488,8 +466,7 @@ case $PBS_MACH in
     ;;
   digitalunix*) AC_DEFINE(SETCONTROLLINGTTY, 1, [Define to set the controlling tty])
     ;;
-  unicosmk*) MOM_ADDTL_OBJS="wait_job.o"
-    AC_DEFINE(SETCONTROLLINGTTY, 1, [Define to set the controlling tty])
+  unicosmk*) AC_DEFINE(SETCONTROLLINGTTY, 1, [Define to set the controlling tty])
     ;;
 esac
 
@@ -502,8 +479,6 @@ case $PBS_MACH in
 sunos4|solaris5|netbsd|freebsd|darwin)
   AC_CHECK_LIB(kvm, kvm_open) ;;
 esac
-
-AC_SUBST(MOM_ADDTL_OBJS)
 
 
 
@@ -525,6 +500,7 @@ case "$PBS_MACH" in
                   CC='cc -64'
 		fi
               fi ;;
+    linux)  if test "$BLCR" = "yes" ;then MOM_CHECKPOINT=1;fi ;;
 esac
 AC_DEFINE_UNQUOTED(MOM_CHECKPOINT, ${MOM_CHECKPOINT},
 	[whether checkpointing is supported])
@@ -569,6 +545,9 @@ AC_ARG_WITH(sched,
   basl|BASL)    SCHD_TYPE=basl ;;
   *)            SCHD_TYPE=none ;;
 esac],[SCHD_TYPE=cc])
+if test "x$include_server" != "xyes" ;then
+   SCHD_TYPE=none
+fi
 AC_DEFINE_UNQUOTED(SCHD_TYPE, "${SCHD_TYPE}",
 	[set the type of scheduler to use])
 
@@ -912,6 +891,7 @@ AC_DEFINE_UNQUOTED(SENDMAIL_CMD, "${SENDMAIL_CMD}",
 
 
 dnl attempt to find a location to install PAM modules
+AC_MSG_CHECKING([for PAM install directory])
 pammoddir=disabled
 AC_ARG_WITH(pam,
     [  --with-pamdir=DIR            Directory that holds the system PAM modules.
@@ -919,6 +899,7 @@ AC_ARG_WITH(pam,
     [pammoddir=$withval])
 case "$pammoddir" in
   disabled) ;;
+  no) pammoddir=disabled ;;
   yes)
     case "${PBS_MACH}" in
       linux) pammoddir=/lib$libsuff/security;;
@@ -927,11 +908,49 @@ case "$pammoddir" in
   /*) ;;
   *) AC_MSG_ERROR([--with-pam takes a full path to a directory $pammoddir]);;
 esac
-AC_MSG_CHECKING([for PAM install directory])
 AC_MSG_RESULT([$pammoddir])
 AC_SUBST(pammoddir)
 AM_CONDITIONAL(INCLUDE_PAM, [test "x$pammoddir" != "xdisabled"])
       
+AC_MSG_CHECKING([for pam_get_user() calling type])
+tac_pam_get_user_2nd_arg=none
+ for t in "char" "const char" ; do
+    AC_TRY_COMPILE([
+#ifdef HAVE_SECURITY_PAM_APPL_H
+#include <security/pam_appl.h>
+#endif
+
+#ifdef HAVE_SECURITY_PAM_MODULES_H
+#include <security/pam_modules.h>
+#else
+#ifdef HAVE_PAM_PAM_MODULES_H
+#include <pam/pam_modules.h>
+#endif
+#endif
+
+extern int
+pam_get_user(
+        pam_handle_t *pamh,             /* PAM handle */
+        $t **user,                    /* User Name */
+        const char *prompt              /* Prompt */
+);
+
+               ],[
+                  $t* username;
+                  pam_get_user(0,&username,0);
+               ],[
+                  tac_pam_get_user_2nd_arg="$t"
+                  break
+               ])
+            done
+AC_MSG_RESULT([$tac_pam_get_user_2nd_arg])
+AC_DEFINE_UNQUOTED(pam_get_user_2nd_arg_t, $tac_pam_get_user_2nd_arg,
+                        [type to use for 2nd arg of pam_get_user])
+
+
+
+
+
 
 dnl find default xauth run-time path
 AC_ARG_WITH(xauth,
@@ -1276,7 +1295,7 @@ AC_CHECK_FUNCS(seteuid setresuid,break)
 AC_CHECK_FUNCS(setegid setresgid,break)
 
 
-AC_CHECK_FUNCS([gettimeofday bindresvport wordexp poll])
+AC_CHECK_FUNCS([gettimeofday bindresvport wordexp poll getaddrinfo])
 
 AC_FUNC_GETGROUPS
 
@@ -1286,22 +1305,25 @@ if test "$found_an_exit" != yes; then
     AC_MSG_ERROR([Must have atexit() or on_exit()])
 fi
 
-dnl detect if __func__ is usable
-AC_C_VAR_FUNC
-if test "${ac_cv_c_var_func}" != "yes" ; then
-	dnl __func__ is not usable so check for __FUNCTION__
-	AC_C_VAR_FUNCTION
-	if test "${ac_cv_c_var_function}" != "yes" ; then
-		AC_MSG_ERROR([$CC must support __func__ or __FUNCTION__])
-	fi
-fi
+AC_CHECK_FUNC(ntohl, [ :],
+  AC_MSG_CHECKING([for ntohl in arpa/inet.h])
+  torque_cv_ntohl_needs_arpa_inet_h="no"
+  AC_TRY_COMPILE([
+  #ifdef HAVE_SYS_TYPES_H
+  #include <sys/types.h>
+  #endif
+  #ifdef HAVE_NETINET_IN_H
+  #include <netinet/in.h>
+  #endif
+  #ifdef HAVE_ARPA_INET_H
+  #include <arpa/inet.h>
+  #endif
+  ],[exit(ntohl(0));],
+    [torque_cv_ntohl_needs_arpa_inet_h="yes"
+     AC_DEFINE_UNQUOTED([NTOHL_NEEDS_ARPA_INET_H],1,[Define if ntohl() is declared in arpa/inet.h])])
+  AC_MSG_RESULT($torque_cv_ntohl_needs_arpa_inet_h)
+)
 
-
-dnl possibly define __func__ as __FUNCTION__
-AH_VERBATIM([__func__],
-[#ifndef HAVE_FUNC
-#define __func__ __FUNCTION__
-#endif])
 
 
 dnl
@@ -1380,6 +1402,7 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/resmom/sunos4/Makefile
 	  src/resmom/unicos8/Makefile
 	  src/resmom/unicosmk2/Makefile
+	  src/resmom/cpa/Makefile
 	  src/scheduler.basl/Makefile
 	  src/scheduler.cc/Makefile
 	  src/scheduler.cc/samples/Makefile

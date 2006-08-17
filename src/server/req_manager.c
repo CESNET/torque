@@ -131,9 +131,10 @@
 /* Global Data Items: */
 
 extern struct server server;
-extern list_head     svr_queues;
+extern tlist_head     svr_queues;
 extern attribute_def que_attr_def[];
 extern attribute_def svr_attr_def[];
+extern attribute_def  node_attr_def[];   /* node attributes defs */
 extern int  svr_chngNodesfile;
 extern char *msg_attrtype;
 extern char *msg_daemonname;
@@ -381,19 +382,12 @@ static int mgr_set_attr(
        *  new value.  If the action fails, undo everything.
        */
 
-/* if we are removing an existing manager entry the at action will be 
-   slightly different */
-/*
-if (plist->al_op == DECR && strcmp(plist->al_name, ATTR_managers) == 0)
-   mode = ATR_ACTION_ACL_REMOVE;
-*/
-
       if ((pdef + index)->at_action) 
         {
         if ((rc = (pdef + index)->at_action(new + index,parent,mode))) 
           {
              /* always allow removing from ACLs */
-          if (!(plist->al_op == DECR) && ((pdef + index)->at_type == ATR_TYPE_ACL))
+          if (!((plist->al_op == DECR) && (pdef + index)->at_type == ATR_TYPE_ACL))
             {
             attr_atomic_kill(new,pdef,limit);
 
@@ -2118,16 +2112,6 @@ int manager_oper_chk(
     return(0);	/* no checking on free */
     }
 
-  /* no check when removing - You should always be able
-     to remove entries even if there are other invalid entries
-     in the existing list.  The only way that can happen is if there
-     are hosts that no longer exist. 
-   */
-  if (actmode == ATR_ACTION_ACL_REMOVE)
-    {
-    return 0;
-    }
-
   pstr = pattr->at_val.at_arst;
 
   if (pstr == NULL)
@@ -2299,5 +2283,58 @@ int schiter_chk(
   return(mgr_long_action_helper(pattr,actmode,1,PBS_SCHEDULE_CYCLE));
   }  /* END schiter_chk() */
 
+/* nextjobnum_action - makes sure value is sane (>=0)
+   actually updates server.sv_qs.sv_jobidnumber
+   unsets attribute so it is "hidden" in qmgr */
+int nextjobnum_chk(
+
+  attribute *pattr,
+  void      *pobject,
+  int        actmode)
+  {
+  if (pattr->at_val.at_long > PBS_SEQNUMTOP)
+    {
+    return(PBSE_EXLIMIT);
+    }
+  else if (pattr->at_val.at_long >= 0)
+    {
+    server.sv_qs.sv_jobidnumber = pattr->at_val.at_long;
+    pattr->at_flags &= ~ATR_VFLAG_SET;
+    svr_save(&server,SVR_SAVE_FULL);
+    return(PBSE_NONE);
+    }
+  else
+    {
+    return(PBSE_BADATVAL);
+    } 
+  }
+
+int set_nextjobnum(
+
+  struct attribute *attr,
+  struct attribute *new,
+  enum batch_op op)
+
+  {
+  /* this is almost identical to set_l, but we need to grab the 
+     current value of server.sv_qs.sv_jobidnumber before we INCR/DECR the value of 
+     attr->at_val.at_long.  In fact, it probably should be moved to Libattr/ */
+
+
+  switch (op) 
+    {
+    case SET:   attr->at_val.at_long = new->at_val.at_long;
+                break;
+
+    case INCR:  attr->at_val.at_long = server.sv_qs.sv_jobidnumber += new->at_val.at_long;
+                break;
+
+    case DECR:  attr->at_val.at_long = server.sv_qs.sv_jobidnumber -= new->at_val.at_long;
+                break;
+    default: return(PBSE_SYSTEM);
+    }
+  attr->at_flags |= ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
+  return 0;
+  }
 /* END req_manager.c */
 

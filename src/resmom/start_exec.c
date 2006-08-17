@@ -142,7 +142,7 @@ extern  int		num_var_env;
 extern	char	      **environ;
 extern	int		exiting_tasks;
 extern	int		lockfds;
-extern	list_head	mom_polljobs;
+extern	tlist_head	mom_polljobs;
 extern	char		*path_checkpoint;
 extern	char		*path_jobs;
 extern	char		*path_prolog;
@@ -1154,7 +1154,7 @@ int TMomFinalizeJob1(
   {
   static char 	       *id = "TMomFinalizeJob1";
 
-  socklen_t	         slen;
+  torque_socklen_t	         slen;
 
   int                    i;
 
@@ -1795,6 +1795,13 @@ int TMomFinalizeChild(
   resource              *presc;         /* Requested Resource List */
   resource_def          *prd;
 
+#elif defined(PENABLE_LINUX26_CPUSETS)
+  attribute            *pattr;
+  resource              *presc;         /* Requested Resource List */
+  resource_def          *prd;
+  int                  num_mems;
+  int                  num_cpus;
+  char                 cpuset_name[MAXPATHLEN + 1];
 #endif  /* PENABLE_DYNAMIC_CPUSETS */
 
   job                  *pjob;
@@ -2145,6 +2152,84 @@ int TMomFinalizeChild(
 
 #endif  /* PENABLE_DYNAMIC_CPUSETS */
 
+#elif defined(PENABLE_LINUX26_CPUSETS)
+
+  /* Determine the number of cpus to insert into the cpuset from the request */
+
+  /* TODO: nodes */
+
+  /*
+  pattr = &pjob->ji_wattr[(int)JOB_ATR_resource];
+  prd = find_resc_def(svr_resc_def,"nodes",svr_resc_size);
+  presc = find_resc_entry(pattr,prd);
+
+  if (presc != NULL)
+    {
+    printf ("nodes = %s\n", 
+      presc->rs_value.at_val.at_str);
+    }
+  */
+
+  /* TODO: neednodes */
+
+  /*
+  pattr = &pjob->ji_wattr[(int)JOB_ATR_resource];
+  prd = find_resc_def(svr_resc_def,"neednodes",svr_resc_size);
+  presc = find_resc_entry(pattr,prd);
+
+  if (presc != NULL)
+    {
+    printf ("neednodes = %s\n", 
+      presc->rs_value.at_val.at_str);
+    }
+  */
+
+  /* ncpus */
+
+  pattr = &pjob->ji_wattr[(int)JOB_ATR_resource];
+  prd = find_resc_def(svr_resc_def,"ncpus",svr_resc_size);
+  presc = find_resc_entry(pattr,prd);
+
+ 
+  if ( presc == NULL )
+  {
+      sprintf (log_buffer,"presc is NULL, cpuset code skipped.");
+      log_err(-1,id,log_buffer);
+  }
+  else
+  {
+        /* Setting the number of cpus in the cpuset to what was requested by ncpus */
+        num_cpus = presc->rs_value.at_val.at_long;
+
+/* PME!! need figure out what to do about memory! */
+/*
+ * One mem is hard coded temporarily here.  Need to look at the memory request and decide how many mems
+ * are needed.  For our site, we never want jobs sharing node boards, not necessarily the case at other
+ * sites.
+ */
+       num_mems = 1;
+       sprintf (cpuset_name, "torque/%s", pjob->ji_qs.ji_jobid);
+
+       if (create_job_set(pjob->ji_qs.ji_jobid, cpuset_name, num_cpus, num_mems) != 0)
+       {
+           sprintf (log_buffer, "Could not create cpuset for job %s.\n", pjob->ji_qs.ji_jobid);
+           log_err(-1,id,log_buffer);
+           starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_RETRY,&sjr);
+       }
+       else
+       {
+           /* Move this mom process into the cpuset so the job will start in it. */
+	   if (cpuset_move(0, cpuset_name) != 0)
+           {
+               /* Remove cpuset, created but the process couldn't be placed in it. */
+	       cpuset_delete(cpuset_name);
+
+               sprintf (log_buffer, "Could not move job %s into its cpuset.\n", pjob->ji_qs.ji_jobid);
+               log_err(-1,id,log_buffer);
+               starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_RETRY,&sjr);
+           }
+       }
+  }
 #endif  /* (PENABLE_CPUSETS || PENABLE_DYNAMIC_CPUSETS) */
 
 
@@ -4056,12 +4141,12 @@ void start_exec(
 #endif
   hnodent	*np;
   attribute	*pattr;
-  list_head	phead;
+  tlist_head	phead;
   svrattrl	*psatl;
   int		stream;
   char		tmpdir[MAXPATHLEN];
 
-  socklen_t slen;
+  torque_socklen_t slen;
 
   void im_compose A_((int stream,
     char	*jobid,
@@ -4167,14 +4252,19 @@ void start_exec(
       {
       np = &pjob->ji_hosts[i];
 
+      log_buffer[0] = '\0';
+
       /* rpp_open() will succeed even if MOM is down */
 
-      np->hn_stream = rpp_open(np->hn_host,pbs_rm_port,NULL);
+      np->hn_stream = rpp_open(np->hn_host,pbs_rm_port,log_buffer);
 
       if (np->hn_stream < 0) 
         {
-        sprintf(log_buffer,"rpp_open failed on %s",
-          np->hn_host);
+        if (log_buffer[0] != '\0')
+          {
+          sprintf(log_buffer,"rpp_open failed on %s",
+            np->hn_host);
+          }
 
         log_err(errno,id,log_buffer);
 
@@ -4494,9 +4584,9 @@ pid_t fork_me(
     /* release mlock; it seems to be inherited even though the
      * man page claims otherwise */
 
-#ifdef PPINMEM
+#ifdef _POSIX_MEMLOCK
     munlockall();
-#endif /* PPINMEM */
+#endif /* _POSIX_MEMLOCK */
     } 
   else if (pid < 0)
     {

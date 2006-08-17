@@ -120,6 +120,7 @@
 #define ATTR_p "Priority"
 #define ATTR_q "destination"
 #define ATTR_r "Rerunable"
+#define ATTR_t "job_array_size"
 #define ATTR_u "User_List"
 #define ATTR_v "Variable_List"
 #define ATTR_A "Account_Name"
@@ -160,6 +161,8 @@
 #define ATTR_etime	"etime"
 #define ATTR_exitstat	"exit_status"
 #define ATTR_forwardx11 "forward_x11"
+#define ATTR_submit_args "submit_args"
+#define ATTR_tokens 	"tokens"
 
 /* additional queue attributes names */
 
@@ -243,7 +246,9 @@
 #define ATTR_allownodesubmit  "allow_node_submit"
 #define ATTR_autonodenp  "auto_node_np"
 #define ATTR_servername  "server_name"
-
+#define ATTR_logfilemaxsize "log_file_max_size"
+#define ATTR_logfilerolldepth "log_file_roll_depth"
+#define ATTR_nextjobnum "next_job_number"
 
 /* additional node "attributes" names */
 
@@ -268,6 +273,7 @@
 #define DELDELAY  "deldelay="	/* see qdel.c */
 #define DELPURGE  "delpurge="   /* see qdel.c */
 #define EXECQUEONLY  "exec_queue_only"   /* see req_stat.c */
+#define RERUNFORCE "force"
 
 #define USER_HOLD "u"
 #define OTHER_HOLD "o"

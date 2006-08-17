@@ -2727,14 +2727,12 @@ char *nsessions(
 
   {
   char	*result, *ch;
-  int    num;
+  int    num = 1;
 
   if ((result = sessions(attrib)) == NULL)
     {
     return(result);
     }
-
-  num = 1;
 
   for (ch = result;*ch;ch++) 
     {
@@ -3336,7 +3334,7 @@ void scan_non_child_tasks(void)
   char *id = "scan_non_child_tasks";
 
   job *job;
-  extern list_head svr_alljobs;
+  extern tlist_head svr_alljobs;
 
   DIR *pdir;  /* use local pdir to prevent race conditions associated w/global pdir (VPAC) */
 

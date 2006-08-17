@@ -107,6 +107,10 @@
 #include	<sys/socket.h>
 #include	<sys/time.h>
 #include	<netinet/in.h>
+#if defined(NTOHL_NEEDS_ARPA_INET_H) && defined(HAVE_ARPA_INET_H)
+#include <arpa/inet.h>
+#endif
+
 #include	"rpp.h"
 
 #if !defined(H_ERRNO_DECLARED)
@@ -1073,6 +1077,7 @@ static void rpp_send_out()
   struct	send_packet	*pp;
   struct	stream		*sp;
   time_t			curr;
+  torque_socklen_t              len;
 
   curr = time(NULL);
 
@@ -1095,17 +1100,19 @@ static void rpp_send_out()
       netaddr(&sp->addr),
       (char *)&pp->data[pp->len+RPP_PKT_CRC]))
 
+#ifdef ENABLE_IPV6
+    len = sizeof(struct sockaddr_in6);
+#else
+    len = sizeof(struct sockaddr_in);
+#endif
+
     if (sendto(
          sp->fd,
          (char *)pp->data,
          RPP_PKT_HEAD + pp->len,
          0, 
          (struct sockaddr *)&sp->addr,
-#ifdef ENABLE_IPV6
-         sizeof(struct sockaddr_in6)) == -1) 
-#else
-         sizeof(struct sockaddr_in)) == -1) 
-#endif
+         len) == -1) 
       {
       DBPRT((DBTO,"%s: SENDTO errno %d (%s)\n", 
         id,
@@ -1304,6 +1311,11 @@ static void rpp_alist(
 #else
   sp->addr_array = (struct in_addr *)calloc(i, sizeof(struct in_addr));
 #endif
+
+  if (sp->addr_array == NULL)
+    {
+    return;
+    }
 
   j = 0;
 
@@ -1548,7 +1560,7 @@ static int rpp_recv_pkt(
   {
   DOID("recv_pkt")
 
-  socklen_t  flen;
+  torque_socklen_t  flen;
 
   int		len;
 #ifdef ENABLE_IPV6

@@ -122,7 +122,7 @@
 struct rq_queuejob {
 	char		   rq_destin[PBS_MAXDEST+1];
 	char		   rq_jid[PBS_MAXSVRJOBID+1];
-	list_head	   rq_attr;	/* svrattrlist */
+	tlist_head	   rq_attr;	/* svrattrlist */
 };
 
 /* JobCredential */
@@ -154,7 +154,7 @@ struct rq_manage {
 	int	     rq_cmd;
 	int	     rq_objtype;
 	char	     rq_objname[PBS_MAXSVRJOBID+1];
-	list_head    rq_attr;	/* svrattrlist */
+	tlist_head    rq_attr;	/* svrattrlist */
 };
 
 /* HoldJob -  plus preference flag */
@@ -191,11 +191,7 @@ struct rq_rescq {
 
 struct rq_runjob {
   char	rq_jid[PBS_MAXSVRJOBID + 1];  /* requested job id */
-#ifdef SCALABLERUNJOB
   char  *rq_destin;   /* destination hostlist */
-#else
-  char	rq_destin[PBS_MAXDEST + 1];   /* destination hostlist */
-#endif
   unsigned int rq_resch;
   };
 
@@ -210,7 +206,7 @@ struct rq_signal {
 
 struct rq_status {
 	char	  rq_id[(PBS_MAXSVRJOBID > PBS_MAXDEST ? PBS_MAXSVRJOBID:PBS_MAXDEST)+1];
-	list_head rq_attr;
+	tlist_head rq_attr;
 };
 
 /* TrackJob */
@@ -255,7 +251,7 @@ struct rq_cpyfile {
 	char 	  rq_user[PBS_MAXUSER + 1];	  /* used in Copy & Delete */
 	char 	  rq_group[PBS_MAXGRPN + 1];	  /* used in Copy only     */
 	int	  rq_dir;			  /* used in Copy only     */
-	list_head rq_pair;                        /* list of rqfpair,  used in Copy & Delete */
+	tlist_head rq_pair;                        /* list of rqfpair,  used in Copy & Delete */
 };
 
 struct rqfpair {
@@ -270,7 +266,7 @@ struct rqfpair {
 struct rq_jobobit {
 	char    rq_jid[PBS_MAXSVRJOBID+1];
 	int	rq_status;
-	list_head    rq_attr;   /* svrattrlist */
+	tlist_head    rq_attr;   /* svrattrlist */
 };
 
 /*
@@ -316,7 +312,7 @@ int rq_XXXY;
 		char		        rq_rerun[PBS_MAXSVRJOBID+1];
 		struct rq_rescq		rq_rescq;
 		struct rq_runjob        rq_run;
-		list_head	        rq_select;	/* svrattrlist */
+		tlist_head	        rq_select;	/* svrattrlist */
 		int			rq_shutdown;
 		struct rq_signal	rq_signal;
 		struct rq_status        rq_status;
@@ -387,7 +383,7 @@ extern int decode_DIS_SignalJob A_((int socket, struct batch_request *));
 extern int decode_DIS_Status A_((int socket, struct batch_request *));
 extern int decode_DIS_TrackJob A_((int socket, struct batch_request *));
 extern int decode_DIS_replySvr A_((int socket, struct batch_reply *));
-extern int decode_DIS_svrattrl A_((int socket, list_head *));
+extern int decode_DIS_svrattrl A_((int socket, tlist_head *));
 
 extern int encode_DIS_CopyFiles A_((int socket, struct batch_request *));
 extern int encode_DIS_JobObit A_((int socket, struct batch_request *));

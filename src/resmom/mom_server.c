@@ -95,6 +95,10 @@
 #include <sys/stat.h>
 #include <netinet/in.h>
 #include <sys/time.h>
+#if defined(NTOHL_NEEDS_ARPA_INET_H) && defined(HAVE_ARPA_INET_H)
+#include <arpa/inet.h>
+#endif
+
 
 #include "pbs_ifl.h"
 #include "pbs_error.h"
@@ -159,12 +163,7 @@ extern void DIS_rpp_reset A_((void));
 **	Modified by Tom Proett <proett@nas.nasa.gov> for PBS.
 */
 
-typedef struct node_t {
-  u_long         key;
-  struct node_t	*left, *right;
-  } node;
-
-node *okclients = NULL;	/* tree of ip addrs */
+tree *okclients = NULL; /* tree of ip addrs */
 
 
 
@@ -174,7 +173,7 @@ node *okclients = NULL;	/* tree of ip addrs */
 
 int tlist(
 
-  node *rootp,   /* I */
+  tree *rootp,   /* I */
   char *Buf,     /* O (modified) */
   int   BufSize) /* I */
 
@@ -248,18 +247,17 @@ int tlist(
 
 /* find value in tree, return 1 if found, 0 if not */
 
-int tfind(
+struct pbsnode *tfind(
 
   const u_long   key,	/* key to be located */
-  node         **rootp)	/* address of tree root */
+  tree         **rootp)	/* address of tree root */
 
   {
-
   if (rootp == NULL)
     {
     /* empty tree - failure */
 
-    return(0);
+    return(NULL);
     }
 
   while (*rootp != NULL) 
@@ -272,7 +270,7 @@ int tfind(
 
       /* we found it! */
 
-      return(1);
+      return((struct pbsnode *)1);
       }
 
     rootp = (key < (*rootp)->key) ?
@@ -282,7 +280,7 @@ int tfind(
 
   /* cannot locate value in tree - failure */
 
-  return(0);
+  return(NULL);
   }  /* END tfind() */
 
 
@@ -294,10 +292,10 @@ int tfind(
 void tinsert(
 
   const u_long   key,	/* key to be located */
-  node         **rootp)	/* address of tree root */
+  tree         **rootp)	/* address of tree root */
 
   {
-  register node *q;
+  register tree *q;
 
   if (rootp == NULL)
     {
@@ -322,9 +320,9 @@ void tinsert(
       &(*rootp)->right;	/* T4: follow right branch */
     }
   
-  /* create new node */
+  /* create new tree node */
 
-  q = (node *)malloc(sizeof(node));	/* T5: key not found */
+  q = (tree *)malloc(sizeof(tree));	/* T5: key not found */
 
   if (q == NULL) 
     {
@@ -333,11 +331,11 @@ void tinsert(
     return;
     }
 
-  /* make new node */
+  /* make new tree */
 
   *rootp = q;			/* link new node to old */
 
-  q->key = key;			/* initialize new node */
+  q->key = key;			/* initialize new tree node */
 
   q->left = NULL;
   q->right = NULL;
@@ -353,7 +351,7 @@ void tinsert(
 
 void tfree(
 
-  node **rootp)
+  tree **rootp)
 
   {
   if (rootp == NULL || *rootp == NULL)

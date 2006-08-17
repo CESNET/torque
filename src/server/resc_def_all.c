@@ -85,12 +85,14 @@
 
 #include <stdlib.h>
 #include <ctype.h>
+#include <stdio.h>
 #include "pbs_ifl.h" 
 #include <string.h>
 #include "list_link.h" 
 #include "attribute.h" 
 #include "resource.h" 
 #include "pbs_error.h"
+#include <stdio.h>
 
 /*
  * The entries for each attribute are (see attribute.h):
@@ -108,9 +110,11 @@
 
 static int decode_nodes A_((struct attribute *, char *, char *, char *));
 static int set_node_ct A_((resource *, attribute *, int actmode));
+static int set_tokens A_((struct attribute *attr, struct attribute *new, enum batch_op actmode));
 
+resource_def *svr_resc_def;
 
-resource_def svr_resc_def[] = {
+resource_def svr_resc_def_const[] = {
 
     {	"arch",				/* system architecture type */
 	decode_str,
@@ -549,6 +553,17 @@ resource_def svr_resc_def[] = {
 	NO_USER_SET | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG,
 	ATR_TYPE_STR
     },
+    { ATTR_tokens,                               /* tokens required to run */
+	decode_tokens,
+	encode_str,
+	set_tokens,
+	comp_str,
+	free_str,
+	NULL_FUNC,
+	READ_WRITE,
+	ATR_TYPE_STR
+    },
+
     /* Cray CPA partitions */
     { "size", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM, ATR_TYPE_LONG },
     { "cpapartitionid", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
@@ -569,6 +584,7 @@ resource_def svr_resc_def[] = {
     { "gmetric", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "gres", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "hostlist", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "image", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "jgroup", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "latency", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "loglevel", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
@@ -583,10 +599,13 @@ resource_def svr_resc_def[] = {
     { "pref", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "qos", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "queuejob", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "reqattr", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "rmtype", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "sid", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "stagein", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "spriority", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "subnode", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "subnode_list", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "gres", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "taskdistpolicy", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "termsig", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
@@ -605,7 +624,94 @@ resource_def svr_resc_def[] = {
     /* DO NOT ADD DEFINITIONS AFTER "unknown", ONLY BEFORE */
 };
 
-int svr_resc_size = sizeof(svr_resc_def) / sizeof(resource_def);
+int svr_resc_size = sizeof(svr_resc_def_const) / sizeof(resource_def);
+
+
+int init_resc_defs(char *path)
+  {
+  FILE *fp;
+  char buff[65];
+  resource_def *tmpresc = NULL;
+  int rindex=0, dindex=0, unkindex=0;
+
+  fp = fopen(path,"r");
+  if (fp)
+    {
+
+    tmpresc=calloc(MAX_RESOURCES,sizeof(resource_def));
+
+    if (tmpresc == NULL)
+      {
+      fclose(fp);
+      return -1;
+      }
+
+    while (fscanf(fp,"%64s",buff) == 1)
+      {
+      if (strlen(buff) <= 1)
+        continue;
+
+      (tmpresc+dindex)->rs_name=strdup(buff);
+      (tmpresc+dindex)->rs_decode=decode_str;
+      (tmpresc+dindex)->rs_encode=encode_str;
+      (tmpresc+dindex)->rs_set=set_str;
+      (tmpresc+dindex)->rs_comp=comp_str;
+      (tmpresc+dindex)->rs_free=free_str;
+      (tmpresc+dindex)->rs_action=NULL_FUNC;
+      (tmpresc+dindex)->rs_flags=READ_WRITE;
+      (tmpresc+dindex)->rs_type=ATR_TYPE_STR;
+
+      dindex++;
+
+      if (dindex >= MAX_RESOURCES)
+        break;
+      }
+
+    }
+
+  svr_resc_def=calloc(svr_resc_size+dindex,sizeof(resource_def));
+
+  /* copy all const resources, except for the last "unknown" */
+  for (rindex=0; rindex < (svr_resc_size-1); rindex++)
+    {
+    memcpy(svr_resc_def+rindex,svr_resc_def_const+rindex,sizeof(resource_def));
+    }
+  unkindex=rindex;
+
+  /* copy our dynamic resources */
+  if (fp)
+    {
+    if (tmpresc)
+      {
+      for (dindex=0; (tmpresc+dindex)->rs_decode; dindex++)
+        {
+        if (find_resc_def(svr_resc_def,(tmpresc+dindex)->rs_name,rindex) == NULL)
+          {
+          memcpy(svr_resc_def+rindex,tmpresc+dindex,sizeof(resource_def));
+          rindex++;
+          }
+        }
+
+     free(tmpresc);
+     }
+
+    fclose(fp);
+    }
+  
+  /* copy the last "unknown" resource */
+  memcpy(svr_resc_def+rindex,svr_resc_def_const+unkindex,sizeof(resource_def));
+
+  svr_resc_size = rindex + 1;
+  
+/* uncomment if you feel like debugging this
+  for (rindex=0; rindex<svr_resc_size; rindex++)
+    {
+    fprintf(stderr,"resource: %s (%d)\n",(svr_resc_def+rindex)->rs_name,rindex);
+    }
+*/
+  return 0;
+  }
+    
 
 
 
@@ -803,3 +909,37 @@ static int set_node_ct(
   }  /* END set_node_ct() */
 
 
+/*
+ * set_tokens = set node count
+ *
+ */
+
+static int set_tokens(attr, new, op)
+      struct attribute *attr;
+      struct attribute *new;
+      enum batch_op op;
+{
+  char * colon = NULL;
+  float count = 0;
+
+  int ret = 0;
+
+  if(new != NULL){
+    colon = strchr(new->at_val.at_str, (int)':');
+    if(colon == NULL){
+      ret = PBSE_BADATVAL;
+    } else {
+
+      colon++;
+      count = atof(colon);
+      if(count <= 0 || count > 1000){
+      ret = PBSE_BADATVAL;
+      }
+    }
+  }
+  if(ret == 0){
+    ret = set_str(attr, new, op);
+  }
+
+  return ret;
+}

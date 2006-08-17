@@ -119,6 +119,10 @@
 #include	<sys/time.h>
 #include	<sys/resource.h>
 #include	<sys/utsname.h>
+#if defined(NTOHL_NEEDS_ARPA_INET_H) && defined(HAVE_ARPA_INET_H)
+#include <arpa/inet.h>
+#endif
+
 
 #include 	"libpbs.h"
 #include 	"pbs_ifl.h"
@@ -142,9 +146,9 @@
 
 #include        "mcom.h"
 
-#ifdef PPINMEM
+#ifdef _POSIX_MEMLOCK
 #include <sys/mman.h>
-#endif /* PPINMEM */
+#endif /* _POSIX_MEMLOCK */
 
 #define CHECK_POLL_TIME     45
 #define DEFAULT_SERVER_STAT_UPDATES 45
@@ -184,6 +188,7 @@ char	       *path_spool;
 char	       *path_undeliv;
 char	       *path_aux;
 char	       *path_server_name;
+char	       *path_resources;
 char           *path_home = PBS_SERVER_HOME;
 char           *mom_home;
 extern char    *msg_daemonname;          /* for logs     */
@@ -191,19 +196,22 @@ extern int	pbs_errno;
 gid_t		pbsgroup;
 unsigned int	pbs_mom_port;
 unsigned int	pbs_rm_port;
-list_head	mom_polljobs;	/* jobs that must have resource limits polled */
-list_head	svr_newjobs;	/* jobs being sent to MOM */
-list_head	svr_alljobs;	/* all jobs under MOM's control */
+tlist_head	mom_polljobs;	/* jobs that must have resource limits polled */
+tlist_head	svr_newjobs;	/* jobs being sent to MOM */
+tlist_head	svr_alljobs;	/* all jobs under MOM's control */
 int		termin_child = 0;
 time_t		time_now = 0;
 time_t		polltime = 0;
-extern list_head svr_requests;
+extern tlist_head svr_requests;
 extern struct var_table vtable;	/* see start_exec.c */
 #if MOM_CHECKPOINT == 1
 char	       *path_checkpoint = (char *)0;
 static resource_def *rdcput;
 #endif	/* MOM_CHECKPOINT */
 double		wallfactor = 1.00;
+long		log_file_max_size = 0;
+long		log_file_roll_depth = 1;
+time_t		last_log_check;
 
 /* externs */
 
@@ -305,7 +313,8 @@ static unsigned long setdownonerror(char *);
 static unsigned long setstatusupdatetime(char *);
 static unsigned long setcheckpolltime(char *);
 static unsigned long settmpdir(char *);
-
+static unsigned long setlogfilemaxsize(char *);
+static unsigned long setlogfilerolldepth(char *);
 
 static struct specials {
   char            *name;
@@ -338,6 +347,8 @@ static struct specials {
     { "status_update_time", setstatusupdatetime },
     { "check_poll_time", setcheckpolltime },
     { "tmpdir",       settmpdir },
+    { "log_file_max_size", setlogfilemaxsize},
+    { "log_file_roll_depth", setlogfilerolldepth},
     { NULL,           NULL } };
 
 
@@ -382,7 +393,7 @@ int			port_care = TRUE;	/* secure connecting ports */
 uid_t			uid = 0;		/* uid we are running with */
 int			alarm_time = 10;	/* time before alarm */
 
-extern void            *okclients;		/* accept connections from */
+extern tree            *okclients;		/* accept connections from */
 char                  **maskclient = NULL;	/* wildcard connections */
 int			mask_num = 0;
 int			mask_max = 0;
@@ -400,8 +411,8 @@ static	char		config_file[_POSIX_PATH_MAX] = "config";
 char                    PBSNodeMsgBuf[1024];
 char                    PBSNodeCheckPath[1024];
 int                     PBSNodeCheckInterval;
-static char            *MOMExePath;
-static time_t           MOMExeTime;
+static char            *MOMExePath = NULL;
+static time_t           MOMExeTime = 0;
 
 
 /* sync w/#define JOB_SUBSTATE_XXX (in include/job.h)*/
@@ -503,9 +514,7 @@ extern int TMomFinalizeJob3(pjobexec_t *,int,int,int *);
 extern void exec_bail(job *,int);
 extern int is_compose(int,int);
 extern void check_state(int);
-extern void tinsert(const u_long,void **);
-extern int tfind(const u_long,void **);
-extern int tlist(void **,char *,int);
+extern void tinsert(const u_long,tree **);
 extern void DIS_tcp_funcs();
 
 
@@ -520,7 +529,7 @@ int         TMOMScanForStarting(void);
 
 static char *mk_dirs A_((char *));
 void is_update_stat(int);
-
+void check_log A_((void));
 
 int MUSNPrintF(
 
@@ -1376,15 +1385,17 @@ static u_long setpbsserver(
   struct hostent *host;
   struct in_addr  saddr;
   u_long	  ipaddr;
-  char            tmpname[PBS_MAXSERVERNAME + 0]; 
+  char            tmpname[PBS_MAXSERVERNAME + 1]; 
   char           *portstr;
 
-  if ((value == NULL) || (value[0] == '\0'))
+  if ((value == NULL) || (*value == '\0'))
     {
     /* FAILURE */
 
     return(1);
     }
+
+  log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,value);
 
   strncpy(tmpname,value,PBS_MAXSERVERNAME);
 
@@ -1398,9 +1409,13 @@ static u_long setpbsserver(
     sprintf(log_buffer,"server host %s not found", 
       tmpname);
 
+    log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
+
     log_err(-1,id,log_buffer);
 
     ipaddr = 0;
+    /* don't return because we still want to add the hostname to
+     * pbs_servername[] and attempt a gethostbyname() later */
     }
   else
     {
@@ -1460,9 +1475,12 @@ static u_long setpbsserver(
 
   strncpy(pbs_servername[index],value,PBS_MAXSERVERNAME);
 
+  sprintf(log_buffer,"server %s added", pbs_servername[index]);
+  log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
+
   MOMServerAddrs[index] = ipaddr;
 
-  if (ipaddr)
+  if (ipaddr != 0)
     tinsert(ipaddr,&okclients);
 
   return(1);
@@ -2314,7 +2332,53 @@ static unsigned long setcheckpointscript(
 
 
 
+static unsigned long setlogfilemaxsize(
 
+  char *value)  /* I */
+  {
+  log_file_max_size = strtol(value, NULL, 10);
+
+  if (log_file_max_size < 0)
+     {
+     log_file_max_size = 0;
+     return(0);
+     }
+
+  return(1);
+  }
+
+
+static unsigned long setlogfilerolldepth(
+
+  char *value)  /* I */
+   {
+   log_file_roll_depth = strtol(value, NULL, 10);
+   if (log_file_roll_depth < 1)
+      {
+      log_file_roll_depth = 1;
+      return 0;
+      }
+   return 1;
+   }
+
+
+void check_log()
+   {
+   last_log_check = time_now;
+   if (log_file_max_size <= 0)
+      return;
+
+   if (log_size() >= log_file_max_size)
+      {
+      log_event(
+         PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+         PBS_EVENTCLASS_SERVER,
+         msg_daemonname,
+         "Rolling log file");
+
+      log_roll(log_file_roll_depth);
+      }
+   }
 
 /*
 **	Open and read the config file.  Save information in a linked
@@ -2962,6 +3026,7 @@ static void catch_hup(
 
   rpp_dbprt = 1 - rpp_dbprt;	/* toggle debug prints for RPP */
 
+
   return;
   }  /* END catch_hup() */
 
@@ -2984,8 +3049,10 @@ static void process_hup()
 
   log_close(1);
   log_open(log_file,path_log);
-
+  log_file_max_size = 0;
+  log_file_roll_depth = 1;
   read_config(NULL);
+  check_log();
   cleanup();
 
   initialize();
@@ -3687,7 +3754,7 @@ int rm_request(
     }
 
   if (((port_care != FALSE) && (port >= IPPORT_RESERVED)) ||
-      !tfind(ipadd,&okclients)) 
+      (tfind(ipadd,&okclients) == NULL)) 
     {
     if (bad_restrict(ipadd)) 
       {
@@ -3983,10 +4050,13 @@ int rm_request(
               if (pbs_servername[sindex][0] == '\0')
                 break;
 
-              sprintf(tmpLine,"Server[%d]: %s (%s)\n",
+              sprintf(tmpLine,"Server[%d]: %s (%ld.%ld.%ld.%ld)\n",
                 sindex,
                 pbs_servername[sindex],  
-                (SStream[sindex] != -1) ? "connection is active" : "connection is down");
+                (MOMServerAddrs[sindex] & 0xff000000) >> 24,
+                (MOMServerAddrs[sindex] & 0x00ff0000) >> 16,
+                (MOMServerAddrs[sindex] & 0x0000ff00) >> 8,
+                (MOMServerAddrs[sindex] & 0x000000ff));
 
               MUStrNCat(&BPtr,&BSpace,tmpLine);
 
@@ -4268,6 +4338,21 @@ int rm_request(
               MUStrNCat(&BPtr,&BSpace,tmpLine);
               }
 
+#ifdef DIAGNEWJOBS
+            if ((pjob = (job *)GET_NEXT(svr_newjobs)) != NULL)
+              {
+              while (pjob != NULL)
+                {
+                sprintf(tmpLine,"job[%s]  state=NEW\n",
+                  pjob->ji_qs.ji_jobid);
+
+                MUStrNCat(&BPtr,&BSpace,tmpLine);
+
+                pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+                }
+              }
+#endif
+                
             MUStrNCat(&BPtr,&BSpace,"\ndiagnostics complete\n");
 
             log_record(PBSEVENT_SYSTEM,0,id,"internal diagnostics complete");
@@ -4849,7 +4934,7 @@ void tcp_request(
 
   DIS_tcp_setup(fd);
 
-  if (!tfind(ipadd,&okclients)) 
+  if (tfind(ipadd,&okclients) == NULL) 
     {
     sprintf(log_buffer,"bad connect from %s", 
       address);
@@ -5573,10 +5658,10 @@ int main(
   resource	*prscput;
 #endif /* MOM_CHECKPOINT */
 
-#ifdef PPINMEM
+#ifdef _POSIX_MEMLOCK
   int           mlockall_return;
   int           MOMISLOCKED = 0;
-#endif /* PPINMEM */
+#endif /* _POSIX_MEMLOCK */
 
   strcpy(pbs_current_user,"pbs_mom");
   msg_daemonname = pbs_current_user;
@@ -5860,6 +5945,7 @@ int main(
   path_epiloguserp = mk_dirs("mom_priv/epilogue.user.parallel");
   path_prologuserp = mk_dirs("mom_priv/prologue.user.parallel");
   path_epilogpdel  = mk_dirs("mom_priv/epilogue.precancel");
+  path_resources   = mk_dirs(PBS_RESOURCES);
 
   path_log         = mk_dirs("mom_logs");
   path_spool       = mk_dirs("spool/");
@@ -5882,6 +5968,8 @@ int main(
 
 #endif  /* not DEBUG and not NO_SECURITY_CHECK */
 #endif	/* MOM_CHECKPOINT */
+
+  init_resc_defs(path_resources);
 
   /* change working directory to mom_priv */
 
@@ -5922,6 +6010,8 @@ int main(
  
     return(1);
     }
+
+  check_log(); /* see if this log should be rolled */
 
   lockfds = open("mom.lock",O_CREAT|O_WRONLY,0644);
 
@@ -6350,6 +6440,12 @@ int main(
       check_busy(myla);
       }
 
+    /* should we check the log file ?*/
+    if (time_now - last_log_check >= PBS_LOG_CHECK_RATE)
+       {
+       check_log();
+       }
+
     /* are we connected to any server? */
 
     /* loop through all entries in ServerName[] array (NYI) */
@@ -6690,7 +6786,7 @@ int main(
         }
       }    /* END for (pjob) */
 
-#ifdef PPINMEM
+#ifdef _POSIX_MEMLOCK
     /* call mlockall() only 1 time, since it seems to leak mem */
 
     if (MOMISLOCKED == 0)
@@ -6708,7 +6804,7 @@ int main(
 
       MOMISLOCKED = 1;
       }
-#endif /* PPINMEM */
+#endif /* _POSIX_MEMLOCK */
     }  /* END for (;mom_run_state == MOM_RUN_STATE_RUNNING;) */
  
   /* have exited main loop */

@@ -129,6 +129,7 @@ enum queueattr {
         QA_ATR_AclGroup,
         QA_ATR_AclLogic,
         QA_ATR_AclGroupSloppy,
+        QA_ATR_MTime,
 
 	/* The following attributes apply only to exection queues */
 
@@ -165,7 +166,7 @@ extern attribute_def que_attr_def[];
  
 struct pbs_queue {
 	list_link	qu_link;		/* forward/backward links */
-	list_head	qu_jobs;		/* jobs in this queue */
+	tlist_head	qu_jobs;		/* jobs in this queue */
 
 	struct queuefix {
 		int	qu_modified;		/* != 0 => update disk file */

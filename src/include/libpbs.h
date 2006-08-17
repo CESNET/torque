@@ -97,6 +97,15 @@
 #include <memory.h>
 #endif	/* _MEMORY_H */
 
+#if defined(PENABLE_LINUX26_CPUSETS)
+#ifndef _BITMASK_H
+#include <bitmask.h>
+#endif	/* _BITMASK_H */
+#ifndef _CPUSET_H
+#include <cpuset.h>
+#endif	/* _CPUSET_H */
+#endif
+
 #include "pbs_ifl.h"
 #include "list_link.h"
 #include "pbs_error.h"
@@ -159,7 +168,7 @@ struct brp_status {		/* reply to Status Job/Queue/Server Request */
 	list_link brp_stlink;
 	int	  brp_objtype;
 	char	  brp_objname[(PBS_MAXSVRJOBID > PBS_MAXDEST ? PBS_MAXSVRJOBID:PBS_MAXDEST)+1];
-	list_head brp_attr;		/* head of svrattrlist */
+	tlist_head brp_attr;		/* head of svrattrlist */
 };
 
 struct brp_cmdstat {
@@ -198,7 +207,7 @@ struct batch_reply {
 	union {
 		char	  brp_jid[PBS_MAXSVRJOBID+1];
 		struct brp_select *brp_select;	/* select replies */
-		list_head 	   brp_status;	/* status (svr) replies */
+		tlist_head 	   brp_status;	/* status (svr) replies */
 		struct brp_cmdstat *brp_statc;  /* status (cmd) replies) */
 		struct {
 			int   brp_txtlen;
@@ -271,7 +280,7 @@ int
 PBSD_jcred A_((int connect, char *buf, int len));
 
 int
-PBSD_jscript A_((int connect, char *script_file));
+PBSD_jscript A_((int connect, char *script_file, char *jobid));
 
 int
 PBSD_mgr_put A_((int connect, int func, int cmd, int objtype, char *objname, struct attropl *al, char *extend));
