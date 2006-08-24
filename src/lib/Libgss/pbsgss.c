@@ -497,6 +497,27 @@ p */
   return 0;
 }
 
+/* returns 1 if we can get creds and 0 otherwise */
+int pbsgss_can_get_creds() {
+  OM_uint32 gss_flags, ret_flags, maj_stat, min_stat;
+  gss_cred_id_t creds;
+
+  maj_stat = gss_acquire_cred(&min_stat,
+			      GSS_C_NO_NAME,
+			      GSS_C_INDEFINITE,
+			      GSS_C_NO_OID_SET,
+			      GSS_C_INITIATE,
+			      &creds,
+			      NULL,
+			      NULL);
+  if (maj_stat == GSS_S_COMPLETE) {
+    if (creds != NULL) {
+      gss_release_cred(&min_stat,creds);
+    }
+  }
+  return (maj_stat == GSS_S_COMPLETE);
+}
+
 /*
  * Function: client_establish_context
  *
@@ -689,6 +710,18 @@ int pbsgss_save_creds (gss_cred_id_t client_creds,
   return 0;
 }
 
+int pbsgss_renew_creds (char *jobname, char *prefix) {
+  char *cmd, *ccname;
+  ccname = ccname_for_job(jobname,prefix);
+  cmd = malloc(sizeof(char) * (strlen(ccname) + strlen("/usr/bin/kinit -R -c ") + 10));
+  if (cmd == NULL) {
+    free(ccname);
+    return 1;
+  }
+  sprintf(cmd,"/usr/bin/kinit -R -c %s",ccname);
+  return system(cmd);
+}
+
 int pbsgss_client_authenticate(char *hostname, int psock, int delegate) {
   char *service_name;
   OM_uint32 gss_flags, ret_flags, maj_stat, min_stat;
@@ -808,4 +841,59 @@ int authenticate_as_job(char *ccname,
     system("/usr/bin/aklog csail.mit.edu");
   }
   return 0;
+}
+
+/* returns the full principal name for the current host, eg
+   host/foo.bar.com@BAR.COM 
+*/
+char *pbsgss_get_host_princname() {
+  char *service_name, *princname;
+  gss_cred_id_t creds;
+  OM_uint32 min_stat;
+  gss_name_t name;
+  gss_buffer_desc buffer;
+  struct utsname buf;  
+  gss_OID name_type;
+  if (uname(&buf) != 0) {
+    return "NOUNAME";
+  }
+  service_name = malloc(sizeof(buf.nodename) + 6);
+  if (service_name == NULL) {return NULL;}
+  sprintf(service_name,"host@%s",buf.nodename);
+  if (pbsgss_server_acquire_creds(service_name,&creds) < 0) {
+    free(service_name);
+    return NULL;
+  }
+  if(gss_inquire_cred(&min_stat,
+		      creds,
+		      &name,
+		      NULL,
+		      NULL,
+		      NULL) != GSS_S_COMPLETE) {
+    gss_release_cred(&min_stat,creds);
+    free(service_name);
+    return NULL;
+  }
+  if (gss_display_name(&min_stat,
+		       name,
+		       &buffer,
+		       &name_type) != GSS_S_COMPLETE) {
+    gss_release_name(&min_stat,name);
+    gss_release_cred(&min_stat,creds);
+    free(service_name);
+    return NULL;
+  }
+  princname = malloc(sizeof(char) * (buffer.length + 2));
+  if (princname) {
+    strncpy(princname,buffer.value,buffer.length);
+    princname[buffer.length] = '\0';
+  } else {
+    princname = NULL;
+  }
+  
+  gss_release_buffer(&min_stat,&buffer);
+  gss_release_name(&min_stat,name);
+  gss_release_cred(&min_stat,creds);
+  free(service_name);
+  return princname;
 }

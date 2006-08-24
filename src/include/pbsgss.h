@@ -14,6 +14,7 @@ int pbsgss_send_token
 	(int s, int flags, gss_buffer_t tok);
 int pbsgss_recv_token
 	(int s, int *flags, gss_buffer_t tok);
+int pbsgss_can_get_creds();
 int pbsgss_client_establish_context(int s,
 				    char *service_name,
 				    gss_cred_id_t creds,
@@ -29,6 +30,7 @@ int pbsgss_server_establish_context(int s,
 				    gss_buffer_t client_name,
 				    OM_uint32 *ret_flags);
 
+char *pbsgss_get_host_princname();
 int pbsgss_server_acquire_creds(char *service_name,
 				gss_cred_id_t *server_creds);
 
@@ -38,6 +40,7 @@ int pbsgss_save_creds (gss_cred_id_t client_creds,
 
 char *ccname_for_job(char *jobnamem, char *prefix);
 int authenticate_as_job(char *jobname,int setpag);
+int pbsgss_renew_creds (char *jobname, char *prefix);
 
 /* Token types */
 #define TOKEN_NOOP		(1<<0)

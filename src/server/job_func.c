@@ -701,11 +701,12 @@ void job_purge(
 #ifdef PENABLE_LINUX26_CPUSETS 
   char                 cpuset_name[MAXPATHLEN + 1];
 #endif
+#endif
 #ifdef GSSAPI
   char          *ccname;
   char          *kdestroy;
 #endif
-#endif
+
 
 #ifdef PBS_MOM
 
