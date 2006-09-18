@@ -8,6 +8,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - compile error with size_fs() on digitalunix
   e - pbs_server will now print build details with --about
   e - new freebsd5 mom arch for Freebsd 5.x and 6.x (trasz)
+  f - backported new queue attribute "max_user_queuable"
 
 2.1.2
 
