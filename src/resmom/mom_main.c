@@ -1386,10 +1386,10 @@ static u_long setpbsserver(
   struct hostent *host;
   struct in_addr  saddr;
   u_long	  ipaddr;
-  char            tmpname[PBS_MAXSERVERNAME + 0]; 
+  char            tmpname[PBS_MAXSERVERNAME + 1]; 
   char           *portstr;
 
-  if ((value == NULL) || (value[0] == '\0'))
+  if ((value == NULL) || (*value == '\0'))
     {
     /* FAILURE */
 
@@ -4033,10 +4033,13 @@ int rm_request(
               if (pbs_servername[sindex][0] == '\0')
                 break;
 
-              sprintf(tmpLine,"Server[%d]: %s (%s)\n",
+              sprintf(tmpLine,"Server[%d]: %s (%ld.%ld.%ld.%ld)\n",
                 sindex,
                 pbs_servername[sindex],  
-                (SStream[sindex] != -1) ? "connection is active" : "connection is down");
+                (MOMServerAddrs[sindex] & 0xff000000) >> 24,
+                (MOMServerAddrs[sindex] & 0x00ff0000) >> 16,
+                (MOMServerAddrs[sindex] & 0x0000ff00) >> 8,
+                (MOMServerAddrs[sindex] & 0x000000ff));
 
               MUStrNCat(&BPtr,&BSpace,tmpLine);
 
@@ -4211,14 +4214,28 @@ int rm_request(
               {
               struct stat s;
 
-              if (stat(path_prolog,&s) == -1)
-                {
-                MUStrNCat(&BPtr,&BSpace,"NOTE:  no prolog configured\n");
-                }
-              else
+              int prologfound = 0;
+
+              if (stat(path_prolog,&s) != -1)
                 {
                 MUStrNCat(&BPtr,&BSpace,"NOTE:  prolog enabled\n");
 
+                prologfound = 1;
+                }
+              else if (verbositylevel >= 2)
+                {
+                MUStrNCat(&BPtr,&BSpace,"NOTE:  no prolog configured\n");
+                }
+
+              if (stat(path_prologp,&s) != -1)
+                {
+                MUStrNCat(&BPtr,&BSpace,"NOTE:  prolog.parallel enabled\n");
+
+                prologfound = 1;
+                }
+
+              if (prologfound == 1)
+                {
                 sprintf(tmpLine,"Prolog Alarm Time:      %d seconds\n",
                   pe_alarm_time);
 
