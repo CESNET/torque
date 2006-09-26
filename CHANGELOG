@@ -11,7 +11,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   f - backported new queue attribute "max_user_queuable"
   e - optimize acl_group_sloppy
   e - fix "list_head" symbol clash on Solaris 10
-  e - allow pam_pbssimpleauth to be built on OSX
+  e - allow pam_pbssimpleauth to be built on OSX and Solaris
 
 2.1.2
 
