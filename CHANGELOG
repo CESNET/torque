@@ -12,6 +12,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - optimize acl_group_sloppy
   e - fix "list_head" symbol clash on Solaris 10
   e - allow pam_pbssimpleauth to be built on OSX and Solaris
+  b - networking fixes for HPUX, fixes pbs_iff (PACCAR)
 
 2.1.2
 
