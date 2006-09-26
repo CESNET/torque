@@ -1478,7 +1478,7 @@ int setup_nodes(void)
 
   if ((nin = fopen(path_nodes,"r")) == NULL) 
     {
-    sprintf(log_buffer,"cannot open node description file '%s' in setup_nodes()\n",
+    sprintf(log_buffer,"cannot open node description file '%s' in setup_nodes()",
       path_nodes);
 
     log_event(

@@ -1325,7 +1325,7 @@ void stream_eof(
     return;
     }
 
-  sprintf(log_buffer,"connection to %s is bad, remote service may be down, message may be corrupt, or connection may have been dropped remotely (%s).  setting node state to down\n",
+  sprintf(log_buffer,"connection to %s is bad, remote service may be down, message may be corrupt, or connection may have been dropped remotely (%s).  setting node state to down",
     np->nd_name,
     dis_emsg[ret]);
 
@@ -1384,7 +1384,7 @@ void ping_nodes(
       "starting");
     }
 
-  sprintf(log_buffer,"ping attempting to contact %d nodes\n",
+  sprintf(log_buffer,"ping attempting to contact %d nodes",
     (svr_totnodes - startcount > 256) ? 
       256 : 
       (svr_totnodes - startcount < 0) ? 

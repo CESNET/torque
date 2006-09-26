@@ -242,7 +242,7 @@ void do_rpp(
 
   if (LOGLEVEL >= 4)
     {
-    sprintf(log_buffer,"rpp request received on stream %d\n",
+    sprintf(log_buffer,"rpp request received on stream %d",
       stream);
 
     log_record(
@@ -260,7 +260,7 @@ void do_rpp(
     {
     if (LOGLEVEL >= 1)
       {
-      sprintf(log_buffer,"corrupt rpp request received on stream %d (invalid protocol)\n",
+      sprintf(log_buffer,"corrupt rpp request received on stream %d (invalid protocol)",
         stream);
 
       log_record(
@@ -281,7 +281,7 @@ void do_rpp(
     {
     if (LOGLEVEL >= 1)
       {
-      sprintf(log_buffer,"corrupt rpp request received on stream %d (invalid version)\n",
+      sprintf(log_buffer,"corrupt rpp request received on stream %d (invalid version)",
         stream);
 
       log_record(
