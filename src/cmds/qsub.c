@@ -1390,7 +1390,7 @@ final:
 char *interactive_port(int *sock)
 
   {
-  socklen_t namelen;
+  torque_socklen_t namelen;
   static char portstring[8];
   struct sockaddr_in myaddr;
   unsigned short port;
@@ -2052,7 +2052,7 @@ void interactive()
   fd_set selset;
   struct sigaction act;
   struct sockaddr_in from;
-  socklen_t fromlen;
+  torque_socklen_t fromlen;
   struct timeval timeout;
   struct winsize wsz;
     
