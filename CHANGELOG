@@ -10,6 +10,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - new freebsd5 mom arch for Freebsd 5.x and 6.x (trasz)
   f - backported new queue attribute "max_user_queuable"
   e - optimize acl_group_sloppy
+  e - fix "list_head" symbol clash on Solaris 10
 
 2.1.2
 

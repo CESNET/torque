@@ -246,7 +246,7 @@ int decode_resc(
 int encode_resc(
 
   attribute	*attr,	  /* ptr to attribute to encode */
-  list_head	*phead,	  /* head of attrlist list */
+  tlist_head	*phead,	  /* head of attrlist list */
   char		*atname,   /* attribute name */
   char		*rsname,   /* resource name, null on call */
   int		 mode)	  /* encode mode */
