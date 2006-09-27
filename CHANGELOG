@@ -14,6 +14,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - allow pam_pbssimpleauth to be built on OSX and Solaris
   b - networking fixes for HPUX, fixes pbs_iff (PACCAR)
   e - allow long job names when not using -N
+  c - using depend=syncwith crashed pbs_server
 
 2.1.2
 
