@@ -1411,6 +1411,11 @@ static int chk_save_file(
   {
   struct stat sb;
 
+  if (*filename == '.')
+    {
+    return(-1);
+    }
+
   if (stat(filename,&sb) == -1)
     {
     return(errno);
