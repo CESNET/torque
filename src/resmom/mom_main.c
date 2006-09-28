@@ -6478,14 +6478,14 @@ int main(
 
       if (MOMRecvClusterAddrsCount[sindex] == 0)
         {
-        if ((time_now - MOMLastSendToServerTime[sindex]) < 10)
+        if ((time_now - MOMLastSendToServerTime[sindex]) < ServerStatUpdateInterval)
           {
           /* message recently sent, do not resend */
 
           continue;
           }
 
-        MOMLastSendToServerTime[sindex]=time_now;
+        MOMLastSendToServerTime[sindex] = time_now;
 
         if (is_compose(SStream[sindex],IS_HELLO) == -1)
           {
