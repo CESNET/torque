@@ -141,6 +141,7 @@ extern int RPPConfigure(int,int);
 /* external data items */
 
 extern int    svr_chngNodesfile;
+extern int    svr_totnodes;
 
 
 /* Local Private Functions */
