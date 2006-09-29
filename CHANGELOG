@@ -16,6 +16,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - allow long job names when not using -N
   c - using depend=syncwith crashed pbs_server
   c - races with down nodes and purging jobs crashed pbs_server
+  b - staged out files will retain proper permission bits
 
 2.1.2
 
