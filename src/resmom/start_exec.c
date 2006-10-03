@@ -4737,6 +4737,7 @@ int open_std_file(
   int   fds;
   int   keeping;
   char *path;
+  int   old_umask;
 
   if ((path = std_file_name(pjob,which,&keeping)) == NULL)
     {
@@ -4757,7 +4758,15 @@ int open_std_file(
       return(-1);
       }
 
+    if (pjob->ji_wattr[(int)JOB_ATR_umask].at_flags & ATR_VFLAG_SET)
+      {
+      old_umask = umask(pjob->ji_wattr[(int)JOB_ATR_umask].at_val.at_long);
+      }
     fds = open(path,mode,0666);
+    if (pjob->ji_wattr[(int)JOB_ATR_umask].at_flags & ATR_VFLAG_SET)
+      {
+      umask(old_umask);
+      }
 
     seteuid(0);
     setegid(pbsgroup);
@@ -4772,7 +4781,16 @@ int open_std_file(
       return(-1);
       }
 
+
+    if (pjob->ji_wattr[(int)JOB_ATR_umask].at_flags & ATR_VFLAG_SET)
+      {
+      old_umask = umask(pjob->ji_wattr[(int)JOB_ATR_umask].at_val.at_long);
+      }
     fds = open(path,mode,0666);
+    if (pjob->ji_wattr[(int)JOB_ATR_umask].at_flags & ATR_VFLAG_SET)
+      {
+      umask(old_umask);
+      }
 
     setresuid(-1,0,-1);
     setresgid(-1,pbsgroup,-1);
@@ -4783,7 +4801,18 @@ int open_std_file(
     } 
   else 
     {
+
+
+    if (pjob->ji_wattr[(int)JOB_ATR_umask].at_flags & ATR_VFLAG_SET)
+      {
+      old_umask = umask(pjob->ji_wattr[(int)JOB_ATR_umask].at_val.at_long);
+      }
     fds = open(path,mode,0666);
+    if (pjob->ji_wattr[(int)JOB_ATR_umask].at_flags & ATR_VFLAG_SET)
+      {
+      umask(old_umask);
+      }
+
 
     if (fds >= 0) 
       {
