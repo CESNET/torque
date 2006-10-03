@@ -5089,6 +5089,9 @@ static void finish_loop(
 
   tmpTime = MAX(1,tmpTime);
 
+  if (LastServerUpdateTime == 0)
+    tmpTime=1;
+
   /* wait for a request to process */
 
   if (wait_request(tmpTime,NULL) != 0)
@@ -5610,6 +5613,8 @@ int MOMInitialize(void)
   for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {
     SStream[sindex] = -1;
+
+    MOMLastRecvFromServerTime[sindex] = 0;
  
     ReportMomState[sindex] = 1;
     }  /* END for (sindex) */
@@ -6463,6 +6468,19 @@ int main(
         continue;
         }
 
+      if ((SStream[sindex] != -1) && 
+          (time_now >= (MOMLastSendToServerTime[sindex] + (ServerStatUpdateInterval*2))))
+        {
+        sprintf(log_buffer,"connection to server %s timeout", 
+          pbs_servername[sindex]);
+
+        log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+
+        rpp_close(SStream[sindex]);
+
+        SStream[sindex] = -1;
+        }
+
       if (SStream[sindex] == -1)
         {
         MOMRecvClusterAddrsCount[sindex] = 0;
@@ -6473,16 +6491,6 @@ int main(
         if (init_server_stream(sindex) != DIS_SUCCESS)
           {
           continue;                                                                        
-          }
-        }
-
-      if (MOMRecvClusterAddrsCount[sindex] == 0)
-        {
-        if ((time_now - MOMLastSendToServerTime[sindex]) < ServerStatUpdateInterval)
-          {
-          /* message recently sent, do not resend */
-
-          continue;
           }
 
         MOMLastSendToServerTime[sindex] = time_now;
@@ -6552,7 +6560,7 @@ int main(
      *  Update the server on the status of this mom.
      */
 
-    if (time_now > (LastServerUpdateTime + ServerStatUpdateInterval))
+    if (time_now >= (LastServerUpdateTime + ServerStatUpdateInterval))
       {
       check_state((LastServerUpdateTime == 0));
 

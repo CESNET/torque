@@ -18,6 +18,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   c - races with down nodes and purging jobs crashed pbs_server
   b - staged out files will retain proper permission bits
   f - backported qsub -W umask=
+  b - correct some fast startup behaviour
 
 2.1.2
 
