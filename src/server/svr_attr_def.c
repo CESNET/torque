@@ -153,7 +153,7 @@ attribute_def svr_attr_def[] = {
 	PARENT_TYPE_SERVER,
     },
 
-/* SRV_ATR_MAX_running */
+/* SRV_ATR_max_running */
     {	ATTR_maxrun,		/* "max_running" */
 	decode_l,
 	encode_l,
