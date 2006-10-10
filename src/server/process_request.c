@@ -739,7 +739,7 @@ void dispatch_request(
       req_stat_svr(request);
   
       break;
-
+/* DIAGTODO: handle PBS_BATCH_StatusDiag and define req_stat_diag() */
     case PBS_BATCH_TrackJob:
 
       req_track(request); 
@@ -1028,6 +1028,7 @@ void free_br(
     case PBS_BATCH_StatusQue:
     case PBS_BATCH_StatusNode:
     case PBS_BATCH_StatusSvr:
+/* DIAGTODO: handle PBS_BATCH_StatusDiag */
 
       free_attrlist(&preq->rq_ind.rq_status.rq_attr);
 

@@ -2421,7 +2421,7 @@ static int sys_copy(
     /* local copy */
 
     ag0 = "/bin/cp";
-    ag1 = "-r";
+    ag1 = "-rp";
     } 
   else
     {

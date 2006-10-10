@@ -133,6 +133,8 @@ DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 
+SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
+
 SUBDIRS = . @SCHD_CODE@
 DIST_SUBDIRS = cray_t3e  dec_cluster  fifo  msic_cluster  sgi_origin  umn_cluster
 EXTRA_DIST = README

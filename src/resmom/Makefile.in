@@ -138,11 +138,13 @@ DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 
+SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
+
 @BUILDCPA_TRUE@cpasubdir = cpa
 @BUILDCPA_TRUE@momcpalib = cpa/libmomcpa.a
 
 SUBDIRS = @PBS_MACH@ $(cpasubdir)
-DIST_SUBDIRS = aix4 aix5 darwin digitalunix freebsd fujitsu hpux10 hpux11 \
+DIST_SUBDIRS = aix4 aix5 darwin digitalunix freebsd freebsd5 fujitsu hpux10 hpux11 \
 	irix5 irix6 irix6array linux netbsd solaris5 solaris7 sunos4 unicos8 unicosmk2 cpa
 
 
@@ -725,7 +727,6 @@ uninstall-info: uninstall-info-recursive
 
 
 install-exec-hook:
-	chmod 700 $(DESTDIR)$(sbindir)/$(program_prefix)pbs_mom$(program_suffix)
 	$(PBS_MKDIRS) aux || :
 	$(PBS_MKDIRS) mom
 

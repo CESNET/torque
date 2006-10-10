@@ -175,3 +175,10 @@ struct connection {
         gss_cred_id_t   creds;           /* client creds, for use with GSS auth */
 #endif
 };
+
+struct netcounter {
+   time_t  time;
+   int     counter;
+};
+
+int *netcounter_get();

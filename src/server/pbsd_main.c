@@ -142,7 +142,7 @@ extern int RPPConfigure(int,int);
 /* external data items */
 
 extern int    svr_chngNodesfile;
-
+extern int    svr_totnodes;
 
 /* Local Private Functions */
 
@@ -247,7 +247,7 @@ void do_rpp(
 
   if (LOGLEVEL >= 4)
     {
-    sprintf(log_buffer,"rpp request received on stream %d\n",
+    sprintf(log_buffer,"rpp request received on stream %d",
       stream);
 
     log_record(
@@ -273,7 +273,7 @@ void do_rpp(
 
       node = tfind((u_long)stream,&streams);
 
-      sprintf(log_buffer,"corrupt rpp request received on stream %d (node: %s) - invalid protocol - rc=%d (%s)\n",
+      sprintf(log_buffer,"corrupt rpp request received on stream %d (node: %s) - invalid protocol - rc=%d (%s)",
         stream,
         (node != NULL) ? node->nd_name : "NULL",
         ret,
@@ -297,7 +297,7 @@ void do_rpp(
     {
     if (LOGLEVEL >= 1)
       {
-      sprintf(log_buffer,"corrupt rpp request received on stream %d - invalid version - rc=%d (%s)\n",
+      sprintf(log_buffer,"corrupt rpp request received on stream %d - invalid version - rc=%d (%s)",
         stream,
         ret,
         dis_emsg[ret]);
@@ -532,6 +532,20 @@ int main(
           fprintf(stderr,"version: %s\n",
             PACKAGE_VERSION);
 
+          exit(0);
+          }
+        else if (!strcmp(optarg,"about"))
+          {
+	  printf("package: %s\n",PACKAGE_STRING);
+	  printf("sourcedir: %s\n",PBS_SOURCE_DIR);
+	  printf("configure: %s\n",PBS_CONFIG_ARGS);
+	  printf("buildcflags: %s\n",PBS_CFLAGS);
+	  printf("buildhost: %s\n",PBS_BUILD_HOST);
+	  printf("builddate: %s\n",PBS_BUILD_DATE);
+	  printf("builddir: %s\n",PBS_BUILD_DIR);
+	  printf("builduser: %s\n",PBS_BUILD_USER);
+	  printf("installdir: %s\n",PBS_INSTALL_DIR);
+	  printf("serverhome: %s\n",PBS_SERVER_HOME);
           exit(0);
           }
         else if (!strcmp(optarg,"help"))
@@ -800,7 +814,6 @@ int main(
 
   log_open(log_file,path_log);
 
-
   sprintf(log_buffer,msg_startup1,server_name,server_init_type);
 
   log_event(
@@ -904,12 +917,14 @@ int main(
   sprintf(log_buffer,"%ld\n", 
     (long)sid);
 
-  if (write(lockfds,log_buffer,strlen(log_buffer)) != (ssize_t)strlen(log_buffer))
+  if (write(lockfds,log_buffer,strlen(log_buffer)) != 
+      (ssize_t)strlen(log_buffer))
     {
     log_err(errno,msg_daemonname,"failed to write pid to lockfile");
 
     return(-1);
     }
+
 #if (PLOCK_DAEMONS & 1)
   plock(PROCLOCK);
 #endif
@@ -968,14 +983,24 @@ int main(
   /* do not check nodes immediately as they will initially be marked 
      down unless they have already reported in */
 
-  set_task(WORK_Immed,time_now + 60,check_nodes,NULL);
+  when = server.sv_attr[(int)SRV_ATR_check_rate].at_val.at_long + time_now;
+  if (svr_totnodes > 1024)
+    {
+    /* for large systems, give newly reported nodes more time before 
+       being marked down while pbs_moms are intialy reporting in */
+
+    set_task(WORK_Timed,when + svr_totnodes / 12,check_nodes,NULL);
+    }
+  else
+    {
+    set_task(WORK_Timed,when,check_nodes,NULL);
+    }
 
   /* Just check the nodes with check_nodes above and don't ping anymore. */
 
-  set_task(WORK_Timed,time_now+5,ping_nodes,NULL); 
-  
+  set_task(WORK_Timed,time_now + 5,ping_nodes,NULL); 
 
-  set_task(WORK_Immed, time_now + 5, check_log, NULL);
+  set_task(WORK_Timed,time_now + 5,check_log,NULL);
 
   /*
    * Now at last, we are ready to do some batch work.  The
@@ -1090,7 +1115,8 @@ int main(
           {
           /* spread these out over the next JobStatRate seconds */
 
-          when = pjob->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long % JobStatRate;
+          when = pjob->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long % 
+                 JobStatRate;
     
           ptask = set_task(WORK_Timed,when + time_now,poll_job_task,pjob);
 
@@ -1165,9 +1191,11 @@ int main(
   }  /* END main() */
 
 
+
+
 void check_log(
 
- struct work_task *ptask)
+ struct work_task *ptask) /* I */
 
  {
  long depth = 1;

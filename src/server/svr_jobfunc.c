@@ -483,6 +483,10 @@ void svr_dequejob(
 
       if (--pque->qu_njstate[pjob->ji_qs.ji_state] < 0)
         bad_ct = 1;
+
+      if (pjob->ji_qs.ji_state == JOB_STATE_COMPLETE)
+        if (--pque->qu_numcompleted < 0)
+          bad_ct = 1;
       }
 
     pjob->ji_qhdr = (pbs_queue *)0;
@@ -1017,6 +1021,10 @@ int svr_chkque(
   int i;
   int failed_group_acl = 0;
   int failed_user_acl  = 0;
+  int user_jobs;
+  job *pj;
+  struct array_strings *pas;
+  int j=0;
 
   if (EMsg != NULL)
     EMsg[0] = '\0';
@@ -1100,34 +1108,26 @@ int svr_chkque(
 
         strncpy(uname,pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,PBS_MAXUSER);
 
-        setgrent();
+        /* fetch the groups in the ACL and look for matching user membership */
 
-        /* walk all groups looking for matching user membership */
+	pas = pque->qu_attr[QA_ATR_AclGroup].at_val.at_arst;
+	for (i=0;i<pas->as_usedptr;i++) 
+	  {
+          if ((grp = getgrnam(pas->as_string[i])) == NULL) 
+            continue;
 
-        while ((grp = getgrent()))
-          {
-          for (i = 0;grp->gr_mem[i] != NULL;i++)
+          for (j=0;grp->gr_mem[j] != NULL;j++) 
             {
-            if (strcmp(grp->gr_mem[i],uname))
-              continue;
-
-            rc = acl_check(
-              &pque->qu_attr[QA_ATR_AclGroup],
-              grp->gr_name,
-              ACL_Gid);
-
-            break;
+            if (!strcmp(grp->gr_mem[j],uname))
+              {
+              rc = 1;
+              break;
+              }
             }
 
-          if (rc != 0)
-            {
-            /* match found */
-
+          if (rc == 1)
             break;
-            }
-          }  /* END while (grp) */
-
-        endgrent();
+          }
         }    /* END if (rc == 0) && AclGroupSloppy...) */
 
       if (rc == 0)
@@ -1171,9 +1171,32 @@ int svr_chkque(
       }
 
     if ((pque->qu_attr[QA_ATR_MaxJobs].at_flags & ATR_VFLAG_SET) &&
-        (pque->qu_numjobs >= pque->qu_attr[QA_ATR_MaxJobs].at_val.at_long))
+        ((pque->qu_numjobs - pque->qu_numcompleted) >= pque->qu_attr[QA_ATR_MaxJobs].at_val.at_long))
       {
       return(PBSE_MAXQUED);
+      }
+
+    if ((pque->qu_attr[QA_ATR_MaxUserJobs].at_flags & ATR_VFLAG_SET) &&
+        (pque->qu_attr[QA_ATR_MaxUserJobs].at_val.at_long >= 0))
+      {
+      /* count number of jobs user has in queue */
+      user_jobs = 0;
+      pj = (job *)GET_NEXT(pque->qu_jobs);
+      while (pj)
+        {
+        if ((pj->ji_qs.ji_state <= JOB_STATE_RUNNING) &&
+            (!strcmp(pj->ji_wattr[JOB_ATR_job_owner].at_val.at_str,
+                     pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str)))
+          {
+          user_jobs++;
+          }
+        pj = (job *)GET_NEXT(pj->ji_jobque);
+        }
+
+      if (user_jobs >= pque->qu_attr[QA_ATR_MaxUserJobs].at_val.at_long)
+        {
+        return(PBSE_MAXUSERQUED);
+        }
       }
     
     /* 3. if "from_route_only" is true, only local route allowed */
@@ -1740,9 +1763,10 @@ static void correct_ct(
     {
     pc = log_buffer + strlen(log_buffer);
 
-    sprintf(pc,"; queue %s %d: ", 
+    sprintf(pc,"; queue %s %d (completed: %d): ", 
       pqj->qu_qs.qu_name,
-      pqj->qu_numjobs);
+      pqj->qu_numjobs,
+      pqj->qu_numcompleted);
 
     for (i = 0;i < PBS_NUMJOBSTATE;++i) 
       {
@@ -1760,6 +1784,7 @@ static void correct_ct(
        pque = (pbs_queue *)GET_NEXT(pque->qu_link)) 
     {
     pque->qu_numjobs = 0;
+    pque->qu_numcompleted = 0;
 
     for (i = 0;i < PBS_NUMJOBSTATE;++i)
       pque->qu_njstate[i] = 0;
@@ -1774,6 +1799,10 @@ static void correct_ct(
 
     (pjob->ji_qhdr)->qu_numjobs++;
     (pjob->ji_qhdr)->qu_njstate[pjob->ji_qs.ji_state]++;
+
+    if (pjob->ji_qs.ji_state == JOB_STATE_COMPLETE)
+      pque->qu_numcompleted++;
+
     }  /* END for (pjob) */
 
   return;

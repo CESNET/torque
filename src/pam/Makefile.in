@@ -134,6 +134,8 @@ DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 
+SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
+
 pammod_LTLIBRARIES = pam_pbssimpleauth.la
 
 AM_CFLAGS = -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\"

@@ -77,6 +77,7 @@
 * without reference to its choice of law rules.
 */
 
+/* DIAGTODO: write diag.h and fill out new attrs */
 /*
  * server.h - definitions for the server object (structure)
  *
@@ -144,6 +145,7 @@ enum srv_atr {
 	SRV_ATR_LogFileRollDepth,
 	SRV_ATR_NextJobNum,
 	SVR_ATR_tokens,
+	SRV_ATR_NetCounter,
 #include "site_svr_attr_enum.h"
 	SRV_ATR_ServerName,
 	/* This must be last */

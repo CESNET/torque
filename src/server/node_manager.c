@@ -1320,7 +1320,7 @@ void stream_eof(
     return;
     }
 
-  sprintf(log_buffer,"connection to %s is bad, remote service may be down, message may be corrupt, or connection may have been dropped remotely (%s).  setting node state to down\n",
+  sprintf(log_buffer,"connection to %s is bad, remote service may be down, message may be corrupt, or connection may have been dropped remotely (%s).  setting node state to down",
     np->nd_name,
     dis_emsg[ret]);
 
@@ -1354,6 +1354,9 @@ void stream_eof(
  *      connection to the node.
 */
 
+#define TNODE_PINGCOUNT     256
+#define TNODE_PINGRETRYTIME   3
+
 void ping_nodes(
 
   struct work_task *ptask)  /* I (optional) */
@@ -1379,9 +1382,9 @@ void ping_nodes(
       "starting");
     }
 
-  sprintf(log_buffer,"ping attempting to contact %d nodes\n",
-    (svr_totnodes - startcount > 256) ? 
-      256 : 
+  sprintf(log_buffer,"ping attempting to contact %d nodes",
+    (svr_totnodes - startcount > TNODE_PINGCOUNT) ? 
+      TNODE_PINGCOUNT : 
       (svr_totnodes - startcount < 0) ? 
         svr_totnodes : 
         svr_totnodes - startcount); /* phew! */
@@ -1398,9 +1401,9 @@ void ping_nodes(
 
   for (i = startcount;i < svr_totnodes;i++) 
     {
-    if (i - startcount > 256)
+    if (i - startcount > TNODE_PINGCOUNT)
       {
-      /* only ping 256 nodes at a time, ping next batch later */
+      /* only ping TNODE_PINGCOUNT nodes at a time, ping next batch later */
 
       break;
       }
@@ -1502,9 +1505,9 @@ void ping_nodes(
 
   if (startcount < svr_totnodes)
     {
-    /* continue outstanding pings in 3 seconds */
+    /* continue outstanding pings in TNODE_PINGRETRYTIME seconds */
 
-    set_task(WORK_Timed,time_now + 3,ping_nodes,NULL); 
+    set_task(WORK_Timed,time_now + TNODE_PINGRETRYTIME,ping_nodes,NULL); 
     }
 
   return;
@@ -1639,13 +1642,6 @@ void check_nodes(
 
   if (ptask->wt_parm1 == NULL) 
     {
-    if (server_init_type == RECOV_HOT)
-      {
-      /* rapid ping rate while hot restart */
-
-      chk_len = 15;  /* doesn't do much good, this routine only check nodes to mark them down, not up? */
-      }
-
     set_task(
       WORK_Timed,
       time_now + chk_len, 
@@ -1867,7 +1863,10 @@ found:
 
       /* NOTE:  re-enabled rpp_flush/disabled rpp_eom (CRI) */
 
-      rpp_flush(stream);
+      ret = rpp_flush(stream);
+
+      if (ret != DIS_SUCCESS)
+        goto err;
 
       if (LOGLEVEL >= 3)
         {

@@ -457,12 +457,12 @@ case $PBS_MACH in
 esac
 
 case $PBS_MACH in
-aix4|aix5|sunos4|solaris5|freebsd|darwin|fujitsu)
+aix4|aix5|sunos4|solaris5|freebsd|freebsd5|darwin|fujitsu)
   AC_CHECK_FUNC(nlist, , AC_CHECK_LIB(elf, nlist)) ;;
 esac
 
 case $PBS_MACH in
-sunos4|solaris5|netbsd|freebsd|darwin)
+sunos4|solaris5|netbsd|freebsd|freebsd5|darwin)
   AC_CHECK_LIB(kvm, kvm_open) ;;
 esac
 
@@ -1444,6 +1444,19 @@ AH_VERBATIM([NEED_BLOCKING_CONNECTIONS],
 #define read(a,b,c) read_nonblocking_socket(a,b,c)
 #endif])
 
+pbs_build_host=`uname -n`
+pbs_build_date=`date`
+pbs_build_dir=`pwd`
+pbs_source_dir=`cd $srcdir && pwd`
+pbs_config_args=$@
+AC_DEFINE_UNQUOTED([PBS_BUILD_HOST],"${pbs_build_host}",[Define to the build hostname])
+AC_DEFINE_UNQUOTED([PBS_BUILD_DATE],"${pbs_build_date}",[Define to the build date])
+AC_DEFINE_UNQUOTED([PBS_BUILD_DIR],"${pbs_build_dir}",[Define to the build directory])
+AC_DEFINE_UNQUOTED([PBS_SOURCE_DIR],"${pbs_source_dir}",[Define to the source directory])
+AC_DEFINE_UNQUOTED([PBS_BUILD_USER],"${USER}",[Define to the building username])
+AC_DEFINE_UNQUOTED([PBS_INSTALL_DIR],"${prefix}",[Define to the install directory])
+AC_DEFINE_UNQUOTED([PBS_CONFIG_ARGS],"${ac_configure_args}",[Define to the install directory])
+AC_DEFINE_UNQUOTED([PBS_CFLAGS],"${CFLAGS}",[Define to the install directory])
 
 AC_OUTPUT(buildutils/pbs_mkdirs
 	  buildutils/self-extract-head-sh
@@ -1476,6 +1489,7 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/resmom/darwin/Makefile
 	  src/resmom/digitalunix/Makefile
 	  src/resmom/freebsd/Makefile
+	  src/resmom/freebsd5/Makefile
 	  src/resmom/fujitsu/Makefile
 	  src/resmom/hpux10/Makefile
 	  src/resmom/hpux11/Makefile

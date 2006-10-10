@@ -202,6 +202,7 @@ unsigned int	pbs_rm_port;
 tlist_head	mom_polljobs;	/* jobs that must have resource limits polled */
 tlist_head	svr_newjobs;	/* jobs being sent to MOM */
 tlist_head	svr_alljobs;	/* all jobs under MOM's control */
+tlist_head	mom_varattrs;	/* variable attributes */
 int		termin_child = 0;
 time_t		time_now = 0;
 time_t		polltime = 0;
@@ -318,6 +319,7 @@ static unsigned long setcheckpolltime(char *);
 static unsigned long settmpdir(char *);
 static unsigned long setlogfilemaxsize(char *);
 static unsigned long setlogfilerolldepth(char *);
+static unsigned long setvarattr(char *);
 
 static struct specials {
   char            *name;
@@ -352,6 +354,7 @@ static struct specials {
     { "tmpdir",       settmpdir },
     { "log_file_max_size", setlogfilemaxsize},
     { "log_file_roll_depth", setlogfilerolldepth},
+    { "varattr",       setvarattr},
     { NULL,           NULL } };
 
 
@@ -363,6 +366,7 @@ static char *reqmsg(struct rm_attribute *);
 static char *reqgres(struct rm_attribute *);
 static char *reqstate(struct rm_attribute *);
 static char *getjoblist(struct rm_attribute *);
+static char *reqvarattr(struct rm_attribute *);
 /* static char *nullproc(struct rm_attribute *); */
 
 
@@ -375,6 +379,7 @@ struct config common_config[] = {
   { "gres",      {reqgres} },
   { "state",     {reqstate} },
   { "jobs",      {getjoblist} },
+  { "varattr",   {reqvarattr} },
   { NULL,        {NULL} } };
 
 int                     LOGLEVEL = 0;  /* valid values (0 - 10) */
@@ -808,6 +813,130 @@ static char *getjoblist(
 
   return(list);
   }
+
+static char *reqvarattr(
+  
+  struct rm_attribute *attrib)
+  
+  {           
+  static char id[] = "reqvarattr";
+  static char *list=NULL,*child_spot;
+  static int listlen=0;
+  struct varattr *pva;
+  int   i, fd, len, child_len;
+  FILE  *child;
+
+
+  if (list == NULL)
+    {
+    list = calloc(BUFSIZ + 50,sizeof(char));
+
+    listlen = BUFSIZ;
+    }
+    
+  *list='\0'; /* reset the list */
+
+  if ((pva = (struct varattr *)GET_NEXT(mom_varattrs)) == NULL)
+    {
+    return(NULL);
+    }
+  else
+    {
+    for (;pva != NULL;pva = (struct varattr *)GET_NEXT(pva->va_link))
+      {
+      if ((pva->va_lasttime==0) || (time_now >= (pva->va_ttl + pva->va_lasttime)))
+        {
+        if ((pva->va_ttl == -1) && (pva->va_lasttime != 0))
+          continue;  /* ttl of -1 is only run once */
+          
+        pva->va_lasttime=time_now;
+
+        if (pva->va_value == NULL)
+          pva->va_value=calloc(128,sizeof(char));
+
+        /* execute script and get a new value */
+        if ((child = popen(pva->va_cmd,"r")) == NULL) 
+          {
+          sprintf(pva->va_value,"error: %d %s",errno,strerror(errno));
+          }
+        else
+          {
+
+          fd = fileno(child);
+
+          child_spot = pva->va_value;
+          child_len = 0;
+          child_spot[0] = '\0';
+
+retryread:
+          while ((len = read(fd,child_spot,127 - child_len)) > 0)
+            {
+            for (i = 0;i < len;i++)
+              {
+              if (child_spot[i] == '\n')
+                break;
+              }
+
+            if (i < len)
+              {
+              /* found newline */
+        
+              child_len += i + 1;
+
+              break;
+              }
+
+            child_len += len;
+            child_spot += len;
+
+            if (child_len >= 127)
+              break;
+            }
+
+          if (len == -1)
+            {
+            if (errno==EINTR)
+              goto retryread;
+
+            log_err(errno,id,"pipe read");
+
+            sprintf(pva->va_value,"? %d",
+              RM_ERR_SYSTEM);
+
+            fclose(child);
+            }
+          else
+            {
+            pclose(child);
+
+            if (child_len > 0)
+              pva->va_value[child_len - 1] = '\0';   /* hack off newline */
+            }
+          } /* END popen */
+        } /* END execute command */
+                     
+      if (pva->va_value[0] != '\0')
+        {
+        if (*list != '\0')
+          strcat(list,"+");
+
+        strcat(list,pva->va_name);
+        strcat(list,":");
+        strcat(list,pva->va_value);
+        }
+
+      if ((int)strlen(list) >= listlen)
+        {
+        listlen += BUFSIZ;
+        list=realloc(list,listlen);
+        }
+
+      }
+    }
+
+  return(list);
+  }
+
 
 
 
@@ -2127,10 +2256,6 @@ static unsigned long setidealload(
 
   strcat(newstr,value);
 
-  add_static(newstr,"config",0);
-
-  nconfig++;
-
   return(1);
   }  /* END setidealload() */
 
@@ -2160,10 +2285,6 @@ static unsigned long setignwalltime(
     }
 
   strcat(newstr,value);
-
-  add_static(newstr,"config",0);
-
-  nconfig++;
 
   /* SUCCESS */
 
@@ -2202,10 +2323,6 @@ static unsigned long setnodecheckscript(
 
   strcat(newstr,value);
 
-  add_static(newstr,"config",0);
-
-  nconfig++;
-
   /* SUCCESS */
 
   return(1);
@@ -2232,10 +2349,6 @@ static unsigned long setnodecheckinterval(
 
   strcat(newstr,value);
 
-  add_static(newstr,"config",0);
-
-  nconfig++;
-
   return(1);
   }  /* END setnodecheckinterval() */
 
@@ -2261,10 +2374,6 @@ static unsigned long settimeout(
   snprintf(newstr,sizeof(newstr),"%s %s",
     "timeout",
     value);
-
-  add_static(newstr,"config",0);
-
-  nconfig++;
 
   return(1);
   }  /* END settimeout() */
@@ -2296,10 +2405,6 @@ static unsigned long setmaxload(
     ideal_load_val = val;
 
   strcat(newstr,value);
-
-  add_static(newstr,"config",0);
-
-  nconfig++;
 
   return(1);
   }  /* END max_load() */
@@ -2363,6 +2468,59 @@ static unsigned long setlogfilerolldepth(
       }
    return 1;
    }
+
+
+static u_long setvarattr(
+
+  char *value)  /* I */
+
+  {
+  static char *id = "setvarattr";
+  struct varattr *pva;
+  char *tmpc;
+
+  pva = calloc(1,sizeof(struct varattr));
+
+  if (pva == NULL)
+    {
+    log_err(errno,id,"no memory");
+
+    return 0;
+    }
+  CLEAR_LINK(pva->va_link);
+
+  pva->va_name = strdup(value);
+
+  /* step forward to get the ttl value */
+  tmpc=strchr(pva->va_name,' ');
+  if (tmpc == NULL)
+    {
+    free(pva->va_name);
+    free(pva);
+    return 0;
+    }
+
+  *tmpc='\0';
+  tmpc++;
+  pva->va_ttl = strtol(tmpc, NULL, 10);
+  
+  /* step forward to get the command */
+  tmpc=strchr(tmpc,' ');
+  if (tmpc == NULL)
+    {
+    free(pva->va_name);
+    free(pva);
+    return 0;
+    }
+
+  *tmpc='\0';
+  tmpc++;
+  pva->va_cmd=tmpc;
+
+  append_link(&mom_varattrs,&pva->va_link,pva);
+
+  return 1; 
+}
 
 
 void check_log()
@@ -3323,6 +3481,7 @@ void is_update_stat(
     "size",
     "state",
     "jobs",
+    "varattr",
     NULL };
 
   char   cp[1024];
@@ -4021,6 +4180,8 @@ int rm_request(
 
             job *pjob;
 
+            struct varattr *pva;
+
             time(&Now);
 
             ptr = name + strlen("diag");
@@ -4225,14 +4386,28 @@ int rm_request(
               {
               struct stat s;
 
-              if (stat(path_prolog,&s) == -1)
-                {
-                MUStrNCat(&BPtr,&BSpace,"NOTE:  no prolog configured\n");
-                }
-              else
+              int prologfound = 0;
+
+              if (stat(path_prolog,&s) != -1)
                 {
                 MUStrNCat(&BPtr,&BSpace,"NOTE:  prolog enabled\n");
 
+                prologfound = 1;
+                }
+              else if (verbositylevel >= 2)
+                {
+                MUStrNCat(&BPtr,&BSpace,"NOTE:  no prolog configured\n");
+                }
+
+              if (stat(path_prologp,&s) != -1)
+                {
+                MUStrNCat(&BPtr,&BSpace,"NOTE:  prolog.parallel enabled\n");
+
+                prologfound = 1;
+                }
+
+              if (prologfound == 1)
+                {
                 sprintf(tmpLine,"Prolog Alarm Time:      %d seconds\n",
                   pe_alarm_time);
 
@@ -4347,6 +4522,24 @@ int rm_request(
               }
 #endif
                 
+            if ((pva = (struct varattr *)GET_NEXT(mom_varattrs)) != NULL)
+              {
+              MUStrNCat(&BPtr,&BSpace,"Varattrs:\n");
+              while (pva != NULL)
+                {
+                sprintf(tmpLine,"  name=%s  ttl=%d last=%s    cmd=%s value=%s\n",
+                  pva->va_name,
+                  pva->va_ttl,
+                  ctime(&pva->va_lasttime),
+                  pva->va_cmd,
+                  pva->va_value);
+
+                MUStrNCat(&BPtr,&BSpace,tmpLine);
+
+                pva = (struct varattr *)GET_NEXT(pva->va_link);
+                }
+              }
+
             MUStrNCat(&BPtr,&BSpace,"\ndiagnostics complete\n");
 
             log_record(PBSEVENT_SYSTEM,0,id,"internal diagnostics complete");
@@ -5086,6 +5279,9 @@ static void finish_loop(
 
   tmpTime = MAX(1,tmpTime);
 
+  if (LastServerUpdateTime == 0)
+    tmpTime=1;
+
   /* wait for a request to process */
 
   if (wait_request(tmpTime,NULL) != 0)
@@ -5610,6 +5806,8 @@ int MOMInitialize(void)
   for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {
     SStream[sindex] = -1;
+
+    MOMLastRecvFromServerTime[sindex] = 0;
  
     ReportMomState[sindex] = 1;
     }  /* END for (sindex) */
@@ -5987,6 +6185,7 @@ int main(
   c |= chk_file_sec(path_jobs,        1, 0, S_IWGRP|S_IWOTH, 1);
   c |= chk_file_sec(path_aux,         1, 0, S_IWGRP|S_IWOTH, 1);
   c |= chk_file_sec(path_spool,       1, 1, S_IWOTH,         0);
+  c |= chk_file_sec(path_undeliv,     1, 1, S_IWOTH,         0);
   c |= chk_file_sec(PBS_ENVIRON,      0, 0, S_IWGRP|S_IWOTH, 0);
   c |= chk_file_sec(path_server_name, 0, 0, S_IWGRP|S_IWOTH, 0);
 
@@ -6136,7 +6335,8 @@ int main(
   sprintf(log_buffer,"%ld\n",
     (long)getpid());
 
-  if (write(lockfds,log_buffer,strlen(log_buffer) + 1) != (ssize_t)(strlen(log_buffer) + 1))
+  if (write(lockfds,log_buffer,strlen(log_buffer) + 1) != 
+      (ssize_t)(strlen(log_buffer) + 1))
     {
     log_err(errno,msg_daemonname,"failed to write to lockfile");
 
@@ -6280,6 +6480,7 @@ int main(
   CLEAR_HEAD(svr_alljobs);
   CLEAR_HEAD(mom_polljobs);
   CLEAR_HEAD(svr_requests);
+  CLEAR_HEAD(mom_varattrs);
 
   if ((c = gethostname(mom_host,PBS_MAXHOSTNAME)) == 0) 
     {
@@ -6438,6 +6639,7 @@ int main(
       }
 
     /* should we check the log file ?*/
+
     if (time_now - last_log_check >= PBS_LOG_CHECK_RATE)
        {
        check_log();
@@ -6457,6 +6659,7 @@ int main(
       if (MOMServerAddrs[sindex] == 0)
         {
         /* server is defined, but we don't have an IP */
+
         setpbsserver(pbs_servername[sindex]);
         }
 
@@ -6464,6 +6667,19 @@ int main(
         {
         /* hrm, something wrong, skip this server */
         continue;
+        }
+
+      if ((SStream[sindex] != -1) && 
+          (time_now >= (MOMLastSendToServerTime[sindex] + (ServerStatUpdateInterval*2))))
+        {
+        sprintf(log_buffer,"connection to server %s timeout", 
+          pbs_servername[sindex]);
+
+        log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+
+        rpp_close(SStream[sindex]);
+
+        SStream[sindex] = -1;
         }
 
       if (SStream[sindex] == -1)
@@ -6477,18 +6693,8 @@ int main(
           {
           continue;                                                                        
           }
-        }
 
-      if (MOMRecvClusterAddrsCount[sindex] == 0)
-        {
-        if ((time_now - MOMLastSendToServerTime[sindex]) < 10)
-          {
-          /* message recently sent, do not resend */
-
-          continue;
-          }
-
-        MOMLastSendToServerTime[sindex]=time_now;
+        MOMLastSendToServerTime[sindex] = time_now;
 
         if (is_compose(SStream[sindex],IS_HELLO) == -1)
           {
@@ -6555,7 +6761,7 @@ int main(
      *  Update the server on the status of this mom.
      */
 
-    if (time_now > (LastServerUpdateTime + ServerStatUpdateInterval))
+    if (time_now >= (LastServerUpdateTime + ServerStatUpdateInterval))
       {
       check_state((LastServerUpdateTime == 0));
 

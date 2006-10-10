@@ -440,7 +440,7 @@ int pbsd_init(
   rc  = chk_file_sec(path_jobs,  1,0,S_IWGRP|S_IWOTH,1);
   rc |= chk_file_sec(path_queues,1,0,S_IWGRP|S_IWOTH,0);
   rc |= chk_file_sec(path_spool, 1,1,S_IWOTH,        0);
-  rc |= chk_file_sec(path_acct,	 1,1,S_IWGRP|S_IWOTH,0);
+  rc |= chk_file_sec(path_acct,	 1,0,S_IWGRP|S_IWOTH,0);
   rc |= chk_file_sec(PBS_ENVIRON,0,0,S_IWGRP|S_IWOTH,1);
 
   if (rc) 
@@ -980,6 +980,7 @@ static int pbsd_init_job(
 
   {
   unsigned int d;
+  struct work_task *pwt;
 
   pjob->ji_momhandle = -1;
 
@@ -1064,7 +1065,12 @@ static int pbsd_init_job(
 
       /* resend rtc */
 
-      set_task(WORK_Immed,0,resume_net_move,(void *)pjob);
+      pwt = set_task(WORK_Immed,0,resume_net_move,(void *)pjob);
+
+      if (pwt)
+        {
+        append_link(&pjob->ji_svrtask,&pwt->wt_linkobj,pwt);
+        }
 
       break;
 		
@@ -1124,7 +1130,12 @@ static int pbsd_init_job(
 
       apply_job_delete_nanny(pjob,time_now + 60);
 
-      set_task(WORK_Immed,0,on_job_exit,(void *)pjob);
+      pwt = set_task(WORK_Immed,0,on_job_exit,(void *)pjob);
+
+      if (pwt)
+        {
+        append_link(&pjob->ji_svrtask,&pwt->wt_linkobj,pwt);
+        }
 
       pbsd_init_reque(pjob,KEEP_STATE);
 
@@ -1135,7 +1146,12 @@ static int pbsd_init_job(
       /* NOOP - completed jobs are already purged above */
       /* for some reason, this doesn't actually work */
 
-      set_task(WORK_Immed,0,on_job_exit,(void *)pjob);
+      pwt = set_task(WORK_Immed,0,on_job_exit,(void *)pjob);
+
+      if (pwt)
+        {
+        append_link(&pjob->ji_svrtask,&pwt->wt_linkobj,pwt);
+        }
 
       pbsd_init_reque(pjob,KEEP_STATE);
 
@@ -1144,7 +1160,14 @@ static int pbsd_init_job(
     case JOB_SUBSTATE_RERUN:
 
       if (pjob->ji_qs.ji_state == JOB_STATE_EXITING)
-        set_task(WORK_Immed,0,on_job_rerun,(void *)pjob);
+        {
+        pwt = set_task(WORK_Immed,0,on_job_rerun,(void *)pjob);
+
+        if (pwt)
+          {
+          append_link(&pjob->ji_svrtask,&pwt->wt_linkobj,pwt);
+          }
+        }
 
       pbsd_init_reque(pjob,KEEP_STATE);
 
@@ -1153,7 +1176,12 @@ static int pbsd_init_job(
     case JOB_SUBSTATE_RERUN1:
     case JOB_SUBSTATE_RERUN2:
 
-      set_task(WORK_Immed,0,on_job_rerun,(void *)pjob);
+      pwt = set_task(WORK_Immed,0,on_job_rerun,(void *)pjob);
+
+      if (pwt)
+        {
+        append_link(&pjob->ji_svrtask,&pwt->wt_linkobj,pwt);
+        }
 
       pbsd_init_reque(pjob,KEEP_STATE);
 
@@ -1420,6 +1448,11 @@ static int chk_save_file(
 
   {
   struct stat sb;
+
+  if (*filename == '.')
+    {
+    return(-1);
+    }
 
   if (stat(filename,&sb) == -1)
     {

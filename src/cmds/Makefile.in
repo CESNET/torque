@@ -133,6 +133,8 @@ DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 
+SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
+
 PBS_LIBS = ../lib/Libpbs/libtorque.la
 
 bin_SCRIPTS = nqs2pbs
@@ -147,7 +149,8 @@ EXTRA_DIST = nqs2pbs sample.qstatrc
 LDADD = $(PBS_LIBS)
 
 AM_CFLAGS = $(MY_TCL_INCS) -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\" \
-	    -DPBSPD=\"$(bindir)/pbspd\"
+	    -DPBSPD=\"$(bindir)/pbspd\" \
+	    -DSUBMIT_FILTER_PATH=\"$(SUBMIT_FILTER_PATH)\"
 
 
 @USE_TCLQSTAT_TRUE@TCLQSTATLIBS = $(MY_TCL_LIBS)

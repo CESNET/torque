@@ -133,6 +133,8 @@ DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 
+SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
+
 PBS_LIBS = ../lib/Libattr/libattr.a \
 	   ../lib/Libsite/libsite.a \
 	   ../lib/Libpbs/libtorque.la
@@ -534,7 +536,6 @@ uninstall-am: uninstall-info-am uninstall-sbinPROGRAMS
 
 
 install-exec-hook:
-	chmod 700 $(DESTDIR)$(sbindir)/$(program_prefix)pbs_server$(program_suffix)
 	$(PBS_MKDIRS) aux || :
 	$(PBS_MKDIRS) server
 

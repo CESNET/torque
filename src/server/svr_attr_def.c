@@ -112,6 +112,7 @@ extern int set_null A_((attribute *patr, attribute *new, enum batch_op op));
 extern int token_chk A_((attribute *pattr, void *pobject, int actmode));
 extern int set_tokens A_((struct attribute *attr, struct attribute *new, enum batch_op op));
 
+/* DIAGTODO: write diag_attr_def.c */
 
 /*
  * The entries for each attribute are (see attribute.h):
@@ -160,7 +161,7 @@ attribute_def svr_attr_def[] = {
 	PARENT_TYPE_SERVER,
     },
 
-/* SRV_ATR_MAX_running */
+/* SRV_ATR_max_running */
     {	ATTR_maxrun,		/* "max_running" */
 	decode_l,
 	encode_l,
@@ -799,6 +800,19 @@ attribute_def svr_attr_def[] = {
 	token_chk,
 	MGR_ONLY_SET,
 	ATR_TYPE_ARST,
+	PARENT_TYPE_SERVER
+    },
+
+/* SRV_ATR_NetCounter */
+    {	ATTR_netcounter,		/* "net_counter" */
+	decode_null,
+	encode_str,
+	set_null,
+	comp_str,
+	free_null,
+	NULL_FUNC,
+	READ_ONLY,
+	ATR_TYPE_STR,
 	PARENT_TYPE_SERVER
     },
 

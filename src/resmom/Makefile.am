@@ -6,7 +6,7 @@ momcpalib=cpa/libmomcpa.a
 endif
 
 SUBDIRS = @PBS_MACH@ $(cpasubdir)
-DIST_SUBDIRS = aix4 aix5 darwin digitalunix freebsd fujitsu hpux10 hpux11 \
+DIST_SUBDIRS = aix4 aix5 darwin digitalunix freebsd freebsd5 fujitsu hpux10 hpux11 \
 	irix5 irix6 irix6array linux netbsd solaris5 solaris7 sunos4 unicos8 unicosmk2 cpa
 
 AM_CPPFLAGS += -I$(top_srcdir)/src/resmom/@PBS_MACH@ -DPBS_MOM \
@@ -34,7 +34,6 @@ pbs_mom_SOURCES = catch_child.c mom_comm.c mom_inter.c mom_main.c \
 		   ../server/req_quejob.c ../server/resc_def_all.c
 
 install-exec-hook:
-	chmod 700 $(DESTDIR)$(sbindir)/$(program_prefix)pbs_mom$(program_suffix)
 	$(PBS_MKDIRS) aux || :
 	$(PBS_MKDIRS) mom
 
