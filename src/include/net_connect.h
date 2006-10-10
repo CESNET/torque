@@ -95,6 +95,7 @@ typedef unsigned long pbs_net_t;        /* for holding host addresses */
 #define PBS_NET_CONN_AUTHENTICATED 1
 #define PBS_NET_CONN_FROM_PRIVIL   2
 #define PBS_NET_CONN_NOTIMEOUT     4
+#define PBS_NET_CONN_GSSAPIAUTH    8
 
 /*
 **	Protocol numbers and versions for PBS communications.

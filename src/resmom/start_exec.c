@@ -5039,21 +5039,26 @@ int init_groups(
   char id[]="init_groups";
   extern sigset_t allsigs; /* set up at the start of mom_main */
   sigset_t savedset;
-
+  gid_t *savedgroups;
   int n, nsaved;
-  gid_t savedgroups[NGROUPS_MAX + 1]; /* plus one for the egid below */
+
 
   gid_t momegid;
   int i;
 
   /* save current group access because we're about to overwrite it */
 
-  nsaved = getgroups(NGROUPS_MAX,savedgroups);
-
+  nsaved = getgroups(0,savedgroups);
+  savedgroups = malloc(sizeof(gid_t) * (nsaved + 2));
+  if (!savedgroups) {
+    sprintf(log_buffer,"Couldn't malloc memory to save groups\n");
+    log_err(errno,id,log_buffer);
+    return -1;
+  }
   if (nsaved < 0) 
     {
     log_err(errno,id,"getgroups");
-
+    free(savedgroups);
     return(-1);
     }
 
@@ -5086,7 +5091,7 @@ int init_groups(
     if (pwe == NULL) 
       {
       log_err(errno,id,"no such user");
-
+      free(savedgroups);
       return(-1);
       }
 
@@ -5099,7 +5104,7 @@ int init_groups(
   if (sigprocmask(SIG_BLOCK,&allsigs,&savedset) == -1) 
     {
     log_err(errno,id,"sigprocmask(BLOCK)");
-
+    free(savedgroups);
     return(-1);
     }
 
@@ -5123,7 +5128,7 @@ int init_groups(
 
   if (sigprocmask(SIG_SETMASK,&savedset,NULL) == -1)
     log_err(errno,id,"sigprocmask(SIG_SETMASK)");
-
+  free(savedgroups);
   return(n);
   }  /* END init_groups() */
 

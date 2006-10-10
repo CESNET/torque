@@ -313,6 +313,7 @@ static void display_status_1(m, code, type)
 	       (int)msg.length,
 	       (char *)msg.value);
 	  (void) gss_release_buffer(&min_stat, &msg);
+
      } while (msg_ctx != 0);
 }
 
@@ -780,7 +781,10 @@ int pbsgss_client_authenticate(char *hostname, int psock, int delegate) {
       creds = NULL;
     }
   } 
-
+  if (creds == NULL) {
+    return -1;
+  }
+  
   service_name = malloc(sizeof(char) * (1 + strlen(hostname) + strlen("host@")));
   sprintf(service_name,"host@%s",hostname);
 
@@ -836,11 +840,15 @@ int authenticate_as_job(char *ccname,
     return -1;
   }
   if (setpag) {
-    system("/usr/bin/aklog -setpag csail.mit.edu");   
+    system("/usr/bin/aklog -setpag");   
   } else {
-    system("/usr/bin/aklog csail.mit.edu");
+    system("/usr/bin/aklog");
   }
   return 0;
+}
+
+int clear_krb5ccname() {
+  setenv("KRB5CCNAME","",1);
 }
 
 /* returns the full principal name for the current host, eg

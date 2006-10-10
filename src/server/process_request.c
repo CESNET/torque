@@ -306,18 +306,22 @@ void process_request(
 #else
     /* gss_gssauthenuser will already have called req_reject */
     if (req_gssauthenuser(request,sfds) < 0) {
+      log_event(PBSEVENT_DEBUG,
+		PBS_EVENTCLASS_SERVER,"req_gssauthenuser returned < 0","");
       return;
+    }
+    log_event(PBSEVENT_DEBUG,
+	      PBS_EVENTCLASS_SERVER,"req_gssauthenuser returned >= 0","");
+#endif
+  } else {
+#ifndef PBS_MOM    
+    if (svr_conn[sfds].cn_authen == PBS_NET_CONN_GSSAPIAUTH) {
+      strcpy(request->rq_user,conn_credent[sfds].username);
+      strcpy(request->rq_host,conn_credent[sfds].hostname);
     }
 #endif
   }
-#ifndef PBS_MOM
-  /* normally the hostname field is taken from the connection information.  However,
-     if there's GSSAPI authentication, then use the realm name as the hostname */
-  if (svr_conn[sfds].principal != NULL) {
-    strcpy(request->rq_user,conn_credent[sfds].username);
-    strcpy(request->rq_host,conn_credent[sfds].hostname);
-  }
-#endif /* PBS_MOM */
+  
 #endif /* GSSAPI */
 
   sprintf(
@@ -399,10 +403,14 @@ void process_request(
       return;
       }
 
-    if (svr_conn[sfds].cn_authen != PBS_NET_CONN_AUTHENTICATED)
+    if (svr_conn[sfds].cn_authen != PBS_NET_CONN_AUTHENTICATED &&
+	svr_conn[sfds].cn_authen != PBS_NET_CONN_GSSAPIAUTH) {
+      log_event(PBSEVENT_DEBUG,
+		PBS_EVENTCLASS_SERVER,"cn_authen not net_conn_auth",log_buffer);
       rc = PBSE_BADCRED;
-    else
+    } else {
       rc = authenticate_user(request, &conn_credent[sfds]);
+    }
 
     if (rc != 0) 
       {

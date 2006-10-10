@@ -94,6 +94,7 @@
 #include "credential.h"
 #include "net_connect.h"
 #include "batch_request.h"
+#include "log.h"
 
 /* External Global Data Items Referenced */
 
@@ -166,6 +167,10 @@ void req_authenuser(
       strcpy(conn_credent[s].username,preq->rq_user);
       strcpy(conn_credent[s].hostname,preq->rq_host);
 
+      sprintf(log_buffer,"req_authenuser: setting creds for %d : %s, %s\n",
+	      s,preq->rq_user,preq->rq_host);
+      log_event(PBSEVENT_DEBUG,
+		PBS_EVENTCLASS_SERVER,"req_authenuser",log_buffer);
       /* time stamp just for the record */
 
       conn_credent[s].timestamp = time_now;

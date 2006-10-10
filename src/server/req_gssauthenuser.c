@@ -10,11 +10,13 @@
 #include "credential.h"
 #include "batch_request.h"
 
+extern time_t time_now;
 extern struct connection svr_conn[PBS_NET_MAX_CONNECTIONS];
 extern struct credential conn_credent[PBS_NET_MAX_CONNECTIONS];
 gss_cred_id_t server_creds = GSS_C_NO_CREDENTIAL;
 char *service_name = NULL;
 time_t lastcredstime = 0;
+time_t credlifetime = 0;
 
 /* this should be called on a socket after readauth() (in net_server.c) but
  * goes before process request.  It copies the principal from the svr_conn 
@@ -22,21 +24,26 @@ time_t lastcredstime = 0;
  *
  * returns 0 on success and -1 on failure
  */
-int gss_conn_credent (int sock) {
+int gss_conn_credent (struct batch_request *preq, int s) {
   char *client_name;
   int i, length;
-  client_name = svr_conn[sock].principal;
+  client_name = svr_conn[s].principal;
   if (! client_name) {
+    log_err(0,"gss_conn_credent","couldn't get client_name");
     return -1;
   }
   for (i = 0; client_name[i] != '\0' && i < PBS_MAXUSER; i++) {
     if (client_name[i] == '@') {break;}
   }
   length = strlen(client_name);
-  strncpy(conn_credent[sock].username,client_name,i);
-  conn_credent[sock].username[i] = '\0';
-  strncpy(conn_credent[sock].hostname,client_name + i + 1, length - i -1);
-  conn_credent[sock].hostname[length - i -1] = '\0';
+  strncpy(conn_credent[s].username,client_name,i);
+  conn_credent[s].username[i] = '\0';
+  strncpy(conn_credent[s].hostname,client_name + i + 1, length - i -1);
+  conn_credent[s].hostname[length - i -1] = '\0';
+  conn_credent[s].timestamp = time_now;
+  strcpy(preq->rq_user,conn_credent[s].username);
+  strcpy(preq->rq_host,conn_credent[s].hostname);
+
   return 0;
 }
 
@@ -45,7 +52,7 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
   gss_ctx_id_t context;
   gss_cred_id_t client_creds;
   gss_buffer_desc client_name;
-  OM_uint32 ret_flags;
+  OM_uint32 majstat, ret_flags, lifetime;
   time_t now;
   int status;
 
@@ -53,12 +60,13 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
      ones since they're probably still valid and hope that we can get new credentials next time 
   */
   now = time((time_t *)NULL);
-  if (now - lastcredstime > 60*60) {
+  if (now - lastcredstime > credlifetime) {
     gss_cred_id_t new_creds;
     if (service_name == NULL) {
       struct utsname buf;
       if (uname(&buf) != 0) {
 	perror("couldn't uname");
+	log_err(0,"req_gssauthenuser","couldn't uname");
 	req_reject(PBSE_BADCRED,0,preq,NULL,"couldn't get server nodename");
 	return -1;
       }
@@ -80,14 +88,31 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
 	gss_release_cred(&ret_flags,server_creds);
       }
       server_creds = new_creds;
+      majstat = gss_inquire_cred(&ret_flags,server_creds,
+				 NULL,&lifetime,NULL,NULL);
+      if (majstat == GSS_S_COMPLETE) {
+	if (lifetime == GSS_C_INDEFINITE) {
+	  credlifetime = 7200;
+	  sprintf(log_buffer,"got new ticket lifetime as indefinite.  Using 7200\n",lifetime);
+	  log_event(PBSEVENT_DEBUG,
+		    PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
+	} else {
+	  sprintf(log_buffer,"got new ticket lifetime as %d\n",lifetime);
+	  log_event(PBSEVENT_DEBUG,
+		    PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
+	  credlifetime = lifetime;
+	}
+      } else {
+	credlifetime = 0;
+      }      
     }
-    
   }
+
   if ((status = pbsgss_server_establish_context(sock, server_creds, &client_creds, &context,
 						&client_name, &ret_flags)) < 0) {
     sprintf(log_buffer,"server_establish_context failed : %d",status);
     log_event(PBSEVENT_DEBUG,
-              PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
+	      PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
     req_reject(PBSE_BADCRED,0,preq,NULL,"establish context didn't work");
     return -1;    
   }
@@ -105,7 +130,10 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
   strncpy(svr_conn[sock].principal,client_name.value,client_name.length);
   svr_conn[sock].principal[client_name.length] = '\0';
   memcpy(&(svr_conn[sock].creds),&client_creds,sizeof(client_creds));
-  svr_conn[sock].cn_authen = PBS_NET_CONN_AUTHENTICATED;
+  svr_conn[sock].cn_authen = PBS_NET_CONN_GSSAPIAUTH;
   gss_delete_sec_context(&ret_flags,&context,GSS_C_NO_BUFFER);
-  return gss_conn_credent(sock);
+  log_event(PBSEVENT_DEBUG,
+	    PBS_EVENTCLASS_SERVER,"req_gssauthenuser calling con_credent","");
+  return gss_conn_credent(preq,sock);
+
 }
