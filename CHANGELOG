@@ -19,6 +19,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - staged out files will retain proper permission bits
   f - backported qsub -W umask=
   b - correct some fast startup behaviour
+  e - queue attribute max_queuable accounts for C jobs
 
 2.1.2
 
