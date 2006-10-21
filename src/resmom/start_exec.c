@@ -4648,6 +4648,11 @@ int open_std_file(
     return(-1);
     }
 
+  if (keeping)
+    {
+    mode &= ~O_EXCL;
+    }
+
 #if defined(HAVE_SETEUID) && defined(HAVE_SETEGID)
 
     /* most systems */

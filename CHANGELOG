@@ -1,3 +1,6 @@
+2.0.0p10
+  Fix 2.0.0p9 regression with -o/dev/null
+
 2.0.0p9
   Fix "Spool Job Race condition"
 

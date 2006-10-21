@@ -1,7 +1,7 @@
 
 # comment out snap if building a real release
 %define name torque
-%define version 2.0.0p9
+%define version 2.0.0p10
 #%%define snap 200601301324
 %define release 1cri
 
