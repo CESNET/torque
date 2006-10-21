@@ -2,6 +2,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.1.4
   b - fix cput job status
+  b - Fix "Spool Job Race condition"
 
 2.1.3
 
