@@ -1,5 +1,5 @@
 2.0.0p9
-  nothing yet
+  Fix "Spool Job Race condition"
 
 2.0.0p8
   really fix torque.cfg parsing (USC)
