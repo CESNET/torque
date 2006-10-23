@@ -1,5 +1,8 @@
 2.0.0p11
-  nothing yet
+  b - fix 2.1.4 regression with TM on single-node jobs
+  b - fix 2.1.4 regression with rerunning jobs
+  b - additional spool handling security fixes
+
 
 2.0.0p10
   Fix 2.0.0p9 regression with -o/dev/null
