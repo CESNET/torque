@@ -2,6 +2,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.1.6
   b - freebsd5 build fix
+  b - fix 2.1.4 regression with TM on single-node jobs
+  b - fix 2.1.4 regression with rerunning jobs
+  b - additional spool handling security fixes
 
 2.1.5
   b - fix 2.1.4 regression with -o/dev/null
