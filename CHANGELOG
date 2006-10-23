@@ -1,5 +1,8 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
+2.1.6
+  b - freebsd5 build fix
+
 2.1.5
   b - fix 2.1.4 regression with -o/dev/null
 
