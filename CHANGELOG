@@ -1,7 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.1.7
-  nothing yet
+  b - fix bison syntax error in Parser.y
 
 2.1.6
   b - freebsd5 build fix
