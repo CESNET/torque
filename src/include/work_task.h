@@ -108,8 +108,8 @@ enum work_type {
 };
 
 struct work_task  {
-	list_link	 wt_linkall;	/* link to event type work list */
-	list_link	 wt_linkobj;	/* link to others of same object */
+	tlist_link	 wt_linkall;	/* link to event type work list */
+	tlist_link	 wt_linkobj;	/* link to others of same object */
 	long		 wt_event;	/* event id: time, pid, socket, ... */
 	enum work_type	 wt_type;	/* type of event */
 	void	       (*wt_func) A_((struct work_task *));

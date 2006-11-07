@@ -88,11 +88,11 @@
 
 
 /*
- * list_link.c - general routines for maintenance of a double
+ * tlist_link.c - general routines for maintenance of a double
  *	linked list.  A user defined structure can be managed as
  *	a double linked list if the first element in the user structure
- *	is the "list_link" struct defined in list_link.h and the list
- *	is headed by a "list_link" struct also defined in list_link.h.
+ *	is the "tlist_link" struct defined in list_link.h and the list
+ *	is headed by a "tlist_link" struct also defined in list_link.h.
  *
  *	There are the routines provided:
  *		insert_link - inserts a new entry before or after an old
@@ -112,8 +112,8 @@
 
 void insert_link(
 
-  struct list_link *old,	/* ptr to old entry in list */
-  struct list_link *new,	/* ptr to new link entry    */
+  struct tlist_link *old,	/* ptr to old entry in list */
+  struct tlist_link *new,	/* ptr to new link entry    */
   void             *pobj,	/* ptr to object to link in */
   int               position)	/* 0=before old, else after */
 
@@ -122,11 +122,11 @@ void insert_link(
   /* first make sure unlinked entries are pointing to themselves	    */
 
   if ((pobj == (void *)0) ||
-      (old == (struct list_link *)0) ||
-      (old->ll_prior == (list_link *)0) ||
-      (old->ll_next  == (list_link *)0) ||
-      (new->ll_prior != (list_link *)new) ||
-      (new->ll_next  != (list_link *)new))  
+      (old == (struct tlist_link *)0) ||
+      (old->ll_prior == (tlist_link *)0) ||
+      (old->ll_next  == (tlist_link *)0) ||
+      (new->ll_prior != (tlist_link *)new) ||
+      (new->ll_next  != (tlist_link *)new))  
     {
     fprintf(stderr, "Assertion failed, bad pointer in insert_link\n");
 
@@ -173,7 +173,7 @@ void insert_link(
 void append_link(
 
   tlist_head *head, /* ptr to head of list */
-  list_link *new,  /* ptr to new entry */
+  tlist_link *new,  /* ptr to new entry */
   void      *pobj) /* ptr to object to link in */
 
   {
@@ -183,8 +183,8 @@ void append_link(
   if ((pobj == NULL) ||
       (head->ll_prior == NULL) ||
       (head->ll_next  == NULL) ||
-      (new->ll_prior  != (list_link *)new) ||
-      (new->ll_next   != (list_link *)new)) 
+      (new->ll_prior  != (tlist_link *)new) ||
+      (new->ll_next   != (tlist_link *)new)) 
     {
     if (pobj == NULL)
       fprintf(stderr,"ERROR:  bad pobj pointer in append_link\n");
@@ -216,9 +216,9 @@ void append_link(
     }
   else
     {
-    /* WARNING: This mixes list_link pointers and ll_struct
-         pointers, and may break if the list_link we are operating
-         on is not the first embeded list_link in the surrounding
+    /* WARNING: This mixes tlist_link pointers and ll_struct
+         pointers, and may break if the tlist_link we are operating
+         on is not the first embeded tlist_link in the surrounding
          structure, e.g. work_task.wt_link_obj */
 
     new->ll_struct = (void *)new;
@@ -245,14 +245,14 @@ void append_link(
  */
 
 void delete_link(old)
-	struct list_link *old;		/* ptr to link to delete */
+	struct tlist_link *old;		/* ptr to link to delete */
 {
 
-	if ((old->ll_prior != (list_link *)0) && 
+	if ((old->ll_prior != (tlist_link *)0) && 
 	    (old->ll_prior != old) && (old->ll_prior->ll_next == old))
 		(old->ll_prior)->ll_next = old->ll_next;
 
-	if ((old->ll_next != (list_link *)0) &&
+	if ((old->ll_next != (tlist_link *)0) &&
 	    (old->ll_next != old) && (old->ll_next->ll_prior == old))
 		(old->ll_next)->ll_prior = old->ll_prior;
 
@@ -268,11 +268,11 @@ void delete_link(old)
  */
 
 void swap_link(pone, ptwo)
-	list_link *pone;
-	list_link *ptwo;
+	tlist_link *pone;
+	tlist_link *ptwo;
 {
-	list_link *p1p;
-	list_link *p2p;
+	tlist_link *p1p;
+	tlist_link *p2p;
 
 
 	if (pone->ll_next == ptwo) {
@@ -299,10 +299,10 @@ void swap_link(pone, ptwo)
  */
 
 int is_linked(head, entry)
-	list_link *head;
-	list_link *entry;
+	tlist_link *head;
+	tlist_link *entry;
 {
-	list_link *pl;
+	tlist_link *pl;
 
 	pl = head->ll_next;
 	while (pl != head) {
@@ -325,7 +325,7 @@ int is_linked(head, entry)
 
 void *get_next(
 
-  list_link  pl,   /* I */
+  tlist_link  pl,   /* I */
   char	    *file, /* I */
   int	     line) /* I */
 
@@ -348,7 +348,7 @@ void *get_next(
 
 void *get_prior(
 
-  list_link  pl,
+  tlist_link  pl,
   char	    *file,
   int	     line)
 

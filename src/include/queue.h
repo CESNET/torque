@@ -166,7 +166,7 @@ extern attribute_def que_attr_def[];
 /* at last we come to the queue definition itself	*/
  
 struct pbs_queue {
-	list_link	qu_link;		/* forward/backward links */
+	tlist_link	qu_link;		/* forward/backward links */
 	tlist_head	qu_jobs;		/* jobs in this queue */
 
 	struct queuefix {

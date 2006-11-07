@@ -156,7 +156,7 @@ struct brp_select {		/* reply to Select Job Request */
 };
 
 struct brp_status {		/* reply to Status Job/Queue/Server Request */
-	list_link brp_stlink;
+	tlist_link brp_stlink;
 	int	  brp_objtype;
 	char	  brp_objname[(PBS_MAXSVRJOBID > PBS_MAXDEST ? PBS_MAXSVRJOBID:PBS_MAXDEST)+1];
 	tlist_head brp_attr;		/* head of svrattrlist */

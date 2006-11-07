@@ -106,7 +106,7 @@
 #define MAX_RESOURCES 200 /* max. size of svr_resc_def */
 
 typedef struct resource {
-	list_link 	     rs_link;	/* link to other resources in list */
+	tlist_link 	     rs_link;	/* link to other resources in list */
 	struct resource_def *rs_defin;	/* pointer to definition entry */
 	attribute	     rs_value;	/* attribute struct holding value */
 } resource;

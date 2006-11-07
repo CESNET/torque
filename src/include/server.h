@@ -223,7 +223,7 @@ extern int svr_save A_((struct server *,int));
 
 /* maintain a list of new nodes */
 typedef struct new_node {
-        list_link            nn_link;   /* link to other resources in list */
+        tlist_link            nn_link;   /* link to other resources in list */
 	char                *nn_name;   /* name of new node */
 } new_node;                                                                                           
 

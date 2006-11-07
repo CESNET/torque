@@ -128,7 +128,7 @@
  */
 
 struct svrattrl {
-	list_link	al_link;
+	tlist_link	al_link;
 	struct attropl	al_atopl;    /* name,resource,value, see pbs_ifl.h   */
 	int		al_tsize;    /* size of this structure (variable)    */
 	int		al_nameln;   /* len of name string (including null)  */

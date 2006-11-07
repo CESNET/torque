@@ -102,7 +102,7 @@
  */
 
 struct depend {
-	list_link dp_link;	/* link to next dependency, if any       */
+	tlist_link dp_link;	/* link to next dependency, if any       */
 	short	  dp_type;	/* type of dependency (all) 	         */
 	short	  dp_numexp;	/* num jobs expected (on or syncct only) */
 	short	  dp_numreg;	/* num jobs registered (syncct only)     */
@@ -116,7 +116,7 @@ struct depend {
  */
 
 struct depend_job {
-	list_link dc_link;
+	tlist_link dc_link;
 	short	dc_state;	/* released / ready to run (syncct)	 */
 	long	dc_cost;	/* cost of this child (syncct)		 */
 	char	dc_child[PBS_MAXSVRJOBID+1]; /* child (dependent) job	 */
@@ -152,7 +152,7 @@ struct depend_job {
  * status back, see svr_movejob.c.
  */
 typedef struct	badplace {
-  list_link	bp_link;
+  tlist_link	bp_link;
   char		bp_dest[PBS_MAXROUTEDEST + 1];
 } badplace;
 
@@ -382,8 +382,8 @@ struct job {
 	/* Note: these members, up to ji_qs, are not saved to disk
            (except for ji_stdout, ji_stderr) */
 
-	list_link       ji_alljobs;	/* links to all jobs in server */
-	list_link       ji_jobque;	/* SVR: links to jobs in same queue */
+	tlist_link       ji_alljobs;	/* links to all jobs in server */
+	tlist_link       ji_jobque;	/* SVR: links to jobs in same queue */
 					/* MOM: links to polled jobs */
 	time_t		ji_momstat;	/* SVR: time of last status from MOM */
 					/* MOM: time job suspend (Cray)	*/
@@ -478,7 +478,7 @@ typedef struct job job;
 */
 typedef struct	task {
 	job		*ti_job;	/* pointer to owning job */
-	list_link	ti_jobtask;	/* links to tasks for this job */
+	tlist_link	ti_jobtask;	/* links to tasks for this job */
 	int		ti_fd;		/* DIS file descriptor to task */
 	int		ti_flags;	/* task internal flags */
 	tm_event_t	ti_register;	/* event if task registers */
@@ -520,7 +520,7 @@ typedef struct	eventent {
 	fwdevent	ee_forward;	/* event to get notified */
 	char		**ee_argv;	/* save args for spawn */
 	char		**ee_envp;	/* save env for spawn */
-	list_link	ee_next;	/* link to next one */
+	tlist_link	ee_next;	/* link to next one */
 } eventent;
 
 /*
@@ -529,7 +529,7 @@ typedef struct	eventent {
 */
 typedef struct	obitent {
 	fwdevent	oe_info;	/* who gets the event */
-	list_link	oe_next;	/* link to next one */
+	tlist_link	oe_next;	/* link to next one */
 } obitent;
 
 /*
@@ -540,7 +540,7 @@ typedef struct	infoent {
   char		*ie_name;	/* published name */
   void		*ie_info;	/* the glop */
   size_t	ie_len;		/* how much glop */
-  list_link	ie_next;	/* link to next one */
+  tlist_link	ie_next;	/* link to next one */
   } infoent;
 
 #define	TI_FLAGS_INIT		1		/* task has called tm_init */

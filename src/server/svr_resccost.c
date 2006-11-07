@@ -119,7 +119,7 @@
  */
 
 struct resource_cost {
-	list_link	rc_link;
+	tlist_link	rc_link;
 	resource_def   *rc_def;
 	long		rc_cost;
 };

@@ -86,7 +86,7 @@
  *		see list_link.c
  *
  *	A user defined linked list can be managed by these routines if
- *	the first element of the user structure is the list_link struct
+ *	the first element of the user structure is the tlist_link struct
  *	defined below.
  */
 
@@ -94,12 +94,12 @@
 #define LIST_LINK_H 1
 /* list entry list sub-structure */
 
-typedef struct list_link {
-	struct list_link *ll_prior;
-	struct list_link *ll_next;
+typedef struct tlist_link {
+	struct tlist_link *ll_prior;
+	struct tlist_link *ll_next;
 	void		 *ll_struct;
-} list_link;
-typedef list_link tlist_head;
+} tlist_link;
+typedef tlist_link tlist_head;
 
 
 /* macros to clear list head or link */
@@ -120,16 +120,16 @@ typedef list_link tlist_head;
 
 /* function prototypes */
 
-extern void insert_link A_((list_link *old,list_link *new,void *pobj, int pos));
-extern void append_link A_((tlist_head *head, list_link *new, void *pnewobj));
-extern void delete_link A_((list_link *old));
-extern void swap_link   A_((list_link *, list_link *));
-extern int  is_linked A_((list_link *head, list_link *old));
+extern void insert_link A_((tlist_link *old,tlist_link *new,void *pobj, int pos));
+extern void append_link A_((tlist_head *head, tlist_link *new, void *pnewobj));
+extern void delete_link A_((tlist_link *old));
+extern void swap_link   A_((tlist_link *, tlist_link *));
+extern int  is_linked A_((tlist_link *head, tlist_link *old));
 extern void list_move A_((tlist_head *old, tlist_head *new));
 
 #ifndef NDEBUG
-extern void *get_next A_((list_link, char *file, int line));
-extern void *get_prior A_((list_link, char *file, int line));
+extern void *get_next A_((tlist_link, char *file, int line));
+extern void *get_prior A_((tlist_link, char *file, int line));
 #endif	/* NDEBUG */
 
 #endif /* LIST_LINK_H */

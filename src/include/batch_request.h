@@ -255,7 +255,7 @@ struct rq_cpyfile {
 };
 
 struct rqfpair {
-	list_link	 fp_link;
+	tlist_link	 fp_link;
 	int		 fp_flag;	/* 1 for std[out|err] 2 for stageout */
 	char		*fp_local;	/* used in Copy & Delete */
 	char		*fp_rmt;	/* used in Copy only     */
@@ -275,7 +275,7 @@ struct rq_jobobit {
  */
 
 struct batch_request {
-	list_link rq_link;	/* linkage of all requests 		*/
+	tlist_link rq_link;	/* linkage of all requests 		*/
 	int	  rq_type;	/* type of request			*/
 	int	  rq_perm;	/* access permissions for the user	*/
 	int	  rq_fromsvr;	/* true if request from another server	*/
