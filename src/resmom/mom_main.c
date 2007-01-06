@@ -6799,9 +6799,9 @@ int main(
 
       mlockall_return = mlockall(MCL_CURRENT | MCL_FUTURE);
 
-      if (mlockall_return == -1)
+      if (mlockall_return == -1 && errno != ENOSYS)
         {
-        perror("pbs_mom:mom_main.c:mlockall():");
+        perror("pbs_mom:mom_main.c:mlockall()");
 
         exit(1);
         }
