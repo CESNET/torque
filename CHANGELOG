@@ -4,6 +4,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix bison syntax error in Parser.y
   b - fix 2.1.4 regression with spool file group owner on freebsd
   b - don't exit if mlockall sets errno ENOSYS
+  f - qalter -v variable_list
 
 2.1.6
   b - freebsd5 build fix

@@ -1316,7 +1316,7 @@ state4:         /* goto label - Value specified */
 
 final:
 
-  if (V_opt) 
+  if (V_opt != 0) 
     {      
     /* Send every environment variable with the job. */
 
