@@ -7,6 +7,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   f - qalter -v variable_list
   f - MOMSLEEPTIME env delays pbs_mom initialization
   e - minor log message fixups
+  e - enable node-reuse in qsub eval if server resources_available.nodect is set
 
 2.1.6
   b - freebsd5 build fix
