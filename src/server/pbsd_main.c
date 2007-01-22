@@ -172,7 +172,7 @@ extern char    *msg_daemonname;
 extern int	pbs_errno;
 char	       *pbs_o_host = "PBS_O_HOST";
 pbs_net_t	pbs_mom_addr;
-unsigned int	pbs_mom_port;
+unsigned int	pbs_mom_port = 0;
 unsigned int	pbs_rm_port;
 pbs_net_t	pbs_scheduler_addr;
 unsigned int	pbs_scheduler_port;
@@ -410,6 +410,7 @@ int main(
   uint	 tryport;
   char	 lockfile[MAXPATHLEN + 1];
   char	*pc;
+  char  *ptr;
   job	*pjob;
   pbs_queue *pque;
   char	*servicename = NULL;
@@ -420,9 +421,9 @@ int main(
   time_t last_jobstat_time;
   int    when;
 
-  void	 ping_nodes A_((struct work_task *ptask));
-  void   check_nodes A_((struct work_task *ptask));
-  void   check_log A_((struct work_task *ptask));
+  void ping_nodes A_((struct work_task *));
+  void check_nodes A_((struct work_task *));
+  void check_log A_((struct work_task *));
 
   static struct {
     char *it_name;
@@ -483,8 +484,20 @@ int main(
   pbs_scheduler_port = get_svrport(PBS_SCHEDULER_SERVICE_NAME,"tcp",
     PBS_SCHEDULER_SERVICE_PORT);
 
-  pbs_mom_port = get_svrport(PBS_MOM_SERVICE_NAME,"tcp",
-    PBS_MOM_SERVICE_PORT);
+  ptr = getenv("PBS_MOM_SERVICE_PORT");
+
+  if (ptr != NULL)
+    {
+    pbs_mom_port = (int)strtol(ptr,NULL,10);
+    }
+
+  if (pbs_mom_port <= 0)
+    { 
+    pbs_mom_port = get_svrport(
+      PBS_MOM_SERVICE_NAME,
+      "tcp",
+      PBS_MOM_SERVICE_PORT);
+    }
 
   pbs_rm_port = get_svrport(PBS_MANAGER_SERVICE_NAME,"tcp",
     PBS_MANAGER_SERVICE_PORT);
