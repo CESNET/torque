@@ -1792,7 +1792,7 @@ void is_request(
 
   /* node not listed in trusted ipaddrs list */
 
-  sprintf(log_buffer,"bad attempt to connect from %s (address not trusted)",
+  sprintf(log_buffer,"bad attempt to connect from %s (address not trusted - check entry in server_priv/nodes)",
     netaddr(addr));
 
   if (LOGLEVEL >= 2)
