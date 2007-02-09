@@ -301,7 +301,7 @@ resource_def svr_resc_def[] = {
 	comp_str,
 	free_str,
 	NULL_FUNC,
-	READ_WRITE,
+	READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG,
 	ATR_TYPE_STR
     },
     {	"software",			/* software required for execution */

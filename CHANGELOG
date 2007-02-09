@@ -11,6 +11,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - pbs_mom and pbs_server can now use PBS_MOM_SERVER_PORT,
       PBS_BATCH_SERVICE_PORT, and PBS_MANAGER_SERVICE_PORT env vars.
   e - pbs_server can also use PBS_SCHEDULER_SERVICE_PORT env var.
+  e - add "other" resource to pelog's 5th argument
 
 2.1.6
   b - freebsd5 build fix
