@@ -15,6 +15,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - stop possible memory corruption with an invalid request type (StockholmU)
   b - add node name to pbsnodes XML output (NCIFCRF)
   b - correct Resource_list in qstat XML output (NCIFCRF)
+  b - pam_authuser fixes from uam.es
 
 2.1.6
   b - freebsd5 build fix
