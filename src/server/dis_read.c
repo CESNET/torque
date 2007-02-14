@@ -165,6 +165,17 @@ int dis_request_read(
     return(PBSE_DISPROTO);
     }
 
+  if ((request->rq_type < 0) || (request->rq_type > PBS_BATCH_Disconnect))
+    {
+    sprintf(log_buffer,"invalid request type: %d",
+      request->rq_type);
+
+    LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_REQUEST,"?",
+      log_buffer);
+
+    return(PBSE_DISPROTO);
+    }
+
   /* Decode the Request Body based on the type */
 
   if (LOGLEVEL >= 5)
@@ -345,9 +356,9 @@ int dis_request_read(
 
     default:
 
-      sprintf(log_buffer,"%s: %s from %s", 
+      sprintf(log_buffer,"%s: %d from %s", 
         msg_nosupport, 
-        PBatchReqType[request->rq_type], 
+        request->rq_type, 
         request->rq_user);
 
       LOG_EVENT(

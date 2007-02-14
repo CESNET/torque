@@ -12,6 +12,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       PBS_BATCH_SERVICE_PORT, and PBS_MANAGER_SERVICE_PORT env vars.
   e - pbs_server can also use PBS_SCHEDULER_SERVICE_PORT env var.
   e - add "other" resource to pelog's 5th argument
+  b - stop possible memory corruption with an invalid request type (StockholmU)
 
 2.1.6
   b - freebsd5 build fix
