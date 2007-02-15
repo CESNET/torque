@@ -78,16 +78,16 @@
 .TH qsub 1B "" Local PBS
 .so ../ers/ers.macros
 .Iq
-.Sh NAME
+.SH NAME
 qsub \- submit pbs job
-.Sh SYNOPSIS
+.SH SYNOPSIS
 qsub [-a date_time] [-A account_string] [-b secs] [-c interval] [-C directive_prefix]
 [-d path] [-D path] [-e path] [-h] [-I] [-j join] [-k keep] [-l resource_list]
 [-m mail_options] [-M user_list] [-N name] [-o path] 
-[-p priority] [-q destination] [-r c] [-S path_list]
+[-p priority] [-q destination] [-r c] [-S path_list] [-t num_jobs]
 [-u user_list] [-v variable_list] [-V] [-W additional_attributes] [-X] [-z]
 [script]
-.Sh DESCRIPTION
+.SH DESCRIPTION
 To create a job is to submit an executable script to a batch server.
 The batch server will be the default server unless the
 .Ar \-q
@@ -130,6 +130,8 @@ to the batch job.
 .Ig
 .IP \f3PBS_O_HOST\fP
 the name of the host upon which the qsub command is running.
+.IP \f3PBS_SERVER\fP
+the hostname of the pbs_server which qsub submits the job to.
 .IP \f3PBS_O_QUEUE\fP
 the name of the original queue to which the job was submitted.
 .if !\n(Pb .ig Ig
@@ -142,6 +144,8 @@ the absolute path of the current working directory of the qsub command.
 The following are established by the server executing the job,
 not the qsub command.
 .Ig
+.IP \f3PBS_ARRAYID\fP
+each member of a job array is assinged a unique number from 0 to array_size-1
 .IP \f3PBS_ENVIRONMENT\fP
 set to 
 .Ty PBS_BATCH
@@ -157,7 +161,7 @@ the name of the file contain the list of nodes assigned to the job
 (for parallel and cluster systems).
 .IP \f3PBS_QUEUE\fP
 the name of the queue from which the job is executed.
-.Sh OPTIONS
+.SH OPTIONS
 .IP "-a date_time" 8
 Declares the time after which the job is eligible for execution.
 .RS
@@ -746,6 +750,14 @@ attribute is set to the
 .Ar path_list
 argument if present, otherwise it is set to the null string.
 .Ig
+.IP "\-t array_size" 8
+Specifies the number of copies of this job to run.
+.IP
+The
+.Ar array_size
+argument is an integer from 1 to PBS_MAXJOBARRAY
+.Ig
+if not specified, array_size will be set to 1
 .IP "\-u user_list" 8
 Defines the user name under which the job is to run on the execution system.
 .IP
@@ -1011,7 +1023,7 @@ command is not to write the job identifier assigned to the job to
 the command's standard output.
 .in 0
 .LP
-.Sh  OPERANDS
+.SH  OPERANDS
 The qsub command accepts a
 .Ar script
 operand that is the path to the script of the job.
@@ -1029,11 +1041,11 @@ interface routine pbs_submit.  The temporary file is removed by qsub
 after pbs_submit returns or upon the receipt of a signal which would cause
 qsub to terminate.
 .Ig
-.Sh STANDARD INPUT
+.SH STANDARD INPUT
 The qsub command reads the script for the job from standard input if the 
 .Ar script
 operand is missing or is the single character "\-".
-.Sh INPUT FILES
+.SH INPUT FILES
 The
 .Ar script
 file is read by the qsub command.
@@ -1041,17 +1053,17 @@ Qsub acts upon any directives found in the script.
 .LP
 When the job is created, a copy of the script file is made and that copy
 cannot be modified.
-.Sh STANDARD OUTPUT
+.SH STANDARD OUTPUT
 Unless the
 .Ar \-z
 option is set, the job identifier assigned to the job will be written to
 standard output if the job is successfully created.
-.Sh STANDARD ERROR
+.SH STANDARD ERROR
 The
 qsub
 command will write a diagnostic message to standard error for
 each error occurrence.
-.Sh ENVIRONMENT VARIABLES
+.SH ENVIRONMENT VARIABLES
 The values of some or all of the variables in the qsub
 command's environment are exported with the job, see the -v and -V options.
 .LP
@@ -1071,7 +1083,7 @@ The environment variable
 defines the maximum number of seconds qsub will block.  See the -b option
 above.  Despite the name, currently qsub is the only client that supports
 this option.
-.Sh EXTENDED DESCRIPTION
+.SH EXTENDED DESCRIPTION
 .LP
 Script Processing:
 .LP
@@ -1206,12 +1218,12 @@ to be displayed.  Only works under the C shell.  "asusp" is the auxiliary
 suspend character, usually CNTL-Y.
 .RE
 .LP
-.Sh EXIT STATUS
+.SH EXIT STATUS
 Upon successful processing, the qsub exit status will be a value of zero.
 .LP
 If the qsub command fails, the
 command exits with a value greater than zero.
-.Sh SEE ALSO
+.SH SEE ALSO
 qalter(1B), qdel(1B), qhold(1B), qmove(1B), qmsg(1B), qrerun(1B),
 qrls(1B), qselect(1B), qsig(1B), qstat(1B), pbs_connect(3B),
 pbs_job_attributes(7B),

@@ -191,6 +191,8 @@ void req_modifyjob(
 
   if (pjob->ji_qs.ji_state == JOB_STATE_TRANSIT) 
     {
+    /* FAILURE */
+
     req_reject(PBSE_BADSTATE,0,preq,NULL,NULL);
 
     return;
@@ -220,6 +222,8 @@ void req_modifyjob(
       if ((i < 0) ||
          ((job_attr_def[i].at_flags & ATR_DFLAG_ALTRUN) == 0))  
         {
+        /* FAILURE */
+
         reply_badattr(PBSE_MODATRRUN,1,plist,preq);
 
         return;
@@ -237,6 +241,8 @@ void req_modifyjob(
 
         if (prsd == NULL) 
           {
+          /* FAILURE */
+
           reply_badattr(PBSE_UNKRESC,1,plist,preq);
 
           return;
@@ -244,6 +250,8 @@ void req_modifyjob(
 
         if ((prsd->rs_flags & ATR_DFLAG_ALTRUN) == 0) 
           {
+          /* FAILURE */
+
           reply_badattr(PBSE_MODATRRUN,1,plist,preq);
 
           return;
@@ -254,7 +262,7 @@ void req_modifyjob(
 
       plist = (svrattrl *)GET_NEXT(plist->al_link);
       }
-    }
+    }    /* END if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING) */
 
   /* modify the job's attributes */
 
@@ -266,6 +274,8 @@ void req_modifyjob(
 
   if (rc) 
     {
+    /* FAILURE */
+
     reply_badattr(rc,bad,plist,preq);
 
     return;
@@ -362,7 +372,7 @@ int modify_job_attr(
     perm,         /* I */
     bad);         /* O */
 
-  /* If resource limits are being changing ... */
+  /* if resource limits are being changed ... */
 
   if ((rc == 0) &&
       (newattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET))
@@ -394,43 +404,52 @@ int modify_job_attr(
           NULL);
         }
       }
-    }
+    }    /* END if ((rc == 0) && ...) */
 
   /* special check on permissions for hold */
 
   if ((rc == 0) && 
       (newattr[(int)JOB_ATR_hold].at_flags & ATR_VFLAG_MODIFY)) 
     {
-    i = newattr[(int)JOB_ATR_hold].at_val.at_long ^ (pattr + (int)JOB_ATR_hold)->at_val.at_long;
+    i = newattr[(int)JOB_ATR_hold].at_val.at_long ^ 
+          (pattr + (int)JOB_ATR_hold)->at_val.at_long;
 
     rc = chk_hold_priv(i,perm);
     }
 
   if (rc == 0) 
     {
-	    for (i=0; i<JOB_ATR_LAST; i++) {
-		if (newattr[i].at_flags & ATR_VFLAG_MODIFY) {
-			if (job_attr_def[i].at_action) {
-				rc = job_attr_def[i].at_action(&newattr[i],
-					        pjob, ATR_ACTION_ALTER);
-				if (rc)
-					break;
-			}
-		}
-	    }
-	    if ((rc == 0) &&
-	        ((newattr[(int)JOB_ATR_userlst].at_flags & ATR_VFLAG_MODIFY) ||
-                 (newattr[(int)JOB_ATR_grouplst].at_flags & ATR_VFLAG_MODIFY))){
-		/* Need to reset execution uid and gid */
-		rc = set_jobexid(pjob, newattr);
-	    }
-			
+    for (i = 0;i < JOB_ATR_LAST;i++) 
+      {
+      if (newattr[i].at_flags & ATR_VFLAG_MODIFY) 
+        {
+        if (job_attr_def[i].at_action) 
+          {
+          rc = job_attr_def[i].at_action(
+            &newattr[i],
+            pjob, 
+            ATR_ACTION_ALTER);
+
+          if (rc)
+            break;
+          }
+        }
+      }    /* END for (i) */
+
+    if ((rc == 0) &&
+       ((newattr[(int)JOB_ATR_userlst].at_flags & ATR_VFLAG_MODIFY) ||
+        (newattr[(int)JOB_ATR_grouplst].at_flags & ATR_VFLAG_MODIFY)))
+      {
+      /* need to reset execution uid and gid */
+
+      rc = set_jobexid(pjob,newattr,NULL);
+      }
     }  /* END if (rc == 0) */
 
   if (rc != 0) 
     {
     for (i = 0;i < JOB_ATR_LAST;i++)
-      job_attr_def[i].at_free(newattr+i);
+      job_attr_def[i].at_free(newattr + i);
 
     /* FAILURE */
 
@@ -445,7 +464,8 @@ int modify_job_attr(
       {
       if (LOGLEVEL >= 7)
         {
-        sprintf(log_buffer,"attr %s modified",job_attr_def[i].at_name);
+        sprintf(log_buffer,"attr %s modified",
+          job_attr_def[i].at_name);
 
         LOG_EVENT(
           PBSEVENT_JOB, 
@@ -470,7 +490,7 @@ int modify_job_attr(
 
       (pattr + i)->at_flags = newattr[i].at_flags;
       }
-    }
+    }    /* END for (i) */
 
   /* note, the newattr[] attributes are on the stack, they go away automatically */
 

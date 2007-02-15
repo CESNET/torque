@@ -136,6 +136,7 @@ static int       svr_numcfgnodes = 0;   /* number of nodes currently configured 
 static int	 exclusive;		/* node allocation type */
 
 static FILE 	*nstatef = NULL;
+static FILE 	*nnotef  = NULL;
 static int       num_addrnote_tasks = 0; /* number of outstanding send_cluster_addrs tasks */
 
 extern int	 server_init_type;
@@ -148,16 +149,20 @@ extern char	*path_home;
 extern char	*path_nodes;
 extern char	*path_nodes_new;
 extern char	*path_nodestate;
+extern char	*path_nodenote;
+extern char	*path_nodenote_new;
 extern unsigned int pbs_mom_port;
 extern char  server_name[];
 
 extern struct server server;
 extern tlist_head svr_newnodes;
 extern attribute_def  node_attr_def[];   /* node attributes defs */
+extern int            SvrNodeCt;
 
 #define	SKIP_NONE	0
 #define	SKIP_EXCLUSIVE	1
 #define	SKIP_ANYINUSE	2
+#define SKIP_NONE_REUSE 3
 
 int hasprop(struct pbsnode *,struct prop *);
 void send_cluster_addrs(struct work_task *);
@@ -1790,7 +1795,7 @@ void is_request(
 
   /* node not listed in trusted ipaddrs list */
 
-  sprintf(log_buffer,"bad attempt to connect from %s (address not trusted)",
+  sprintf(log_buffer,"bad attempt to connect from %s (address not trusted - check entry in server_priv/nodes)",
     netaddr(addr));
 
   if (LOGLEVEL >= 2)
@@ -2099,6 +2104,94 @@ void write_node_state()
 
 
 
+/* Create a new node_note file then overwrite the previous one.
+ *
+ *   The note file could get up to:
+ *      (# of nodes) * (2 + MAX_NODE_NAME + MAX_NOTE)  bytes in size
+ */
+int write_node_note()
+  {
+  static char id[] = "write_node_note";
+  struct pbsnode *np;
+  int	i, j;
+  FILE	*nin;
+
+  if (LOGLEVEL >= 2)
+    {
+    DBPRT(("%s: entered\n",
+      id))
+    }
+
+  if ((nin = fopen(path_nodenote_new,"w")) == NULL) 
+    goto err1;
+
+  if ((svr_totnodes == 0) || (pbsndmast == NULL)) 
+    {
+    log_event(
+      PBSEVENT_ADMIN, 
+      PBS_EVENTCLASS_SERVER, 
+      "node_note",
+      "Server has empty nodes list");
+
+    fclose(nin);
+
+    return(-1);
+    }
+
+  /* for each node ... */
+
+  for (i = 0;i < svr_totnodes;++i) 
+    {
+    np = pbsndmast[i];
+
+    if (np->nd_state & INUSE_DELETED)
+      continue;
+
+    /* write node name followed by its note string */
+
+    if (np->nd_note != NULL && np->nd_note != '\0')
+      {
+      fprintf(nin,"%s %s\n",
+        np->nd_name,
+        np->nd_note);
+      }
+    }
+
+   fflush(nin);
+
+   if (ferror(nin)) 
+     {
+     fclose(nin);
+     goto err1;
+     }
+
+  fclose(nin);
+
+  if (rename(path_nodenote_new, path_nodenote) != 0)
+    {
+    log_event(
+      PBSEVENT_ADMIN, 
+      PBS_EVENTCLASS_SERVER, 
+      "node_note",
+      "replacing old node note file failed");
+
+    return(-1);
+    }
+
+  return(0);
+
+  err1:
+    log_event(
+      PBSEVENT_ADMIN, 
+      PBS_EVENTCLASS_SERVER, 
+      "node_note",
+      "Node note file update failed");
+
+    return(-1);
+
+  }  /* END write_node_note() */
+
+
 
 /*
  * free_prop - free list of prop structures created by proplist()
@@ -2226,7 +2319,9 @@ static int hasppn(
   int             free)      /* I */
 
   {
-  if ((free != SKIP_NONE) && (pnode->nd_nsnfree >= node_req))
+  if ((free != SKIP_NONE) && 
+      (free != SKIP_NONE_REUSE) && 
+      (pnode->nd_nsnfree >= node_req))
     {
     return(1);
     }
@@ -2249,7 +2344,7 @@ static int hasppn(
 
 static void mark(
 
-  struct pbsnode *pnode,
+  struct pbsnode *pnode,  /* I */
   struct prop    *props)
 
   {
@@ -2274,7 +2369,7 @@ static void mark(
     }
 
   return;
-  }
+  }  /* END mark() */
 
 
 
@@ -2316,10 +2411,17 @@ static int search(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype  == NTYPE_CLUSTER) 
+    if (pnode->nd_ntype == NTYPE_CLUSTER) 
       {
       if (pnode->nd_flag != okay)
-        continue;
+        {
+        if ((skip != SKIP_NONE_REUSE) || (pnode->nd_flag != thinking))
+          {
+          /* allow node re-use if SKIP_NONE_REUSE is set */
+
+          continue;
+          }
+        }
 
 /* FIXME: this is rejecting job submits?
       if (pnode->nd_state & pass)
@@ -2329,7 +2431,7 @@ static int search(
       if (!hasprop(pnode,glorf))
         continue;
 
-      if (skip == SKIP_NONE)  
+      if ((skip == SKIP_NONE) || (skip == SKIP_NONE_REUSE))
         {
         if (vpreq > pnode->nd_nsn)
           continue;
@@ -2346,6 +2448,8 @@ static int search(
         continue;
         }
  
+      /* NOTE: allow node re-use if SKIP_NONE_REUSE by ignoring 'thinking' above */
+
       pnode->nd_flag = thinking;
 
       mark(pnode,glorf);
@@ -2378,7 +2482,11 @@ static int search(
     if (pnode->nd_ntype == NTYPE_CLUSTER) 
       {
       if (pnode->nd_flag != thinking)
+        {
+        /* only shuffle nodes which have been selected above */
+
         continue;
+        }
     
       if (pnode->nd_state & pass)
         continue;
@@ -2422,7 +2530,9 @@ static int search(
 
   /* FAILURE */
 
-  return(0);	/* not found */
+  /* not found */
+
+  return(0);	
   }  /* END search() */
 
 
@@ -2617,15 +2727,21 @@ static int listelem(
   struct pbsnode *pnode;
   int	node_req = 1;
 
-  if ((i = number(str, &num)) == -1)	/* get number */
+  if ((i = number(str,&num)) == -1)	/* get number */
     {
+    /* FAILURE */
+
     return(ret);
     }
 
   if (i == 0) 
-    {				/* number exists */
+    {
+    /* number exists */
+
     if (**str == ':') 
-      {		/* there are properties */
+      {
+      /* there are properties */
+
       (*str)++;
 
       if (proplist(str,&prop,&node_req))
@@ -2635,7 +2751,9 @@ static int listelem(
       } 
     }
   else 
-    {					/* no number */
+    {
+    /* no number */
+
     if (proplist(str,&prop,&node_req))
       {
       /* must be a prop list with no number in front */
@@ -2665,22 +2783,45 @@ static int listelem(
         break;		/* found enough  */
         }
       }
-    }
+    }    /* END for (i) */
 
-  if (hit < num)			/* can never be satisfied */
-    goto done;
+  if (hit < num)	
+    {
+    /* request exceeds configured nodes */
+
+    if ((SvrNodeCt == 0) || (SvrNodeCt < num))
+      {
+      /* request exceeds server resources_available */
+
+      /* request can never be satisfied */
+
+      goto done;
+      }
+    }
 
   /*
   ** Find an initial set of nodes to satisfy the request.
-  ** Go ahead and use any nodes no mater what state they are in.
+  ** Go ahead and use any nodes no matter what state they are in.
   */
+
+  /* NOTE:  SKIP_NONE_REUSE will not mark nodes as inuse, ie allow node re-use */
 
   for (i = 0;i < num;i++) 
     {
-    if (search(prop,node_req,SKIP_NONE,order,0))
-      continue;
+    if (SvrNodeCt == 0)
+      {
+      if (search(prop,node_req,SKIP_NONE,order,0))
+        continue;
+      }
+    else
+      {
+      if (search(prop,node_req,SKIP_NONE_REUSE,order,0))
+        continue;
+      }
 
-    goto done;		/* can never be satisfied */
+    /* can never be satisfied */
+
+    goto done;
     }
 
   ret = 1;
@@ -2892,6 +3033,9 @@ int MSNPrintF(
   }  /* END MSNPrintF() */
 
 
+
+
+
 /*
  *	Test a node specification.  
  *
@@ -2930,14 +3074,17 @@ static int node_spec(
 
   if (LOGLEVEL >= 6)
     {
-    sprintf(log_buffer,"entered spec=%.4000s",spec);
-      log_record(
-        PBSEVENT_SCHED,
-        PBS_EVENTCLASS_REQUEST,
-        id,
-        log_buffer);
+    sprintf(log_buffer,"entered spec=%.4000s",
+      spec);
 
-    DBPRT(("%s\n", log_buffer));
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    DBPRT(("%s\n",
+      log_buffer));
     }
 
   exclusive = 1;	/* by default, nodes (VPs) are requested exclusively */
@@ -3015,7 +3162,7 @@ static int node_spec(
     return(-1);
     }
 
-  if (LOGLEVEL >=6)
+  if (LOGLEVEL >= 6)
     {
     sprintf(log_buffer,"job allocation debug: %d requested, %d svr_clnodes, %d svr_totnodes",
       num,
@@ -3027,7 +3174,8 @@ static int node_spec(
       id,
       log_buffer);
 
-    DBPRT(("%s\n", log_buffer));
+    DBPRT(("%s\n",
+      log_buffer));
     }
 
   /*
@@ -3170,7 +3318,7 @@ static int node_spec(
     return(0);
     }  /* END if ((num > svr_numnodes) && early) */
 
-  if (LOGLEVEL >=6)
+  if (LOGLEVEL >= 6)
     {
     sprintf(log_buffer,"job allocation debug(2): %d requested, %d svr_numnodes",
       num,
@@ -3182,8 +3330,10 @@ static int node_spec(
       id,
       log_buffer);
 
-    DBPRT(("%s\n", log_buffer));
+    DBPRT(("%s\n",
+      log_buffer));
     }
+
   /*
    * 	At this point we know the spec is legal.
    *	Here we find a replacement for any nodes chosen above
@@ -3354,7 +3504,7 @@ static int node_spec(
 
   /* SUCCESS - spec is ok */
 
-  if (LOGLEVEL >=6)
+  if (LOGLEVEL >= 6)
     {
     sprintf(log_buffer,"job allocation debug(3): returning %d requested",
       num);
@@ -3365,7 +3515,8 @@ static int node_spec(
       id,
       log_buffer);
 
-    DBPRT(("%s\n", log_buffer));
+    DBPRT(("%s\n", 
+      log_buffer));
     }
 
   return(num);	
@@ -3475,7 +3626,13 @@ int set_nodes(
       continue;
 
     if (pnode->nd_flag != thinking)
-      continue;			/* skip this one */
+      {
+      /* node is not considered/eligible for job - see search() */
+
+      /* skip node */
+
+      continue;	
+      }
 
     /* within the node, check each subnode */
 
@@ -3582,8 +3739,11 @@ DBPRT(("%s\n",log_buffer));
         log_buffer);
       }
 
+    if (EMsg != NULL)
+      sprintf(EMsg,"no nodes can be allocated to job");
+
     return(PBSE_RESCUNAV);
-    }
+    }  /* END if (hlist == NULL) */
 
   pjob->ji_qs.ji_svrflags |= JOB_SVFLG_HasNodes;  /* indicate has nodes */
 
@@ -3646,10 +3806,11 @@ DBPRT(("%s\n",log_buffer));
 
 /*
  * node_avail_complex - 
- *		*navail is set to number available
- *		*nalloc is set to number allocated
- *		*nresvd is set to number reserved 
- *		*ndown  is set to number down/offline
+ *	*navail is set to number available
+ *	*nalloc is set to number allocated
+ *	*nresvd is set to number reserved 
+ *	*ndown  is set to number down/offline
+ *      return -1 on failure
  */
 
 int node_avail_complex(

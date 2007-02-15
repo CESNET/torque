@@ -171,12 +171,14 @@ char	       *path_nodestate;
 #ifdef GSSAPI
 char           *path_creds;
 #endif
+char	       *path_nodenote;
+char	       *path_nodenote_new;
 char	       *path_resources;
 extern char    *msg_daemonname;
 extern int	pbs_errno;
 char	       *pbs_o_host = "PBS_O_HOST";
 pbs_net_t	pbs_mom_addr;
-unsigned int	pbs_mom_port;
+unsigned int	pbs_mom_port = 0;
 unsigned int	pbs_rm_port;
 pbs_net_t	pbs_scheduler_addr;
 unsigned int	pbs_scheduler_port;
@@ -202,6 +204,7 @@ time_t		time_now = 0;
 
 int             LOGLEVEL = 0;
 int             DEBUGMODE = 0;
+int             TDoBackground = 1;  /* background daemon */
 int             TForceUpdate = 0;  /* (boolean) */
 
 char           *ProgName;
@@ -215,9 +218,9 @@ void DIS_rpp_reset()
   if (dis_getc != rpp_getc) 
     {
     dis_getc    = rpp_getc;
-    dis_puts    = (int (*) A_((int,const char *,size_t)))rpp_write;
-    dis_gets    = (int (*) A_((int,char *,size_t)))rpp_read;
-    disr_skip   = (int (*) A_((int,size_t)))rpp_skip;
+    dis_puts    = (int (*)A_((int,const char *,size_t)))rpp_write;
+    dis_gets    = (int (*)A_((int,char *,size_t)))rpp_read;
+    disr_skip   = (int (*)A_((int,size_t)))rpp_skip;
     disr_commit = rpp_rcommit;
     disw_commit = rpp_wcommit;
     }
@@ -389,7 +392,7 @@ int PBSShowUsage(
   char *EMsg)  /* I (optional) */
 
   {
-  const char *Msg = "[ -A <ACCTFILE> ] [ -a <ATTR> ] [ -d <HOMEDIR> ] [ -L <LOGFILE> ] [ -M <MOMPORT> ]\n  [ -p <SERVERPORT> ] [ -R <RMPORT> ] [ -S <SCHEDULERPORT> ] [ -t <TYPE> ]\n  [ --version|--help ]\n";
+  const char *Msg = "[ -A <ACCTFILE> ] [ -a <ATTR> ] [ -d <HOMEDIR> ] [ -D ] [ -L <LOGFILE> ] [ -M <MOMPORT> ]\n  [ -p <SERVERPORT> ] [ -R <RMPORT> ] [ -S <SCHEDULERPORT> ] [ -t <TYPE> ]\n  [ --version|--help ]\n";
 
   fprintf(stderr,"usage:  %s %s\n",
     ProgName,
@@ -426,7 +429,8 @@ int main(
   int	 privfd;		/* fd to send is messages */
   uint	 tryport;
   char	 lockfile[MAXPATHLEN + 1];
-  char	*pc;
+  char	*pc = NULL;
+  char  *ptr;
   job	*pjob;
   pbs_queue *pque;
   char	*servicename = NULL;
@@ -437,9 +441,11 @@ int main(
   time_t last_jobstat_time;
   int    when;
 
-  void	 ping_nodes A_((struct work_task *ptask));
-  void   check_nodes A_((struct work_task *ptask));
-  void   check_log A_((struct work_task *ptask));
+  void ping_nodes A_((struct work_task *));
+  void check_nodes A_((struct work_task *));
+  void check_log A_((struct work_task *));
+
+  char   EMsg[1024];
 
   static struct {
     char *it_name;
@@ -460,13 +466,14 @@ int main(
   ProgName = argv[0];
 
   strcpy(pbs_current_user,"PBS_Server");
-  msg_daemonname=strdup(pbs_current_user);
+
+  msg_daemonname = strdup(pbs_current_user);
 
   /* if we are not running with real and effective uid of 0, forget it */
 
   if ((getuid() != 0) || (geteuid() != 0)) 
     {
-    fprintf(stderr,"%s: Must be run by root\n", 
+    fprintf(stderr,"%s: must be run by root\n", 
       ProgName);
 
     return(1);
@@ -484,27 +491,91 @@ int main(
 
   server_host[0] = '\0';
 
-  if (((server_host[0] == '\0') && (gethostname(server_host,PBS_MAXHOSTNAME) == -1)) ||
-       (get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME) == -1)) 
-    {
-    log_err(-1,"pbsd_main","Unable to get my host name");
+  EMsg[0] = '\0';
 
-    return(-1);
+  if (((server_host[0] == '\0') && (gethostname(server_host,PBS_MAXHOSTNAME) == -1)) ||
+       (get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME,EMsg) == -1)) 
+    {
+    /* FAILURE - shutdown */
+
+    if (EMsg[0] != '\0')
+      {
+      char tmpLine[1024];
+
+      snprintf(tmpLine,sizeof(tmpLine),"unable to determine local server hostname - %s",
+        EMsg);
+
+      log_err(-1,"pbsd_main",tmpLine);
+      }
+    else
+      {
+      log_err(-1,"pbsd_main","unable to determine local server hostname");
+      }
+
+    exit(1);
     }
 
   /* initialize service port numbers for self, Scheduler, and MOM */
 
-  pbs_server_port_dis = get_svrport(PBS_BATCH_SERVICE_NAME,"tcp", 
-    PBS_BATCH_SERVICE_PORT_DIS);
+  ptr = getenv("PBS_BATCH_SERVICE_PORT");
 
-  pbs_scheduler_port = get_svrport(PBS_SCHEDULER_SERVICE_NAME,"tcp",
-    PBS_SCHEDULER_SERVICE_PORT);
+  if (ptr != NULL)
+    {
+    pbs_server_port_dis = (int)strtol(ptr,NULL,10);
+    }
 
-  pbs_mom_port = get_svrport(PBS_MOM_SERVICE_NAME,"tcp",
-    PBS_MOM_SERVICE_PORT);
+  if (pbs_server_port_dis <= 0)
+    {
+    pbs_server_port_dis = get_svrport(
+      PBS_BATCH_SERVICE_NAME,
+      "tcp", 
+      PBS_BATCH_SERVICE_PORT_DIS);
+    }
 
-  pbs_rm_port = get_svrport(PBS_MANAGER_SERVICE_NAME,"tcp",
-    PBS_MANAGER_SERVICE_PORT);
+  ptr = getenv("PBS_SCHEDULER_SERVICE_PORT");
+
+  if (ptr != NULL)
+    {
+    pbs_scheduler_port = (int)strtol(ptr,NULL,10);
+    }
+
+  if (pbs_scheduler_port <= 0)
+    { 
+    pbs_scheduler_port = get_svrport(
+      PBS_SCHEDULER_SERVICE_NAME,
+      "tcp",
+      PBS_SCHEDULER_SERVICE_PORT);
+    }
+
+  ptr = getenv("PBS_MOM_SERVICE_PORT");
+
+  if (ptr != NULL)
+    {
+    pbs_mom_port = (int)strtol(ptr,NULL,10);
+    }
+
+  if (pbs_mom_port <= 0)
+    { 
+    pbs_mom_port = get_svrport(
+      PBS_MOM_SERVICE_NAME,
+      "tcp",
+      PBS_MOM_SERVICE_PORT);
+    }
+
+  ptr = getenv("PBS_MANAGER_SERVICE_PORT");
+
+  if (ptr != NULL)
+    {
+    pbs_rm_port = (int)strtol(ptr,NULL,10);
+    }
+
+  if (pbs_rm_port <= 0)
+    {
+    pbs_rm_port = get_svrport(
+      PBS_MANAGER_SERVICE_NAME,
+      "tcp",
+      PBS_MANAGER_SERVICE_PORT);
+    }
 
   strcpy(server_name,server_host);	/* by default server = host */
 
@@ -514,7 +585,7 @@ int main(
 
   /* parse the parameters from the command line */
 
-  while ((c = getopt(argc,argv,"A:a:d:fh:p:t:L:M:R:S:-:")) != -1) 
+  while ((c = getopt(argc,argv,"A:a:d:Dfh:p:t:L:M:R:S:-:")) != -1) 
     {
     switch (c) 
       {
@@ -534,32 +605,35 @@ int main(
 
           exit(0);
           }
-        else if (!strcmp(optarg,"about"))
+
+        if (!strcmp(optarg,"about"))
           {
-	  printf("package: %s\n",PACKAGE_STRING);
-	  printf("sourcedir: %s\n",PBS_SOURCE_DIR);
-	  printf("configure: %s\n",PBS_CONFIG_ARGS);
+	  printf("package:     %s\n",PACKAGE_STRING);
+	  printf("sourcedir:   %s\n",PBS_SOURCE_DIR);
+	  printf("configure:   %s\n",PBS_CONFIG_ARGS);
 	  printf("buildcflags: %s\n",PBS_CFLAGS);
-	  printf("buildhost: %s\n",PBS_BUILD_HOST);
-	  printf("builddate: %s\n",PBS_BUILD_DATE);
-	  printf("builddir: %s\n",PBS_BUILD_DIR);
-	  printf("builduser: %s\n",PBS_BUILD_USER);
-	  printf("installdir: %s\n",PBS_INSTALL_DIR);
-	  printf("serverhome: %s\n",PBS_SERVER_HOME);
+	  printf("buildhost:   %s\n",PBS_BUILD_HOST);
+	  printf("builddate:   %s\n",PBS_BUILD_DATE);
+	  printf("builddir:    %s\n",PBS_BUILD_DIR);
+	  printf("builduser:   %s\n",PBS_BUILD_USER);
+	  printf("installdir:  %s\n",PBS_INSTALL_DIR);
+	  printf("serverhome:  %s\n",PBS_SERVER_HOME);
+
           exit(0);
           }
-        else if (!strcmp(optarg,"help"))
+
+        if (!strcmp(optarg,"help"))
           {
           PBSShowUsage(NULL);
     
           exit(1);
           }
-        else
-          {
-          PBSShowUsage("invalid command line arg");
 
-          exit(1);
-          }
+        PBSShowUsage("invalid command line arg");
+
+        exit(1);
+
+        /*NOTREACHED*/
 
         break;
 
@@ -574,7 +648,7 @@ int main(
           (void)fprintf(stderr,"%s: bad -a option\n", 
             argv[0]);
 
-          return(1);
+          exit(1);
           }
 
         break;
@@ -582,6 +656,12 @@ int main(
       case 'd':
 
         path_home = optarg;
+
+        break;
+
+      case 'D':
+
+        TDoBackground = 0;
 
         break;
 
@@ -598,11 +678,26 @@ int main(
 
         strncpy(server_host,optarg,PBS_MAXHOSTNAME);
 
-        if (get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME) == -1)
+        if (get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME,EMsg) == -1)
           {
-          log_err(-1,"pbsd_main","Unable to get host name");
+          /* FAILURE */
 
-          return(1);
+          if (EMsg[0] != '\0')
+            {
+            char tmpLine[1024];
+
+            snprintf(tmpLine,sizeof(tmpLine),"unable to determine full hostname for specified server host '%s' - %s",
+              server_host,
+              EMsg);
+
+            log_err(-1,"pbsd_main",tmpLine);
+            }
+          else
+            {
+            log_err(-1,"pbsd_main","unable to determine full server hostname");
+            }
+
+          exit(1);
           }
 
         strcpy(server_name,server_host);
@@ -624,7 +719,7 @@ int main(
             fprintf(stderr,"%s: -h host too long\n", 
               argv[0]);
 
-            return(1);
+            exit(1);
             }
 
           strcat(server_name,":");
@@ -641,7 +736,7 @@ int main(
             fprintf(stderr, "%s: -h host invalid\n", 
               argv[0]);
 
-            return(1);
+            exit(1);
             }
           }    /* END if (strlen(servicename) > 0) */
 
@@ -656,7 +751,7 @@ int main(
           fprintf(stderr,"%s: -p host:port too long\n",
             argv[0]);
 
-          return(1);
+          exit(1);
           }
 
         strcat(server_name,":");
@@ -667,7 +762,7 @@ int main(
           fprintf(stderr,"%s: -p host:port invalid\n", 
             argv[0]);
 
-          return(1);
+          exit(1);
           }
 
         break;
@@ -689,7 +784,7 @@ int main(
           fprintf(stderr, "%s -t bad recovery type\n",
             argv[0]);
 
-          return(1);
+          exit(1);
           }
 
         break;
@@ -714,7 +809,7 @@ int main(
             argv[0],
             optarg);
 
-          return(1);
+          exit(1);
           }
 
         if (isalpha((int)*optarg)) 
@@ -735,12 +830,14 @@ int main(
             argv[0], 
             optarg);
 
-          return(1);
+          exit(1);
           }
 
         break;
 
       case 'S':
+
+        /* FORMAT: ??? */
 
         if (get_port(
               optarg, 
@@ -751,7 +848,7 @@ int main(
             argv[0],
             optarg);
 
-          return(1);
+          exit(1);
           }
 
         break;
@@ -762,18 +859,18 @@ int main(
           argv[0],
           c);
 
-        return(1);
+        exit(1);
 
         break;
-      }  /* END switch(c) */
+      }  /* END switch (c) */
     }    /* END while (c) */
 
   if (optind < argc) 
     {
-    fprintf(stderr, "%s: invalid operand\n", 
+    fprintf(stderr,"%s: invalid operand\n", 
       argv[0]);
 
-    return(1);
+    exit(1);
     }
 
   /* make sure no other server is running with this home directory */
@@ -782,17 +879,18 @@ int main(
     path_home,
     PBS_SVR_PRIVATE);
 
-  if ((lockfds = open(lockfile,O_CREAT | O_TRUNC | O_WRONLY, 0600)) < 0) 
+  if ((lockfds = open(lockfile,O_CREAT|O_TRUNC|O_WRONLY,0600)) < 0) 
     {
-    sprintf(log_buffer, "%s: unable to open lock file",
-      msg_daemonname);
+    sprintf(log_buffer, "%s: unable to open lock file '%s'",
+      msg_daemonname,
+      lockfile);
 
     fprintf(stderr,"%s\n", 
       log_buffer);
 
     log_err(errno,msg_daemonname,log_buffer);
 
-    return(2);
+    exit(2);
     }
 
   lock_out(lockfds,F_WRLCK);
@@ -833,6 +931,7 @@ int main(
   if ((pc = getenv("PBSDEBUG")) != NULL)
     {
     DEBUGMODE = 1;
+    TDoBackground = 0;
     }
 
   /* NOTE:  env cleared in pbsd_init() */
@@ -841,7 +940,7 @@ int main(
     {
     log_err(-1,msg_daemonname,"pbsd_init failed");
 
-    return(3);
+    exit(3);
     }
 
   /* initialize the network interface */
@@ -863,12 +962,12 @@ int main(
 
     log_err(-1,msg_daemonname,"init_network failed dis");
 
-    return(3);
+    exit(3);
     }
 
   net_set_type(Secondary,FromClientDIS);	/* "there" */
 
-  if (DEBUGMODE == 0)
+  if (TDoBackground == 1)
     {
     /* go into the background and become own session/process group */
 
@@ -885,7 +984,7 @@ int main(
       {
       log_err(errno,msg_daemonname,"setsid failed");
 
-      return(2);
+      exit(2);
       }
 
     lock_out(lockfds,F_WRLCK);
@@ -902,10 +1001,10 @@ int main(
 
     dummyfile = fopen("/dev/null","w");
     assert((dummyfile != 0) && (fileno(dummyfile) == 2));
-    }
+    }  /* END if (TDoBackground == 1) */
   else
     {
-    if (isdigit(pc[0]))
+    if ((pc != NULL) && isdigit(pc[0]))
       LOGLEVEL = (int)strtol(pc,NULL,0);
 
     sid = getpid();
@@ -922,7 +1021,7 @@ int main(
     {
     log_err(errno,msg_daemonname,"failed to write pid to lockfile");
 
-    return(-1);
+    exit(-1);
     }
 
 #if (PLOCK_DAEMONS & 1)
@@ -933,7 +1032,7 @@ int main(
     {
     log_err(errno,msg_daemonname,"rpp_bind");
 
-    return(1);
+    exit(1);
     }
 
   rpp_fd = -1;		/* force rpp_bind() to get another socket */
@@ -955,7 +1054,7 @@ int main(
     {
     log_err(errno,msg_daemonname,"no privileged ports");
 
-    return(1);
+    exit(1);
     }
 
   if (LOGLEVEL >= 5)
@@ -984,6 +1083,7 @@ int main(
      down unless they have already reported in */
 
   when = server.sv_attr[(int)SRV_ATR_check_rate].at_val.at_long + time_now;
+
   if (svr_totnodes > 1024)
     {
     /* for large systems, give newly reported nodes more time before 
@@ -1120,11 +1220,10 @@ int main(
     
           ptask = set_task(WORK_Timed,when + time_now,poll_job_task,pjob);
 
-          if (ptask)
+          if (ptask != NULL)
             {
             append_link(&pjob->ji_svrtask,&ptask->wt_linkobj,ptask);
             }
-
           }
         }
 
@@ -1187,7 +1286,7 @@ int main(
 
   log_close(1);
 
-  return(0);
+  exit(0);
   }  /* END main() */
 
 
@@ -1227,8 +1326,14 @@ void check_log(
         }
       }
     }
- set_task(WORK_Timed,time_now + PBS_LOG_CHECK_RATE, check_log, NULL);   
- } /* END check_log */
+
+  set_task(WORK_Timed,time_now + PBS_LOG_CHECK_RATE,check_log,NULL);   
+
+  return;
+  } /* END check_log */
+
+
+
 
 
 
@@ -1261,18 +1366,20 @@ static int get_port(
     {
     name = parse_servername(arg,port);
 
-    if (name != NULL) 
+    if (name == NULL) 
       {
-      *addr = get_hostaddr(name);
-      } 
-    else 
-      {
+      /* FAILURE */
+
       return(-1);
       }
+
+    *addr = get_hostaddr(name);
     }
 
   if ((*port <= 0) || (*addr == 0))
     {
+    /* FAILURE */
+
     return(-1);
     }
 

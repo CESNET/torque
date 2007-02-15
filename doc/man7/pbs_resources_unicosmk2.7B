@@ -76,13 +76,13 @@
 .\" without reference to its choice of law rules.
 .if \n(Pb .ig Iq
 .\" for man page
-.TH pbs_resources_unicos 7B "" Local PBS
+.TH pbs_resources_unicosmk2 7B "" Local PBS
 .so ../ers/ers.macros
 .SH NAME
-pbs_resources_unicos - pbs resources under Unicos
+pbs_resources_unicosmk2 - pbs resources under Unicos MK2
 .SH DESCRIPTION
 This page summarizes the resources and special features supported by PBS
-for Cray Research computers running Unicos versions 8 and 9.
+for Cray Research computers running Unicos MK version 2.
 These resources are specified by including them in the
 .I -l
 option argument on the qsub or qalter command or in the PBS job script.
@@ -92,13 +92,9 @@ option argument on the qsub or qalter command or in the PBS job script.
 .if !\n(Pb .ig Ig
 .\" for ers only
 .NH 4
-CRI Computers running Unicos version 8, 9, or 10
+CRI Computers running Unicos MK version 2.
 .Ig
 .LP
-.IP ncpus 10
-Maximum number of multitask processes in the job.  If this is
-set the environment variable NCPUS will be set to the given value.
-Units: unitary.
 .IP cput
 Maximum amount of CPU time used by all processes in the job.
 Root processes are not limited, see limit(2).
@@ -181,9 +177,9 @@ or in a qsub script as directives:
 .\" for ers only
 .RE
 .Ig
-.Sh "SPECIAL FEATURES"
-Cray Unicos supports checkpoint and restart.   Any description of checkpoint
-features in PBS are applicable to Unicos.
+.SH "SPECIAL FEATURES"
+Cray Unicos MK supports checkpoint and restart.   Any description of checkpoint
+features in PBS are applicable to Unicos MK.
 .RE
 .if \n(Pb .ig Ig
 .\" man page only

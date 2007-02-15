@@ -11,7 +11,7 @@ EXTRA_DIST = CHANGELOG INSTALL.GNU README.configure README.mpiexec \
 	     contrib/README.pestat contrib/README.pbstop \
 	     contrib/README.qpeek contrib/pestat-1.0/pestat.c \
 	     contrib/pestat-1.0/README contrib/pestat-1.0/Makefile \
-	     contrib/README.pbs_ganglia contrib/pam_authuser.tar.gz \
+	     contrib/README.pbs_ganglia_jobmonarch contrib/pam_authuser.tar.gz \
 	     contrib/README.pam_authuser contrib/pbstop \
 	     contrib/README.pbs_python contrib/README.pbs_weblite \
 	     contrib/qpeek \
@@ -116,9 +116,13 @@ if INCLUDE_PAM
 PAM_PKG = pam
 endif
 
-ALL_PKGS = $(SERVER_PKG) $(MOM_PKG) $(CLIENTS_PKG) $(GUI_PKG) $(PAM_PKG) devel doc
+if INCLUDE_DRMAA
+DRMAA_PKG = drmaa
+endif
 
-install_server install_mom install_clients install_gui install_lib install_pam:
+ALL_PKGS = $(SERVER_PKG) $(MOM_PKG) $(CLIENTS_PKG) $(GUI_PKG) $(PAM_PKG) $(DRMAA_PKG) devel doc
+
+install_server install_mom install_clients install_gui install_lib install_pam install_drmaa:
 	(cd src && $(MAKE) $@)
 install_doc:
 	(cd doc && $(MAKE) $@)

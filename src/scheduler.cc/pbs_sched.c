@@ -135,7 +135,7 @@ int             mask_num = 0;
 char		*configfile = NULL;	/* name of config file */
 
 char		*oldpath;
-extern char		*msg_daemonname;
+extern char	*msg_daemonname;
 char		**glob_argv;
 char		usage[] = "[-S port][-d home][-p output][-c config][-a alarm]";
 struct	sockaddr_in	saddr;
@@ -146,9 +146,9 @@ static char	path_log[_POSIX_PATH_MAX];
 char	path_acct[_POSIX_PATH_MAX];
 int 		pbs_rm_port;
 
-int	schedreq();
+int             schedreq();
 
-extern int get_4byte(int,int *);
+extern int get_4byte(int,unsigned int *);
 
 
 /*
@@ -218,8 +218,8 @@ static void catch_abort(
   rlimit.rlim_cur = RLIM_INFINITY;
   rlimit.rlim_max = RLIM_INFINITY;
 
-  (void)setrlimit(RLIMIT_CORE, &rlimit);
-  (void)abort();
+  setrlimit(RLIMIT_CORE, &rlimit);
+  abort();
 
   return;
   }  /* END catch_abort() */
@@ -253,8 +253,7 @@ static int server_disconnect(
 **	Got an alarm call.
 */
 void
-toolong(sig)
-int	sig;
+toolong(int sig)
 {
 	char	*id = "toolong";
 	struct	stat	sb;
@@ -313,9 +312,10 @@ int	sig;
 	exit(0);
 }
 
+
+/* sock refers to an opened socket */
 int
-socket_to_conn(sock)
-    int sock;		/* opened socket */
+socket_to_conn(int sock)
 {
 	int     i;
 
@@ -455,7 +455,7 @@ static int read_config(
 
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
-  if (chk_file_sec(file,0,0,S_IWGRP|S_IWOTH, 1))
+  if (chk_file_sec(file,0,0,S_IWGRP|S_IWOTH,1))
     {
     return(-1);
     }
@@ -510,8 +510,7 @@ static int read_config(
 }
 
 void
-restart(sig)
-    int	sig;
+restart(int sig)
 {
 	char    *id = "restart";
 
@@ -530,8 +529,7 @@ restart(sig)
 }
 
 void
-badconn(msg)
-    char	*msg;
+badconn(char *msg)
 {
 	static	char	id[] = "badconn";
 	struct	in_addr	addr;
@@ -578,7 +576,8 @@ int server_command()
 
   int           new_socket;
   torque_socklen_t	slen;
-  int		i, cmd;
+  int		i;
+  unsigned int  cmd;
   pbs_net_t	addr;
 
   slen = sizeof(saddr);
@@ -643,7 +642,7 @@ int server_command()
     return(SCH_ERROR);
     }
 
-  return(cmd);
+  return((int)cmd);
   }
 
 
@@ -652,11 +651,11 @@ int server_command()
 
 /*
  * lock_out - lock out other daemons from this directory.
+ *
+ * op is either F_WRLCK or F_UNLCK
  */
 
-static void lock_out(fds, op)
-	int fds;
-	int op;		/* F_WRLCK  or  F_UNLCK */
+static void lock_out(int fds, int op)
 {
 	struct flock flock;
 

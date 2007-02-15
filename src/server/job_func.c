@@ -87,6 +87,9 @@
  *		  childern structures.
  *   job_purge	  purge job from server
  *
+ *   job_clone    clones a job (for use with job_arrays)
+ *   job_clone_wt work task for cloning a job
+ *
  * Include private function:
  *   job_init_wattr() initialize job working attribute array to "unspecified"
  */
@@ -130,6 +133,7 @@
 #ifdef GSSAPI
 #include "pbsgss.h"
 #endif
+#include "portability.h"
 
 int conn_qsub(char *,long);
 
@@ -150,6 +154,7 @@ static void job_init_wattr A_((job *));
 
 #ifndef PBS_MOM
 extern struct server   server;
+extern int queue_rank;
 #else
 extern gid_t pbsgroup;
 #endif	/* PBS_MOM */
@@ -535,6 +540,8 @@ job *job_alloc()
     return(NULL);
     }
 
+  pj->ji_qs.v = PBS_JOB_MAGIC_NUM;
+
   CLEAR_LINK(pj->ji_alljobs);
   CLEAR_LINK(pj->ji_jobque);
 
@@ -650,9 +657,312 @@ void job_free(
 
   return;
   }  /* END job_free() */
+  
+
+#ifndef PBS_MOM
+
+/*
+ * job_clone - create a clone of a job for use with job arrays
+ *   pj is the job to clone, and taksid is the job array id of the 
+ *   newly cloned job
+ */
+job *job_clone(
+  job *poldjob,
+  int taskid
+  )
+  
+  {
+
+  static char   id[] = "job_clone";
+
+  job		*pnewjob;
+  attribute	tempattr;
+
+  char		*oldid;
+  char		*hostname;
+  char          *tmpstr;
+  char		basename[PBS_JOBBASE+1];
+  char		namebuf[MAXPATHLEN + 1];
+  char		copybuf[4096];
+  char		buf[256];
+  char		*pc;
+  int		fds;
+  int		fds_source;
+
+  int 		i;
+  int		rc;
+  int           slen;
+
+  
+  if (taskid > PBS_MAXJOBARRAY)
+    {
+    log_err(-1, id, "taskid out of range");
+    return(NULL);
+    }
+  
+  pnewjob = job_alloc();
+
+  if (pnewjob == NULL)
+    {
+    log_err(errno,id,"no memory");
+
+    return(NULL);
+    }
+
+  job_init_wattr(pnewjob);
+ 
+  /* new job structure is allocated, 
+     now we need to copy the old job, but modify based on taskid */
+
+  pnewjob->ji_alljobs = poldjob->ji_alljobs;	/* links to all jobs in server */
+  pnewjob->ji_jobque = poldjob->ji_jobque;	/* SVR: links to jobs in same queue */
+  pnewjob->ji_modified = 1;			/* struct changed, needs to be saved */
+  pnewjob->ji_svrtask = poldjob->ji_svrtask;	/* links to svr work_task list */
+  pnewjob->ji_qhdr = poldjob->ji_qhdr;		/* current queue header */
+  CLEAR_HEAD(pnewjob->ji_rejectdest);		/* list of rejected destinations */
+	
+	
+  /* copy the fixed size quick save information */
+  memcpy(&pnewjob->ji_qs, &poldjob->ji_qs, sizeof(struct jobfix));
+
+  /* pnewjob->ji_qs.ji_arrayid = taskid; */
+
+  /* find the job id for the cloned job */
+  oldid = strdup(poldjob->ji_qs.ji_jobid);
+  if (oldid == NULL)
+    {
+    log_err(errno,id,"no memory");
+    job_free(pnewjob);
+    return(NULL);
+    }
+
+  hostname = index(oldid, '.');
+  *(hostname++) = '\0';
+
+  pnewjob->ji_qs.ji_jobid[PBS_MAXSVRJOBID] = '\0';
+  snprintf(pnewjob->ji_qs.ji_jobid,PBS_MAXSVRJOBID,"%s-%d.%s",
+           oldid,taskid,hostname);
+  free(oldid);
+  /* update the job filename
+   * We could optimize the sub-jobs to all use the same file. We would need a 
+   * way to track the number of tasks still using the job file so we know when
+   * to delete it.  
+   */
+
+  /*
+   * make up new job file name, it is based on the jobid, however the
+   * minimun acceptable file name limit is only 14 character in POSIX, 
+   * so we may have to "hash" the name slightly (if we are running on 
+   * an ancient system). This code was lifted from req_quejob.  If we 
+   * use the same job file, than all off this can be removed, since the 
+   * job file name is copied over with the quick save info.
+   */
+
+  strncpy(basename, pnewjob->ji_qs.ji_jobid, PBS_JOBBASE);
+  basename[PBS_JOBBASE] = '\0';
+
+  do {
+    strcpy(namebuf,path_jobs);
+    strcat(namebuf,basename);
+    strcat(namebuf,JOB_FILE_SUFFIX);
+
+    fds = open(namebuf,O_CREAT|O_EXCL|O_WRONLY,0600);
+
+    if (fds < 0) 
+      {
+      if (errno == EEXIST) 
+        {
+        pc = basename + strlen(basename) - 1;
+
+        while (!isprint((int)*pc)) 
+          {
+          pc--;
+
+          if (pc <= basename) 
+            {
+            /* FAILURE */
+
+            log_err(errno,id,"job file is corrupt");
+            job_free(pnewjob);
+            return NULL;
+            }
+          }
+
+        (*pc)++;
+        } 
+      else 
+        {
+        /* FAILURE */
+
+        log_err(errno,id,"cannot create job file");
+        job_free(pnewjob);
+        return NULL;
+        }
+      }
+    } while (fds < 0);
+  close(fds);
+  strcpy(pnewjob->ji_qs.ji_fileprefix,basename);
+
+  /* end making new job file name now we need to copy the contents of the old 
+     file into the file for this cloned job */
+  strcpy(namebuf,path_jobs);
+  strcat(namebuf,basename);
+  strcat(namebuf,JOB_SCRIPT_SUFFIX);
+  fds = open(namebuf,O_WRONLY|O_CREAT);
+  if (fds < 0)
+    {
+    log_err(errno,id,"cannot create job script");
+    job_free(pnewjob);
+    return NULL;
+    }
+    
+  strcpy(namebuf,path_jobs);
+  strcat(namebuf,poldjob->ji_qs.ji_fileprefix);
+  strcat(namebuf,JOB_SCRIPT_SUFFIX);
+
+  fds_source = open(namebuf,O_RDONLY);
+  if (fds_source < 0)
+    {
+    log_err(errno,id,"cannot copy job script");
+    job_free(pnewjob);
+    return NULL;
+    }
+    
+  rc = read(fds_source, copybuf, 4096);
+  while (rc > 0)
+    {
+      write(fds, copybuf, rc);
+      rc = read(fds_source, copybuf, 4096);
+    }
+  
+  close(fds);
+  close(fds_source);
+
+  /* copy job attributes. some of these are going to have to be modified  */
+  for (i = 0; i < JOB_ATR_LAST; i++)
+    {
+    if(poldjob->ji_wattr[i].at_flags & ATR_VFLAG_SET)
+      {
+      if (i == JOB_ATR_errpath || i == JOB_ATR_outpath)
+        {
+	/* modify the errpath adn outpath */
+	slen = strlen(poldjob->ji_wattr[i].at_val.at_str);
+	tmpstr = (char*)malloc(sizeof(char) * (slen + PBS_MAXJOBARRAYLEN + 1));
+	sprintf(tmpstr, "%s-%d", poldjob->ji_wattr[i].at_val.at_str, taskid);
+	clear_attr(&tempattr,&job_attr_def[i]);
+	job_attr_def[i].at_decode(&tempattr,
+	    NULL,
+	    NULL,
+	    tmpstr);
+	job_attr_def[i].at_set(
+	    &pnewjob->ji_wattr[i],
+	    &tempattr,
+	    SET);
+	free(tmpstr);
+	}
+      else
+        {
+        job_attr_def[i].at_set(&(pnewjob->ji_wattr[i]),
+                             &(poldjob->ji_wattr[i]),SET);
+        }
+      }
+    }
 
 
+  /* set JOB_ATR_job_array_id */
+  pnewjob->ji_wattr[(int)JOB_ATR_job_array_id].at_val.at_long = taskid;
+  pnewjob->ji_wattr[(int)JOB_ATR_job_array_id].at_flags |= ATR_VFLAG_SET;
+  
+  /* set PBS_ARRAYID var */
+  clear_attr(&tempattr,&job_attr_def[(int)JOB_ATR_variables]);
+  sprintf(buf,",PBS_ARRAYID=%d",taskid);
 
+  job_attr_def[(int)JOB_ATR_variables].at_decode(&tempattr,
+      NULL, 
+      NULL, 
+      buf);
+
+  job_attr_def[(int)JOB_ATR_variables].at_set(
+    &pnewjob->ji_wattr[(int)JOB_ATR_variables],
+    &tempattr, 
+    INCR);  
+
+  
+  delete_link(&pnewjob->ji_alljobs); 
+  delete_link(&pnewjob->ji_jobque);
+  delete_link(&pnewjob->ji_svrtask);
+
+  return pnewjob;
+  } /* END job_clone() */
+
+/*
+ * job_clone_wt - worktask to clone jobs for job array
+ */
+void job_clone_wt(
+
+struct work_task *ptask)
+  {
+  static char id[] = "job_clone_wt";
+  job *pjob;
+  job *pjobclone;
+  struct work_task *new_task;
+  int i;
+  int startindex;
+  int newstate;
+  int newsub;
+  int rc;
+  
+  
+  pjob = (job*)(ptask->wt_parm1);
+  startindex = ptask->wt_aux;
+  
+  /* do the clones in batches of 256 */
+  
+  
+  for (i=startindex; 
+       i<startindex+256 
+       && i < pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long;
+       i++)
+    {
+    pjobclone = job_clone(pjob, i);
+    if (pjobclone == NULL)
+      {
+      log_err(-1, id, "unable to clone job in job_clone_wt");
+      }
+
+    svr_evaljobstate(pjobclone,&newstate,&newsub,1);
+    svr_setjobstate(pjobclone,newstate,newsub);
+    pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long = ++queue_rank;
+    pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_flags |= ATR_VFLAG_SET;
+    
+    
+    if ((rc = svr_enquejob(pjobclone))) 
+      {
+      job_purge(pjobclone);
+      }
+      
+    if (job_save(pjobclone,SAVEJOB_FULL) != 0) 
+      {
+      job_purge(pjobclone);
+      }
+    
+    }
+  
+  if (i < pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long)
+    {
+    new_task = set_task(WORK_Timed,time_now,job_clone_wt,ptask->wt_parm1);
+    new_task->wt_aux = startindex+256;
+    }
+  else
+    {
+    /* should I clean up the placeholder here ? */
+    job_purge((job*)(ptask->wt_parm1));
+    }
+  } /* end job_clone_tw */
+  
+  
+
+#endif /* end ifndef PBS_MOM */
 
 /*
  * job_init_wattr - initialize job working attribute array
@@ -722,10 +1032,6 @@ void job_purge(
         pjob->ji_qs.ji_jobid,
         log_buffer);
       
-#if defined(HAVE_SETEUID) && defined(HAVE_SETEGID)
-
-      /* most systems */
-
       if ((setegid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1) ||
           (seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) == -1))
         {
@@ -738,25 +1044,6 @@ void job_purge(
 
       seteuid(0);
       setegid(pbsgroup);
-
-#elif defined(HAVE_SETRESUID) && defined(HAVE_SETRESGID)
-
-      /* HPUX and the like */
-
-      if ((setresgid(-1,pjob->ji_qs.ji_un.ji_momt.ji_exgid,-1) == -1) ||
-          (setresuid(-1,pjob->ji_qs.ji_un.ji_momt.ji_exuid,-1) == -1))
-        {
-        /* FAILURE */
-
-        return;
-        }
-    
-      rc = remtree(namebuf);
-
-      setresuid(-1,0,-1);
-      setresgid(-1,pbsgroup,-1);
-
-#endif  /* HAVE_SETRESUID */
 
       if ((rc != 0) && (LOGLEVEL >= 5))
         {

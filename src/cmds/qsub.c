@@ -148,70 +148,93 @@ char PBS_RootDir[256];
 
 char xauth_path[256];
 
-int interactivechild=0;
-int x11child=0;
+int interactivechild = 0;
+int x11child = 0;
 
 int do_dir(char *);
 int process_opts(int,char **,int);
 
 /* adapted from openssh */
-static char *
-x11_get_proto(void)
-{       
-        char line[512];
-        char proto[512], data[512], screen[512];
-        char *authstring;
-        FILE *f;
-        int got_data = 0;
-        char *display, *p;
-        struct stat st;
 
-        proto[0] = data[0] = screen[0] = '\0';
+static char *x11_get_proto(void)
 
-        if ((display = getenv("DISPLAY")) == NULL)
-          {
-          fprintf(stderr,"qsub: DISPLAY not set\n");
-          return (NULL);
-          }
+  {       
+  char line[512];
+  char proto[512], data[512], screen[512];
+  char *authstring;
+  FILE *f;
+  int got_data = 0;
+  char *display, *p;
+  struct stat st;
 
-        if (stat(xauth_path,&st))
-          {
-          perror("qsub: xauth: ");
-          return (NULL);
-          }
+  proto[0]  = '\0';
+  data[0]   = '\0';
+  screen[0] = '\0';
 
-        /* Try to get Xauthority information for the display. */
-        if (strncmp(display, "localhost:", 10) == 0)
-                /*
-                 * Handle FamilyLocal case where $DISPLAY does
-                 * not match an authorization entry.  For this we
-                 * just try "xauth list unix:displaynum.screennum".
-                 * XXX: "localhost" match to determine FamilyLocal
-                 *      is not perfect.
-                 */
-                snprintf(line, sizeof line, "%s list unix:%s 2>/dev/null",
-                    xauth_path,display+10);
-        else    
-                snprintf(line, sizeof line, "%s list %.200s 2>/dev/null",
-                    xauth_path,display);
+  if ((display = getenv("DISPLAY")) == NULL)
+    {
+    fprintf(stderr,"qsub: DISPLAY not set\n");
 
-	p = strchr(display,':');
-        if (p)
-          p = strchr(p,'.');
-        if (p)
-          strncpy(screen,p+1,512);
-        else
-          strcpy(screen,"0");
+    return(NULL);
+    }
 
-        if (getenv("PBSDEBUG") != NULL)
-          fprintf(stderr,"x11_get_proto: %s\n", line);
+  if (stat(xauth_path,&st))
+    {
+    perror("qsub: xauth: ");
 
-        f = popen(line, "r");
-        if (f && fgets(line, sizeof(line), f) &&
-            sscanf(line, "%*s %511s %511s", proto, data) == 2)
-                got_data = 1;
-        if (f)  
-                pclose(f);
+    return(NULL);
+    }
+
+  /* Try to get Xauthority information for the display. */
+
+  if (strncmp(display,"localhost:",10) == 0)
+    {
+    /*
+     * Handle FamilyLocal case where $DISPLAY does
+     * not match an authorization entry.  For this we
+     * just try "xauth list unix:displaynum.screennum".
+     * XXX: "localhost" match to determine FamilyLocal
+     *      is not perfect.
+     */
+
+    snprintf(line,sizeof(line),"%s list unix:%s 2>/dev/null",
+      xauth_path,
+      display + 10);
+    }
+  else    
+    {
+    snprintf(line,sizeof(line),"%s list %.200s 2>/dev/null",
+      xauth_path,
+      display);
+    }
+
+  p = strchr(display,':');
+
+  if (p != NULL)
+    p = strchr(p,'.');
+
+  if (p != NULL)
+    strncpy(screen,p + 1,sizeof(screen));
+  else
+    strcpy(screen,"0");
+
+  if (getenv("PBSDEBUG") != NULL)
+    fprintf(stderr,"x11_get_proto: %s\n", 
+      line);
+
+  f = popen(line,"r");
+
+  if ((f != NULL) && 
+      fgets(line,sizeof(line),f) &&
+      sscanf(line,"%*s %511s %511s", 
+        proto, 
+        data) == 2)
+    {
+    got_data = 1;
+    }
+
+  if (f != NULL)  
+    pclose(f);
 
 #if 0 /* we aren't inspecting the returned xauth data yet */
         /*
@@ -237,15 +260,20 @@ x11_get_proto(void)
         }
 #endif
 
-    if (!got_data)
-      return(NULL);
+  if (!got_data)
+    {
+    return(NULL);
+    }
 
-    authstring = malloc(strlen(proto) + strlen(data) + strlen(screen) +4);
-    sprintf(authstring,"%s:%s:%s",proto, data, screen);
+  authstring = malloc(strlen(proto) + strlen(data) + strlen(screen) + 4);
 
-    return(authstring);
+  sprintf(authstring,"%s:%s:%s",
+    proto, 
+    data, 
+    screen);
 
-}
+  return(authstring);
+  }  /* END x11_get_proto() */
 
 
 
@@ -788,7 +816,10 @@ char path_out[MAXPATHLEN + 1];
 char destination[PBS_MAXDEST];
 static char server_out[PBS_MAXSERVERNAME + PBS_MAXPORTNUM + 2];
 char server_host[PBS_MAXHOSTNAME + 1];
-long cnt2server_retry=-100;
+char qsub_host[PBS_MAXHOSTNAME + 1];
+char  owner_uid[1024 + 1];
+
+long cnt2server_retry = -100;
 
 /* state booleans for protecting already-set options */
 int a_opt = FALSE;
@@ -930,7 +961,7 @@ int set_job_env(
   char *job_env;
   char *s, *c, *env, l;
   unsigned   len;
-  int   rc;
+  int   rc = 0;
 
   int   eindex;
 
@@ -946,7 +977,7 @@ int set_job_env(
 
   /* Calculate how big to make the variable string. */
 
-  len = PBS_MAXHOSTNAME + MAXPATHLEN;
+  len = PBS_MAXHOSTNAME*2 + MAXPATHLEN;
 
   if (v_opt) 
     {
@@ -986,6 +1017,7 @@ int set_job_env(
   }
 
   len += strlen("PBS_O_WORKDIR=") + 1;
+  len += strlen("PBS_SERVER=") + 1;
 
   len++; /* Terminating '0' */
 
@@ -1055,14 +1087,32 @@ int set_job_env(
     strcat(job_env,c);
     }
 
+  if (qsub_host[0] != '\0')
+    {
+    strcat(job_env,",PBS_O_HOST=");
+    strcat(job_env,qsub_host);
+    }
+
   if ((server_host[0] != '\0') || 
      ((rc = gethostname(server_host,PBS_MAXHOSTNAME + 1)) == 0))
     {
-    if ((rc = get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME)) == 0) 
+    if ((rc = get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME,NULL)) == 0) 
       {
-      strcat(job_env,",PBS_O_HOST=");
+      strcat(job_env,",PBS_SERVER=");
       strcat(job_env,server_host);
+      
+      if (qsub_host[0] == '\0')
+        {
+	strcat(job_env,",PBS_O_HOST=");
+        strcat(job_env,server_host);
+	}
       }
+    }
+
+  if (owner_uid[0] != '\0')
+    {
+    strcat(job_env,",PBS_O_UID=");
+    strcat(job_env,owner_uid);
     }
 
   if (rc != 0) 
@@ -1284,7 +1334,7 @@ state4:         /* goto label - Value specified */
 
 final:
 
-  if (V_opt) 
+  if (V_opt != 0) 
     {      
     /* Send every environment variable with the job. */
 
@@ -1486,14 +1536,14 @@ void stopme(
 
 int reader(
 
-  int s,	/* reading socket */
-  int d)        /* writing socket */
+  int s,	/* I - reading socket */
+  int d)        /* I - writing socket */
 
   {
-  char buf[4096];
-  int  c;
+  char  buf[4096];
+  int   c;
   char *p;
-  int  wc;
+  int   wc;
 
   /* read from the socket, and write to d */
 
@@ -1515,12 +1565,10 @@ int reader(
             {
             continue;
             } 
-          else 
-            {
-            perror("qsub: write error");
 
-            return(-1);
-            }
+          perror("qsub: write error");
+
+          return(-1);
           }
 
          c -= wc;
@@ -2329,6 +2377,12 @@ int process_opts(
           {
           fprintf(stderr,"version: %s\n",
             PACKAGE_VERSION);
+
+          exit(0);
+          }
+        else if ((optarg != NULL) && !strcmp(optarg,"about"))
+          {
+          TShowAbout();
 
           exit(0);
           }
@@ -3510,7 +3564,8 @@ int main(
     }
 
   /* set the submit_args */
-  for (argi = 1; argi < argc; argi++)
+
+  for (argi = 1;argi < argc;argi++)
     {
     argslen += strlen(argv[argi]) + 1;
     }
@@ -3562,6 +3617,7 @@ int main(
   strncpy(PBS_Filter, SUBMIT_FILTER_PATH, 255);
 
   /* check to see if PBS_Filter exists.  If not then fall back to the old hard coded file */
+
   if (stat(PBS_Filter,&statbuf) == -1)
     {
     strncpy(PBS_Filter,DefaultFilterPath,255);
@@ -3570,6 +3626,8 @@ int main(
   strncpy(xauth_path,DefaultXauthPath,255);
 
   server_host[0] = '\0';
+  qsub_host[0] = '\0';
+  owner_uid[0] = '\0';
 
   if (getenv("PBSDEBUG") != NULL)
     fprintf(stderr,"xauth_path=%s\n",xauth_path);
@@ -3591,6 +3649,17 @@ int main(
       {
       strncpy(server_host,param_val,sizeof(server_host));
       server_host[sizeof(server_host) - 1] = '\0';
+      }
+
+    if ((param_val = get_param("QSUBHOST",config_buf)) != NULL)
+      {
+      strncpy(qsub_host,param_val,sizeof(qsub_host));
+      qsub_host[sizeof(qsub_host) - 1] = '\0';
+      }
+
+    if ((param_val = get_param("QSUBSENDUID",config_buf)) != NULL)
+      {
+      sprintf(owner_uid,"%d",getuid());
       }
 
     if ((param_val = get_param("XAUTHPATH",config_buf)) != NULL)
@@ -3616,7 +3685,8 @@ int main(
   if (optind < argc) 
     strcpy(script,argv[optind]);
 
-  /* store the saved args string int "submit_args" attribute */
+  /* store the saved args string in "submit_args" attribute */
+
   if (submit_args_str != NULL)
     {
     set_attr(&attrib,ATTR_submit_args,submit_args_str);
@@ -3633,8 +3703,8 @@ int main(
     /* get the DISPLAY's auth proto, data, and screen number */
     if ((x11authstr = x11_get_proto()) != NULL)
       {
-
       /* stuff this info into the job */
+
       set_attr(&attrib,ATTR_forwardx11,x11authstr);
 
       if (getenv("PBSDEBUG") != NULL)
@@ -3737,6 +3807,14 @@ int main(
       exit(8);
       }
     }
+
+  /* interactive job can not be job array */
+  if (Interact_opt && t_opt)
+  {
+     fprintf(stderr, "qsub: Interactive job can not be job array.\n");
+     unlink(script_tmp);
+     exit(2);
+  }
 
   set_opt_defaults();		/* set option default values */
   server_out[0] = '\0';

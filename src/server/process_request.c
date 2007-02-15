@@ -130,8 +130,6 @@ extern char  *msg_err_malloc;
 extern char  *msg_reqbadhost;
 extern char  *msg_request;
 
-extern const char *PBatchReqType[];
-
 extern int LOGLEVEL;
 
 /* private functions local to this file */
@@ -287,13 +285,18 @@ void process_request(
 
   if (get_connecthost(sfds,request->rq_host,PBS_MAXHOSTNAME) != 0) 
     {
+    char tmpLine[1024];
+
     sprintf(log_buffer,"%s: %lu",
       msg_reqbadhost,
       get_connectaddr(sfds));
 
     LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_REQUEST,"",log_buffer);
 
-    req_reject(PBSE_BADHOST,0,request,NULL,NULL);
+    snprintf(tmpLine,sizeof(tmpLine),"cannot determine hostname for connection from %lu",
+      get_connectaddr(sfds));
+
+    req_reject(PBSE_BADHOST,0,request,NULL,tmpLine);
 
     return;
     }
@@ -327,7 +330,7 @@ void process_request(
   sprintf(
     log_buffer,
     msg_request,
-    PBatchReqType[request->rq_type],
+    reqtype_to_txt(request->rq_type),
     request->rq_user,
     request->rq_host,
     sfds);
@@ -344,7 +347,7 @@ void process_request(
 
     struct pbsnode *isanode;
 
-    isanode=PGetNodeFromAddr(get_connectaddr(sfds));
+    isanode = PGetNodeFromAddr(get_connectaddr(sfds));
 
     if ((isanode == NULL) &&
         (strcmp(server_host,request->rq_host) != 0) &&
@@ -353,7 +356,12 @@ void process_request(
          request->rq_host, 
          ACL_Host) == 0))
       {
-      req_reject(PBSE_BADHOST,0,request,NULL,NULL);
+      char tmpLine[1024];
+
+      snprintf(tmpLine,sizeof(tmpLine),"request not authorized from host %s",
+        request->rq_host);
+
+      req_reject(PBSE_BADHOST,0,request,NULL,tmpLine);
 
       close_client(sfds);
 
@@ -461,7 +469,7 @@ void process_request(
   if (LOGLEVEL >= 6)
     {
     sprintf(log_buffer,"request type %s from host %s received",
-      PBatchReqType[request->rq_type],
+      reqtype_to_txt(request->rq_type),
       request->rq_host);
 
     log_record(
@@ -474,7 +482,7 @@ void process_request(
   if (!tfind(svr_conn[sfds].cn_addr,&okclients)) 
     {
     sprintf(log_buffer,"request type %s from host %s rejected (host not authorized)",
-      PBatchReqType[request->rq_type],
+      reqtype_to_txt(request->rq_type),
       request->rq_host);
 
     log_record(
@@ -493,7 +501,7 @@ void process_request(
   if (LOGLEVEL >= 3)
     {
     sprintf(log_buffer,"request type %s from host %s allowed",
-      PBatchReqType[request->rq_type],
+      reqtype_to_txt(request->rq_type),
       request->rq_host);
 
     log_record(
@@ -504,7 +512,7 @@ void process_request(
     }
 
   MOMLastRecvFromServerTime = time_now;
-  strcpy(MOMLastRecvFromServerCmd,PBatchReqType[request->rq_type]);
+  strcpy(MOMLastRecvFromServerCmd,reqtype_to_txt(request->rq_type));
   }    /* END BLOCK */
 		
   request->rq_fromsvr = 1;
@@ -550,7 +558,7 @@ void dispatch_request(
   if (LOGLEVEL >= 5)
     {
     sprintf(log_buffer,"dispatching request %s on sd=%d",
-      PBatchReqType[request->rq_type],
+      reqtype_to_txt(request->rq_type),
       sfds);
 
     log_record(
@@ -998,6 +1006,11 @@ void free_br(
 
       break;
 
+    /* CRI RT #255 reports a memory leak at this point, but I can't
+     * reproduce it, so I'm just leaving this here for now 
+    case PBS_BATCH_MvJobFile:
+      log_err(-1,"free_br","BUG: NOT freeing from PBS_BATCH_MvJobFile");
+      break; */
     case PBS_BATCH_jobscript:
 
       if (preq->rq_ind.rq_jobfile.rq_data)

@@ -146,7 +146,7 @@
 
 #include        "mcom.h"
 
-#ifdef _POSIX_MEMLOCK
+#ifdef _POSIX_MEMLOCK 
 #include <sys/mman.h>
 #endif /* _POSIX_MEMLOCK */
 
@@ -161,7 +161,7 @@ int             ServerStatUpdateInterval = DEFAULT_SERVER_STAT_UPDATES;
 int             CheckPollTime            = CHECK_POLL_TIME;
 
 double		cputfactor = 1.00;
-unsigned int	default_server_port;
+unsigned int	default_server_port = 0;
 int		exiting_tasks = 0;
 float		ideal_load_val = -1.0;
 int		internal_state = 0;
@@ -169,6 +169,7 @@ int             ignwalltime = 0;        /* by default, enable mom based walltime
 int		lockfds = -1;
 time_t		loopcnt;		/* used for MD5 calc */
 float		max_load_val = -1.0;
+int		hostname_specified = 0;
 char		mom_host[PBS_MAXHOSTNAME + 1];
 char		pbs_servername[PBS_MAXSERVER][PBS_MAXSERVERNAME + 1];
 u_long		MOMServerAddrs[PBS_MAXSERVER];
@@ -197,8 +198,8 @@ char           *mom_home;
 extern char    *msg_daemonname;          /* for logs     */
 extern int	pbs_errno;
 gid_t		pbsgroup;
-unsigned int	pbs_mom_port;
-unsigned int	pbs_rm_port;
+unsigned int	pbs_mom_port = 0;
+unsigned int	pbs_rm_port = 0;
 tlist_head	mom_polljobs;	/* jobs that must have resource limits polled */
 tlist_head	svr_newjobs;	/* jobs being sent to MOM */
 tlist_head	svr_alljobs;	/* all jobs under MOM's control */
@@ -209,13 +210,15 @@ time_t		polltime = 0;
 extern tlist_head svr_requests;
 extern struct var_table vtable;	/* see start_exec.c */
 #if MOM_CHECKPOINT == 1
-char	       *path_checkpoint = (char *)0;
+char	       *path_checkpoint = NULL;
 static resource_def *rdcput;
 #endif	/* MOM_CHECKPOINT */
 double		wallfactor = 1.00;
 long		log_file_max_size = 0;
 long		log_file_roll_depth = 1;
 time_t		last_log_check;
+char           *nodefile_suffix = NULL;  /* suffix to append to each host listed in job host file */
+char           *TNoSpoolDirList[TMAX_NSDCOUNT];
 
 /* externs */
 
@@ -234,7 +237,7 @@ char            xauth_path[MAXPATHLEN];
 
 time_t          LastServerUpdateTime = 0;  /* NOTE: all servers updated together */
 
-time_t          MOMStartTime              = 0;
+time_t          MOMStartTime         = 0;
 time_t          MOMLastSendToServerTime[PBS_MAXSERVER];
 time_t          MOMLastRecvFromServerTime[PBS_MAXSERVER];
 char            MOMLastRecvFromServerCmd[PBS_MAXSERVER][MMAX_LINE];
@@ -252,6 +255,8 @@ char            MOMUNameMissing[64];
 int             MOMConfigDownOnError      = 0;
 int             MOMConfigRestart          = 0;
 long            system_ncpus=0;
+char           *auto_ideal_load=NULL;
+char           *auto_max_load=NULL;
 
 #define TMAX_JE  64
 
@@ -320,42 +325,50 @@ static unsigned long settmpdir(char *);
 static unsigned long setlogfilemaxsize(char *);
 static unsigned long setlogfilerolldepth(char *);
 static unsigned long setvarattr(char *);
+static unsigned long setautoidealload(char *);
+static unsigned long setautomaxload(char *);
+static unsigned long setnodefilesuffix(char *);
+static unsigned long setnospooldirlist(char *);
 
 static struct specials {
   char            *name;
   u_long          (*handler)();
   } special[] = {
-    { "xauthpath",    setxauthpath },
-    { "rcpcmd",       setrcpcmd },
-    { "rcp_cmd",      setrcpcmd },
-    { "pbsclient",    setpbsclient },
-    { "configversion",configversion },
-    { "cputmult",     cputmult },
-    { "ideal_load",   setidealload },
-    { "ignwalltime",  setignwalltime },
-    { "logevent",     setlogevent },
-    { "loglevel",     setloglevel },
-    { "max_load",     setmaxload },
-    { "enablemomrestart",   setenablemomrestart },
-    { "prologalarm",  prologalarm },
-    { "restricted",   restricted },
-    { "jobstartblocktime", jobstartblocktime },
-    { "usecp",        usecp },
-    { "wallmult",     wallmult },
-    { "clienthost",   setpbsserver },  /* deprecated - use pbsserver */
-    { "pbsserver",    setpbsserver },
-    { "node_check_script", setnodecheckscript },
+    { "auto_ideal_load",     setautoidealload },
+    { "auto_max_load",       setautomaxload },
+    { "xauthpath",           setxauthpath },
+    { "rcpcmd",              setrcpcmd },
+    { "rcp_cmd",             setrcpcmd },
+    { "pbsclient",           setpbsclient },
+    { "configversion",       configversion },
+    { "cputmult",            cputmult },
+    { "ideal_load",          setidealload },
+    { "ignwalltime",         setignwalltime },
+    { "logevent",            setlogevent },
+    { "loglevel",            setloglevel },
+    { "max_load",            setmaxload },
+    { "enablemomrestart",    setenablemomrestart },
+    { "prologalarm",         prologalarm },
+    { "restricted",          restricted },
+    { "jobstartblocktime",   jobstartblocktime },
+    { "usecp",               usecp },
+    { "wallmult",            wallmult },
+    { "clienthost",          setpbsserver },  /* deprecated - use pbsserver */
+    { "pbsserver",           setpbsserver },
+    { "node_check_script",   setnodecheckscript },
     { "node_check_interval", setnodecheckinterval },
-    { "timeout",      settimeout },
-    { "checkpoint_script", setcheckpointscript },
-    { "down_on_error", setdownonerror },
-    { "status_update_time", setstatusupdatetime },
-    { "check_poll_time", setcheckpolltime },
-    { "tmpdir",       settmpdir },
-    { "log_file_max_size", setlogfilemaxsize},
-    { "log_file_roll_depth", setlogfilerolldepth},
-    { "varattr",       setvarattr},
-    { NULL,           NULL } };
+    { "timeout",             settimeout },
+    { "checkpoint_script",   setcheckpointscript },
+    { "down_on_error",       setdownonerror },
+    { "status_update_time",  setstatusupdatetime },
+    { "check_poll_time",     setcheckpolltime },
+    { "tmpdir",              settmpdir },
+    { "log_file_max_size",   setlogfilemaxsize },
+    { "log_file_roll_depth", setlogfilerolldepth },
+    { "varattr",             setvarattr },
+    { "nodefile_suffix",     setnodefilesuffix },
+    { "nospool_dir_list",    setnospooldirlist },
+    { NULL,                  NULL } };
 
 
 static char *arch(struct rm_attribute *);
@@ -384,6 +397,7 @@ struct config common_config[] = {
 
 int                     LOGLEVEL = 0;  /* valid values (0 - 10) */
 int                     DEBUGMODE = 0;
+int                     DOBACKGROUND = 1;
 char                    CHECKPOINT_SCRIPT[1024];
 long                    TJobStartBlockTime = 5; /* seconds to wait for job to launch before backgrounding */
 long                    TJobStartTimeout = 300; /* seconds to wait for job to launch before purging */
@@ -635,7 +649,7 @@ char *nullproc(
 
 static char *arch(
 
-  struct rm_attribute *attrib)
+  struct rm_attribute *attrib)  /* I */
 
   {
   char *id = "arch";
@@ -771,13 +785,13 @@ static char *reqmsg(
 
 static char *getjoblist(
 
-  struct rm_attribute *attrib)
+  struct rm_attribute *attrib) /* I */
 
   {
-  static char *list=NULL;
-  static int listlen=0;
+  static char *list = NULL;
+  static int listlen = 0;
   job *pjob;
-  int firstjob=1;
+  int firstjob = 1;
 
   if (list == NULL)
     {
@@ -786,46 +800,56 @@ static char *getjoblist(
     listlen = BUFSIZ;
     }
 
-  *list='\0'; /* reset the list */
+  *list = '\0'; /* reset the list */
 
   if ((pjob = (job *)GET_NEXT(svr_alljobs)) == NULL)
     {
-    return(NULL);
+    /* no jobs - return space character */
+
+    return(" ");
     }
-  else
+
+  for (;pjob != NULL;pjob = (job *)GET_NEXT(pjob->ji_alljobs))
     {
-    for (;pjob != NULL;pjob = (job *)GET_NEXT(pjob->ji_alljobs))
+    if (!firstjob)
+      strcat(list," ");
+
+    strcat(list,pjob->ji_qs.ji_jobid);
+
+    if ((int)strlen(list) >= listlen)
       {
-      if (!firstjob)
-        strcat(list," ");
-
-      strcat(list,pjob->ji_qs.ji_jobid);
-
-      if ((int)strlen(list) >= listlen)
-        {
-        listlen += BUFSIZ;
-        list=realloc(list,listlen);
-        }
-
-      firstjob = 0;
+      listlen += BUFSIZ;
+      list = realloc(list,listlen);
       }
+
+    firstjob = 0;
+    }
+
+  if (list[0] == '\0')
+    {
+    /* no jobs - return space character */
+
+    strcat(list," ");
     }
 
   return(list);
-  }
+  }  /* END getjoblist() */
+
+
+
+
 
 static char *reqvarattr(
   
-  struct rm_attribute *attrib)
+  struct rm_attribute *attrib)  /* I */
   
   {           
   static char id[] = "reqvarattr";
-  static char *list=NULL,*child_spot;
-  static int listlen=0;
+  static char *list = NULL,*child_spot;
+  static int listlen = 0;
   struct varattr *pva;
   int   i, fd, len, child_len;
   FILE  *child;
-
 
   if (list == NULL)
     {
@@ -834,108 +858,110 @@ static char *reqvarattr(
     listlen = BUFSIZ;
     }
     
-  *list='\0'; /* reset the list */
+  *list = '\0'; /* reset the list */
 
   if ((pva = (struct varattr *)GET_NEXT(mom_varattrs)) == NULL)
     {
-    return(NULL);
+    return(" ");
     }
-  else
+
+  for (;pva != NULL;pva = (struct varattr *)GET_NEXT(pva->va_link))
     {
-    for (;pva != NULL;pva = (struct varattr *)GET_NEXT(pva->va_link))
+    if ((pva->va_lasttime == 0) || (time_now >= (pva->va_ttl + pva->va_lasttime)))
       {
-      if ((pva->va_lasttime==0) || (time_now >= (pva->va_ttl + pva->va_lasttime)))
-        {
-        if ((pva->va_ttl == -1) && (pva->va_lasttime != 0))
-          continue;  /* ttl of -1 is only run once */
+      if ((pva->va_ttl == -1) && (pva->va_lasttime != 0))
+        continue;  /* ttl of -1 is only run once */
           
-        pva->va_lasttime=time_now;
+      pva->va_lasttime = time_now;
 
-        if (pva->va_value == NULL)
-          pva->va_value=calloc(128,sizeof(char));
+      if (pva->va_value == NULL)
+        pva->va_value = calloc(128,sizeof(char));
 
-        /* execute script and get a new value */
-        if ((child = popen(pva->va_cmd,"r")) == NULL) 
+      /* execute script and get a new value */
+
+      if ((child = popen(pva->va_cmd,"r")) == NULL) 
+        {
+        sprintf(pva->va_value,"error: %d %s",
+          errno,
+          strerror(errno));
+        }
+      else
+        {
+        fd = fileno(child);
+
+        child_spot = pva->va_value;
+        child_len = 0;
+        child_spot[0] = '\0';
+
+retryread:
+        while ((len = read(fd,child_spot,127 - child_len)) > 0)
           {
-          sprintf(pva->va_value,"error: %d %s",errno,strerror(errno));
+          for (i = 0;i < len;i++)
+            {
+            if (child_spot[i] == '\n')
+              break;
+            }
+
+          if (i < len)
+            {
+            /* found newline */
+        
+            child_len += i + 1;
+
+            break;
+            }
+
+          child_len += len;
+          child_spot += len;
+
+          if (child_len >= 127)
+            break;
+          }
+
+        if (len == -1)
+          {
+          if (errno == EINTR)
+            goto retryread;
+
+          log_err(errno,id,"pipe read");
+
+          sprintf(pva->va_value,"? %d",
+            RM_ERR_SYSTEM);
+
+          fclose(child);
           }
         else
           {
+          pclose(child);
 
-          fd = fileno(child);
-
-          child_spot = pva->va_value;
-          child_len = 0;
-          child_spot[0] = '\0';
-
-retryread:
-          while ((len = read(fd,child_spot,127 - child_len)) > 0)
-            {
-            for (i = 0;i < len;i++)
-              {
-              if (child_spot[i] == '\n')
-                break;
-              }
-
-            if (i < len)
-              {
-              /* found newline */
-        
-              child_len += i + 1;
-
-              break;
-              }
-
-            child_len += len;
-            child_spot += len;
-
-            if (child_len >= 127)
-              break;
-            }
-
-          if (len == -1)
-            {
-            if (errno==EINTR)
-              goto retryread;
-
-            log_err(errno,id,"pipe read");
-
-            sprintf(pva->va_value,"? %d",
-              RM_ERR_SYSTEM);
-
-            fclose(child);
-            }
-          else
-            {
-            pclose(child);
-
-            if (child_len > 0)
-              pva->va_value[child_len - 1] = '\0';   /* hack off newline */
-            }
-          } /* END popen */
-        } /* END execute command */
+          if (child_len > 0)
+            pva->va_value[child_len - 1] = '\0';   /* hack off newline */
+          }
+        }    /* END else ((child = popen(pva->va_cmd,"r")) == NULL) */
+      }      /* END if ((pva->va_lasttime == 0) || ...) */
                      
-      if (pva->va_value[0] != '\0')
-        {
-        if (*list != '\0')
-          strcat(list,"+");
+    if (pva->va_value[0] != '\0')
+      {
+      if (*list != '\0')
+        strcat(list,"+");
 
-        strcat(list,pva->va_name);
-        strcat(list,":");
-        strcat(list,pva->va_value);
-        }
-
-      if ((int)strlen(list) >= listlen)
-        {
-        listlen += BUFSIZ;
-        list=realloc(list,listlen);
-        }
-
+      strcat(list,pva->va_name);
+      strcat(list,":");
+      strcat(list,pva->va_value);
       }
-    }
+
+    if ((int)strlen(list) >= listlen)
+      {
+      listlen += BUFSIZ;
+      list = realloc(list,listlen);
+      }
+    }    /* END for () */
+
+  if (list[0] == '\0')
+    strcat(list," ");
 
   return(list);
-  }
+  }  /* END reqvarattr() */
 
 
 
@@ -1157,8 +1183,8 @@ char *loadave(
 
 struct config *rm_search(
 
-  struct config	*where,
-  char          *what)
+  struct config	*where,  /* I */
+  char          *what)   /* I */
 
   {
   struct config	*cp;
@@ -1189,8 +1215,8 @@ struct config *rm_search(
 
 char *dependent(
 
-  char	              *res,
-  struct rm_attribute *attr)
+  char	              *res,  /* I */
+  struct rm_attribute *attr) /* I */
 
   {
   struct config	       *ap;
@@ -1533,7 +1559,7 @@ static u_long setpbsserver(
 
   if ((portstr = strchr(tmpname,':')) != NULL)
     {
-    *portstr='\0';
+    *portstr = '\0';
     }
 
   if ((host = gethostbyname(tmpname)) == NULL) 
@@ -1546,6 +1572,7 @@ static u_long setpbsserver(
     log_err(-1,id,log_buffer);
 
     ipaddr = 0;
+
     /* don't return because we still want to add the hostname to
      * pbs_servername[] and attempt a gethostbyname() later */
     }
@@ -1664,13 +1691,15 @@ static u_long setxauthpath(
   }
 
 
+
+
 static u_long setrcpcmd(
 
-  char *Value)
+  char *Value)  /* I */
 
   {
-  static  char    id[] = "rcpcmd";
-  static  char *ptr;
+  static char  id[] = "rcpcmd";
+  static char *ptr;
 
   log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,Value);
 
@@ -1678,24 +1707,29 @@ static u_long setrcpcmd(
     {
     log_err(-1,id,"tmpdir must be a full path");
 
+    /* FAILURE */
+
     return(0);
     }
 
   strncpy(rcp_path,Value,sizeof(rcp_path));
   strcpy(rcp_args,"");
 
-  if ((ptr=strchr(rcp_path,' ')) != NULL)
+  if ((ptr = strchr(rcp_path,' ')) != NULL)
     {
-    *ptr='\0';
+    *ptr = '\0';
 
-    if (*(ptr+1) != '\0')
+    if (*(ptr + 1) != '\0')
       {
-      strncpy(rcp_args,ptr+1,sizeof(rcp_args));
+      strncpy(rcp_args,ptr + 1,sizeof(rcp_args));
       }
     }
 
+  /* SUCCESS */
+
   return(1);
-  }
+  }  /* END setrcpcmd() */
+
 
 
 
@@ -1948,7 +1982,7 @@ static u_long usecp(
   char *value)  /* I */
 
   {
-  char *pnxt;
+  char        *pnxt;
   static int   cphosts_max = 0;
 
   static char *id = "usecp";
@@ -2292,7 +2326,50 @@ static unsigned long setignwalltime(
   }  /* END setidealload() */
 
 
+static unsigned long setautoidealload(
 
+  char *value)
+
+  {
+  log_record(
+    PBSEVENT_SYSTEM, 
+    PBS_EVENTCLASS_SERVER,
+    "auto_ideal_load",
+    value);
+
+  auto_ideal_load=strdup(value);
+
+/*
+  add_static(auto_ideal_load,"config",0);
+
+  nconfig++;
+*/
+
+  return(1);
+  }  /* END setautoidealload() */
+
+
+static unsigned long setautomaxload(
+
+  char *value)
+
+  {
+  log_record(
+    PBSEVENT_SYSTEM, 
+    PBS_EVENTCLASS_SERVER,
+    "auto_max_load",
+    value);
+
+  auto_max_load=strdup(value);
+
+/*
+  add_static(auto_ideal_load,"config",0);
+
+  nconfig++;
+*/
+
+  return(1);
+  }  /* END setautomaxload() */
 
 
 static unsigned long setnodecheckscript(
@@ -2443,12 +2520,14 @@ static unsigned long setcheckpointscript(
 static unsigned long setlogfilemaxsize(
 
   char *value)  /* I */
+
   {
-  log_file_max_size = strtol(value, NULL, 10);
+  log_file_max_size = strtol(value,NULL,10);
 
   if (log_file_max_size < 0)
      {
      log_file_max_size = 0;
+
      return(0);
      }
 
@@ -2459,15 +2538,21 @@ static unsigned long setlogfilemaxsize(
 static unsigned long setlogfilerolldepth(
 
   char *value)  /* I */
-   {
-   log_file_roll_depth = strtol(value, NULL, 10);
-   if (log_file_roll_depth < 1)
-      {
-      log_file_roll_depth = 1;
-      return 0;
-      }
-   return 1;
-   }
+
+  {
+  log_file_roll_depth = strtol(value,NULL,10);
+
+  if (log_file_roll_depth < 1)
+    {
+    log_file_roll_depth = 1;
+
+    return(0);
+    }
+
+  return(1);
+  }
+
+
 
 
 static u_long setvarattr(
@@ -2483,69 +2568,159 @@ static u_long setvarattr(
 
   if (pva == NULL)
     {
+    /* FAILURE */
+
     log_err(errno,id,"no memory");
 
-    return 0;
+    return(0);
     }
+
   CLEAR_LINK(pva->va_link);
 
   pva->va_name = strdup(value);
 
   /* step forward to get the ttl value */
-  tmpc=strchr(pva->va_name,' ');
+
+  tmpc = strchr(pva->va_name,' ');
+
   if (tmpc == NULL)
     {
+    /* FAILURE */
+
     free(pva->va_name);
     free(pva);
-    return 0;
+
+    return(0);
     }
 
   *tmpc='\0';
   tmpc++;
-  pva->va_ttl = strtol(tmpc, NULL, 10);
+  pva->va_ttl = strtol(tmpc,NULL,10);
   
   /* step forward to get the command */
-  tmpc=strchr(tmpc,' ');
+
+  tmpc = strchr(tmpc,' ');
+
   if (tmpc == NULL)
     {
     free(pva->va_name);
     free(pva);
-    return 0;
+
+    return(0);
     }
 
-  *tmpc='\0';
+  /* SUCCESS */
+
+  *tmpc = '\0';
   tmpc++;
-  pva->va_cmd=tmpc;
+  pva->va_cmd = tmpc;
 
   append_link(&mom_varattrs,&pva->va_link,pva);
 
-  return 1; 
-}
+  return(1); 
+  }  /* END setvarattr() */
+
+
+
+
+
+static unsigned long setnodefilesuffix(
+
+  char *value)  /* I */
+
+  {
+  nodefile_suffix = strdup(value);
+
+  /* SUCCESS */
+
+  return(1);
+  }  /* END setnodexfilesuffix() */
+
+
+
+
+static unsigned long setnospooldirlist(
+
+  char *value)  /* I */
+
+  {
+  char *TokPtr;
+  char *ptr;
+
+  int   index = 0;
+
+  char  tmpLine[1024];
+
+  ptr = strtok_r(value," \t\n:,",&TokPtr);
+
+  while (ptr != NULL)
+    {
+    TNoSpoolDirList[index] = strdup(ptr);
+
+    snprintf(tmpLine,sizeof(tmpLine),"added NoSpoolDir[%d] '%s'",
+      index,
+      ptr);
+
+    log_record(
+      PBSEVENT_SYSTEM,
+      PBS_EVENTCLASS_SERVER,
+      "setnospooldirlist",
+      tmpLine);
+
+    index++;
+
+    if (index >= TMAX_NSDCOUNT)
+      break;
+
+    ptr = strtok_r(NULL," \t\n:,",&TokPtr);
+    }  /* END while (ptr != NULL) */
+
+  /* SUCCESS */
+
+  return(1);
+  }  /* END setnospooldirlist() */
+
+
+
+
+
 
 
 void check_log()
-   {
-   last_log_check = time_now;
-   if (log_file_max_size <= 0)
-      return;
 
-   if (log_size() >= log_file_max_size)
-      {
-      log_event(
-         PBSEVENT_SYSTEM | PBSEVENT_FORCE,
-         PBS_EVENTCLASS_SERVER,
-         msg_daemonname,
-         "Rolling log file");
+  {
+  last_log_check = time_now;
 
-      log_roll(log_file_roll_depth);
-      }
-   }
+  if (log_file_max_size <= 0)
+    {
+    return;
+    }
+
+  if (log_size() >= log_file_max_size)
+    {
+    log_event(
+      PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+      PBS_EVENTCLASS_SERVER,
+      msg_daemonname,
+      "Rolling log file");
+
+    log_roll(log_file_roll_depth);
+    }
+
+  return;
+  }  /* END check_log() */
+
+
+
+
 
 /*
 **	Open and read the config file.  Save information in a linked
 **	list.  After reading the file, create an array, copy the list
 **	elements to the array and free the list.
 */
+
+/* NOTE:  add new mom config parameters to 'special[]' */
 
 int read_config(
 
@@ -2565,6 +2740,10 @@ int read_config(
 
   int                    linenum;
   int                    i;
+
+  int                    IgnConfig = 0;
+
+  int                    rc;
 
   if (LOGLEVEL >= 3)
     {
@@ -2588,6 +2767,8 @@ int read_config(
   if (file == NULL)
     file = config_file;
 
+  rc = 0;
+
   if (file[0] == '\0')
     {
     log_record(
@@ -2596,17 +2777,19 @@ int read_config(
       id,
       "ALERT:  no config file specified");
 
-    return(0);	/* no config file */
+    IgnConfig = 1;  /* no config file */
     }
 
-  if (stat(file,&sb) == -1) 
+  if ((IgnConfig == 0) && (stat(file,&sb) == -1))
     {
+    IgnConfig = 1;
+
     sprintf(log_buffer,"fstat: %s", 
       file);
 
     log_err(errno,id,log_buffer);
 
-    if (config_file_specified)
+    if (config_file_specified != 0)
       {
       /* file specified and not there, return failure */
 
@@ -2616,173 +2799,188 @@ int read_config(
         id,
         "ALERT:  cannot open config file - no file");
 
-      return(1); 
+      rc = 1; 
       }
-
-    /* "config" file not located, return success */
-
-    if (LOGLEVEL >= 3)
+    else
       {
-      sprintf(log_buffer,"cannot open file '%s'",
-        file);
+      /* "config" file not located, return success */
 
-      log_record(
-        PBSEVENT_SYSTEM,
-        PBS_EVENTCLASS_SERVER,
-        id,
-        log_buffer);
+      if (LOGLEVEL >= 3)
+        {
+        sprintf(log_buffer,"cannot open file '%s'",
+          file);
+
+        log_record(
+          PBSEVENT_SYSTEM,
+          PBS_EVENTCLASS_SERVER,
+          id,
+          log_buffer);
+        }
+
+      rc = 0; 
       }
+    }  /* END if ((IgnConfig == 0) && (stat(file,&sb) == -1)) */
 
-    return(0); 
-    }
-
+  if (IgnConfig == 0)
+    {
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 
-  if (chk_file_sec(file,0,0,S_IWGRP|S_IWOTH,1))
-    {
-    /* not authorized to access specified file, return failure */
-
-    log_record(
-      PBSEVENT_SYSTEM,
-      PBS_EVENTCLASS_SERVER,
-      id,
-      "ALERT:  cannot open config file - permissions");
-
-    return(1);
-    }
-
-#endif	/* NO_SECURITY_CHECK */
-
-  if ((conf = fopen(file,"r")) == NULL) 
-    {
-    sprintf(log_buffer,"fopen: %s",
-      file);
-
-    log_err(errno,id,log_buffer);
-
-    return(1);
-    }
-
-  nconfig = 0;
-  linenum = 0;
-
-  while (fgets(line,sizeof(line),conf)) 
-    {
-    linenum++;
-
-    if (line[0] == '#')	/* comment */
-      continue;
-
-    if ((ptr = strchr(line,'#')) != NULL)
+    if (chk_file_sec(file,0,0,S_IWGRP|S_IWOTH,1))
       {
-      /* allow inline comments */
-
-      *ptr = '\0';
-      }
- 
-    str = skipwhite(line);	/* pass over initial whitespace */
-
-    if (*str == '\0')
-      continue;
-
-    if (LOGLEVEL >= 6)
-      {
-      sprintf(log_buffer,"processing config line '%.64s'",
-        str);
+      /* not authorized to access specified file, return failure */
 
       log_record(
         PBSEVENT_SYSTEM,
         PBS_EVENTCLASS_SERVER,
         id,
-        log_buffer);
+        "ALERT:  cannot open config file - permissions");
+
+      IgnConfig = 1;
+
+      rc = 1;
       }
+#endif  /* NO_SECURITY_CHECK */
+    }    /* END if (ignConfig == 0) */
 
-    if (*str == '$') 
-      {	
-      /* special command */
+  if (IgnConfig == 0)
+    {   
+    if ((conf = fopen(file,"r")) == NULL) 
+      {
+      sprintf(log_buffer,"fopen: %s",
+        file);
 
-      str = tokcpy(++str,name); /* resource name */
+      log_err(errno,id,log_buffer);
 
-      for (i = 0;special[i].name;i++) 
+      IgnConfig = 1;
+
+      rc = 1;
+      }
+    }    /* END if (IgnConfig == 0) */
+
+  if (IgnConfig == 0)
+    {
+    nconfig = 0;
+    linenum = 0;
+
+    while (fgets(line,sizeof(line),conf)) 
+      {
+      linenum++;
+
+      if (line[0] == '#')	/* comment */
+        continue;
+
+      if ((ptr = strchr(line,'#')) != NULL)
         {
-        if (strcasecmp(name,special[i].name) == 0)
-          break;
-        }  /* END for (i) */
+        /* allow inline comments */
 
-      if (special[i].name == NULL) 
+        *ptr = '\0';
+        }
+ 
+      str = skipwhite(line);	/* pass over initial whitespace */
+
+      if (*str == '\0')
+        continue;
+
+      if (LOGLEVEL >= 6)
         {
-	/* didn't find it */
+        sprintf(log_buffer,"processing config line '%.64s'",
+          str);
 
-        sprintf(log_buffer,"special command name %s not found (ignoring line)",
-          name);
+        log_record(
+          PBSEVENT_SYSTEM,
+          PBS_EVENTCLASS_SERVER,
+          id,
+          log_buffer);
+        }
 
-        log_err(-1,id,log_buffer);
+      if (*str == '$') 
+        {	
+        /* special command */
+
+        str = tokcpy(++str,name); /* resource name */
+
+        for (i = 0;special[i].name;i++) 
+          {
+          if (strcasecmp(name,special[i].name) == 0)
+            break;
+          }  /* END for (i) */
+
+        if (special[i].name == NULL) 
+          {
+          /* didn't find it */
+
+          sprintf(log_buffer,"special command name %s not found (ignoring line)",
+            name);
+
+          log_err(-1,id,log_buffer);
+
+          continue;
+          }
+
+        str = skipwhite(str);		/* command param */
+
+        rmnl(str);
+
+        if (special[i].handler(str) == 0) 
+          {
+          sprintf(log_buffer,"%s[%d] special command %s failed with %s",
+            file,
+            linenum,
+            name,
+            str);
+
+          log_err(-1,id,log_buffer);
+          }
 
         continue;
         }
 
-      str = skipwhite(str);		/* command param */
+      add_static(str,file,linenum);
 
-      rmnl(str);
+      nconfig++;
+      }  /* END while (fgets()) */
+		
+    /*
+    **	Create a new array.
+    */
 
-      if (special[i].handler(str) == 0) 
+    if (config_array != NULL) 
+      {
+      for (ap = config_array;ap->c_name != NULL;ap++) 
         {
-        sprintf(log_buffer,"%s[%d] special command %s failed with %s",
-          file,
-          linenum,
-          name,
-          str);
-
-        log_err(-1,id,log_buffer);
+        free(ap->c_name);
+        free(ap->c_u.c_value);
         }
 
-      continue;
+      free(config_array);
       }
 
-    add_static(str,file,linenum);
+    config_array = (struct config *)calloc(nconfig + 1,sizeof(struct config));
 
-    nconfig++;
-    }  /* END while (fgets()) */
-		
-  /*
-  **	Create a new array.
-  */
+    memcheck((char *)config_array);
 
-  if (config_array != NULL) 
-    {
-    for (ap = config_array;ap->c_name != NULL;ap++) 
+    /*
+    **	Copy in the new information saved from the file.
+    */
+
+    for (i = 0,ap = config_array;i < nconfig;i++,ap++) 
       {
-      free(ap->c_name);
-      free(ap->c_u.c_value);
+      *ap = config_list->c;
+      cp = config_list->c_link;
+
+      free(config_list);	/* don't free name and value strings */
+      config_list = cp;	/* they carry over from the list */
       }
 
-    free(config_array);
-    }
+    ap->c_name = NULL;		/* one extra */
 
-  config_array = (struct config *)calloc(nconfig + 1,sizeof(struct config));
-
-  memcheck((char *)config_array);
-
-  /*
-  **	Copy in the new information saved from the file.
-  */
-
-  for (i = 0,ap = config_array;i < nconfig;i++,ap++) 
-    {
-    *ap = config_list->c;
-    cp = config_list->c_link;
-
-    free(config_list);	/* don't free name and value strings */
-    config_list = cp;	/* they carry over from the list */
-    }
-
-  ap->c_name = NULL;		/* one extra */
-
-  fclose(conf);
+    fclose(conf);
+    }  /* END if (IgnConfig == 0) */
 
   if (pbs_servername[0][0] == '\0')
     {
     FILE *server_file;
+
     /* no $pbsserver parameters in config, use server_name as last-resort */
 
     if ((server_file = fopen(path_server_name,"r")) != NULL)
@@ -2802,7 +3000,7 @@ int read_config(
       }
     }
 
-  return(0);
+  return(rc);
   }  /* END read_config() */
 
 
@@ -4073,7 +4271,7 @@ int rm_request(
 
             if ( (*curr == '=') && ((*curr)+1 != '\0' ))
               {
-              setstatusupdatetime(curr+1);
+              setstatusupdatetime(curr + 1);
               }
 
             sprintf(output,"status_update_time=%d",
@@ -4083,9 +4281,9 @@ int rm_request(
             {
             /* set or report check_poll_time */
 
-            if ( (*curr == '=') && ((*curr)+1 != '\0' ))
+            if ( (*curr == '=') && ((*curr) + 1 != '\0' ))
               {
-              setcheckpolltime(curr+1);
+              setcheckpolltime(curr + 1);
               }
 
             sprintf(output,"check_poll_time=%d",
@@ -4131,9 +4329,9 @@ int rm_request(
             {
             /* set or report enablemomrestart */
 
-            if ( (*curr == '=') && ((*curr)+1 != '\0' ))
+            if ( (*curr == '=') && ((*curr) + 1 != '\0' ))
               {
-              setenablemomrestart(curr+1);
+              setenablemomrestart(curr + 1);
               }
 
             sprintf(output,"enablemomrestart=%d",
@@ -4143,9 +4341,9 @@ int rm_request(
             {
             /* set or report rcp_path and rcp_args */
 
-            if ( (*curr == '=') && ((*curr)+1 != '\0' ))
+            if ((*curr == '=') && ((*curr) + 1 != '\0'))
               {
-              setrcpcmd(curr+1);
+              setrcpcmd(curr + 1);
               }
 
             sprintf(output,"rcpcmd=%s %s",
@@ -4390,18 +4588,21 @@ int rm_request(
 
               if (stat(path_prolog,&s) != -1)
                 {
-                MUStrNCat(&BPtr,&BSpace,"NOTE:  prolog enabled\n");
+                MUSNPrintF(&BPtr,&BSpace,"Prolog:                 %s (enabled)\n",
+                  path_prolog);
 
                 prologfound = 1;
                 }
               else if (verbositylevel >= 2)
                 {
-                MUStrNCat(&BPtr,&BSpace,"NOTE:  no prolog configured\n");
+                MUSNPrintF(&BPtr,&BSpace,"Prolog:                 %s (disabled)\n",
+                  path_prolog);
                 }
 
               if (stat(path_prologp,&s) != -1)
                 {
-                MUStrNCat(&BPtr,&BSpace,"NOTE:  prolog.parallel enabled\n");
+                MUSNPrintF(&BPtr,&BSpace,"Parallel Prolog:        %s (enabled)\n",
+                  path_prologp);
 
                 prologfound = 1;
                 }
@@ -5280,7 +5481,7 @@ static void finish_loop(
   tmpTime = MAX(1,tmpTime);
 
   if (LastServerUpdateTime == 0)
-    tmpTime=1;
+    tmpTime = 1;
 
   /* wait for a request to process */
 
@@ -5427,7 +5628,8 @@ unsigned long gettime(
     }
 
   return((unsigned long)pres->rs_value.at_val.at_long);
-  }
+  }  /* END getttime() */
+
 
 
 
@@ -5474,6 +5676,8 @@ int job_over_limit(
 
   if (pjob->ji_nodekill != TM_ERROR_NODE) 
     {
+    /* one of the sister nodes reports a fatal error */
+
     hnodent *pnode = &pjob->ji_hosts[pjob->ji_nodekill];
 
     if (pnode->hn_sister != 0)
@@ -5482,7 +5686,7 @@ int job_over_limit(
         {
         case SISTER_KILLDONE:
 
-          sprintf(log_buffer,"node %d (%s) requested job die, '%s' (code %d)",
+          sprintf(log_buffer,"node %d (%s) requested job terminate, '%s' (%d)",
             pjob->ji_nodekill,
             pnode->hn_host,
             "killdone",
@@ -5492,7 +5696,7 @@ int job_over_limit(
 
         case SISTER_BADPOLL:
 
-          sprintf(log_buffer,"node %d (%s) requested job die, '%s' (code %d)",
+          sprintf(log_buffer,"node %d (%s) requested job terminate, '%s' (code %d)",
             pjob->ji_nodekill,
             pnode->hn_host,
             "badpoll",
@@ -5503,7 +5707,7 @@ int job_over_limit(
         case SISTER_EOF:
         default:
 
-          sprintf(log_buffer,"node %d (%s) requested job die, '%s' (code %d) - internal or network failure attempting to communicate with sister MOM's",
+          sprintf(log_buffer,"node %d (%s) requested job terminate, '%s' (code %d) - internal or network failure attempting to communicate with sister MOM's",
             pjob->ji_nodekill,
             pnode->hn_host,
             "EOF",
@@ -5515,7 +5719,7 @@ int job_over_limit(
       /* FAILURE */
 
       return(1);
-      }
+      }  /* END if (pnode->hn_sister != 0) */
     }    /* END if (pjob->ji_nodekill != TM_ERROR_NODE) */
 
   attr = &pjob->ji_wattr[JOB_ATR_resource];
@@ -5599,6 +5803,7 @@ void usage(
   fprintf(stderr,"  -C <PATH> \\\\ CHECKPOINT DIR\n");
   fprintf(stderr,"  -d <PATH> \\\\ HOME DIR\n");
   fprintf(stderr,"  -C <PATH> \\\\ CHECKPOINT DIR\n");
+  fprintf(stderr,"  -D        \\\\ DEBUG - do not background\n");
   fprintf(stderr,"  -L <PATH> \\\\ LOGFILE\n");
   fprintf(stderr,"  -M <INT>  \\\\ MOM PORT\n");
   fprintf(stderr,"  -p        \\\\ recover jobs\n");
@@ -5835,10 +6040,10 @@ int main(
   int	 	errflg, c;
   FILE		*dummyfile;
   task		*ptask;
-  char		*ptr;
+  char		*ptr;                   /* local tmp variable */
   int		tryport;
   int		rppfd;			/* fd for rm and im comm */
-  int		privfd = 0;			/* fd for sending job info */
+  int		privfd = 0;		/* fd for sending job info */
   double	myla;
   struct sigaction act;
   job		*pjob;
@@ -5898,23 +6103,82 @@ int main(
     orig_path = strdup(getenv("PATH"));
     }
 
-  /* Get our default service port */
+  /* get default service port */
 
-  pbs_mom_port = get_svrport(PBS_MOM_SERVICE_NAME,"tcp",
-    PBS_MOM_SERVICE_PORT);
+  ptr = getenv("PBS_MOM_SERVICE_PORT");
 
-  default_server_port = get_svrport(PBS_BATCH_SERVICE_NAME,"tcp",
-    PBS_BATCH_SERVICE_PORT_DIS);
+  if (ptr != NULL)
+    {
+    pbs_mom_port = (int)strtol(ptr,NULL,10);
+    }
 
-  pbs_rm_port = get_svrport(PBS_MANAGER_SERVICE_NAME,"tcp", 
-    PBS_MANAGER_SERVICE_PORT);
+  if (pbs_mom_port <= 0)
+     {
+     pbs_mom_port = get_svrport(
+       PBS_MOM_SERVICE_NAME,
+       "tcp",
+       PBS_MOM_SERVICE_PORT);
+     }
+
+  ptr = getenv("PBS_BATCH_SERVICE_PORT");
+
+  if (ptr != NULL)
+    {
+    default_server_port = (int)strtol(ptr,NULL,10);
+    }
+
+  if (default_server_port <= 0)
+    {
+    default_server_port = get_svrport(
+      PBS_BATCH_SERVICE_NAME,
+      "tcp",
+      PBS_BATCH_SERVICE_PORT_DIS);
+    }
+
+  ptr = getenv("PBS_MANAGER_SERVICE_PORT");
+
+  if (ptr != NULL)
+    {
+    pbs_rm_port = (int)strtol(ptr,NULL,10);
+    }
+
+  if (pbs_rm_port <= 0)
+    {
+    pbs_rm_port = get_svrport(
+      PBS_MANAGER_SERVICE_NAME,
+      "tcp", 
+      PBS_MANAGER_SERVICE_PORT);
+    }
 
   errflg = 0;
 
-  while ((c = getopt(argc,argv,"a:c:C:d:L:M:prR:S:vx")) != -1) 
+  while ((c = getopt(argc,argv,"a:c:C:d:Dh:L:M:prR:S:vx-:")) != -1) 
     {
     switch (c) 
       {
+      case '-':
+
+        if (optarg == NULL)
+          break;
+
+        if (!strcmp(optarg,"about"))
+          {
+          printf("package:     %s\n",PACKAGE_STRING);
+          printf("sourcedir:   %s\n",PBS_SOURCE_DIR);
+          printf("configure:   %s\n",PBS_CONFIG_ARGS);
+          printf("buildcflags: %s\n",PBS_CFLAGS);
+          printf("buildhost:   %s\n",PBS_BUILD_HOST);
+          printf("builddate:   %s\n",PBS_BUILD_DATE);
+          printf("builddir:    %s\n",PBS_BUILD_DIR);
+          printf("builduser:   %s\n",PBS_BUILD_USER);
+          printf("installdir:  %s\n",PBS_INSTALL_DIR);
+          printf("serverhome:  %s\n",PBS_SERVER_HOME);
+
+          exit(0);
+          }
+
+        break;
+
       case 'a':
 
         alarm_time = (int)strtol(optarg,&ptr,10);
@@ -5934,6 +6198,14 @@ int main(
         config_file_specified = 1;
 
         strcpy(config_file,optarg);	/* remember name */
+
+        break;
+
+      case 'h':	/* multihomed host */
+
+        hostname_specified = 1;
+
+        strncpy(mom_host,optarg,PBS_MAXHOSTNAME);	/* remember name */
 
         break;
 
@@ -5964,6 +6236,12 @@ int main(
       case 'd': /* directory */
 
         path_home = optarg;
+
+        break;
+
+      case 'D':  /* debug */
+ 
+        DOBACKGROUND = 0;
 
         break;
 
@@ -6073,6 +6351,8 @@ int main(
   if (getenv("PBSDEBUG") != NULL)
     {
     DEBUGMODE = 1;
+
+    DOBACKGROUND = 0;
     }
 
   /* modify program environment */
@@ -6272,11 +6552,11 @@ int main(
 
   mom_lock(lockfds,F_UNLCK);	/* unlock so child can relock */
 
-  if (DEBUGMODE == 0)
+  if (DOBACKGROUND == 1) 
     {
     if (fork() > 0)
       {
-      return (0);	/* parent goes away */
+      return(0);	/* parent goes away */
       }
 
     if (setsid() == -1) 
@@ -6298,7 +6578,7 @@ int main(
 
     dummyfile = fopen("/dev/null","w");
     assert((dummyfile != 0) && (fileno(dummyfile) == 2));
-    }  /* END if (DEBUGMODE == 0) */
+    }  /* END if (DOBACKGROUND == 1) */
 
   mom_lock(lockfds,F_WRLCK);	/* lock out other MOMs */
 	
@@ -6482,11 +6762,11 @@ int main(
   CLEAR_HEAD(svr_requests);
   CLEAR_HEAD(mom_varattrs);
 
-  if ((c = gethostname(mom_host,PBS_MAXHOSTNAME)) == 0) 
+  if ( hostname_specified || ( (c = gethostname(mom_host,PBS_MAXHOSTNAME)) == 0) ) 
     {
     strcpy(mom_short_name,mom_host);
 
-    c = get_fullhostname(mom_host,mom_host,PBS_MAXHOSTNAME);
+    c = get_fullhostname(mom_host,mom_host,PBS_MAXHOSTNAME,NULL);
 
     if (c != 0)
       {
@@ -6604,7 +6884,20 @@ int main(
     PBS_EVENTCLASS_SERVER,
     id,
     log_buffer);
-  
+ 
+  ptr = getenv("MOMSLEEPTIME");
+
+  if (ptr != NULL)
+    {
+    long tmpL;
+
+    tmpL = strtol(ptr,NULL,10);
+
+    srand(getpid());
+
+    sleep(tmpL % (rand() + 1));
+    }  /* END if (ptr != NULL) */
+ 
   /*
    * Now at last, we are ready to do some work, the following
    * section constitutes the "main" loop of MOM
@@ -6811,7 +7104,8 @@ int main(
       /* update information for my tasks */
 
       mom_set_use(pjob);
-      rpp_io();
+
+      rpp_io();  /* FIXME: this call seems oddly placed... is this needed? */
 
       /* has all job processes vanished undetected ?       */
       /* double check by sig0 to session pid for each task */
@@ -6831,11 +7125,10 @@ int main(
           c = atoi(pjob->ji_globid);
 
           if ((kill((pid_t)c,0) == -1) && (errno == ESRCH)) 
-            {
 #else	/* not cray */
           if ((kill(ptask->ti_qs.ti_sid,0) == -1) && (errno == ESRCH)) 
-            {
 #endif	/* not cray */
+            {
 
             if (LOGLEVEL >= 3)
               {
@@ -6880,6 +7173,8 @@ int main(
       prscput = find_resc_entry(
         &pjob->ji_wattr[(int)JOB_ATR_resc_used],
         rdcput);
+
+      /* FIXME: check prscput == NULL? */
 
       if (pjob->ji_chkptnext>prscput->rs_value.at_val.at_long)
         continue;
@@ -6964,7 +7259,8 @@ int main(
 
       if (job_over_limit(pjob) != 0) 
         {
-        log_record(PBSEVENT_JOB | PBSEVENT_FORCE,
+        log_record(
+          PBSEVENT_JOB | PBSEVENT_FORCE,
           PBS_EVENTCLASS_JOB,
           pjob->ji_qs.ji_jobid,
           log_buffer);
@@ -6988,7 +7284,6 @@ int main(
         pjob->ji_qs.ji_svrflags |= JOB_SVFLG_OVERLMT1;
         }
       }    /* END for (pjob) */
-
 #ifdef _POSIX_MEMLOCK
     /* call mlockall() only 1 time, since it seems to leak mem */
 
@@ -6998,9 +7293,10 @@ int main(
 
       mlockall_return = mlockall(MCL_CURRENT | MCL_FUTURE);
 
-      if (mlockall_return == -1)
+      /* exit iff mlock failed, but ignore function not implemented error */
+      if (mlockall_return == -1 && errno != ENOSYS)
         {
-        perror("pbs_mom:mom_main.c:mlockall():");
+        perror("pbs_mom:mom_main.c:mlockall()");
 
         exit(1);
         }
@@ -7137,7 +7433,7 @@ static char *mk_dirs(
  * stop_me = signal handler for SIGTERM
  */
 
-void stop_me(
+static void stop_me(
 
   int sig)  /* I */
 
@@ -7166,7 +7462,7 @@ void stop_me(
 
 
 
-void PBSAdjustLogLevel(
+static void PBSAdjustLogLevel(
 
   int sig)  /* I */
 
@@ -7237,12 +7533,40 @@ int TMOMScanForStarting(void)
   int  RC;
   int  SC;
 
+#ifdef MSIC
+  list_link *tmpL;
+#endif
+
+  const char *id = "TMOMScanForStarting";
+
+#ifdef MSIC
+  /* NOTE:  solaris system is choking on GET_NEXT - isolate */
+
+  tmpL = GET_NEXT(svr_alljobs);
+
+  tmpL = svr_alljobs.ll_next->ll_struct;
+
+  pjob = (job *)tmpL;
+#endif /* MSIC */
+   
   pjob = (job *)GET_NEXT(svr_alljobs);
                                                                                 
   while (pjob != NULL)
     {
     nextjob = (job *)GET_NEXT(pjob->ji_alljobs);
 
+    if (LOGLEVEL >= 2)
+      {
+      snprintf(log_buffer,1024,"checking job start in %s",
+        id);
+
+      log_record(
+        PBSEVENT_JOB | PBSEVENT_FORCE,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+      }
+ 
     if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_STARTING)
       {
       pjobexec_t *TJE;

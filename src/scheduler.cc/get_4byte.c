@@ -96,6 +96,8 @@ extern ssize_t read_nonblocking_socket(int, void *, ssize_t);
 
 /*
  * get_4byte() - read and return a 4 byte integer from the network
+ *      sock: socket to read from
+ *      val: Return integer from socket
  *
  *	Returns: the (unsigned int) integer in *val
  *		 the function return is 
@@ -104,24 +106,36 @@ extern ssize_t read_nonblocking_socket(int, void *, ssize_t);
  *			-1 if error.
  */
 
-int get_4byte(sock, val)
-	int		 sock;	/* socket to read from */
-	unsigned int	*val;	/* Return: interger from socket */
-{
-	
-	int amt;
-	union {
-		int unl;
-		char unc[sizeof (unsigned int)];
-	} un;
+int get_4byte(
 
-	un.unl = 0;
-	amt = read(sock, (char *)(un.unc+sizeof(unsigned int)-4), 4);
-	if (amt == 4) {
-		*val = ntohl(un.unl);
-		return (1);
-	} else if (amt == 0)
-		return (0);
-	else
-		return (-1);
-}
+  int           sock, 
+  unsigned int *val)
+
+  {
+  int amt;
+
+  union {
+    int unl;
+    char unc[sizeof(unsigned int)];
+    } un;
+
+  un.unl = 0;
+
+  amt = read(sock,(char *)(un.unc + sizeof(unsigned int)-4),4);
+
+  if (amt == 4) 
+    {
+    *val = ntohl(un.unl);
+
+    return(1);
+    } 
+
+  if (amt == 0)
+    {
+    return(0);
+    }
+
+  /* FAILURE */
+
+  return(-1);
+  }

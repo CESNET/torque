@@ -88,12 +88,14 @@
 #include <stdlib.h>
 #include "libpbs.h"
 
+/* returns pbs_errno */
+
 int pbs_alterjob(
 
-  int           c,
-  char         *jobid,
-  struct attrl *attrib,
-  char         *extend)
+  int           c,       /* I */
+  char         *jobid,   /* I */
+  struct attrl *attrib,  /* I */
+  char         *extend)  /* I */
 
   {
   struct attropl *ap = (struct attropl *)NULL;
@@ -122,32 +124,45 @@ int pbs_alterjob(
       ap = ap->next;
       }
 
-		if( ap == (struct attropl *)NULL ) {
-			pbs_errno = PBSE_SYSTEM;
-			return -1;
-		}
-		ap->name = attrib->name;
-		ap->resource = attrib->resource;
-		ap->value = attrib->value;
-		ap->op = SET;
-		ap->next = (struct attropl *)NULL;
-		attrib = attrib->next;
-	}
+    if (ap == NULL) 
+      {
+      /* FAILURE */
+
+      pbs_errno = PBSE_SYSTEM;
+
+      return(-1);
+      }
+
+    ap->name = attrib->name;
+    ap->resource = attrib->resource;
+    ap->value = attrib->value;
+    ap->op = SET;
+    ap->next = (struct attropl *)NULL;
+    attrib = attrib->next;
+    }  /* END while (attrib != NULL) */
 		
-	i = PBSD_manager(c,
-		PBS_BATCH_ModifyJob,
-		MGR_CMD_SET,
-		MGR_OBJ_JOB,
-		jobid,
-		ap1,
-		extend);
+  i = PBSD_manager(
+        c,
+        PBS_BATCH_ModifyJob,
+        MGR_CMD_SET,
+        MGR_OBJ_JOB,
+        jobid,
+        ap1,
+        extend);
 		
-	/* free up the attropl we just created */
-	while( ap1 != (struct attropl *)NULL ) {
-		ap = ap1->next;
-		free( ap1 );
-		ap1 = ap;
-	}
+  /* free up the attropl we just created */
+
+  while (ap1 != NULL) 
+    {
+    ap = ap1->next;
+
+    free(ap1);
+
+    ap1 = ap;
+    }
 	
   return(i);
   }  /* END pbs_alterjob() */
+
+/* END pbsD_alterjo.c */
+

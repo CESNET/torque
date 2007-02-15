@@ -135,7 +135,9 @@ int svr_chk_owner(
   pu = site_map_user(preq->rq_user,preq->rq_host);
 
   if (pu == NULL)
-    {
+    {  
+    /* FAILURE */
+
     return(-1);
     }
 
@@ -174,29 +176,33 @@ int svr_chk_owner(
 
 int svr_authorize_jobreq(
 
-  struct batch_request *preq,
-  job                  *pjob)
+  struct batch_request *preq,  /* I */
+  job                  *pjob)  /* I */
 
   {
-  /* Is requestor special privileged? */
+  /* does requestor have special privileges? */
 
   if ((preq->rq_perm & (ATR_DFLAG_OPRD|ATR_DFLAG_OPWR|
                         ATR_DFLAG_MGRD|ATR_DFLAG_MGWR)) != 0)
     {
+    /* request authorized */
+
     return(0);
     }
 
-  /* is requestor is the job owner */
+  /* is requestor the job owner? */
 
   if (svr_chk_owner(preq,pjob) == 0)
     {
+    /* request authorized */
+
     return(0);
     }
 
   /* not authorized */
 
   return(-1);
-  }
+  }  /* END svr_authorize_jobreq() */
 
 
 /*
@@ -218,8 +224,8 @@ int svr_authorize_jobreq(
 
 int svr_get_privilege(
 
-  char *user,
-  char *host)
+  char *user,  /* I */
+  char *host)  /* I */
 
   {
   int   is_root = 0;
@@ -295,10 +301,11 @@ int svr_get_privilege(
 
 int authenticate_user(
 
-  struct batch_request *preq,
-  struct credential    *pcred)
+  struct batch_request *preq,  /* I */
+  struct credential    *pcred) /* I */
 
   {
+  int  rc;
   char uath[PBS_MAXUSER + PBS_MAXHOSTNAME + 1];
 
   if (strncmp(preq->rq_user,pcred->username,PBS_MAXUSER))
@@ -333,15 +340,21 @@ int authenticate_user(
 #ifdef PBS_ROOT_ALWAYS_ADMIN
       if ((strcmp(preq->rq_user,PBS_DEFAULT_ADMIN) != 0) ||
           (strcasecmp(preq->rq_host,server_host) != 0))
-#endif /* PBS_ROOT_ALWAYS_ADMIN */
+        {
         return(PBSE_PERM);
+        }
+#else /* PBS_ROOT_ALWAYS_ADMIN */
+      return(PBSE_PERM);
+#endif /* PBS_ROOT_ALWAYS_ADMIN */
       }
     }
 
   /* A site stub for additional checking */
 
-  return(site_allow_u(preq->rq_user,preq->rq_host));
-  }
+  rc = site_allow_u(preq->rq_user,preq->rq_host);
+
+  return(rc);
+  }  /* END authenticate_user() */
 
 
 
@@ -357,8 +370,8 @@ int authenticate_user(
 
 job *chk_job_request(
 
-  char                 *jobid,
-  struct batch_request *preq)
+  char                 *jobid,  /* I */
+  struct batch_request *preq)   /* I */
 
   {
   job *pjob;
@@ -371,7 +384,7 @@ job *chk_job_request(
       preq->rq_ind.rq_move.rq_jid, 
       msg_unkjobid);
 
-    req_reject(PBSE_UNKJOBID,0,preq,NULL,NULL);
+    req_reject(PBSE_UNKJOBID,0,preq,NULL,"cannot locate job");
 
     return(NULL);
     }
@@ -391,7 +404,7 @@ job *chk_job_request(
       pjob->ji_qs.ji_jobid, 
       log_buffer);
 
-    req_reject(PBSE_PERM,0,preq,NULL,NULL);
+    req_reject(PBSE_PERM,0,preq,NULL,"operation not permitted");
 
     return(NULL);
     }
@@ -408,13 +421,13 @@ job *chk_job_request(
       pjob->ji_qs.ji_jobid, 
       log_buffer);
 
-    req_reject(PBSE_BADSTATE,0,preq,NULL,NULL);
+    req_reject(PBSE_BADSTATE,0,preq,NULL,"invalid state for job");
 
     return(NULL);
     }
 
   return(pjob);
-  }
+  }  /* END chk_job_request() */
 
 
 

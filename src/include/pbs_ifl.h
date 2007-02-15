@@ -121,6 +121,7 @@
 #define ATTR_q "destination"
 #define ATTR_r "Rerunable"
 #define ATTR_t "job_array_size"
+#define ATTR_array_id "job_array_id"
 #define ATTR_u "User_List"
 #define ATTR_v "Variable_List"
 #define ATTR_A "Account_Name"
@@ -239,6 +240,7 @@
 #define ATTR_jobstatrate "job_stat_rate"
 #define ATTR_polljobs    "poll_jobs"
 #define ATTR_downonerror "down_on_error"
+#define ATTR_disableserveridcheck "disable_server_id_check"
 #define ATTR_jobnanny    "job_nanny"
 #define ATTR_ownerpurge  "owner_purge"
 #define ATTR_qcqlimits   "queue_centric_limits"
@@ -261,6 +263,7 @@
 #define ATTR_NODE_ntype         "ntype"
 #define ATTR_NODE_jobs          "jobs"
 #define ATTR_NODE_status        "status"
+#define ATTR_NODE_note          "note"
 
 
 
@@ -332,6 +335,8 @@
 #ifndef MAXNAMLEN
 #define MAXNAMLEN		255
 #endif
+#define MAX_NOTE		256	/* max node note length */
+#define MAX_NOTE_STR		"256"	/* max node note length as a string literal (this MUST match MAX_NOTE) */
 
 #ifdef GSSAPI
 #define PBS_MAXUSER             120
@@ -342,11 +347,11 @@
 #define PBS_MAXQUEUENAME	15	/* max queue name length */
 #define PBS_MAXSERVERNAME	PBS_MAXHOSTNAME	/* max server name length */
 #define PBS_MAXJOBARRAYLEN      6       /* number of characters allowed in jobarray portion of job id, including '-' */
-#define PBS_MAXSEQNUM		8 + PBS_MAXJOBARRAYLEN	/* max sequence number length */
+#define PBS_MAXSEQNUM		8	/* max sequence number length */
 #define PBS_MAXPORTNUM		5	/* udp/tcp port numbers max=16 bits */
 #define PBS_MAXJOBARRAY		99999
-#define PBS_MAXSVRJOBID		(PBS_MAXSEQNUM + PBS_MAXJOBARRAYLEN + PBS_MAXSERVERNAME + PBS_MAXPORTNUM + 2) /* server job id size */
-#define PBS_MAXCLTJOBID		(PBS_MAXSVRJOBID + PBS_MAXSERVERNAME + PBS_MAXPORTNUM + 2) /* client job id size */
+#define PBS_MAXSVRJOBID		(PBS_MAXSEQNUM + PBS_MAXSERVERNAME + PBS_MAXPORTNUM + PBS_MAXJOBARRAYLEN + 2 ) /* server job id size */
+#define PBS_MAXCLTJOBID		(PBS_MAXSVRJOBID + PBS_MAXSERVERNAME + PBS_MAXPORTNUM + PBS_MAXJOBARRAYLEN + 2) /* client job id size */
 #define PBS_MAXDEST		1024  /* destination size -- increased from 256 */
 #define PBS_MAXROUTEDEST	(PBS_MAXQUEUENAME + PBS_MAXSERVERNAME + PBS_MAXPORTNUM + 2) /* destination size */
 #define PBS_USE_IFF		1	/* pbs_connect() to call pbs_iff */
@@ -354,21 +359,40 @@
 #define PBS_TERM_BUF_SZ		80	/* Interactive term buffer size */
 #define PBS_TERM_CCA		6	/* Interactive term cntl char array */
 
+#define PBS_JOB_MAGIC_NUM	0x00020200 /* magic number used to determine version of pbs job quick save struct */
 
 /* someday the PBS_*_PORT definition will go away and only the	*/
 /* PBS_*_SERVICE_NAME form will be used, maybe			*/
 
 #define PBS_BATCH_SERVICE_NAME		"pbs"
-#define PBS_BATCH_SERVICE_PORT		15001
-#define PBS_BATCH_SERVICE_NAME_DIS	"pbs_dis"	/* new DIS port   */
-#define PBS_BATCH_SERVICE_PORT_DIS	15001		/* new DIS port   */
-#define PBS_MOM_SERVICE_NAME		"pbs_mom"
-#define PBS_MOM_SERVICE_PORT		15002
-#define PBS_MANAGER_SERVICE_NAME	"pbs_resmon"
-#define PBS_MANAGER_SERVICE_PORT	15003
-#define PBS_SCHEDULER_SERVICE_NAME	"pbs_sched"
-#define PBS_SCHEDULER_SERVICE_PORT	15004
 
+#ifndef PBS_BATCH_SERVICE_PORT
+#define PBS_BATCH_SERVICE_PORT		15001
+#endif /* PBS_BATCH_SERVICE_PORT */
+
+#define PBS_BATCH_SERVICE_NAME_DIS	"pbs_dis"	/* new DIS port   */
+
+#ifndef PBS_BATCH_SERVICE_PORT_DIS
+#define PBS_BATCH_SERVICE_PORT_DIS	15001		/* new DIS port   */
+#endif /* PBS_BATCH_SERVICE_PORT_DIS */
+
+#define PBS_MOM_SERVICE_NAME		"pbs_mom"
+
+#ifndef PBS_MOM_SERVICE_PORT
+#define PBS_MOM_SERVICE_PORT		15002
+#endif /* PBS_MOM_SERVICE_PORT */
+
+#define PBS_MANAGER_SERVICE_NAME	"pbs_resmon"
+
+#ifndef PBS_MANAGER_SERVICE_PORT
+#define PBS_MANAGER_SERVICE_PORT	15003
+#endif /* PBS_MANAGER_SERVICE_PORT */
+
+#define PBS_SCHEDULER_SERVICE_NAME	"pbs_sched"
+
+#ifndef PBS_SCHEDULER_SERVICE_PORT
+#define PBS_SCHEDULER_SERVICE_PORT	15004
+#endif /* PBS_SCHEDULER_SERVICE_PORT */
 
 enum batch_op {	SET, UNSET, INCR, DECR, EQ, NE, GE, GT, LE, LT, DFLT };
 
@@ -377,12 +401,12 @@ enum batch_op {	SET, UNSET, INCR, DECR, EQ, NE, GE, GT, LE, LT, DFLT };
 ** interchangably.  The op field is not used.
 */
 struct attrl {
-	struct attrl *next;
-	char	     *name;
-	char	     *resource;
-	char	     *value;
-	enum batch_op 	 op;	/* not used */
-};
+  struct attrl  *next;
+  char          *name;
+  char          *resource;
+  char          *value;
+  enum batch_op  op;	/* not used */
+  };
 
 struct attropl {
   struct attropl *next;
@@ -393,11 +417,11 @@ struct attropl {
   };
 
 struct batch_status {
-	struct batch_status *next;
-	char		    *name;
-	struct attrl	    *attribs;
-	char		    *text;
-};
+  struct batch_status *next;
+  char                *name;
+  struct attrl        *attribs;
+  char                *text;
+  };
 
 
 
@@ -415,39 +439,17 @@ extern char *
 pbs_server;		/* server attempted to connect | connected to */
 			/* see pbs_connect(3B)			      */
 
-extern char *
-avail A_((int connect, char *resc));
-
-extern int
-pbs_asyrunjob A_((int c, char *jobid, char *location, char *extend));
-
-extern int 
-pbs_alterjob A_((int connect, char *job_id, struct attrl *attrib,
-	char *extend));
-
-extern int 
-pbs_connect A_((char *server));
-
-extern int
-pbs_query_max_connections();
-
-extern char *
-pbs_default A_((void));
-
-extern int 
-pbs_deljob A_((int connect, char *job_id, char *extend));
-
-extern int 
-pbs_disconnect A_((int connect));
-
-extern char *
-pbs_geterrmsg A_((int connect));
-
-extern int 
-pbs_holdjob A_((int connect, char *job_id, char *hold_type, char *extend));
-
-extern char *
-pbs_locjob A_((int connect, char *job_id, char *extend));
+extern char *avail A_((int connect,char *resc));
+extern int pbs_asyrunjob A_((int c,char *jobid,char *location,char *extend));
+extern int pbs_alterjob A_((int connect,char *job_id,struct attrl *attrib,char *extend));
+extern int pbs_connect A_((char *server));
+extern int pbs_query_max_connections();
+extern char *pbs_default A_((void));
+extern int pbs_deljob A_((int connect,char *job_id,char *extend));
+extern int pbs_disconnect A_((int connect));
+extern char *pbs_geterrmsg A_((int connect));
+extern int pbs_holdjob A_((int connect,char *job_id,char *hold_type,char *extend));
+extern char *pbs_locjob A_((int connect,char *job_id,char *extend));
 
 extern int 
 pbs_manager A_((int connect, int command, int obj_type, char *obj_name,

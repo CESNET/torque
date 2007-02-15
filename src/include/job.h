@@ -204,65 +204,66 @@ struct grpcache {
 /* sync w/XXX */
 
 enum job_atr {
-	JOB_ATR_jobname,	/* this set appears first as they show */
-	JOB_ATR_job_owner,	/* in a basic job status display       */
-	JOB_ATR_resc_used,
-	JOB_ATR_state,
-	JOB_ATR_in_queue,
-	JOB_ATR_at_server,
+  JOB_ATR_jobname,	/* this set appears first as they show */
+  JOB_ATR_job_owner,	/* in a basic job status display       */
+  JOB_ATR_resc_used,
+  JOB_ATR_state,
+  JOB_ATR_in_queue,
+  JOB_ATR_at_server,    /* (5) */
 
-	JOB_ATR_account,	/* the bulk of the attributes are in   */
-	JOB_ATR_chkpnt,		/* alphabetic order for no good reason */
-	JOB_ATR_ctime,
-	JOB_ATR_depend,
-	JOB_ATR_errpath,
-	JOB_ATR_exec_host,
-	JOB_ATR_exectime,
-	JOB_ATR_grouplst,
-	JOB_ATR_hold,
-	JOB_ATR_interactive,
-	JOB_ATR_join,
-	JOB_ATR_keep,
-	JOB_ATR_mailpnts,
-	JOB_ATR_mailuser,
-	JOB_ATR_mtime,
-	JOB_ATR_outpath,
-	JOB_ATR_priority,
-	JOB_ATR_qtime,
-	JOB_ATR_rerunable,
-	JOB_ATR_resource,
-	JOB_ATR_session_id,
-	JOB_ATR_shell,
-	JOB_ATR_stagein,
-	JOB_ATR_stageout,
-	JOB_ATR_substate,
-	JOB_ATR_userlst,
-	JOB_ATR_variables,
-				/* this set contains private attributes,  */
-				/* as such not sent to clients (status)   */
+  JOB_ATR_account,	/* the bulk of the attributes are in   */
+  JOB_ATR_chkpnt,	/* alphabetic order for no good reason */
+  JOB_ATR_ctime,
+  JOB_ATR_depend,
+  JOB_ATR_errpath,
+  JOB_ATR_exec_host,
+  JOB_ATR_exectime,
+  JOB_ATR_grouplst,
+  JOB_ATR_hold,
+  JOB_ATR_interactive,
+  JOB_ATR_join,
+  JOB_ATR_keep,
+  JOB_ATR_mailpnts,
+  JOB_ATR_mailuser,
+  JOB_ATR_mtime,         /* (20) */
+  JOB_ATR_outpath,
+  JOB_ATR_priority,
+  JOB_ATR_qtime,
+  JOB_ATR_rerunable,
+  JOB_ATR_resource,
+  JOB_ATR_session_id,
+  JOB_ATR_shell,
+  JOB_ATR_stagein,
+  JOB_ATR_stageout,
+  JOB_ATR_substate,
+  JOB_ATR_userlst,
+  JOB_ATR_variables,    /* (32) */
+			/* this set contains private attributes,  */
+			/* as such not sent to clients (status)   */
 
-	JOB_ATR_euser,		/* execution user name for MOM		  */
-	JOB_ATR_egroup,		/* execution group name for MOM		  */
-	JOB_ATR_hashname,	/* job name hashed into 14 characters	  */
-	JOB_ATR_hopcount,
-	JOB_ATR_qrank,
-	JOB_ATR_queuetype,
-	JOB_ATR_sched_hint,     /* 39 */
-	JOB_ATR_security,	
-	JOB_ATR_Comment,
-	JOB_ATR_Cookie,
-	JOB_ATR_altid,		/* alternate job id, for irix6 = array id */
-	JOB_ATR_etime,		/* time job became eligible to run	  */
-	JOB_ATR_exitstat,	/* exit status of job			  */
-	JOB_ATR_forwardx11,
-	JOB_ATR_submit_args,
-	JOB_ATR_job_array_size,
-	JOB_ATR_umask,
+  JOB_ATR_euser,	/* execution user name for MOM		  */
+  JOB_ATR_egroup,	/* execution group name for MOM		  */
+  JOB_ATR_hashname,	/* job name hashed into 14 characters	  */
+  JOB_ATR_hopcount,
+  JOB_ATR_qrank,
+  JOB_ATR_queuetype,
+  JOB_ATR_sched_hint,   /* 39 */
+  JOB_ATR_security,	
+  JOB_ATR_Comment,
+  JOB_ATR_Cookie,
+  JOB_ATR_altid,	/* alternate job id, for irix6 = array id */
+  JOB_ATR_etime,	/* time job became eligible to run	  */
+  JOB_ATR_exitstat,	/* exit status of job			  */
+  JOB_ATR_forwardx11,
+  JOB_ATR_submit_args,
+  JOB_ATR_job_array_size,
+  JOB_ATR_job_array_id,
+  JOB_ATR_umask,
 #include "site_job_attr_enum.h"
 
-	JOB_ATR_UNKN,		/* the special "unknown" type		  */
-	JOB_ATR_LAST		/* This MUST be LAST	*/
-};
+  JOB_ATR_UNKN,		/* the special "unknown" type		  */
+  JOB_ATR_LAST		/* This MUST be LAST	*/
+  };
 
 /*
  * The "definitions" for the job attributes are in the following array,
@@ -427,6 +428,7 @@ struct job {
 	 */
 
 	struct jobfix {
+	    int     v;			/* magic number */
 	    int	    ji_state;		/* internal copy of state */
 	    int	    ji_substate;	/* job sub-state */
 	    int	    ji_svrflags;	/* server flags */
@@ -729,14 +731,15 @@ extern int   init_chkmom A_((job *));
 extern void  issue_track A_((job *));
 extern int   job_abt A_((job **,char *));
 extern job  *job_alloc();
+extern job  *job_clone A_((job *,int));
 extern void  job_free A_((job *));
 extern void  job_purge A_((job *));
 extern job  *job_recov A_((char *));
 extern int   job_save A_((job *,int));
 extern int   modify_job_attr A_((job *,svrattrl *,int,int *));
 extern char *prefix_std_file A_((job *,int));
-extern int   set_jobexid A_((job *,attribute *));
-extern int   site_check_user_map A_((job *,char *));
+extern int   set_jobexid A_((job *,attribute *,char *));
+extern int   site_check_user_map A_((job *,char *,char *));
 extern void  svr_dequejob A_((job *));
 extern int   svr_enquejob A_((job *));
 extern void  svr_evaljobstate A_((job *,int *,int *,int));
@@ -760,6 +763,7 @@ extern int   site_acl_check A_((job *,pbs_queue *));
 #endif	/* QUEUE_H */
 
 #ifdef WORK_TASK_H
+extern void  job_clone_wt A_((struct work_task *));
 extern int   issue_signal A_((job *,char *,void(*)(struct work_task *),void *));
 extern void   on_job_exit A_((struct work_task *));
 #endif	/* WORK_TASK_H */

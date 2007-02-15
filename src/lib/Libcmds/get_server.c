@@ -140,7 +140,51 @@
 
 #define notNULL(x) (((x)!=NULL) && (strlen(x)>(size_t)0))
 
-extern int parse_jobid A_((char *jodid, char **seq, char **parent, char **current));
+extern int parse_jobid A_((char *,char **,char **,char **));
+
+
+
+int TShowAbout()
+
+  {
+  char *dserver;
+  char *servervar;
+
+  char  tmpLine[1024];
+
+  dserver = pbs_default();
+
+  servervar = getenv("PBS_DEFAULT");
+
+  strcpy(tmpLine,PBS_DEFAULT_FILE);
+
+  tmpLine[strlen(tmpLine) - strlen("/pbs_server") - 1] = '\0';
+
+  fprintf(stderr,"HomeDir:   %s  InstallDir: %s  Server: %s%s\n",
+    tmpLine,
+    PBS_INSTALL_DIR,
+    dserver,
+    (servervar != NULL) ? " (PBS_DEFAULT is set)" : "");
+
+  fprintf(stderr,"BuildDir:  %s\n",
+    PBS_SOURCE_DIR);
+
+  fprintf(stderr,"BuildUser: %s\n",
+    PBS_BUILD_USER);
+
+  fprintf(stderr,"BuildHost: %s\n",
+    PBS_BUILD_HOST);
+
+  fprintf(stderr,"BuildDate: %s\n",
+    PBS_BUILD_DATE);
+
+  fprintf(stderr,"Version:   %s\n",
+    PACKAGE_VERSION);
+
+  return(0);
+  }  /* END TShowAbout() */
+
+
 
 int get_server(
 
@@ -156,7 +200,7 @@ int get_server(
   char host_server[PBS_MAXSERVERNAME + 1];
   char *c;
 
-    /* parse the job_id_in into components */
+  /* parse the job_id_in into components */
 
   if (parse_jobid(job_id_in,&seq_number,&parent_server,&current_server))
     {
@@ -168,12 +212,16 @@ int get_server(
   */
 
   if (notNULL(current_server)) 
-    {		/* @server found */
-    strcpy(server_out, current_server);
+    {		
+    /* @server found */
+
+    strcpy(server_out,current_server);
     } 
   else if (notNULL(parent_server)) 
-    {	/* .server found */
-    strcpy(server_out, parent_server);
+    {	
+    /* .server found */
+
+    strcpy(server_out,parent_server);
     } 
   else 
     {  
@@ -183,28 +231,28 @@ int get_server(
     server_out[0] = '\0';
     }
     
-  /* Make a fully quaified name of the job id. */
+  /* Make a fully qualified name of the job id. */
 
-  strcpy(job_id_out, seq_number);
-  strcat(job_id_out, ".");
+  strcpy(job_id_out,seq_number);
+  strcat(job_id_out,".");
 
   if (notNULL(parent_server)) 
     {
-    if (get_fullhostname(parent_server,host_server,PBS_MAXSERVERNAME) == 0) 
+    if (get_fullhostname(parent_server,host_server,PBS_MAXSERVERNAME,NULL) != 0) 
       {
-      strcat(job_id_out, host_server);
+      /* FAILURE */
 
-      if ((c = strchr(parent_server,':')) != 0) 
-        {
-        if (*(c - 1) == '\\') 
-          c--;
-
-        strcat(job_id_out, c);
-        }
-      } 
-    else
-      {
       return(1);
+      }
+
+    strcat(job_id_out,host_server);
+
+    if ((c = strchr(parent_server,':')) != 0) 
+      {
+      if (*(c - 1) == '\\') 
+        c--;
+
+      strcat(job_id_out, c);
       }
     } 
   else 
@@ -215,10 +263,8 @@ int get_server(
       {
       return(1);
       }
-    else 
-      {
-      strncpy(def_server,parent_server,PBS_MAXSERVERNAME);
-      }
+
+    strncpy(def_server,parent_server,PBS_MAXSERVERNAME);
 
     c = def_server;
 
@@ -227,21 +273,21 @@ int get_server(
 
     *c = '\0';
 
-    if (get_fullhostname(def_server,host_server,PBS_MAXSERVERNAME) == 0) 
+    if (get_fullhostname(def_server,host_server,PBS_MAXSERVERNAME,NULL) != 0) 
       {
-      strcat(job_id_out,host_server);
+      /* FAILURE */
 
-      if ((c = strchr(def_server,':')) != 0) 
-        {
-        if (*(c - 1) == '\\') 
-          c--;
-
-        strcat(job_id_out, c);
-        }
-      } 
-    else
-      {
       return(1);
+      }
+
+    strcat(job_id_out,host_server);
+
+    if ((c = strchr(def_server,':')) != 0) 
+      {
+      if (*(c - 1) == '\\') 
+        c--;
+
+      strcat(job_id_out, c);
       }
     }    /* END else */
 

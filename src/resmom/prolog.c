@@ -323,6 +323,8 @@ int run_pelog(
   int		 waitst;
   char		 buf[MAXPATHLEN + 2];
 
+  resource      *r;
+
   if (stat(pelog,&sbuf) == -1) 
     {
     if (errno == ENOENT)
@@ -364,7 +366,7 @@ int run_pelog(
       ((sbuf.st_mode & (S_IRUSR|S_IXUSR)) != (S_IRUSR|S_IXUSR)) ||
       (sbuf.st_mode & (S_IWGRP|S_IWOTH))) 
     {
-    return(pelog_err(pjob,pelog,-1,"Permission Error"));
+    return(pelog_err(pjob,pelog,-1,"permission Error"));
     }
 
   if ((which == PE_PROLOGUSER) || (which == PE_EPILOGUSER))
@@ -373,7 +375,7 @@ int run_pelog(
 
     if ((sbuf.st_mode & (S_IROTH|S_IXOTH)) != (S_IROTH|S_IXOTH))
       {
-      return(pelog_err(pjob,pelog,-1,"Permission Error"));
+      return(pelog_err(pjob,pelog,-1,"permission Error"));
       }
     }
 
@@ -461,6 +463,7 @@ int run_pelog(
     alarm(0);
 
     /* restore the previous handler */
+
     sigaction(SIGALRM,&oldact,0);
 
     if (run_exit == 0) 
@@ -495,7 +498,6 @@ int run_pelog(
       setgid(pjob->ji_qs.ji_un.ji_momt.ji_exgid);
 
       setuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid);
-
       }
 
     if (fd_input != 0) 
@@ -600,7 +602,6 @@ int run_pelog(
       arg[8] = NULL;		
       }
 
-    {
     /*
      * Pass Resource_List.nodes request in environment
      * to allow pro/epi-logue setup/teardown of system
@@ -610,8 +611,6 @@ int run_pelog(
      *
      */
 
-    resource *r;
- 
     r = find_resc_entry(
       &pjob->ji_wattr[(int)JOB_ATR_resource],
       find_resc_def(svr_resc_def,"nodes",svr_resc_size));
@@ -625,6 +624,29 @@ int run_pelog(
 
       envstr = malloc(
         (strlen(envname) + strlen(r->rs_value.at_val.at_str) + 1) * sizeof(char)); 
+
+      strcpy(envstr,envname);
+
+      strcat(envstr,r->rs_value.at_val.at_str);
+
+      /* do _not_ free the string when using putenv */
+
+      putenv(envstr);
+      }  /* END if (r != NULL) */
+
+    r = find_resc_entry(
+      &pjob->ji_wattr[(int)JOB_ATR_resource],
+      find_resc_def(svr_resc_def,"gres",svr_resc_size));
+
+    if (r != NULL)
+      {
+      /* setenv("PBS_RESOURCE_NODES",r->rs_value.at_val.at_str,1); */
+
+      const char *envname = "PBS_RESOURCE_GRES=";
+      char *envstr;
+
+      envstr = malloc(
+        (strlen(envname) + strlen(r->rs_value.at_val.at_str) + 1) * sizeof(char));
 
       strcpy(envstr,envname);
 
@@ -651,7 +673,6 @@ int run_pelog(
 
       putenv(envstr);
       }  /* END if (TTmpDirName(pjob,&buf)) */
-    }    /* END BLOCK */
 
     /* Set PBS_SCHED_HINT */
     {

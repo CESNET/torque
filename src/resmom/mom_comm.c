@@ -691,14 +691,16 @@ err:
 
 
 /*
-**	Send a message (command = com) to all the other MOMs in
-**	the job -> pjob.
+**  Send a message (command = com) to all the other MOMs in
+**  the job -> pjob.
+**
+**  NOTE:  returns number of sister mom's successfully contacted 
 */
 
 int send_sisters(
 
   job *pjob,  /* I */
-  int  com)   /* I */
+  int  com)   /* I (command to send to all sisters) */
 
   {
   char *id = "send_sisters";
@@ -723,6 +725,8 @@ int send_sisters(
 
   if (!(pjob->ji_wattr[(int)JOB_ATR_Cookie].at_flags & ATR_VFLAG_SET))
     {
+    /* cookie not set - return FAILURE */
+
     return(0);
     }
 
@@ -750,16 +754,59 @@ int send_sisters(
 
     if (np->hn_sister != SISTER_OKAY)	/* sister is gone? */
       {
-      DBPRT(("send_sisters: nodeid %d is not okay\n",
-        np->hn_node));
+      snprintf(log_buffer,1024,"%s:  sister #%d (%s) is not ok (%d)",
+        id,
+        i,
+        (np->hn_host != NULL) ? np->hn_host : "NULL",
+        np->hn_sister);
 
-      /* continue; I don't like this -garrick */
+      log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+
+      /* garrick commented out continue statement below */
+
+      /* continue; */
       }
 
     if (np->hn_stream == -1)
-      np->hn_stream = rpp_open(np->hn_host,pbs_rm_port,NULL);
+      {
+      char EMsg[1024];
+
+      np->hn_stream = rpp_open(np->hn_host,pbs_rm_port,EMsg);
+
+      if (np->hn_stream == -1)
+        {
+        snprintf(log_buffer,1024,"%s:  cannot open rpp connection to sister #%d (%s) - %s",
+          id,
+          i,
+          (np->hn_host != NULL) ? np->hn_host : "NULL",
+          EMsg);
+
+        log_record(
+          PBSEVENT_ERROR,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          log_buffer);
+        }
+
+      continue;
+      }
 
     ep = event_alloc(com,np,TM_NULL_EVENT,TM_NULL_TASK);
+
+    if (ep == NULL)
+      {
+      log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        "cannot alloc event object in send_sisters");
+
+      continue;
+      }
 
     ret = im_compose(
       np->hn_stream, 
@@ -771,6 +818,18 @@ int send_sisters(
 
     if (ret != DIS_SUCCESS)
       {
+      snprintf(log_buffer,1024,"%s:  cannot compose message to sister #%d (%s) - %d",
+        id,
+        i,
+        (np->hn_host != NULL) ? np->hn_host : "NULL",
+        ret);
+
+      log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+
       rpp_close(np->hn_stream);
 
       np->hn_stream = -1;
@@ -783,6 +842,17 @@ int send_sisters(
 
     if (ret == -1)
       {
+      snprintf(log_buffer,1024,"%s:  cannot flush message to sister #%d (%s)",
+        id,
+        i,
+        (np->hn_host != NULL) ? np->hn_host : "NULL");
+
+      log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+
       rpp_close(np->hn_stream);
 
       np->hn_stream = -1;
@@ -907,8 +977,10 @@ hnodent	*find_node(
     char *addr1;
     char *addr2;
 
-    addr1=strdup(netaddr(stream_addr));
-    addr2=strdup(netaddr(node_addr));
+    addr1 = strdup(netaddr(stream_addr));
+
+    addr2 = strdup(netaddr(node_addr));
+
     sprintf(log_buffer,"stream id %d does not match %d to node %d (stream=%s node=%s)",
       stream, 
       hp->hn_stream, 
@@ -944,7 +1016,6 @@ void job_start_error(
 
   {
   static  char  id[] = "job_start_error";
-  int           nodes;
 
   static char   abortjobid[64];
   static int    abortcount = -1;
@@ -1161,14 +1232,29 @@ void node_bailout(
         ** this is an error reply to a poll request.
         */
 
-        sprintf(log_buffer, "%s POLL failed from node %s %d)",
+#ifdef __TRR  /* roadrunner */          
+
+        sprintf(log_buffer, "%s POLL failed from node %s %d - recovery attempted - job will not be killed)",
+          pjob->ji_qs.ji_jobid,
+          np->hn_host,
+          np->hn_node);
+
+        log_err(-1,id,log_buffer);       
+
+#else /* __TRR */
+
+        sprintf(log_buffer, "%s POLL failed from node %s %d - recovery not attempted - job will be killed)",
           pjob->ji_qs.ji_jobid, 
           np->hn_host,
           np->hn_node);
 
         log_err(-1,id,log_buffer);
 
+        /* we should be more patient - how do we recover this connection? (NYI) */
+
         pjob->ji_nodekill = np->hn_node;
+
+#endif /* __TRR */
 
         break;
 
@@ -1186,7 +1272,7 @@ void node_bailout(
         arrayfree(ep->ee_argv);
         arrayfree(ep->ee_envp);
 
-        ptask = task_check(pjob, ep->ee_forward.fe_taskid);
+        ptask = task_check(pjob,ep->ee_forward.fe_taskid);
 
         if (ptask == NULL)
           break;
@@ -1228,7 +1314,7 @@ void node_bailout(
 
 void term_job(
 
-  job *pjob)
+  job *pjob) /* I */
 
   {
   hnodent *np;
@@ -1387,7 +1473,7 @@ int check_ms(
     sprintf(log_buffer,"non-privileged connection from %s", 
       netaddr(addr));
 
-    log_err(-1, id, log_buffer);
+    log_err(-1,id,log_buffer);
 
     rpp_close(stream);
 
@@ -1424,7 +1510,7 @@ int check_ms(
         stream, 
         netaddr(addr));
 
-      log_err(-1, id, log_buffer);
+      log_err(-1,id,log_buffer);
       }
 
     np->hn_stream = stream;
@@ -1437,20 +1523,24 @@ int check_ms(
 
 
 
+u_long resc_used(
 
-u_long resc_used(pjob, name, func)
-    job		*pjob;
-    char	*name;
-    u_long	(*func) A_((resource *pres));
-{
-	attribute		*at;
-	resource_def		*rd;
-	resource		*pres;
-	u_long	val = 0L;
+  job    *pjob,
+  char	 *name,
+  u_long  (*func) A_((resource *)))
 
-	at = &pjob->ji_wattr[(int)JOB_ATR_resc_used];
-	if (at == NULL)
-		return 0;
+  {
+  attribute    *at;
+  resource_def *rd;
+  resource     *pres;
+  u_long        val = 0L;
+
+  at = &pjob->ji_wattr[(int)JOB_ATR_resc_used];
+
+  if (at == NULL)
+    {
+    return(0);
+    }
 
 	rd = find_resc_def(svr_resc_def, name, svr_resc_size);
 	if (rd == NULL)
@@ -1462,8 +1552,9 @@ u_long resc_used(pjob, name, func)
 
 	val = func(pres);
 	DBPRT(("resc_used: %s %lu\n", name, val))
-	return val;
-}
+
+  return(val);
+  }
 
 
 
@@ -1505,7 +1596,7 @@ void task_saveinfo(
   {
   infoent *ip;
 
-  if ((ip = task_findinfo(ptask, name)) == NULL) 
+  if ((ip = task_findinfo(ptask,name)) == NULL) 
     {	
     /* new name */
 
@@ -1515,7 +1606,7 @@ void task_saveinfo(
 
     CLEAR_LINK(ip->ie_next);
 
-    append_link(&ptask->ti_info, &ip->ie_next, ip);
+    append_link(&ptask->ti_info,&ip->ie_next,ip);
 
     ip->ie_name = name;
     }
@@ -1570,15 +1661,22 @@ char *resc_string(
     return(res_str);
     }
 
-	ad = &job_attr_def[(int)JOB_ATR_resource];
-	resc_access_perm = ATR_DFLAG_USRD;
-	CLEAR_HEAD(lhead);
-	(void)ad->at_encode(at,
-			&lhead, ad->at_name,
-			NULL, ATR_ENCODE_CLIENT);
-	attrl_fixlink(&lhead);
+  ad = &job_attr_def[(int)JOB_ATR_resource];
 
-	for (pal = (svrattrl *)GET_NEXT(lhead);
+  resc_access_perm = ATR_DFLAG_USRD;
+
+  CLEAR_HEAD(lhead);
+
+  ad->at_encode(
+    at,
+    &lhead, 
+    ad->at_name,
+    NULL, 
+    ATR_ENCODE_CLIENT);
+
+  attrl_fixlink(&lhead);
+
+  for (pal = (svrattrl *)GET_NEXT(lhead);
 			pal;
 			pal = (svrattrl *)GET_NEXT(pal->al_link)) {
 		while (used + pal->al_rescln + pal->al_valln > tot) {
@@ -2683,7 +2781,7 @@ void im_request(
 
       for (ptask = (task *)GET_NEXT(pjob->ji_tasks);ptask != NULL;ptask = (task *)GET_NEXT(ptask->ti_jobtask))
         {
-        ret = diswsi(stream, ptask->ti_qs.ti_task);
+        ret = diswsi(stream,ptask->ti_qs.ti_task);
 
         if (ret != DIS_SUCCESS)
           break;
@@ -2729,7 +2827,10 @@ void im_request(
       if (taskid == 0)
         {
         DBPRT(("%s: SIGNAL_TASK %s from node %d all tasks signal %d\n",
-          id,jobid,nodeid,sig))
+          id,
+          jobid,
+          nodeid,
+          sig))
 
         for (
             ptask = (task *)GET_NEXT(pjob->ji_tasks);
@@ -2754,7 +2855,11 @@ void im_request(
       else
         {
         DBPRT(("%s: SIGNAL_TASK %s from node %d task %d signal %d\n",
-          id,jobid,nodeid,taskid,sig))
+          id,
+          jobid,
+          nodeid,
+          taskid,
+          sig))
 
         ptask = task_find(pjob,taskid);
 
@@ -2766,7 +2871,11 @@ void im_request(
           }
 
         sprintf(log_buffer,"%s: SIGNAL_TASK %s from node %d task %d signal %d",
-          id,jobid,nodeid,taskid,sig);
+          id,
+          jobid,
+          nodeid,
+          taskid,
+          sig);
 
         LOG_EVENT(
           PBSEVENT_JOB,
@@ -3018,6 +3127,9 @@ void im_request(
 
       if (ret != DIS_SUCCESS)
         break;
+
+      /* get fresh resource usage */
+      mom_set_use(pjob);
 
       /* ** Send the information tallied for the job.  */
 
@@ -3611,7 +3723,7 @@ void im_request(
                 pjob->ji_qs.ji_jobid,
                 log_buffer);
               }
-  
+ 
             pjob->ji_nodekill = np->hn_node;
             }
   
@@ -4856,17 +4968,17 @@ int tm_request(
         if (ret != DIS_SUCCESS)
           goto done;
 
-        ret = diswui(phost->hn_stream, pjob->ji_nodeid); /* XXX */
+        ret = diswui(phost->hn_stream,pjob->ji_nodeid); /* XXX */
 
         if (ret != DIS_SUCCESS)
           goto done;
 
-        ret = diswsi(phost->hn_stream, taskid);
+        ret = diswsi(phost->hn_stream,taskid);
 
         if (ret != DIS_SUCCESS)
           goto done;
 
-        ret = diswsi(phost->hn_stream, signum);
+        ret = diswsi(phost->hn_stream,signum);
 
         if (ret != DIS_SUCCESS)
           goto done;
@@ -4887,12 +4999,12 @@ int tm_request(
 
       if ((ptask = task_find(pjob,taskid)) == NULL) 
         {
-        ret = tm_reply(fd, TM_ERROR, event);
+        ret = tm_reply(fd,TM_ERROR,event);
 
         if (ret != DIS_SUCCESS)
           goto done;
 
-        ret = diswsi(fd, TM_ENOTFOUND);
+        ret = diswsi(fd,TM_ENOTFOUND);
 
         break;
         }
@@ -4947,18 +5059,23 @@ int tm_request(
           phost->hn_stream = rpp_open(phost->hn_host,pbs_rm_port,NULL);
           }
 
-        ret = im_compose(phost->hn_stream, jobid, cookie,
-                IM_OBIT_TASK, event, fromtask);
+        ret = im_compose(
+          phost->hn_stream, 
+          jobid, 
+          cookie,
+          IM_OBIT_TASK, 
+          event, 
+          fromtask);
 
         if (ret != DIS_SUCCESS)
           goto done;
 
-        ret = diswui(phost->hn_stream, pjob->ji_nodeid);
+        ret = diswui(phost->hn_stream,pjob->ji_nodeid);
 
         if (ret != DIS_SUCCESS)
           goto done;
 
-        ret = diswsi(phost->hn_stream, taskid);
+        ret = diswsi(phost->hn_stream,taskid);
 
         if (ret != DIS_SUCCESS)
           goto done;

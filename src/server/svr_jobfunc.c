@@ -153,7 +153,10 @@ extern char  *path_creds;
 
 extern time_t time_now;
 
-/* Externl Functions */
+int           SvrNodeCt = 0;  /* cfg nodes or num nodes specified via resources_available */
+
+
+/* External Functions */
 
 extern int node_avail_complex(char *,int *,int *,int *,int *);
 
@@ -777,8 +780,6 @@ static void chk_svr_resc_limit(
   int       LimitIsFromQueue;
   char     *LimitName;
 
-  static int SvrNodeCt = 0;
-
   static resource_def *noderesc = NULL;
   static resource_def *needresc = NULL;
   static resource_def *nodectresc = NULL;
@@ -1024,7 +1025,7 @@ int svr_chkque(
   int user_jobs;
   job *pj;
   struct array_strings *pas;
-  int j=0;
+  int j = 0;
 
   if (EMsg != NULL)
     EMsg[0] = '\0';
@@ -1041,7 +1042,7 @@ int svr_chkque(
 
     if (!(pjob->ji_wattr[(int)JOB_ATR_euser].at_flags & ATR_VFLAG_SET))
       {
-      if ((i = set_jobexid(pjob,pjob->ji_wattr)) != 0)
+      if ((i = set_jobexid(pjob,pjob->ji_wattr,EMsg)) != 0)
         {
         return(i);  /* PBSE_BADUSER or GRP */
         }
@@ -1111,7 +1112,8 @@ int svr_chkque(
         /* fetch the groups in the ACL and look for matching user membership */
 
 	pas = pque->qu_attr[QA_ATR_AclGroup].at_val.at_arst;
-	for (i=0;i<pas->as_usedptr;i++) 
+
+	for (i = 0;i < pas->as_usedptr;i++) 
 	  {
           if ((grp = getgrnam(pas->as_string[i])) == NULL) 
             continue;
@@ -1121,6 +1123,7 @@ int svr_chkque(
             if (!strcmp(grp->gr_mem[j],uname))
               {
               rc = 1;
+
               break;
               }
             }
@@ -1128,7 +1131,7 @@ int svr_chkque(
           if (rc == 1)
             break;
           }
-        }    /* END if (rc == 0) && AclGroupSloppy...) */
+        }    /* END if (rc == 0) && slpygrp && ...) */
 
       if (rc == 0)
         {
@@ -1255,7 +1258,7 @@ int svr_chkque(
         }
       }
 
-    /* 5.5. If failed user and group acls, fail */
+    /* 5.5. if failed user and group acls, fail */
 
     if (failed_group_acl && failed_user_acl)
       {

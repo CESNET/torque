@@ -176,10 +176,12 @@ extern char	*path_track;
 extern char	*path_nodes;
 extern char	*path_nodes_new;
 extern char	*path_nodestate;
+extern char	*path_nodenote;
+extern char	*path_nodenote_new;
+extern char	*path_resources;
 #ifdef GSSAPI
 extern char     *path_creds;
 #endif
-extern char	*path_resources;
 
 extern int	 queue_rank;
 extern char	 server_name[];
@@ -431,6 +433,8 @@ int pbsd_init(
 #ifdef GSSAPI
   path_creds     = build_path(path_home, PBS_SVR_PRIVATE, "/creds/");
 #endif
+  path_nodenote  = build_path(path_priv, NODE_NOTE,  NULL);
+  path_nodenote_new = build_path(path_priv, NODE_NOTE, new_tag);
   path_resources = build_path(path_home, PBS_RESOURCES,  NULL);
 
   init_resc_defs(path_resources);
@@ -1302,7 +1306,7 @@ static void pbsd_init_reque(
 
 static void catch_abort(
 
-  int sig)
+  int sig)  /* I */
 
   {
   struct rlimit rlimit;

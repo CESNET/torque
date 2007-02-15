@@ -119,6 +119,11 @@
 #include "log.h"
 #include "svrfunc.h"
 
+#ifndef PBS_MOM
+#include "work_task.h"
+extern void  job_clone_wt A_((struct work_task *));
+#endif
+
 #ifdef PBS_MOM
 #include <pwd.h>
 #include "mom_func.h"
@@ -377,7 +382,7 @@ void req_quejob(
     {
     /* FAILURE */
 
-    log_err(errno,id,"requested queue not found");
+    log_err(-1,id,"requested queue not found");
 
     req_reject(rc,0,preq,NULL,"cannot locate queue"); /* not there   */
 
@@ -404,8 +409,8 @@ void req_quejob(
 
   /*
    * make up job file name, it is based on the jobid, however the
-   * minimun file name is only 14 character in POSIX, so we may have
-   * to "hash" the name slightly
+   * minimun acceptable file name limit is only 14 character in POSIX, 
+   * so we may have to "hash" the name slightly
    */
 
   strncpy(basename,jid,PBS_JOBBASE);
@@ -1044,9 +1049,9 @@ void req_jobcredential(
 
 #ifndef PBS_MOM
 
-  if (svr_authorize_jobreq(preq, pj) == -1) 
+  if (svr_authorize_jobreq(preq,pj) == -1) 
     {
-    req_reject(PBSE_PERM,0,preq,NULL,NULL);
+    req_reject(PBSE_PERM,0,preq,NULL,"job request not authorized");
 
     return;
     }
@@ -1145,7 +1150,7 @@ void req_jobscript(
 
     log_err(errno,id,"cannot authorize request");
 
-    req_reject(PBSE_PERM,0,preq,NULL,NULL);
+    req_reject(PBSE_PERM,0,preq,NULL,"cannot receive job script");
 
     return;
     }
@@ -1342,7 +1347,10 @@ void req_mvjobfile(  /* NOTE:  routine for server only - mom code follows this r
     }
 
   if (preq->rq_ind.rq_jobfile.rq_sequence == 0)
-    fds = open(namebuf,O_WRONLY|O_CREAT|O_TRUNC|O_Sync,0600);
+    {
+    unlink(namebuf);
+    fds = open(namebuf,O_WRONLY|O_CREAT|O_EXCL|O_Sync,0600);
+    }
   else
     fds = open(namebuf,O_WRONLY|O_APPEND|O_Sync,0600);
 
@@ -1398,7 +1406,9 @@ void req_mvjobfile(  /* NOTE:  routine for server only - mom code follows this r
  *	on the compile option, see std_file_name().
  */
 
-void req_mvjobfile(  /* routine for MOM only - server routine listed above */
+/* routine for MOM only - server routine listed above */
+
+void req_mvjobfile( 
 
   struct batch_request *preq)  /* I */
 
@@ -1444,7 +1454,9 @@ void req_mvjobfile(  /* routine for MOM only - server routine listed above */
   if (((pwd = getpwnam(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str)) == NULL) || 
       ((fds = open_std_file(pj,jft,oflag,pwd->pw_gid)) < 0)) 
     {
-    req_reject(PBSE_MOMREJECT,0,preq,NULL,NULL);
+    /* FAILURE */
+
+    req_reject(PBSE_MOMREJECT,0,preq,NULL,"password lookup failed");
 
     return;
     }
@@ -1454,7 +1466,7 @@ void req_mvjobfile(  /* routine for MOM only - server routine listed above */
        preq->rq_ind.rq_jobfile.rq_data, 
        preq->rq_ind.rq_jobfile.rq_size) != preq->rq_ind.rq_jobfile.rq_size)
     {
-    req_reject(PBSE_SYSTEM,0,preq,NULL,NULL);
+    req_reject(PBSE_SYSTEM,0,preq,NULL,"cannot create file");
     }
   else
     {
@@ -1495,7 +1507,7 @@ void req_mvjobfile(  /* routine for MOM only - server routine listed above */
 
 void req_rdytocommit(
 
-  struct batch_request *preq)
+  struct batch_request *preq)  /* I */
 
   {
   job *pj;
@@ -1641,6 +1653,7 @@ void req_commit(
   int	   newsub;
   pbs_queue *pque;
   int	   rc;
+  struct work_task *wt;
 #endif /* SERVER only */
 
   pj = locate_new_job(preq->rq_conn,preq->rq_ind.rq_commit);
@@ -1774,6 +1787,18 @@ void req_commit(
   /* remove job from the server new job list, set state, and enqueue it */
 
   delete_link(&pj->ji_alljobs);
+
+  /* job array, setup cloning work task and reply with placeholder job id
+     *** job array under development */
+  if (pj->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long > 1)
+    {
+    wt = set_task(WORK_Timed,time_now,job_clone_wt,(void*)pj);
+    wt->wt_aux = 0;
+    /* svr_setjobstate(pj,JOB_STATE_HELD,JOB_SUBSTATE_HELD);*/
+    
+    reply_jobid(preq,pj->ji_qs.ji_jobid,BATCH_REPLY_CHOICE_Commit);
+    return;
+    }
 
   svr_evaljobstate(pj,&newstate,&newsub,1);
 
