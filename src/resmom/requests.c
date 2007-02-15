@@ -3696,7 +3696,7 @@ void req_free_forwarded_creds() {
   if (forwarded_princ != NULL) {
     free(forwarded_princ);
     forwarded_princ = NULL;
-    gss_release_cred(&ret_flags,forwarded_creds);
+    gss_release_cred(&ret_flags,&forwarded_creds);
   }
 }
 #endif /* GSSAPI */

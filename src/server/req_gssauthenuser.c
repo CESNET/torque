@@ -85,7 +85,7 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
       log_event(PBSEVENT_DEBUG,
 		PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
       if (server_creds != GSS_C_NO_CREDENTIAL) {
-	gss_release_cred(&ret_flags,server_creds);
+	gss_release_cred(&ret_flags,&server_creds);
       }
       server_creds = new_creds;
       majstat = gss_inquire_cred(&ret_flags,server_creds,

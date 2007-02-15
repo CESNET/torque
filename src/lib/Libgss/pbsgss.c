@@ -476,7 +476,7 @@ p */
       pbsgss_display_status("accepting context", maj_stat,
 			    acc_sec_min_stat);
       if (*context != GSS_C_NO_CONTEXT)
-	gss_delete_sec_context(&min_stat, context,
+	gss_delete_sec_context(&min_stat, &context,
 			       GSS_C_NO_BUFFER);
       return -105;
     }
@@ -513,7 +513,7 @@ int pbsgss_can_get_creds() {
 			      NULL);
   if (maj_stat == GSS_S_COMPLETE) {
     if (creds != NULL) {
-      gss_release_cred(&min_stat,creds);
+      gss_release_cred(&min_stat,&creds);
     }
   }
   return (maj_stat == GSS_S_COMPLETE);
@@ -634,7 +634,7 @@ int pbsgss_client_establish_context(s, service_name, creds, oid, gss_flags,
 			    init_sec_min_stat);
       (void) gss_release_name(&min_stat, &target_name);
       if (*gss_context != GSS_C_NO_CONTEXT)
-	gss_delete_sec_context(&min_stat, gss_context,
+	gss_delete_sec_context(&min_stat, &gss_context,
 			       GSS_C_NO_BUFFER);
       return -1;
     }   
@@ -644,7 +644,7 @@ int pbsgss_client_establish_context(s, service_name, creds, oid, gss_flags,
     if (maj_stat == GSS_S_CONTINUE_NEEDED) {
       status = pbsgss_recv_token(s, &token_flags, &recv_tok);
       if ( status < 0) {
-	gss_delete_sec_context(&min_stat, gss_context,
+	gss_delete_sec_context(&min_stat, &gss_context,
 			       GSS_C_NO_BUFFER);
 	(void) gss_release_name(&min_stat, &target_name);
 	return status;
@@ -685,12 +685,17 @@ int pbsgss_save_creds (gss_cred_id_t client_creds,
     return -2;
   }
 
-  if (retval = krb5_parse_name(kcontext,
-			       principal,
-			       &princ)) {
-    krb5_cc_destroy(kcontext,ccache);
-    krb5_free_context(kcontext);
-    return -3;
+  /* Check to see if principal is defined */
+  if(principal) {
+     if (retval = krb5_parse_name(kcontext,
+   			       principal,
+   			       &princ)) {
+       krb5_cc_destroy(kcontext,ccache);
+       krb5_free_context(kcontext);
+       return -3;
+     }
+  } else {
+	  return -3;
   }
 
   if (retval = krb5_cc_initialize(kcontext,ccache,princ)) {
@@ -799,7 +804,7 @@ int pbsgss_client_authenticate(char *hostname, int psock, int delegate) {
 					   &ret_flags);
   free(service_name);
   if (creds != NULL) {
-    gss_release_cred(&min_stat,creds);
+    gss_release_cred(&min_stat,&creds);
   }
   if (name != GSS_C_NO_NAME) {
     gss_release_name(&min_stat,&name);
@@ -878,7 +883,7 @@ char *pbsgss_get_host_princname() {
 		      NULL,
 		      NULL,
 		      NULL) != GSS_S_COMPLETE) {
-    gss_release_cred(&min_stat,creds);
+    gss_release_cred(&min_stat,&creds);
     free(service_name);
     return NULL;
   }
@@ -886,8 +891,8 @@ char *pbsgss_get_host_princname() {
 		       name,
 		       &buffer,
 		       &name_type) != GSS_S_COMPLETE) {
-    gss_release_name(&min_stat,name);
-    gss_release_cred(&min_stat,creds);
+    gss_release_name(&min_stat,&name);
+    gss_release_cred(&min_stat,&creds);
     free(service_name);
     return NULL;
   }
@@ -900,8 +905,8 @@ char *pbsgss_get_host_princname() {
   }
   
   gss_release_buffer(&min_stat,&buffer);
-  gss_release_name(&min_stat,name);
-  gss_release_cred(&min_stat,creds);
+  gss_release_name(&min_stat,&name);
+  gss_release_cred(&min_stat,&creds);
   free(service_name);
   return princname;
 }
