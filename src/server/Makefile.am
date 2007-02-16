@@ -1,12 +1,21 @@
 include $(top_srcdir)/buildutils/config.mk
 
+if INCLUDE_GSSAPI
+gsssubdir=gss
+servergsslib=gss/libservergss.a
+endif
+
+SUBDIRS = $(gsssubdir)
+DIST_SUBDIRS = gss
+
 PBS_LIBS = ../lib/Libattr/libattr.a \
 	   ../lib/Libsite/libsite.a \
 	   ../lib/Libpbs/libtorque.la
 
 sbin_PROGRAMS = pbs_server
 
-pbs_server_LDADD = $(PBS_LIBS)
+pbs_server_LDADD = $(PBS_LIBS) $(servergsslib)
+
 AM_CFLAGS = -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\" -DPBS_ENVIRON=\"$(PBS_ENVIRON)\"
 
 pbs_server_SOURCES = accounting.c attr_recov.c dis_read.c geteusernam.c \
@@ -23,7 +32,7 @@ pbs_server_SOURCES = accounting.c attr_recov.c dis_read.c geteusernam.c \
 		     svr_attr_def.c svr_chk_owner.c svr_connect.c \
 		     svr_func.c svr_jobfunc.c svr_mail.c svr_movejob.c \
 		     svr_recov.c svr_resccost.c svr_task.c req_tokens.c \
-		     req_gssauthenuser.c job_qs_upgrade.c
+		     job_qs_upgrade.c
 
 install-exec-hook:
 	$(PBS_MKDIRS) aux || :

@@ -1,5 +1,9 @@
 include $(top_srcdir)/buildutils/config.mk
 
+if INCLUDE_GSSAPI
+ldpbsgss=../Libgss/libtorquegss.la
+endif
+
 AM_CPPFLAGS += -I../Libdis -DIFF_PATH=\"$(IFF_PATH)\" -DPBS_DEFAULT_FILE=\"$(PBS_DEFAULT_FILE)\"
 
 EXTRA_DIST = ../Libdis/dis_.h
@@ -7,6 +11,7 @@ EXTRA_DIST = ../Libdis/dis_.h
 lib_LTLIBRARIES = libtorque.la
 
 libtorque_la_LDFLAGS = -version-info 1:0:1
+libtorque_la_LIBADD = $(ldpbsgss)
 
 libtorque_la_SOURCES = ../Libdis/dis.c ../Libdis/discui_.c ../Libdis/discul_.c \
 		    ../Libdis/disi10d_.c ../Libdis/disi10l_.c \
@@ -80,6 +85,6 @@ libtorque_la_SOURCES = ../Libdis/dis.c ../Libdis/discui_.c ../Libdis/discul_.c \
 		    ../Libnet/md5.c ../Libnet/net_client.c \
                     ../Libnet/net_server.c ../Libnet/net_set_clse.c \
 		    ../Libnet/rm.c ../Libnet/port_forwarding.c \
-		   ../Libgss/pbsgss.c ../Libnet/get_hostnamefromaddr.c
+		    ../Libnet/get_hostnamefromaddr.c
 
 

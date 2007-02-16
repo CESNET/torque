@@ -63,7 +63,8 @@ am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
 am__installdirs = "$(DESTDIR)$(libdir)"
 libLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libtorque_la_LIBADD =
+@INCLUDE_GSSAPI_TRUE@am__DEPENDENCIES_1 = ../Libgss/libtorquegss.la
+libtorque_la_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_libtorque_la_OBJECTS = dis.lo discui_.lo discul_.lo disi10d_.lo \
 	disi10l_.lo disiui_.lo disp10d_.lo disp10l_.lo disrcs.lo \
 	disrd.lo disrf.lo disrfcs.lo disrfst.lo disrl_.lo disrl.lo \
@@ -99,7 +100,7 @@ am_libtorque_la_OBJECTS = dis.lo discui_.lo discul_.lo disi10d_.lo \
 	log_event.lo pbs_log.lo pbs_messages.lo setup_env.lo \
 	get_hostaddr.lo get_hostname.lo md5.lo net_client.lo \
 	net_server.lo net_set_clse.lo rm.lo port_forwarding.lo \
-	pbsgss.lo get_hostnamefromaddr.lo
+	get_hostnamefromaddr.lo
 libtorque_la_OBJECTS = $(am_libtorque_la_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/src/include
 depcomp = $(SHELL) $(top_srcdir)/buildutils/depcomp
@@ -347,9 +348,11 @@ DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
+@INCLUDE_GSSAPI_TRUE@ldpbsgss = ../Libgss/libtorquegss.la
 EXTRA_DIST = ../Libdis/dis_.h
 lib_LTLIBRARIES = libtorque.la
 libtorque_la_LDFLAGS = -version-info 1:0:1
+libtorque_la_LIBADD = $(ldpbsgss)
 libtorque_la_SOURCES = ../Libdis/dis.c ../Libdis/discui_.c ../Libdis/discul_.c \
 		    ../Libdis/disi10d_.c ../Libdis/disi10l_.c \
 		    ../Libdis/disiui_.c ../Libdis/disp10d_.c \
@@ -422,7 +425,7 @@ libtorque_la_SOURCES = ../Libdis/dis.c ../Libdis/discui_.c ../Libdis/discul_.c \
 		    ../Libnet/md5.c ../Libnet/net_client.c \
                     ../Libnet/net_server.c ../Libnet/net_set_clse.c \
 		    ../Libnet/rm.c ../Libnet/port_forwarding.c \
-		   ../Libgss/pbsgss.c ../Libnet/get_hostnamefromaddr.c
+		    ../Libnet/get_hostnamefromaddr.c
 
 all: all-am
 
@@ -633,7 +636,6 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbs_log.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbs_messages.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbs_statfree.Plo@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbsgss.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/port_forwarding.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/prepare_path.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/prt_job_err.Plo@am__quote@
@@ -1708,13 +1710,6 @@ port_forwarding.lo: ../Libnet/port_forwarding.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../Libnet/port_forwarding.c' object='port_forwarding.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile --tag=CC $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o port_forwarding.lo `test -f '../Libnet/port_forwarding.c' || echo '$(srcdir)/'`../Libnet/port_forwarding.c
-
-pbsgss.lo: ../Libgss/pbsgss.c
-@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile --tag=CC $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT pbsgss.lo -MD -MP -MF "$(DEPDIR)/pbsgss.Tpo" -c -o pbsgss.lo `test -f '../Libgss/pbsgss.c' || echo '$(srcdir)/'`../Libgss/pbsgss.c; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/pbsgss.Tpo" "$(DEPDIR)/pbsgss.Plo"; else rm -f "$(DEPDIR)/pbsgss.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../Libgss/pbsgss.c' object='pbsgss.lo' libtool=yes @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile --tag=CC $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o pbsgss.lo `test -f '../Libgss/pbsgss.c' || echo '$(srcdir)/'`../Libgss/pbsgss.c
 
 get_hostnamefromaddr.lo: ../Libnet/get_hostnamefromaddr.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile --tag=CC $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT get_hostnamefromaddr.lo -MD -MP -MF "$(DEPDIR)/get_hostnamefromaddr.Tpo" -c -o get_hostnamefromaddr.lo `test -f '../Libnet/get_hostnamefromaddr.c' || echo '$(srcdir)/'`../Libnet/get_hostnamefromaddr.c; \

@@ -292,7 +292,7 @@ XPBSMON_DIR = $(libdir)/xpbsmon
 SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
 DIST_SUBDIRS = Libattr Libcmds Libdis Libifl Liblog Libnet Libpbs Libsite Libgss
 @INCLUDE_GSSAPI_TRUE@LIBGSS = Libgss
-SUBDIRS = $(LIBGSS) Libattr Libcmds Libdis Libifl Liblog Libnet Libpbs Libsite
+SUBDIRS = $(LIBGSS) Libattr Libpbs Libsite
 all: all-recursive
 
 .SUFFIXES:

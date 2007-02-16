@@ -6,4 +6,4 @@ if INCLUDE_GSSAPI
 LIBGSS=Libgss
 endif
 
-SUBDIRS = $(LIBGSS) Libattr Libcmds Libdis Libifl Liblog Libnet Libpbs Libsite
+SUBDIRS = $(LIBGSS) Libattr Libpbs Libsite
