@@ -149,7 +149,7 @@ This package holds just a few shared files and directories.
 %build
 ./configure --prefix=%_prefix --mandir=%_mandir --libdir=%_libdir \
  --includedir=%_includedir --with-server-home=%{torquehomedir} \
- --with-pam=/%{_lib}/security \
+ --with-pam=/%{_lib}/security  \
  %{server_nameflags} \
  %{guiflags} %{syslogflags} %{tclflags} %{rppflags} %{scpflags} %{drmaaflags} \
  CC="$RPMCC" CFLAGS="$RPMCFLAGS" LDFLAGS="$RPMLDFLAGS"
@@ -210,7 +210,7 @@ fi
 %config(noreplace) %{torquehomedir}/server_name
 %{torquehomedir}/aux
 %{torquehomedir}/spool
-%{_libdir}/libtorque.so.*
+%{_libdir}/libtorque*.so.*
 
 
 %package docs
@@ -397,8 +397,8 @@ necessary for developing programs which will use %{name}.
 
 %files devel
 %defattr(-, root, root)
-%{_libdir}/libtorque.a
-%{_libdir}/libtorque.so
+%{_libdir}/libtorque*.a
+%{_libdir}/libtorque*.so
 %{_includedir}/pbs_error.h
 %{_includedir}/pbs_ifl.h
 %{_includedir}/rm.h
