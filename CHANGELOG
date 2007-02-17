@@ -17,6 +17,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - correct Resource_list in qstat XML output (NCIFCRF)
   b - pam_authuser fixes from uam.es
   e - allow 'pbsnodes -l' to work with a node spec
+  b - clear exec_host and session_id on job requeue
 
 2.1.6
   b - freebsd5 build fix
