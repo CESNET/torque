@@ -447,14 +447,11 @@ int main(
       }  /* END switch (i) */
     }    /* END while (i == getopt()) */
 
-  if ((errflg != 0) || ((flag == LIST) && (optind != argc))) 
+  if (errflg != 0) 
     {
     if (!quiet)
       {
-      fprintf(stderr,"usage:\t%s [-{c|d|o|p|r}][-s server] [-q] node node ...\n",
-        argv[0]);
-
-      fprintf(stderr,"\t%s -l [-s server] [-q]\n",
+      fprintf(stderr,"usage:\t%s [-{c|d|l|o|p|r}][-s server] [-q] node node ...\n",
         argv[0]);
 
       fprintf(stderr,"\t%s -{a|x} [-s server] [-q] [node]\n",
@@ -483,7 +480,7 @@ int main(
 
   if ((flag == ALLI) || (flag == DOWN) || (flag == LIST) || (flag == DIAG)) 
     {
-    if ((flag == ALLI) || (flag == DIAG))
+    if ((flag == ALLI) || (flag == LIST) || (flag == DIAG))
       {
       /* allow node specification */
 
