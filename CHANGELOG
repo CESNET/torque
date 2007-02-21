@@ -1,5 +1,14 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
+2.1.8
+  b - stop possible memory corruption with an invalid request type (StockholmU)
+  b - add node name to pbsnodes XML output (NCIFCRF)
+  b - correct Resource_list in qstat XML output (NCIFCRF)
+  b - pam_authuser fixes from uam.es
+  e - allow 'pbsnodes -l' to work with a node spec
+  b - clear exec_host and session_id on job requeue
+  b - fix mom child segfault when a user env var has a '%'
+
 2.1.7
   b - fix bison syntax error in Parser.y
   b - fix 2.1.4 regression with spool file group owner on freebsd
@@ -12,12 +21,6 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       PBS_BATCH_SERVICE_PORT, and PBS_MANAGER_SERVICE_PORT env vars.
   e - pbs_server can also use PBS_SCHEDULER_SERVICE_PORT env var.
   e - add "other" resource to pelog's 5th argument
-  b - stop possible memory corruption with an invalid request type (StockholmU)
-  b - add node name to pbsnodes XML output (NCIFCRF)
-  b - correct Resource_list in qstat XML output (NCIFCRF)
-  b - pam_authuser fixes from uam.es
-  e - allow 'pbsnodes -l' to work with a node spec
-  b - clear exec_host and session_id on job requeue
 
 2.1.6
   b - freebsd5 build fix
