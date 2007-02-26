@@ -2983,7 +2983,11 @@ int read_config(
 
     /* no $pbsserver parameters in config, use server_name as last-resort */
 
-    if ((server_file = fopen(path_server_name,"r")) != NULL)
+    if (
+#if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
+        !chk_file_sec(path_server_name, 0, 0, S_IWGRP|S_IWOTH, 1) &&
+#endif
+        (server_file = fopen(path_server_name,"r")) != NULL)
       {
       char tmpLine[PBS_MAXSERVERNAME + 1];
       char *pn;
@@ -6428,6 +6432,8 @@ int main(
   path_aux         = mk_dirs("aux/");
   path_server_name = mk_dirs("server_name");
 
+  init_resc_defs(path_resources);
+
 #if MOM_CHECKPOINT == 1
 
   if (path_checkpoint == NULL)	/* if not -C option */
@@ -6443,8 +6449,6 @@ int main(
 
 #endif  /* not DEBUG and not NO_SECURITY_CHECK */
 #endif	/* MOM_CHECKPOINT */
-
-  init_resc_defs(path_resources);
 
   /* change working directory to mom_priv */
 
@@ -6467,7 +6471,6 @@ int main(
   c |= chk_file_sec(path_spool,       1, 1, S_IWOTH,         0);
   c |= chk_file_sec(path_undeliv,     1, 1, S_IWOTH,         0);
   c |= chk_file_sec(PBS_ENVIRON,      0, 0, S_IWGRP|S_IWOTH, 0);
-  c |= chk_file_sec(path_server_name, 0, 0, S_IWGRP|S_IWOTH, 0);
 
   if (c)
     {

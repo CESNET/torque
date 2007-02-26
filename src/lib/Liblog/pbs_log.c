@@ -345,7 +345,7 @@ void log_err(
     syslogopen = 1;
     }
 
-  syslog(LOG_ERR|LOG_DAEMON,buf);
+  syslog(LOG_ERR|LOG_DAEMON,"%s",buf);
 #endif	/* SYSLOG */
 
   return;
@@ -390,6 +390,11 @@ void log_record(
     log_close(1);
 
     log_open(NULL,log_directory);
+
+    if (log_opened < 1)
+      {
+      return;
+      }
     }
 
   rc = fprintf(logfile,"%02d/%02d/%04d %02d:%02d:%02d;%04x;%10.10s;%s;%s;%s\n",

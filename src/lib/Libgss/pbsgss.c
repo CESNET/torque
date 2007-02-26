@@ -196,7 +196,7 @@ int pbsgss_send_token(s, flags, tok)
      if (ret < 0) {
 	  perror("sending token data");
 	  return -1;
-     } else if (ret != tok->length) {	 
+     } else if ((unsigned)ret != tok->length) {	 
 	 return -1;
      }
      return 0;
@@ -285,7 +285,7 @@ int pbsgss_recv_token(s, flags, tok)
     free(tok->value);
     tok->length = 0;
     return -1;
-  } else if (ret != tok->length) {
+  } else if ((unsigned)ret != tok->length) {
     free(tok->value);
     tok->length = 0;
     (*disr_commit)(s,0);
@@ -476,7 +476,7 @@ p */
       pbsgss_display_status("accepting context", maj_stat,
 			    acc_sec_min_stat);
       if (*context != GSS_C_NO_CONTEXT)
-	gss_delete_sec_context(&min_stat, &context,
+	gss_delete_sec_context(&min_stat, context,
 			       GSS_C_NO_BUFFER);
       return -105;
     }
@@ -634,7 +634,7 @@ int pbsgss_client_establish_context(s, service_name, creds, oid, gss_flags,
 			    init_sec_min_stat);
       (void) gss_release_name(&min_stat, &target_name);
       if (*gss_context != GSS_C_NO_CONTEXT)
-	gss_delete_sec_context(&min_stat, &gss_context,
+	gss_delete_sec_context(&min_stat, gss_context,
 			       GSS_C_NO_BUFFER);
       return -1;
     }   
@@ -644,7 +644,7 @@ int pbsgss_client_establish_context(s, service_name, creds, oid, gss_flags,
     if (maj_stat == GSS_S_CONTINUE_NEEDED) {
       status = pbsgss_recv_token(s, &token_flags, &recv_tok);
       if ( status < 0) {
-	gss_delete_sec_context(&min_stat, &gss_context,
+	gss_delete_sec_context(&min_stat, gss_context,
 			       GSS_C_NO_BUFFER);
 	(void) gss_release_name(&min_stat, &target_name);
 	return status;
@@ -674,22 +674,22 @@ int pbsgss_save_creds (gss_cred_id_t client_creds,
   krb5_principal princ;
   OM_uint32 maj_status, min_status;
     
-  if (retval = krb5_init_context(&kcontext)) {
+  if ((retval = krb5_init_context(&kcontext))) {
     return -1;
   }
     
-  if (retval = krb5_cc_resolve(kcontext,
+  if ((retval = krb5_cc_resolve(kcontext,
 			       ccname,
-			       &ccache)) {
+			       &ccache))) {
     krb5_free_context(kcontext);
     return -2;
   }
 
   /* Check to see if principal is defined */
   if(principal) {
-     if (retval = krb5_parse_name(kcontext,
+     if ((retval = krb5_parse_name(kcontext,
    			       principal,
-   			       &princ)) {
+   			       &princ))) {
        krb5_cc_destroy(kcontext,ccache);
        krb5_free_context(kcontext);
        return -3;
@@ -698,16 +698,16 @@ int pbsgss_save_creds (gss_cred_id_t client_creds,
 	  return -3;
   }
 
-  if (retval = krb5_cc_initialize(kcontext,ccache,princ)) {
+  if ((retval = krb5_cc_initialize(kcontext,ccache,princ))) {
     krb5_free_principal(kcontext,princ);
     krb5_cc_destroy(kcontext,ccache);
     krb5_free_context(kcontext);
     return -4;
   }
   krb5_free_principal(kcontext,princ);
-  if (maj_status = gss_krb5_copy_ccache(&min_status,
+  if ((maj_status = gss_krb5_copy_ccache(&min_status,
 					client_creds,
-					ccache)) {
+					ccache))) {
     krb5_cc_destroy(kcontext,ccache);
     krb5_free_context(kcontext);
     return -5;
@@ -852,9 +852,11 @@ int authenticate_as_job(char *ccname,
   return 0;
 }
 
+#if 0  /* this isn't actually used anywhere, and doesn't return a value */
 int clear_krb5ccname() {
   setenv("KRB5CCNAME","",1);
 }
+#endif
 
 /* returns the full principal name for the current host, eg
    host/foo.bar.com@BAR.COM 

@@ -81,7 +81,7 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
     } else {
       /* if we got new creds, free the old ones and use the new ones */
       lastcredstime = now;
-      sprintf(log_buffer,"renewing server tickets at %d\n",now);
+      sprintf(log_buffer,"renewing server tickets at %ld\n",(long)now);
       log_event(PBSEVENT_DEBUG,
 		PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
       if (server_creds != GSS_C_NO_CREDENTIAL) {
@@ -93,7 +93,7 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
       if (majstat == GSS_S_COMPLETE) {
 	if (lifetime == GSS_C_INDEFINITE) {
 	  credlifetime = 7200;
-	  sprintf(log_buffer,"got new ticket lifetime as indefinite.  Using 7200\n",lifetime);
+	  sprintf(log_buffer,"got new ticket lifetime as indefinite.  Using 7200\n");
 	  log_event(PBSEVENT_DEBUG,
 		    PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
 	} else {

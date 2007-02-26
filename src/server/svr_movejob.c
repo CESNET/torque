@@ -862,7 +862,7 @@ int send_job(
       /* do client gss auth */
       hostname = get_hostnamefromaddr(hostaddr);
       if (hostname == NULL) {
-	sprintf(log_buffer,"send job failed: couldn't get hostname for %x\n",hostaddr);
+	sprintf(log_buffer,"send job failed: couldn't get hostname for %lx\n",hostaddr);
 	log_err(0,"svr_movejob get_hostname",log_buffer);
 	exit(1);
       }

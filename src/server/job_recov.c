@@ -123,7 +123,7 @@ int save_tmsock(job *);
 int recov_tmsock(int,job *);
 #endif
 
-extern int job_qs_upgrade A_((job *, int));
+extern int job_qs_upgrade A_((job *,int));
 
 /* global data items */
 
@@ -421,6 +421,7 @@ job *job_recov(
     }
     
   /* is ji_qs the version we expect? */
+
   if (pj->ji_qs.v != PBS_JOB_MAGIC_NUM)
     {
     /* ji_qs is older version */
@@ -443,9 +444,9 @@ job *job_recov(
       return(NULL);      
       }
       
-    if (job_qs_upgrade(pj, fds) != 0)
+    if (job_qs_upgrade(pj,fds) != 0)
       {
-      sprintf(log_buffer, "unable to upgrade %s\n", namebuf);
+      sprintf(log_buffer, "unable to upgrade %s\n",namebuf);
       
       log_err(-1,"job_recov",log_buffer);
       
@@ -457,8 +458,7 @@ job *job_recov(
       }
       
     qs_upgrade = TRUE;
-    
-    }
+    }  /* END if (pj->ji_qs.v != PBS_JOB_MAGIC_NUM) */
 
   /* Does file name match the internal name? */
   /* This detects ghost files */
