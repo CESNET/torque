@@ -233,6 +233,7 @@ mk_server_dirs()
 
 	install_dir $PBS_SERVER_HOME/spool 1777 || return 1
 	install_dir $PBS_SERVER_HOME/server_priv 750 || return 1
+	@INCLUDE_GSSAPI_TRUE@ install_dir $PBS_SERVER_HOME/server_priv/creds 700 || return 1
 	install_dir $PBS_SERVER_HOME/server_priv/jobs 750 || return 1
 	install_dir $PBS_SERVER_HOME/server_priv/queues 750 || return 1
 	install_dir $PBS_SERVER_HOME/server_priv/acl_svr 750 || return 1
@@ -254,6 +255,7 @@ mk_server_dirs()
 		$PBS_SERVER_HOME/server_priv/acl_groups \
 		$PBS_SERVER_HOME/server_priv/accounting \
 		$PBS_SERVER_HOME/server_logs || return 1
+	@INCLUDE_GSSAPI_TRUE@ chk_tree_wrap -d -n -u 077 $PBS_SERVER_HOME/server_priv/creds || return 1
 	chk_tree_wrap -d -n -s $PBS_SERVER_HOME/spool || return 1
 	chk_tree_wrap -n $PBS_ENVIRON || return 1
 }
@@ -317,6 +319,7 @@ do_check_tree()
 		$PBS_SERVER_HOME/server_priv/acl_groups \
 		$PBS_SERVER_HOME/server_priv/accounting \
 		$PBS_SERVER_HOME/server_logs || return 1
+	@INCLUDE_GSSAPI_TRUE@ chk_tree_wrap -d -u 077 $PBS_SERVER_HOME/server_priv/creds || return 1
 	chk_tree_wrap -d $PBS_SERVER_HOME/checkpoint \
 		$PBS_SERVER_HOME/mom_priv/jobs \
 		$PBS_SERVER_HOME/mom_logs || return 1
