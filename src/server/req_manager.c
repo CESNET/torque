@@ -1596,6 +1596,15 @@ void mgr_node_set(
     need_todo &= ~(WRITENODE_STATE);
     }
 
+  if (need_todo & WRITENODE_NOTE) 
+    {  
+    /*some nodes have new "note"s*/
+
+    write_node_note( );
+
+    need_todo &= ~(WRITENODE_NOTE);
+    }
+
   if (need_todo & WRITE_NEW_NODESFILE) 
     {
     /*create/delete/prop/ntype change*/
