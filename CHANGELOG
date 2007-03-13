@@ -11,7 +11,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - correct buggy logging in chk_job_request() (StockholmU)
   e - pbs_mom shouldn't require server_name file unless it is actually
       going to be read (StockholmU)
-  f - new "node note" feature with pbsnodes -m
+  f - new "node note" feature with pbsnodes -n
 
 2.1.7
   b - fix bison syntax error in Parser.y
