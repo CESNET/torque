@@ -2242,7 +2242,66 @@ int servername_chk(
   return(err);
   }  /* END server_name_chk() */
 
+/*
+ * disallowed_types_chk -
+ *      This is the at_action() routine for the queue disallowed_type attribute
+ */
 
+int disallowed_types_chk(
+
+  attribute *pattr,
+  void      *pobject,
+  int        actmode)
+
+  {
+  int i;
+  int j;
+  int found;
+  struct array_strings *pstr;
+  extern char *array_disallowed_types[];
+
+  if (actmode == ATR_ACTION_FREE)
+    {
+    return(0);  /* no checking on free or DECR */
+    }
+
+  pstr = pattr->at_val.at_arst;
+
+  if (pstr == NULL)
+    {
+    return(0);
+    }
+
+  for (i = 0;i < pstr->as_usedptr;i++)
+    {
+    /* first check for dupe */
+    for (j = 0; j < pstr->as_usedptr;j++)
+      {
+      if (i==j)
+        continue;
+      if (strcmp(pstr->as_string[i], pstr->as_string[j]) == 0)
+        {
+	return PBSE_DUPLIST;
+	}
+      }
+    found = FALSE;
+    for (j = 0; (strcmp(array_disallowed_types[j], "_END_") != 0); j++)
+      { 
+      if (strcmp(pstr->as_string[i], array_disallowed_types[j]) == 0)
+        {
+        found = TRUE;
+        break;
+        }
+      } 
+    if (found == FALSE)
+      {
+      return(PBSE_BADDISALLOWTYPE);
+      }
+    }
+
+  return(0);
+  } /* END disallowed_types_chk() */
+  
 static int mgr_long_action_helper(
 
   attribute *pattr,
