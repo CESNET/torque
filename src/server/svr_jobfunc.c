@@ -1071,10 +1071,12 @@ int svr_chkque(
     /* 1e. check queue's disallowed_types */
     if (pque->qu_attr[QA_ATR_DisallowedTypes].at_flags & ATR_VFLAG_SET)
       {
+      
       for (i = 0; 
            i < (pque->qu_attr[QA_ATR_DisallowedTypes]).at_val.at_arst->as_usedptr;
            i++)
         {
+	
         if ((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) &&
             (pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long > 0))
           {
@@ -1093,6 +1095,13 @@ int svr_chkque(
              }
           }
 
+        if (strcmp(Q_DT_rerunable,
+              pque->qu_attr[QA_ATR_DisallowedTypes].at_val.at_arst->as_string[i]) == 0
+            && (pjob->ji_wattr[(int)JOB_ATR_rerunable].at_flags & ATR_VFLAG_SET &&
+                pjob->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long > 0))
+          {
+          return (PBSE_NORERUNABLE);
+          }
 
         }	
       }
