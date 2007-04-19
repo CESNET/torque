@@ -165,7 +165,9 @@
 #define PBSE_BADDISALLOWTYPE	15075	/* bad type in disallowed_types queue attribute */
 #define PBSE_NOINTERACTIVE	15076	/* interactive jobs not allowed in queue */
 #define PBSE_NOBATCH	15077		/* batch jobs not allowed in queue */
-#define PBSE_NORERUNABLE        15078   /* rerunable jobs not allowed in queue */
+#define PBSE_NORERUNABLE        15078	/* rerunable jobs not allowed in queue */
+#define PBSE_NONONRERUNABLE	15079	/* nonrerunable jobs not allowed in queue */
+
 /*
 ** 	Resource monitor specific
 */
