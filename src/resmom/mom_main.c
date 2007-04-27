@@ -211,6 +211,7 @@ double		wallfactor = 1.00;
 long		log_file_max_size = 0;
 long		log_file_roll_depth = 1;
 time_t		last_log_check;
+char     *nodefile_suffix = NULL;  /* suffix to append to each host listed in job host file */
 
 /* externs */
 
