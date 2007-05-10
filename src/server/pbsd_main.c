@@ -450,6 +450,7 @@ int main(
 
   /* if we are not running with real and effective uid of 0, forget it */
 
+#ifndef __CYGWIN__
   if ((getuid() != 0) || (geteuid() != 0)) 
     {
     fprintf(stderr,"%s: Must be run by root\n", 
@@ -457,6 +458,7 @@ int main(
 
     return(1);
     }
+#endif /* end __CYGWIN__ */
 
   /* set standard umask */
 
