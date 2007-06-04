@@ -5,6 +5,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       interactive, batch, rerunable, and nonrerunable
   e - refine "node note" feature with pbsnodes -N
   e - bypass pbs_server's uid 0 check on cygwin
+  e - update suse initscripts
 
 2.1.8
   b - stop possible memory corruption with an invalid request type (StockholmU)
