@@ -169,6 +169,7 @@ int             ignwalltime = 0;        /* by default, enable mom based walltime
 int		lockfds = -1;
 time_t		loopcnt;		/* used for MD5 calc */
 float		max_load_val = -1.0;
+int             hostname_specified = 0;
 char		mom_host[PBS_MAXHOSTNAME + 1];
 char		pbs_servername[PBS_MAXSERVER][PBS_MAXSERVERNAME + 1];
 u_long		MOMServerAddrs[PBS_MAXSERVER];
@@ -247,7 +248,9 @@ char            MOMUNameMissing[64];
 
 int             MOMConfigDownOnError      = 0;
 int             MOMConfigRestart          = 0;
-long            system_ncpus=0;
+long            system_ncpus              = 0;
+
+int             MOMISLOCKED = 0;
 
 #define TMAX_JE  64
 
@@ -4205,6 +4208,9 @@ int rm_request(
                 );
 
               MUStrNCat(&BPtr,&BSpace,tmpLine);
+
+              if (MOMISLOCKED == 1)
+                MUStrNCat(&BPtr,&BSpace,"NOTE:  mom is locked in memory\n");
               }
 
             if ((verbositylevel >= 1) && (pbs_tcp_timeout > 0))
@@ -5665,11 +5671,6 @@ int main(
   resource	*prscput;
 #endif /* MOM_CHECKPOINT */
 
-#ifdef PPINMEM
-  int           mlockall_return;
-  int           MOMISLOCKED = 0;
-#endif /* PPINMEM */
-
   strcpy(pbs_current_user,"pbs_mom");
   msg_daemonname = pbs_current_user;
 
@@ -5759,7 +5760,7 @@ int main(
 
   errflg = 0;
 
-  while ((c = getopt(argc,argv,"a:c:C:d:L:M:prR:S:vx")) != -1) 
+  while ((c = getopt(argc,argv,"a:c:C:d:h:L:M:prR:S:vx")) != -1) 
     {
     switch (c) 
       {
@@ -5812,6 +5813,14 @@ int main(
       case 'd': /* directory */
 
         path_home = optarg;
+
+        break;
+
+      case 'h': /* multihomed host */
+
+        hostname_specified = 1;
+
+        strncpy(mom_host,optarg,PBS_MAXHOSTNAME);       /* remember name */
 
         break;
 
@@ -6323,7 +6332,7 @@ int main(
   CLEAR_HEAD(mom_polljobs);
   CLEAR_HEAD(svr_requests);
 
-  if ((c = gethostname(mom_host,PBS_MAXHOSTNAME)) == 0) 
+  if ((hostname_specified != 0) || ((c = gethostname(mom_host,PBS_MAXHOSTNAME)) == 0))
     {
     strcpy(mom_short_name,mom_host);
 
@@ -6423,6 +6432,28 @@ int main(
   /* recover & abort jobs which were under MOM's control */
 
   init_abort_jobs(recover);
+
+#ifdef PPINMEM
+  /* call mlockall() only 1 time, since it seems to leak mem */
+
+  if (MOMISLOCKED == 0)
+    {
+    int mlockall_return;
+
+    /* make sure pbs_mom stays in RAM and doesn't get paged out */
+
+    mlockall_return = mlockall(MCL_CURRENT | MCL_FUTURE);
+
+    if (mlockall_return == -1 && errno != ENOSYS)
+      {
+      perror("pbs_mom:mom_main.c:mlockall()");
+
+      exit(1);
+      }
+
+    MOMISLOCKED = 1;
+    }
+#endif /* PPINMEM */
 
   /* record the fact that we are up and running */
 
@@ -6842,26 +6873,6 @@ int main(
         pjob->ji_qs.ji_svrflags |= JOB_SVFLG_OVERLMT1;
         }
       }    /* END for (pjob) */
-
-#ifdef PPINMEM
-    /* call mlockall() only 1 time, since it seems to leak mem */
-
-    if (MOMISLOCKED == 0)
-      {
-      /* make sure pbs_mom stays in RAM and doesn't get paged out */
-
-      mlockall_return = mlockall(MCL_CURRENT | MCL_FUTURE);
-
-      if (mlockall_return == -1 && errno != ENOSYS)
-        {
-        perror("pbs_mom:mom_main.c:mlockall()");
-
-        exit(1);
-        }
-
-      MOMISLOCKED = 1;
-      }
-#endif /* PPINMEM */
     }  /* END for (;mom_run_state == MOM_RUN_STATE_RUNNING;) */
  
   /* have exited main loop */
