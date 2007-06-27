@@ -149,6 +149,7 @@ static int contact_sched(
   int sock;
 
   char  tmpLine[1024];
+  char  EMsg[1024];
 
   char *id = "contact_sched";
 
@@ -161,7 +162,7 @@ static int contact_sched(
         }
 #endif
 
-  sock = client_to_svr(pbs_scheduler_addr,pbs_scheduler_port,1);
+  sock = client_to_svr(pbs_scheduler_addr,pbs_scheduler_port,1,EMsg);
 
   if (sock < 0) 
     {
@@ -169,9 +170,10 @@ static int contact_sched(
 
     bad_node_warning(pbs_scheduler_addr);
 
-    sprintf(tmpLine,"%s - port %d",
+    sprintf(tmpLine,"%s - port %d %s",
       msg_sched_nocall,
-      pbs_scheduler_port);
+      pbs_scheduler_port,
+      EMsg);
     
     log_err(errno,id,tmpLine);
 
@@ -274,21 +276,25 @@ static void scheduler_close(
   {
   scheduler_sock = -1;
 
-/*
- *	This bit of code is intended to support the scheduler - server - mom
- *	sequence.  A scheduler script may bes written to run only one job per
- *	cycle to  ensure its newly taken resources are considered by the
- *	scheduler before selecting another job.  In that case, rather than
- *	wait a full cycle before scheduling the next job, we check for
- *	one (and only one) job was run by the scheduler.  If true, then
- *	recycle the scheduler.
- */
+  /*
+   *	This bit of code is intended to support the scheduler - server - mom
+   *	sequence.  A scheduler script may best written to run only one job per
+   *	cycle to ensure its newly taken resources are considered by the
+   *	scheduler before selecting another job.  In that case, rather than
+   *	wait a full cycle before scheduling the next job, we check for
+   *	one (and only one) job was run by the scheduler.  If true, then
+   *	recycle the scheduler.
+   */
 
-	if (scheduler_jobct == 1) {
-		/* recycle the scheduler */
-		svr_do_schedule = SCH_SCHEDULE_RECYC;
-	}
-}
+  if (scheduler_jobct == 1) 
+    {
+    /* recycle the scheduler */
+
+    svr_do_schedule = SCH_SCHEDULE_RECYC;
+    }
+
+  return;
+  }
 
 
 

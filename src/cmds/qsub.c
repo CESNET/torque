@@ -107,6 +107,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <grp.h>
 
 #ifdef sun
 #include <sys/stream.h>
@@ -147,6 +148,7 @@ char PBS_InitDir[256];
 char PBS_RootDir[256];
 
 char xauth_path[256];
+char default_ckpt[256];
 
 int interactivechild = 0;
 int x11child = 0;
@@ -163,7 +165,7 @@ static char *x11_get_proto(void)
   char proto[512], data[512], screen[512];
   char *authstring;
   FILE *f;
-  int got_data = 0;
+  int  got_data = 0;
   char *display, *p;
   struct stat st;
 
@@ -226,9 +228,9 @@ static char *x11_get_proto(void)
 
   if ((f != NULL) && 
       fgets(line,sizeof(line),f) &&
-      sscanf(line,"%*s %511s %511s", 
+      (sscanf(line,"%*s %511s %511s", 
         proto, 
-        data) == 2)
+        data) == 2))
     {
     got_data = 1;
     }
@@ -502,7 +504,7 @@ int get_script(
         }
       }
 
-    rc = fclose(filter_pipe);
+    rc = pclose(filter_pipe);
 
     if (WEXITSTATUS(rc) == (unsigned char)SUBMIT_FILTER_ADMIN_REJECT_CODE)
       {
@@ -2002,7 +2004,15 @@ void catchint(
       exit(0);
       } 
 
-    printf("yes or no please\n");
+    if (printf("yes or no please\n") < 0)
+      {
+      /* terminal probably went away */
+      bailout();
+
+      /*NOTREACHED*/
+
+      exit(0);
+      } 
 
     while ((c != '\n') && (c != EOF))
       c = getchar();
@@ -2017,7 +2027,10 @@ void catchint(
   }  /* END catchint() */
 
 
-void x11handler(int inter_sock)
+void x11handler(
+
+  int inter_sock)
+
   {
   struct pfwdsock *socks;
   int n;
@@ -2046,10 +2059,10 @@ void x11handler(int inter_sock)
     return;
   }
 
-  port_forwarder(socks,x11_connect_display,display,0);
+  port_forwarder(socks,x11_connect_display,display,0,NULL);
 
   exit(EXIT_FAILURE);
-}
+  }
 
 
 /*
@@ -2313,9 +2326,9 @@ void interactive()
 
 int process_opts(
 
-  int    argc,
-  char **argv,
-  int    pass)
+  int    argc,  /* I */
+  char **argv,  /* I */
+  int    pass)  /* I */
 
   {
   int i;
@@ -2727,11 +2740,14 @@ int process_opts(
         if (Interact_opt == 1) 
           {
           char tmpLine[4096];
+
           /* Queue interactive resources to temp file. */
 
           strcpy(tmpLine,tmpResources);
 
-          sprintf(tmpResources,"%s#PBS -l %s\n",tmpLine,optarg);
+          sprintf(tmpResources,"%s#PBS -l %s\n",
+            tmpLine,
+            optarg);
           } 
         else 
           {
@@ -2743,7 +2759,50 @@ int process_opts(
 
             errflg++;
             }
-          }
+  
+          if (strstr(optarg,"walltime") != NULL)
+            {
+            struct attrl *attr;
+            char   *ptr;
+
+            /* if walltime range specified, break into minwclimit and walltime resources */
+
+            for (attr = attrib;attr != NULL;attr = attr->next)
+              {
+              if (!strcmp(attr->name,"walltime"))
+                {
+                if ((ptr = strchr(attr->value,'-')))
+                  {
+                  char tmpLine[1024];
+
+                  *ptr = '\0'; 
+
+                  ptr++;
+
+                  /* set minwclimit to min walltime range value */
+
+                  snprintf(tmpLine,sizeof(tmpLine),"minwclimit=%s",
+                    attr->value);
+
+                  if (set_resources(&attrib,tmpLine,(pass == 0)) != 0)
+                    {
+                    fprintf(stderr,"qsub: illegal -l value\n");
+
+                    errflg++;
+                    }
+
+                  /* set walltime to max walltime range value */
+
+                  strcpy(tmpLine,ptr);
+
+                  strcpy(attr->value,tmpLine);
+                  }
+
+                break;
+                }
+              }  /* END for (attr) */
+            }
+          }      /* END else (Interact_opt == 1) */
 
 /* END ORNL WRAPPER */
 
@@ -2818,7 +2877,10 @@ int process_opts(
           {
           N_opt = passet;
 
-          if (check_job_name(optarg,1) == 0) 
+          /* NOTE:  did enforce alpha start previously - relax this constraint
+                    allowing numeric job names (CRI - 6/26/07) */
+
+          if (check_job_name(optarg,0) == 0) 
             {
             set_attr(&attrib,ATTR_N,optarg);
             } 
@@ -2972,9 +3034,11 @@ int process_opts(
           {
           t_opt = passet;
           i = atoi(optarg);
+
           if (i <= 0 || i > PBS_MAXJOBARRAY)
             {
-            fprintf(stderr, "qsub: illegal -t value (must be 1 through %d)\n", PBS_MAXJOBARRAY);
+            fprintf(stderr, "qsub: illegal -t value (must be 1 through %d)\n", 
+              PBS_MAXJOBARRAY);
 
             errflg++;
 
@@ -3364,7 +3428,7 @@ int process_opts(
       }
 
     fclose(fP);
-    }
+    }    /* END if (Interact_opt == 1) */
 
 /* END ORNL WRAPPER */
 
@@ -3401,7 +3465,7 @@ void set_opt_defaults()
 
   {
   if (c_opt == FALSE)
-    set_attr(&attrib,ATTR_c,CHECKPOINT_UNSPECIFIED);
+    set_attr(&attrib,ATTR_c,default_ckpt);
 
   if (h_opt == FALSE)
     set_attr(&attrib,ATTR_h,NO_HOLD);
@@ -3508,6 +3572,10 @@ char *get_param(
 
   /* NOTE:  does not support comments */
 
+  /* if (strcasestr() == NULL) */
+
+  /* NOTE: currently case-sensitive (FIXME) */
+
   if ((param_val = strstr(config_buf,param)) == NULL)
     {
     return(NULL);
@@ -3546,8 +3614,8 @@ int main(
   FILE *f;                            /* FILE pointer to the script */
   char *q_n_out;                      /* queue part of destination */
   char *s_n_out;                      /* server part of destination */
-                                        /* server:port to send request to */
-  int connect;                        /* return from pbs_connect */
+                                      /* server:port to send request to */
+  int   connect;                      /* return from pbs_connect */
   char *errmsg;                       /* return from pbs_geterrmsg */
   struct stat statbuf;
   struct sigaction act;
@@ -3612,9 +3680,8 @@ int main(
     }
 
   /* check TORQUE config settings */
-
   
-  strncpy(PBS_Filter, SUBMIT_FILTER_PATH, 255);
+  strncpy(PBS_Filter,SUBMIT_FILTER_PATH,255);
 
   /* check to see if PBS_Filter exists.  If not then fall back to the old hard coded file */
 
@@ -3624,6 +3691,7 @@ int main(
     }
 
   strncpy(xauth_path,DefaultXauthPath,255);
+  strncpy(default_ckpt,CHECKPOINT_UNSPECIFIED,sizeof(default_ckpt));
 
   server_host[0] = '\0';
   qsub_host[0] = '\0';
@@ -3673,14 +3741,29 @@ int main(
       if (cnt2server_retry == -100)
         cnt2server_retry = atoi(param_val);
       }
-    }
 
-  /* check to see if PBS_Filter exists.  If not then fall back to the old hard coded file */
-    if (stat(PBS_Filter,&statbuf) == -1)
+    if ((param_val = get_param("VALIDATEGROUP",config_buf)) != NULL)
       {
-      strncpy(PBS_Filter,DefaultFilterPath,255);
+      if (getgrgid(getgid()) == NULL)
+        {
+        fprintf(stderr,"qsub: cannot validate submit group.\n");
+
+        exit(1);
+        }
       }
 
+    if ((param_val = get_param("DEFAULTCKPT",config_buf)) != NULL)
+      {
+      strncpy(default_ckpt,param_val,sizeof(default_ckpt));
+      }
+    }
+
+  /* check to see if PBS_Filter exists.  If not then fall back to the old hard-coded file */
+
+  if (stat(PBS_Filter,&statbuf) == -1)
+    {
+    strncpy(PBS_Filter,DefaultFilterPath,255);
+    }
 
   if (optind < argc) 
     strcpy(script,argv[optind]);
@@ -3809,12 +3892,15 @@ int main(
     }
 
   /* interactive job can not be job array */
+
   if (Interact_opt && t_opt)
-  {
-     fprintf(stderr, "qsub: Interactive job can not be job array.\n");
-     unlink(script_tmp);
-     exit(2);
-  }
+    {
+    fprintf(stderr,"qsub: interactive job can not be job array.\n");
+
+    unlink(script_tmp);
+
+    exit(2);
+    }
 
   set_opt_defaults();		/* set option default values */
   server_out[0] = '\0';
@@ -3834,7 +3920,7 @@ int main(
     strcpy(server_out,s_n_out);
     }
 
-  /* Connect to the server */
+  /* connect to the server */
 
   if (cnt2server_retry != -100)
     cnt2server_conf(cnt2server_retry); /* set number of seconds to retry */

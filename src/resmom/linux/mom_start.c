@@ -112,6 +112,7 @@ extern int	 termin_child;
 
 extern int       LOGLEVEL;
 
+extern char     *AllocParCmd;
 
 
 /* Private variables */
@@ -120,6 +121,8 @@ extern int       LOGLEVEL;
  * set_job - set up a new job session
  * 	Set session id and whatever else is required on this machine
  *	to create a new job.
+ *
+ * NOTE:  This routine is run as {root,user}??? 
  *
  *      Return: session/job id or if error:
  *		-1 - if setsid() fails
@@ -132,10 +135,36 @@ int set_job(
   struct startjob_rtn *sjr)   /* I (modified) */
 
   {
+  char id[] = "set_job";
+
+  char *ptr;
+
   sjr->sj_session = setsid();
 
+  if ((ptr = get_job_envvar(pjob,"BATCH_PARTITION_ID")) != NULL)
+    {
+    char  tmpLine[1024];
+
+    if (AllocParCmd == NULL)
+      AllocParCmd = strdup("/opt/moab/default/tools/partition.create.xt4.pl");
+
+    snprintf(tmpLine,sizeof(tmpLine),"%s --confirm -p %s -j %s -a %ld",
+      AllocParCmd,
+      ptr,
+      pjob->ji_qs.ji_jobid,
+      (long)sjr->sj_session);
+
+    log_record(
+      PBSEVENT_SYSTEM,
+      PBS_EVENTCLASS_SERVER,
+      id,
+      tmpLine);
+
+    system(tmpLine); 
+    }
+
   return(sjr->sj_session);
-  }
+  }  /* END set_job() */
 
 
 

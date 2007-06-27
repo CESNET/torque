@@ -116,6 +116,7 @@
 #include "server_limits.h"
 #include "attribute.h"
 #include "resource.h"
+#include "resmon.h"
 #include "job.h"
 #include "log.h"
 #include "rpp.h"
@@ -165,8 +166,6 @@ extern  char            *nodefile_suffix;
 
 extern int LOGLEVEL;
 extern long TJobStartBlockTime;
-
-extern char *get_job_envvar(job *,char *);
 
 
 int              mom_reader_go;		/* see catchinter() & mom_writer() */
@@ -342,14 +341,19 @@ struct passwd *check_pwd(
     {
     /* execution group specified and not default of login group */
 
+    /* NOTE:  egroup should be groupname, not groupid */
+
     grpp = getgrnam(pjob->ji_wattr[(int)JOB_ATR_egroup].at_val.at_str);
 
     if (grpp == NULL) 
       {
       /* FAILURE */
 
-      sprintf(log_buffer,"no group entry for group %s",
-        pjob->ji_wattr[(int)JOB_ATR_egroup].at_val.at_str);
+      sprintf(log_buffer,"no group entry for group %s, user=%s, errno=%d (%s)",
+        pjob->ji_wattr[(int)JOB_ATR_egroup].at_val.at_str,
+        ptr,
+        errno,
+        strerror(errno));
 
       return(NULL);
       }
@@ -729,7 +733,7 @@ int is_joined(
 
 static int open_std_out_err(
 
-  job *pjob)
+  job *pjob)  /* I */
 
   {
   int i;
@@ -778,7 +782,9 @@ static int open_std_out_err(
 
   if ((file_out < 0) || (file_err < 0)) 
     {
-    log_err(errno,"open_std_out_err",
+    log_err(
+      errno,
+      "open_std_out_err",
       "Unable to open standard output/error");
 
     return(-1);
@@ -803,6 +809,9 @@ static int open_std_out_err(
 
   return(0);
   }  /* END open_std_out_err() */
+
+
+
 
 
 int mkdirtree(
@@ -1049,7 +1058,7 @@ int InitUserEnv(
       ebsize += strlen(envp[j]);
     }
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     {
     sprintf(log_buffer,"creating env buffer, count: %d  size: %d",
       j,
@@ -1101,7 +1110,7 @@ int InitUserEnv(
   for (j = 0;j < num_var_env;++j)
     bld_env_variables(&vtable,environ[j],NULL);
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     {
     sprintf(log_buffer,"local env added, count: %d",
       j);
@@ -1125,7 +1134,7 @@ int InitUserEnv(
         usertmpdir = 1;
       }
 
-    if (LOGLEVEL >= 7)
+    if (LOGLEVEL >= 10)
       {
       sprintf(log_buffer,"job env added, count: %d",
         j);
@@ -1880,35 +1889,35 @@ int TMomFinalizeChild(
   pjobexec_t *TJE)   /* I */
 
   {
-  static char          *id = "TMomFinalizeChild";
+  static char           *id = "TMomFinalizeChild";
 
-  char                 *arg[3];
-  char                  buf[MAXPATHLEN + 2];
-  pid_t                 cpid;
-  int                   i, j, vnodenum;
+  char                  *arg[3];
+  char                   buf[MAXPATHLEN + 2];
+  pid_t                  cpid;
+  int                    i, j, vnodenum;
 
-  char                  qsubhostname[1024];
+  char                   qsubhostname[1024];
 
-  char                 *phost = NULL;
-  int                   pport = 0;
-  int                   pts;
-  int                   qsub_sock;
+  char                  *phost = NULL;
+  int                    pport = 0;
+  int                    pts;
+  int                    qsub_sock;
   char                  *shell;
   char                  *shellname;
   char                  *idir;
   char                  *termtype;
 
-  struct startjob_rtn   sjr = {0,0};
+  struct startjob_rtn    sjr = {0,0};
 
 #if defined(PENABLE_DYNAMIC_CPUSETS)
 
-  attribute            *pattr;
-  char                  cQueueName[16];         /* unique CpuSet Name */
-  char                  cPermFile[1024];        /* unique File Name */
-  FILE                 *fp;                     /* file pointer into /proc/cpuinfo */
-  char                  cBuffer[CBUFFERSIZE + 1];  /* char buffer used for counting procs */
-  int                   nCPUS = 0;              /* number of cpus the machine has */
-  int                   nCpuId = 0;             /* cpuId */
+  attribute             *pattr;
+  char                   cQueueName[16];         /* unique CpuSet Name */
+  char                   cPermFile[1024];        /* unique File Name */
+  FILE                  *fp;                     /* file pointer into /proc/cpuinfo */
+  char                   cBuffer[CBUFFERSIZE + 1];  /* char buffer used for counting procs */
+  int                    nCPUS = 0;              /* number of cpus the machine has */
+  int                    nCpuId = 0;             /* cpuId */
 
   struct CpuSetMap {
     short CpuId;
@@ -1932,9 +1941,11 @@ int TMomFinalizeChild(
 #endif  /* PENABLE_DYNAMIC_CPUSETS */
 
   job                   *pjob;
-  task                 *ptask;
+  task                  *ptask;
 
-  struct passwd        *pwdp;
+  struct passwd         *pwdp;
+
+  char                   EMsg[1024];
 
   pjob  = (job *)TJE->pjob;
   ptask = (task *)TJE->ptask;
@@ -1951,7 +1962,7 @@ int TMomFinalizeChild(
             It does not have access to stdout/stderr, failure 
             messages will route to syslog via log_err() */
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"starting");
 
   if (lockfds >= 0)
@@ -1970,7 +1981,7 @@ int TMomFinalizeChild(
 
   shell = set_shell(pjob,pwdp);	/* in the machine dependent section */
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"shell initialized");
 
   /* Setup user env */
@@ -1982,7 +1993,7 @@ int TMomFinalizeChild(
     starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_RETRY,&sjr);
     }
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"env initialized");
 
   /* Create the job's nodefile */
@@ -1992,6 +2003,8 @@ int TMomFinalizeChild(
   if (pjob->ji_flags & MOM_HAS_NODEFILE) 
     {
     FILE *nhow;
+
+    char *BPtr;
 
     sprintf(buf,"%s/%s",
       path_aux, 
@@ -2033,27 +2046,63 @@ int TMomFinalizeChild(
       exit(1);
       }
 
-    for (j = 0;j < vnodenum;j++) 
-      {
-      vnodent *vp = &pjob->ji_vnods[j];
+    /* NOTE:  if BEOWULF_JOB_MAP is set, populate node file with this info */
 
-      if (nodefile_suffix != NULL)
+    BPtr = get_job_envvar(pjob,"BEOWULF_JOB_MAP");
+
+    if (BPtr != NULL)
+      {
+      char tmpBuffer[1000000];
+
+      char *ptr;
+
+      /* FORMAT:  <HOST>[:<HOST>]... */
+
+      strncpy(tmpBuffer,BPtr,sizeof(tmpBuffer));
+
+      ptr = strtok(tmpBuffer,":");
+
+      while (ptr != NULL)
         {
-        fprintf(nhow,"%s%s\n", 
-          vp->vn_host->hn_host,
-          nodefile_suffix);
-        }
-      else
-        {
-        fprintf(nhow,"%s\n",
-          vp->vn_host->hn_host);
+        if (nodefile_suffix != NULL)
+          {
+          fprintf(nhow,"%s%s\n",
+            ptr,
+            nodefile_suffix);
+          }
+        else
+          {
+          fprintf(nhow,"%s\n",
+            ptr);
+          }
+
+        ptr = strtok(NULL,":");
         }
       }
+    else
+      {
+      for (j = 0;j < vnodenum;j++) 
+        {
+        vnodent *vp = &pjob->ji_vnods[j];
 
+        if (nodefile_suffix != NULL)
+          {
+          fprintf(nhow,"%s%s\n", 
+            vp->vn_host->hn_host,
+            nodefile_suffix);
+          }
+        else
+          {
+          fprintf(nhow,"%s\n",
+            vp->vn_host->hn_host);
+          }
+        }   /* END for (j) */
+      }
+ 
     fclose(nhow);
     }  /* END if (pjob->ji_flags & MOM_HAS_NODEFILE) */
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"node file created");
 
   /* Set PBS_VNODENUM */
@@ -2429,7 +2478,7 @@ int TMomFinalizeChild(
     exit(1);
     }
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"system vars set");
 	
   umask(077);
@@ -2499,13 +2548,14 @@ int TMomFinalizeChild(
       strncpy(qsubhostname,phost,sizeof(qsubhostname));
       }
 
-    qsub_sock = conn_qsub(qsubhostname,pport);
+    qsub_sock = conn_qsub(qsubhostname,pport,EMsg);
 
     if (qsub_sock < 0) 
       {
-      snprintf(log_buffer,1024,"cannot open interactive qsub socket to host %s:%d - check routing tables/multi-homed host issues",
+      snprintf(log_buffer,1024,"cannot open interactive qsub socket to host %s:%d - '%s' - check routing tables/multi-homed host issues",
         qsubhostname,
-        pport);
+        pport,
+        EMsg);
 
       log_err(errno,id,log_buffer);
 
@@ -2734,9 +2784,10 @@ int TMomFinalizeChild(
 
         exit(0);
         }
-      } 
+      }    /* END if (writerpid > 0) */ 
     else 
-      { /* error */
+      { 
+      /* FAILURE - fork failed */
 
       log_err(errno,id,"cannot fork nanny");
 
@@ -2786,7 +2837,7 @@ int TMomFinalizeChild(
       }
 #endif  /* SHELL_USE_ARGV */
 
-    if (LOGLEVEL >= 7)
+    if (LOGLEVEL >= 10)
       log_err(-1,id,"opening script");
 
     if (script_in < 0) 
@@ -2820,7 +2871,7 @@ int TMomFinalizeChild(
       exit(1);
       }
 
-    if (LOGLEVEL >= 7)
+    if (LOGLEVEL >= 10)
       log_err(-1,id,"stdout/stderr opened");
 
     /* run prolog - standard batch job */
@@ -2849,7 +2900,7 @@ int TMomFinalizeChild(
       /*NOTREACHED*/
       } 
 
-    if (LOGLEVEL >= 7)
+    if (LOGLEVEL >= 10)
       log_err(-1,id,"prolog complete");
 
     /* run user prolog */
@@ -2882,8 +2933,8 @@ int TMomFinalizeChild(
 
     j = set_job(pjob,&sjr);
 
-    if (LOGLEVEL >= 7)
-      log_err(-1,id,"et_job complete");
+    if (LOGLEVEL >= 10)
+      log_err(-1,id,"set_job complete");
 
     memcpy(TJE->sjr,&sjr,sizeof(sjr));
 
@@ -2945,7 +2996,7 @@ int TMomFinalizeChild(
     /*NOTREACHED*/
     }
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"setting system limits");
 
   log_buffer[0] = '\0';
@@ -2993,7 +3044,7 @@ int TMomFinalizeChild(
 
   endpwent();
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"system limits set");
 
   if ((idir = get_job_envvar(pjob,"PBS_O_ROOTDIR")) != NULL)
@@ -3022,7 +3073,7 @@ int TMomFinalizeChild(
    * become the user, execv the shell and become the real job 
    */
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"setting user/group credentials");
 
   setgroups(
@@ -3088,7 +3139,7 @@ int TMomFinalizeChild(
       }
     }
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"initial directory set");
 	
   /* X11 forwarding init */
@@ -3124,7 +3175,7 @@ int TMomFinalizeChild(
 
   /* tell mom we are going */
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"forking child");
 
   starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_OK,&sjr);
@@ -3516,8 +3567,8 @@ int TMomFinalizeJob3(
 int start_process(
 
   task	 *ptask,  /* I */
-  char	**argv,
-  char	**envp)
+  char	**argv,   /* I */
+  char	**envp)   /* I */
 
   {
   static char id[] = "start_process";
@@ -3641,8 +3692,10 @@ int start_process(
 
       if ((i == sizeof(sjr)) && (sjr.sj_code == 0) && !gotsuccess)
         {
-        gotsuccess=1;
+        gotsuccess = 1;
+
         write(parent_write,&sjr,sizeof(sjr));
+
         continue;
         }
 
@@ -3785,7 +3838,7 @@ int start_process(
   /* The child process - will become the TASK	  */
   /************************************************/
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"child starting");
     
   if (lockfds >= 0)
@@ -3813,7 +3866,7 @@ int start_process(
     exit(1);
     }
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"user env initialized");
 
   if (set_mach_vars(pjob,&vtable) != 0) 
@@ -3829,7 +3882,7 @@ int start_process(
     exit(1);
     }
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"mach vars set");
 
   umask(077);
@@ -3935,7 +3988,7 @@ int start_process(
       exit(1);
       }
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"MPI/TM variables set");
 
   if (pjob->ji_numnodes > 1) 
@@ -4063,7 +4116,7 @@ int start_process(
    * directly to fd 2, with a \n, and ended with fsync(2)
    *******************************************************/
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"about to perform set_job");
 
   j = set_job(pjob,&sjr);
@@ -4117,7 +4170,7 @@ int start_process(
     starter_return(kid_write,kid_read,j,&sjr);
     }
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"set_job complete");
 
   if ((idir = get_job_envvar(pjob,"PBS_O_ROOTDIR")) != NULL)
@@ -4138,7 +4191,7 @@ int start_process(
       }
     }
 
-  /* become the user and  execv the shell and become the real job */
+  /* become the user and execv the shell and become the real job */
 
   setgroups(pjob->ji_grpcache->gc_ngroup,
     (gid_t *)pjob->ji_grpcache->gc_groups);
@@ -4191,7 +4244,7 @@ int start_process(
       }
     }
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     log_err(-1,id,"done - writing pipe and exec'ing");
 
   starter_return(
@@ -4203,7 +4256,7 @@ int start_process(
   fcntl(kid_write,F_SETFD,FD_CLOEXEC);
 
 #if 0	/* def DEBUG */
-  for (i = 3;i< 40;++i) 
+  for (i = 3;i < 40;++i) 
     {	/* check for any extra open descriptors */
     if (close(i) >= 0)
       fprintf(stderr,"Closed file %d\n",i);
@@ -4245,13 +4298,14 @@ int start_process(
 
 void nodes_free(
 
-  job *pj)
+  job *pj)  /* I */
 
   {
-  void	arrayfree  A_((char **array));
-  hnodent	 *np;
+  void arrayfree A_((char **));
 
-  if (pj->ji_vnods) 
+  hnodent *np;
+
+  if (pj->ji_vnods != NULL) 
     {
     free(pj->ji_vnods);
 
@@ -4318,7 +4372,7 @@ void job_nodes(
   char		*cp, *nodestr;
   hnodent	*hp;
   vnodent	*np;
-  extern	char	mom_host[];
+  extern char    mom_host[];
 
   nodes_free(pjob);
 
@@ -4993,13 +5047,21 @@ static void starter_return(
 /*
  * std_file_name - generate the fully qualified path/name for a
  *		   job standard stream
+ *
+ *   called by 
+       TMomFinalizeJob2
+         fork_me
+           TMomFinalizeChild
+             open_std_out_err
+               open_std_file
+                 std_file_name
  */
 
 char *std_file_name(
 
-  job		*pjob,
-  enum job_file	 which,
-  int		*keeping)	/* RETURN */
+  job		*pjob,      /* I */
+  enum job_file	 which,     /* I */
+  int		*keeping)   /* O (0 is no keep, 1 is keep) */
 
   {
   static char  path[MAXPATHLEN + 1];
@@ -5008,12 +5070,34 @@ char *std_file_name(
   char *pd;
   char *suffix;
   char *jobpath = NULL;
+  int   havehomespool = 0;
+
+  extern char *TNoSpoolDirList[];
 
 #if NO_SPOOL_OUTPUT == 1
   struct stat myspooldir;
   static char  path_alt[MAXPATHLEN + 1];
   int   rcstat;
 #endif /* NO_SPOOL_OUTPUT */
+
+  if (LOGLEVEL >= 5)
+    {
+    sprintf(log_buffer,"getting %s file name",
+      (which == StdOut) ? "stdout" : "stderr");
+
+    log_record(
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      log_buffer);
+    }
+
+  if (keeping == NULL)
+    {
+    /* FAILURE */
+
+    return(NULL);
+    }
 
   if ((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) &&
       (pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long > 0)) 
@@ -5027,7 +5111,7 @@ char *std_file_name(
 
   if (pjob->ji_grpcache == NULL)
     {
-    /* ji_grpcache required for gc_homedir information */
+    /* FAILURE - ji_grpcache required for gc_homedir information */
 
     return(NULL);
     }
@@ -5036,7 +5120,7 @@ char *std_file_name(
     {
     case StdOut:
 
-      key = 'o';
+      key    = 'o';
       suffix = JOB_STDOUT_SUFFIX;
 
       if (pjob->ji_wattr[(int)JOB_ATR_outpath].at_flags & ATR_VFLAG_SET)
@@ -5065,7 +5149,7 @@ char *std_file_name(
       suffix = JOB_CKPT_SUFFIX;
 
       break;
-    }  /* END switch(which) */
+    }  /* END switch (which) */
 
   /* Is file to be kept?, if so use default name in Home directory */
 
@@ -5103,16 +5187,15 @@ char *std_file_name(
     } 
   else 
     {
-
     /* don't bother keeping output if the user actually wants to discard it */
 
     if ((jobpath != NULL) && (*jobpath != '\0'))
       {
       char *ptr;
 
-      if ((ptr=strchr(jobpath,':')) != NULL)
+      if ((ptr = strchr(jobpath,':')) != NULL)
         {
-        jobpath = ptr+1;
+        jobpath = ptr + 1;
         }
 
       if (!strcmp(jobpath,"/dev/null"))
@@ -5126,6 +5209,14 @@ char *std_file_name(
       }
 
     /* put into spool directory unless NO_SPOOL_OUTPUT is defined */
+
+    if (LOGLEVEL >= 10)
+      {
+      sprintf(log_buffer,"std_file_name path before NO_SPOOL_OUTPUT: %s", 
+        path);
+     
+      log_err(-1,"std_file_name",log_buffer);
+      }
 
 #if NO_SPOOL_OUTPUT == 1		
 
@@ -5156,17 +5247,105 @@ char *std_file_name(
 
     *keeping = 1;
 
+    if (LOGLEVEL >= 10)
+      {
+      sprintf(log_buffer,"std_file_name path in NO_SPOOL_OUTPUT: %s", 
+        path);
+
+      log_err(-1,"std_file_name",log_buffer);
+      }
 #else	/* NO_SPOOL_OUTPUT */
 
-    strncpy(path,path_spool,sizeof(path));
+     if ((TNoSpoolDirList[0] != NULL))
+       {
+       int   dindex;
+ 
+       char *wdir;
+ 
+       wdir = get_job_envvar(pjob,"PBS_O_WORKDIR");
+
+       if (LOGLEVEL >= 10)
+         { 
+         sprintf(log_buffer,"wdir: %s", 
+           wdir);
+
+         log_err(-1,"std_file_name",log_buffer);
+         }
+
+       if (wdir != NULL)
+         {
+         /* check if job's work dir matches the no-spool directory list */
+
+         if (LOGLEVEL >= 10) 
+           log_err(-1,"std_file_name","inside wdir != NULL");
+
+         for (dindex = 0;dindex < TMAX_NSDCOUNT;dindex++)
+           {
+           if (TNoSpoolDirList[dindex] == NULL)
+             break;
+ 
+           if (!strcasecmp(TNoSpoolDirList[dindex],"$WORKDIR") ||
+               !strcmp(TNoSpoolDirList[dindex],"*"))
+             {
+             havehomespool = 1;
+
+             if (LOGLEVEL >= 10) 
+               log_err(-1,"std_file_name","inside !strcasecmp");
+ 
+             strncpy(path,wdir,sizeof(path));
+ 
+             break;
+             }
+ 
+           if (!strncmp(TNoSpoolDirList[dindex],wdir,strlen(TNoSpoolDirList[dindex])))
+             {
+             havehomespool = 1;
+
+             if (LOGLEVEL >= 10) 
+               log_err(-1,"std_file_name","inside !strncmp");
+ 
+             strncpy(path,wdir,sizeof(path));
+ 
+             break;
+             }
+           }  /* END for (dindex) */
+         }    /* END if (wdir != NULL) */
+       }      /* END if (TNoSpoolDirList != NULL) */
+ 
+     if (havehomespool == 0)
+       {
+       strncpy(path,path_spool,sizeof(path));
+       }
+     else
+       {
+       strncat(path,"/",sizeof(path));
+       }
 
     *keeping = 0;
 
+    if (LOGLEVEL >= 10)
+      {
+      sprintf(log_buffer,"std_file_name path in else NO_SPOOL_OUTPUT: %s", 
+        path);
+
+      log_err(-1,"std_file_name",log_buffer);
+      }
+
 #endif	/* NO_SPOOL_OUTPUT */
 
-    strncat(path,pjob->ji_qs.ji_fileprefix,sizeof(path));
-    strncat(path,suffix,sizeof(path));
-    }  /* END else */
+    strncat(path,pjob->ji_qs.ji_fileprefix,(sizeof(path) - strlen(path) - 1));
+    strncat(path,suffix,(sizeof(path) - strlen(path) - 1));
+
+    if (LOGLEVEL >= 10)
+      {
+      sprintf(log_buffer,"path: '%s'  prefix: '%s'  suffix: '%s'",
+        path,
+        pjob->ji_qs.ji_fileprefix,
+        suffix);
+
+      log_err(-1,"std_file_name",log_buffer);
+      }
+    }    /* END else ((pjob->ji_wattr[(int)JOB_ATR_keep].at_flags & ...)) */
 
   return(path);
   }  /* END std_file_name() */
@@ -5180,10 +5359,10 @@ char *std_file_name(
 
 int open_std_file(
 
-  job		*pjob,
-  enum job_file	 which,		/* which file */
-  int		 mode,		/* file mode */
-  gid_t		 exgid)		/* gid for file */
+  job		*pjob,    /* I */
+  enum job_file	 which,	  /* which file */
+  int		 mode,	  /* file mode */
+  gid_t		 exgid)	  /* gid for file */
 
   {
   int   fds;
@@ -5330,7 +5509,7 @@ void bld_env_variables(
       }
     }
 
-  if (LOGLEVEL >= 7)
+  if (LOGLEVEL >= 10)
     {
     char tmpLine[1024];
 

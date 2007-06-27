@@ -146,7 +146,7 @@ enum conn_type {
 
 void add_conn A_((int,enum conn_type,pbs_net_t,unsigned int,void (*func) A_((int))));
 int  find_conn A_((pbs_net_t));
-int  client_to_svr A_((pbs_net_t,unsigned int,int));
+int  client_to_svr A_((pbs_net_t,unsigned int,int,char *));
 void close_conn A_((int));
 pbs_net_t get_connectaddr A_((int));
 int  get_connecthost A_((int sock,char *,int));
@@ -161,14 +161,14 @@ void net_set_type A_((enum conn_type,enum conn_type));
 char *get_hostnamefromaddr(pbs_net_t hostaddr);
 
 struct connection {
-	pbs_net_t	cn_addr;	/* internet address of client */
-	int		cn_handle;	/* handle for API, see svr_connect() */
-	unsigned int	cn_port;	/* internet port number of client */
-	unsigned short  cn_authen;	/* authentication flags */
-	enum conn_type	cn_active;	/* idle or type if active */
-	time_t		cn_lasttime;	/* time last active */
-	void		(*cn_func) A_((int)); /* read function when data rdy */
-	void		(*cn_oncl) A_((int)); /* func to call on close */
+  pbs_net_t	cn_addr;	/* internet address of client */
+  int		cn_handle;	/* handle for API, see svr_connect() */
+  unsigned int	cn_port;	/* internet port number of client */
+  unsigned short cn_authen;	/* authentication flags */
+  enum conn_type cn_active;     /* idle or type if active */
+  time_t	cn_lasttime;    /* time last active */
+  void		(*cn_func) A_((int)); /* read function when data rdy */
+  void		(*cn_oncl) A_((int)); /* func to call on close */
 #ifdef GSSAPI
         char            *principal;      /* client principal for use with GSS auth */
         gss_cred_id_t   creds;           /* client creds, for use with GSS auth */

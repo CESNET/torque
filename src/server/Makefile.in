@@ -119,6 +119,8 @@ AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BUILDCPA_FALSE = @BUILDCPA_FALSE@
 BUILDCPA_TRUE = @BUILDCPA_TRUE@
+BUILD_L26_CPUSETS_FALSE = @BUILD_L26_CPUSETS_FALSE@
+BUILD_L26_CPUSETS_TRUE = @BUILD_L26_CPUSETS_TRUE@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
@@ -789,9 +791,13 @@ uninstall-info: uninstall-info-recursive
 install-exec-hook:
 	$(PBS_MKDIRS) aux || :
 	$(PBS_MKDIRS) server
+	rm -f $(DESTDIR)$(sbindir)/$(program_prefix)qserverd$(program_suffix)$(EXEEXT)
+	ln -s $(program_prefix)pbs_server$(program_suffix)$(EXEEXT) \
+	   $(DESTDIR)$(sbindir)/$(program_prefix)qserverd$(program_suffix)$(EXEEXT)
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_ENVIRON)
+	rm -f $(DESTDIR)$(sbindir)/$(program_prefix)qserverd$(program_suffix)$(EXEEXT)
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

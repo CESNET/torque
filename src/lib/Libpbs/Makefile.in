@@ -129,6 +129,8 @@ AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 BUILDCPA_FALSE = @BUILDCPA_FALSE@
 BUILDCPA_TRUE = @BUILDCPA_TRUE@
+BUILD_L26_CPUSETS_FALSE = @BUILD_L26_CPUSETS_FALSE@
+BUILD_L26_CPUSETS_TRUE = @BUILD_L26_CPUSETS_TRUE@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
@@ -351,7 +353,7 @@ SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
 @INCLUDE_GSSAPI_TRUE@ldpbsgss = ../Libgss/libtorquegss.la
 EXTRA_DIST = ../Libdis/dis_.h
 lib_LTLIBRARIES = libtorque.la
-libtorque_la_LDFLAGS = -version-info 1:0:1
+libtorque_la_LDFLAGS = -version-info 2:0:0
 libtorque_la_LIBADD = $(ldpbsgss)
 libtorque_la_SOURCES = ../Libdis/dis.c ../Libdis/discui_.c ../Libdis/discul_.c \
 		    ../Libdis/disi10d_.c ../Libdis/disi10l_.c \

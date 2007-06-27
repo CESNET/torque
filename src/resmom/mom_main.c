@@ -157,6 +157,8 @@
 
 /* Global Data Items */
 
+int             MOMIsLocked = 0;
+int             MOMIsPLocked = 0;
 int             ServerStatUpdateInterval = DEFAULT_SERVER_STAT_UPDATES;
 int             CheckPollTime            = CHECK_POLL_TIME;
 
@@ -216,9 +218,13 @@ static resource_def *rdcput;
 double		wallfactor = 1.00;
 long		log_file_max_size = 0;
 long		log_file_roll_depth = 1;
+
 time_t		last_log_check;
 char           *nodefile_suffix = NULL;  /* suffix to append to each host listed in job host file */
 char           *TNoSpoolDirList[TMAX_NSDCOUNT];
+
+char           *AllocParCmd = NULL;  /* (alloc) */
+
 
 /* externs */
 
@@ -254,9 +260,9 @@ char            MOMUNameMissing[64];
 
 int             MOMConfigDownOnError      = 0;
 int             MOMConfigRestart          = 0;
-long            system_ncpus=0;
-char           *auto_ideal_load=NULL;
-char           *auto_max_load=NULL;
+long            system_ncpus = 0;
+char           *auto_ideal_load = NULL;
+char           *auto_max_load   = NULL;
 
 #define TMAX_JE  64
 
@@ -302,6 +308,7 @@ static unsigned long setrcpcmd(char *);
 static unsigned long setpbsclient(char *);
 static unsigned long configversion(char *);
 static unsigned long cputmult(char *);
+static unsigned long setallocparcmd(char *);
 static unsigned long setidealload(char *);
 static unsigned long setignwalltime(char *);
 static unsigned long setlogevent(char *);
@@ -324,16 +331,21 @@ static unsigned long setcheckpolltime(char *);
 static unsigned long settmpdir(char *);
 static unsigned long setlogfilemaxsize(char *);
 static unsigned long setlogfilerolldepth(char *);
+static unsigned long setlogfilesuffix(char *);
+static unsigned long setlogdirectory(char *);
 static unsigned long setvarattr(char *);
 static unsigned long setautoidealload(char *);
 static unsigned long setautomaxload(char *);
 static unsigned long setnodefilesuffix(char *);
 static unsigned long setnospooldirlist(char *);
+static unsigned long setmomhost(char *);
+
 
 static struct specials {
   char            *name;
   u_long          (*handler)();
   } special[] = {
+    { "alloc_par_cmd",       setallocparcmd },
     { "auto_ideal_load",     setautoidealload },
     { "auto_max_load",       setautomaxload },
     { "xauthpath",           setxauthpath },
@@ -363,11 +375,14 @@ static struct specials {
     { "status_update_time",  setstatusupdatetime },
     { "check_poll_time",     setcheckpolltime },
     { "tmpdir",              settmpdir },
+    { "log_directory",       setlogdirectory },
     { "log_file_max_size",   setlogfilemaxsize },
     { "log_file_roll_depth", setlogfilerolldepth },
+    { "log_file_suffix",     setlogfilesuffix },
     { "varattr",             setvarattr },
     { "nodefile_suffix",     setnodefilesuffix },
     { "nospool_dir_list",    setnospooldirlist },
+    { "mom_host",            setmomhost },
     { NULL,                  NULL } };
 
 
@@ -497,7 +512,7 @@ const char *PJobSubState[] = {
   "ABORT",     /* job is being aborted by server  */
   "SUBSTATE55",
   "SUBSTATE56",
-  "SUBSTATE57",
+  "PREOBIT",   /* preobit job status */
   "OBIT",      /* (MOM) job obit notice sent */
   "COMPLETED",
   "RERUN",     /* job is rerun, recover output stage */
@@ -838,6 +853,7 @@ static char *getjoblist(
 
 
 
+#define TMAX_VARBUF   65536
 
 static char *reqvarattr(
   
@@ -845,15 +861,20 @@ static char *reqvarattr(
   
   {           
   static char id[] = "reqvarattr";
-  static char *list = NULL,*child_spot;
-  static int listlen = 0;
+  static char    *list = NULL,*child_spot;
+  static int      listlen = 0;
   struct varattr *pva;
-  int   i, fd, len, child_len;
-  FILE  *child;
+  int             fd, len, child_len;
+  FILE           *child;
+
+  char           *ptr;
+  char           *ptr2;
+
+  char            tmpBuf[TMAX_VARBUF + 1];
 
   if (list == NULL)
     {
-    list = calloc(BUFSIZ + 50,sizeof(char));
+    list = calloc(BUFSIZ + 1024,sizeof(char));
 
     listlen = BUFSIZ;
     }
@@ -867,15 +888,35 @@ static char *reqvarattr(
 
   for (;pva != NULL;pva = (struct varattr *)GET_NEXT(pva->va_link))
     {
+    /* loop for each $varattr parameter */
+
     if ((pva->va_lasttime == 0) || (time_now >= (pva->va_ttl + pva->va_lasttime)))
       {
       if ((pva->va_ttl == -1) && (pva->va_lasttime != 0))
+        {
+        if (pva->va_value[0] != '\0')
+          {
+          if (*list != '\0')
+            strcat(list,"+");
+     
+          strcat(list,pva->va_value);
+          }
+     
+        if ((int)strlen(list) >= listlen)
+          {
+          listlen += BUFSIZ;
+          list = realloc(list,listlen);
+          }
+
         continue;  /* ttl of -1 is only run once */
-          
+        }
+      
+      /* TTL is satisfied, reload value */
+    
       pva->va_lasttime = time_now;
 
       if (pva->va_value == NULL)
-        pva->va_value = calloc(128,sizeof(char));
+        pva->va_value = calloc(TMAX_VARBUF,sizeof(char));
 
       /* execute script and get a new value */
 
@@ -889,37 +930,24 @@ static char *reqvarattr(
         {
         fd = fileno(child);
 
-        child_spot = pva->va_value;
-        child_len = 0;
+        child_spot = tmpBuf;
+        child_len  = 0;
         child_spot[0] = '\0';
 
 retryread:
-        while ((len = read(fd,child_spot,127 - child_len)) > 0)
+        while ((len = read(fd,child_spot,TMAX_VARBUF - child_len)) > 0)
           {
-          for (i = 0;i < len;i++)
-            {
-            if (child_spot[i] == '\n')
-              break;
-            }
-
-          if (i < len)
-            {
-            /* found newline */
-        
-            child_len += i + 1;
-
-            break;
-            }
-
-          child_len += len;
+          child_len  += len;
           child_spot += len;
 
-          if (child_len >= 127)
+          if (child_len >= TMAX_VARBUF - 1)
             break;
-          }
+          }  /* END while ((len = read() > 0) */
 
         if (len == -1)
           {
+          /* FAILURE - cannot read var script output */
+
           if (errno == EINTR)
             goto retryread;
 
@@ -928,15 +956,38 @@ retryread:
           sprintf(pva->va_value,"? %d",
             RM_ERR_SYSTEM);
 
-          fclose(child);
-          }
-        else
-          {
           pclose(child);
 
-          if (child_len > 0)
-            pva->va_value[child_len - 1] = '\0';   /* hack off newline */
+          continue;
           }
+
+        /* SUCCESS */
+
+        pclose(child);
+
+        tmpBuf[child_len] = '\0';
+
+        /* migrate attr/val values into var value field */
+
+        ptr = strtok(tmpBuf," \t\n;");
+
+        ptr2 = pva->va_value;
+
+        ptr2[0] = '\0';
+
+        /* NOTE:  no bounds checking (NYI) */
+
+        /* OUTPUT FORMAT:  <VAR>=<VAL>[+<VAR>=<VAL>]... */
+
+        while (ptr != NULL)
+          {
+          if (ptr2[0] != '\0')
+            strcat(ptr2,"+");
+
+          strcat(ptr2,ptr);
+
+          ptr = strtok(NULL," \t\n;");
+          }  /* END while (ptr != NULL) */
         }    /* END else ((child = popen(pva->va_cmd,"r")) == NULL) */
       }      /* END if ((pva->va_lasttime == 0) || ...) */
                      
@@ -945,8 +996,6 @@ retryread:
       if (*list != '\0')
         strcat(list,"+");
 
-      strcat(list,pva->va_name);
-      strcat(list,":");
       strcat(list,pva->va_value);
       }
 
@@ -1057,7 +1106,7 @@ static char *reqgres(
       cp->c_name,
       cp->c_u.c_value);
 
-    strncat(GResBuf,tmpLine,1024);
+    strncat(GResBuf,tmpLine,(sizeof(GResBuf) - strlen(GResBuf) - 1));
     }  /* END for (cp) */
 
   return(GResBuf);
@@ -1504,6 +1553,8 @@ u_long addclient(
 
 
 
+
+
 static u_long setpbsclient(
 
   char *value)  /* I */
@@ -1522,6 +1573,8 @@ static u_long setpbsclient(
 
   if (rc != 0)
     {
+    /* FAILURE */
+
     return(1);
     }
 
@@ -1548,7 +1601,7 @@ static u_long setpbsserver(
 
   if ((value == NULL) || (*value == '\0'))
     {
-    /* FAILURE */
+    /* FAILURE - nothing specified */
 
     return(1);
     }
@@ -1595,9 +1648,13 @@ static u_long setpbsserver(
       log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
 
       if (MOMServerAddrs[index])
+        {
+        /* SUCCESS */
+        
         return(1);
-      else
-        break;
+        }
+
+      break;
       }
 
     if (ipaddr && (MOMServerAddrs[index] == ipaddr))
@@ -1611,6 +1668,8 @@ static u_long setpbsserver(
          (ipaddr & 0x000000ff));
 
       log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
+
+      /* SUCCESS */
 
       return(1);
       }
@@ -1641,6 +1700,8 @@ static u_long setpbsserver(
 
   if (ipaddr != 0)
     tinsert(ipaddr,&okclients);
+
+  /* SUCCESS */
 
   return(1);
   }  /* END setpbsserver() */
@@ -2349,6 +2410,29 @@ static unsigned long setautoidealload(
   }  /* END setautoidealload() */
 
 
+
+
+
+static unsigned long setallocparcmd(
+
+  char *value)  /* I */
+
+  {
+  log_record(
+    PBSEVENT_SYSTEM,
+    PBS_EVENTCLASS_SERVER,
+    "allocparcmd",
+    value);
+
+  AllocParCmd = strdup(value);
+
+  return(1);
+  }  /* END setallocparcmd() */
+
+
+
+
+
 static unsigned long setautomaxload(
 
   char *value)
@@ -2535,6 +2619,8 @@ static unsigned long setlogfilemaxsize(
   }
 
 
+
+
 static unsigned long setlogfilerolldepth(
 
   char *value)  /* I */
@@ -2554,6 +2640,32 @@ static unsigned long setlogfilerolldepth(
 
 
 
+static unsigned long setlogdirectory(
+
+  char *value)  /* I */
+
+  {
+  path_log = strdup(value);
+
+  return(1);
+  }
+
+
+
+
+static unsigned long setlogfilesuffix(
+
+  char *value)  /* I */
+
+  {
+  log_init(value,NULL);
+
+  return(1);
+  }
+
+
+
+
 
 static u_long setvarattr(
 
@@ -2562,7 +2674,7 @@ static u_long setvarattr(
   {
   static char *id = "setvarattr";
   struct varattr *pva;
-  char *tmpc;
+  char           *ptr;
 
   pva = calloc(1,sizeof(struct varattr));
 
@@ -2577,15 +2689,20 @@ static u_long setvarattr(
 
   CLEAR_LINK(pva->va_link);
 
+  /* FORMAT:  <NAME> <TTL> <PATH> */
+
   pva->va_name = strdup(value);
 
   /* step forward to get the ttl value */
 
-  tmpc = strchr(pva->va_name,' ');
+  ptr = pva->va_name;
 
-  if (tmpc == NULL)
+  while (!isspace(*ptr))
+    ptr++;
+
+  if (*ptr == '\0')
     {
-    /* FAILURE */
+    /* FAILURE - cannot locate ttl or path */
 
     free(pva->va_name);
     free(pva);
@@ -2593,15 +2710,25 @@ static u_long setvarattr(
     return(0);
     }
 
-  *tmpc='\0';
-  tmpc++;
-  pva->va_ttl = strtol(tmpc,NULL,10);
+  *ptr = '\0';
+
+  /* skip white space */
+
+  ptr++;
+
+  while (isspace(*ptr))
+    ptr++;
+
+  /* extract TTL */
+
+  pva->va_ttl = strtol(ptr,NULL,10);
   
-  /* step forward to get the command */
+  /* step forward to end of TTL */
 
-  tmpc = strchr(tmpc,' ');
-
-  if (tmpc == NULL)
+  while (!isspace(*ptr))
+    ptr++;
+  
+  if (*ptr == '\0')
     {
     free(pva->va_name);
     free(pva);
@@ -2609,13 +2736,26 @@ static u_long setvarattr(
     return(0);
     }
 
-  /* SUCCESS */
+  /* skip white space */
 
-  *tmpc = '\0';
-  tmpc++;
-  pva->va_cmd = tmpc;
+  while (isspace(*ptr))
+    ptr++;
+
+  if (*ptr == '\0')
+    {
+    free(pva->va_name);
+    free(pva);
+
+    return(0);
+    }
+
+  /* preserve command and args */
+
+  pva->va_cmd = ptr;
 
   append_link(&mom_varattrs,&pva->va_link,pva);
+
+  /* SUCCESS */
 
   return(1); 
   }  /* END setvarattr() */
@@ -2635,6 +2775,24 @@ static unsigned long setnodefilesuffix(
 
   return(1);
   }  /* END setnodexfilesuffix() */
+
+
+
+
+static unsigned long setmomhost(
+
+  char *value)  /* I */
+
+  {
+  hostname_specified = 1;
+
+  strncpy(mom_host,value,PBS_MAXHOSTNAME);       /* remember name */
+
+  /* SUCCESS */
+
+  return(1);
+  }  /* END setmomhost() */
+
 
 
 
@@ -2825,7 +2983,7 @@ int read_config(
     {
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 
-    if (chk_file_sec(file,0,0,S_IWGRP|S_IWOTH,1))
+    if (chk_file_sec(file,0,0,S_IWGRP|S_IWOTH,1,NULL))
       {
       /* not authorized to access specified file, return failure */
 
@@ -2985,7 +3143,7 @@ int read_config(
 
     if (
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
-        !chk_file_sec(path_server_name, 0, 0, S_IWGRP|S_IWOTH, 1) &&
+        !chk_file_sec(path_server_name, 0, 0, S_IWGRP|S_IWOTH, 1,NULL) &&
 #endif
         (server_file = fopen(path_server_name,"r")) != NULL)
       {
@@ -4395,10 +4553,11 @@ int rm_request(
             BPtr = output;
             BSpace = sizeof(output);
 
-            sprintf(tmpLine,"\nHost: %s/%s   Version: %s\n",
+            sprintf(tmpLine,"\nHost: %s/%s   Version: %s   PID: %ld\n",
               mom_short_name,
               mom_host,
-              PACKAGE_VERSION);
+              PACKAGE_VERSION,
+              (long)getpid());
 
             MUStrNCat(&BPtr,&BSpace,tmpLine);
 
@@ -4491,14 +4650,6 @@ int rm_request(
               MUStrNCat(&BPtr,&BSpace,tmpLine);
               }
 
-            if (verbositylevel >= 2)
-              {
-              sprintf(tmpLine,"PID:                    %ld\n",
-                (long)getpid());
-
-              MUStrNCat(&BPtr,&BSpace,tmpLine);
-              }
-
             sprintf(tmpLine,"HomeDirectory:          %s\n",
               (mom_home != NULL) ? mom_home : "N/A");
 
@@ -4558,7 +4709,7 @@ int rm_request(
               MUStrNCat(&BPtr,&BSpace,tmpLine);
               }
 
-            sprintf(tmpLine,"LOGLEVEL:               %d (use SIGUSR1/SIGUSR2 to adjust)\n",
+            sprintf(tmpLine,"LogLevel:               %d (use SIGUSR1/SIGUSR2 to adjust)\n",
               LOGLEVEL);
 
             MUStrNCat(&BPtr,&BSpace,tmpLine);
@@ -4574,7 +4725,23 @@ int rm_request(
                 );
 
               MUStrNCat(&BPtr,&BSpace,tmpLine);
-              }
+
+              if ((MOMIsLocked == 1) || (MOMIsPLocked == 1) || (verbositylevel >= 4))
+                {
+                sprintf(tmpLine,"MemLocked:              %s",
+                  (MOMIsLocked == 0) ? "FALSE" : "TRUE");
+
+                if (MOMIsLocked == 1)
+                  strcat(tmpLine,"  (mlock)");
+ 
+                if (MOMIsPLocked == 1)
+                  strcat(tmpLine,"  (plocked)");
+
+                strcat(tmpLine,"\n");
+
+                MUStrNCat(&BPtr,&BSpace,tmpLine);
+                }
+              }    /* END if (verbositylevel >= 1) */
 
             if ((verbositylevel >= 1) && (pbs_tcp_timeout > 0))
               {
@@ -4651,8 +4818,9 @@ int rm_request(
               {
               tmpLine[0] = '\0';
 
-              MUSNPrintF(&BPtr,&BSpace,"Configured to use %s %s\n",
-                rcp_path, rcp_args );
+              MUSNPrintF(&BPtr,&BSpace,"Copy Command:           %s %s\n",
+                rcp_path, 
+                rcp_args );
               }
 
             /* joblist */
@@ -4730,14 +4898,15 @@ int rm_request(
             if ((pva = (struct varattr *)GET_NEXT(mom_varattrs)) != NULL)
               {
               MUStrNCat(&BPtr,&BSpace,"Varattrs:\n");
+
               while (pva != NULL)
                 {
-                sprintf(tmpLine,"  name=%s  ttl=%d last=%s    cmd=%s value=%s\n",
+                sprintf(tmpLine,"  name=%s  ttl=%d  last=%s  cmd=%s  value=%s\n\n",
                   pva->va_name,
                   pva->va_ttl,
                   ctime(&pva->va_lasttime),
                   pva->va_cmd,
-                  pva->va_value);
+                  (pva->va_value != NULL) ? pva->va_value : "NULL");
 
                 MUStrNCat(&BPtr,&BSpace,tmpLine);
 
@@ -5821,6 +5990,9 @@ void usage(
   }  /* END usage() */
 
 
+
+
+
 /*
  * MOMFindMyExe - attempt to find my running executable file.
  *                returns alloc'd memory that is never freed.
@@ -5842,22 +6014,31 @@ char *MOMFindMyExe(
   link = calloc(MAXPATHLEN+1,sizeof(char));
 
   if (link == NULL)
-    return NULL;
+    {
+    return(NULL);
+    }
 
   /* Linux has a handy symlink, so try that first */
 
   if (readlink("/proc/self/exe",link,MAXPATHLEN) > 0)
+    {
     if (link[0] != '\0' && link[0] != '[')
-      return link;
+      {
+      return(link);
+      }
+    }
 
   /* if argv0 has a /, then it should exist relative to $PWD */
 
   for (p = argv0; *p; p++)
+    {
     if (*p == '/')
       {
       has_slash = 1;
+
       break;
       }
+    }
 
   if (has_slash)
     {
@@ -5872,7 +6053,8 @@ char *MOMFindMyExe(
       if (getcwd(link,MAXPATHLEN) == NULL)
         {
         free(link);
-        return NULL;
+
+        return(NULL);
         }
       
       strcat(link,"/");
@@ -5882,20 +6064,23 @@ char *MOMFindMyExe(
     if (realpath(link,resolvedpath) == NULL)
       {
       free(link);
-      return NULL;
+
+      return(NULL);
       }
     
     strcpy(link,resolvedpath);
 
     if (access(link,X_OK) == 0)
-      return link;
+      {
+      return(link);
+      }
 
-    return NULL;
+    return(NULL);
     }
 
   /* argv0 doesn't have a /, so search $PATH */
 
-  path = getenv ("PATH");
+  path = getenv("PATH");
 
   if (path != NULL)
     {
@@ -5904,9 +6089,11 @@ char *MOMFindMyExe(
       char *q;
       size_t p_len;
 
-      for (q = p; *q; q++)
+      for (q = p;*q;q++)
+        {
         if (*q == ':')
           break;
+        }
 
       p_len = q - p;
       p_next = (*q == '\0' ? q : q + 1);
@@ -5920,7 +6107,8 @@ char *MOMFindMyExe(
         if (getcwd(link,MAXPATHLEN) == NULL)
           {
           free(link);
-          return NULL;
+
+          return(NULL);
           }
         
         strcat(link, "/");
@@ -5935,31 +6123,47 @@ char *MOMFindMyExe(
         }
 
       if (access(link,X_OK) == 0)
-        return link;
-      } /* END for (p = path; *p; p = p_next) */
+        {
+        return(link);
+        }
+      }  /* END for (p = path; *p; p = p_next) */
     }
 
-  return NULL;
-  } /* END MOMFindMyExe() */
+  return(NULL);
+  }  /* END MOMFindMyExe() */
+
+
+
+
 
 /*
  * MOMGetFileMtime - return the mtime of a file
  */
 
-time_t MOMGetFileMtime(const char *fpath)
+time_t MOMGetFileMtime(
+
+  const char *fpath)
+
   {
    struct stat sbuf;
    int ret;
    
    if ((fpath == NULL) || (*fpath == '\0'))
-     return 0;
+     {
+     return(0);
+     }
 
-   ret = stat(fpath, &sbuf);
+   ret = stat(fpath,&sbuf);
+
    if (ret == 0)
-     return sbuf.st_mtime;
+     {
+     return(sbuf.st_mtime);
+     }
 
-  return 0;
+  return(0);
   }  /* END MOMGetFileMtime */
+
+
 
 
 /*
@@ -5973,8 +6177,10 @@ void MOMCheckRestart(void)
   time_t newmtime;
 
   if ((MOMConfigRestart <= 0) || (MOMExeTime <= 0))
+    {
     return;
-  
+    }
+
   newmtime = MOMGetFileMtime(MOMExePath);
 
   if ((newmtime > 0) && (newmtime != MOMExeTime))
@@ -6001,6 +6207,9 @@ void MOMCheckRestart(void)
     DBPRT(("%s\n",log_buffer));
     }
   }  /* END MOMCheckRestart() */
+
+
+
 
 int MOMInitialize(void)
 
@@ -6041,7 +6250,7 @@ int main(
   {
   static	char id[] = "mom_main";
 
-  int	 	errflg, c;
+  int	 	errflg, c, hostc=1;
   FILE		*dummyfile;
   task		*ptask;
   char		*ptr;                   /* local tmp variable */
@@ -6061,11 +6270,6 @@ int main(
 #if MOM_CHECKPOINT == 1
   resource	*prscput;
 #endif /* MOM_CHECKPOINT */
-
-#ifdef _POSIX_MEMLOCK
-  int           mlockall_return;
-  int           MOMISLOCKED = 0;
-#endif /* _POSIX_MEMLOCK */
 
   strcpy(pbs_current_user,"pbs_mom");
   msg_daemonname = pbs_current_user;
@@ -6100,6 +6304,12 @@ int main(
   strcpy(xauth_path,XAUTH_PATH);
   strcpy(rcp_path,RCP_PATH);
   strcpy(rcp_args,RCP_ARGS);
+#ifdef DEFAULT_MOMLOGDIR
+  path_log=strdup(DEFAULT_MOMLOGDIR);
+#endif
+#ifdef DEFAULT_MOMLOGSUFFIX
+  log_init(DEFAULT_MOMLOGSUFFIX,NULL);
+#endif
 
   /* PATH is restored before a restart */
   if (getenv("PATH") != NULL)
@@ -6156,7 +6366,7 @@ int main(
 
   errflg = 0;
 
-  while ((c = getopt(argc,argv,"a:c:C:d:Dh:L:M:prR:S:vx-:")) != -1) 
+  while ((c = getopt(argc,argv,"a:c:C:d:Dh:l:L:M:prR:s:S:vx-:")) != -1) 
     {
     switch (c) 
       {
@@ -6249,6 +6459,12 @@ int main(
 
         break;
 
+      case 'l':
+
+        path_log = strdup(optarg);
+
+        break;
+
       case 'L':
 
         log_file = optarg;
@@ -6301,6 +6517,12 @@ int main(
 
         break;
 
+      case 's':
+
+        log_init(optarg,NULL);
+
+        break;
+
       case 'S':
 
         default_server_port = (unsigned int)atoi(optarg);
@@ -6335,7 +6557,7 @@ int main(
  
         break;
       }  /* END switch(c) */
-    }    /* END while ((c = getopt(argc,argv,"d:c:M:S:R:L:a:xC:pr")) != -1) */
+    }    /* END while ((c = getopt(argc,argv,"a:c:C:d:Dh:L:M:prR:S:vx-:")) != -1) */
 
   if ((errflg > 0) || (optind != argc))
     {
@@ -6400,7 +6622,7 @@ int main(
   setrlimit(RLIMIT_FSIZE, &rlimit);
   setrlimit(RLIMIT_DATA,  &rlimit);
 #ifdef	RLIMIT_RSS
-  setrlimit(RLIMIT_RSS  , &rlimit);
+  setrlimit(RLIMIT_RSS,   &rlimit);
 #endif	/* RLIMIT_RSS */
 #ifdef	RLIMIT_VMEM
   setrlimit(RLIMIT_VMEM, &rlimit);
@@ -6426,7 +6648,11 @@ int main(
   path_epilogpdel  = mk_dirs("mom_priv/epilogue.precancel");
   path_resources   = mk_dirs(PBS_RESOURCES);
 
-  path_log         = mk_dirs("mom_logs");
+#ifndef DEFAULT_MOMLOGDIR
+  if (path_log == NULL)
+    path_log       = mk_dirs("mom_logs");
+#endif
+
   path_spool       = mk_dirs("spool/");
   path_undeliv     = mk_dirs("undelivered/");
   path_aux         = mk_dirs("aux/");
@@ -6445,7 +6671,7 @@ int main(
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 
-  c = chk_file_sec(path_checkpoint, 1, 0, S_IWGRP|S_IWOTH, 1);
+  c = chk_file_sec(path_checkpoint,1,0,S_IWGRP|S_IWOTH,1,NULL);
 
 #endif  /* not DEBUG and not NO_SECURITY_CHECK */
 #endif	/* MOM_CHECKPOINT */
@@ -6466,11 +6692,11 @@ int main(
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 
-  c |= chk_file_sec(path_jobs,        1, 0, S_IWGRP|S_IWOTH, 1);
-  c |= chk_file_sec(path_aux,         1, 0, S_IWGRP|S_IWOTH, 1);
-  c |= chk_file_sec(path_spool,       1, 1, S_IWOTH,         0);
-  c |= chk_file_sec(path_undeliv,     1, 1, S_IWOTH,         0);
-  c |= chk_file_sec(PBS_ENVIRON,      0, 0, S_IWGRP|S_IWOTH, 0);
+  c |= chk_file_sec(path_jobs,    1, 0, S_IWGRP|S_IWOTH, 1,NULL);
+  c |= chk_file_sec(path_aux,     1, 0, S_IWGRP|S_IWOTH, 1,NULL);
+  c |= chk_file_sec(path_spool,   1, 1, S_IWOTH,         0,NULL);
+  c |= chk_file_sec(path_undeliv, 1, 1, S_IWOTH,         0,NULL);
+  c |= chk_file_sec(PBS_ENVIRON,  0, 0, S_IWGRP|S_IWOTH, 0,NULL);
 
   if (c)
     {
@@ -6478,6 +6704,13 @@ int main(
     }
 
 #endif  /* not DEBUG and not NO_SECURITY_CHECK */
+
+  if (hostname_specified == 0) 
+    {
+    hostc = gethostname(mom_host,PBS_MAXHOSTNAME);
+    }
+
+  log_init(NULL,mom_host);
 
   /* open log file while std in,out,err still open, forces to fd 4 */
 
@@ -6627,8 +6860,19 @@ int main(
     }
 
 #if (PLOCK_DAEMONS & 4)
-  plock(PROCLOCK);	/* lock daemon into memory */
-#endif
+  /* lock daemon into memory */
+
+  /* NOTE:  should reduce maximum stack limit using ulimit() before calling plock */
+
+  if (plock(PROCLOCK) == -1)
+    {
+    log_err(errno,msg_daemonname,"failed to lock mom into memory with plock");
+    }
+  else
+    {
+    MOMIsPLocked = 1;
+    }
+#endif /* PLOCK_DAEMONS */
 	
   sigemptyset(&allsigs);
   act.sa_mask = allsigs;
@@ -6658,7 +6902,7 @@ int main(
   **	We want to abort system calls
   **	and call a function.
   */
-#ifdef	SA_INTERRUPT
+#ifdef SA_INTERRUPT
   act.sa_flags |= SA_INTERRUPT;	/* don't restart system calls */
 #endif
 
@@ -6765,7 +7009,7 @@ int main(
   CLEAR_HEAD(svr_requests);
   CLEAR_HEAD(mom_varattrs);
 
-  if ( hostname_specified || ( (c = gethostname(mom_host,PBS_MAXHOSTNAME)) == 0) ) 
+  if ((hostname_specified != 0) || (hostc == 0)) 
     {
     strcpy(mom_short_name,mom_host);
 
@@ -6853,7 +7097,7 @@ int main(
   add_conn(rppfd,Primary,(pbs_net_t)0,0,rpp_request);
   add_conn(privfd,Primary,(pbs_net_t)0,0,rpp_request);
 
-  /* initialize machine dependent polling routines */
+  /* initialize machine-dependent polling routines */
 
   if ((c = mom_open_poll()) != PBSE_NONE) 
     {
@@ -6865,6 +7109,30 @@ int main(
   /* recover & abort jobs which were under MOM's control */
 
   init_abort_jobs(recover);
+
+#ifdef _POSIX_MEMLOCK
+  /* call mlockall() only 1 time, since it seems to leak mem */
+
+  if (MOMIsLocked == 0)
+    {
+    int mlockall_return;
+
+    /* make sure pbs_mom stays in RAM and doesn't get paged out */
+
+    mlockall_return = mlockall(MCL_CURRENT|MCL_FUTURE);
+
+    /* exit iff mlock failed, but ignore function not implemented error */
+
+    if ((mlockall_return == -1) && (errno != ENOSYS))
+      {
+      perror("pbs_mom:mom_main.c:mlockall()");
+
+      exit(1);
+      }
+
+    MOMIsLocked = 1;
+    }
+#endif /* _POSIX_MEMLOCK */
 
   /* record the fact that we are up and running */
 
@@ -7287,27 +7555,7 @@ int main(
         pjob->ji_qs.ji_svrflags |= JOB_SVFLG_OVERLMT1;
         }
       }    /* END for (pjob) */
-#ifdef _POSIX_MEMLOCK
-    /* call mlockall() only 1 time, since it seems to leak mem */
-
-    if (MOMISLOCKED == 0)
-      {
-      /* make sure pbs_mom stays in RAM and doesn't get paged out */
-
-      mlockall_return = mlockall(MCL_CURRENT | MCL_FUTURE);
-
-      /* exit iff mlock failed, but ignore function not implemented error */
-      if (mlockall_return == -1 && errno != ENOSYS)
-        {
-        perror("pbs_mom:mom_main.c:mlockall()");
-
-        exit(1);
-        }
-
-      MOMISLOCKED = 1;
-      }
-#endif /* _POSIX_MEMLOCK */
-    }  /* END for (;mom_run_state == MOM_RUN_STATE_RUNNING;) */
+    }      /* END for (;mom_run_state == MOM_RUN_STATE_RUNNING;) */
  
   /* have exited main loop */
 
@@ -7558,22 +7806,22 @@ int TMOMScanForStarting(void)
     {
     nextjob = (job *)GET_NEXT(pjob->ji_alljobs);
 
-    if (LOGLEVEL >= 2)
-      {
-      snprintf(log_buffer,1024,"checking job start in %s",
-        id);
-
-      log_record(
-        PBSEVENT_JOB | PBSEVENT_FORCE,
-        PBS_EVENTCLASS_JOB,
-        pjob->ji_qs.ji_jobid,
-        log_buffer);
-      }
- 
     if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_STARTING)
       {
       pjobexec_t *TJE;
 
+      if (LOGLEVEL >= 2)
+        {
+        snprintf(log_buffer,1024,"checking job start in %s",
+          id);
+
+        log_record(
+          PBSEVENT_JOB | PBSEVENT_FORCE,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          log_buffer);
+        }
+ 
       if (TMOMJobGetStartInfo(pjob,&TJE) == FAILURE)
         {
         sprintf(log_buffer,"job %s start data lost, server will retry",
@@ -7662,7 +7910,7 @@ int TMOMScanForStarting(void)
             }
           }
         }    /* END else (TMomCheckJobChild() == FAILURE) */
-      }      /* END if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN) */
+      }      /* END if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_STARTING) */
 
     pjob = nextjob;
     }        /* END while (pjob != NULL) */

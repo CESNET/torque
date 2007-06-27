@@ -113,13 +113,13 @@ extern int  lockfds;
 extern char *path_aux;
 
 unsigned int pe_alarm_time = PBS_PROLOG_TIME;
-static pid_t  child;
-static int run_exit;
+static pid_t child;
+static int   run_exit;
 
 /* external prototypes */
 
 extern int pe_input A_((char *));
-extern int TTmpDirName A_((job *,char *tmpdir));
+extern int TTmpDirName A_((job *,char *));
 extern void encode_used A_((job *,tlist_head *));
 
 /* END extern prototypes */
@@ -679,13 +679,15 @@ int run_pelog(
     char *envname = "PBS_SCHED_HINT";
     char *envval;
     char *envstr;
-    extern char *get_job_envvar(job *,char *);
   
     if ((envval = get_job_envvar(pjob,envname)) != NULL)
       {
       envstr = malloc((strlen(envname) + strlen(envval) + 2) * sizeof(char));
 
-      sprintf(envstr,"%s=%s",envname,envval);
+      sprintf(envstr,"%s=%s",
+        envname,
+        envval);
+
       putenv(envstr);
       }
     }
@@ -695,11 +697,15 @@ int run_pelog(
     char *envname = "PBS_NODENUM";
     char *envstr;
   
-    sprintf(buf,"%d",pjob->ji_nodeid);
+    sprintf(buf,"%d",
+      pjob->ji_nodeid);
 
     envstr = malloc((strlen(envname) + strlen(buf) + 2) * sizeof(char));
 
-    sprintf(envstr,"%s=%d",envname,pjob->ji_nodeid);
+    sprintf(envstr,"%s=%d",
+      envname,
+      pjob->ji_nodeid);
+
     putenv(envstr);
     }
 
@@ -712,7 +718,10 @@ int run_pelog(
       {
       envstr = malloc((strlen(envname) + strlen(pjob->ji_vnods[0].vn_host->hn_host) + 2) * sizeof(char));
 
-      sprintf(envstr,"%s=%s",envname,pjob->ji_vnods[0].vn_host->hn_host);
+      sprintf(envstr,"%s=%s",
+        envname,
+        pjob->ji_vnods[0].vn_host->hn_host);
+
       putenv(envstr);
       }
     }
@@ -730,11 +739,48 @@ int run_pelog(
 
       envstr = malloc((strlen(envname) + strlen(buf) + 2) * sizeof(char));
 
-      sprintf(envstr,"%s=%s",envname,buf);
+      sprintf(envstr,"%s=%s",
+        envname,
+        buf);
+
       putenv(envstr);
       }
     }
 
+    /* SET BEOWULF_JOB_MAP */
+
+    {
+    struct array_strings *vstrs;
+
+    int    VarIsSet = 0;
+    int    j;
+
+    vstrs = pjob->ji_wattr[(int)JOB_ATR_variables].at_val.at_arst;
+
+    for (j = 0;j < vstrs->as_usedptr;++j)
+      {
+      if (!strncmp(
+            vstrs->as_string[j],
+            "BEOWULF_JOB_MAP=",
+            strlen("BEOWULF_JOB_MAP=")))
+        {
+        VarIsSet = 1;
+
+        break;
+        }
+      }
+
+    if (VarIsSet == 1)
+      {
+      char *envstr;
+
+      envstr = malloc((strlen(vstrs->as_string[j])) * sizeof(char));
+
+      strcpy(envstr,vstrs->as_string[j]);
+
+      putenv(envstr);
+      }
+    }
 
     execv(pelog,arg);
 

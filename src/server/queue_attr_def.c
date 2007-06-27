@@ -93,6 +93,17 @@
 
 extern int decode_null A_((attribute *patr, char *name, char *rn, char *val));
 extern int set_null A_((attribute *patr, attribute *new, enum batch_op op));
+extern int disallowed_types_chk A_((attribute *pattr, void *pobject, int actmode));
+
+/* array of allowable strings in queue attribute disallowed_types */
+char* array_disallowed_types[] = {
+   Q_DT_batch,
+   Q_DT_interactive,
+   Q_DT_rerunable,
+   Q_DT_nonrerunable,
+   "_END_" /* must be last string */
+};
+
 
 /*
  * The entries for each attribute are (see attribute.h):
@@ -106,6 +117,8 @@ extern int set_null A_((attribute *patr, attribute *new, enum batch_op op));
  *	access permission flags,
  *	value type
  */
+
+/* NOTE:  que_attr_def[] should be ordered with QA_ATR_* enum */
 
  /* for all queues */
 
@@ -123,7 +136,7 @@ attribute_def que_attr_def[] = {
 	ATR_TYPE_STR,
 	PARENT_TYPE_QUE_ALL
     },
-/* QA_ATR_Priority */		/* priority of queue releative to others */
+/* QA_ATR_Priority */		/* priority of queue relative to others */
     {	ATTR_p,			/* "priority" */
 	decode_l,
 	encode_l,
@@ -135,6 +148,33 @@ attribute_def que_attr_def[] = {
 	ATR_TYPE_LONG,
 	PARENT_TYPE_QUE_ALL
     },
+
+/* QA_ATR_HostList */            /* HostList */
+    {   ATTR_hostlist,           /* "hostlist" */
+        decode_arst,
+        encode_arst,
+        set_hostacl,
+        comp_arst,
+        free_arst,
+        NULL_FUNC,
+        NO_USER_SET,
+        ATR_TYPE_ACL,
+        PARENT_TYPE_QUE_ALL
+    },
+
+/* QA_ATR_Rerunnable */    /* rerunnable */
+    {   ATTR_rerunnable,   /* "rerunnable" */
+        decode_b,
+        encode_b,
+        set_b,
+        comp_b,
+        free_null,
+        NULL_FUNC,
+        NO_USER_SET,
+        ATR_TYPE_LONG,
+        PARENT_TYPE_QUE_ALL
+    },
+
 /* QA_ATR_MaxJobs */		/* max number of jobs allowed in queue */
     {	ATTR_maxque,		/* "max_queuable" */
 	decode_l,
@@ -183,8 +223,8 @@ attribute_def que_attr_def[] = {
 	ATR_TYPE_STR,
 	PARENT_TYPE_QUE_ALL
     },
-/* QA_ATR_MaxRun */		/* max number of jobs allowed to run */
-    {	ATTR_maxrun,		/* "max_running" */
+/* QA_ATR_MaxReport */		/* max number of jobs reported for truncated output */
+    {	ATTR_maxreport,		/* "max_report" */
 	decode_l,
 	encode_l,
 	set_l,
@@ -194,6 +234,18 @@ attribute_def que_attr_def[] = {
 	NO_USER_SET,
 	ATR_TYPE_LONG,
 	PARENT_TYPE_QUE_ALL
+    },
+/* QA_ATR_MaxRun */             /* max number of jobs allowed to run */
+    {   ATTR_maxrun,            /* "max_running" */
+        decode_l,
+        encode_l,
+        set_l,
+        comp_l,
+        free_null,
+        NULL_FUNC,
+        NO_USER_SET,
+        ATR_TYPE_LONG,
+        PARENT_TYPE_QUE_ALL
     },
 /* QA_ATR_AclHostEnabled */	/* Host ACL to be used */
     {	ATTR_aclhten,		/* "acl_host_enable" */
@@ -340,7 +392,7 @@ attribute_def que_attr_def[] = {
        ATR_TYPE_LONG,
        PARENT_TYPE_QUE_ALL
      },
-/* QS_ATR_MTime */
+/* QA_ATR_MTime */
     {	ATTR_mtime,		/* "mtime" */
 	decode_l,
 	encode_l,
@@ -351,6 +403,18 @@ attribute_def que_attr_def[] = {
 	READ_ONLY,
 	ATR_TYPE_LONG,
 	PARENT_TYPE_QUE_ALL
+    },
+/* QA_ATR_DisallowedTypes */
+    {   ATTR_disallowedtypes,   /* "disallowed_types" */
+        decode_arst,
+        encode_arst,
+        set_arst,
+        comp_arst,
+        free_arst,
+        disallowed_types_chk,
+        NO_USER_SET,
+        ATR_TYPE_ACL,
+        PARENT_TYPE_QUE_ALL
     },
 
    /* for execution queues only */

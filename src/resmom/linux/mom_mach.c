@@ -179,7 +179,7 @@ extern  char    PBSNodeMsgBuf[1024];
 /*
 ** external functions and data
 */
-extern	struct	config		*search A_((struct config *, char *));
+extern	struct	config		*search A_((struct config *,char *));
 extern	struct	rm_attribute	*momgetattr A_((char *));
 extern	int                      rm_errno;
 extern	double	cputfactor;
@@ -190,27 +190,27 @@ extern  int     ignwalltime;
 /*
 ** local functions and data
 */
-static char	*resi		A_((struct rm_attribute *attrib));
-static char	*totmem		A_((struct rm_attribute *attrib));
-static char	*availmem	A_((struct rm_attribute *attrib));
-static char	*physmem	A_((struct rm_attribute *attrib));
-static char	*ncpus		A_((struct rm_attribute *attrib));
-static char	*walltime	A_((struct rm_attribute *attrib));
-static char	*quota		A_((struct rm_attribute *attrib));
-static char     *netload        A_((struct rm_attribute *attrib));
+static char	*resi		A_((struct rm_attribute *));
+static char	*totmem		A_((struct rm_attribute *));
+static char	*availmem	A_((struct rm_attribute *));
+static char	*physmem	A_((struct rm_attribute *));
+static char	*ncpus		A_((struct rm_attribute *));
+static char	*walltime	A_((struct rm_attribute *));
+static char	*quota		A_((struct rm_attribute *));
+static char     *netload        A_((struct rm_attribute *));
 
-extern char	*loadave	A_((struct rm_attribute *attrib));
-extern char	*nullproc	A_((struct rm_attribute *attrib));
+extern char	*loadave	A_((struct rm_attribute *));
+extern char	*nullproc	A_((struct rm_attribute *));
 
 time_t	wait_time = 10;
 
 typedef	struct proc_mem {
-  unsigned long mem_total;
-  unsigned long mem_used;
-  unsigned long mem_free;
-  unsigned long swap_total;
-  unsigned long swap_used;
-  unsigned long swap_free;
+  unsigned long long mem_total;
+  unsigned long long mem_used;
+  unsigned long long mem_free;
+  unsigned long long swap_total;
+  unsigned long long swap_used;
+  unsigned long long swap_free;
   } proc_mem_t;
 
 /*
@@ -227,7 +227,7 @@ struct config dependent_config[] = {
   { "quota",	{quota} },
   { "netload",  {netload} },
   { "size",     {size} },
-  { NULL,	{nullproc} },
+  { NULL,	{nullproc} }
 };
 
 unsigned linux_time = 0;
@@ -265,15 +265,17 @@ void proc_get_btime()
 
       return;
       }
-    }
+    }    /* END while (!feof(fp)) */
 
   fclose(fp);
 
   return;
   }  /* END proc_get_btime() */
 
+/* NOTE:  leading '*' indicates that field should be ignored */
+
 static char stat_str[] = "%d (%[^)]) %c %*d %*d %d %*d %*d %u %*u \
-%*u %*u %*u %d %d %d %d %*d %*d %*u %*u %u %lu %lu %*u %*u \
+%*u %*u %*u %d %d %d %d %*d %*d %*u %*u %u %llu %llu %*u %*u \
 %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u";
 
 /*
@@ -379,10 +381,10 @@ proc_stat_t *get_proc_stat(
 proc_mem_t *get_proc_mem()
 
   {
-  static proc_mem_t  mm;
-  FILE              *fp;
-  char               str[32];
-  unsigned long      bfsz, casz;
+  static proc_mem_t   mm;
+  FILE               *fp;
+  char                str[32];
+  unsigned long long  bfsz, casz;
 
   if ((fp = fopen("/proc/meminfo","r")) == NULL) 
     {
@@ -402,7 +404,7 @@ proc_mem_t *get_proc_mem()
 
     /* umu vmem patch */
 
-    fscanf(fp,"%*s %lu %lu %lu %*u %lu %lu",
+    fscanf(fp,"%*s %llu %llu %llu %*u %llu %llu",
        &mm.mem_total,
        &mm.mem_used,
        &mm.mem_free,
@@ -418,7 +420,7 @@ proc_mem_t *get_proc_mem()
       &mm.mem_free);
 */
 
-    fscanf(fp,"%*s %lu %lu %lu %*[^\n]%*c",
+    fscanf(fp,"%*s %llu %llu %llu %*[^\n]%*c",
       &mm.swap_total,
       &mm.swap_used,
       &mm.swap_free);
@@ -431,42 +433,42 @@ proc_mem_t *get_proc_mem()
 
       if (!strncmp(str,"MemTotal:",sizeof(str))) 
         {
-        fscanf(fp,"%lu",
+        fscanf(fp,"%llu",
           &mm.mem_total);
 
         mm.mem_total *= 1024; /* the unit is kB */
         } 
       else if (!strncmp(str,"MemFree:",sizeof(str))) 
         {
-        fscanf(fp,"%lu",
+        fscanf(fp,"%llu",
           &mm.mem_free);
 
         mm.mem_free *= 1024;
         } 
       else if (!strncmp(str,"Buffers:",sizeof(str))) 
         {
-        fscanf(fp,"%lu",
+        fscanf(fp,"%llu",
           &bfsz);
  
         mm.mem_free += bfsz * 1024;
         } 
       else if (!strncmp(str,"Cached:",sizeof(str))) 
         {
-        fscanf(fp,"%lu",
+        fscanf(fp,"%llu",
           &casz);
  
         mm.mem_free += casz * 1024;
         } 
       else if (!strncmp(str,"SwapTotal:",sizeof(str))) 
         {
-        fscanf(fp,"%lu",
+        fscanf(fp,"%llu",
           &mm.swap_total);
 
         mm.swap_total *= 1024;
         } 
       else if (!strncmp(str,"SwapFree:",sizeof(str))) 
         {
-        fscanf(fp,"%lu",
+        fscanf(fp,"%llu",
           &mm.swap_free);
 
         mm.swap_free *= 1024;
@@ -669,7 +671,7 @@ static int gettime(
 static int injob(
 
   job   *pjob,
-  pid_t	sid)
+  pid_t	 sid)
 
   {
   task *ptask;
@@ -688,7 +690,7 @@ static int injob(
     }
 
   return(FALSE);
-  }
+  }  /* END injob() */
 
 
 
@@ -833,14 +835,16 @@ static int overcpu_proc(
  *	space consumed by all current processes within the job.
  */
 
-static unsigned long mem_sum(
+/* NOTE:  routine should be modified to return llu */
+
+static unsigned long long mem_sum(
 
   job *pjob)
 
   {
   char			*id = "mem_sum";
   struct dirent		*dent;
-  unsigned long		segadd;
+  unsigned long	long     segadd;
   proc_stat_t		*ps;
 
   segadd = 0;
@@ -941,12 +945,12 @@ static unsigned long resi_sum(
 
 static int overmem_proc(
 
-  job		*pjob,
-  unsigned long	limit)
+  job		     *pjob,
+  unsigned long	long  limit)
 
   {
   char		*id = "overmem_proc";
-  ulong		memsize;
+  unsigned long long memsize;
   struct dirent	*dent;
   proc_stat_t	*ps;
 
@@ -979,7 +983,7 @@ static int overmem_proc(
       {
       return(TRUE);
       }
-    }
+    }    /* END while ((dent = readdir(pdir)) != NULL) */
 
   return(FALSE);
   }  /* END overmem_proc() */
@@ -1587,7 +1591,10 @@ int mom_over_limit(
   {
   char		*pname;
   int		retval;
-  unsigned long	value, num;
+  unsigned long	value;
+  unsigned long num;
+  unsigned long long numll;
+
   resource	*pres;
 
   assert(pjob != NULL);
@@ -1643,10 +1650,10 @@ int mom_over_limit(
       if (retval != PBSE_NONE)
         continue;
 
-      if ((num = mem_sum(pjob)) > value) 
+      if ((numll = mem_sum(pjob)) > value) 
         {
-        sprintf(log_buffer,"vmem %lu exceeded limit %lu",
-          num, 
+        sprintf(log_buffer,"vmem %llu exceeded limit %lu",
+          numll, 
           value);
 
         return(TRUE);
@@ -1654,15 +1661,19 @@ int mom_over_limit(
       } 
     else if (strcmp(pname,"pvmem") == 0) 
       {
+      unsigned long long valuell;
+
       retval = getsize(pres,&value);
 
       if (retval != PBSE_NONE)
         continue;
 
-      if (overmem_proc(pjob,value)) 
+      valuell = (unsigned long long)value;
+
+      if (overmem_proc(pjob,valuell)) 
         {
-        sprintf(log_buffer,"pvmem exceeded limit %lu",
-          value);
+        sprintf(log_buffer,"pvmem exceeded limit %llu",
+          valuell);
 
         return(TRUE);
         }
@@ -2113,7 +2124,8 @@ int mach_checkpoint(
 
       return(0);
       }
-    else if (pid == 0)
+
+    if (pid == 0)
       {
       /* child: execv the script */
 
@@ -2137,11 +2149,11 @@ int mach_checkpoint(
        *       the child to see what it's exit status is.  We are delaying
        *       the full implementation for now.  NYI
        */
-      }
+      }  /* END if (pid == 0) */
     }
 
   return(-1);
-  }
+  }  /* END mach_checkpoint() */
 
 
 
@@ -2336,13 +2348,15 @@ char *cput(
 
 char *mem_job(
 
-  pid_t sid)
+  pid_t sid)  /* I */
 
   {
-  static	char	id[] = "mem_job";
-  ulong			memsize;
-  struct dirent		*dent;
-  proc_stat_t		*ps;
+  static char         id[] = "mem_job";
+  unsigned long long  memsize;
+  struct dirent      *dent;
+  proc_stat_t        *ps;
+
+  /* max memsize ??? */
 
   memsize = 0;
 
@@ -2370,7 +2384,7 @@ char *mem_job(
       continue;
 
     memsize += ps->vsize;
-    }
+    }  /* END while ((dent = readdir(pdir)) != NULL) */
 
   if (memsize == 0) 
     {
@@ -2380,7 +2394,7 @@ char *mem_job(
     }
   else 
     {
-    sprintf(ret_string,"%lukb", 
+    sprintf(ret_string,"%llukb", 
       memsize >> 10); /* KB */
 
     return(ret_string);
@@ -2415,8 +2429,8 @@ char *mem_proc(
     return(NULL);
     }
 
-  sprintf(ret_string,"%lukb",
-    (ulong)ps->vsize >> 10); /* KB */
+  sprintf(ret_string,"%llukb",
+    (unsigned long long)ps->vsize >> 10); /* KB */
 
   return(ret_string);
   }  /* END mem_proc() */
@@ -3055,7 +3069,7 @@ static char *totmem(
  
   if (LOGLEVEL >= 6)
     {
-    sprintf(log_buffer,"%s: total mem=%lu", 
+    sprintf(log_buffer,"%s: total mem=%llu", 
       id, 
       mm->mem_total + mm->swap_total);
 
@@ -3100,7 +3114,7 @@ static char *availmem(
 
   if (LOGLEVEL >= 6)
     {
-    sprintf(log_buffer,"%s: free mem=%lu", 
+    sprintf(log_buffer,"%s: free mem=%llu", 
       id, 
       mm->mem_free + mm->swap_free);
 
@@ -3121,9 +3135,10 @@ static char *ncpus(
   struct rm_attribute *attrib)
 
   {
-  char		*id = "ncpus", label[128];
+  char		*id = "ncpus"; 
+  char           label[128];
   FILE		*fp;
-  int		procs;
+  int		 procs;
 
   if (attrib != NULL) 
     {
@@ -3693,7 +3708,7 @@ static char *walltime(
 
 int get_la(
 
-  double *rv)
+  double *rv)  /* O */
 
   {
   FILE	*fp;
@@ -3707,9 +3722,10 @@ int get_la(
     return(rm_errno);
     }
 
-  if (fscanf(fp,"%f",&load) != 1) 
+  if (fscanf(fp,"%f",
+        &load) != 1) 
     {
-    log_err(errno, id, "fscanf of load in /proc/loadavg");
+    log_err(errno,id,"fscanf of load in /proc/loadavg");
 
     fclose(fp);
 
@@ -3723,7 +3739,7 @@ int get_la(
   fclose(fp);
 
   return(0);
-  }
+  }  /* END get_la() */
 
 
 

@@ -377,6 +377,20 @@ typedef struct {
   int       downfds;
   } pjobexec_t;
 
+#ifndef PBS_MOM
+
+  /* pbs_server will keep a list of these structs, with one struct per job array*/
+  struct array_job_list {
+     list_link all_arrays;
+     tlist_head array_alljobs;
+     char parent_id[PBS_MAXSVRJOBID + 1];
+     int num_cloned; 
+  
+  };
+  
+  typedef struct array_job_list array_job_list;
+
+#endif
 
 
 struct job {
@@ -419,6 +433,8 @@ struct job {
 	int		ji_lastdest;	/* last destin tried by route */
 	int		ji_retryok;	/* ok to retry, some reject was temp */
 	tlist_head	ji_rejectdest;	/* list of rejected destinations */
+	list_link	ji_arrayjobs;	/* links to all jobs in same array */
+	array_job_list	*ji_arrayjoblist; /* pointer to array_job_list for this array */
 #endif					/* END SERVER ONLY */
 
 	/*
@@ -428,7 +444,7 @@ struct job {
 	 */
 
 	struct jobfix {
-	    int     v;			/* magic number */
+	    int     qs_version;		/* quick save version */
 	    int	    ji_state;		/* internal copy of state */
 	    int	    ji_substate;	/* job sub-state */
 	    int	    ji_svrflags;	/* server flags */
@@ -473,6 +489,7 @@ struct job {
   };
 
 typedef struct job job;
+
 
 #ifdef	PBS_MOM
 /*
@@ -576,16 +593,19 @@ typedef struct	infoent {
 
 #define IM_MAX          12
 
-eventent	*event_alloc	A_((	int		command,
-					hnodent		*pnode,
-					tm_event_t	event,
-					tm_task_id	taskid));
+eventent *event_alloc A_((
+  int		command,
+  hnodent	*pnode,
+  tm_event_t	event,
+  tm_task_id	taskid));
 
-task		*pbs_task_create	A_((	job		*pjob,
-					tm_task_id	taskid));
+task *pbs_task_create A_((	
+  job *pjob,
+  tm_task_id	taskid));
 
-task		*task_find	A_((	job		*pjob,
-					tm_task_id	taskid));
+task *task_find A_((
+  job *pjob,
+  tm_task_id	taskid));
 
 #endif	/* MOM */
 
@@ -684,6 +704,7 @@ task		*task_find	A_((	job		*pjob,
 #define JOB_SUBSTATE_STAGEDEL	52	/* job deleteing staged out files  */
 #define JOB_SUBSTATE_EXITED	53	/* job exit processing completed   */
 #define JOB_SUBSTATE_ABORT      54	/* job is being aborted by server  */
+#define JOB_SUBSTATE_PREOBIT    57	/* (MOM) preobit jobstat sent */
 #define JOB_SUBSTATE_OBIT       58	/* (MOM) job obit notice sent */
 #define JOB_SUBSTATE_COMPLETE   59	/* job is complete */
 

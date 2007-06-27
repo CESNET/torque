@@ -116,6 +116,8 @@
 #include <dirent.h>
 #include <stdlib.h>
 #include <string.h>
+#include <netdb.h>
+
 #include "pbs_ifl.h"
 #include "list_link.h"
 #include "work_task.h"
@@ -135,8 +137,8 @@
 #endif
 #include "portability.h"
 
-int conn_qsub(char *,long);
-
+int conn_qsub(char *,long,char *);
+void job_purge(job *);
 
 /* External functions */
 
@@ -155,6 +157,7 @@ static void job_init_wattr A_((job *));
 #ifndef PBS_MOM
 extern struct server   server;
 extern int queue_rank;
+extern tlist_head svr_jobarrays;
 #else
 extern gid_t pbsgroup;
 #endif	/* PBS_MOM */
@@ -282,45 +285,69 @@ int remtree(
 
     filnam = &namebuf[i];
 
-	    while ((pdir = readdir(dir)) != NULL) {
-		if ( pdir->d_name[0] == '.' &&
-		    (pdir->d_name[1] == '\0' || pdir->d_name[1] == '.'))
-			continue;
+    while ((pdir = readdir(dir)) != NULL) 
+      {
+      if ((pdir->d_name[0] == '.') &&
+         ((pdir->d_name[1] == '\0') || (pdir->d_name[1] == '.')))
+        continue;
 
-		(void)strcpy(filnam, pdir->d_name);
+      strcpy(filnam,pdir->d_name);
 
 #if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64)
-		if (lstat64(namebuf, &sb) == -1) {
+      if (lstat64(namebuf,&sb) == -1) 
 #else
-		if (lstat(namebuf, &sb) == -1) {
+      if (lstat(namebuf,&sb) == -1) 
 #endif
-			log_err(errno, id, "stat");
-			rtnv = -1;
-			continue;
-		}
-		if (S_ISDIR(sb.st_mode)) {
-			rtnv = remtree(namebuf);
-		} else if (unlink(namebuf) < 0) {
-			if (errno != ENOENT) {
-			    sprintf(log_buffer, "unlink failed on %s", namebuf);
-			    log_err(errno, id, log_buffer);
-			    rtnv = -1;
-			}
-		}
-	    }
-	    (void)closedir(dir);
-	    if (rmdir(dirname) < 0) {
-		if ((errno != ENOENT) && (errno != EINVAL)) {
-			sprintf(log_buffer, "rmdir failed on %s", dirname);
-			log_err(errno, id, log_buffer);
-			rtnv = -1;
-		}
-	    }
-	} else if (unlink(dirname) < 0) {
-		sprintf(log_buffer, "unlink failed on %s", dirname);
-		log_err(errno, id, log_buffer);
-		rtnv = -1;
-	}
+        {
+        log_err(errno,id,"stat");
+ 
+        rtnv = -1;
+ 
+        continue;
+        }
+
+      if (S_ISDIR(sb.st_mode)) 
+        {
+        rtnv = remtree(namebuf);
+        }
+      else if (unlink(namebuf) < 0) 
+        {
+        if (errno != ENOENT) 
+          {
+          sprintf(log_buffer,"unlink failed on %s", 
+            namebuf);
+
+          log_err(errno,id,log_buffer);
+
+          rtnv = -1;
+          }
+        }
+      }    /* END while ((pdir = readdir(dir)) != NULL) */
+
+    closedir(dir);
+
+    if (rmdir(dirname) < 0) 
+      {
+      if ((errno != ENOENT) && (errno != EINVAL)) 
+        {
+        sprintf(log_buffer,"rmdir failed on %s", 
+          dirname);
+
+        log_err(errno,id,log_buffer);
+
+        rtnv = -1;
+        }
+      }
+    } 
+  else if (unlink(dirname) < 0) 
+    {
+    sprintf(log_buffer,"unlink failed on %s", 
+      dirname);
+
+    log_err(errno,id,log_buffer);
+
+    rtnv = -1;
+    }
 
   return(rtnv);
   }  /* END remtree() */
@@ -335,9 +362,9 @@ void send_qsub_delmsg(
   char *text)  /* I */
 
   {
-  char *phost;
-  attribute            *pattri;
-  int qsub_sock;
+  char      *phost;
+  attribute *pattri;
+  int        qsub_sock;
 
   phost = arst_string("PBS_O_HOST",&pjob->ji_wattr[(int)JOB_ATR_variables]);
 
@@ -348,7 +375,7 @@ void send_qsub_delmsg(
 
   pattri = &pjob->ji_wattr[(int)JOB_ATR_interactive];
 
-  qsub_sock = conn_qsub(phost + 1,pattri->at_val.at_long);
+  qsub_sock = conn_qsub(phost + 1,pattri->at_val.at_long,NULL);
 
   if (qsub_sock < 0)
     {
@@ -361,7 +388,7 @@ void send_qsub_delmsg(
   close(qsub_sock);
 
   return;
-  }
+  }  /* END send_qsub_delmsg() */
 
 
 
@@ -387,8 +414,6 @@ int job_abt(
   int	rc = 0;
 
   job *pjob = *pjobp;
-
-  void job_purge A_((job *));
 
   /* save old state and update state to Exiting */
 
@@ -492,8 +517,9 @@ int job_abt(
 
 int conn_qsub(
 
-  char *hostname,
-  long  port)
+  char *hostname,  /* I */
+  long  port,      /* I */
+  char *EMsg)      /* O (optional,minsize=1024) */
 
   {
   pbs_net_t hostaddr;
@@ -501,12 +527,26 @@ int conn_qsub(
 
   int flags;
 
+  if (EMsg != NULL)
+    EMsg[0] = '\0';
+
   if ((hostaddr = get_hostaddr(hostname)) == (pbs_net_t)0)
     {
+    extern int h_errno;
+
+    /* FAILURE */
+
+    if (EMsg != NULL)
+      {
+      snprintf(EMsg,1024,"cannot get address for host '%s', h_errno=%d",
+        hostname,
+        h_errno);
+      }
+
     return(-1);
     }
 
-  s = client_to_svr(hostaddr,(unsigned int)port,0);
+  s = client_to_svr(hostaddr,(unsigned int)port,0,EMsg);
 
   /* NOTE:  client_to_svr() can return 0 for SUCCESS */
 
@@ -519,6 +559,8 @@ int conn_qsub(
 
     return(-1);
     }
+
+  /* SUCCESS */
 
   /* this socket should be blocking */
 
@@ -555,7 +597,7 @@ job *job_alloc()
     return(NULL);
     }
 
-  pj->ji_qs.v = PBS_JOB_MAGIC_NUM;
+  pj->ji_qs.qs_version = PBS_QS_VERSION;
 
   CLEAR_LINK(pj->ji_alljobs);
   CLEAR_LINK(pj->ji_jobque);
@@ -578,6 +620,7 @@ job *job_alloc()
 #else	/* SERVER */
   CLEAR_HEAD(pj->ji_svrtask);
   CLEAR_HEAD(pj->ji_rejectdest);
+  CLEAR_LINK(pj->ji_arrayjobs);
 #endif  /* else PBS_MOM */
 
   pj->ji_momhandle = -1;		/* mark mom connection invalid */
@@ -707,8 +750,9 @@ job *job_clone(
   int 		i;
   int		rc;
   int           slen;
-
   
+  array_job_list *pajl;
+
   if (taskid > PBS_MAXJOBARRAY)
     {
     log_err(-1, id, "taskid out of range");
@@ -725,16 +769,16 @@ job *job_clone(
     }
 
   job_init_wattr(pnewjob);
- 
+  
   /* new job structure is allocated, 
      now we need to copy the old job, but modify based on taskid */
 
-  pnewjob->ji_alljobs = poldjob->ji_alljobs;	/* links to all jobs in server */
-  pnewjob->ji_jobque = poldjob->ji_jobque;	/* SVR: links to jobs in same queue */
+
+  CLEAR_LINK(pnewjob->ji_alljobs);
+  CLEAR_LINK(pnewjob->ji_jobque);
+  CLEAR_LINK(pnewjob->ji_svrtask); 
+  CLEAR_HEAD(pnewjob->ji_rejectdest);
   pnewjob->ji_modified = 1;			/* struct changed, needs to be saved */
-  pnewjob->ji_svrtask = poldjob->ji_svrtask;	/* links to svr work_task list */
-  pnewjob->ji_qhdr = poldjob->ji_qhdr;		/* current queue header */
-  CLEAR_HEAD(pnewjob->ji_rejectdest);		/* list of rejected destinations */
 	
 	
   /* copy the fixed size quick save information */
@@ -789,7 +833,7 @@ job *job_clone(
         {
         pc = basename + strlen(basename) - 1;
 
-        while (!isprint((int)*pc)) 
+        while (!isprint((int)*pc) || *pc == '-') 
           {
           pc--;
 
@@ -902,10 +946,19 @@ job *job_clone(
     &tempattr, 
     INCR);  
 
+  /* we need to link the cloned job into the array task list */
+  pajl = (array_job_list*)GET_NEXT(svr_jobarrays);
+  while (pajl != NULL)
+    {
+    if (strcmp(pajl->parent_id, poldjob->ji_qs.ji_jobid) == 0)
+      break;
+    pajl = (array_job_list*)GET_NEXT(pajl->all_arrays);
   
-  CLEAR_LINK(pnewjob->ji_alljobs); 
-  CLEAR_LINK(pnewjob->ji_jobque);
-  CLEAR_LINK(pnewjob->ji_svrtask);
+    }
+    CLEAR_LINK(pnewjob->ji_arrayjobs);
+    append_link(&pajl->array_alljobs, &pnewjob->ji_arrayjobs, (void*)pnewjob);
+    pnewjob->ji_arrayjoblist = pajl;
+    pajl->num_cloned++;
 
   return pnewjob;
   } /* END job_clone() */
@@ -934,8 +987,8 @@ struct work_task *ptask)
   /* do the clones in batches of 256 */
   
   
-  for (i=startindex; 
-       i<startindex+256 
+  for (i = startindex; 
+       i < startindex + 256 
        && i < pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long;
        i++)
     {
@@ -943,6 +996,7 @@ struct work_task *ptask)
     if (pjobclone == NULL)
       {
       log_err(-1, id, "unable to clone job in job_clone_wt");
+      continue;
       }
 
     svr_evaljobstate(pjobclone,&newstate,&newsub,1);
@@ -960,24 +1014,23 @@ struct work_task *ptask)
       {
       job_purge(pjobclone);
       }
-    
     }
   
   if (i < pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long)
     {
-    new_task = set_task(WORK_Timed,time_now+1,job_clone_wt,ptask->wt_parm1);
-    new_task->wt_aux = startindex+256;
+    new_task = set_task(WORK_Timed,time_now + 1,job_clone_wt,ptask->wt_parm1);
+    new_task->wt_aux = startindex + 256;
     }
   else
     {
-    /* should I clean up the placeholder here ? */
     job_purge((job*)(ptask->wt_parm1));
     }
   } /* end job_clone_tw */
   
-  
+#endif /* END !PBS_MOM */
 
-#endif /* end ifndef PBS_MOM */
+
+
 
 /*
  * job_init_wattr - initialize job working attribute array
@@ -1013,7 +1066,7 @@ static void job_init_wattr(
 
 void job_purge(
 
-  job *pjob)
+  job *pjob)  /* I (modified) */
 
   {
   static char   id[] = "job_purge";

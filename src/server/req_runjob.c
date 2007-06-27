@@ -265,7 +265,14 @@ void req_stagein(
   job *pjob;
   int  rc;
 
-  if ((pjob = chk_job_torun(preq,0)) == NULL) 
+  int  setneednodes;
+
+  if (getenv("TORQUEAUTONN"))
+    setneednodes = 1;
+  else
+    setneednodes = 0;
+
+  if ((pjob = chk_job_torun(preq,setneednodes)) == NULL) 
     {
     return;
     } 
@@ -1153,7 +1160,7 @@ static job *chk_job_torun(
   if (pjob->ji_qs.ji_svrflags & (JOB_SVFLG_CHKPT|JOB_SVFLG_StagedIn)) 
     {
     /* job has been checkpointed or files already staged in */
-    /* in this case, exec_host must be already set	 	*/
+    /* in this case, exec_host must be already set          */
 
     if (prun->rq_destin != 0) 
       {
@@ -1165,7 +1172,10 @@ static job *chk_job_torun(
         {
         /* FAILURE */
 
-        req_reject(PBSE_EXECTHERE,0,preq,NULL,NULL);
+        if (pjob->ji_qs.ji_svrflags & (JOB_SVFLG_CHKPT))
+          req_reject(PBSE_EXECTHERE,0,preq,NULL,"allocated nodes must match checkpoint location");
+        else
+          req_reject(PBSE_EXECTHERE,0,preq,NULL,"allocated nodes must match input file stagein location");
 
         return(NULL);
         }
@@ -1180,7 +1190,7 @@ static job *chk_job_torun(
             pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,
             0,
             FailHost,
-            EMsg)) != 0) 
+            EMsg)) != 0)   /* O */
         {
         req_reject(PBSE_EXECTHERE,0,preq,FailHost,EMsg);
 
@@ -1212,9 +1222,9 @@ static job *chk_job_torun(
       }
     }
 
+#ifdef __TDEV
   if (setnn == 1)
     {
-#ifdef __TDEV
     resource *prescjb = find_resc_entry(pjob,"neednodes");
 
     if ((prescjb == NULL) ||
@@ -1236,8 +1246,8 @@ static job *chk_job_torun(
           }
         }
       }
+    }    /* END if (setnn == 1) */
 #endif /* __TDEV */
-    }
 
   return(pjob);
   }  /* END chk_job_torun() */

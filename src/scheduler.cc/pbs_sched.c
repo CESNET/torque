@@ -252,12 +252,15 @@ static int server_disconnect(
 /*
 **	Got an alarm call.
 */
-void
-toolong(int sig)
-{
-	char	*id = "toolong";
-	struct	stat	sb;
-	pid_t	cpid;
+
+void toolong(
+
+  int sig)
+
+  {
+  char	*id = "toolong";
+  struct	stat	sb;
+  pid_t	cpid;
 
 	log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, "alarm call");
 	DBPRT(("alarm call\n"))
@@ -455,7 +458,7 @@ static int read_config(
 
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
-  if (chk_file_sec(file,0,0,S_IWGRP|S_IWOTH,1))
+  if (chk_file_sec(file,0,0,S_IWGRP|S_IWOTH,1,NULL))
     {
     return(-1);
     }
@@ -465,10 +468,13 @@ static int read_config(
  
   mask_num = 0;
 
-	if ((conf = fopen(file, "r")) == NULL) {
-		log_err(errno, id, "cannot open config file");
-		return (-1);
-	}
+  if ((conf = fopen(file,"r")) == NULL) 
+    {
+    log_err(errno,id,"cannot open config file");
+
+    return(-1);
+    }
+
 	while (fgets(line, CONF_LINE_LEN, conf)) {
 
 		if ((line[0] == '#') || (line[0] == '\n'))
@@ -680,26 +686,27 @@ int main(
   char *argv[])
 
   {
-	char		*id = "main";
-	struct	hostent	*hp;
-	int		go, c, errflg = 0;
-	int		lockfds;
-	int		t = 1;
-	pid_t		pid;
-	char		host[100];
-	char		*homedir = PBS_SERVER_HOME;
-	unsigned int	port;
-	char		*dbfile = "sched_out";
-	struct	sigaction	act;
-	sigset_t	oldsigs;
-	caddr_t		curr_brk = 0;
-	caddr_t		next_brk;
-	extern	char	*optarg;
-	extern	int	optind, opterr;
-	extern	int	rpp_fd;
-	fd_set		fdset;
-	int		schedinit A_((int argc, char **argv));
-	int		schedule A_((int com, int connector));
+  char		*id = "main";
+  struct	hostent	*hp;
+  int		go, c, errflg = 0;
+  int		lockfds;
+  int		t = 1;
+  pid_t		pid;
+  char		host[100];
+  char		*homedir = PBS_SERVER_HOME;
+  unsigned int	port;
+  char		*dbfile = "sched_out";
+  struct	sigaction	act;
+  sigset_t	oldsigs;
+  caddr_t	curr_brk = 0;
+  caddr_t	next_brk;
+  extern char	*optarg;
+  extern int	optind, opterr;
+  extern int	rpp_fd;
+  fd_set	fdset;
+
+  int		schedinit A_((int argc, char **argv));
+  int		schedule A_((int com, int connector));
 
 	glob_argv = argv;
 	alarm_time = 180;
@@ -788,8 +795,8 @@ int main(
 
 	(void)sprintf(log_buffer, "%s/sched_priv", homedir);
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
-	c  = chk_file_sec(log_buffer, 1, 0, S_IWGRP|S_IWOTH, 1);
-	c |= chk_file_sec(PBS_ENVIRON, 0, 0, S_IWGRP|S_IWOTH, 0);
+	c  = chk_file_sec(log_buffer,1,0,S_IWGRP|S_IWOTH,1,NULL);
+	c |= chk_file_sec(PBS_ENVIRON,0,0,S_IWGRP|S_IWOTH,0,NULL);
 	if (c != 0) exit(1);
 #endif  /* not DEBUG and not NO_SECURITY_CHECK */
 	if (chdir(log_buffer) == -1) {
@@ -1008,8 +1015,10 @@ int main(
 	log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, log_buffer);
 
 	FD_ZERO(&fdset);
-	for (go=1; go;) {
-		int	cmd;
+
+  for (go = 1;go;) 
+    {
+    int cmd;
 
 		if (rpp_fd != -1)
 			FD_SET(rpp_fd, &fdset);
@@ -1051,11 +1060,15 @@ int main(
 		}
 		if (sigprocmask(SIG_SETMASK, &oldsigs, NULL) == -1)
 			log_err(errno, id, "sigprocmask(SIG_SETMASK)");
-	}
+    }
 
-	sprintf(log_buffer, "%s normal finish pid %ld", argv[0], (long)pid);
-	log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, log_buffer);
+  sprintf(log_buffer,"%s normal finish pid %ld", 
+    argv[0], 
+    (long)pid);
 
-	(void)close(server_sock);
-	exit(0);
-}
+  log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
+
+  close(server_sock);
+
+  exit(0);
+  }  /* END main() */

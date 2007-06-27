@@ -151,6 +151,18 @@ dnl  Libtool
 dnl AC_DISABLE_SHARED
 AC_PROG_LIBTOOL
 
+gcc_warning_flags="-W -Wall -Wno-unused-parameter -Wno-long-long -pedantic -Werror"
+AC_ARG_ENABLE(gcc_warnings,
+    [  --disable-gcc-warnings   If using gcc, use strict warnings])
+if test "x$GCC" = "xyes" ;then
+  AC_MSG_CHECKING([whether to use strict gcc warnings])
+  if test "${enable_gcc_warnings}" == "no" ; then
+    AC_MSG_RESULT([no])
+  else
+    AC_MSG_RESULT([yes])
+    CFLAGS="$CFLAGS $gcc_warning_flags"
+  fi
+fi
 
 # patch libtool to remove that annoying lib install warning
 test -f libtool.old || (mv libtool libtool.old && cp libtool.old libtool)
@@ -322,15 +334,18 @@ AC_DEFINE_UNQUOTED(IBM_SP2, ${IBM_SP2}, [defined if this is an SP2])
 AC_SUBST(PBSPOE)    
 AC_SUBST(PBSPOEO)
 
-AC_ARG_ENABLE(cpuset,[--disable-cpuset  enable Linux 2.6 kernel cpusets])
+AC_ARG_ENABLE(cpuset,[  --disable-cpuset        enable Linux 2.6 kernel cpusets])
+build_l26_cpuset=no
 if test "x$enable_cpuset" != "xno" ;then
   AC_CHECK_LIB(cpuset, cpuset_cpus_weight, 
     [AC_CHECK_LIB(bitmask, bitmask_alloc,
-      [MOMLIBS="$MOMLIBS -lcpuset -lbitmask"
+      [build_l26_cpuset=yes
+       MOMLIBS="$MOMLIBS -lcpuset -lbitmask"
        AC_DEFINE(PENABLE_LINUX26_CPUSETS, 1, [Define to enable Linux 2.6 cpusets])
       ])
     ])
 fi
+AM_CONDITIONAL([BUILD_L26_CPUSETS], test "$build_l26_cpuset" = yes)
 
 
 dnl  irix6 can be changed to irix6array explicitly with an
@@ -376,7 +391,7 @@ dnl enable Cray's CPA support
 dnl
 AC_MSG_CHECKING([whether to build Cray's CPA support])
 AC_ARG_ENABLE(cpa,
-    [  --enable-cpa           enable Cray's CPA support],
+    [  --enable-cpa            enable Cray's CPA support],
     CPA=$enableval,CPA=no)   
 AC_MSG_RESULT($CPA)
 
@@ -882,6 +897,16 @@ AC_DEFINE_UNQUOTED(QSTATRC_PATH, "${QSTATRC_PATH}",
 	[Define to the path of the qstat init file])
 
 
+dnl Possibly define default MOM logdir and file suffix
+AC_ARG_WITH(momlogdir,
+    [  --with-momlogdir        use this directory for MOM logs.],
+    AC_DEFINE_UNQUOTED(DEFAULT_MOMLOGDIR,"$with_momlogdir",[Alternate directory for MOM logs])
+)
+AC_ARG_WITH(momlogsuffix,
+    [  --with-momlogsuffix     use this suffix for MOM logs.],
+    AC_DEFINE_UNQUOTED(DEFAULT_MOMLOGSUFFIX,"$with_momlogsuffix",[Alternate suffix for MOM logs])
+)
+
 
 dnl Declare which of scp, rcp, or mom_rcp is to be used for file delivery
 dnl As of TORQUE 2.1.0, default to scp if found, otherwise use the internal mom_rcp
@@ -964,8 +989,8 @@ dnl attempt to find a location to install PAM modules
 AC_MSG_CHECKING([for PAM install directory])
 pammoddir=disabled
 AC_ARG_WITH(pam,
-    [  --with-pam=DIR            Directory that holds the system PAM modules.
-                             Defaults to /lib(64)/security on Linux.],
+    [  --with-pam=DIR          Directory that holds the system PAM modules.
+                          Defaults to /lib(64)/security on Linux.],
     [pammoddir=$withval])
 case "$pammoddir" in
   disabled) ;;
@@ -1607,6 +1632,7 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/resmom/irix6/Makefile
 	  src/resmom/irix6array/Makefile
 	  src/resmom/linux/Makefile
+	  src/resmom/linux/cpuset/Makefile
 	  src/resmom/netbsd/Makefile
 	  src/resmom/solaris5/Makefile
 	  src/resmom/solaris7/Makefile

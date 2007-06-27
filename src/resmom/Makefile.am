@@ -20,7 +20,7 @@ PBS_LIBS = ../lib/Libattr/libattr.a \
 	   ../lib/Libpbs/libtorque.la
 
 EXTRA_DIST = rm_dep.h
-sbin_PROGRAMS = pbs_mom
+sbin_PROGRAMS = pbs_mom pbs_demux
 
 LDADD = @PBS_MACH@/libmommach.a $(MOMLIBS) $(PBS_LIBS) $(momcpalib)
 
@@ -34,10 +34,15 @@ pbs_mom_SOURCES = catch_child.c mom_comm.c mom_inter.c mom_main.c \
 		   ../server/req_quejob.c ../server/resc_def_all.c \
 		   ../server/job_qs_upgrade.c
 
+pbs_demux_SOURCES = pbs_demux.c
+
 install-exec-hook:
 	$(PBS_MKDIRS) aux || :
 	$(PBS_MKDIRS) mom
+	rm -f $(DESTDIR)$(sbindir)/$(program_prefix)qnoded$(program_suffix)$(EXEEXT)
+	ln -s $(program_prefix)pbs_mom$(program_suffix)$(EXEEXT) \
+	  $(DESTDIR)$(sbindir)/$(program_prefix)qnoded$(program_suffix)$(EXEEXT)
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_ENVIRON)
-
+	rm -f $(DESTDIR)$(sbindir)/$(program_prefix)qnoded$(program_suffix)$(EXEEXT)

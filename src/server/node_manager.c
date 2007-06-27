@@ -136,7 +136,6 @@ static int       svr_numcfgnodes = 0;   /* number of nodes currently configured 
 static int	 exclusive;		/* node allocation type */
 
 static FILE 	*nstatef = NULL;
-static FILE 	*nnotef  = NULL;
 static int       num_addrnote_tasks = 0; /* number of outstanding send_cluster_addrs tasks */
 
 extern int	 server_init_type;
@@ -821,7 +820,11 @@ void sync_node_jobs(
 
           /* double check the job struct because we could be in the middle of moving
              the job around because of data staging, suspend, or rerun */
-          if (strstr(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,np->nd_name) == NULL)
+          if (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str == NULL)
+            {
+            pjob=NULL;
+            }
+          else if (strstr(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,np->nd_name) == NULL)
             {
             pjob=NULL;
             }
@@ -2113,7 +2116,7 @@ int write_node_note()
   {
   static char id[] = "write_node_note";
   struct pbsnode *np;
-  int	i, j;
+  int	i;
   FILE	*nin;
 
   if (LOGLEVEL >= 2)

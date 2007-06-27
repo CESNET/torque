@@ -78,7 +78,7 @@ int job_qs_upgrade (job *pj, int fds)
     return -1;
     }
   
-  pj->ji_qs.v = PBS_JOB_MAGIC_NUM;
+  pj->ji_qs.qs_version  = PBS_QS_VERSION;
   pj->ji_qs.ji_state    = qs_old.ji_state;
   pj->ji_qs.ji_substate = qs_old.ji_substate;
   pj->ji_qs.ji_svrflags = qs_old.ji_svrflags;
@@ -92,6 +92,8 @@ int job_qs_upgrade (job *pj, int fds)
   strcpy(pj->ji_qs.ji_queue, qs_old.ji_queue);
   strcpy(pj->ji_qs.ji_destin, qs_old.ji_destin);
   
+  pj->ji_qs.ji_un_type  = qs_old.ji_un_type;
+
   /* no change in these unions for 2.1.x -> 2.2.0, just copy the whole thing
      If the union contents did change, I'm not even sure how you would do 
      this without any idea of what is being stored in the union */

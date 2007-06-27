@@ -191,6 +191,7 @@ extern tlist_head svr_alljobs;
 extern tlist_head svr_queues;
 extern tlist_head svr_requests;
 extern tlist_head svr_newnodes;
+extern tlist_head svr_jobarrays;
 extern tlist_head task_list_immed;
 extern tlist_head task_list_timed;
 extern tlist_head task_list_event;
@@ -263,6 +264,8 @@ int pbsd_init(
   struct sigaction act;
   struct sigaction oact;
 
+  char   EMsg[1024];
+
   extern int TForceUpdate;
 
   /* The following is code to reduce security risks */
@@ -302,10 +305,10 @@ int pbsd_init(
   setrlimit(RLIMIT_DATA,  &rlimit);
   setrlimit(RLIMIT_STACK, &rlimit);
 #ifdef	RLIMIT_RSS
-  setrlimit(RLIMIT_RSS  , &rlimit);
+  setrlimit(RLIMIT_RSS,   &rlimit);
 #endif	/* RLIMIT_RSS */
 #ifdef	RLIMIT_VMEM
-  setrlimit(RLIMIT_VMEM  , &rlimit);
+  setrlimit(RLIMIT_VMEM,  &rlimit);
 #endif	/* RLIMIT_VMEM */
   }
 #endif	/* not _CRAY */
@@ -378,11 +381,11 @@ int pbsd_init(
     act.sa_handler = catch_abort;   /* make sure we core dump */
 
     sigaction(SIGSEGV, &act, NULL);
-    sigaction(SIGBUS, &act, NULL);
-    sigaction(SIGFPE, &act, NULL);
-    sigaction(SIGILL, &act, NULL);
+    sigaction(SIGBUS,  &act, NULL);
+    sigaction(SIGFPE,  &act, NULL);
+    sigaction(SIGILL,  &act, NULL);
     sigaction(SIGTRAP, &act, NULL);
-    sigaction(SIGSYS, &act, NULL);
+    sigaction(SIGSYS,  &act, NULL);
     }
 
   act.sa_handler = catch_child;
@@ -433,25 +436,25 @@ int pbsd_init(
 #ifdef GSSAPI
   path_creds     = build_path(path_home, PBS_SVR_PRIVATE, "/creds/");
 #endif
-  path_nodenote  = build_path(path_priv, NODE_NOTE,  NULL);
+  path_nodenote  = build_path(path_priv, NODE_NOTE,    NULL);
   path_nodenote_new = build_path(path_priv, NODE_NOTE, new_tag);
-  path_resources = build_path(path_home, PBS_RESOURCES,  NULL);
+  path_resources = build_path(path_home, PBS_RESOURCES, NULL);
 
   init_resc_defs(path_resources);
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 
-  rc  = chk_file_sec(path_jobs,  1,0,S_IWGRP|S_IWOTH,1);
-  rc |= chk_file_sec(path_queues,1,0,S_IWGRP|S_IWOTH,0);
-  rc |= chk_file_sec(path_spool, 1,1,S_IWOTH,        0);
-  rc |= chk_file_sec(path_acct,	 1,0,S_IWGRP|S_IWOTH,0);
-  rc |= chk_file_sec(PBS_ENVIRON,0,0,S_IWGRP|S_IWOTH,1);
+  rc  = chk_file_sec(path_jobs,  1,0,S_IWGRP|S_IWOTH,1,EMsg);
+  rc |= chk_file_sec(path_queues,1,0,S_IWGRP|S_IWOTH,0,EMsg);
+  rc |= chk_file_sec(path_spool, 1,1,S_IWOTH,        0,EMsg);
+  rc |= chk_file_sec(path_acct,	 1,0,S_IWGRP|S_IWOTH,0,EMsg);
+  rc |= chk_file_sec(PBS_ENVIRON,0,0,S_IWGRP|S_IWOTH,1,EMsg);
 
 #ifdef GSSAPI
   rc |= chk_file_sec(path_creds, 1,0,S_IRWXG|S_IRWXO,0);
 #endif
 
-  if (rc) 
+  if (rc != 0) 
     {
     return(3);
     }
@@ -466,6 +469,7 @@ int pbsd_init(
   CLEAR_HEAD(svr_alljobs);
   CLEAR_HEAD(svr_newjobs);
   CLEAR_HEAD(svr_newnodes);
+  CLEAR_HEAD(svr_jobarrays);
 
   time_now = time((time_t *)0);
 
@@ -869,7 +873,7 @@ int pbsd_init(
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
   
-  if (chk_file_sec(path_track,0,0,S_IWGRP|S_IWOTH,0) != 0)
+  if (chk_file_sec(path_track,0,0,S_IWGRP|S_IWOTH,0,EMsg) != 0)
     {
     return(-1);
     }
@@ -1288,7 +1292,7 @@ static void pbsd_init_reque(
       pjob->ji_qs.ji_jobid, 
       pjob->ji_qs.ji_queue);
 
-    log_err(-1,"pbsd_init",logbuf);
+    log_err(-1,"pbsd_init_reque",logbuf);
 
     job_abt(&pjob,logbuf);
 
@@ -1591,6 +1595,7 @@ static void rm_files(
     "acl_hosts",
     "acl_svr",
     "acl_users",
+    "hostlist",
     "queues",
     NULL };      /* keep as last entry */
 

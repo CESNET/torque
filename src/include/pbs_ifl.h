@@ -154,6 +154,7 @@
 #define ATTR_queue      "queue"
 #define ATTR_server     "server"
 #define ATTR_maxrun     "max_running"
+#define ATTR_maxreport  "max_report"
 #define ATTR_total      "total_jobs"
 #define ATTR_comment    "comment"
 #define ATTR_cookie     "cookie"
@@ -169,41 +170,43 @@
 
 /* additional queue attributes names */
 
-#define ATTR_aclgren	"acl_group_enable"
-#define ATTR_aclgroup	"acl_groups"
-#define ATTR_aclhten	"acl_host_enable"
-#define ATTR_aclhost	"acl_hosts"
-#define ATTR_acluren	"acl_user_enable"
-#define ATTR_acluser	"acl_users"
-#define ATTR_altrouter	"alt_router"
-#define ATTR_chkptmin	"checkpoint_min"
-#define ATTR_enable	"enabled"
-#define ATTR_fromroute	"from_route_only"
-#define ATTR_killdelay  "kill_delay"
-#define ATTR_maxgrprun  "max_group_run"
-#define ATTR_maxque     "max_queuable"
-#define ATTR_maxuserque "max_user_queuable"
-#define ATTR_maxuserrun "max_user_run"
-#define ATTR_qtype      "queue_type"
-#define ATTR_rescassn   "resources_assigned"
-#define ATTR_rescdflt   "resources_default"
-#define ATTR_rescmax    "resources_max"
-#define ATTR_rescmin    "resources_min"
-#define ATTR_rndzretry  "rendezvous_retry"
-#define ATTR_routedest  "route_destinations"
-#define ATTR_routeheld  "route_held_jobs"
-#define ATTR_routewait  "route_waiting_jobs"
-#define ATTR_routeretry "route_retry_time"
-#define ATTR_routelife  "route_lifetime"
-#define ATTR_rsvexpdt   "reserved_expedite"
-#define ATTR_rsvsync    "reserved_sync"
-#define ATTR_start      "started"
-#define ATTR_count      "state_count"
-#define ATTR_number     "number_jobs"
-#define ATTR_acllogic   "acl_logic_or"
-#define ATTR_aclgrpslpy "acl_group_sloppy"
+#define ATTR_aclgren	 "acl_group_enable"
+#define ATTR_aclgroup	 "acl_groups"
+#define ATTR_aclhten	 "acl_host_enable"
+#define ATTR_aclhost	 "acl_hosts"
+#define ATTR_acluren	 "acl_user_enable"
+#define ATTR_acluser	 "acl_users"
+#define ATTR_altrouter	 "alt_router"
+#define ATTR_chkptmin	 "checkpoint_min"
+#define ATTR_enable	 "enabled"
+#define ATTR_fromroute	 "from_route_only"
+#define ATTR_hostlist    "hostlist"         /* TORQUE only */
+#define ATTR_killdelay   "kill_delay"
+#define ATTR_maxgrprun   "max_group_run"
+#define ATTR_maxque      "max_queuable"
+#define ATTR_maxuserque  "max_user_queuable"
+#define ATTR_maxuserrun  "max_user_run"
+#define ATTR_qtype       "queue_type"
+#define ATTR_rescassn    "resources_assigned"
+#define ATTR_rescdflt    "resources_default"
+#define ATTR_rescmax     "resources_max"
+#define ATTR_rescmin     "resources_min"
+#define ATTR_rerunnable  "restartable"      /* TORQUE only */
+#define ATTR_rndzretry   "rendezvous_retry"
+#define ATTR_routedest   "route_destinations"
+#define ATTR_routeheld   "route_held_jobs"
+#define ATTR_routewait   "route_waiting_jobs"
+#define ATTR_routeretry  "route_retry_time"
+#define ATTR_routelife   "route_lifetime"
+#define ATTR_rsvexpdt    "reserved_expedite"
+#define ATTR_rsvsync     "reserved_sync"
+#define ATTR_start       "started"
+#define ATTR_count       "state_count"
+#define ATTR_number      "number_jobs"
+#define ATTR_acllogic    "acl_logic_or"
+#define ATTR_aclgrpslpy  "acl_group_sloppy"
 #define ATTR_keepcompleted "keep_completed"
-
+#define ATTR_disallowedtypes "disallowed_types"
 
 /* additional server attributes names */
 
@@ -249,6 +252,7 @@
 #define ATTR_pbsversion  "pbs_version"
 #define ATTR_submithosts  "submit_hosts"
 #define ATTR_allownodesubmit  "allow_node_submit"
+#define ATTR_allowproxyuser   "allow_proxy_user"
 #define ATTR_autonodenp  "auto_node_np"
 #define ATTR_servername  "server_name"
 #define ATTR_logfilemaxsize "log_file_max_size"
@@ -297,6 +301,12 @@
 #define ND_state_unknown	"state-unknown"
 #define ND_timeshared		"time-shared"
 #define ND_cluster		"cluster"
+
+/* queue disallowed types */
+#define Q_DT_batch              "batch"
+#define Q_DT_interactive        "interactive"
+#define Q_DT_rerunable          "rerunable"
+#define Q_DT_nonrerunable       "nonrerunable"
 
 /*constant related to sum of string lengths for above strings*/
 #define	MAX_ENCODE_BFR		100
@@ -359,7 +369,7 @@
 #define PBS_TERM_BUF_SZ		80	/* Interactive term buffer size */
 #define PBS_TERM_CCA		6	/* Interactive term cntl char array */
 
-#define PBS_JOB_MAGIC_NUM	0x00020200 /* magic number used to determine version of pbs job quick save struct */
+#define PBS_QS_VERSION		0x00020200 /* magic number used to determine version of pbs job quick save struct */
 
 /* someday the PBS_*_PORT definition will go away and only the	*/
 /* PBS_*_SERVICE_NAME form will be used, maybe			*/
@@ -427,17 +437,15 @@ struct batch_status {
 
 
 /* Resource Reservation Information */
-typedef int	resource_t;	/* resource reservation handle */
+typedef int resource_t;		/* resource reservation handle */
 
 #define RESOURCE_T_NULL		(resource_t)0
 #define RESOURCE_T_ALL		(resource_t)-1
 
-extern int
-pbs_errno;		/* error number */
+extern int pbs_errno;		/* error number */
 
-extern char *
-pbs_server;		/* server attempted to connect | connected to */
-			/* see pbs_connect(3B)			      */
+extern char *pbs_server;	/* server attempted to connect | connected to */
+				/* see pbs_connect(3B)			      */
 
 extern char *avail A_((int connect,char *resc));
 extern int pbs_asyrunjob A_((int c,char *jobid,char *location,char *extend));
@@ -445,6 +453,8 @@ extern int pbs_alterjob A_((int connect,char *job_id,struct attrl *attrib,char *
 extern int pbs_connect A_((char *server));
 extern int pbs_query_max_connections();
 extern char *pbs_default A_((void));
+extern char *pbs_fbserver A_((void));
+
 extern int pbs_deljob A_((int connect,char *job_id,char *extend));
 extern int pbs_disconnect A_((int connect));
 extern char *pbs_geterrmsg A_((int connect));

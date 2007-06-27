@@ -1838,14 +1838,14 @@ void req_signaljob(
     }
   else 
     {
-    if (!strncmp("SIG",sname,3))
+    if (!strncasecmp("SIG",sname,3))
       sname += 3;
 
     psigt = sig_tbl;
 
     while (psigt->sig_name != NULL) 
       {
-      if (!strcmp(sname,psigt->sig_name)) 
+      if (!strcasecmp(sname,psigt->sig_name)) 
         break;
 
       psigt++;
@@ -1915,7 +1915,7 @@ void req_signaljob(
 
 void encode_used(
 
-  job       *pjob,   /* I */
+  job        *pjob,   /* I */
   tlist_head *phead)  /* O */
 
   {
@@ -2403,11 +2403,11 @@ void req_rerunjob(
   svrport = strchr(pjob->ji_wattr[(int)JOB_ATR_at_server].at_val.at_str,(int)':');
 
   if (svrport)
-    port = atoi(svrport+1);
+    port = atoi(svrport + 1);
   else
     port = default_server_port;
 
-  sock = client_to_svr(pjob->ji_qs.ji_un.ji_momt.ji_svraddr,port,1);
+  sock = client_to_svr(pjob->ji_qs.ji_un.ji_momt.ji_svraddr,port,1,NULL);
 
   if (sock < 0) 
     {
@@ -2678,8 +2678,8 @@ void req_cpyfile(
   job           *pjob = NULL;
 
 #ifdef HAVE_WORDEXP
-  int		 madefaketmpdir=0;
-  int		 usedfaketmpdir=0;
+  int		 madefaketmpdir = 0;
+  int		 usedfaketmpdir = 0;
   wordexp_t	 arg2exp, arg3exp;
   int            arg2index = -1;
   char		 faketmpdir[1024];
@@ -2688,6 +2688,9 @@ void req_cpyfile(
 #ifdef GSSAPI
   char          *ccname;
 #endif
+
+  arg2[0] = '\0';
+  arg3[0] = '\0';
 
   if (LOGLEVEL >= 3)
     {
@@ -2915,18 +2918,24 @@ void req_cpyfile(
       if (pair->fp_flag == STDJOBFILE) 
         {
 #if NO_SPOOL_OUTPUT == 0
-
         if (havehomespool == 1)
           {
           /* only use spooldir if the job file exists */
 
           strcpy(localname_alt,homespool);
+          strcat(localname_alt,"/");
           strcat(localname_alt,pair->fp_local);
 
           rcstat = stat(localname_alt,&myspooldir);
 
           if ((rcstat == 0) && S_ISREG(myspooldir.st_mode))
             {
+            strcpy(localname,localname_alt);
+            }
+          else
+            {
+            /* what should be done here??? */
+
             strcpy(localname,localname_alt);
             }
           }
@@ -2947,12 +2956,19 @@ void req_cpyfile(
           /* only use ~/.pbs_spool if the file actually exists */
 
           strcpy(localname_alt,homespool);
+          strcat(localname_alt,"/");
           strcat(localname_alt,pair->fp_local);
 
           rcstat = stat(localname_alt,&myspooldir);
 
           if ((rcstat == 0) && S_ISREG(myspooldir.st_mode))
             {
+            strcpy(localname,localname_alt);
+            }
+          else
+            {
+            /* what should be done here??? */
+
             strcpy(localname,localname_alt);
             }
           }
@@ -2969,7 +2985,7 @@ void req_cpyfile(
         {
         /* user-supplied stage-out file */
 
-        strncpy(localname,pair->fp_local,sizeof(localname)-1);  /* from location */
+        strncpy(localname,pair->fp_local,sizeof(localname) - 1);  /* from location */
         }
 
 #if SRFS
@@ -3008,7 +3024,7 @@ void req_cpyfile(
         }
 
       strcat(arg3,prmt);
-      } 
+      }  /* END if (dir == STAGE_DIR_OUT) */ 
     else 
       {	
       /* in bound (stage-in) file */
@@ -3028,7 +3044,7 @@ void req_cpyfile(
       strcat(arg2,prmt);
 
       strcpy(arg3,pair->fp_local);
-      }
+      }  /* END else (dir == STAGE_DIR_OUT) */
 
 #ifdef HAVE_WORDEXP
 
@@ -3109,7 +3125,7 @@ void req_cpyfile(
         break;
       }  /* END switch () */
 
-    /* Note: more than one word is only allowed for arg2 (source) */
+    /* NOTE: more than one word is only allowed for arg2 (source) */
 
 
     arg2index = -1;
@@ -3215,9 +3231,9 @@ error:
         /* move to "undelivered" directory         */
 
         strncpy(localname,path_spool,sizeof(localname));
-        strncat(localname,pair->fp_local,sizeof(localname));
+        strncat(localname,pair->fp_local,(sizeof(localname) - strlen(localname) - 1));
         strncpy(undelname,path_undeliv,sizeof(undelname));
-        strncat(undelname,pair->fp_local,sizeof(undelname));
+        strncat(undelname,pair->fp_local,(sizeof(undelname) - strlen(undelname) - 1));
 
         if (rename(localname,undelname) == 0) 
           {
@@ -3266,11 +3282,12 @@ error:
       }
 
     unlink(rcperr);
+
 #ifdef HAVE_WORDEXP
     if (!wordexperr)
       goto nextword;  /* ugh, it's hard to use a real loop when your feature is #ifdef's out */
 #endif
-    }  /* END for(pair) */
+    }  /* END for (pair) */
 
 #ifdef HAVE_WORDEXP
   if (madefaketmpdir && !usedfaketmpdir)

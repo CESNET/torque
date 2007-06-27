@@ -162,7 +162,7 @@ extern int   site_mom_postchk A_((job *, int));
 extern int   site_mom_prerst A_((job *));
 extern int   reader A_((int, int));
 extern int   writer A_((int, int));
-extern int   conn_qsub A_((char *,unsigned int));
+extern int   conn_qsub A_((char *,unsigned int,char *));  /* NOTE:  should be moved out of here to job_func proto header */
 extern int   run_pelog A_((int, char *,job *,int));
 extern int   is_joined A_((job *));
 extern void  check_busy A_((double));
@@ -175,6 +175,7 @@ extern int send_sisters(job *,int);
 extern int task_save(task *) ;
 extern void DIS_rpp_reset A_((void));
 extern void checkret A_((char **,int));
+extern char *get_job_envvar A_((job *,char *));
 
 #ifdef PENABLE_LINUX26_CPUSETS
 extern void initialize_root_cpuset();
