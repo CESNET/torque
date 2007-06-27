@@ -22,7 +22,10 @@ int pbsgss_client_establish_context(int s,
 				    OM_uint32 gss_flags,
 				    gss_ctx_id_t *gss_context,
 				    OM_uint32 *ret_flags);
-int pbsgss_client_authenticate(char *hostname, int psock, int delegate);
+int pbsgss_client_authenticate(char *hostname, 
+		               int psock, 
+			       int delegate,
+			       int wrap);
 int pbsgss_server_establish_context(int s,
 				    gss_cred_id_t server_creds, 
 				    gss_cred_id_t *client_creds,
@@ -41,6 +44,7 @@ int pbsgss_save_creds (gss_cred_id_t client_creds,
 char *ccname_for_job(char *jobnamem, char *prefix);
 int authenticate_as_job(char *jobname,int setpag);
 int pbsgss_renew_creds (char *jobname, char *prefix);
+void pbsgss_save_sec_context(gss_ctx_id_t *context, OM_uint32 flags, int fd);
 
 /* Token types */
 #define TOKEN_NOOP		(1<<0)

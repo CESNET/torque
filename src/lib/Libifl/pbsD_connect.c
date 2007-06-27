@@ -543,7 +543,7 @@ int pbs_connect(
       neediff = 1;
     } else {
       DIS_tcp_wflush(connection[out].ch_socket);
-      if (pbsgss_client_authenticate(server,connection[out].ch_socket,1) != 0) {
+      if (pbsgss_client_authenticate(server,connection[out].ch_socket,1,1) != 0) {
 	neediff = 1;
 	if (getenv("PBSDEBUG")) {
 	  fprintf(stderr,"ERROR:  cannot authenticate connection, errno=%d (%s)\n",
@@ -574,6 +574,8 @@ int pbs_connect(
     close(connection[out].ch_socket);
 
     connection[out].ch_inuse = 0;
+
+    DIS_tcp_release(connection[out].ch_socket);
 
     pbs_errno = PBSE_PERM;
 
@@ -645,6 +647,8 @@ int pbs_disconnect(
     }
 	
   close(sock);
+
+  DIS_tcp_release(sock);
 
   if (connection[connect].ch_errtxt != (char *)NULL) 
     free(connection[connect].ch_errtxt);

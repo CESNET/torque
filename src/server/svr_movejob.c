@@ -875,7 +875,7 @@ int send_job(
 	exit(1);
       }
       retries = 0;
-      while ((i = pbsgss_client_authenticate(hostname, connection[con].ch_socket,1)) != 0) {
+      while ((i = pbsgss_client_authenticate(hostname, connection[con].ch_socket,1,0)) != 0) {
 	fprintf(stderr,"send job failed: Couldn't authenticate as user to %s:%d : %d\n",hostname,con,i);      
 	if (retries++ > 2) {
 	  exit(1);

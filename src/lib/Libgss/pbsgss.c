@@ -728,7 +728,10 @@ int pbsgss_renew_creds (char *jobname, char *prefix) {
   return system(cmd);
 }
 
-int pbsgss_client_authenticate(char *hostname, int psock, int delegate) {
+int pbsgss_client_authenticate(char *hostname, 
+		               int psock, 
+			       int delegate,
+			       int wrap) {
   char *service_name;
   OM_uint32 gss_flags, ret_flags, maj_stat, min_stat;
   gss_OID oid;
@@ -793,7 +796,8 @@ int pbsgss_client_authenticate(char *hostname, int psock, int delegate) {
   service_name = malloc(sizeof(char) * (1 + strlen(hostname) + strlen("host@")));
   sprintf(service_name,"host@%s",hostname);
 
-  gss_flags = GSS_C_MUTUAL_FLAG | (delegate ? GSS_C_DELEG_FLAG : 0);
+  gss_flags = GSS_C_MUTUAL_FLAG | (delegate ? GSS_C_DELEG_FLAG : 0)
+	      | (wrap ? GSS_C_INTEG_FLAG : 0);
   oid = GSS_C_NULL_OID;
   retval = pbsgss_client_establish_context(psock,
 					   service_name,
@@ -809,17 +813,21 @@ int pbsgss_client_authenticate(char *hostname, int psock, int delegate) {
   if (name != GSS_C_NO_NAME) {
     gss_release_name(&min_stat,&name);
   }
-  gss_delete_sec_context(&min_stat,&gss_context,GSS_C_NO_BUFFER);
   if (retval < 0) {    
     if (retry < 3) {
       retry++;
       DIS_tcp_setup(psock);
-      return pbsgss_client_authenticate(hostname, psock, delegate);      
+      gss_delete_sec_context(&min_stat,&gss_context,GSS_C_NO_BUFFER);
+      return pbsgss_client_authenticate(hostname, psock, delegate, wrap);      
     } else {
       return retval;
     }
   }
   retry = 0;
+  if (wrap)
+    pbsgss_save_sec_context(&gss_context,ret_flags,psock);
+  else
+    gss_delete_sec_context(&min_stat,&gss_context,GSS_C_NO_BUFFER);
   return retval;
 }
 
@@ -911,4 +919,23 @@ char *pbsgss_get_host_princname() {
   gss_release_cred(&min_stat,&creds);
   free(service_name);
   return princname;
+}
+
+/* If the context supports integrity, save it for later use by gss_wrap()
+ * and gss_unwrap(). Otherwise delete it.
+ */
+void pbsgss_save_sec_context(gss_ctx_id_t *context,
+			     OM_uint32 flags,
+			     int fd)
+{
+  OM_uint32 major, minor;
+
+  if (flags & (GSS_C_INTEG_FLAG | GSS_C_CONF_FLAG)) {
+    DIS_tcp_set_gss(fd, *context, flags);
+  } else if (*context != GSS_C_NO_CONTEXT) {
+    major = gss_delete_sec_context(&minor, context, GSS_C_NO_BUFFER);
+    if (major != GSS_S_COMPLETE) {
+      pbsgss_display_status("deleting context", major, minor);
+    }
+  }
 }

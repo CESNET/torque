@@ -90,6 +90,10 @@
 #define FALSE	0
 #endif
 
+#ifdef GSSAPI
+#include "pbsgss.h"
+#endif
+
 /*
  * Integer function return values from Data-is-Strings reading calls
  */
@@ -249,6 +253,10 @@ extern void DIS_tcp_setup A_((int fd));
 extern int  DIS_tcp_wflush A_((int fd));
 extern void DIS_tcp_settimeout A_((long timeout));
 extern int  DIS_tcp_istimeout A_((int fd));
+extern void DIS_tcp_release A_((int fd));
+#ifdef GSSAPI
+extern void DIS_tcp_set_gss A_((int fd, gss_ctx_id_t ctx, OM_uint32 flags));
+#endif
 
 extern int  PConnTimeout(int);
 
@@ -263,16 +271,26 @@ struct tcpdisbuf {
   char *tdis_leadp;
   char *tdis_trailp;
   char *tdis_eod;
+  size_t bufsize;
   char  tdis_thebuf[THE_BUF_SIZE];
   };
 
 struct tcp_chan {
   struct tcpdisbuf readbuf;
   struct tcpdisbuf writebuf;
+#ifdef GSSAPI
+  struct tcpdisbuf gssrdbuf;   /* incoming wrapped data */
+  gss_buffer_desc  unwrapped;  /* release after copying to readbuf */
+  gss_ctx_id_t     gssctx;
+#endif
 
   int              IsTimeout;  /* (boolean)  1 - true */
   int              ReadErrno;
   int              SelectErrno;
+#ifdef GSSAPI
+  int              AtEOF;		/* (boolean) */
+  int              Confidential;	/* (boolean) */
+#endif
   };
 
 #endif	/* DATA_IS_STRINGS_ */

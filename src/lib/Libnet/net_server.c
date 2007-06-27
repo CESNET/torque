@@ -332,7 +332,6 @@ int wait_request(
   fd_set selset;
 
   struct timeval timeout;
-  void close_conn();
 
   long OrigState=0;
 
@@ -575,6 +574,8 @@ void close_conn(
     svr_conn[sd].cn_oncl(sd);
 
   FD_CLR(sd,&readset);
+
+  DIS_tcp_release(sd);	/* FIXME: only do this on TCP sockets */
 
   svr_conn[sd].cn_addr = 0;
   svr_conn[sd].cn_handle = -1;

@@ -131,7 +131,14 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
   svr_conn[sock].principal[client_name.length] = '\0';
   memcpy(&(svr_conn[sock].creds),&client_creds,sizeof(client_creds));
   svr_conn[sock].cn_authen = PBS_NET_CONN_GSSAPIAUTH;
-  gss_delete_sec_context(&ret_flags,&context,GSS_C_NO_BUFFER);
+  if (!(ret_flags & GSS_C_INTEG_FLAG)) {
+    log_event(PBSEVENT_DEBUG,
+	      PBS_EVENTCLASS_SERVER,
+	      "req_gssauthenuser",
+	      "Integrity protection not available on connection.");
+    req_reject(PBSE_SYSTEM,0,preq,NULL,"no integrity protection");
+  }
+  pbsgss_save_sec_context(&context,ret_flags,sock);
   log_event(PBSEVENT_DEBUG,
 	    PBS_EVENTCLASS_SERVER,"req_gssauthenuser calling con_credent","");
   return gss_conn_credent(preq,sock);
