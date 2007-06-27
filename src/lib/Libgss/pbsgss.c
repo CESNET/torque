@@ -835,14 +835,14 @@ char *ccname_for_job(char *jobname, char *prefix) {
   char *ccname;
   int i;
   i = strlen(prefix) + 
-    strlen("/krb5cc_") + 
+    strlen("FILE:/krb5cc_") + 
     strlen(jobname) + 1;  
   ccname = malloc(sizeof(char)*i);
   if (!ccname) 
     {
       return NULL;
     }
-  sprintf(ccname,"%s/krb5cc_%s",prefix,jobname);
+  sprintf(ccname,"FILE:%s/krb5cc_%s",prefix,jobname);
   return ccname;
 }
 
