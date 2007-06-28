@@ -299,7 +299,7 @@ static int tcp_read(
   struct tcpdisbuf *tp;
 #ifdef GSSAPI
   OM_uint32 minor;
-  size_t l, f;
+  ssize_t l, f;
 #endif
 
 #ifdef GSSAPI
@@ -322,7 +322,7 @@ leftover:
       memcpy(tp->tdis_eod, tcparray[fd]->unwrapped.value, f);
       tp->tdis_eod += f;
       memmove(tcparray[fd]->unwrapped.value, 
-	      tcparray[fd]->unwrapped.value+f,
+	      ((char *)tcparray[fd]->unwrapped.value)+f,
 	      l-f);
       tcparray[fd]->unwrapped.length = l-f;
       return f;	/* readbuf is now full */

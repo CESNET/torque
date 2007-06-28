@@ -232,7 +232,7 @@ int svr_get_privilege(
   int   priv = (ATR_DFLAG_USRD | ATR_DFLAG_USWR);
 
 #ifdef GSSAPI
-  int uhlen = PBS_MAXUSER + PBS_MAXHOSTNAME + 102;
+# define uhlen PBS_MAXUSER + PBS_MAXHOSTNAME + 102
   char  uh[uhlen];
 #else 
   char  uh[PBS_MAXUSER + PBS_MAXHOSTNAME + 2];
@@ -250,9 +250,9 @@ int svr_get_privilege(
     is_root = 1;
 #ifdef PBS_ROOT_ALWAYS_ADMIN
     return(priv|ATR_DFLAG_MGRD|ATR_DFLAG_MGWR|ATR_DFLAG_OPRD|ATR_DFLAG_OPWR);
-#endif  // PBS_ROOT_ALWAYS_ADMIN
+#endif  /* PBS_ROOT_ALWAYS_ADMIN */
     }
-#endif // GSSAPI
+#endif /* GSSAPI */
   /* Run this even if we aren't doing GSSAPI.  This lets the scheduler run
      without tickets */
   if ((strcmp(user,PBS_DEFAULT_ADMIN) == 0) &&

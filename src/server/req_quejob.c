@@ -130,6 +130,7 @@ extern void  job_clone_wt A_((struct work_task *));
 #endif	/* PBS_MOM */
 
 #ifdef GSSAPI
+#include <time.h>
 #include "work_task.h"
 #include "pbsgss.h"
 #endif
@@ -225,12 +226,12 @@ void req_quejob(
   svrattrl	*psatl;
   int		 rc;
   int		 sock = preq->rq_conn;
+
+#ifndef PBS_MOM
 #ifdef GSSAPI
   char          *jobidcopy;
   char          *ccname;
 #endif
-
-#ifndef PBS_MOM
   int		 i;
   char		 buf[256];
   int		 fds;

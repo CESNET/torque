@@ -308,6 +308,8 @@ void process_request(
     return;
 #else
     /* gss_gssauthenuser will already have called req_reject */
+
+extern int req_gssauthenuser (struct batch_request *preq, int sock);
     if (req_gssauthenuser(request,sfds) < 0) {
       log_event(PBSEVENT_DEBUG,
 		PBS_EVENTCLASS_SERVER,"req_gssauthenuser returned < 0","");

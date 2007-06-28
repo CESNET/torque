@@ -106,6 +106,7 @@
 #include "server_limits.h"
 #include "net_connect.h"
 #include "log.h"
+#include "dis.h"
 
 
 /* External Functions Called */

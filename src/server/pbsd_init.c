@@ -451,7 +451,7 @@ int pbsd_init(
   rc |= chk_file_sec(PBS_ENVIRON,0,0,S_IWGRP|S_IWOTH,1,EMsg);
 
 #ifdef GSSAPI
-  rc |= chk_file_sec(path_creds, 1,0,S_IRWXG|S_IRWXO,0);
+  rc |= chk_file_sec(path_creds, 1,0,S_IRWXG|S_IRWXO,0,EMsg);
 #endif
 
   if (rc != 0) 

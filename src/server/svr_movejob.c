@@ -109,6 +109,7 @@
 #include "svrfunc.h"
 #include "rpp.h"
 #include "mcom.h"
+#include "dis.h"
 
 #if __STDC__ != 1
 #include <memory.h>
@@ -583,7 +584,6 @@ int send_job(
   char          *pc;
   
 #ifdef GSSAPI
-  struct passwd *pwinfo;
   char          *hostname;
   char          *ccname;
   int           retries;

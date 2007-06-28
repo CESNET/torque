@@ -1886,7 +1886,6 @@ static void correct_ct(
 
 #ifdef GSSAPI
 void renew_job_credentials (struct work_task *ptask) {
-  job *pjob;
   char *jobname = (char *)ptask->wt_parm1;
   int retval = pbsgss_renew_creds(jobname,path_creds);
   time_t time_now = time((time_t *)0);
