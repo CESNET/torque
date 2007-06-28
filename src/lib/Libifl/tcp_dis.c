@@ -299,7 +299,8 @@ static int tcp_read(
   struct tcpdisbuf *tp;
 #ifdef GSSAPI
   OM_uint32 minor;
-  ssize_t l, f;
+  size_t l;
+  ssize_t f;
 #endif
 
 #ifdef GSSAPI
@@ -317,7 +318,7 @@ leftover:
     tp = &tcparray[fd]->readbuf;
     tcp_pack_buff(tp);
     f = THE_BUF_SIZE - (tp->tdis_eod - tp->tdis_thebuf);
-    if (f < l)
+    if ((size_t)f < l)
       {
       memcpy(tp->tdis_eod, tcparray[fd]->unwrapped.value, f);
       tp->tdis_eod += f;
@@ -348,11 +349,11 @@ readmore:
     int i;
     for (i=0, l=0; i<4; i++)
       l = l<<8 | (*tp->tdis_leadp++ & 0xff);
-    if (l<0 || l+4>THE_BUF_SIZE)
+    if (l+4>THE_BUF_SIZE)
       {
       return(-2);	/* FIXME: this is fatal; how to clean up? */
       }
-    if (tp->tdis_eod - tp->tdis_leadp >= l)
+    if ((size_t)(tp->tdis_eod - tp->tdis_leadp) >= l)
       {
       OM_uint32 major, minor;
       gss_buffer_desc msg_in;
