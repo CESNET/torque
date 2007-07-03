@@ -561,7 +561,7 @@ resource_def svr_resc_def[] = {
 	comp_l,
 	free_null,
 	NULL_FUNC,
-	READ_WRITE | ATR_DFLAG_MOM,
+	READ_WRITE,
 	ATR_TYPE_LONG
     },
     {	"mppdepth",    /* Number of threads per PE */
@@ -571,7 +571,7 @@ resource_def svr_resc_def[] = {
 	comp_l,
 	free_null,
 	NULL_FUNC,
-	READ_WRITE | ATR_DFLAG_MOM,
+	READ_WRITE,
 	ATR_TYPE_LONG
     },
     {	"mppnppn",    /* number of PEs per Node */
@@ -581,7 +581,7 @@ resource_def svr_resc_def[] = {
 	comp_l,
 	free_null,
 	NULL_FUNC,
-	READ_WRITE | ATR_DFLAG_MOM,
+	READ_WRITE,
 	ATR_TYPE_LONG
     },
     {	"mppnodes",    /* node list (can be of the form 1,3-7) */
@@ -591,7 +591,7 @@ resource_def svr_resc_def[] = {
 	comp_str,
 	free_str,
 	NULL_FUNC,
-	READ_WRITE | ATR_DFLAG_MOM,
+	READ_WRITE,
 	ATR_TYPE_STR
     },
     {	"mpplabels",    /* compute node features */
@@ -601,7 +601,7 @@ resource_def svr_resc_def[] = {
 	comp_str,
 	free_str,
 	NULL_FUNC,
-	READ_WRITE | ATR_DFLAG_MOM,
+	READ_WRITE,
 	ATR_TYPE_STR
     },
     {	"mpptimeMPP",   /* NYI */
@@ -611,7 +611,7 @@ resource_def svr_resc_def[] = {
 	comp_l,
 	free_null,
 	NULL_FUNC,
-	READ_WRITE | ATR_DFLAG_MOM,
+	READ_WRITE,
 	ATR_TYPE_LONG
     },
     {	"mpphostMPP",
@@ -621,7 +621,7 @@ resource_def svr_resc_def[] = {
 	comp_str,
 	free_str,
 	NULL_FUNC,
-	READ_WRITE | ATR_DFLAG_MOM,
+	READ_WRITE,
 	ATR_TYPE_STR
     },
     {	"mpparchMPP",    /* node architecture (XT3, XT4, etc.) */
@@ -631,7 +631,7 @@ resource_def svr_resc_def[] = {
 	comp_str,
 	free_str,
 	NULL_FUNC,
-	READ_WRITE | ATR_DFLAG_MOM,
+	READ_WRITE,
 	ATR_TYPE_STR
     },
 
