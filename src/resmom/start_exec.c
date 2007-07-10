@@ -5584,7 +5584,7 @@ int init_groups(
   char id[]="init_groups";
   extern sigset_t allsigs; /* set up at the start of mom_main */
   sigset_t savedset;
-  gid_t *savedgroups;
+  gid_t *savedgroups = NULL;
   int n, nsaved;
 
 

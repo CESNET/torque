@@ -1,8 +1,10 @@
 #include <pbs_config.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <sys/socket.h>
 #include "dis.h"
 #include "net_connect.h"
 
