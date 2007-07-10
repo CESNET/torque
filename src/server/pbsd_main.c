@@ -182,7 +182,7 @@ unsigned int	pbs_mom_port = 0;
 unsigned int	pbs_rm_port;
 pbs_net_t	pbs_scheduler_addr;
 unsigned int	pbs_scheduler_port;
-extern pbs_net_t	pbs_server_addr;
+extern pbs_net_t pbs_server_addr;
 unsigned int	pbs_server_port_dis;
 int		queue_rank = 0;
 struct server	server;		/* the server structure */
@@ -209,7 +209,7 @@ int             TDoBackground = 1;  /* background daemon */
 int             TForceUpdate = 0;  /* (boolean) */
 
 char           *ProgName;
-
+char           *NodeSuffix = NULL;
 
 
 
