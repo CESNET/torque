@@ -682,6 +682,11 @@ AC_ARG_WITH(gssapi,
 AC_SUBST(PBSGSSLIBDIR)
 AM_CONDITIONAL(INCLUDE_GSSAPI, [test "$PBSGSSLIBDIR" = "Libgss"])
 
+if test "$PBSGSSLIBDIR" = "Libgss" ;then
+     AC_PATH_PROGS(KRB5KDESTROY, kdestroy, kdestroy,$PATH:$GSSAPIROOT/bin)
+     AC_DEFINE_UNQUOTED([KRB5_KDESTROY],"${KRB5KDESTROY}",[Path to kdestroy])
+fi
+
 dnl
 dnl  ######################################################################
 dnl  Global settings

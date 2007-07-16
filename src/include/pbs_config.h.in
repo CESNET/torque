@@ -293,6 +293,9 @@
 /* defined if this is an SP2 */
 #undef IBM_SP2
 
+/* Path to kdestroy */
+#undef KRB5_KDESTROY
+
 /* the machine specific resc_def_* file name */
 #undef MACH_RESC_DEFS
 

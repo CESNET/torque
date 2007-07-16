@@ -1275,9 +1275,9 @@ void job_purge(
 #ifdef GSSAPI
   ccname = ccname_for_job(pjob->ji_qs.ji_jobid,path_creds);
   if (ccname) {
-    kdestroy = malloc(sizeof(char) * (strlen(ccname) + strlen("/usr/bin/kdestroy -c ") + 1));
+    kdestroy = malloc(sizeof(char) * (strlen(ccname) + strlen(KRB5_KDESTROY) + 5));
     if (kdestroy) {
-      sprintf(kdestroy,"/usr/bin/kdestroy -c %s",ccname);
+      sprintf(kdestroy,"%s -c %s",KRB5_KDESTROY,ccname);
       system(kdestroy);
       free(kdestroy);
     }
