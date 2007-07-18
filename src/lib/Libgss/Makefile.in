@@ -63,7 +63,8 @@ am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
 am__installdirs = "$(DESTDIR)$(libdir)"
 libLTLIBRARIES_INSTALL = $(INSTALL)
 LTLIBRARIES = $(lib_LTLIBRARIES)
-libtorquegss_la_LIBADD =
+am__DEPENDENCIES_1 =
+libtorquegss_la_DEPENDENCIES = $(am__DEPENDENCIES_1)
 am_libtorquegss_la_OBJECTS = pbsgss.lo
 libtorquegss_la_OBJECTS = $(am_libtorquegss_la_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/src/include
@@ -143,6 +144,7 @@ INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
+K5LIBS = @K5LIBS@
 KRB5KDESTROY = @KRB5KDESTROY@
 LDFLAGS = @LDFLAGS@
 LEX = @LEX@
@@ -315,6 +317,7 @@ XPBSMON_DIR = $(libdir)/xpbsmon
 SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
 lib_LTLIBRARIES = libtorquegss.la
 libtorquegss_la_SOURCES = pbsgss.c
+libtorquegss_la_LIBADD = $(K5LIBS)
 all: all-am
 
 .SUFFIXES:

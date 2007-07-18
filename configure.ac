@@ -676,9 +676,9 @@ AC_ARG_WITH(gssapi,
 	AC_CHECK_HEADERS(gssapi_krb5.h gssapi/gssapi_krb5.h)
 	AC_CHECK_HEADERS(gssapi_generic.h gssapi/gssapi_generic.h)
 
-	LIBS="$LIBS $K5LIBS"
 	]
 )
+AC_SUBST(K5LIBS)
 AC_SUBST(PBSGSSLIBDIR)
 AM_CONDITIONAL(INCLUDE_GSSAPI, [test "$PBSGSSLIBDIR" = "Libgss"])
 
