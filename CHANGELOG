@@ -9,6 +9,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix mom memory locking
   b - fix sum buffer length checks in pbs_mom
   b - fix memory leak in fifo scheduler
+  b - fix nonstandard usage of 'tail' in tpackage
 
 2.1.8
   b - stop possible memory corruption with an invalid request type (StockholmU)
