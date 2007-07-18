@@ -10,6 +10,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix sum buffer length checks in pbs_mom
   b - fix memory leak in fifo scheduler
   b - fix nonstandard usage of 'tail' in tpackage
+  b - fix aliasing error with brp_txtlen
 
 2.1.8
   b - stop possible memory corruption with an invalid request type (StockholmU)
