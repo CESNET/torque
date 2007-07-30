@@ -2379,7 +2379,7 @@ struct  rm_attribute    *attrib;
 
 int get_la(
 
-  double rv)
+  double *rv)
 
   {
   char  *id = "get_la";
