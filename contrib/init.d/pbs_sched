@@ -5,6 +5,17 @@
 # chkconfig: 345 95 5
 # description: PBS is a batch versatile batch system for SMPs and clusters
 #
+### BEGIN INIT INFO
+# Provides:       pbs_sched
+# Required-Start: $local_fs $network $named $remote_fs $syslog $time
+# Should-Start: pbs_server
+# Required-Stop:
+# Should-Stop:
+# Default-Start:  3 5
+# Default-Stop:
+# Description: Torque is a versatile batch system for SMPs and clusters
+### END INIT INFO
+
 # Source the library functions
 . /etc/rc.d/init.d/functions
 
@@ -39,7 +50,10 @@ case "$1" in
 		$0 stop
 		$0 start
 		;;
-	reload) 
+	try-restart)
+		[ -f /var/lock/subsys/pbs_mom ] && $0 restart
+		;;
+ 	reload|force-reload)
 		echo -n "Reloading pbs_sched: "
 		killproc pbs_sched -HUP
 		RET=$?
