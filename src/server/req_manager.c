@@ -2401,6 +2401,8 @@ int set_nextjobnum(
 
     case DECR:  attr->at_val.at_long = server.sv_qs.sv_jobidnumber -= new->at_val.at_long;
                 break;
+
+    default: return(PBSE_SYSTEM);
     }
   attr->at_flags |= ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
   return 0;
