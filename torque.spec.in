@@ -116,7 +116,7 @@ Name: %{name}
 Version: %{version}
 Release: %{?snap:snap.%snap.}%{release}
 Source: torque-%{version}%{?snap:-snap.%snap}.tar.gz
-License: distributable
+License: OpenPBS
 Group: System Environment/Daemons
 URL: http://www.clusterresources.com/products/torque/
 BuildRoot: %{_tmppath}/%{name}-%{version}-buildroot
