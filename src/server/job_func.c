@@ -333,8 +333,17 @@ void send_qsub_delmsg(job *pjob, char *text)
       return;
       }
 
-    write(qsub_sock,"PBS: ",5);
-    write(qsub_sock,text,strlen(text));
+    if (write(qsub_sock,"PBS: ",5) != 5)
+      {
+      close(qsub_sock);
+      return;
+      }
+
+    if (write(qsub_sock,text,strlen(text)) != (ssize_t)strlen(text))
+      {
+      close(qsub_sock);
+      return;
+      }
 
     close(qsub_sock);
   }
