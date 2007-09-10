@@ -12,6 +12,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix nonstandard usage of 'tail' in tpackage
   b - fix aliasing error with brp_txtlen
   e - update initscripts for LSB compliance
+  f - allow manager to set "next job number" via hidden qmgr attribute
+      next_job_number
 
 2.1.8
   b - stop possible memory corruption with an invalid request type (StockholmU)
