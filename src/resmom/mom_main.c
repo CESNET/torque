@@ -3717,6 +3717,8 @@ int rm_request(
   int   BSpace;
 
   errno = 0;
+  log_buffer[0] = '\0';
+
 
   if (tcp) 
     {
@@ -4470,7 +4472,7 @@ int rm_request(
 
           if ((fp = fopen(config_file,"w+")) == NULL)
             {
-            printf(log_buffer,"cannot open config file %s",
+            sprintf(log_buffer,"cannot open config file %s",
               config_file);
 
             goto bad;
@@ -4480,7 +4482,7 @@ int rm_request(
             {
             fclose(fp);
 
-            printf(log_buffer,"cannot write config file %s",
+            sprintf(log_buffer,"cannot write config file %s",
               config_file);
 
             goto bad;
