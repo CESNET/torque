@@ -91,14 +91,12 @@ int main(
   HostList[0]     = '\0';
   ConfigBuf[0] = '\0';
 
-/*
   if (getuid() != 0)
     {
     fprintf(stderr,"ERROR:  must be root to run this command\n");
 
     exit(EXIT_FAILURE);
     }
-*/
 
   while ((c = getopt(ArgC,ArgV,OptString)) != EOF)
     {
