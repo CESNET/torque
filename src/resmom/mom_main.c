@@ -248,6 +248,7 @@ char            MOMUNameMissing[64];
 
 int             MOMConfigDownOnError      = 0;
 int             MOMConfigRestart          = 0;
+int             MOMConfigRReconfig        = 0;
 long            system_ncpus              = 0;
 
 int             MOMISLOCKED = 0;
@@ -318,6 +319,7 @@ static unsigned long setcheckpolltime(char *);
 static unsigned long settmpdir(char *);
 static unsigned long setlogfilemaxsize(char *);
 static unsigned long setlogfilerolldepth(char *);
+static unsigned long setrreconfig(char *);
 
 static struct specials {
   char            *name;
@@ -352,6 +354,7 @@ static struct specials {
     { "tmpdir",       settmpdir },
     { "log_file_max_size", setlogfilemaxsize},
     { "log_file_roll_depth", setlogfilerolldepth},
+    { "remote_reconfig",     setrreconfig},
     { NULL,           NULL } };
 
 
@@ -1747,6 +1750,56 @@ static u_long setenablemomrestart(
   }  /* END setenablemomrestart() */
 
 
+static u_long setrreconfig(
+
+  char *Value)  /* I */
+
+  {
+  static char   id[] = "setrreconfig";
+  int           enable = -1;
+
+  log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,Value);
+
+  if (Value == NULL)
+    {
+    /* FAILURE */
+
+    return(0);
+    }
+  
+  /* accept various forms of "true", "yes", and "1" */
+  switch (Value[0])
+    {
+    case 't':
+    case 'T':
+    case 'y': 
+    case 'Y':
+    case '1':
+
+      enable = 1;
+  
+      break;
+    
+    case 'f':
+    case 'F':
+    case 'n':
+    case 'N':
+    case '0':
+      
+      enable = 0;
+
+      break;
+
+    } 
+
+  if (enable != -1) 
+    {
+    MOMConfigRReconfig=enable;
+    }
+
+  return(1);
+  }  /* END setrreconfig() */
+  
 
 
 static u_long cputmult(
@@ -4433,6 +4486,14 @@ int rm_request(
 
       {
       char *ptr;
+
+      if (MOMConfigRReconfig == FALSE)
+        {
+        log_err(-1,id,
+         "remote reconfiguration disabled, ignoring request");
+
+        goto bad;
+        }
 
       if (restrictrm) 
         {
