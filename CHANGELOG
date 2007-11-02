@@ -1,5 +1,8 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
+2.2.1
+  b - fix a bug where pbs_server never delete files from the "jobs" directory
+
 2.2.0
   e - improve RPP logging for corruption issues
   f - dynamic resources
