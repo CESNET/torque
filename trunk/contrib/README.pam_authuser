@@ -1,0 +1,36 @@
+Instructions for setting up pam_authuser PAM module to restrict user access on
+compute nodes
+
+March 31, 2006
+
+
+Description:
+--------------------------------------------------------------------------------
+The prologue* scripts are perl scripts that add the user of the job to
+/etc/authuser.  The epilogue* scripts then remove the first occurance of the
+user from /etc/authuser.  File locking is employed in all scripts to eliminate
+the chance of race conditions.  Also, in the epilogue* scripts, there is code
+that is commented out that when activated kills all processes owned by the user
+(using pkill), when that user does not have another valid job on the same node.
+
+Instructions:
+--------------------------------------------------------------------------------
+Compile pam_authuser.c with make and make install on every compute node.
+Edit /etc/system-auth as described in README.pam_authuser on every compute node.
+Either make a tar ball of the epilogue* and prologue* scripts (to preserve the
+symbolic link) and untar it in $PBS_HOME/mom_priv, or just copy epilogue* and
+prologue* to $PBS_HOME/mom_priv/.
+Verify that they are readable and executable by root and NOT writable by anyone
+besides root (e.g., "-r-x------").
+
+
+Acknowledgments:
+--------------------------------------------------------------------------------
+Dan Sneddon at the Ira Fulton Supercomputing Laboratory at Brigham Young
+University (initial developement).
+Hyrum Carroll at Cluster Resources, Inc. (help@clusterresources.com).
+
+pam_authuser was originally developed by Shawn Sustaita and James E. Prewett 
+(download@hpc.unm.edu) at The Center for High Performance Computing at the 
+University of New Mexico.  pam_authuser is currently being maintained by James
+E. Prewett (download@hpc.unm.edu).
