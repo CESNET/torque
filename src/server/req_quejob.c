@@ -122,6 +122,7 @@
 #ifndef PBS_MOM
 #include "work_task.h"
 extern void  job_clone_wt A_((struct work_task *));
+extern int setup_array_struct(job *pjob);
 #endif
 
 #ifdef PBS_MOM
@@ -207,6 +208,8 @@ static char *pbs_o_que = "PBS_O_QUEUE=";
 
 /*
  * req_quejob - Queue Job Batch Request processing routine
+ *  NOTE:  calls svr_chkque() to validate queue access
+ *
  */
 
 void req_quejob(
@@ -280,13 +283,9 @@ void req_quejob(
 
     created_here = JOB_SVFLG_HERE;
 
-#ifdef JOBARRAYTESTING
-    sprintf(jidbuf,"%d-%d.",
-      server.sv_qs.sv_jobidnumber,1);
-#else
+
     sprintf(jidbuf,"%d.",
-      server.sv_qs.sv_jobidnumber);
-#endif
+    server.sv_qs.sv_jobidnumber);
 
 
     strcat(jidbuf,server_name);
@@ -421,8 +420,8 @@ void req_quejob(
   do {
     strcpy(namebuf,path_jobs);
     strcat(namebuf,basename);
-    strcat(namebuf,JOB_FILE_SUFFIX);
-
+    strcat(namebuf, JOB_FILE_SUFFIX);
+    
     fds = open(namebuf,O_CREAT|O_EXCL|O_WRONLY,0600);
 
     if (fds < 0) 
@@ -1519,6 +1518,10 @@ void req_rdytocommit(
   int  OrigSState;
   char OrigSChar;
   long OrigFlags;
+  
+#ifndef PBS_MOM
+  char namebuf[MAXPATHLEN+1];
+#endif
 
   pj = locate_new_job(sock,preq->rq_ind.rq_rdytocommit);
 
@@ -1575,6 +1578,20 @@ void req_rdytocommit(
   pj->ji_qs.ji_substate = JOB_SUBSTATE_TRANSICM;
   pj->ji_wattr[(int)JOB_ATR_state].at_val.at_char = 'T';
   pj->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_VFLAG_SET;
+  
+#ifndef PBS_MOM
+
+  if (pj->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long > 1)
+    {
+    pj->ji_isparent = TRUE;
+        
+    strcpy(namebuf,path_jobs);
+    strcat(namebuf,pj->ji_qs.ji_fileprefix);
+    strcat(namebuf, JOB_FILE_SUFFIX);
+    unlink(namebuf);
+        
+    }
+#endif
 
   if (job_save(pj,SAVEJOB_NEW) == -1) 
     {
@@ -1655,7 +1672,6 @@ void req_commit(
   int	   newsub;
   pbs_queue *pque;
   int	   rc;
-  struct work_task *wt;
 #endif /* SERVER only */
 
   pj = locate_new_job(preq->rq_conn,preq->rq_ind.rq_commit);
@@ -1794,23 +1810,16 @@ void req_commit(
      *** job array under development */
   if (pj->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long > 1)
     {
-    array_job_list *pajl;
-    
-    /* setup a link to this job array in the servers all_arrays list */
-    pajl = (array_job_list*)malloc(sizeof(array_job_list));
-    strcpy(pajl->parent_id, pj->ji_qs.ji_jobid);
-    pajl->num_cloned = 0;
-    CLEAR_LINK(pajl->all_arrays);
-    CLEAR_HEAD(pajl->array_alljobs);
-    append_link(&svr_jobarrays, &pajl->all_arrays, (void*)pajl);
-    
-    wt = set_task(WORK_Timed,time_now+1,job_clone_wt,(void*)pj);
-    wt->wt_aux = 0;
-    /* svr_setjobstate(pj,JOB_STATE_HELD,JOB_SUBSTATE_HELD);*/
+    	
+    if (setup_array_struct(pj))
+      {
+      req_reject(PBSE_SYSTEM,0,preq,NULL,NULL);
+      return;
+      }	
     
     reply_jobid(preq,pj->ji_qs.ji_jobid,BATCH_REPLY_CHOICE_Commit);
     return;
-    }
+    }  /* end if (pj->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long > 1) */
 
   svr_evaljobstate(pj,&newstate,&newsub,1);
 
@@ -2106,7 +2115,7 @@ user_account_default_done:
     log_buffer);
 
   return(rc);
-  }
+  }  /* END user_account_default() */
 
 
 
@@ -2128,7 +2137,7 @@ int user_account_read_user(
   {
   char  proj_file[] = AcctFile;
   int   fd;
-  char  s_buf[64*1024];
+  char  s_buf[128*1024];
   int   readsize;
   int   scanmode = AcctScanUser;
   int   i, j;
@@ -2151,54 +2160,95 @@ int user_account_read_user(
     return(0);
     }
 
-        readsize = read(fd, s_buf, sizeof(s_buf));
-        close(fd);
-       if (readsize < 1 || readsize > sizeof(s_buf))
-           return(0);                       /* Bail if not sane */
+  readsize = read(fd,s_buf,sizeof(s_buf));
 
-       for (i=0; i<readsize; ++i) {
-           /* First,  handle comments and whitespace */
-           if (scanmode == AcctScanLine) {  /* Looking for new line */
-               if (s_buf[i] == '\n')        /* Found it */
-                   scanmode = AcctScanUser;
-               continue;
-           }
-           if (isspace(s_buf[i]))            /* Skip spaces */
-                continue;
-           if (s_buf[i] == '#') {            /* Comment found */
-               scanmode = AcctScanLine;
-                continue;
-            }
+  close(fd);
 
-           /* Next, handle user and account scanning */
-            if (scanmode == AcctScanUser) {
-               if ((i+arguserlen) > readsize) /* Past the end */
-                   return(0);
-               if (strncmp(&s_buf[i], arguser, arguserlen)) {
-                   scanmode = AcctScanLine;   /* Not arguser, next line */
-                    continue;
-                }
-               if (isspace(s_buf[i+arguserlen]) ||
-                           s_buf[i+arguserlen] == ':') {
-                  i += arguserlen;            /* Is arguser */
-                  scanmode = AcctScanAcct;
-                } else {                       /* Whatever, ignore it */
-                  scanmode = AcctScanLine;
-                  continue;
-               }
-           } else {                           /* scanmode == AcctScanAcct */
-              if (s_buf[i] == ':' || isspace(s_buf[i]))
-                  continue;
-               for (j=i; j<readsize; j++) {
-                  if (isspace(s_buf[j])) {
-                      strncpy(UserAcct.ActRaw, &s_buf[i], j-i);
-                      UserAcct.ActRaw[j-i] = '\0';
-                      goto have_account;
-                   }
-             }
-              return(0);
-           }
-       }
+  if ((readsize < 1) || (readsize > sizeof(s_buf)))
+    {
+    /* bail if not sane */
+
+    return(0);   
+    }
+
+  for (i = 0;i < readsize;++i) 
+    {
+    /* First, handle comments and whitespace */
+
+    if (scanmode == AcctScanLine) 
+      {  
+      /* Looking for new line */
+
+      if (s_buf[i] == '\n')        /* Found it */
+        scanmode = AcctScanUser;
+
+      continue;
+      }
+
+    if (isspace(s_buf[i]))            /* Skip spaces */
+      continue;
+
+    if (s_buf[i] == '#') 
+      {
+      /* Comment found */
+
+      scanmode = AcctScanLine;
+
+      continue;
+      }
+
+    /* Next, handle user and account scanning */
+
+    if (scanmode == AcctScanUser) 
+      {
+      if ((i + arguserlen) > readsize) /* Past the end */
+        {
+        return(0);
+        }
+
+      if (strncmp(&s_buf[i],arguser,arguserlen)) 
+        {
+        scanmode = AcctScanLine;   /* Not arguser, next line */
+
+        continue;
+        }
+
+      if (isspace(s_buf[i + arguserlen]) ||
+          s_buf[i + arguserlen] == ':') 
+        {
+        i += arguserlen;            /* Is arguser */
+
+        scanmode = AcctScanAcct;
+        } 
+      else 
+        {
+        /* Whatever, ignore it */
+
+        scanmode = AcctScanLine;
+
+        continue;
+        }
+      } 
+    else 
+      {                           
+      /* scanmode == AcctScanAcct */
+
+      if ((s_buf[i] == ':') || isspace(s_buf[i]))
+        continue;
+
+      for (j = i;j < readsize;j++) 
+        {
+        if (isspace(s_buf[j])) 
+          {
+          strncpy(UserAcct.ActRaw, &s_buf[i], j-i);
+          UserAcct.ActRaw[j-i] = '\0';
+          goto have_account;
+          }
+        }
+
+      return(0);
+      }
+    }    /* END for (i) */
 
   return(0);                             /* Never found it */
 

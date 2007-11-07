@@ -175,6 +175,7 @@ int		hostname_specified = 0;
 char		mom_host[PBS_MAXHOSTNAME + 1];
 char		pbs_servername[PBS_MAXSERVER][PBS_MAXSERVERNAME + 1];
 u_long		MOMServerAddrs[PBS_MAXSERVER];
+char            TMOMRejectConn[1024];   /* most recent rejected connection */
 char		mom_short_name[PBS_MAXHOSTNAME + 1];
 int		num_var_env;
 char	       *path_epilog;
@@ -206,7 +207,7 @@ tlist_head	mom_polljobs;	/* jobs that must have resource limits polled */
 tlist_head	svr_newjobs;	/* jobs being sent to MOM */
 tlist_head	svr_alljobs;	/* all jobs under MOM's control */
 tlist_head	mom_varattrs;	/* variable attributes */
-int		termin_child = 0;
+int		termin_child = 0;  /* boolean - one or more children need to be terminated this iteration */
 time_t		time_now = 0;
 time_t		polltime = 0;
 extern tlist_head svr_requests;
@@ -261,6 +262,7 @@ char            MOMUNameMissing[64];
 
 int             MOMConfigDownOnError      = 0;
 int             MOMConfigRestart          = 0;
+int             MOMConfigRReconfig        = 0;
 long            system_ncpus = 0;
 char           *auto_ideal_load = NULL;
 char           *auto_max_load   = NULL;
@@ -340,6 +342,7 @@ static unsigned long setautomaxload(char *);
 static unsigned long setnodefilesuffix(char *);
 static unsigned long setnospooldirlist(char *);
 static unsigned long setmomhost(char *);
+static unsigned long setrreconfig(char *);
 
 
 static struct specials {
@@ -384,6 +387,7 @@ static struct specials {
     { "nodefile_suffix",     setnodefilesuffix },
     { "nospool_dir_list",    setnospooldirlist },
     { "mom_host",            setmomhost },
+    { "remote_reconfig",     setrreconfig},
     { NULL,                  NULL } };
 
 
@@ -2804,8 +2808,56 @@ static unsigned long setmomhost(
   }  /* END setmomhost() */
 
 
+static u_long setrreconfig(
 
+  char *Value)  /* I */
 
+  {
+  static char   id[] = "setrreconfig";
+  int           enable = -1;
+
+  log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,Value);
+
+  if (Value == NULL)
+    {
+    /* FAILURE */
+
+    return(0);
+    }
+  
+  /* accept various forms of "true", "yes", and "1" */
+  switch (Value[0])
+    {
+    case 't':
+    case 'T':
+    case 'y': 
+    case 'Y':
+    case '1':
+
+      enable = 1;
+  
+      break;
+    
+    case 'f':
+    case 'F':
+    case 'n':
+    case 'N':
+    case '0':
+      
+      enable = 0;
+
+      break;
+
+    } 
+
+  if (enable != -1) 
+    {
+    MOMConfigRReconfig=enable;
+    }
+
+  return(1);
+  }  /* END setrreconfig() */
+  
 
 static unsigned long setnospooldirlist(
 
@@ -4209,17 +4261,17 @@ void is_update_stat(
     /* It would be redundant to send state since it is already in status */
   
     ReportMomState[ServerIndex] = 0;
-  
     }
 
+  return;
   }  /* END is_update_stat() */
 
 
 
 
 /*
-**	Process a request for the resource monitor.  The i/o
-**	will take place using DIS over a tcp fd or an rpp stream.
+** Process a request for the resource monitor.  The i/o
+** will take place using DIS over a tcp fd or an rpp stream.
 */
 
 int rm_request(
@@ -4241,14 +4293,17 @@ int rm_request(
   struct	sockaddr_in	*addr;
   unsigned long	ipadd;
   u_short	port;
-  void		(*close_io)	A_((int));
-  int		(*flush_io)	A_((int));
-  extern struct	connection	svr_conn[];
+  void		(*close_io) A_((int));
+  int		(*flush_io) A_((int));
+  extern struct	connection svr_conn[];
+
+  int   NotTrusted = 0;
 
   char *BPtr;
   int   BSpace;
 
   errno = 0;
+  log_buffer[0] = '\0';
 
   if (tcp) 
     {
@@ -4283,6 +4338,8 @@ int rm_request(
       {
       sprintf(log_buffer,"bad attempt to connect - unauthorized (port: %d)",
         port);
+
+      NotTrusted = 1;
 
       goto bad;
       }
@@ -4489,9 +4546,9 @@ int rm_request(
             {
             /* set or report down_on_error */
 
-            if ( (*curr == '=') && ((*curr)+1 != '\0' ))
+            if ( (*curr == '=') && ((*curr) + 1 != '\0' ))
               {
-              setdownonerror(curr+1);
+              setdownonerror(curr + 1);
               }
 
             sprintf(output,"down_on_error=%d",
@@ -4626,6 +4683,12 @@ int rm_request(
                 MUStrNCat(&BPtr,&BSpace,tmpLine);
                 }
 
+              if (TMOMRejectConn[0] != '\0')
+                {
+                MUSNPrintF(&BPtr,&BSpace,"  WARNING:  invalid attempt to connect from server %s\n",
+                  TMOMRejectConn);
+                }
+
               if (MOMLastRecvFromServerTime[sindex] > 0)
                 {
                 sprintf(tmpLine,"  Last Msg From Server:   %ld seconds (%s)\n",
@@ -4664,6 +4727,36 @@ int rm_request(
               (mom_home != NULL) ? mom_home : "N/A");
 
             MUStrNCat(&BPtr,&BSpace,tmpLine);
+
+#ifdef HAVE_SYS_STATVFS_H
+            {
+            #include <sys/statvfs.h>
+
+            struct statvfs VFSStat;
+
+            if (statvfs(path_spool,&VFSStat) < 0)
+              {
+              MUSNPrintF(&BPtr,&BSpace,"ALERT:  cannot stat stdout/stderr spool directory '%s' (errno=%d)\n",
+                path_spool,
+                errno);
+              }
+            else
+              {
+              if (VFSStat.f_bavail > 0)
+                {
+                if (verbositylevel >= 1)
+                  MUSNPrintF(&BPtr,&BSpace,"stdout/stderr spool directory: '%s' (%d blocks available)\n",
+                    path_spool,
+                    VFSStat.f_bavail);
+                }
+              else
+                {
+                MUSNPrintF(&BPtr,&BSpace,"ALERT:  stdout/stderr spool directory '%s' is full\n",
+                  path_spool);
+                }
+              }
+            }    /* END BLOCK */
+#endif /* HAVE_SYS_STATVFS_H */
 
             if (MOMConfigVersion[0] != '\0')
               {
@@ -5004,6 +5097,14 @@ int rm_request(
       {
       char *ptr;
 
+      if (MOMConfigRReconfig == FALSE)
+        {
+        log_err(-1,id,
+         "remote reconfiguration disabled, ignoring request");
+
+        goto bad;
+        }
+
       if (restrictrm) 
         {
         log_err(-1,id,"restricted configure attempt");
@@ -5042,7 +5143,7 @@ int rm_request(
 
           if ((fp = fopen(config_file,"w+")) == NULL)
             {
-            printf(log_buffer,"cannot open config file %s",
+            sprintf(log_buffer,"cannot open config file %s",
               config_file);
 
             goto bad;
@@ -5052,7 +5153,7 @@ int rm_request(
             {
             fclose(fp);
 
-            printf(log_buffer,"cannot write config file %s",
+            sprintf(log_buffer,"cannot write config file %s",
               config_file);
 
             goto bad;
@@ -5163,6 +5264,14 @@ bad:
     (ipadd & 0x00ff0000) >> 16,
     (ipadd & 0x0000ff00) >> 8,
     (ipadd & 0x000000ff));
+
+  sprintf(TMOMRejectConn,"%ld.%ld.%ld.%ld:%d  %s",
+    (ipadd & 0xff000000) >> 24,
+    (ipadd & 0x00ff0000) >> 16,
+    (ipadd & 0x0000ff00) >> 8,
+    (ipadd & 0x000000ff),
+    port,
+    (NotTrusted == 1) ? "(server not authorized)" : "(request corrupt)");
 
   strcat(log_buffer,output);
 
@@ -5646,7 +5755,7 @@ static void finish_loop(
 
   rpp_request(42);
 
-  if (termin_child)
+  if (termin_child != 0)
     scan_for_terminated();
 
   /* if -p, must poll tasks inside jobs to look for completion */
@@ -6324,7 +6433,7 @@ int main(
   strcpy(rcp_path,RCP_PATH);
   strcpy(rcp_args,RCP_ARGS);
 #ifdef DEFAULT_MOMLOGDIR
-  path_log=strdup(DEFAULT_MOMLOGDIR);
+  path_log = strdup(DEFAULT_MOMLOGDIR);
 #endif
 #ifdef DEFAULT_MOMLOGSUFFIX
   log_init(DEFAULT_MOMLOGSUFFIX,NULL);
@@ -7124,8 +7233,21 @@ int main(
 
     return(3);
     }
-		
+
+  if (mom_get_sample() != PBSE_NONE)
+    {
+    log_err(c,msg_daemonname,"mom_get_sample failed after mom_open_poll");
+
+    return(3);
+    }
+
   /* recover & abort jobs which were under MOM's control */
+
+  log_record(
+    PBSEVENT_DEBUG, 
+    PBS_EVENTCLASS_SERVER,
+    msg_daemonname, 
+    "before init_abort_jobs");
 
   init_abort_jobs(recover);
 
@@ -7602,7 +7724,7 @@ int main(
       pjob = (job *)GET_NEXT(pjob->ji_alljobs);
       }  /* END while (pjob != NULL) */
 
-    if (termin_child)
+    if (termin_child != 0)
       scan_for_terminated();
 
     if (exiting_tasks)
@@ -7831,7 +7953,7 @@ int TMOMScanForStarting(void)
 
       if (LOGLEVEL >= 2)
         {
-        snprintf(log_buffer,1024,"checking job start in %s",
+        snprintf(log_buffer,1024,"checking job start in %s - examining pipe from child",
           id);
 
         log_record(

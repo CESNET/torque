@@ -1,26 +1,58 @@
 #!/bin/sh
 # torque.setup
 
-# USAGE:  torque.setup <USERNAME>
+# USAGE:  torque.setup <USERNAME> [<HOSTNAME>]
 
 if [ "$1" = "" ] ; then
   echo "USAGE:  torque.setup <USERNAME>"
   exit 1
   fi
 
-# create default queue
+if [ "$2" = "" ] ; then
+  # validate hostname matches DNS
+  HOSTNAME=`hostname`
+else
+  HOSTNAME=$2
+fi
+  
 # enable operator privileges
 
-USER=$1@`hostname`
+USER=$1@$HOSTNAME
 
 echo "initializing TORQUE (admin: $USER)"
 
+ps -ef | grep -v grep | grep pbs_server 
+
+if [ "$?" -eq "0" ] ; then
+  echo "ERROR: pbs_server already running... run 'qterm' to stop pbs_server and rerun"
+  exit 1;
+fi
+
 pbs_server -t create
 
-qmgr -c "set server scheduling=true"
+echo set server operators += $USER | qmgr -a  2> /dev/null
 
-echo set server operators += $USER | qmgr
+if [ "$?" -ne "0" ] ; then
+  USER=$1@`hostname -f`
+  echo set server operators += $USER | qmgr -a
+
+  if [ "$?" -ne "0" ] ; then
+    echo "ERROR: cannot set TORQUE admins"
+    qterm
+    exit 1;
+  fi
+
+fi
+
 echo set server managers += $USER | qmgr
+
+
+qmgr -c 'set server scheduling = true'
+qmgr -c 'set server keep_completed = 300'
+qmgr -c 'set server mom_job_sync = true'
+qmgr -c 'set server resources_available.nodect = 999999'
+
+# create default queue
 
 qmgr -c 'create queue batch'
 qmgr -c 'set queue batch queue_type = execution'
@@ -28,6 +60,7 @@ qmgr -c 'set queue batch started = true'
 qmgr -c 'set queue batch enabled = true'
 qmgr -c 'set queue batch resources_default.walltime = 1:00:00'
 qmgr -c 'set queue batch resources_default.nodes = 1'
+qmgr -c 'set queue batch resources_available.nodect = 999999'
 
 qmgr -c 'set server default_queue = batch'
 

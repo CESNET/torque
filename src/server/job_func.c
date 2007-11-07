@@ -137,8 +137,20 @@
 #endif
 #include "portability.h"
 
+
+#ifndef TRUE
+#define TRUE 1
+#define FALSE 0
+#endif
+
 int conn_qsub(char *,long,char *);
 void job_purge(job *);
+
+#ifndef CPUSETISREADY
+#ifdef PENABLE_DYNAMIC_CPUSETS
+  #undef PENABLE_DYNAMIC_CPUSETS
+#endif /* PENABLE_DYNAMIC_CPUSETS */
+#endif /* !CPUSETISREADY */
 
 /* External functions */
 
@@ -147,6 +159,12 @@ void job_purge(job *);
 void unload_sp_switch A_((job *pjob));
 #endif			/* IBM SP */
 #endif	/*  PBS_MOM */
+
+#ifndef PBS_MOM
+extern int array_save(job_array *);
+extern job_array *get_array(char *id);
+extern int delete_array_struct(job_array *pa);
+#endif
 
 /* Local Private Functions */
 
@@ -158,6 +176,7 @@ static void job_init_wattr A_((job *));
 extern struct server   server;
 extern int queue_rank;
 extern tlist_head svr_jobarrays;
+extern char *path_arrays;
 #else
 extern gid_t pbsgroup;
 #endif	/* PBS_MOM */
@@ -623,6 +642,7 @@ job *job_alloc()
   CLEAR_HEAD(pj->ji_svrtask);
   CLEAR_HEAD(pj->ji_rejectdest);
   CLEAR_LINK(pj->ji_arrayjobs);
+  pj->ji_isparent = FALSE;
 #endif  /* else PBS_MOM */
 
   pj->ji_momhandle = -1;		/* mark mom connection invalid */
@@ -723,13 +743,14 @@ void job_free(
 
 /*
  * job_clone - create a clone of a job for use with job arrays
- *   pj is the job to clone, and taksid is the job array id of the 
+ *   pj is the job to clone, and taskid is the job array id of the 
  *   newly cloned job
  */
+
 job *job_clone(
+
   job *poldjob,
-  int taskid
-  )
+  int  taskid)
   
   {
 
@@ -740,20 +761,17 @@ job *job_clone(
 
   char		*oldid;
   char		*hostname;
-  char          *tmpstr;
+  char		*tmpstr;
   char		basename[PBS_JOBBASE+1];
   char		namebuf[MAXPATHLEN + 1];
-  char		copybuf[4096];
   char		buf[256];
   char		*pc;
   int		fds;
-  int		fds_source;
 
   int 		i;
-  int		rc;
   int           slen;
   
-  array_job_list *pajl;
+  job_array *pa;
 
   if (taskid > PBS_MAXJOBARRAY)
     {
@@ -864,41 +882,7 @@ job *job_clone(
   close(fds);
   strcpy(pnewjob->ji_qs.ji_fileprefix,basename);
 
-  /* end making new job file name now we need to copy the contents of the old 
-     file into the file for this cloned job */
-  strcpy(namebuf,path_jobs);
-  strcat(namebuf,basename);
-  strcat(namebuf,JOB_SCRIPT_SUFFIX);
-  fds = open(namebuf,O_WRONLY|O_CREAT);
-  if (fds < 0)
-    {
-    log_err(errno,id,"cannot create job script");
-    job_free(pnewjob);
-    return NULL;
-    }
-    
-  strcpy(namebuf,path_jobs);
-  strcat(namebuf,poldjob->ji_qs.ji_fileprefix);
-  strcat(namebuf,JOB_SCRIPT_SUFFIX);
-
-  fds_source = open(namebuf,O_RDONLY);
-  if (fds_source < 0)
-    {
-    log_err(errno,id,"cannot copy job script");
-    job_free(pnewjob);
-    return NULL;
-    }
-    
-  rc = read(fds_source, copybuf, 4096);
-  while (rc > 0)
-    {
-      write(fds, copybuf, rc);
-      rc = read(fds_source, copybuf, 4096);
-    }
-  
-  close(fds);
-  close(fds_source);
-
+ 
   /* copy job attributes. some of these are going to have to be modified  */
   for (i = 0; i < JOB_ATR_LAST; i++)
     {
@@ -929,6 +913,10 @@ job *job_clone(
       }
     }
 
+  /* put a system hold on the job.  we'll take the hold off once the 
+   * entire array is cloned */
+  pnewjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_a;
+  pnewjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
 
   /* set JOB_ATR_job_array_id */
   pnewjob->ji_wattr[(int)JOB_ATR_job_array_id].at_val.at_long = taskid;
@@ -949,18 +937,12 @@ job *job_clone(
     INCR);  
 
   /* we need to link the cloned job into the array task list */
-  pajl = (array_job_list*)GET_NEXT(svr_jobarrays);
-  while (pajl != NULL)
-    {
-    if (strcmp(pajl->parent_id, poldjob->ji_qs.ji_jobid) == 0)
-      break;
-    pajl = (array_job_list*)GET_NEXT(pajl->all_arrays);
+  pa = get_array(poldjob->ji_qs.ji_jobid);
   
-    }
-    CLEAR_LINK(pnewjob->ji_arrayjobs);
-    append_link(&pajl->array_alljobs, &pnewjob->ji_arrayjobs, (void*)pnewjob);
-    pnewjob->ji_arrayjoblist = pajl;
-    pajl->num_cloned++;
+  CLEAR_LINK(pnewjob->ji_arrayjobs);
+  append_link(&pa->array_alljobs, &pnewjob->ji_arrayjobs, (void*)pnewjob);
+  pnewjob->ji_arrayjoblist = pa;
+ 
 
   return pnewjob;
   } /* END job_clone() */
@@ -981,10 +963,18 @@ struct work_task *ptask)
   int newstate;
   int newsub;
   int rc;
-  
-  
+  char namebuf[MAXPATHLEN];
+  job_array *pa;
   pjob = (job*)(ptask->wt_parm1);
-  startindex = ptask->wt_aux;
+  
+  pa = get_array(pjob->ji_qs.ji_jobid);
+  
+  startindex = pa->ai_qs.num_cloned;
+  
+  strcpy(namebuf, path_jobs);
+  strcat(namebuf, pjob->ji_qs.ji_fileprefix);
+  strcat(namebuf, ".AR");
+  
   
   /* do the clones in batches of 256 */
   
@@ -1016,16 +1006,48 @@ struct work_task *ptask)
       {
       job_purge(pjobclone);
       }
+      
+    pa->ai_qs.num_cloned++;
+    array_save(pa);
     }
+  
+  
+
+  
   
   if (i < pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long)
     {
     new_task = set_task(WORK_Timed,time_now + 1,job_clone_wt,ptask->wt_parm1);
-    new_task->wt_aux = startindex + 256;
     }
   else
     {
-    job_purge((job*)(ptask->wt_parm1));
+     /* this is the last batch of jobs, we can purge the "parent" job */
+
+    job_purge(pjob);
+    
+    /* scan over all the jobs in the array and unset the hold */
+    pjob = GET_NEXT(pa->array_alljobs);
+    while (pjob != NULL)
+      {	
+      pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long &= ~HOLD_a;
+      if (pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long == 0)
+        {
+        pjob->ji_wattr[(int)JOB_ATR_hold].at_flags &= ~ATR_VFLAG_SET;	
+        }
+      else
+        {
+        pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
+        }
+      
+      svr_evaljobstate(pjob,&newstate,&newsub,1);
+      svr_setjobstate(pjob,newstate,newsub);
+      
+      job_save(pjob,SAVEJOB_FULL);
+     
+      
+      pjob = (job*)GET_NEXT(pjob->ji_arrayjobs);
+        
+      }
     }
   } /* end job_clone_tw */
   
@@ -1130,11 +1152,18 @@ void job_purge(
 
 #ifdef PENABLE_LINUX26_CPUSETS 
 
-    /* Delete the cpuset for the job. */
-    sprintf (cpuset_name, "torque/%s", pjob->ji_qs.ji_jobid);
-    cpuset_delete(cpuset_name);
+  {
+  extern void cpuset_delete(char *);
 
-#endif /* PENABLE_CPUSETS */
+  /* Delete the cpuset for the job. */
+
+  sprintf(cpuset_name,"torque/%s", 
+    pjob->ji_qs.ji_jobid);
+
+  cpuset_delete(cpuset_name);
+  }
+
+#endif /* PENABLE_LINUX26_CPUSETS */
 
   /* delete the nodefile if still hanging around */
 
@@ -1172,8 +1201,55 @@ void job_purge(
     {
     svr_dequejob(pjob);
     }
+    
+  /* if part of job array then remove from array's job list */ 
+  if (pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_flags & ATR_VFLAG_SET &&
+      pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long > 1 && pjob->ji_isparent == FALSE)
+    {
+    
+    delete_link(&pjob->ji_arrayjobs);
+    /* if the only thing in the array alljobs list is the head, then we can 
+       clean that up too */
+    if ( GET_NEXT(pjob->ji_arrayjoblist->array_alljobs) == pjob->ji_arrayjoblist->array_alljobs.ll_struct)
+      {
+      delete_array_struct(pjob->ji_arrayjoblist);
+      }
+    }
+    
+  if (pjob->ji_isparent == TRUE)
+    {
+    delete_link(&pjob->ji_alljobs);
+    }
+
+
+  if (!(pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_flags & ATR_VFLAG_SET) || 
+      pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long == 1)
+    {
+    strcpy(namebuf,path_jobs);	/* delete script file */
+    strcat(namebuf,pjob->ji_qs.ji_fileprefix);
+    strcat(namebuf,JOB_SCRIPT_SUFFIX);
+
+    if (unlink(namebuf) < 0)
+      {
+      if (errno != ENOENT)
+        log_err(errno,id,msg_err_purgejob);
+      }
+    else if (LOGLEVEL >= 6)
+      {
+      sprintf(log_buffer,"removed job script");
+
+      log_record(PBSEVENT_DEBUG,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+      }
+    }
 
 #endif  /* PBS_MOM */
+
+
+
+#ifdef PBS_MOM
 
   strcpy(namebuf,path_jobs);	/* delete script file */
   strcat(namebuf,pjob->ji_qs.ji_fileprefix);
@@ -1194,7 +1270,7 @@ void job_purge(
       log_buffer);
     }
 
-#ifdef PBS_MOM
+
 #if IBM_SP2==2        /* IBM SP PSSP 3.1 */
   unload_sp_switch(pjob);
 #endif			/* IBM SP */
@@ -1253,10 +1329,23 @@ void job_purge(
     }
 #endif	/* PBS_MOM */
 
+
+
   strcpy(namebuf,path_jobs);	/* delete job file */
   strcat(namebuf,pjob->ji_qs.ji_fileprefix);
-  strcat(namebuf,JOB_FILE_SUFFIX);
-
+#ifdef PBS_MOM
+   strcat(namebuf,JOB_FILE_SUFFIX);
+#else  
+  if (pjob->ji_isparent == TRUE)
+    {
+    strcat(namebuf, JOB_FILE_TMP_SUFFIX);
+    }
+  else
+    {
+    strcat(namebuf,JOB_FILE_SUFFIX);
+    }
+#endif
+    
   if (unlink(namebuf) < 0)
     {
     if (errno != ENOENT)

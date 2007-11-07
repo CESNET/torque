@@ -49,6 +49,8 @@ am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/buildutils/acx_pthread.m4 \
 	$(top_srcdir)/buildutils/ax_prog_dot.m4 \
 	$(top_srcdir)/buildutils/ac_c_bigendian_cross.m4 \
+	$(top_srcdir)/buildutils/t_add_rpath.m4 \
+	$(top_srcdir)/buildutils/tac_tcltk.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
@@ -58,8 +60,8 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(sbindir)"
 sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(sbin_PROGRAMS)
-am_pbs_server_OBJECTS = accounting.$(OBJEXT) attr_recov.$(OBJEXT) \
-	dis_read.$(OBJEXT) geteusernam.$(OBJEXT) \
+am_pbs_server_OBJECTS = accounting.$(OBJEXT) array_func.$(OBJEXT) \
+	attr_recov.$(OBJEXT) dis_read.$(OBJEXT) geteusernam.$(OBJEXT) \
 	issue_request.$(OBJEXT) job_attr_def.$(OBJEXT) \
 	job_func.$(OBJEXT) job_recov.$(OBJEXT) job_route.$(OBJEXT) \
 	node_attr_def.$(OBJEXT) node_func.$(OBJEXT) \
@@ -67,18 +69,19 @@ am_pbs_server_OBJECTS = accounting.$(OBJEXT) attr_recov.$(OBJEXT) \
 	process_request.$(OBJEXT) queue_attr_def.$(OBJEXT) \
 	queue_func.$(OBJEXT) queue_recov.$(OBJEXT) \
 	reply_send.$(OBJEXT) req_delete.$(OBJEXT) \
-	req_getcred.$(OBJEXT) req_holdjob.$(OBJEXT) \
-	req_jobobit.$(OBJEXT) req_locate.$(OBJEXT) \
-	req_manager.$(OBJEXT) req_message.$(OBJEXT) \
-	req_modify.$(OBJEXT) req_movejob.$(OBJEXT) \
-	req_quejob.$(OBJEXT) req_register.$(OBJEXT) \
-	req_rerun.$(OBJEXT) req_rescq.$(OBJEXT) req_runjob.$(OBJEXT) \
-	req_select.$(OBJEXT) req_shutdown.$(OBJEXT) \
-	req_signal.$(OBJEXT) req_stat.$(OBJEXT) req_track.$(OBJEXT) \
-	resc_def_all.$(OBJEXT) run_sched.$(OBJEXT) stat_job.$(OBJEXT) \
-	svr_attr_def.$(OBJEXT) svr_chk_owner.$(OBJEXT) \
-	svr_connect.$(OBJEXT) svr_func.$(OBJEXT) svr_jobfunc.$(OBJEXT) \
-	svr_mail.$(OBJEXT) svr_movejob.$(OBJEXT) svr_recov.$(OBJEXT) \
+	req_deletearray.$(OBJEXT) req_getcred.$(OBJEXT) \
+	req_holdjob.$(OBJEXT) req_jobobit.$(OBJEXT) \
+	req_locate.$(OBJEXT) req_manager.$(OBJEXT) \
+	req_message.$(OBJEXT) req_modify.$(OBJEXT) \
+	req_movejob.$(OBJEXT) req_quejob.$(OBJEXT) \
+	req_register.$(OBJEXT) req_rerun.$(OBJEXT) req_rescq.$(OBJEXT) \
+	req_runjob.$(OBJEXT) req_select.$(OBJEXT) \
+	req_shutdown.$(OBJEXT) req_signal.$(OBJEXT) req_stat.$(OBJEXT) \
+	req_track.$(OBJEXT) resc_def_all.$(OBJEXT) run_sched.$(OBJEXT) \
+	stat_job.$(OBJEXT) svr_attr_def.$(OBJEXT) \
+	svr_chk_owner.$(OBJEXT) svr_connect.$(OBJEXT) \
+	svr_func.$(OBJEXT) svr_jobfunc.$(OBJEXT) svr_mail.$(OBJEXT) \
+	svr_movejob.$(OBJEXT) svr_recov.$(OBJEXT) \
 	svr_resccost.$(OBJEXT) svr_task.$(OBJEXT) req_tokens.$(OBJEXT) \
 	job_qs_upgrade.$(OBJEXT)
 pbs_server_OBJECTS = $(am_pbs_server_OBJECTS)
@@ -166,6 +169,8 @@ INCLUDE_PAM_TRUE = @INCLUDE_PAM_TRUE@
 INCLUDE_SERVER_FALSE = @INCLUDE_SERVER_FALSE@
 INCLUDE_SERVER_TRUE = @INCLUDE_SERVER_TRUE@
 INSTALL_DATA = @INSTALL_DATA@
+INSTALL_MODULEFILES_FALSE = @INSTALL_MODULEFILES_FALSE@
+INSTALL_MODULEFILES_TRUE = @INSTALL_MODULEFILES_TRUE@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
@@ -185,6 +190,7 @@ MAINTAINER_MODE_FALSE = @MAINTAINER_MODE_FALSE@
 MAINTAINER_MODE_TRUE = @MAINTAINER_MODE_TRUE@
 MAKE = @MAKE@
 MAKEINFO = @MAKEINFO@
+MODULEFILES_DIR = @MODULEFILES_DIR@
 MOMLIBS = @MOMLIBS@
 MY_TCLTK_INCS = @MY_TCLTK_INCS@
 MY_TCLTK_LIBS = @MY_TCLTK_LIBS@
@@ -267,6 +273,7 @@ USING_TK_TRUE = @USING_TK_TRUE@
 VERSION = @VERSION@
 WISH_PROG = @WISH_PROG@
 YACC = @YACC@
+ac_configure_args = @ac_configure_args@
 ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
@@ -286,10 +293,18 @@ am__untar = @am__untar@
 bindir = @bindir@
 build = @build@
 build_alias = @build_alias@
+build_clients = @build_clients@
 build_cpu = @build_cpu@
+build_drmaa = @build_drmaa@
+build_drmaa_docs = @build_drmaa_docs@
+build_gui = @build_gui@
+build_mom = @build_mom@
 build_os = @build_os@
+build_pbs_rcp = @build_pbs_rcp@
+build_server = @build_server@
 build_vendor = @build_vendor@
 datadir = @datadir@
+drmaadocdir = @drmaadocdir@
 exec_prefix = @exec_prefix@
 host = @host@
 host_alias = @host_alias@
@@ -310,6 +325,12 @@ prefix = @prefix@
 program_prefix = @program_prefix@
 program_suffix = @program_suffix@
 program_transform_name = @program_transform_name@
+rpmbindir = @rpmbindir@
+rpmdrmaadocdir = @rpmdrmaadocdir@
+rpmincludedir = @rpmincludedir@
+rpmlibdir = @rpmlibdir@
+rpmmandir = @rpmmandir@
+rpmsbindir = @rpmsbindir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 spec_name = @spec_name@
@@ -331,6 +352,8 @@ tkx_STUB_LIB_FILE = @tkx_STUB_LIB_FILE@
 tkx_STUB_LIB_PATH = @tkx_STUB_LIB_PATH@
 tkx_STUB_LIB_SPEC = @tkx_STUB_LIB_SPEC@
 tkx_VERSION = @tkx_VERSION@
+use_tcl = @use_tcl@
+use_tk = @use_tk@
 xauth_path = @xauth_path@
 AUTOMAKE_OPTIONS = foreign
 PBS_MKDIRS = $(SHELL) $(top_builddir)/buildutils/pbs_mkdirs
@@ -350,12 +373,13 @@ PBS_LIBS = ../lib/Libattr/libattr.a \
 
 pbs_server_LDADD = $(PBS_LIBS) $(servergsslib)
 AM_CFLAGS = -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\" -DPBS_ENVIRON=\"$(PBS_ENVIRON)\"
-pbs_server_SOURCES = accounting.c attr_recov.c dis_read.c geteusernam.c \
+pbs_server_SOURCES = accounting.c array_func.c attr_recov.c dis_read.c geteusernam.c \
 		     issue_request.c job_attr_def.c job_func.c job_recov.c \
 		     job_route.c node_attr_def.c node_func.c \
 		     node_manager.c pbsd_init.c pbsd_main.c \
 		     process_request.c queue_attr_def.c queue_func.c \
-		     queue_recov.c reply_send.c req_delete.c req_getcred.c \
+		     queue_recov.c reply_send.c req_delete.c \
+                     req_deletearray.c req_getcred.c \
 		     req_holdjob.c req_jobobit.c req_locate.c req_manager.c \
 		     req_message.c req_modify.c req_movejob.c req_quejob.c \
 		     req_register.c req_rerun.c req_rescq.c req_runjob.c \
@@ -438,6 +462,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/accounting.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/array_func.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/attr_recov.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dis_read.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/geteusernam.Po@am__quote@
@@ -458,6 +483,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/queue_recov.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/reply_send.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/req_delete.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/req_deletearray.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/req_getcred.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/req_holdjob.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/req_jobobit.Po@am__quote@

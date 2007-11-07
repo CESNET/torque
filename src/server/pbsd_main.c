@@ -159,6 +159,7 @@ char	       *path_home = PBS_SERVER_HOME;
 char	       *path_acct;
 char	        path_log[MAXPATHLEN + 1];
 char	       *path_priv;
+char	       *path_arrays;
 char	       *path_jobs;
 char	       *path_queues;
 char	       *path_spool;
@@ -267,6 +268,8 @@ void do_rpp(
 
   if (ret != DIS_SUCCESS) 
     {
+    /* FAILURE */
+
     if (LOGLEVEL >= 1)
       {
       struct pbsnode *node;
@@ -293,7 +296,7 @@ void do_rpp(
     stream_eof(stream,0,ret);
 
     return;
-    }
+    }  /* END if (ret != DIS_SUCCESS) */
 
   version = disrsi(stream,&ret);
 

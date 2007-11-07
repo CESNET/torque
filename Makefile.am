@@ -5,9 +5,10 @@ SUBDIRS = src doc
 EXTRA_DIST = CHANGELOG INSTALL.GNU README.configure README.mpiexec \
              README.torque Release_Notes torque.setup torque.spec.in \
              DEVELOPMENT PBS_License.txt torque.spec \
-	     buildutils/tcl.m4 buildutils/self-extract-head-sh.in \
+	     buildutils/self-extract-head-sh.in \
 	     buildutils/pbs_mkdirs.in buildutils/pbs_mach_type \
-	     buildutils/config.mk buildutils/ac_create_generic_config.m4 \
+	     buildutils/config.mk \
+	     buildutils/modulefiles.in buildutils/modulefiles.vers.in \
 	     contrib/README.pestat contrib/README.pbstop \
 	     contrib/README.qpeek contrib/pestat-1.0/pestat.c \
 	     contrib/pestat-1.0/README contrib/pestat-1.0/Makefile \
@@ -31,56 +32,12 @@ dist-hook:
 	chmod u+w $(distdir)/README.torque $(distdir)/configure $(distdir)/torque.spec
 	sed -e 's/TORQUE .* README .*/TORQUE $(VERSION) README (released '"`date '+%b, %d %Y'`"')/' < $(srcdir)/README.torque > $(distdir)/README.torque
 	sed -e 's/VERSION=.*/VERSION=$(VERSION)/' < $(srcdir)/configure > $(distdir)/configure
-	spec_name=torque; \
-	spec_version=`echo $(VERSION) | sed 's/-snap.*//'`; \
-	spec_snap=""; \
-	if test "$$spec_version" != "$(VERSION)" ;then \
-  	  spec_snap="%define snap `echo $(VERSION) | sed 's/.*-snap.//'`"; \
-	fi; \
-	sed -e "s/@spec_""name@/$$spec_name/" -e "s/@spec_""version@/$$spec_version/" \
-	    -e "s/@spec_""snap@/$$spec_snap/" < $(srcdir)/torque.spec.in > $(distdir)/torque.spec
 
 srpm: dist
 	rpmbuild -ts $(distdir).tar.gz
 
-if USING_TCL
-tclrpmflag=--with tcl
-else
-tclrpmflag=--without tcl
-endif
-if INCLUDE_GUI
-guirpmflag=--with gui
-else
-guirpmflag=--without gui
-endif
-if USING_SYSLOG
-syslogrpmflag=--with syslog
-else
-syslogrpmflag=--without syslog
-endif
-if USING_RPP
-rpprpmflag=--with rpp
-else
-rpprpmflag=--without rpp
-endif
-if INCLUDE_MOM_RCP
-scprpmflag=
-else
-scprpmflag=--with scp
-endif
-
-RPMCC=@CC@
-RPMCFLAGS=@CFLAGS@
-RPMLDFLAGS=@LDFLAGS@
-
 rpm: dist
-	RPMCC="$(RPMCC)" RPMCFLAGS="$(RPMCFLAGS)" RPMLDFLAGS="$(RPMLDFLAGS)" rpmbuild $(RPMOPTS) -tb $(distdir).tar.gz \
-	  $(tclrpmflag) $(guirpmflag) $(syslogrpmflag) $(rpprpmflag) $(scprpmflag) \
-	  --with server_name=$(PBS_DEFAULT_SERVER) \
-	  --with homedir=$(PBS_SERVER_HOME) \
-	  --with libdir=$(libdir) \
-	  --with includedir=$(includedir) \
-	  --with prefix=$(prefix)
+	rpmbuild $(RPMOPTS) -tb $(distdir).tar.gz
 
 #
 # Used by the 'packages' target below
@@ -142,8 +99,8 @@ packages:
            proot=$(PKGROOT)/$$d; \
            pname=$(PKGNAME); \
            phost=$(PBS_MACH)-@host_cpu@; \
-           tarball=$(PKGROOT)/torque-$$pname-$$d-$$phost.tar.gz; \
-           pkgfile=./torque-$$pname-$$d-$$phost.sh; \
+           tarball=$(PKGROOT)/$(PACKAGE_NAME)-$$pname-$$d-$$phost.tar.gz; \
+           pkgfile=./$(PACKAGE_NAME)-$$pname-$$d-$$phost.sh; \
            echo "Building $$pkgfile ..."; \
            $(MAKE) DESTDIR=$$proot install_$$d >/dev/null || exit 1; \
 	   case $$d in \
@@ -175,4 +132,18 @@ packages:
 	@echo ""
 	@echo "The package files are self-extracting packages that can be copied"; \
         echo "and executed on your production machines.  Use --help for options.";
+
+
+if INSTALL_MODULEFILES
+install-data-hook:
+	$(INSTALL_DATA) -D ./buildutils/modulefiles $(DESTDIR)$(MODULEFILES_DIR)/$(PACKAGE_NAME)/$(PACKAGE_VERSION)
+	$(INSTALL_DATA) ./buildutils/modulefiles.vers $(DESTDIR)$(MODULEFILES_DIR)/$(PACKAGE_NAME)/.version
+	
+
+
+uninstall-hook:
+	rm -f $(DESTDIR)$(MODULEFILES_DIR)/$(PACKAGE_NAME)/$(PACKAGE_VERSION)
+	rm -f $(DESTDIR)$(MODULEFILES_DIR)/$(PACKAGE_NAME)/.version
+	rmdir $(DESTDIR)$(MODULEFILES_DIR)/$(PACKAGE_NAME)
+endif
 

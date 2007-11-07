@@ -28,14 +28,14 @@ ok(-d $torquehome, 'TORQUE Home Directory Exists') or
 my $nodesfile = "$torquehome/server_priv/nodes";
    $nodesfile =~ s#//#/#g;
 ok(-T $nodesfile, 'Nodes File Exists') or
-  BAIL_OUT("TORQUE 'nodes' file not created, setup $nodesfile and restart pbs_server - see Section 1.2.2");
+  BAIL_OUT("TORQUE 'nodes' file not created, setup $nodesfile and restart pbs_server - see TORQUE docs, Section 1.2.2");
 my @pbsnodes = map  { s/\s+$//g; $_ }
                grep { /^\S/         }
                `pbsnodes -a`;
 ok(scalar @pbsnodes, 'pbsnodes Reports Nodes') or
-  BAIL_OUT("TORQUE 'nodes' file not created, setup $nodesfile and restart pbs_server - see Section 1.2.2");
+  BAIL_OUT("TORQUE 'nodes' file not created, setup $nodesfile and restart pbs_server - see TORQUE docs, Section 1.2.2");
 ok($pbsnodes[0] ne 'no nodes', 'pbsnodes Lists Nodes') or
-  BAIL_OUT("TORQUE 'nodes' file not created, setup $nodesfile and restart pbs_server - see Section 1.2.2");
+  BAIL_OUT("TORQUE 'nodes' file not created, setup $nodesfile and restart pbs_server - see TORQUE docs, Section 1.2.2");
 
 # Node Count
 my $nodecount = scalar @pbsnodes;
@@ -54,7 +54,7 @@ ok(!scalar(@upnodes), 'Nodes Have Connected to Server') or
     . "- pbs_mom daemons are running on hosts\n"
     . "- compute hostnames match names listed in $torquehome/server_priv/nodes\n"
     . "- compute hosts are network-accessible from the head node\n"
-    . "- the command 'momctl -d3 $pbsnodes[0]' does not report any errors\n"
+    . "- the command 'momctl -d3 -h $pbsnodes[0]' does not report any errors\n"
     );
   BAIL_OUT('Compute nodes have not contacted pbs_server');
   }

@@ -176,6 +176,12 @@ extern  int     LOGLEVEL;
 extern  char    CHECKPOINT_SCRIPT[1024];
 extern  char    PBSNodeMsgBuf[1024];
 
+#define TBL_INC 200            /* initial proc table */
+
+static proc_stat_t   *proc_array = NULL;
+static int            nproc = 0;
+static int            max_proc = 0;
+
 /*
 ** external functions and data
 */
@@ -272,11 +278,15 @@ void proc_get_btime()
   return;
   }  /* END proc_get_btime() */
 
+/* NOTE:  see 'man 5 proc' for /proc/pid/stat format and description */
+
 /* NOTE:  leading '*' indicates that field should be ignored */
 
-static char stat_str[] = "%d (%[^)]) %c %*d %*d %d %*d %*d %u %*u \
-%*u %*u %*u %d %d %d %d %*d %*d %*u %*u %u %llu %llu %*u %*u \
-%*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u";
+/* FORMAT: <PID> <COMM> <STATE> <PPID> <PGRP> <SESSION> [<TTY_NR>] [<TPGID>] <FLAGS> [<MINFLT>] [<CMINFLT>] [<MAJFLT>] [<CMAJFLT>] <UTIME> <STIME> <CUTIME> <CSTIME> [<PRIORITY>] [<NICE>] [<0>] [<ITREALVALUE>] <STARTTIME> <VSIZE> <RSS> [<RLIM>] [<STARTCODE>] ... */
+
+static char stat_str[] = "%d (%[^)]) %c %d %d %d %*d %*d %u %*u \
+%*u %*u %*u %lu %lu %lu %lu %*ld %*ld %*u %*ld %lu %llu %lld %*lu %*lu \
+%*lu %*lu %*lu %*lu %*lu %*lu %*lu %*lu %*lu %*lu %*lu";
 
 /*
  * Convert jiffies to seconds.
@@ -303,7 +313,7 @@ proc_stat_t *get_proc_stat(
   static proc_stat_t	ps;
   static char		path[1024];
   FILE                 *fd;
-  unsigned long         jiffies;
+  unsigned long         jstarttime;  /* number of jiffies since OS start time when process started */
   struct stat		sb;
 
   static int Hertz  = 0;
@@ -315,6 +325,8 @@ proc_stat_t *get_proc_stat(
 
     if (Hertz <= 0)
       {
+      /* FAILURE */
+
       if (!Hertz_errored)
         log_err(errno,"get_proc_stat","sysconf(_SC_CLK_TCK) failed, unable to monitor processes");
 
@@ -331,23 +343,33 @@ proc_stat_t *get_proc_stat(
 
   if ((fd = fopen(path,"r")) == NULL)
     {
+    /* FAILURE */
+
     return(NULL);
     }
 
+  /* use 'man 5 proc' for /proc/pid/stat format */
+
+  /* see stat_str[] value for mapping 'stat' format */
+
   if (fscanf(fd,stat_str, 
-        &ps.pid, 
-        path, 
-        &ps.state,
-        &ps.session, 
-        &ps.flags, 
-        &ps.utime, 
-        &ps.stime, 
-        &ps.cutime, 
-        &ps.cstime, 
-        &jiffies, 
-        &ps.vsize,
-        &ps.rss) != 12)  
+        &ps.pid,       /* PID */
+        path,          /* exe */
+        &ps.state,     /* state (one of RSDZTW) */
+        &ps.ppid,      /* ppid */
+        &ps.pgrp,      /* pgrp */
+        &ps.session,   /* session id */
+        &ps.flags,     /* flags - kernel flags of the process, see the PF_* in <linux/sched.h> */
+        &ps.utime,     /* utime - jiffies that this process has been scheduled in user mode */
+        &ps.stime,     /* stime - jiffies that this process has been scheduled in kernel mode */
+        &ps.cutime,    /* cutime - jiffies that this process’s waited-for children have been scheduled in user mode */
+        &ps.cstime,    /* cstime - jiffies that this process’s waited-for children have been scheduled in kernel mode */
+        &jstarttime,   /* starttime */
+        &ps.vsize,     /* vsize */
+        &ps.rss) != 14)   /* rss */
     {
+    /* FAILURE */
+
     fclose(fd);
 
     return(NULL);
@@ -355,6 +377,8 @@ proc_stat_t *get_proc_stat(
 
   if (fstat(fileno(fd),&sb) == -1)  
     {
+    /* FAILURE */
+
     fclose(fd);
 
     return(NULL);
@@ -362,13 +386,15 @@ proc_stat_t *get_proc_stat(
 
   ps.uid = sb.st_uid;
 
-  ps.start_time = linux_time + JTOS(jiffies);
+  ps.start_time = linux_time + JTOS(jstarttime);
   ps.name = path;
 
   ps.utime = JTOS(ps.utime);
   ps.stime = JTOS(ps.stime);
   ps.cutime = JTOS(ps.cutime);
   ps.cstime = JTOS(ps.cstime);
+
+  /* SUCCESS */
 
   fclose(fd);
 
@@ -710,31 +736,32 @@ static unsigned long cput_sum(
 
   {
   char          *id = "cput_sum";
-  struct dirent	*dent;
   ulong          cputime;
   int            nps = 0;
+  int            i;
   proc_stat_t   *ps;
 
   cputime = 0;
 
-  rewinddir(pdir);
-
-  while ((dent = readdir(pdir)) != NULL) 
+  if (LOGLEVEL >= 6)
     {
-    if (!isdigit(dent->d_name[0]))
-      continue;
+    sprintf(log_buffer,"proc_array loop start - jobid = %s", 
+      pjob->ji_qs.ji_jobid);
 
-    if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL)  
+    log_record(PBSEVENT_DEBUG,0,id,log_buffer);
+    }
+
+  for (i = 0;i < nproc;i++)
+    {
+    ps = &proc_array[i];
+
+    if ((LOGLEVEL >= 6) && (ps == NULL))
       {
-      if (errno != ENOENT) 
-        {
-        sprintf(log_buffer,"%s: get_proc_stat", 
-          dent->d_name);
+      sprintf(log_buffer,"proc_array loop end - nproc=%d, i=%d, ps is null",
+        nproc,
+        i);
 
-        log_err(errno,id,log_buffer);
-        }
-
-      continue;
+      log_record(PBSEVENT_DEBUG,0,id,log_buffer);
       }
 
     if (!injob(pjob,ps->session))
@@ -755,7 +782,7 @@ static unsigned long cput_sum(
 
       log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
       }
-    }
+    }    /* END for (i) */
 
   if (nps == 0)
     pjob->ji_flags |= MOM_NO_PROC;
@@ -822,7 +849,7 @@ static int overcpu_proc(
     }
 
   return(FALSE);
-  }
+  }  /* END overcpu_proc() */
 
 
 
@@ -843,37 +870,29 @@ static unsigned long long mem_sum(
 
   {
   char			*id = "mem_sum";
-  struct dirent		*dent;
+  int                    i;
   unsigned long	long     segadd;
   proc_stat_t		*ps;
 
   segadd = 0;
 
-  rewinddir(pdir);
-
-  while ((dent = readdir(pdir)) != NULL) 
+  if (LOGLEVEL >= 6)
     {
-    if (!isdigit(dent->d_name[0]))
-      continue;
+    sprintf(log_buffer,"proc_array loop start - jobid = %s", 
+      pjob->ji_qs.ji_jobid);
 
-    if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL) 
-      {
-      if (errno != ENOENT) 
-        {
-        sprintf(log_buffer,"%s: get_proc_stat", 
-          dent->d_name);
+    log_record(PBSEVENT_DEBUG,0,id,log_buffer);
+    }
 
-        log_err(errno,id,log_buffer);
-        }
-
-      continue;
-      }
+  for (i = 0;i < nproc;i++)
+    {
+    ps = &proc_array[i];
 
     if (!injob(pjob,ps->session))
       continue;
 
     segadd += ps->vsize;
-    }
+    }  /* END for (i) */
 
   return(segadd);
   }  /* END mem_sum() */
@@ -893,45 +912,28 @@ static unsigned long resi_sum(
   char		*id = "resi_sum";
 
   ulong	         resisize;
-  struct dirent	*dent;
+  int            i;
   proc_stat_t	*ps;
 
   resisize = 0;
 
-  rewinddir(pdir);
-
-  while ((dent = readdir(pdir)) != NULL) 
+  if (LOGLEVEL >= 6)
     {
-    if (!isdigit(dent->d_name[0]))
-      continue;
+    sprintf(log_buffer,"proc_array loop start - jobid = %s", 
+      pjob->ji_qs.ji_jobid);
 
-    if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL) 
-      {
-      if (errno != ENOENT) 
-        {
-        sprintf(log_buffer,"%s: get_proc_stat", 
-          dent->d_name);
+    log_record(PBSEVENT_DEBUG,0,id,log_buffer);
+    }
 
-        if (errno == ENFILE)
-          {
-          snprintf(PBSNodeMsgBuf,sizeof(PBSNodeMsgBuf),
-            "ERROR:  ENFILE - no available file descriptors");
-          }
-         
-        log_err(
-          errno, 
-          id, 
-          log_buffer);
-        }
-
-      continue;
-      }
+  for (i = 0;i < nproc;i++)
+    {
+    ps = &proc_array[i];
 
     if (!injob(pjob,ps->session))
       continue;
 
     resisize += ps->rss * pagesize;
-    }  /* END while ((dent = readdir(pdir)) != NULL) */
+    }  /* END for (i) */
 
   return(resisize);
   }  /* END resi_sum() */
@@ -945,36 +947,28 @@ static unsigned long resi_sum(
 
 static int overmem_proc(
 
-  job		     *pjob,
-  unsigned long	long  limit)
+  job		     *pjob,  /* I */
+  unsigned long	long  limit) /* I */
 
   {
   char		*id = "overmem_proc";
   unsigned long long memsize;
-  struct dirent	*dent;
+  int            i;
   proc_stat_t	*ps;
 
   memsize = 0;
 
-  rewinddir(pdir);
-
-  while ((dent = readdir(pdir)) != NULL) 
+  if (LOGLEVEL >= 6)
     {
-    if (!isdigit(dent->d_name[0]))
-      continue;
+    sprintf(log_buffer,"proc_array loop start - jobid = %s", 
+      pjob->ji_qs.ji_jobid);
 
-    if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL) 
-      {
-      if (errno != ENOENT) 
-        {
-        sprintf(log_buffer,"%s: get_proc_stat", 
-          dent->d_name);
+    log_record(PBSEVENT_DEBUG,0,id,log_buffer);
+    }
 
-        log_err(errno,id,log_buffer);
-        }
-
-      continue;
-      }
+  for (i = 0;i < nproc;i++)
+    {
+    ps = &proc_array[i];
 
     if (!injob(pjob,ps->session))
       continue;
@@ -983,7 +977,7 @@ static int overmem_proc(
       {
       return(TRUE);
       }
-    }    /* END while ((dent = readdir(pdir)) != NULL) */
+    }    /* END for (i) */
 
   return(FALSE);
   }  /* END overmem_proc() */
@@ -1556,8 +1550,19 @@ int mom_open_poll()
 
   pagesize = getpagesize();
 
+  proc_array = (proc_stat_t *)calloc(TBL_INC,sizeof(proc_stat_t));
+
+  if (proc_array == NULL)
+    {
+    log_err(errno,id,"malloc");
+
+    return(PBSE_SYSTEM);
+    }
+
+  max_proc = TBL_INC;
+
   return(PBSE_NONE);
-  }
+  }  /* END mom_open_poll() */
 
 
 
@@ -1570,8 +1575,82 @@ int mom_open_poll()
 int mom_get_sample()
 
   {
+  char          *id = "mom_get_sample";
+  struct dirent *dent;
+  proc_stat_t   *pi;
+  proc_stat_t   *ps;
+
+  rewinddir(pdir);
+
+  nproc = 0;
+
+  pi = proc_array;
+
+  if (LOGLEVEL >= 6)
+    {
+    log_record(PBSEVENT_DEBUG,PBS_EVENTCLASS_SERVER,id,"proc_array load started");
+    }
+
+  while ((dent = readdir(pdir)) != NULL)
+    {
+    if (!isdigit(dent->d_name[0]))
+      continue;
+
+    if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL)
+      {
+      if (errno != ENOENT)
+        {
+        sprintf(log_buffer,"%s: get_proc_stat",
+          dent->d_name);
+
+        log_err(errno,id,log_buffer);
+        }
+
+      continue;
+      }
+
+    nproc++;
+
+    if (nproc >= max_proc)
+      {
+      proc_stat_t *hold;
+
+      if (LOGLEVEL >= 8)
+        {
+        log_record(PBSEVENT_DEBUG,PBS_EVENTCLASS_SERVER,id,"alloc more proc_array");
+        }
+
+      max_proc *= 2;
+
+      hold = (proc_stat_t *)realloc(proc_array,(max_proc + 1) * sizeof(proc_stat_t));
+
+      if (proc_array == NULL)
+        {
+        log_err(errno,id,"unable to realloc space for proc_array sample");
+
+        return(PBSE_SYSTEM);
+        }
+
+      proc_array = hold;
+
+      memset(&proc_array[nproc],'\0',sizeof(proc_stat_t) * (max_proc >> 1));
+      }  /* END if (++nproc == max_proc) */
+
+    pi = &proc_array[nproc];
+
+    memcpy(pi,ps,sizeof(proc_stat_t));
+    }  /* END while ((dent = readdir(pdir)) != NULL) */
+
+  if (LOGLEVEL >= 6)
+    {
+    sprintf(log_buffer,"proc_array loaded - nproc=%d", 
+      nproc);
+
+    log_record(PBSEVENT_DEBUG,0,id,log_buffer);
+    }
+
   return(PBSE_NONE);
-  }
+  }  /* END mom_get_sample() */
 
 
 
@@ -1586,7 +1665,7 @@ int mom_get_sample()
 
 int mom_over_limit(
 
-  job *pjob)
+  job *pjob)  /* I */
 
   {
   char		*pname;
@@ -1718,9 +1797,9 @@ int mom_over_limit(
 /*
  * Update the job attribute for resources used.
  *
- *	The first time this is called for a job, set up resource entries for
- *	each resource that can be reported for this machine.  Fill in the
- *	correct values.  Return an error code.
+ * The first time this is called for a job, set up resource entries for
+ * each resource that can be reported for this machine.  Fill in the
+ * correct values.  Return an error code.
  */
 
 int mom_set_use(
@@ -1782,7 +1861,7 @@ int mom_set_use(
     pres->rs_value.at_type = ATR_TYPE_SIZE;
     pres->rs_value.at_val.at_size.atsv_shift = 10;	/* KB */
     pres->rs_value.at_val.at_size.atsv_units = ATR_SV_BYTESZ;
-    }
+    }  /* END if ((at->at_flags & ATR_VFLAG_SET) == 0) */
 
   /* get cputime */
 
@@ -1915,6 +1994,10 @@ int kill_task(
 
   /* pdir is global */
 
+  /* NOTE:  do not use cached proc-buffer since we need up-to-date info */
+
+  /* pdir is global */
+
   rewinddir(pdir);
 
   while ((dent = readdir(pdir)) != NULL) 
@@ -1945,8 +2028,10 @@ int kill_task(
          * group of the current process'.
          */
 
-        sprintf(log_buffer,"%s: not killing pid 0 with sig %d",
+        sprintf(log_buffer,"%s: not killing process (pid=%d/state=%c) with sig %d",
           id,
+          ps->pid,
+          ps->state,
           sig);
 
         log_record(
@@ -1954,7 +2039,7 @@ int kill_task(
           PBS_EVENTCLASS_JOB,
           ptask->ti_job->ji_qs.ji_jobid,
           log_buffer);
-        }
+        }  /* END if ((ps->state == 'Z') || (ps->pid == 0)) */
       else
         {
         int i = 0;
@@ -1970,36 +2055,36 @@ int kill_task(
            */
 
           continue;
-          }
+          }  /* END if (ps->pid == mompid) */
 
-        if (sig == SIGKILL) 
-          {
-          struct timespec req;
-
-          req.tv_sec = 0;
-          req.tv_nsec = 250000000;  /* .25 seconds */
-
-          /* give the process some time to quit gracefully first (up to 5 seconds) */
-
-          if (pg == 0)
-            kill(ps->pid,SIGTERM);
-          else
-            killpg(ps->pid,SIGTERM);
-
-          for (i = 0;i < 20;i++) 
-            {
-            /* check if process is gone */
-
-            if (kill(ps->pid,0) == -1) 
-              break;
-
-            nanosleep(&req,NULL);
-            }  /* END for (i = 0) */
-          }    /* END if (sig == SIGKILL) */
-        else
-          {
-          i = 20;
-          }
+         if (sig == SIGKILL) 
+           {
+           struct timespec req;
+ 
+           req.tv_sec = 0;
+           req.tv_nsec = 250000000;  /* .25 seconds */
+ 
+           /* give the process some time to quit gracefully first (up to 5 seconds) */
+ 
+           if (pg == 0)
+             kill(ps->pid,SIGTERM);
+           else
+             killpg(ps->pid,SIGTERM);
+ 
+           for (i = 0;i < 20;i++) 
+             {
+             /* check if process is gone */
+ 
+             if (kill(ps->pid,0) == -1) 
+               break;
+ 
+             nanosleep(&req,NULL);
+             }  /* END for (i = 0) */
+           }    /* END if (sig == SIGKILL) */
+         else
+           {
+           i = 20;
+           }
 
         sprintf(log_buffer,"%s: killing pid %d task %d with sig %d",
           id, 
@@ -2015,15 +2100,43 @@ int kill_task(
 
         if (i >= 20)
           {
-          /* kill process hard */
+          /* NOTE: handle race-condition where process goes zombie as a result of previous SIGTERM */
 
-          /* should this be replaced w/killpg() to kill all children? */
+          /* update proc info from /proc/<PID>/stat */
 
-          if (pg == 0)
-            kill(ps->pid,sig);
-          else
-            killpg(ps->pid,sig);
-          }
+          if ((ps = get_proc_stat(ps->pid)) != NULL)
+            {
+            if (ps->state == 'Z')
+              {
+              /*
+               * Killing a zombie is sure death! Its pid is zero,
+               * which to kill(2) means 'every process in the process
+               * group of the current process'.
+               */
+
+              sprintf(log_buffer,"%s: not killing process (pid=%d/state=%c) with sig %d",
+                id,
+                ps->pid,
+                ps->state,
+                sig);
+
+              log_record(
+                PBSEVENT_JOB,
+                PBS_EVENTCLASS_JOB,
+                ptask->ti_job->ji_qs.ji_jobid,
+                log_buffer);
+              }  /* END if ((ps->state == 'Z') || (ps->pid == 0)) */
+            else
+              { 
+              /* kill process hard */
+
+              if (pg == 0)
+                kill(ps->pid,sig);
+              else
+                killpg(ps->pid,sig);
+              }
+            }
+          }    /* END if (i >= 20) */
 
         ++ct;
         }  /* END else ((ps->state == 'Z') || (ps->pid == 0)) */
@@ -2057,7 +2170,7 @@ int mom_close_poll()
       "entered");
     }
 
-  if (pdir) 
+  if (pdir != NULL) 
     {
     if (closedir(pdir) != 0) 
       {
@@ -2069,8 +2182,13 @@ int mom_close_poll()
     pdir = NULL;
     }
 
+  if (proc_array != NULL) 
+    {
+    free(proc_array);
+    }
+
   return(PBSE_NONE);
-  }
+  }  /* END mom_close_poll() */
 
 
 
@@ -2187,33 +2305,26 @@ char *cput_job(
   pid_t jobid)
 
   {
-  char		*id = "cput_job";
-  int		found = 0;
-  struct dirent	*dent;
-  double	cputime, addtime;
-  proc_stat_t	*ps;
+  char         *id = "cput_job";
+  int           found = 0;
+  int           i;
+
+  double        cputime, addtime;
+  proc_stat_t  *ps;
 
   cputime = 0.0;
 
-  rewinddir(pdir);
-
-  while ((dent = readdir(pdir)) != NULL) 
+  if (LOGLEVEL >= 6)
     {
-    if (!isdigit(dent->d_name[0]))
-      continue;
+    sprintf(log_buffer,"proc_array loop start - jobid = %d", 
+      jobid);
 
-    if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL) 
-      {
-      if (errno != ENOENT) 
-        {
-        sprintf(log_buffer,"%s: get_proc_stat", 
-          dent->d_name);
+    log_record(PBSEVENT_DEBUG,0,id,log_buffer);
+    }
 
-        log_err(errno,id,log_buffer);
-        }
-
-      continue;
-      }
+  for (i = 0;i < nproc;i++)
+    {
+    ps = &proc_array[i];
 
     if (jobid != ps->session)
       continue;
@@ -2235,19 +2346,19 @@ char *cput_job(
       cputime,
       ps->pid, 
       addtime))
-    }
+    }  /* END for (i) */
 
-  if (found) 
+  if (!found) 
     {
-    sprintf(ret_string,"%.2f", 
-      cputime * cputfactor);
+    rm_errno = RM_ERR_EXIST;
 
-    return(ret_string);
+    return(NULL);
     }
 
-  rm_errno = RM_ERR_EXIST;
+  sprintf(ret_string,"%.2f", 
+    cputime * cputfactor);
 
-  return(NULL);
+  return(ret_string);
   }  /* END cput_job() */
 
 
@@ -2258,7 +2369,7 @@ char *cput_proc(
   pid_t pid)
 
   {
-  char		*id = "cput_pid";
+  char		*id = "cput_proc";
   double	cputime;
   proc_stat_t	*ps;
 
@@ -2271,7 +2382,7 @@ char *cput_proc(
       sprintf(log_buffer,"%d: get_proc_stat", 
         pid);
 
-      log_err(errno, id, log_buffer);
+      log_err(errno,id,log_buffer);
       }
 
     rm_errno = RM_ERR_SYSTEM;
@@ -2285,7 +2396,7 @@ char *cput_proc(
     cputime * cputfactor);
 
   return(ret_string);
-  }
+  }  /* END cput_proc() */
 
 
 
@@ -2353,38 +2464,31 @@ char *mem_job(
   {
   static char         id[] = "mem_job";
   unsigned long long  memsize;
-  struct dirent      *dent;
+  int                 i;
+
   proc_stat_t        *ps;
 
   /* max memsize ??? */
 
   memsize = 0;
 
-  rewinddir(pdir);
-
-  while ((dent = readdir(pdir)) != NULL) 
+  if (LOGLEVEL >= 6)
     {
-    if (!isdigit(dent->d_name[0]))
-      continue;
+    sprintf(log_buffer,"proc_array loop start - sid = %d", 
+      sid);
 
-    if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL) 
-      {
-      if (errno != ENOENT) 
-        {
-        sprintf(log_buffer,"%s: get_proc_stat", 
-          dent->d_name);
+    log_record(PBSEVENT_DEBUG,0,id,log_buffer);
+    }
 
-        log_err(errno,id,log_buffer);
-        }
-
-      continue;
-      }
+  for (i = 0;i < nproc;i++)
+    {
+    ps = &proc_array[i];
 
     if (sid != ps->session)
       continue;
 
     memsize += ps->vsize;
-    }  /* END while ((dent = readdir(pdir)) != NULL) */
+    }  /* END for (i) */
 
   if (memsize == 0) 
     {
@@ -2392,15 +2496,11 @@ char *mem_job(
 
     return(NULL);
     }
-  else 
-    {
-    sprintf(ret_string,"%llukb", 
-      memsize >> 10); /* KB */
 
-    return(ret_string);
-    }
+  sprintf(ret_string,"%llukb", 
+    memsize >> 10); /* KB */
 
-  return(NULL);
+  return(ret_string);
   }  /* END mem_job() */
 
 
@@ -2434,6 +2534,8 @@ char *mem_proc(
 
   return(ret_string);
   }  /* END mem_proc() */
+
+
 
 
 
@@ -2491,7 +2593,7 @@ char *mem(
     }
 
   return(NULL);
-  }
+  }  /* END mem() */
 
 
 
@@ -2501,33 +2603,25 @@ static char *resi_job(
   pid_t jobid)
 
   {
-  char			*id = "resi_job";
-  ulong			resisize;
-  int			found = 0;
-  struct dirent		*dent;
-  proc_stat_t		*ps;
+  char         *id = "resi_job";
+  ulong         resisize;
+  int           found = 0;
+  proc_stat_t  *ps;
+  int           i;
 
   resisize = 0;
 
-  rewinddir(pdir);
-
-  while ((dent = readdir(pdir)) != NULL) 
+  if (LOGLEVEL >= 6)
     {
-    if (!isdigit(dent->d_name[0]))
-      continue;
+    sprintf(log_buffer,"proc_array loop start - jobid = %d", 
+      jobid);
 
-    if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL) 
-      {
-      if (errno != ENOENT) 
-        {
-        sprintf(log_buffer,"%s: get_proc_stat", 
-          dent->d_name);
+    log_record(PBSEVENT_DEBUG,0,id,log_buffer);
+    }
 
-        log_err(errno,id,log_buffer);
-        }
-
-      continue;
-      }
+  for (i = 0;i < nproc;i++)
+    {
+    ps = &proc_array[i];
 
     if (jobid != ps->session)
       continue;
@@ -2535,7 +2629,7 @@ static char *resi_job(
     found = 1;
 
     resisize += ps->rss;
-    }
+    }  /* END for (i) */
 
   if (found) 
     {
@@ -2648,17 +2742,17 @@ static char *resi(
 
 char *sessions(
 
-  struct rm_attribute *attrib)
+  struct rm_attribute *attrib) /* I */
 
   {
-  char		*id = "sessions";
-  int		j;
-  struct dirent	*dent;
-  proc_stat_t	*ps;
-  char		*fmt;
-  int		njids = 0;
-  pid_t		*jids, *hold;
-  static	int	maxjid = 200;
+  char          *id = "sessions";
+  int            i;
+  int            j;
+  proc_stat_t   *ps;
+  char          *fmt;
+  int            njids = 0;
+  pid_t         *jids, *hold;
+  static int     maxjid = 200;
   register pid_t jobid;
 
   if (attrib != NULL) 
@@ -2679,29 +2773,11 @@ char *sessions(
     return(NULL);
     }
 
-  /*
-  ** Search for members of session
-  */
+  /* Search for members of session */
 
-  rewinddir(pdir);
-
-  while ((dent = readdir(pdir)) != NULL) 
+  for (i = 0;i < nproc;i++)
     {
-    if (!isdigit(dent->d_name[0]))
-      continue;
-
-    if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL) 
-      {
-      if (errno != ENOENT) 
-        {
-        sprintf(log_buffer,"%s: get_proc_stat", 
-          dent->d_name);
-
-        log_err(errno,id,log_buffer);
-        }
-
-      continue;
-      }
+    ps = &proc_array[i];
 
     if (ps->uid == 0)
       continue;
@@ -2827,15 +2903,15 @@ char *nsessions(
 
 char *pids(
 
-  struct rm_attribute *attrib)
+  struct rm_attribute *attrib)  /* I */
 
   {
-  char		*id = "pids";
-  pid_t		jobid;
-  struct dirent	*dent;
-  proc_stat_t	*ps;
-  char		*fmt;
-  int		num_pids = 0;
+  char         *id = "pids";
+  pid_t         jobid;
+  proc_stat_t  *ps;
+  char         *fmt;
+  int           i;
+  int           num_pids = 0;
 
   if (attrib == NULL) 
     {
@@ -2874,51 +2950,33 @@ char *pids(
     return(NULL);
     }
 
-  /*
-  ** Search for members of session
-  */
-
-  rewinddir(pdir);
+  /* Search for members of session */
 
   fmt = ret_string;
 
-  while ((dent = readdir(pdir)) != NULL) 
+  for (i = 0;i < nproc;i++)
     {
-    if (!isdigit(dent->d_name[0]))
-      continue;
-
-    if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL) 
-      {
-      if (errno != ENOENT) 
-        {
-        sprintf(log_buffer,"%s: get_proc_stat", 
-          dent->d_name);
-
-        log_err(errno,id,log_buffer);
-        }
-
-      continue;
-      }
+    ps = &proc_array[i];
 
     if (LOGLEVEL >= 6)
       {
-      DBPRT(("%s[%d]: pid: %s sid %d\n",
+      DBPRT(("%s[%d]: pid: %d  sid: %d\n",
         id, 
         num_pids, 
-        dent->d_name, 
+        ps->pid,
         ps->session))
       }
 
     if (jobid != ps->session)
       continue;
 
-    sprintf(fmt,"%s ", 
-      dent->d_name);
+    sprintf(fmt,"%d ", 
+      ps->pid);
 
     fmt += strlen(fmt);
 
     num_pids++;
-    }
+    }  /* END for (i) */
 
   if (num_pids == 0) 
     {
@@ -2939,18 +2997,19 @@ char *nusers(
   struct rm_attribute *attrib)
 
   {
-  char		*id = "nusers";
+  char         *id = "nusers";
   int		j;
-  struct dirent	*dent;
-  proc_stat_t	*ps;
+  int           i;
+  proc_stat_t  *ps;
   int		nuids = 0;
   uid_t		*uids, *hold;
   static	int	maxuid = 200;
   register	uid_t	uid;
 
-  if (attrib) 
+  if (attrib != NULL) 
     {
-    log_err(-1, id, extra_parm);
+    log_err(-1,id,extra_parm);
+
     rm_errno = RM_ERR_BADPARAM;
 
     return(NULL);
@@ -2959,30 +3018,15 @@ char *nusers(
   if ((uids = (uid_t *)calloc(maxuid,sizeof(uid_t))) == NULL) 
     {
     log_err(errno,id,"no memory");
+
     rm_errno = RM_ERR_SYSTEM;
 
     return(NULL);
     }
 
-  rewinddir(pdir);
-
-  while ((dent = readdir(pdir)) != NULL) 
+  for (i = 0;i < nproc;i++)
     {
-    if (!isdigit(dent->d_name[0]))
-      continue;
-
-    if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL) 
-      {
-      if (errno != ENOENT) 
-        {
-        sprintf(log_buffer,"%s: get_proc_stat", 
-          dent->d_name);
-
-        log_err(errno,id,log_buffer);
-        }
-
-      continue;
-      }
+    ps = &proc_array[i];
 
     if ((uid = ps->uid) == 0)
       continue;
@@ -3005,9 +3049,13 @@ char *nusers(
       }
 
     if (j == nuids) 
-      {		/* not found */
+      {
+      /* not found */
+
       if (nuids == maxuid) 
-        {	/* need more space */
+        {
+        /* need more space */
+
         maxuid += 100;
 
         hold = (uid_t *)realloc(uids,maxuid);
@@ -3028,7 +3076,7 @@ char *nusers(
 
       uids[nuids++] = uid;	/* add uid to list */
       }
-    }
+    }    /* END for (i) */
 
   sprintf(ret_string,"%d", 
     nuids);
@@ -3591,15 +3639,16 @@ static char *walltime(
   struct rm_attribute *attrib)
 
   {
-  char		*id = "walltime";
+  char         *id = "walltime";
   int		value, job, found = 0;
   time_t	now, start;
-  proc_stat_t	*ps;
-  struct dirent	*dent;
+  proc_stat_t  *ps;
+
+  int           i;
 
   if (attrib == NULL) 
     {
-    log_err(-1, id, no_parm);
+    log_err(-1,id,no_parm);
 
     rm_errno = RM_ERR_NOPARAM;
 
@@ -3611,7 +3660,7 @@ static char *walltime(
     sprintf(log_buffer,"bad param: %s", 
       attrib->a_value);
 
-    log_err(-1, id, log_buffer);
+    log_err(-1,id,log_buffer);
 
     rm_errno = RM_ERR_BADPARAM;
 
@@ -3653,25 +3702,9 @@ static char *walltime(
 
   start = now;
 
-  rewinddir(pdir);
-
-  while ((dent = readdir(pdir)) != NULL) 
+  for (i = 0;i < nproc;i++)
     {
-    if (!isdigit(dent->d_name[0]))
-      continue;
-
-    if ((ps = get_proc_stat(atoi(dent->d_name))) == NULL) 
-      {
-      if (errno != ENOENT) 
-        {
-        sprintf(log_buffer,"%s: get_proc_stat", 
-          dent->d_name);
-
-        log_err(errno,id,log_buffer);
-        }
-
-      continue;
-      }
+    ps = &proc_array[i];
 
     if (job != 0) 
       {
@@ -3687,7 +3720,7 @@ static char *walltime(
     found = 1;
 
     start = MIN((unsigned)start,ps->start_time);
-    }  /* END while ((dent = readdir(pdir)) != NULL) */
+    }  /* END for (i) */
 
   if (found) 
     {

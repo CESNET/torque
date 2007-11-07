@@ -400,6 +400,8 @@ readmore:
  *	Writes "committed" data in buffer to file discriptor,
  *	packs remaining data (if any), resets pointers
  *	Returns: 0 on success, -1 on error
+ *      NOTE:  does not close fd 
+ *
  */
 
 int DIS_tcp_wflush(

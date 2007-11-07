@@ -89,6 +89,7 @@
 
 #ifndef JOB_H
 #define JOB_H 1
+
 /*
  * Dependent Job Structures
  *
@@ -102,12 +103,12 @@
  */
 
 struct depend {
-	list_link dp_link;	/* link to next dependency, if any       */
-	short	  dp_type;	/* type of dependency (all) 	         */
-	short	  dp_numexp;	/* num jobs expected (on or syncct only) */
-	short	  dp_numreg;	/* num jobs registered (syncct only)     */
-	short	  dp_released;	/* This job released to run (syncwith)   */
-	tlist_head dp_jobs;	/* list of related jobs  (all)           */
+  list_link dp_link;	/* link to next dependency, if any       */
+  short	  dp_type;	/* type of dependency (all) 	         */
+  short	  dp_numexp;	/* num jobs expected (on or syncct only) */
+  short	  dp_numreg;	/* num jobs registered (syncct only)     */
+  short	  dp_released;	/* This job released to run (syncwith)   */
+  tlist_head dp_jobs;	/* list of related jobs  (all)           */
 };
 
 /*
@@ -281,7 +282,7 @@ extern attribute_def job_attr_def[];
 */
 typedef	struct	hnodent {
 	int		hn_node;	/* host (node) identifier (index) */
-	char	       *hn_host;	/* hostname of node */
+	char	*hn_host;	/* hostname of node */
 	int		hn_stream;	/* stream to MOM on node */
 	int		hn_sister;	/* save error for KILL_JOB event */
 	tlist_head	hn_events;	/* pointer to list of events */
@@ -376,19 +377,39 @@ typedef struct {
   int       mjspipe[2];     /* MOM to job starter for ack */
   int       downfds;
   } pjobexec_t;
+  
+  
+  
+  
 
+/* job array stuff. */ 
 #ifndef PBS_MOM
 
+#define ARRAY_FILE_SUFFIX ".AR"
+
+#define ARRAY_STRUCT_VERSION 1
+
   /* pbs_server will keep a list of these structs, with one struct per job array*/
-  struct array_job_list {
+  struct job_array {
      list_link all_arrays;
      tlist_head array_alljobs;
-     char parent_id[PBS_MAXSVRJOBID + 1];
-     int num_cloned; 
+     
+     int jobs_recovered;
+
+     struct array_info {
+       int  struct_version;
+       int  array_size;
+       int  num_cloned;
+       char owner[PBS_MAXUSER + PBS_MAXSERVERNAME + 2]; /* max user name, server name, 1 for the @, and one for the NULL */
+       char parent_id[PBS_MAXSVRJOBID + 1];
+       char fileprefix[PBS_JOBBASE + 1];
+       char submit_host[PBS_MAXSERVERNAME +1];
+       
+     } ai_qs; 
   
   };
   
-  typedef struct array_job_list array_job_list;
+  typedef struct job_array job_array;
 
 #endif
 
@@ -411,7 +432,7 @@ struct job {
 	time_t		ji_chkptnext;	/* next checkpoint time */
 	time_t		ji_sampletim;	/* last usage sample time, irix only */
 	pid_t		ji_momsubt;	/* pid of mom subtask   */
-	void	      (*ji_mompost)();	/* ptr to post processing func  */
+	int	      (*ji_mompost)();	/* ptr to post processing func  */
 	struct batch_request *ji_preq;	/* hold request until finish_exec */
 	int		ji_numnodes;	/* number of nodes (at least 1) */
 	int		ji_numvnod;	/* number of virtual nodes */
@@ -434,7 +455,8 @@ struct job {
 	int		ji_retryok;	/* ok to retry, some reject was temp */
 	tlist_head	ji_rejectdest;	/* list of rejected destinations */
 	list_link	ji_arrayjobs;	/* links to all jobs in same array */
-	array_job_list	*ji_arrayjoblist; /* pointer to array_job_list for this array */
+	job_array	*ji_arrayjoblist; /* pointer to job_array for this array */
+        int		ji_isparent;    /* set to TRUE if this is a "parent job"*/
 #endif					/* END SERVER ONLY */
 
 	/*
@@ -518,15 +540,17 @@ typedef struct	task {
 	} ti_qs;
 } task;
 
+
+
 /*
 **	Events need to be linked to either a task or another event
 **	waiting at another MOM.  This is the information needed so
 **	we can forward the event to another MOM.
 */
-typedef struct	fwdevent {
-	tm_node_id	fe_node;	/* where does notification go */
-	tm_event_t	fe_event;	/* event number */
-	tm_task_id	fe_taskid;	/* which task id */
+typedef struct fwdevent {
+  tm_node_id fe_node;	/* where does notification go */
+  tm_event_t fe_event;	/* event number */
+  tm_task_id fe_taskid;	/* which task id */
 } fwdevent;
 
 /*
@@ -644,15 +668,15 @@ task *task_find A_((
 #define MAIL_NORMAL 0
 #define MAIL_FORCE  1
 
-#define JOB_FILE_COPY      ".JC"	/* tmp copy while updating */
-#define JOB_FILE_SUFFIX    ".JB"	/* job control file */
-#define JOB_SCRIPT_SUFFIX  ".SC"	/* job script file  */
-#define JOB_STDOUT_SUFFIX  ".OU"	/* job standard out */
-#define JOB_STDERR_SUFFIX  ".ER"	/* job standard error */
-#define JOB_CKPT_SUFFIX    ".CK"	/* job checkpoint file */
-#define JOB_TASKDIR_SUFFIX ".TK"	/* job task directory */
-#define JOB_BAD_SUFFIX	   ".BD"	/* save bad job file */
-
+#define JOB_FILE_COPY       ".JC"	/* tmp copy while updating */
+#define JOB_FILE_SUFFIX     ".JB"	/* job control file */
+#define JOB_SCRIPT_SUFFIX   ".SC"	/* job script file  */
+#define JOB_STDOUT_SUFFIX   ".OU"	/* job standard out */
+#define JOB_STDERR_SUFFIX   ".ER"	/* job standard error */
+#define JOB_CKPT_SUFFIX     ".CK"	/* job checkpoint file */
+#define JOB_TASKDIR_SUFFIX  ".TK"	/* job task directory */
+#define JOB_BAD_SUFFIX	    ".BD"	/* save bad job file */
+#define JOB_FILE_TMP_SUFFIX ".TA"	/* temporary job array parent file suffix */
 /*
  * Job states are defined by POSIX as:
  */
@@ -726,6 +750,9 @@ task *task_find A_((
 #define HOLD_u 1
 #define HOLD_o 2
 #define HOLD_s 4
+/* jobs in a job array are held until the whole array is ready for now this is 
+ * a system hold, but it may be a special hold in the future */
+#define HOLD_a HOLD_s  
 
 /* Special Job Exit Values,  Set by the job starter (child of MOM)   */
 /* see server/req_jobobit() & mom/start_exec.c			     */

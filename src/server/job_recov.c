@@ -123,8 +123,11 @@ int save_tmsock(job *);
 int recov_tmsock(int,job *);
 #endif
 
-extern int job_qs_upgrade A_((job *,int));
-
+extern int job_qs_upgrade(job *,int);
+#ifndef PBS_MOM
+extern void get_parent_id(char *job_id, char *parent_id);
+extern job_array *get_array(char *id);
+#endif
 /* global data items */
 
 extern char  *path_jobs;
@@ -176,7 +179,19 @@ int job_save(
   strcpy(namebuf1,path_jobs);	/* job directory path */
   strcat(namebuf1,pjob->ji_qs.ji_fileprefix);
   strcpy(namebuf2,namebuf1);	/* setup for later */
+
+#ifdef PBS_MOM
   strcat(namebuf1,JOB_FILE_SUFFIX);
+#else
+  if (pjob->ji_isparent == TRUE)
+    {
+    strcat(namebuf1, JOB_FILE_TMP_SUFFIX);
+    }
+  else
+    {
+    strcat(namebuf1,JOB_FILE_SUFFIX);
+    }
+#endif
 
   /* if ji_modified is set, ie an attribute changed, then update mtime */
 
@@ -242,8 +257,8 @@ int job_save(
       }
 
     close(fds);
-    } 
-  else 
+    }
+  else /* SAVEJOB_FULL, SAVEJOB_NEW, SAVEJOB_ARY */
     {
     /*
      * write the whole structure to the file.
@@ -373,6 +388,10 @@ job *job_recov(
   char	*pn;
   char	 namebuf[MAXPATHLEN];
   int    qs_upgrade;
+#ifndef PBS_MOM
+  char   parent_id[PBS_MAXSVRJOBID + 1];
+  job_array *pa;
+#endif
   
   qs_upgrade = FALSE;
 
@@ -514,7 +533,39 @@ job *job_recov(
 
     log_err(-1,"job_recov",log_buffer);
     }
-#endif /* PBS_MOM */
+#else /* PBS_MOM */
+
+  if (pj->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long > 1)
+    {
+    /* job is part of an array.  We need to put a link back to the server job array struct
+       for this array. We also have to link this job into the linked list of jobs belonging 
+       to the array. */
+       
+      get_parent_id(pj->ji_qs.ji_jobid, parent_id);
+      pa = get_array(parent_id);
+      if (strcmp(parent_id, pj->ji_qs.ji_jobid) == 0)
+        {
+	pj->ji_isparent = TRUE;
+	}
+      else
+        {
+        if (pa == NULL)
+          {
+          /* couldn't find array struct, it must not have been recovered, 
+             treat job as indepentent job */
+          pj->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long = 1;
+          }
+        else
+          {
+	   CLEAR_LINK(pj->ji_arrayjobs);
+	   append_link(&pa->array_alljobs, &pj->ji_arrayjobs, (void*)pj);
+	   pj->ji_arrayjoblist = pa;
+	   pa->jobs_recovered++;
+	  }
+	}
+    }
+
+#endif
 
   close(fds);
 

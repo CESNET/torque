@@ -1,10 +1,11 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
+2.3.0
+  e - redesign how torque.spec is built
+
 2.2.0
   e - improve RPP logging for corruption issues
   f - dynamic resources
-  f - allow manager to set "next job number" via hidden qmgr attribute 
-      next_job_number
   e - use mlockall() in pbs_mom if _POSIX_MEMLOCK
   f - consumable resource "tokens" support (Harte-Hanks)
   f - Linux 2.6 cpuset support
@@ -33,15 +34,33 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - epilogue will only run if job is still valid on exec node
   e - add qnodes, qnoded, qserverd, and qschedd symlinks
   e - enable DEFAULTCKPT torque.cfg parameter
-  e - update suse initscripts
   e - allow compute host and submit host suffix with nodefile_suffix
+  f - add --with-modulefiles=[DIR] support
+  b - be more careful about broken tclx installs
+
+
+2.1.10
+  b - fix buffer overflow in rm_request,
+      fix 2 printf that should be sprintf (Umea University)
+  b - correct updating trusted client list (Yahoo)
+  b - Catch newlines in log messages, split messages text (Eygene Ryabinkin)
+  e - pbs_mom remote reconfig pbs_mom now disabled by default
+      use $remote_reconfig to enable it
+  b - fix pam configure (Adrian Knoth)
 
 2.1.9
   f - new queue attribute disallowed_types, currently recognized types:
       interactive, batch, rerunable, and nonrerunable
-  e - create modified $PBS_NODEFILE file for BProc systems
+  e - refine "node note" feature with pbsnodes -N
+  e - bypass pbs_server's uid 0 check on cygwin
+  e - update suse initscripts
+  b - fix mom memory locking
   b - fix sum buffer length checks in pbs_mom
   b - fix memory leak in fifo scheduler
+  b - fix nonstandard usage of 'tail' in tpackage
+  b - fix aliasing error with brp_txtlen
+  f - allow manager to set "next job number" via hidden qmgr attribute
+      next_job_number
 
 2.1.8
   b - stop possible memory corruption with an invalid request type (StockholmU)

@@ -167,6 +167,7 @@ extern char	*path_home;
 extern char	*path_acct;
 extern char	path_log[];
 extern char	*path_priv;
+extern char	*path_arrays;
 extern char	*path_jobs;
 extern char	*path_queues;
 extern char	*path_spool;
@@ -208,7 +209,8 @@ extern void   set_old_nodes A_((job *));
 extern void   acct_close A_((void));
 extern struct work_task *apply_job_delete_nanny A_((struct job *,int));
 extern int     net_move A_((job *,struct batch_request *));
-
+extern int delete_array_struct(job_array *pa);
+extern void  job_clone_wt A_((struct work_task *));
 
 /* Private functions in this file */
 
@@ -253,6 +255,7 @@ int pbsd_init(
   static char id[] = "pbsd_init";
   char	*job_suffix = JOB_FILE_SUFFIX;
   int	 job_suf_len = strlen(job_suffix);
+  int    array_suf_len = strlen(ARRAY_FILE_SUFFIX);
   int	 logtype;
   char	*new_tag = ".new";
   job	*pjob;
@@ -263,6 +266,10 @@ int pbsd_init(
   char	*suffix_slash = "/";
   struct sigaction act;
   struct sigaction oact;
+  
+  
+  struct work_task *wt;
+  job_array *pa;
 
   char   EMsg[1024];
 
@@ -423,6 +430,7 @@ int pbsd_init(
   /* 2. set up the various paths and other global variables we need */
 
   path_priv      = build_path(path_home, PBS_SVR_PRIVATE, suffix_slash);
+  path_arrays	 = build_path(path_priv, PBS_ARRAYDIR, suffix_slash);
   path_spool     = build_path(path_home, PBS_SPOOLDIR, suffix_slash);
   path_queues    = build_path(path_priv, PBS_QUEDIR,   suffix_slash);
   path_jobs      = build_path(path_priv, PBS_JOBDIR,   suffix_slash);
@@ -679,6 +687,70 @@ int pbsd_init(
    *    If a a create or clean recovery, delete any jobs.
    */
 
+ /* 9.a, recover job array info */
+  
+   if (chdir(path_arrays) != 0) 
+    {
+    sprintf(log_buffer,msg_init_chdir,
+      path_arrays);
+
+    log_err(errno,"pbsd_init",log_buffer);
+
+    return(-1);
+    }
+    
+  dir = opendir(".");  
+  while ((pdirent = readdir(dir)) != NULL) 
+     {       
+
+     if (chk_save_file(pdirent->d_name) == 0) 
+       {
+       /* if not create or clean recovery, recover arrays */
+       
+       if ((type != RECOV_CREATE) && (type != RECOV_COLD))
+         {
+	 /* skip files without the proper suffix */
+	 baselen = strlen(pdirent->d_name) - array_suf_len;
+
+         psuffix = pdirent->d_name + baselen;
+
+         if (strcmp(psuffix,ARRAY_FILE_SUFFIX))
+           continue;
+	 
+	 
+	 pa = (job_array*)malloc(sizeof(job_array));
+	 CLEAR_LINK(pa->all_arrays);
+	 CLEAR_HEAD(pa->array_alljobs);
+	 pa->jobs_recovered = 0;
+	 
+	 fd = open(pdirent->d_name, O_RDONLY,0);
+	 	 	 
+	 if (read(fd, &(pa->ai_qs), sizeof(pa->ai_qs)) != sizeof(pa->ai_qs))
+	   {
+	   sprintf(log_buffer,"unable to read %s", pdirent->d_name);
+
+           log_err(errno,"pbsd_init",log_buffer);
+
+           return(-1);
+	   }
+	   
+	 close(fd);
+	 
+	 append_link(&svr_jobarrays, &pa->all_arrays, (void*)pa);
+	 
+	 }
+       else
+         {
+	 unlink(pdirent->d_name);
+	 }
+       
+       }
+              
+     }
+  closedir(dir);    
+  
+  /* 9.b,  recover jobs */
+
   if (chdir(path_jobs) != 0) 
     {
     sprintf(log_buffer,msg_init_chdir,
@@ -730,6 +802,21 @@ int pbsd_init(
 
         psuffix = pdirent->d_name + baselen;
 
+        if (!strcmp(psuffix, ".TA"))
+	  {
+	  if ((pjob = job_recov(pdirent->d_name)) != NULL) 
+            {
+	    append_link(&svr_alljobs,&pjob->ji_alljobs,pjob);
+	    pjob ->ji_isparent = TRUE;
+	    }
+	  else
+	    {
+	    /* should we do something here?  we won't beable to finish cloning this array */
+	    }
+	  continue;
+	  }
+	
+	
         if (strcmp(psuffix,job_suffix))
           continue;
 
@@ -761,6 +848,7 @@ int pbsd_init(
 
           if ((type != RECOV_COLD) &&
               (type != RECOV_CREATE) &&
+	       pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long == 1 &&
               (pjob->ji_qs.ji_svrflags & JOB_SVFLG_SCRIPT))
             {
             strcpy(basen,pdirent->d_name);
@@ -848,7 +936,49 @@ int pbsd_init(
       pjob = (job *)GET_NEXT(pjob->ji_alljobs);
       }
     }
-
+    
+  /* look for empty arrays and delete them 
+     also look for arrays that weren't fully built and setup a work task to 
+     continue the cloning process*/
+  pa = (job_array*)GET_NEXT(svr_jobarrays);  
+  while (pa != NULL)
+    {
+    if (pa->ai_qs.num_cloned != pa->ai_qs.array_size)
+      {
+      
+      job *pjob = find_job(pa->ai_qs.parent_id);
+      if (pjob == NULL)
+        {
+        /* TODO, we need to so something here, we can't finish cloning the array! */
+	
+	}
+      else
+        {
+	/* TODO if num_cloned != num_recovered then something strange happend
+	   it is possible num_recovered == num_cloned+1.  That means that the server
+	   terminated after cloning a job but before updating the saved array_info struct.
+	   we probably should delete that last job and start the cloning process off at 
+	   num_cloned */
+        wt = set_task(WORK_Timed,time_now+1,job_clone_wt,(void*)pjob);
+        wt->wt_aux = pa->ai_qs.num_cloned;
+        }
+      
+      }
+    else if (GET_NEXT(pa->array_alljobs) == pa->array_alljobs.ll_struct)
+      {
+      job_array *temp = (job_array*)GET_NEXT(pa->all_arrays);
+      delete_array_struct(pa);
+      pa = temp;
+      }
+    
+    if (pa != NULL)
+      {
+      pa = (job_array*)GET_NEXT(pa->all_arrays);
+      }
+      
+    }
+    
+    
   /* Put us back in the Server's Private directory */
 
   if (chdir(path_priv) != 0) 
@@ -860,6 +990,7 @@ int pbsd_init(
     return(3);
     }
 
+     
   /* 10. Open and read in tracking records */
 
   fd = open(path_track,O_RDONLY|O_CREAT,0600);

@@ -108,6 +108,8 @@
 #include "log.h"
 #include "dis.h"
 
+extern int LOGLEVEL;
+
 
 /* External Functions Called */
 
@@ -283,7 +285,6 @@ int init_network(
     {
     close(sock);
 
-
     return(-1);
     }
 	
@@ -300,11 +301,13 @@ int init_network(
     }
 
   /* allocate a minute's worth of counter structs */
-  for (i=0;i<60;i++)
+
+  for (i = 0;i < 60;i++)
     {
-    nc_list[i].time=0;
-    nc_list[i].counter=0;
+    nc_list[i].time = 0;
+    nc_list[i].counter = 0;
     }
+
   return (0);
   }  /* END init_network() */
 
@@ -325,6 +328,8 @@ int wait_request(
   long   *SState)     /* I (optional) */
 
   {
+  extern char *PAddrToString(pbs_net_t *);
+
   int i;
   int n;
 
@@ -332,12 +337,14 @@ int wait_request(
 
   fd_set selset;
 
+  char tmpLine[1024];
+
   struct timeval timeout;
 
-  long OrigState=0;
+  long OrigState = 0;
 
   if (SState != NULL)
-    OrigState=*SState;
+    OrigState = *SState;
 
   timeout.tv_usec = 0;
   timeout.tv_sec  = waittime;
@@ -373,7 +380,6 @@ int wait_request(
         /* clean up SdList and bad sd... */
 
         FD_CLR(i,&readset);
-
         }    /* END for (i) */
   
       return(-1);
@@ -415,7 +421,9 @@ int wait_request(
   /* NOTE:  break out if shutdown request received */
 
   if ((SState != NULL) && (OrigState != *SState))
+    {
     return(0);
+    }
 
   /* have any connections timed out ?? */
 
@@ -436,10 +444,18 @@ int wait_request(
     if (cp->cn_authen & PBS_NET_CONN_NOTIMEOUT)
       continue;	/* do not time-out this connection */
 
+    /* NOTE:  add info about node associated with connection - NYI */
+
+    snprintf(tmpLine,sizeof(tmpLine),"connection %d to host %s has timed out out after %d seconds - closing stale connection\n",
+      i,
+      PAddrToString(&cp->cn_addr),
+      PBS_NET_MAXCONNECTIDLE);
+
+    log_err(-1,"wait_request",tmpLine);
+
     /* locate node associated with interface, mark node as down until node responds */
 
     /* NYI */
-
 
     close_conn(i);
     }  /* END for (i) */
@@ -637,6 +653,8 @@ pbs_net_t get_connectaddr(
   {
   return(svr_conn[sock].cn_addr);
   }
+
+
 
 
 

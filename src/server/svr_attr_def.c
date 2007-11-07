@@ -650,7 +650,9 @@ attribute_def svr_attr_def[] = {
         PARENT_TYPE_SERVER
     },
 
-/* SRV_ATR_MomJobSync */
+/* NOTE:  use if state=PRERUN failure detected */
+
+/* SRV_ATR_MomJobSync */ 
     {	ATTR_momjobsync,	/* "mom_job_sync" */
 	decode_b,
 	encode_b,
@@ -793,7 +795,7 @@ attribute_def svr_attr_def[] = {
         PARENT_TYPE_SERVER
     },
 /* SRV_ATR_LogFileMaxSize */
-    {   ATTR_logfilemaxsize,
+    {   ATTR_logfilemaxsize,      /* "log_file_max_size" */
         decode_l,
         encode_l,
         set_l,
@@ -805,7 +807,7 @@ attribute_def svr_attr_def[] = {
         PARENT_TYPE_SERVER
     },
 /* SRV_ATR_LogFileRollDepth */
-    {   ATTR_logfilerolldepth,
+    {   ATTR_logfilerolldepth,    /* "log_file_roll_depth" */
         decode_l,
         encode_l,
         set_l,

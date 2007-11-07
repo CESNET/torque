@@ -39,6 +39,8 @@ host_triplet = @host@
 DIST_COMMON = $(am__configure_deps) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in $(srcdir)/torque.spec.in \
 	$(top_srcdir)/buildutils/config.mk \
+	$(top_srcdir)/buildutils/modulefiles.in \
+	$(top_srcdir)/buildutils/modulefiles.vers.in \
 	$(top_srcdir)/buildutils/pbs_mkdirs.in \
 	$(top_srcdir)/buildutils/self-extract-head-sh.in \
 	$(top_srcdir)/configure INSTALL buildutils/compile \
@@ -53,6 +55,8 @@ am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/buildutils/acx_pthread.m4 \
 	$(top_srcdir)/buildutils/ax_prog_dot.m4 \
 	$(top_srcdir)/buildutils/ac_c_bigendian_cross.m4 \
+	$(top_srcdir)/buildutils/t_add_rpath.m4 \
+	$(top_srcdir)/buildutils/tac_tcltk.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
@@ -61,7 +65,8 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
 mkinstalldirs = $(SHELL) $(top_srcdir)/buildutils/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/src/include/pbs_config.h
 CONFIG_CLEAN_FILES = buildutils/pbs_mkdirs \
-	buildutils/self-extract-head-sh torque.spec
+	buildutils/self-extract-head-sh buildutils/modulefiles \
+	buildutils/modulefiles.vers torque.spec
 am__installdirs = "$(DESTDIR)$(bindir)"
 binSCRIPT_INSTALL = $(INSTALL_SCRIPT)
 SCRIPTS = $(bin_SCRIPTS)
@@ -145,6 +150,8 @@ INCLUDE_PAM_TRUE = @INCLUDE_PAM_TRUE@
 INCLUDE_SERVER_FALSE = @INCLUDE_SERVER_FALSE@
 INCLUDE_SERVER_TRUE = @INCLUDE_SERVER_TRUE@
 INSTALL_DATA = @INSTALL_DATA@
+INSTALL_MODULEFILES_FALSE = @INSTALL_MODULEFILES_FALSE@
+INSTALL_MODULEFILES_TRUE = @INSTALL_MODULEFILES_TRUE@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
@@ -164,6 +171,7 @@ MAINTAINER_MODE_FALSE = @MAINTAINER_MODE_FALSE@
 MAINTAINER_MODE_TRUE = @MAINTAINER_MODE_TRUE@
 MAKE = @MAKE@
 MAKEINFO = @MAKEINFO@
+MODULEFILES_DIR = @MODULEFILES_DIR@
 MOMLIBS = @MOMLIBS@
 MY_TCLTK_INCS = @MY_TCLTK_INCS@
 MY_TCLTK_LIBS = @MY_TCLTK_LIBS@
@@ -246,6 +254,7 @@ USING_TK_TRUE = @USING_TK_TRUE@
 VERSION = @VERSION@
 WISH_PROG = @WISH_PROG@
 YACC = @YACC@
+ac_configure_args = @ac_configure_args@
 ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
@@ -265,10 +274,18 @@ am__untar = @am__untar@
 bindir = @bindir@
 build = @build@
 build_alias = @build_alias@
+build_clients = @build_clients@
 build_cpu = @build_cpu@
+build_drmaa = @build_drmaa@
+build_drmaa_docs = @build_drmaa_docs@
+build_gui = @build_gui@
+build_mom = @build_mom@
 build_os = @build_os@
+build_pbs_rcp = @build_pbs_rcp@
+build_server = @build_server@
 build_vendor = @build_vendor@
 datadir = @datadir@
+drmaadocdir = @drmaadocdir@
 exec_prefix = @exec_prefix@
 host = @host@
 host_alias = @host_alias@
@@ -289,6 +306,12 @@ prefix = @prefix@
 program_prefix = @program_prefix@
 program_suffix = @program_suffix@
 program_transform_name = @program_transform_name@
+rpmbindir = @rpmbindir@
+rpmdrmaadocdir = @rpmdrmaadocdir@
+rpmincludedir = @rpmincludedir@
+rpmlibdir = @rpmlibdir@
+rpmmandir = @rpmmandir@
+rpmsbindir = @rpmsbindir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 spec_name = @spec_name@
@@ -310,6 +333,8 @@ tkx_STUB_LIB_FILE = @tkx_STUB_LIB_FILE@
 tkx_STUB_LIB_PATH = @tkx_STUB_LIB_PATH@
 tkx_STUB_LIB_SPEC = @tkx_STUB_LIB_SPEC@
 tkx_VERSION = @tkx_VERSION@
+use_tcl = @use_tcl@
+use_tk = @use_tk@
 xauth_path = @xauth_path@
 AUTOMAKE_OPTIONS = foreign
 PBS_MKDIRS = $(SHELL) $(top_builddir)/buildutils/pbs_mkdirs
@@ -323,9 +348,10 @@ SUBDIRS = src doc
 EXTRA_DIST = CHANGELOG INSTALL.GNU README.configure README.mpiexec \
              README.torque Release_Notes torque.setup torque.spec.in \
              DEVELOPMENT PBS_License.txt torque.spec \
-	     buildutils/tcl.m4 buildutils/self-extract-head-sh.in \
+	     buildutils/self-extract-head-sh.in \
 	     buildutils/pbs_mkdirs.in buildutils/pbs_mach_type \
-	     buildutils/config.mk buildutils/ac_create_generic_config.m4 \
+	     buildutils/config.mk \
+	     buildutils/modulefiles.in buildutils/modulefiles.vers.in \
 	     contrib/README.pestat contrib/README.pbstop \
 	     contrib/README.qpeek contrib/pestat-1.0/pestat.c \
 	     contrib/pestat-1.0/README contrib/pestat-1.0/Makefile \
@@ -339,19 +365,6 @@ EXTRA_DIST = CHANGELOG INSTALL.GNU README.configure README.mpiexec \
 bin_SCRIPTS = pbs-config
 DISTCLEANFILES = pbs-config
 DISTCHECK_CONFIGURE_FLAGS = --with-server-home=$$dc_install_base/spool
-@USING_TCL_FALSE@tclrpmflag = --without tcl
-@USING_TCL_TRUE@tclrpmflag = --with tcl
-@INCLUDE_GUI_FALSE@guirpmflag = --without gui
-@INCLUDE_GUI_TRUE@guirpmflag = --with gui
-@USING_SYSLOG_FALSE@syslogrpmflag = --without syslog
-@USING_SYSLOG_TRUE@syslogrpmflag = --with syslog
-@USING_RPP_FALSE@rpprpmflag = --without rpp
-@USING_RPP_TRUE@rpprpmflag = --with rpp
-@INCLUDE_MOM_RCP_FALSE@scprpmflag = --with scp
-@INCLUDE_MOM_RCP_TRUE@scprpmflag = 
-RPMCC = @CC@
-RPMCFLAGS = @CFLAGS@
-RPMLDFLAGS = @LDFLAGS@
 
 #
 # Used by the 'packages' target below
@@ -412,6 +425,10 @@ $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 buildutils/pbs_mkdirs: $(top_builddir)/config.status $(top_srcdir)/buildutils/pbs_mkdirs.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 buildutils/self-extract-head-sh: $(top_builddir)/config.status $(top_srcdir)/buildutils/self-extract-head-sh.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
+buildutils/modulefiles: $(top_builddir)/config.status $(top_srcdir)/buildutils/modulefiles.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
+buildutils/modulefiles.vers: $(top_builddir)/config.status $(top_srcdir)/buildutils/modulefiles.vers.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 torque.spec: $(top_builddir)/config.status $(srcdir)/torque.spec.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
@@ -743,6 +760,8 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
+@INSTALL_MODULEFILES_FALSE@install-data-hook:
+@INSTALL_MODULEFILES_FALSE@uninstall-hook:
 clean: clean-recursive
 
 clean-am: clean-generic clean-libtool mostlyclean-am
@@ -764,6 +783,8 @@ info: info-recursive
 info-am:
 
 install-data-am:
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
 
 install-exec-am: install-binSCRIPTS
 
@@ -792,6 +813,8 @@ ps: ps-recursive
 ps-am:
 
 uninstall-am: uninstall-binSCRIPTS uninstall-info-am
+	@$(NORMAL_INSTALL)
+	$(MAKE) $(AM_MAKEFLAGS) uninstall-hook
 
 uninstall-info: uninstall-info-recursive
 
@@ -802,14 +825,15 @@ uninstall-info: uninstall-info-recursive
 	distclean-generic distclean-libtool distclean-recursive \
 	distclean-tags distcleancheck distdir distuninstallcheck dvi \
 	dvi-am html html-am info info-am install install-am \
-	install-binSCRIPTS install-data install-data-am install-exec \
-	install-exec-am install-info install-info-am install-man \
-	install-strip installcheck installcheck-am installdirs \
-	installdirs-am maintainer-clean maintainer-clean-generic \
-	maintainer-clean-recursive mostlyclean mostlyclean-generic \
-	mostlyclean-libtool mostlyclean-recursive pdf pdf-am ps ps-am \
-	tags tags-recursive uninstall uninstall-am \
-	uninstall-binSCRIPTS uninstall-info-am
+	install-binSCRIPTS install-data install-data-am \
+	install-data-hook install-exec install-exec-am install-info \
+	install-info-am install-man install-strip installcheck \
+	installcheck-am installdirs installdirs-am maintainer-clean \
+	maintainer-clean-generic maintainer-clean-recursive \
+	mostlyclean mostlyclean-generic mostlyclean-libtool \
+	mostlyclean-recursive pdf pdf-am ps ps-am tags tags-recursive \
+	uninstall uninstall-am uninstall-binSCRIPTS uninstall-hook \
+	uninstall-info-am
 
 
 snap:
@@ -819,26 +843,12 @@ dist-hook:
 	chmod u+w $(distdir)/README.torque $(distdir)/configure $(distdir)/torque.spec
 	sed -e 's/TORQUE .* README .*/TORQUE $(VERSION) README (released '"`date '+%b, %d %Y'`"')/' < $(srcdir)/README.torque > $(distdir)/README.torque
 	sed -e 's/VERSION=.*/VERSION=$(VERSION)/' < $(srcdir)/configure > $(distdir)/configure
-	spec_name=torque; \
-	spec_version=`echo $(VERSION) | sed 's/-snap.*//'`; \
-	spec_snap=""; \
-	if test "$$spec_version" != "$(VERSION)" ;then \
-  	  spec_snap="%define snap `echo $(VERSION) | sed 's/.*-snap.//'`"; \
-	fi; \
-	sed -e "s/@spec_""name@/$$spec_name/" -e "s/@spec_""version@/$$spec_version/" \
-	    -e "s/@spec_""snap@/$$spec_snap/" < $(srcdir)/torque.spec.in > $(distdir)/torque.spec
 
 srpm: dist
 	rpmbuild -ts $(distdir).tar.gz
 
 rpm: dist
-	RPMCC="$(RPMCC)" RPMCFLAGS="$(RPMCFLAGS)" RPMLDFLAGS="$(RPMLDFLAGS)" rpmbuild $(RPMOPTS) -tb $(distdir).tar.gz \
-	  $(tclrpmflag) $(guirpmflag) $(syslogrpmflag) $(rpprpmflag) $(scprpmflag) \
-	  --with server_name=$(PBS_DEFAULT_SERVER) \
-	  --with homedir=$(PBS_SERVER_HOME) \
-	  --with libdir=$(libdir) \
-	  --with includedir=$(includedir) \
-	  --with prefix=$(prefix)
+	rpmbuild $(RPMOPTS) -tb $(distdir).tar.gz
 
 install_server install_mom install_clients install_gui install_lib install_pam install_drmaa:
 	(cd src && $(MAKE) $@)
@@ -860,8 +870,8 @@ packages:
            proot=$(PKGROOT)/$$d; \
            pname=$(PKGNAME); \
            phost=$(PBS_MACH)-@host_cpu@; \
-           tarball=$(PKGROOT)/torque-$$pname-$$d-$$phost.tar.gz; \
-           pkgfile=./torque-$$pname-$$d-$$phost.sh; \
+           tarball=$(PKGROOT)/$(PACKAGE_NAME)-$$pname-$$d-$$phost.tar.gz; \
+           pkgfile=./$(PACKAGE_NAME)-$$pname-$$d-$$phost.sh; \
            echo "Building $$pkgfile ..."; \
            $(MAKE) DESTDIR=$$proot install_$$d >/dev/null || exit 1; \
 	   case $$d in \
@@ -893,6 +903,15 @@ packages:
 	@echo ""
 	@echo "The package files are self-extracting packages that can be copied"; \
         echo "and executed on your production machines.  Use --help for options.";
+
+@INSTALL_MODULEFILES_TRUE@install-data-hook:
+@INSTALL_MODULEFILES_TRUE@	$(INSTALL_DATA) -D ./buildutils/modulefiles $(DESTDIR)$(MODULEFILES_DIR)/$(PACKAGE_NAME)/$(PACKAGE_VERSION)
+@INSTALL_MODULEFILES_TRUE@	$(INSTALL_DATA) ./buildutils/modulefiles.vers $(DESTDIR)$(MODULEFILES_DIR)/$(PACKAGE_NAME)/.version
+
+@INSTALL_MODULEFILES_TRUE@uninstall-hook:
+@INSTALL_MODULEFILES_TRUE@	rm -f $(DESTDIR)$(MODULEFILES_DIR)/$(PACKAGE_NAME)/$(PACKAGE_VERSION)
+@INSTALL_MODULEFILES_TRUE@	rm -f $(DESTDIR)$(MODULEFILES_DIR)/$(PACKAGE_NAME)/.version
+@INSTALL_MODULEFILES_TRUE@	rmdir $(DESTDIR)$(MODULEFILES_DIR)/$(PACKAGE_NAME)
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

@@ -57,6 +57,8 @@ am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/buildutils/acx_pthread.m4 \
 	$(top_srcdir)/buildutils/ax_prog_dot.m4 \
 	$(top_srcdir)/buildutils/ac_c_bigendian_cross.m4 \
+	$(top_srcdir)/buildutils/t_add_rpath.m4 \
+	$(top_srcdir)/buildutils/tac_tcltk.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
@@ -255,6 +257,8 @@ INCLUDE_PAM_TRUE = @INCLUDE_PAM_TRUE@
 INCLUDE_SERVER_FALSE = @INCLUDE_SERVER_FALSE@
 INCLUDE_SERVER_TRUE = @INCLUDE_SERVER_TRUE@
 INSTALL_DATA = @INSTALL_DATA@
+INSTALL_MODULEFILES_FALSE = @INSTALL_MODULEFILES_FALSE@
+INSTALL_MODULEFILES_TRUE = @INSTALL_MODULEFILES_TRUE@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
@@ -274,6 +278,7 @@ MAINTAINER_MODE_FALSE = @MAINTAINER_MODE_FALSE@
 MAINTAINER_MODE_TRUE = @MAINTAINER_MODE_TRUE@
 MAKE = @MAKE@
 MAKEINFO = @MAKEINFO@
+MODULEFILES_DIR = @MODULEFILES_DIR@
 MOMLIBS = @MOMLIBS@
 MY_TCLTK_INCS = @MY_TCLTK_INCS@
 MY_TCLTK_LIBS = @MY_TCLTK_LIBS@
@@ -356,6 +361,7 @@ USING_TK_TRUE = @USING_TK_TRUE@
 VERSION = @VERSION@
 WISH_PROG = @WISH_PROG@
 YACC = @YACC@
+ac_configure_args = @ac_configure_args@
 ac_ct_AR = @ac_ct_AR@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
@@ -375,10 +381,18 @@ am__untar = @am__untar@
 bindir = @bindir@
 build = @build@
 build_alias = @build_alias@
+build_clients = @build_clients@
 build_cpu = @build_cpu@
+build_drmaa = @build_drmaa@
+build_drmaa_docs = @build_drmaa_docs@
+build_gui = @build_gui@
+build_mom = @build_mom@
 build_os = @build_os@
+build_pbs_rcp = @build_pbs_rcp@
+build_server = @build_server@
 build_vendor = @build_vendor@
 datadir = @datadir@
+drmaadocdir = @drmaadocdir@
 exec_prefix = @exec_prefix@
 host = @host@
 host_alias = @host_alias@
@@ -399,6 +413,12 @@ prefix = @prefix@
 program_prefix = @program_prefix@
 program_suffix = @program_suffix@
 program_transform_name = @program_transform_name@
+rpmbindir = @rpmbindir@
+rpmdrmaadocdir = @rpmdrmaadocdir@
+rpmincludedir = @rpmincludedir@
+rpmlibdir = @rpmlibdir@
+rpmmandir = @rpmmandir@
+rpmsbindir = @rpmsbindir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 spec_name = @spec_name@
@@ -420,6 +440,8 @@ tkx_STUB_LIB_FILE = @tkx_STUB_LIB_FILE@
 tkx_STUB_LIB_PATH = @tkx_STUB_LIB_PATH@
 tkx_STUB_LIB_SPEC = @tkx_STUB_LIB_SPEC@
 tkx_VERSION = @tkx_VERSION@
+use_tcl = @use_tcl@
+use_tk = @use_tk@
 xauth_path = @xauth_path@
 AUTOMAKE_OPTIONS = foreign
 PBS_MKDIRS = $(SHELL) $(top_builddir)/buildutils/pbs_mkdirs

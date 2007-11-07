@@ -412,6 +412,8 @@ void log_err(
  * log_record - log a message to the log file
  *	The log file must have been opened by log_open().
  *
+ * NOTE:  do not use in pbs_mom spawned children - does not write to syslog!!!
+ *
  *	The caller should ensure proper formating of the message if "text"
  *	is to contain "continuation lines".
  */
@@ -428,6 +430,8 @@ void log_record(
   struct tm *ptm;
   int    rc;
   FILE  *savlog;
+  char  *start = NULL, *end = NULL;
+  size_t nchars;
 
   if (log_opened < 1)
     {
@@ -451,18 +455,39 @@ void log_record(
       }
     }
 
-  rc = fprintf(logfile,"%02d/%02d/%04d %02d:%02d:%02d;%04x;%10.10s;%s;%s;%s\n",
-	ptm->tm_mon + 1,
-        ptm->tm_mday,
-        ptm->tm_year + 1900,
-	ptm->tm_hour,
-        ptm->tm_min, 
-        ptm->tm_sec,
-	(eventtype & ~PBSEVENT_FORCE),
-	msg_daemonname,
-	class_names[objclass],
-	objname,
-	text);
+  /*
+   * Looking for the newline characters and splitting the output message
+   * on them.  Sequence "\r\n" is mapped to the single newline.
+   */
+  start = text;
+  while (1)
+    {
+    for (end = start; *end != '\n' && *end != '\r' && *end != '\0'; end++)
+      ;
+    nchars = end - start;
+    if (*end == '\r' && *(end + 1) == '\n')
+      end++;
+    rc = fprintf(logfile,
+	  "%02d/%02d/%04d %02d:%02d:%02d;%04x;%10.10s;%s;%s;%s%.*s\n",
+          ptm->tm_mon + 1,
+          ptm->tm_mday,
+          ptm->tm_year + 1900,
+          ptm->tm_hour,
+          ptm->tm_min, 
+          ptm->tm_sec,
+          (eventtype & ~PBSEVENT_FORCE),
+          msg_daemonname,
+          class_names[objclass],
+          objname,
+          (text == start ? "" : "[continued]"),
+          (int)nchars, start);
+    if (rc < 0)
+      break;
+
+    if (*end == '\0')
+      break;
+    start = end + 1;
+    }
 
   fflush(logfile);
 

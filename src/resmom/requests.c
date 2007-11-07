@@ -171,7 +171,10 @@ static uid_t  useruid;
 static gid_t  usergid;
 static int    ngroup;
 static int   *groups;
+#if NO_SPOOL_OUTPUT == 0
 static char  *output_retained = "Output retained on that host in: ";
+#endif /* !NO_SPOOL_OUTPUT */
+
 static char   rcperr[MAXPATHLEN];	/* file to contain rcp error */
 
 extern char PBSNodeMsgBuf[1024];
@@ -463,7 +466,13 @@ static pid_t fork_to_user(
     setgroups(ngroup,(gid_t *)groups);
 
     setgid(usergid);
-    setuid(useruid);   /* run as the user */
+    
+    if (setuid(useruid) == -1)
+      {
+      /* cannot run as the user */
+
+      return(-PBSE_BADUSER); 
+      }
 
     if (chdir(hdir) == -1)
       {
@@ -1913,17 +1922,27 @@ void req_signaljob(
 
 
 
+
+/* encode used resource info for sending to pbs_server in job obit */
+
 void encode_used(
 
   job        *pjob,   /* I */
   tlist_head *phead)  /* O */
 
   {
-  unsigned long		lnum;
-  int			i;
-  attribute		*at;
-  attribute_def		*ad;
-  resource		*rs;
+  unsigned long  lnum;
+  int            i;
+  attribute     *at;
+  attribute_def *ad;
+  resource      *rs;
+
+  attribute      val;
+  int            rc;
+
+  task *ptask;
+
+  resource_def *rd = NULL;
 
   at = &pjob->ji_wattr[JOB_ATR_resc_used];
   ad = &job_attr_def[JOB_ATR_resc_used];
@@ -1937,9 +1956,7 @@ void encode_used(
        rs != NULL;
        rs = (resource *)GET_NEXT(rs->rs_link)) 
     {
-    resource_def *rd = rs->rs_defin;
-    attribute     val;
-    int           rc;
+    rd = rs->rs_defin;
 
     if ((rd->rs_flags & resc_access_perm) == 0)
       continue;
@@ -1988,8 +2005,38 @@ void encode_used(
       break;
     }  /* END for (rs) */
 
+  ptask = (task *)GET_NEXT(pjob->ji_tasks);
+
+  if ((ptask != NULL) && (ptask->ti_qs.ti_sid < 0))
+    {
+    /* pass session info through obit as attribute to allow detection of various failures 
+       by pbs_server */
+
+    at = &pjob->ji_wattr[JOB_ATR_session_id];
+    ad = &job_attr_def[JOB_ATR_session_id];
+
+    rs = (resource *)GET_NEXT(at->at_val.at_list);
+
+    if (rs != NULL)
+      {
+      rd = rs->rs_defin;
+
+      val.at_val.at_long = ptask->ti_qs.ti_sid;
+      val.at_flags |= ATR_VFLAG_SET;
+      val.at_type = ATR_TYPE_LONG;
+
+      rd->rs_encode(
+        &val,
+        phead,
+        ATTR_session,
+        NULL,
+        ATR_ENCODE_CLIENT);
+      }
+    }    /* END if ((ptask != NULL) && (ptask->ti_qs.ti_sid < 0)) */
+
   return;
   }  /* END encode_used() */
+
 
 
 
@@ -2232,16 +2279,30 @@ static int del_files(
       }
 
 #ifdef HAVE_WORDEXP
-    switch (wordexp(path,&pathexp, WRDE_NOCMD|WRDE_UNDEF))
+    switch (wordexp(path,&pathexp,WRDE_NOCMD|WRDE_UNDEF))
       {
       case 0:
+
         break; /* Successful */
+
       case WRDE_NOSPACE:
+
         wordfree(&pathexp);
+
+        /* fall through */
+
       default:
-        sprintf(log_buffer,">>> failed to delete files, expansion of %s failed",path);
+
+        sprintf(log_buffer,">>> failed to delete files, expansion of %s failed",
+          path);
+
         add_bad_list(pbadfile,log_buffer,1);
+
         return(-1);
+
+        /*NOTREACHED*/
+
+        break;
       }
 
     strcpy(path,pathexp.we_wordv[0]);
@@ -2466,8 +2527,8 @@ void req_rerunjob(
 static int sys_copy(
 
   int   rmtflg,  /* I */
-  char *ag2,     /* I */
-  char *ag3,     /* I */
+  char *ag2,     /* I (is this source or destination?) */
+  char *ag3,     /* I (is this source or destination?) */
   int   conn)    /* I */
 
   {
@@ -2569,6 +2630,8 @@ static int sys_copy(
         close(fd);
         }
 
+      /* NOTE:  arg2 should be source, arg3 should be destination */
+
       execl(ag0,ag0,ag1,ag2,ag3,NULL);
 
       /* reached only if execl() fails */
@@ -2583,12 +2646,12 @@ static int sys_copy(
       log_err(errno,id,log_buffer);
 
       exit(13);	/* 13, an unlucky number */
-      }
+      }    /* END else ((rc = fork()) > 0) */
 
     /* copy did not work, try again */
 
     if ((loop % 2) == 0)
-      sleep(loop/2 * 3 + 1);
+      sleep(loop / 2 * 3 + 1);
     }  /* END for (loop) */
 
   /* tried a bunch of times, just give up */
@@ -2662,7 +2725,10 @@ void req_cpyfile(
   char		*prmt;
   int		 rc;
   int		 rmtflag;
+#if NO_SPOOL_OUTPUT == 0
   char		 undelname[MAXPATHLEN + 1];
+#endif /* !NO_SPOOL_OUTPUT */
+
 #ifdef  _CRAY
   char		 tmpdirname[MAXPATHLEN + 1];
 #endif 	/* _CRAY */

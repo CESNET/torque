@@ -150,6 +150,9 @@
 /* include readline support */
 #undef HAVE_READLINE
 
+/* Define to 1 if you have the <readline/readline.h> header file. */
+#undef HAVE_READLINE_READLINE_H
+
 /* Define to 1 if you have the <security/pam_appl.h> header file. */
 #undef HAVE_SECURITY_PAM_APPL_H
 
@@ -305,6 +308,9 @@
 /* whether checkpointing is supported */
 #undef MOM_CHECKPOINT
 
+/* force creation of nodefile */
+#undef MOM_FORCENODEFILE
+
 #ifndef NEED_BLOCKING_CONNECTIONS
 #define write(a,b,c) write_nonblocking_socket(a,b,c)
 #define read(a,b,c) read_nonblocking_socket(a,b,c)
@@ -313,7 +319,7 @@
 /* use nodemask-based scheduling on O2k */
 #undef NODEMASK
 
-/* Define to disable priviledged ports */
+/* Define to disable privileged ports */
 #undef NOPRIVPORTS
 
 /* directly use homedirs instead of $TORQUEHOME/spool */
