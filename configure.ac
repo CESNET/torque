@@ -148,7 +148,8 @@ dnl
 AC_CHECK_PROGS(AR,ar,exit)
 
 dnl wrapped libtool macro to remove annoying warning message
-TAC_PROG_LIBTOOL
+AC_PROG_LIBTOOL
+TAC_PROG_LIBTOOL_PATCH
 
 AC_PROG_LN_S
 

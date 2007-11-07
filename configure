@@ -19614,7 +19614,6 @@ LIBTOOL='$(SHELL) $(top_builddir)/libtool'
 
 
 
-
   # patch libtool to remove that annoying lib install warning
   test -f libtool.old || (mv libtool libtool.old && cp libtool.old libtool)
   sed -e '/.*has not been installed in.*/d' <libtool >libtool.new
