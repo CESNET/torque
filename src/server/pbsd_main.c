@@ -230,9 +230,12 @@ void DIS_rpp_reset()
 
 
 
-/*
-** Read a RPP message from a stream.  Only one kind of message
-** is expected -- Inter Server requests from MOM's.
+/**
+ * Read a RPP message from a stream.  
+ *
+ * NOTE: Only one kind of message is expected -- Inter Server requests from MOM's.
+ *
+ * @param stream (I)
 */
 
 void do_rpp(

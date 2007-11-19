@@ -1,0 +1,119 @@
+mom_start.o mom_start.o: mom_start.c ../../../src/include/pbs_config.h \
+  /usr/include/sys/types.h /usr/include/sys/cdefs.h \
+  /usr/include/machine/endian.h /usr/include/sys/_types.h \
+  /usr/include/machine/_types.h /usr/include/sys/_pthreadtypes.h \
+  /usr/include/sys/select.h /usr/include/sys/_sigset.h \
+  /usr/include/sys/_timeval.h /usr/include/sys/timespec.h \
+  /usr/include/sys/wait.h /usr/include/errno.h /usr/include/fcntl.h \
+  /usr/include/signal.h /usr/include/sys/signal.h \
+  /usr/include/machine/signal.h /usr/include/machine/trap.h \
+  /usr/include/string.h /usr/include/sys/_null.h /usr/include/strings.h \
+  /usr/include/stdio.h /usr/include/unistd.h /usr/include/sys/unistd.h \
+  /usr/include/pwd.h ../../../src/include/portability.h \
+  ../../../src/include/libpbs.h /usr/include/stdlib.h \
+  /usr/include/memory.h ../../../src/include/pbs_ifl.h \
+  ../../../src/include/list_link.h ../../../src/include/pbs_error.h \
+  ../../../src/include/list_link.h ../../../src/include/log.h \
+  ../../../src/include/server_limits.h ../../../src/include/attribute.h \
+  ../../../src/include/Long.h /usr/include/limits.h \
+  /usr/include/sys/limits.h /usr/include/machine/_limits.h \
+  /usr/include/sys/syslimits.h ../../../src/include/resource.h \
+  ../../../src/include/job.h ../../../src/include/site_job_attr_enum.h \
+  ../../../src/include/tm_.h mom_mach.h ../../../src/include/mom_func.h \
+  ../../../src/include/libpbs.h
+
+../../../src/include/pbs_config.h:
+
+/usr/include/sys/types.h:
+
+/usr/include/sys/cdefs.h:
+
+/usr/include/machine/endian.h:
+
+/usr/include/sys/_types.h:
+
+/usr/include/machine/_types.h:
+
+/usr/include/sys/_pthreadtypes.h:
+
+/usr/include/sys/select.h:
+
+/usr/include/sys/_sigset.h:
+
+/usr/include/sys/_timeval.h:
+
+/usr/include/sys/timespec.h:
+
+/usr/include/sys/wait.h:
+
+/usr/include/errno.h:
+
+/usr/include/fcntl.h:
+
+/usr/include/signal.h:
+
+/usr/include/sys/signal.h:
+
+/usr/include/machine/signal.h:
+
+/usr/include/machine/trap.h:
+
+/usr/include/string.h:
+
+/usr/include/sys/_null.h:
+
+/usr/include/strings.h:
+
+/usr/include/stdio.h:
+
+/usr/include/unistd.h:
+
+/usr/include/sys/unistd.h:
+
+/usr/include/pwd.h:
+
+../../../src/include/portability.h:
+
+../../../src/include/libpbs.h:
+
+/usr/include/stdlib.h:
+
+/usr/include/memory.h:
+
+../../../src/include/pbs_ifl.h:
+
+../../../src/include/list_link.h:
+
+../../../src/include/pbs_error.h:
+
+../../../src/include/list_link.h:
+
+../../../src/include/log.h:
+
+../../../src/include/server_limits.h:
+
+../../../src/include/attribute.h:
+
+../../../src/include/Long.h:
+
+/usr/include/limits.h:
+
+/usr/include/sys/limits.h:
+
+/usr/include/machine/_limits.h:
+
+/usr/include/sys/syslimits.h:
+
+../../../src/include/resource.h:
+
+../../../src/include/job.h:
+
+../../../src/include/site_job_attr_enum.h:
+
+../../../src/include/tm_.h:
+
+mom_mach.h:
+
+../../../src/include/mom_func.h:
+
+../../../src/include/libpbs.h:

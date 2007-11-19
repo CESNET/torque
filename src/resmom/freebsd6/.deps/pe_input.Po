@@ -1,0 +1,53 @@
+pe_input.o pe_input.o: pe_input.c ../../../src/include/pbs_config.h \
+  /usr/include/fcntl.h /usr/include/sys/cdefs.h /usr/include/sys/_types.h \
+  /usr/include/machine/_types.h /usr/include/sys/param.h \
+  /usr/include/sys/_null.h /usr/include/sys/types.h \
+  /usr/include/machine/endian.h /usr/include/sys/_pthreadtypes.h \
+  /usr/include/sys/select.h /usr/include/sys/_sigset.h \
+  /usr/include/sys/_timeval.h /usr/include/sys/timespec.h \
+  /usr/include/sys/syslimits.h /usr/include/sys/signal.h \
+  /usr/include/machine/signal.h /usr/include/machine/trap.h \
+  /usr/include/machine/param.h /usr/include/sys/limits.h \
+  /usr/include/machine/_limits.h
+
+../../../src/include/pbs_config.h:
+
+/usr/include/fcntl.h:
+
+/usr/include/sys/cdefs.h:
+
+/usr/include/sys/_types.h:
+
+/usr/include/machine/_types.h:
+
+/usr/include/sys/param.h:
+
+/usr/include/sys/_null.h:
+
+/usr/include/sys/types.h:
+
+/usr/include/machine/endian.h:
+
+/usr/include/sys/_pthreadtypes.h:
+
+/usr/include/sys/select.h:
+
+/usr/include/sys/_sigset.h:
+
+/usr/include/sys/_timeval.h:
+
+/usr/include/sys/timespec.h:
+
+/usr/include/sys/syslimits.h:
+
+/usr/include/sys/signal.h:
+
+/usr/include/machine/signal.h:
+
+/usr/include/machine/trap.h:
+
+/usr/include/machine/param.h:
+
+/usr/include/sys/limits.h:
+
+/usr/include/machine/_limits.h:
