@@ -1196,6 +1196,7 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/resmom/darwin/Makefile
 	  src/resmom/digitalunix/Makefile
 	  src/resmom/freebsd/Makefile
+	  src/resmom/freebsd5/Makefile
 	  src/resmom/freebsd6/Makefile
 	  src/resmom/fujitsu/Makefile
 	  src/resmom/hpux10/Makefile
