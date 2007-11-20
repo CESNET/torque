@@ -146,7 +146,7 @@ case "$OS" in
 
   freebsd*) case "$REL" in
           5*) mach=freebsd5 ;;
-          6*) mach=freebsd5 ;;
+          6*) mach=freebsd6 ;;
 	  *)     mach=freebsd ;;
 	esac ;;
 
