@@ -21633,7 +21633,7 @@ if test "${enable_cpuset+set}" = set; then
 
 fi;
 build_l26_cpuset=no
-if test "x$enable_cpuset" != "xno" ;then
+if test "x$enable_cpuset" = "xyes" ;then
   echo "$as_me:$LINENO: checking for cpuset_cpus_weight in -lcpuset" >&5
 echo $ECHO_N "checking for cpuset_cpus_weight in -lcpuset... $ECHO_C" >&6
 if test "${ac_cv_lib_cpuset_cpuset_cpus_weight+set}" = set; then
