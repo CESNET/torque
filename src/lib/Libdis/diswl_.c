@@ -113,7 +113,7 @@
 #endif /* SIZEOF_LONG_DOUBLE == SIZEOF_DOUBLE */
 
 
-#ifdef __GNUC__
+#if defined(__GNUC__) && defined(__DBL_MAX__)
  
 #ifdef LDBL_MAX
 #undef LDBL_MAX
