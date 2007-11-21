@@ -387,7 +387,7 @@ void req_register(
 
               break;
               }
-            }
+            }    /* END if ((pdep = find_depend(type,pattr))) */
 
           rc = PBSE_IVALREQ;
 
@@ -601,7 +601,7 @@ static void post_doq(
   release_req(pwt);
 
   return;
-  }
+  }  /* END post_doq() */
 
 
 
@@ -656,7 +656,7 @@ static void alter_unreg(
     }
 
   return;
-  }
+  }  /* END alter_unreq() */
 							
 				
 
@@ -736,7 +736,7 @@ int depend_on_que(
     }
 
   return(0);
-  }
+  }  /* END depend_on_que() */
 
 
 
@@ -779,7 +779,7 @@ static void post_doe(
   release_req(pwt);
 
   return;
-  }
+  }  /* END post_doe() */
 
 
 
@@ -868,7 +868,7 @@ int depend_on_exec(
     }
 
   return(0);
-  }
+  }  /* END depend_on_exec() */
 
 
 
@@ -1001,7 +1001,7 @@ int depend_on_term(
     }
 
   return(0);
-  }
+  }  /* END depend_on_term() */
 
 
 
@@ -1063,15 +1063,17 @@ static void release_cheapest(
     }
 
   return;
-  }
+  }  /* END release_cheapest() */
 	
 
 
 
 
 
-/*
+/**
  * set_depend_hold - set a hold on the job required by the type of dependency
+ *
+ * NOTE:  determine where dependency hold is cleared and comment
  */
 
 static void set_depend_hold(
@@ -1084,6 +1086,8 @@ static void set_depend_hold(
   int		newstate;
   int		newsubst;
   struct depend *pdp = NULL;
+  struct depend_job *djob = NULL;
+  struct job *djp = NULL;
   int		substate = -1;
 
   if (pattr->at_flags & ATR_VFLAG_SET)
@@ -1113,8 +1117,32 @@ static void set_depend_hold(
       case JOB_DEPEND_TYPE_AFTERNOTOK:
       case JOB_DEPEND_TYPE_AFTERANY:
 
-        if ((struct depend_job *)GET_NEXT(pdp->dp_jobs))
-          substate = JOB_SUBSTATE_DEPNHOLD;
+        /* If the job we are depending on has already completed */
+        /* Then don't set this job on Dependant Hold, just leave it as Queued */
+        djob = (struct depend_job *)GET_NEXT(pdp->dp_jobs);
+        if (djob)
+          {
+          djp = find_job(djob->dc_child);
+          
+          if (!djp ||
+              ((pdp->dp_type == JOB_DEPEND_TYPE_AFTERSTART) && 
+              (djp->ji_qs.ji_state < JOB_STATE_RUNNING)))
+            {
+            substate = JOB_SUBSTATE_DEPNHOLD;
+            }
+          else if ((pdp->dp_type != JOB_DEPEND_TYPE_AFTERSTART) &&
+              (djp->ji_qs.ji_state != JOB_STATE_COMPLETE))
+            {
+            substate = JOB_SUBSTATE_DEPNHOLD;
+            }
+          else if (((pdp->dp_type == JOB_DEPEND_TYPE_AFTEROK) && 
+              (djp->ji_qs.ji_un.ji_exect.ji_exitstat != 0)) ||
+              ((pdp->dp_type == JOB_DEPEND_TYPE_AFTERNOTOK) &&
+              (djp->ji_qs.ji_un.ji_exect.ji_exitstat == 0)))
+            {
+            substate = JOB_SUBSTATE_DEPNHOLD;
+            }
+          }
        
         break;
 
@@ -1124,10 +1152,10 @@ static void set_depend_hold(
           substate = JOB_SUBSTATE_DEPNHOLD;
 
         break;
+      }  /* END switch (pdp->dp_type) */
 
-      }
     pdp = (struct depend *)GET_NEXT(pdp->dp_link);
-    }
+    }  /* END while ((pdp != NULL) && (loop != 0)) */
 
   if (substate == -1)
     {
@@ -1137,6 +1165,8 @@ static void set_depend_hold(
         (pjob->ji_qs.ji_substate == JOB_SUBSTATE_DEPNHOLD))
       {
       pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long &= ~HOLD_s;
+
+      /* newstate is job's 'natural state - ie, what it would be if dependency did not exist */
 
       svr_evaljobstate(pjob,&newstate,&newsubst,0);
 
@@ -1188,7 +1218,7 @@ void depend_clrrdy(
     }
 
   return;
-  }
+  }  /* END depend_clrrdy() */
 
 
 
@@ -1220,7 +1250,7 @@ static struct depend *find_depend(
     }
 
   return(pdep);
-  }
+  }  /* END find_depend() */
 
 
 
@@ -1248,7 +1278,7 @@ static struct depend *make_depend(
     }
 
   return(pdep);
-  }
+  }  /* END make_depend() */
 
 
 
@@ -1296,7 +1326,7 @@ static int register_sync(
     }
 
   return(0);
-  }
+  }  /* END register_sync() */
 
 
 
@@ -1305,14 +1335,17 @@ static int register_sync(
 /*
  * register_dep - Some job wants to run before/after the local job, so set up
  *	a dependency on the local job.
+ *
+ * @see req_register() - parent
+ *
  */
 
 static int register_dep(
 
-  attribute	     *pattr,
+  attribute	       *pattr,
   struct batch_request *preq,
-  int		      type,
-  int		     *made)	/* RETURN */
+  int		        type,
+  int		       *made)	/* RETURN */
 
   {
   struct depend     *pdep;
@@ -1358,9 +1391,11 @@ static int register_dep(
 
 
 
-/*
+/**
  * unregister_dep - remove a registered dependency
  *	Results from a qalter call to remove existing dependencies
+ *
+ * @see register_dep()
  */
 
 static int unregister_dep(
@@ -1387,7 +1422,7 @@ static int unregister_dep(
   del_depend_job(pdjb);
 
   return(0);
-  }
+  }  /* END unregister_dep() */
 
 
 
@@ -1426,7 +1461,7 @@ static int unregister_sync(
     }
 
   return(0);
-  }
+  }  /* END unregister_sync() */
 
 /*
  * find_dependjob - find a child dependent job with a certain job id
@@ -1451,7 +1486,7 @@ static struct depend_job *find_dependjob(
     }
 
   return(pdj);
-  }
+  }  /* END find_dependjob() */
 
 
 
@@ -1486,7 +1521,7 @@ static struct depend_job *make_dependjob(
     }
 
   return(pdj);
-  }
+  }  /* END make_dependjob() */
 
 
 
@@ -1573,7 +1608,7 @@ static int send_depend_req(
     }
 
   return(0);
-  }
+  }  /* END send_depend_req() */
 
 
 
@@ -1677,7 +1712,7 @@ int decode_depend(
   patr->at_flags |= ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 
   return(0);
-  }
+  }  /* END decode_depend() */
 
 
 
@@ -1710,7 +1745,7 @@ static void cpy_jobsvr(
   *d = '\0';
 
   return;
-  }
+  }  /* END cpy_jobsvr() */
 
 
 
@@ -1756,7 +1791,7 @@ static int dup_depend(
     }
 	
   return(0);
-  }
+  }  /* END dup_depend() */
 
 
 
@@ -1853,7 +1888,7 @@ int encode_depend(attr, phead, atname, rsname, mode)
 		(void)free(pal);
 		return (0);
 	}
-}
+}  /* END encode_depend() */
 
 
 
@@ -1974,7 +2009,7 @@ void free_depend(
   attr->at_flags &= ~ATR_VFLAG_SET;
 
   return;
-  }
+  }  /* END comp_depend() */
 
 
 
@@ -2044,35 +2079,52 @@ static int build_depend(
     {
     case JOB_DEPEND_TYPE_SYNCWITH:
 
-		if ( have[JOB_DEPEND_TYPE_SYNCWITH]     ||
-		     have[JOB_DEPEND_TYPE_SYNCCT]     ||
-		     have[JOB_DEPEND_TYPE_AFTERSTART] ||
-		     have[JOB_DEPEND_TYPE_AFTEROK]    ||
-		     have[JOB_DEPEND_TYPE_AFTERNOTOK] ||
-		     have[JOB_DEPEND_TYPE_AFTERANY]   ||
-		     have[JOB_DEPEND_TYPE_ON] )
-			return (PBSE_BADATVAL);
-		break;
-	    case JOB_DEPEND_TYPE_SYNCCT:
-		if ( have[JOB_DEPEND_TYPE_SYNCWITH]     ||
-		     have[JOB_DEPEND_TYPE_SYNCCT] )
-			return (PBSE_BADATVAL);
-		break;
-	    case JOB_DEPEND_TYPE_AFTERSTART:
-	    case JOB_DEPEND_TYPE_AFTEROK:
-	    case JOB_DEPEND_TYPE_AFTERNOTOK:
-	    case JOB_DEPEND_TYPE_AFTERANY:
-	    case JOB_DEPEND_TYPE_ON:
-		if ( have[JOB_DEPEND_TYPE_SYNCWITH] )
-			return (PBSE_BADATVAL);
-		break;
-	}
+      if (have[JOB_DEPEND_TYPE_SYNCWITH]   ||
+          have[JOB_DEPEND_TYPE_SYNCCT]     ||
+          have[JOB_DEPEND_TYPE_AFTERSTART] ||
+          have[JOB_DEPEND_TYPE_AFTEROK]    ||
+          have[JOB_DEPEND_TYPE_AFTERNOTOK] ||
+          have[JOB_DEPEND_TYPE_AFTERANY]   ||
+          have[JOB_DEPEND_TYPE_ON])
+        {
+        return(PBSE_BADATVAL);
+        }
 
-	if ((pd = have[type]) == (struct depend *)0) {
-		pd = make_depend(type, pattr);
-		if (pd == (struct depend *)0)
-			return (PBSE_SYSTEM);
-	}
+      break;
+
+    case JOB_DEPEND_TYPE_SYNCCT:
+
+      if (have[JOB_DEPEND_TYPE_SYNCWITH]     ||
+          have[JOB_DEPEND_TYPE_SYNCCT])
+        {
+        return(PBSE_BADATVAL);
+        }
+
+      break;
+
+    case JOB_DEPEND_TYPE_AFTERSTART:
+    case JOB_DEPEND_TYPE_AFTEROK:
+    case JOB_DEPEND_TYPE_AFTERNOTOK:
+    case JOB_DEPEND_TYPE_AFTERANY:
+    case JOB_DEPEND_TYPE_ON:
+
+      if (have[JOB_DEPEND_TYPE_SYNCWITH])
+        {
+        return(PBSE_BADATVAL);
+        }
+
+      break;
+    }
+
+  if ((pd = have[type]) == NULL) 
+    {
+    pd = make_depend(type,pattr);
+
+    if (pd == NULL)
+      {
+      return(PBSE_SYSTEM);
+      }
+    }
 
   /* now process the value string */
 
@@ -2155,7 +2207,7 @@ static int build_depend(
   /* SUCCESS */
 
   return(0);
-  }
+  }  /* END build_depend() */
 
 
 
@@ -2194,7 +2246,7 @@ static void clear_depend(
   pd->dp_released = 0;
 
   return;
-  }
+  }  /* END clear_depend() */
 
 
 
@@ -2221,7 +2273,7 @@ static void del_depend(
   free(pd);
 
   return;
-  }
+  }  /* END del_depend() */
 
 
 
@@ -2240,7 +2292,7 @@ static void del_depend_job(
   free(pdj);
 
   return;
-  }
+  }  /* END del_depend_job() */
 
 /* END req_register.c */
 
