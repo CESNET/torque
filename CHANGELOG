@@ -4,6 +4,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix a bug where pbs_server never delete files from the "jobs" directory
   b - fix a bug where dependent jobs get put on hold when the previous job has
       completed but its state is still available for life of keep_completed
+  e - added job_array_size attribute to pbs_submit documentation 
 
 2.2.0
   e - improve RPP logging for corruption issues
