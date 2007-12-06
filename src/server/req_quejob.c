@@ -264,24 +264,38 @@ void req_quejob(
     } 
   else 
     {
-    static char *MasterServerName = NULL;
-
-    /* assign it a job id */
+    char *parent_server_name = pbs_default();
+    char def_server[PBS_MAXSERVERNAME + 1];
+    char host_server[PBS_MAXSERVERNAME + 1];
+	char *cp;
 
     created_here = JOB_SVFLG_HERE;
 
     sprintf(jidbuf,"%d.",
       server.sv_qs.sv_jobidnumber);
-
-    if (MasterServerName == NULL)
+ 
+    if (!((parent_server_name == (char *)NULL) || (*parent_server_name == '\0')))
       {
-      MasterServerName = pbs_default();
-      }
+      memset(def_server, 0, sizeof(def_server));
+      memset(host_server, 0, sizeof(host_server));
+      strncpy(def_server, parent_server_name, PBS_MAXSERVERNAME);
 
-    if (MasterServerName != NULL)
-      strcat(jidbuf,MasterServerName);
+      if ((cp = strchr(def_server, '\n')))
+        *cp = '\0';
+
+      if (get_fullhostname(def_server, host_server, PBS_MAXSERVERNAME, NULL) != 0)
+        {
+        strcat(jidbuf, host_server);
+        }
+      else
+        {
+        strcat(jidbuf,server_name);
+        }
+      }
     else
+      {
       strcat(jidbuf,server_name);
+      }
 
     jid = jidbuf;
 		
