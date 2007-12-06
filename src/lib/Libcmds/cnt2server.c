@@ -132,18 +132,14 @@ int cnt2server( char *SpecServer )  /* I (optional) */
 
   char Server[1024];
 
-  memset(Server, 0, sizeof(Server));
 
   if (cnt2server_retry > 0)
     {
     firsttime = time(NULL);
     }
 
-  if (SpecServer == NULL || SpecServer[0] == 0)
-    {
-    strncpy(Server, pbs_default(), sizeof(Server));
-    }
-  else
+  memset(Server, 0, sizeof(Server));
+  if (SpecServer && SpecServer[0])
     {
     strncpy(Server, SpecServer, sizeof(Server));
     Server[sizeof(Server) - 1] = '\0';

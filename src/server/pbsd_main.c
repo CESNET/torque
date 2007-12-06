@@ -150,9 +150,11 @@ static int    get_port A_((char *,unsigned int *,pbs_net_t *));
 static time_t next_task A_(());
 static int    start_hot_jobs();
 static void   lock_out A_((int,int));
+static int   try_lock_out A_((int,int));
 
 /* Global Data Items */
 
+int             high_availability_mode = FALSE;
 char	       *acct_file = NULL;
 char	       *log_file  = NULL;
 char	       *path_home = PBS_SERVER_HOME;
@@ -396,7 +398,7 @@ int PBSShowUsage(
   char *EMsg)  /* I (optional) */
 
   {
-  const char *Msg = "[ -A <ACCTFILE> ] [ -a <ATTR> ] [ -d <HOMEDIR> ] [ -D ] [ -L <LOGFILE> ] [ -M <MOMPORT> ]\n  [ -p <SERVERPORT> ] [ -R <RMPORT> ] [ -S <SCHEDULERPORT> ] [ -t <TYPE> ]\n  [ --version|--help ]\n";
+  const char *Msg = "[ -A <ACCTFILE> ] [ -a <ATTR> ] [ -d <HOMEDIR> ] [ -D ] [ -L <LOGFILE> ] [ -M <MOMPORT> ]\n  [ -p <SERVERPORT> ] [ -R <RMPORT> ] [ -S <SCHEDULERPORT> ] [ -t <TYPE> ]\n  [ --version|--help|--ha ]\n";
 
   fprintf(stderr,"usage:  %s %s\n",
     ProgName,
@@ -621,6 +623,12 @@ int main(
           PBSShowUsage(NULL);
     
           exit(1);
+          }
+
+        if (!strcmp(optarg,"ha"))	/* High Availability */
+          {
+          high_availability_mode = TRUE;
+          break;
           }
 
         PBSShowUsage("invalid command line arg");
@@ -902,7 +910,23 @@ int main(
     exit(2);
     }
 
-  lock_out(lockfds,F_WRLCK);
+  if (high_availability_mode)
+    {
+    if (TDoBackground == 1)
+      {
+      if (fork() > 0)
+        {
+        /* parent goes away */
+        exit(0);
+        }
+      }
+    while (try_lock_out(lockfds,F_WRLCK))
+      sleep(5);	/* Relinquish for 5 seconds */
+    }
+  else
+    {
+    lock_out(lockfds,F_WRLCK);
+    }
 	
   server.sv_started = time(&time_now);	/* time server started */
 
@@ -1509,11 +1533,11 @@ static int start_hot_jobs(void)
 
 
 
-/*
- * lock_out - lock out other daemons from this directory.
+/**
+ * Try to lock
+ * @return Zero on success, one on failure
  */
-
-static void lock_out(
+static int try_lock_out(
 
   int fds,
   int op)		/* F_WRLCK  or  F_UNLCK */
@@ -1526,7 +1550,20 @@ static void lock_out(
   flock.l_start  = 0;
   flock.l_len    = 0;
 
-  if (fcntl(fds,F_SETLK,&flock) < 0) 
+  return(fcntl(fds,F_SETLK,&flock) != 0);
+  }
+
+
+/*
+ * lock_out - lock out other daemons from this directory.
+ */
+static void lock_out(
+
+  int fds,
+  int op)		/* F_WRLCK  or  F_UNLCK */
+
+  {
+  if (try_lock_out(fds,op)) 
     {
     strcpy(log_buffer,"pbs_server: another server running\n");
 
@@ -1536,8 +1573,6 @@ static void lock_out(
 
     exit(1);
     }
-
-  return;
   }
 
 /* END pbsd_main.c */
