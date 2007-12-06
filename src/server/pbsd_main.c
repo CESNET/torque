@@ -877,6 +877,11 @@ int main(
     return(1);
     }
 
+  i = sysconf(_SC_OPEN_MAX);
+  while (--i > 2)
+    close(i); /* close any file desc left open by parent */
+
+
   /* make sure no other server is running with this home directory */
 
   sprintf(lockfile,"%s/%s/server.lock",

@@ -228,7 +228,10 @@ int main(
     int located = FALSE;
 
     strcpy(job_id,argv[optind]);
-
+#if 1
+    strcpy(job_id_out,argv[optind]);
+	memset(server_out, 0, sizeof(server_out));
+#else
     if (get_server(job_id,job_id_out,server_out)) 
       {
       fprintf(stderr,"qdel: illegally formed job identifier: %s\n", 
@@ -238,6 +241,7 @@ int main(
 
       continue;
       }
+#endif
 
 cnt:
 
