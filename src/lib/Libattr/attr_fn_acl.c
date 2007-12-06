@@ -234,16 +234,16 @@ int acl_check(
 
     return(1);
 #else
-    if (type == ACL_Host) 
+    if (type != ACL_Host) 
       {
-      /* if there is no list set, allow only from my host */
+      /* FAILURE - deny */
 
-      return(!hacl_match(name,server_host));
-      } 
-    else
-      {
       return(0);
       }
+
+    /* if there is no list set, allow only from my host */
+
+    return(!hacl_match(name,server_host));
 #endif
     }
 
@@ -264,7 +264,7 @@ int acl_check(
       pstr++;		/* skip over +/- if present */
       }
 
-    if (!match_func(name,pstr))
+    if ((name != NULL) && !match_func(name,pstr))
       {
       if (*pas->as_string[i] == '-')
         {
