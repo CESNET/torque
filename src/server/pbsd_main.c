@@ -124,6 +124,9 @@
 #include "batch_request.h"
 #include "pbs_proto.h"
 
+
+#define TSERVER_HA_CHECK_TIME  1  /* 1 second sleep time between checks on the lock file for high availability */
+
 /* external functions called */
 
 extern int  pbsd_init A_((int));
@@ -625,7 +628,7 @@ int main(
           exit(1);
           }
 
-        if (!strcmp(optarg,"ha"))	/* High Availability */
+        if (!strcasecmp(optarg,"ha"))	/* High Availability */
           {
           high_availability_mode = TRUE;
           break;
@@ -910,8 +913,15 @@ int main(
     exit(2);
     }
 
+
   if (high_availability_mode)
     {
+    /* This will allow multiple instance of the pbs_server to be
+     * running.  This must be done before setting up the client
+     * sockets interface, reading the config file, and contacting
+     * the compute nodes.
+     */
+
     if (TDoBackground == 1)
       {
       if (fork() > 0)
@@ -921,7 +931,7 @@ int main(
         }
       }
     while (try_lock_out(lockfds,F_WRLCK))
-      sleep(5);	/* Relinquish for 5 seconds */
+      sleep(TSERVER_HA_CHECK_TIME);	/* Relinquish */
     }
   else
     {
