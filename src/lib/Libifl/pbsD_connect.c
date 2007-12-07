@@ -196,13 +196,14 @@ static	char	buffer[128];
  * NOTE:  PBS_DEFAULT format:    <SERVER>[,<FBSERVER>]
  *        pbs_destn_file format: <SERVER>[,<FBSERVER>]
  * <p>
- * There are no explicit imputs or outputs.  The side effect is
+ * @return A pointer to the server list.
+ * The side effect is
  * that the global variable <b>server_list</b> is set.  The one-shot
  * flag <b>got_dflt</b> is used to limit re-reading of the list.
  * @see pbs_default()
  * @see pbs_fbserver()
  */
-void get_server_list()
+char *pbs_get_server_list()
 {
   FILE *fd;
   char *pn;
@@ -210,6 +211,7 @@ void get_server_list()
 
   if (got_dflt != TRUE) 
     {
+    memset(server_list, 0, sizeof(server_list));
     server = getenv("PBS_DEFAULT");
 
     if ((server == NULL) || (*server == '\0')) 
@@ -218,14 +220,14 @@ void get_server_list()
 
       if (fd == NULL) 
         {
-        return;
+        return(server_list);
         }
 
       if (fgets(server_list,PBS_MAXSERVERNAME,fd) == NULL)
         {
         fclose(fd);
 
-        return;
+        return(server_list);
         }
 
       if ((pn = strchr(server_list,(int)'\n')))
@@ -239,6 +241,7 @@ void get_server_list()
       }
     got_dflt = TRUE;
     }  /* END if (got_dflt != TRUE) */
+    return(server_list);
 }
 
 /**
@@ -255,7 +258,7 @@ char *pbs_default()
   {
 	char *cp;
 
-    get_server_list();
+    pbs_get_server_list();
 	server_name[0] = 0;
 	cp = csv_nth(server_list, 0);	/* get the first item from list */
 	if (cp)
@@ -281,7 +284,7 @@ char *pbs_fbserver()
   {
 	char *cp;
 
-    get_server_list();
+    pbs_get_server_list();
     server_name[0] = 0;
 	cp = csv_nth(server_list, 1);	/* get the second item from list */
 	if (cp)
