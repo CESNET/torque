@@ -9,6 +9,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       use $remote_reconfig to enable it
   b - fix pam configure (Adrian Knoth)
   b - handle /dev/null correctly when job rerun
+  b - correctly parse /proc/pid/stat that contains parens (Meier)
 
 2.1.9
   f - new queue attribute disallowed_types, currently recognized types:
