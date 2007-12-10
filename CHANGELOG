@@ -1,5 +1,8 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
+2.2.2
+  b - correctly parse /proc/pid/stat that contains parens (Meier)
+
 2.2.1
   b - fixed a bug where pbs_server never delete files from the "jobs" directory
   b - fixed a bug where dependent jobs get put on hold when the previous job has
