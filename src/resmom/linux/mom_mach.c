@@ -272,9 +272,11 @@ void proc_get_btime()
   return;
   }  /* END proc_get_btime() */
 
-static char stat_str[] = "%d (%[^)]) %c %*d %*d %d %*d %*d %u %*u \
+static char stat_str[] = " %c %*d %*d %d %*d %*d %u %*u \
 %*u %*u %*u %d %d %d %d %*d %*d %*u %*u %u %lu %lu %*u %*u \
 %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u %*u";
+
+
 
 /*
  * Convert jiffies to seconds.
@@ -300,6 +302,8 @@ proc_stat_t *get_proc_stat(
   {
   static proc_stat_t	ps;
   static char		path[1024];
+  static char          readbuf[4096];
+  static char          *lastbracket;
   FILE                 *fd;
   unsigned long         jiffies;
   struct stat		sb;
@@ -332,9 +336,27 @@ proc_stat_t *get_proc_stat(
     return(NULL);
     }
 
-  if (fscanf(fd,stat_str, 
-        &ps.pid, 
-        path, 
+  if (!fgets(readbuf, sizeof(readbuf), fd)) {
+        fclose(fd);
+        return(NULL);
+  }
+
+  lastbracket = strrchr(readbuf, ')');
+  if (lastbracket == NULL) {
+      fclose(fd);
+      return(NULL);
+  }
+  *lastbracket = '\0'; /* We basically split the string here, overwriting the ')'. */
+  lastbracket++;
+  if (sscanf(readbuf, "%d (%[^\n]", &ps.pid, path) != 2) {
+    /* FAILURE */
+    fclose(fd);
+
+    return(NULL);
+    }
+
+  /* see stat_str[] value for mapping 'stat' format */
+  if (sscanf(lastbracket,stat_str, 
         &ps.state,
         &ps.session, 
         &ps.flags, 
@@ -344,7 +366,7 @@ proc_stat_t *get_proc_stat(
         &ps.cstime, 
         &jiffies, 
         &ps.vsize,
-        &ps.rss) != 12)  
+        &ps.rss) != 10)  
     {
     fclose(fd);
 
