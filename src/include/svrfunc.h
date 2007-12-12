@@ -81,6 +81,7 @@
  * misc server function prototypes
  */
 
+#ifndef PBS_MOM
 extern int   chk_hold_priv A_((long hold, int priv));
 extern void  get_jobowner A_((char *from, char *to));
 extern char *parse_servername A_((char *, unsigned int *));
@@ -159,12 +160,14 @@ struct stat_cntl {		/* used in req_stat_job */
 
 extern int stat_to_mom A_((job *, struct stat_cntl *));
 
+#endif	/* STAT_CNTL */
+
+#endif /* !PBS_MOM */
+
 /*
  * the following defines are due to the fact that O_SYNC was not
  * POSIX standard (TDISABLEFILESYNC managed w/configure --disable-filesync) 
  */
-
-#endif	/* STAT_CNTL */
 
 #if TDISABLEFILESYNC
 #define O_Sync 0
