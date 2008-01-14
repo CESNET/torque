@@ -386,7 +386,9 @@ void process_request(
       return;
       }
 
-    if (svr_conn[sfds].cn_authen != PBS_NET_CONN_AUTHENTICATED)
+    if (ENABLE_TRUSTED_AUTH == TRUE)
+      rc = 0;  /* bypass the authentication of the user--trust the client completely */
+    else if (svr_conn[sfds].cn_authen != PBS_NET_CONN_AUTHENTICATED)
       rc = PBSE_BADCRED;
     else
       rc = authenticate_user(request, &conn_credent[sfds]);
