@@ -19,6 +19,14 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+
+/* this macro is for systems like BSD4 that do not have O_SYNC in fcntl.h,
+ * but do have O_FSYNC! */
+
+#ifndef O_SYNC
+#define O_SYNC O_FSYNC
+#endif /* !O_SYNC */
+
 #include <unistd.h>
 
 
@@ -120,7 +128,7 @@ int array_save(job_array *pa)
   strcpy(namebuf, path_arrays);
   strcat(namebuf, pa->ai_qs.fileprefix);
   strcat(namebuf, ARRAY_FILE_SUFFIX);
-      
+
   fds = open(namebuf, O_SYNC|O_TRUNC|O_WRONLY|O_CREAT, 0600);
   
   if (fds < 0)
