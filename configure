@@ -1185,10 +1185,10 @@ Optional Packages:
   --with-tclinclude       directory containing the public Tcl header files
   --with-tclx              directory containing tclx configuration (tclxConfig.sh)
   --with-tk               directory containing tk configuration (tkConfig.sh)
-  --with-tkinclude      directory containing the public Tk header files.
+  --with-tkinclude        directory containing the public Tk header files.
   --with-tkx              directory containing tkx configuration (tkxConfig.sh)
   --with-tclatrsep=CHAR   set the Tcl attribute separator character
-                        this will default to "." if unspecified
+                          this will default to "." if unspecified
 
 Some influential environment variables:
   CC          C compiler command
