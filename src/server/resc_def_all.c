@@ -639,7 +639,7 @@ resource_def svr_resc_def_const[] = {
         READ_WRITE,
         ATR_TYPE_STR
     },
-    {   "mpparchMPP",    /* node architecture (XT3, XT4, etc.) */
+    {   "mpparch",    /* node architecture (XT3, XT4, etc.) */
         decode_str,
         encode_str,
         set_str,
