@@ -386,8 +386,10 @@ static char *findattrl(
   return(NULL);
   }
 
+#ifndef PBS_NAMELEN
+#define PBS_NAMELEN   16  /* printf of jobs, queues, and servers */
+#endif  /* PBS_NAMELEN */
 
-#define NAMEL   16  /* printf of jobs, queues, and servers */
 #define OWNERL  15  /* printf of jobs */
 #define TIMEUL  8   /* printf of jobs */
 #define STATEL  1   /* printf of jobs */
@@ -1001,6 +1003,7 @@ static void add_atropl(
 
 
 
+/* dispay when a normal "qstat" is executed */
 
 void display_statjob(
 
@@ -1037,7 +1040,7 @@ void display_statjob(
     {
     sprintf(format,"%%-%ds %%-%ds %%-%ds %%%ds %%%ds %%-%ds\n", 
       PBS_MAXSEQNUM + PBS_MAXJOBARRAYLEN + 11, 
-      NAMEL, 
+      PBS_NAMELEN, 
       OWNERL, 
       TIMEUL, 
       STATEL, 
@@ -1186,9 +1189,11 @@ void display_statjob(
             {
             l = strlen(a->value);
 
-            if (l > NAMEL) 
+            /* truncate AName */
+
+            if (l > PBS_NAMELEN) 
               {
-              l = l - NAMEL + 3;
+              l = l - PBS_NAMELEN + 3;
 
               c = a->value + l;
 
@@ -1356,7 +1361,7 @@ void display_statque(
 
 
   sprintf(format,"%%-%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%-%ds\n", 
-    NAMEL, 
+    PBS_NAMELEN, 
     NUML, 
     NUML, 
     NUML, 
@@ -1417,9 +1422,9 @@ void display_statque(
         {
         l = strlen(p->name);
 
-        if (l > NAMEL) 
+        if (l > PBS_NAMELEN) 
           {
-          c = a->name + NAMEL;
+          c = a->name + PBS_NAMELEN;
 
           *c = '\0';
           }
@@ -1544,7 +1549,7 @@ void display_statserver(
   NUML = MAXNUML;
 
   sprintf(format,"%%-%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%-%ds\n", 
-    NAMEL, 
+    PBS_NAMELEN, 
     NUML, 
     NUML, 
     NUML, 
@@ -1589,8 +1594,8 @@ void display_statserver(
         } else {
             if ( p->name != NULL ) {
                 l = strlen(p->name);
-                if ( l > NAMEL ) {
-                    c = p->name + NAMEL;
+                if ( l > PBS_NAMELEN ) {
+                    c = p->name + PBS_NAMELEN;
                     *c = '\0';
                 }
                 name = p->name;
