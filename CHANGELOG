@@ -14,6 +14,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       scheduler currently receives.
   e - added --enable-autorun to allow qsub jobs to automatically try to run
       if there are any nodes available.
+  b - fixed so SIGUSR1 / SIGUSR2 actually changes the log level. Matches the
+      documentation now.
 
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has
