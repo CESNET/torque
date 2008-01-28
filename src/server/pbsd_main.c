@@ -135,6 +135,7 @@ extern int  update_nodes_file A_((void));
 extern void tcp_settimeout(long);
 extern void poll_job_task(struct work_task *);
 extern int  schedule_jobs(void);
+extern int  notify_listeners(void);
 extern void queue_route A_((pbs_queue *));
 extern void svr_shutdown(int);
 extern void acct_close(void);
@@ -187,6 +188,7 @@ pbs_net_t	pbs_scheduler_addr;
 unsigned int	pbs_scheduler_port;
 extern pbs_net_t pbs_server_addr;
 unsigned int	pbs_server_port_dis;
+listener_connection listener_conns[MAXLISTENERS];
 int		queue_rank = 0;
 struct server	server;		/* the server structure */
 char	        server_host[PBS_MAXHOSTNAME + 1];	/* host_name */
@@ -393,7 +395,42 @@ void rpp_request(
   return;
   }  /* END rpp_request() */
 
+void clear_listeners(
+  )  /* I */
+  
+  {
+  int	 i;
+  
+  for (i = 0;i < MAXLISTENERS; i++)
+    {
+    listener_conns[i].address = 0;
+    listener_conns[i].port = 0;
+    listener_conns[i].sock = -1;
+    }
 
+  return;
+  }  /* END clear_listeners */
+
+
+int add_listener(
+  pbs_net_t l_addr,  /* I */
+  unsigned int l_port)  /* I */
+  
+  {
+  int	 i;
+  
+  for (i = 0;i < MAXLISTENERS; i++)
+    {
+    if (listener_conns[i].address == 0)
+      {
+      listener_conns[i].address = l_addr;
+      listener_conns[i].port = l_port;
+      listener_conns[i].sock = -1;
+      return (0);
+      }
+    }
+  return (-1);
+  }  /* END add_listener */
 
 
 int PBSShowUsage(
@@ -401,7 +438,7 @@ int PBSShowUsage(
   char *EMsg)  /* I (optional) */
 
   {
-  const char *Msg = "[ -A <ACCTFILE> ] [ -a <ATTR> ] [ -d <HOMEDIR> ] [ -D ] [ -L <LOGFILE> ] [ -M <MOMPORT> ]\n  [ -p <SERVERPORT> ] [ -R <RMPORT> ] [ -S <SCHEDULERPORT> ] [ -t <TYPE> ]\n  [ --version|--help|--ha ]\n";
+  const char *Msg = "[ -A <ACCTFILE> ] [ -a <ATTR> ] [ -d <HOMEDIR> ] [ -D ]\n  [ -L <LOGFILE> ] [ -l <LISTENERPORT> ] [ -M <MOMPORT> ]\n  [ -p <SERVERPORT> ] [ -R <RMPORT> ] [ -S <SCHEDULERPORT> ] [ -t <TYPE> ]\n  [ --version|--help|--ha ]\n";
 
   fprintf(stderr,"usage:  %s %s\n",
     ProgName,
@@ -449,6 +486,8 @@ int main(
   time_t waittime;
   time_t last_jobstat_time;
   int    when;
+  pbs_net_t listener_addr;
+  unsigned int listener_port;
 
   void ping_nodes A_((struct work_task *));
   void check_nodes A_((struct work_task *));
@@ -582,9 +621,11 @@ int main(
   pbs_mom_addr 	     = pbs_server_addr;   /* assume on same host */
   pbs_scheduler_addr = pbs_server_addr;   /* assume on same host */
 
+  clear_listeners();  /* make sure listeners is cleared */
+
   /* parse the parameters from the command line */
 
-  while ((c = getopt(argc,argv,"A:a:d:Dfh:p:t:L:M:R:S:-:")) != -1) 
+  while ((c = getopt(argc,argv,"A:a:d:Dfh:p:t:L:l:M:R:S:-:")) != -1) 
     {
     switch (c) 
       {
@@ -747,6 +788,30 @@ int main(
 
         break;
 
+      case 'l':
+
+        if (get_port(
+              optarg, 
+              &listener_port,
+              &listener_addr)) 
+          {
+          fprintf(stderr,"%s: bad -l %s\n", 
+            argv[0],
+            optarg);
+
+          exit(1);
+          }
+          if (add_listener(listener_addr, listener_port) < 0)
+          {
+          fprintf(stderr,"%s: failed to add listener %s\n", 
+            argv[0],
+            optarg);
+
+          exit(1);
+          }
+
+        break;
+        
       case 'p':
 
         servicename = optarg;
@@ -1186,6 +1251,7 @@ int main(
           server.sv_attr[(int)SRV_ATR_schedule_iteration].at_val.at_long;
 
         schedule_jobs();
+        notify_listeners();
         }
       } 
     else if (*state == SV_STATE_HOT) 
@@ -1381,7 +1447,7 @@ void check_log(
 
 
 /*
- * get_port - parse host:port for -M and -S option
+ * get_port - parse host:port for -M and -S and -l option
  *	Returns into *port and *addr if and only if that part is specified
  *	Both port and addr are returned in HOST byte order.
  *	Function return: 0=ok, -1=error
