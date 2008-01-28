@@ -863,6 +863,9 @@ struct batch_request *alloc_br(
   req->rq_orgconn = -1;		/* indicate not connected */
   req->rq_time = time_now;
   req->rq_reply.brp_choice = BATCH_REPLY_CHOICE_NULL;
+#ifdef AUTORUN_JOBS
+  req->rq_noreply = FALSE;
+#endif
 
   append_link(&svr_requests, &req->rq_link, req);
 

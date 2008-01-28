@@ -12,6 +12,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - changed pbs_server to have "-l" option. Specifies a host/port that event
       messages will be sent to. Event messages are the same as what the
       scheduler currently receives.
+  e - added --enable-autorun to allow qsub jobs to automatically try to run
+      if there are any nodes available.
 
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has

@@ -137,7 +137,7 @@ extern void start_exec A_((job *));
 extern int  svr_authorize_jobreq A_((struct batch_request *,job *));
 extern int  svr_chkque A_((job *,pbs_queue *,char *,int,char *));
 extern int  job_route A_((job *));
-
+extern int node_avail_complex(char *,int *,int *,int *,int*);
 /* Global Data Items: */
 
 #ifndef PBS_MOM
@@ -1649,6 +1649,14 @@ void req_commit(
   int	   newsub;
   pbs_queue *pque;
   int	   rc;
+#ifdef AUTORUN_JOBS
+  struct batch_request *preq_run = '\0';
+  attribute *pattr;
+  int nodes_avail = -1;
+  int dummy;
+  char		*spec = NULL;
+#endif /* AUTORUN_JOBS */
+
 #endif /* SERVER only */
 
   pj = locate_new_job(preq->rq_conn,preq->rq_ind.rq_commit);
@@ -1874,6 +1882,30 @@ void req_commit(
       return;
       }
     }
+#ifdef AUTORUN_JOBS
+  /* If we are auto running jobs with start_count = 0 then the
+   * branch_request needs re creation since reply_jobid will free
+   * the passed in one
+  */
+  pattr = &pj->ji_wattr[(int)JOB_ATR_start_count];
+
+  spec = PBS_DEFAULT_NODE;
+  node_avail_complex(spec, &nodes_avail, &dummy, &dummy, &dummy);
+
+  if ((pattr->at_val.at_long == 0) && (nodes_avail > 0))
+    {
+    preq_run = alloc_br(PBS_BATCH_AsyrunJob);
+    preq_run->rq_perm = preq->rq_perm;
+    preq_run->rq_fromsvr = preq->rq_fromsvr;
+    preq_run->rq_extsz = preq->rq_extsz;
+    preq_run->rq_noreply = TRUE; /* set for no replies */
+    memcpy(preq_run->rq_user, preq->rq_user, PBS_MAXUSER+1);
+    memcpy(preq_run->rq_host, preq->rq_host, PBS_MAXHOSTNAME+1);
+    memcpy(preq_run->rq_ind.rq_run.rq_jid, preq->rq_ind.rq_rdytocommit,
+       PBS_MAXSVRJOBID+1);
+
+   }
+#endif
 
   /* need to format message first, before request goes away */
 
@@ -1900,6 +1932,31 @@ void req_commit(
     issue_track(pj);
     }
 #endif		/* PBS_SERVER */
+
+#ifndef PBS_MOM
+#ifdef AUTORUN_JOBS
+  /* If we are auto running jobs with start_count = 0 then the
+   * branch_request needs re creation since reply_jobid freed the passed
+   * in one
+  */
+  
+  if ((pattr->at_val.at_long == 0) && (nodes_avail > 0))
+    {
+    if (LOGLEVEL >= 7)
+      {
+      sprintf(log_buffer,"Trying to AUTORUN job %s",
+        pj->ji_qs.ji_jobid);
+      log_record(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        (pj != NULL) ? pj->ji_qs.ji_jobid : "NULL",
+        log_buffer);
+      }
+        
+    req_runjob(preq_run);    
+    }
+#endif	/* AUTORUN_JOBS */
+#endif	/* PBS_MOM */
 
   return;
   }  /* END req_commit() */

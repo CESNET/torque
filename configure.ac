@@ -75,6 +75,20 @@ AC_DEFINE_UNQUOTED(MACH_RESC_DEFS, "resc_def_${PBS_MACH}.c",
 
 dnl
 dnl  ######################################################################
+dnl  Autorun mode?
+dnl
+AC_MSG_CHECKING([whether to turn on the AUTORUN_JOBS flag])
+AC_ARG_ENABLE(autorun,
+    [  --enable-autorun          turn on the AUTORUN_JOBS flag],
+    enable_autorun=$enableval, enable_autorun=no)
+AC_MSG_RESULT($enable_autorun)
+if test "x$enable_autorun" = "xyes" ; then
+	AC_DEFINE(AUTORUN_JOBS, 1, [turns on the compilation of AUTORUN_JOBS code])
+fi
+
+
+dnl
+dnl  ######################################################################
 dnl  Debug mode?
 dnl
 AC_MSG_CHECKING([whether to turn on the DEBUG flag])
