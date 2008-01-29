@@ -1654,7 +1654,8 @@ void req_commit(
   attribute *pattr;
   int nodes_avail = -1;
   int dummy;
-  char		*spec = NULL;
+  char *spec = NULL;
+  char *rq_destin = NULL;
 #endif /* AUTORUN_JOBS */
 
 #endif /* SERVER only */
@@ -1894,8 +1895,11 @@ void req_commit(
 
   if ((pattr->at_val.at_long == 0) && (nodes_avail > 0))
     {
+    /* Create a new batch request and fill it in */
     preq_run = alloc_br(PBS_BATCH_AsyrunJob);
-    preq_run->rq_perm = preq->rq_perm;
+    preq_run->rq_perm = preq->rq_perm | ATR_DFLAG_OPWR;
+    preq_run->rq_ind.rq_run.rq_resch = 0;
+    preq_run->rq_ind.rq_run.rq_destin = rq_destin;
     preq_run->rq_fromsvr = preq->rq_fromsvr;
     preq_run->rq_extsz = preq->rq_extsz;
     preq_run->rq_noreply = TRUE; /* set for no replies */
@@ -1936,8 +1940,8 @@ void req_commit(
 #ifndef PBS_MOM
 #ifdef AUTORUN_JOBS
   /* If we are auto running jobs with start_count = 0 then the
-   * branch_request needs re creation since reply_jobid freed the passed
-   * in one
+   * branch_request was re created. Now we run the job if any nodes
+   * are available
   */
   
   if ((pattr->at_val.at_long == 0) && (nodes_avail > 0))
