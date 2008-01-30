@@ -89,6 +89,20 @@ fi
 
 dnl
 dnl  ######################################################################
+dnl  Quick commit mode?
+dnl
+AC_MSG_CHECKING([whether to turn on the QUICKCOMMIT flag])
+AC_ARG_ENABLE(quickcommit,
+    [  --enable-quickcommit          turn on the QUICKCOMMIT flag],
+    enable_quickcommit=$enableval, enable_quickcommit=no)
+AC_MSG_RESULT($enable_quickcommit)
+if test "x$enable_quickcommit" = "xyes" ; then
+	AC_DEFINE(QUICKCOMMIT, 1, [turns on the compilation of QUICKCOMMIT code])
+fi
+
+
+dnl
+dnl  ######################################################################
 dnl  Debug mode?
 dnl
 AC_MSG_CHECKING([whether to turn on the DEBUG flag])

@@ -371,6 +371,9 @@
 /* Define to the path of the qstat init file */
 #undef QSTATRC_PATH
 
+/* turns on the compilation of QUICKCOMMIT code */
+#undef QUICKCOMMIT
+
 /* Define to enable RPP resource queries */
 #undef RPP
 

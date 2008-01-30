@@ -1658,6 +1658,14 @@ void req_commit(
   char *rq_destin = NULL;
 #endif /* AUTORUN_JOBS */
 
+#ifdef QUICKCOMMIT
+  int  OrigState;
+  int  OrigSState;
+  char OrigSChar;
+  long OrigFlags;
+  
+  char namebuf[MAXPATHLEN+1];
+#endif /* QUICKCOMMIT */
 #endif /* SERVER only */
 
   pj = locate_new_job(preq->rq_conn,preq->rq_ind.rq_commit);
@@ -1677,6 +1685,43 @@ void req_commit(
 
     return;
     }
+
+#ifndef PBS_MOM
+#ifdef QUICKCOMMIT
+  if (pj->ji_qs.ji_substate != JOB_SUBSTATE_TRANSIN)
+    {
+    log_err(errno,"req_commit","cannot commit job in unexpected state");
+
+    req_reject(PBSE_IVALREQ,0,preq,NULL,NULL);
+
+    /* FAILURE */
+
+    return;
+    }
+    
+  OrigState  = pj->ji_qs.ji_state;
+  OrigSState = pj->ji_qs.ji_substate;
+  OrigSChar  = pj->ji_wattr[(int)JOB_ATR_state].at_val.at_char;
+  OrigFlags  = pj->ji_wattr[(int)JOB_ATR_state].at_flags;
+ 
+  pj->ji_qs.ji_state    = JOB_STATE_TRANSIT;
+  pj->ji_qs.ji_substate = JOB_SUBSTATE_TRANSICM;
+  pj->ji_wattr[(int)JOB_ATR_state].at_val.at_char = 'T';
+  pj->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_VFLAG_SET;
+    
+  if (pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET)
+    {
+    pj->ji_isparent = TRUE;
+
+    strcpy(namebuf,path_jobs);
+    strcat(namebuf,pj->ji_qs.ji_fileprefix);
+    strcat(namebuf, JOB_FILE_SUFFIX);
+    unlink(namebuf);
+
+    }
+
+#endif /* QUICKCOMMIT */
+#endif /* SERVER only */
 
   if (pj->ji_qs.ji_substate != JOB_SUBSTATE_TRANSICM) 
     {
