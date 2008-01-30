@@ -1574,6 +1574,15 @@ static void wait_for_send(
   struct work_task *ptask)
 
   {
+  if (LOGLEVEL >= 5)
+    {
+    log_event(
+      PBSEVENT_ERROR|PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      "",
+      "wait_for_send - job obit racing retry");
+    }
+
   req_jobobit((struct batch_request *)ptask->wt_parm1);
 
   return;
@@ -1636,6 +1645,15 @@ void req_jobobit(
   struct work_task *ptask;
   svrattrl	 *patlist;
   unsigned int    dummy;
+  
+  if (LOGLEVEL >= 5)
+    {
+    log_event(
+      PBSEVENT_ERROR|PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      preq->rq_ind.rq_jobobit.rq_jid,
+      "obit received");
+    }
 
   pjob = find_job(preq->rq_ind.rq_jobobit.rq_jid);
 
@@ -1679,6 +1697,14 @@ void req_jobobit(
     if (pjob->ji_qs.ji_state == JOB_STATE_EXITING) 
       {
       /* already in exit processing, ignore this request */
+      if (LOGLEVEL >= 5)
+        {
+        log_event(
+          PBSEVENT_ERROR|PBSEVENT_JOB,
+          PBS_EVENTCLASS_JOB,
+          preq->rq_ind.rq_jobobit.rq_jid,
+          "obit received - already in exit processing");
+        }
 
       bad = PBSE_ALRDYEXIT;
       } 
@@ -1721,7 +1747,26 @@ void req_jobobit(
 
     if (ptask == NULL) 
       {
+      if (LOGLEVEL >= 5)
+        {
+        log_event(
+          PBSEVENT_ERROR|PBSEVENT_JOB,
+          PBS_EVENTCLASS_JOB,
+          preq->rq_ind.rq_jobobit.rq_jid,
+          "obit received - race condition and ptask is NULL");
+        }
       req_reject(PBSE_SYSTEM,0,preq,NULL,NULL);
+      }
+    else
+      {
+      if (LOGLEVEL >= 5)
+        {
+        log_event(
+          PBSEVENT_ERROR|PBSEVENT_JOB,
+          PBS_EVENTCLASS_JOB,
+          preq->rq_ind.rq_jobobit.rq_jid,
+          "obit received - race condition. Waiting for SIGCHLD, retry in 1 sec.");
+        }
       }
 
     return;
