@@ -1512,14 +1512,17 @@ static void catch_child(
   struct work_task *ptask;
   pid_t		  pid;
   int		  statloc;
-	
-  log_err(666,"catch_child","Entering catch_child...");
-
+  int     found;
+  
   while (1) 
     {
     if (((pid = waitpid(-1,&statloc,WNOHANG)) == -1) &&
         (errno != EINTR)) 
       {
+      if ((LOGLEVEL >= 5) && (errno != ECHILD))
+        {
+        DBPRT(("catch_child waitpid failed %d\n", errno));
+        }
       return;
       } 
 
@@ -1527,6 +1530,13 @@ static void catch_child(
       {
       return;
       }
+
+    if (LOGLEVEL >= 5)
+      {
+      DBPRT(("catch_child caught pid %d\n", pid));
+      }
+     
+    found = FALSE;
 
     ptask = (struct work_task *)GET_NEXT(task_list_event);
 
@@ -1539,11 +1549,15 @@ static void catch_child(
         ptask->wt_aux = (int)statloc;	/* exit status */
 
         svr_delay_entry++;	/* see next_task() */
-
-        log_err(666,"catch_child","Found child in task list!");
+        found = TRUE;
         }
 
       ptask = (struct work_task *)GET_NEXT(ptask->wt_linkall);
+      }
+      
+    if ((found == FALSE) && (LOGLEVEL >= 5))
+      {
+      DBPRT(("catch_child no work task found for pid %d\n", pid));
       }
     }
 
