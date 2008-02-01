@@ -1050,10 +1050,9 @@ int post_epilogue(
 
   free_br(preq);
 
-
   /* SUCCESS */
 
-  /* Who closes sock and unsets pjob->ji_momhandle? */
+  /* Who closes sock and unsets pjob->ji_momhandle? (Looks like obit_reply does.)*/
 
   log_record(
     PBSEVENT_DEBUG, 

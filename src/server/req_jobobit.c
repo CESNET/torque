@@ -1697,6 +1697,7 @@ void req_jobobit(
     if (pjob->ji_qs.ji_state == JOB_STATE_EXITING) 
       {
       /* already in exit processing, ignore this request */
+
       if (LOGLEVEL >= 5)
         {
         log_event(

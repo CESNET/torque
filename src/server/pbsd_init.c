@@ -1513,6 +1513,8 @@ static void catch_child(
   pid_t		  pid;
   int		  statloc;
 	
+  log_err(666,"catch_child","Entering catch_child...");
+
   while (1) 
     {
     if (((pid = waitpid(-1,&statloc,WNOHANG)) == -1) &&
@@ -1537,6 +1539,8 @@ static void catch_child(
         ptask->wt_aux = (int)statloc;	/* exit status */
 
         svr_delay_entry++;	/* see next_task() */
+
+        log_err(666,"catch_child","Found child in task list!");
         }
 
       ptask = (struct work_task *)GET_NEXT(ptask->wt_linkall);

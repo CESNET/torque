@@ -575,6 +575,9 @@ static void altdsp_statjob(
   char *jstate;
   char *eltimecpu;
   char *eltimewal;
+
+  char tmpLine[MAX_LINE_LEN];
+
   int   usecput;
   static char  pfs[SIZEL];
   static char  rqmem[SIZEL];
@@ -738,7 +741,10 @@ static void altdsp_statjob(
       pat = pat->next;
       }
 
-    printf("%-20.20s %-8.8s %-8.8s ", 
+    snprintf(tmpLine,sizeof(tmpLine),"%%-20.%ds %%-8.8s %%-8.8s ",
+      PBS_NAMELEN);
+
+    printf(tmpLine, 
       pstat->name, 
       usern, 
       queuen);
@@ -760,7 +766,10 @@ static void altdsp_statjob(
       } 
     else 
       {
-      printf("%-10.10s %6.6s %5.5s %*.*s %6.6s %5.5s %1.1s %5.5s",
+      snprintf(tmpLine,sizeof(tmpLine),"%%-10.%ds %%6.6s %%5.5s %%*.*s %%6.6s %%5.5s %%1.1s %%5.5s",
+        PBS_NAMELEN);
+
+      printf(tmpLine,
         jobn, 
         sess, 
         nodect, 
