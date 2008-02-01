@@ -4,6 +4,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - correctly parse /proc/pid/stat that contains parens (Meier)
   b - prevent runaway hellos being sent to server when mom's node is removed
       from the server's node list
+  b - fix qdel of entire job arrays for non operator/managers
 
 2.2.1
   b - fixed a bug where pbs_server never delete files from the "jobs" directory
