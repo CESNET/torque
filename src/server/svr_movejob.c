@@ -653,7 +653,7 @@ int send_job(
     if (sigprocmask(SIG_UNBLOCK,&child_set,NULL) == -1)
       log_err(errno,id,spfail);
 
-    if (LOGLEVEL >= 7)
+    if (LOGLEVEL >= 5)
       {
       sprintf(log_buffer,"send_job child job pid is %d",
         pid);
