@@ -244,7 +244,20 @@ void dispatch_task(
 void delete_task(ptask)
 	struct work_task *ptask;
 {
+  static char id[] = "delete_task";
 	delete_link(&ptask->wt_linkobj);
 	delete_link(&ptask->wt_linkall);
+  if (LOGLEVEL >= 5)
+    {
+    sprintf(log_buffer,"DELETING work task type %d, wt_event %ld, wt_aux %d",
+      ptask->wt_type, ptask->wt_event, ptask->wt_aux);
+
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+      
+    }
 	(void)free(ptask);
 }
