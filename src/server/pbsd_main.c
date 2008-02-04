@@ -1510,6 +1510,7 @@ static int get_port(
 static time_t next_task()
 
   {
+  static char id[] = "next_task";
   time_t	     delay;
   struct work_task  *nxt;
   struct work_task  *ptask;
@@ -1519,6 +1520,15 @@ static time_t next_task()
 
   if (svr_delay_entry) 
     {
+    if (LOGLEVEL >= 5)
+      {
+      log_record(
+        PBSEVENT_SCHED,
+        PBS_EVENTCLASS_REQUEST,
+        id,
+        "CHECKING svr_delay_entry");
+      }
+
     ptask = (struct work_task *)GET_NEXT(task_list_event);
 
     while (ptask != NULL) 
@@ -1526,8 +1536,23 @@ static time_t next_task()
       nxt = (struct work_task *)GET_NEXT(ptask->wt_linkall);
 
       if (ptask->wt_type == WORK_Deferred_Cmp)
-        dispatch_task(ptask);
+        {
+        if (LOGLEVEL >= 5)
+          {
+          sprintf(log_buffer,
+            "DISPATCH Task WORK_Deferred_Cmp type %d, wt_event %ld, wt_aux %d",
+            ptask->wt_type, ptask->wt_event, ptask->wt_aux);
 
+          log_record(
+            PBSEVENT_SCHED,
+            PBS_EVENTCLASS_REQUEST,
+            id,
+            log_buffer);
+            
+          }
+        dispatch_task(ptask);
+        }
+        
       ptask = nxt;
       }
 
@@ -1535,7 +1560,22 @@ static time_t next_task()
     }
 
   while ((ptask = (struct work_task *)GET_NEXT(task_list_immed)) != NULL)
+    {
+    if (LOGLEVEL >= 5)
+      {
+      sprintf(log_buffer,
+        "DISPATCH Task #1 type %d, wt_event %ld, wt_aux %d",
+        ptask->wt_type, ptask->wt_event, ptask->wt_aux);
+
+      log_record(
+        PBSEVENT_SCHED,
+        PBS_EVENTCLASS_REQUEST,
+        id,
+        log_buffer);
+        
+      }
     dispatch_task(ptask);
+    }
 
   while ((ptask = (struct work_task *)GET_NEXT(task_list_timed)) != NULL) 
     {
@@ -1548,6 +1588,18 @@ static time_t next_task()
       } 
     else 
       {
+      if (LOGLEVEL >= 5)
+        {
+        sprintf(log_buffer,
+          "DISPATCH Task #2 type %d, wt_event %ld, wt_aux %d",
+          ptask->wt_type, ptask->wt_event, ptask->wt_aux);
+
+        log_record(
+          PBSEVENT_SCHED,
+          PBS_EVENTCLASS_REQUEST,
+          id,
+          log_buffer);         
+        }
       dispatch_task(ptask);	/* will delete link */
       }
     }
