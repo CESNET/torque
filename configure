@@ -1033,6 +1033,7 @@ Optional Features:
   --enable-autorun        turn on the AUTORUN_JOBS flag
   --enable-debug          turn on the DEBUG flag
   --enable-quickcommit    turn on the QUICKCOMMIT flag
+  --enable-nochildsignal  turn on the NO_SIGCHLD flag
   --disable-server        do not include server and scheduler
   --disable-mom           do not include the mom daemon
   --disable-clients       do not include the clients
@@ -2326,6 +2327,26 @@ if test "x$enable_quickcommit" = "xyes" ; then
 
 cat >>confdefs.h <<\_ACEOF
 #define QUICKCOMMIT 1
+_ACEOF
+
+fi
+
+
+echo "$as_me:$LINENO: checking whether to turn on the NO_SIGCHLD flag" >&5
+echo $ECHO_N "checking whether to turn on the NO_SIGCHLD flag... $ECHO_C" >&6
+# Check whether --enable-nochildsignal or --disable-nochildsignal was given.
+if test "${enable_nochildsignal+set}" = set; then
+  enableval="$enable_nochildsignal"
+  enable_nochildsignal=$enableval
+else
+  enable_nochildsignal=no
+fi;
+echo "$as_me:$LINENO: result: $enable_nochildsignal" >&5
+echo "${ECHO_T}$enable_nochildsignal" >&6
+if test "x$enable_nochildsignal" = "xyes" ; then
+
+cat >>confdefs.h <<\_ACEOF
+#define NO_SIGCHLD 1
 _ACEOF
 
 fi

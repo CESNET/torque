@@ -298,6 +298,9 @@
 /* Define to disable privileged ports */
 #undef NOPRIVPORTS
 
+/* turns on the compilation of NO_SIGCHLD code */
+#undef NO_SIGCHLD
+
 /* directly use homedirs instead of $TORQUEHOME/spool */
 #undef NO_SPOOL_OUTPUT
 

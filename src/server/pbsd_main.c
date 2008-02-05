@@ -141,6 +141,9 @@ extern void svr_shutdown(int);
 extern void acct_close(void);
 extern int  svr_startjob A_((job *,struct batch_request *,char *,char *)); 
 extern int RPPConfigure(int,int);
+#ifdef NO_SIGCHLD
+extern void check_children ();
+#endif
 
 
 /* external data items */
@@ -1188,6 +1191,13 @@ int main(
     msg_daemonname, 
     log_buffer);
 
+#ifdef NO_SIGCHLD
+   log_record(
+     PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+     PBS_EVENTCLASS_SERVER,
+     msg_daemonname,
+     "Server NOT using signal handler for SIGCHLD");
+#endif
   /* do not check nodes immediately as they will initially be marked 
      down unless they have already reported in */
 
@@ -1288,6 +1298,15 @@ int main(
 
       pque = (pbs_queue *)GET_NEXT(pque->qu_link);
       }
+#ifdef NO_SIGCHLD
+    /* if we have any jobs, check if any child jobs have completed */ 
+
+   if (server.sv_qs.sv_numjobs > 0)
+     {
+     check_children();
+     }
+#endif
+
 
     /* touch the rpp streams that need to send */
 
