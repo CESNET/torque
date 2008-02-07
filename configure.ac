@@ -553,7 +553,7 @@ GSSAPI_MSG="no"
 AC_ARG_WITH(gssapi,
 	[  --with-gssapi=PATH   Enable GSSAPI/Krb5 support.],
 	[ if test "x$withval" != "xno" ; then
-		PBSGSSLIBDIR=Libgss        
+		buildgssapi=yes        
 	  	if test "x$withval" = "xyes" ; then
 		   	GSSAPIROOT="/usr"
 		else
@@ -642,10 +642,9 @@ AC_ARG_WITH(gssapi,
 	]
 )
 AC_SUBST(K5LIBS)
-AC_SUBST(PBSGSSLIBDIR)
-AM_CONDITIONAL(INCLUDE_GSSAPI, [test "$PBSGSSLIBDIR" = "Libgss"])
+AM_CONDITIONAL(INCLUDE_GSSAPI, [test "$buildgssapi" = "yes"])
 
-if test "$PBSGSSLIBDIR" = "Libgss" ;then
+if test "$buildgssapi" = "yes" ;then
      AC_PATH_PROGS(KRB5KDESTROY, kdestroy, kdestroy,$PATH:$GSSAPIROOT/bin)
      AC_DEFINE_UNQUOTED([KRB5_KDESTROY],"${KRB5KDESTROY}",[Path to kdestroy])
 fi
@@ -1353,7 +1352,6 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/lib/Libnet/Makefile
 	  src/lib/Libpbs/Makefile
 	  src/lib/Libsite/Makefile
-	  src/lib/Libgss/Makefile
 	  src/mom_rcp/Makefile
 	  src/momctl/Makefile
 	  src/resmom/Makefile

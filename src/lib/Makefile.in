@@ -158,7 +158,6 @@ PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
 PATH_SEPARATOR = @PATH_SEPARATOR@
-PBSGSSLIBDIR = @PBSGSSLIBDIR@
 PBSPOE = @PBSPOE@
 PBSPOEO = @PBSPOEO@
 PBS_DEFAULT_FILE = @PBS_DEFAULT_FILE@
@@ -317,8 +316,7 @@ DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
-DIST_SUBDIRS = Libattr Libcmds Libdis Libifl Liblog Libnet Libpbs Libsite Libgss
-@INCLUDE_GSSAPI_TRUE@LIBGSS = Libgss
+DIST_SUBDIRS = Libattr Libcmds Libdis Libifl Liblog Libnet Libpbs Libsite
 SUBDIRS = $(LIBGSS) Libattr Libpbs Libsite
 all: all-recursive
 
