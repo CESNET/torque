@@ -90,6 +90,9 @@
 #ifndef JOB_H
 #define JOB_H 1
 
+/* anything including job.h also needs array.h so lets just include it this way*/
+#include "array.h"
+
 /*
  * Dependent Job Structures
  *
@@ -259,7 +262,10 @@ enum job_atr {
   JOB_ATR_submit_args,
   JOB_ATR_job_array_size,
   JOB_ATR_job_array_id,
+  JOB_ATR_job_array_request,
   JOB_ATR_umask,
+  JOB_ATR_start_time,  /* time when job was first started */
+  JOB_ATR_start_count, /* number of times the job has been started */
 #include "site_job_attr_enum.h"
 
   JOB_ATR_UNKN,		/* the special "unknown" type		  */
@@ -382,36 +388,6 @@ typedef struct {
   
   
 
-/* job array stuff. */ 
-#ifndef PBS_MOM
-
-#define ARRAY_FILE_SUFFIX ".AR"
-
-#define ARRAY_STRUCT_VERSION 1
-
-  /* pbs_server will keep a list of these structs, with one struct per job array*/
-  struct job_array {
-     list_link all_arrays;
-     tlist_head array_alljobs;
-     
-     int jobs_recovered;
-
-     struct array_info {
-       int  struct_version;
-       int  array_size;
-       int  num_cloned;
-       char owner[PBS_MAXUSER + PBS_MAXSERVERNAME + 2]; /* max user name, server name, 1 for the @, and one for the NULL */
-       char parent_id[PBS_MAXSVRJOBID + 1];
-       char fileprefix[PBS_JOBBASE + 1];
-       char submit_host[PBS_MAXSERVERNAME +1];
-       
-     } ai_qs; 
-  
-  };
-  
-  typedef struct job_array job_array;
-
-#endif
 
 
 struct job {
@@ -455,7 +431,7 @@ struct job {
 	int		ji_retryok;	/* ok to retry, some reject was temp */
 	tlist_head	ji_rejectdest;	/* list of rejected destinations */
 	list_link	ji_arrayjobs;	/* links to all jobs in same array */
-	job_array	*ji_arrayjoblist; /* pointer to job_array for this array */
+	job_array	*ji_arraystruct;/* pointer to job_array for this array */
         int		ji_isparent;    /* set to TRUE if this is a "parent job"*/
 #endif					/* END SERVER ONLY */
 

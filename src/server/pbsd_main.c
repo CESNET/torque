@@ -124,6 +124,9 @@
 #include "batch_request.h"
 #include "pbs_proto.h"
 
+
+#define TSERVER_HA_CHECK_TIME  1  /* 1 second sleep time between checks on the lock file for high availability */
+
 /* external functions called */
 
 extern int  pbsd_init A_((int));
@@ -150,9 +153,11 @@ static int    get_port A_((char *,unsigned int *,pbs_net_t *));
 static time_t next_task A_(());
 static int    start_hot_jobs();
 static void   lock_out A_((int,int));
+static int   try_lock_out A_((int,int));
 
 /* Global Data Items */
 
+int             high_availability_mode = FALSE;
 char	       *acct_file = NULL;
 char	       *log_file  = NULL;
 char	       *path_home = PBS_SERVER_HOME;
@@ -174,7 +179,6 @@ char           *path_creds;
 #endif
 char	       *path_nodenote;
 char	       *path_nodenote_new;
-char	       *path_resources;
 extern char    *msg_daemonname;
 extern int	pbs_errno;
 char	       *pbs_o_host = "PBS_O_HOST";
@@ -204,6 +208,7 @@ tlist_head	task_list_event;
 
 time_t		time_now = 0;
 
+char           *plogenv = NULL;
 int             LOGLEVEL = 0;
 int             DEBUGMODE = 0;
 int             TDoBackground = 1;  /* background daemon */
@@ -233,9 +238,12 @@ void DIS_rpp_reset()
 
 
 
-/*
-** Read a RPP message from a stream.  Only one kind of message
-** is expected -- Inter Server requests from MOM's.
+/**
+ * Read a RPP message from a stream.  
+ *
+ * NOTE: Only one kind of message is expected -- Inter Server requests from MOM's.
+ *
+ * @param stream (I)
 */
 
 void do_rpp(
@@ -396,11 +404,26 @@ int PBSShowUsage(
   char *EMsg)  /* I (optional) */
 
   {
-  const char *Msg = "[ -A <ACCTFILE> ] [ -a <ATTR> ] [ -d <HOMEDIR> ] [ -D ] [ -L <LOGFILE> ] [ -M <MOMPORT> ]\n  [ -p <SERVERPORT> ] [ -R <RMPORT> ] [ -S <SCHEDULERPORT> ] [ -t <TYPE> ]\n  [ --version|--help ]\n";
+  fprintf(stderr,"Usage: %s\n",
+    ProgName);
 
-  fprintf(stderr,"usage:  %s %s\n",
-    ProgName,
-    Msg);
+  fprintf(stderr,"  -A <INT>  \\\\ Alarm Time\n");
+  fprintf(stderr,"  -a <BOOL> \\\\ Scheduling\n");
+  fprintf(stderr,"  -d <PATH> \\\\ Homedir\n");
+  fprintf(stderr,"  -D        \\\\ Debugmode\n");
+  fprintf(stderr,"  -f        \\\\ Force Overwrite Serverdb\n");
+  fprintf(stderr,"  -h        \\\\ Print Usage\n");
+  fprintf(stderr,"  -H <HOST> \\\\ Daemon Hostname\n");
+  fprintf(stderr,"  -L <PATH> \\\\ Logfile\n");
+  fprintf(stderr,"  -M <PORT> \\\\ MOM Port\n");
+  fprintf(stderr,"  -p <PORT> \\\\ Server Port\n");
+  fprintf(stderr,"  -R <PORT> \\\\ RM Port\n");
+  fprintf(stderr,"  -S <PORT> \\\\ Scheduler Port\n");
+  fprintf(stderr,"  -t <TYPE> \\\\ Startup Type (hot, warm, cold, create)\n");
+  fprintf(stderr,"  -v        \\\\ Version\n");
+  fprintf(stderr,"  --ha      \\\\ High Availability MODE\n");
+  fprintf(stderr,"  --help    \\\\ Print Usage\n");
+  fprintf(stderr,"  --version \\\\ Version\n");
 
   if (EMsg != NULL)
     {
@@ -579,7 +602,7 @@ int main(
 
   /* parse the parameters from the command line */
 
-  while ((c = getopt(argc,argv,"A:a:d:Dfh:p:t:L:M:R:S:-:")) != -1) 
+  while ((c = getopt(argc,argv,"A:a:d:DfhH:L:M:p:R:S:t:v-:")) != -1) 
     {
     switch (c) 
       {
@@ -612,6 +635,7 @@ int main(
 	  printf("builduser:   %s\n",PBS_BUILD_USER);
 	  printf("installdir:  %s\n",PBS_INSTALL_DIR);
 	  printf("serverhome:  %s\n",PBS_SERVER_HOME);
+	  printf("version:     %s\n",PACKAGE_VERSION);
 
           exit(0);
           }
@@ -620,7 +644,13 @@ int main(
           {
           PBSShowUsage(NULL);
     
-          exit(1);
+          exit(0);
+          }
+
+        if (!strcasecmp(optarg,"ha"))	/* High Availability */
+          {
+          high_availability_mode = TRUE;
+          break;
           }
 
         PBSShowUsage("invalid command line arg");
@@ -666,6 +696,14 @@ int main(
         break;
 
       case 'h':
+
+        PBSShowUsage(NULL);
+  
+        exit(0);
+
+        break;
+
+      case 'H':
 
         /* overwrite locally detected hostname with specified hostname */
         /*  (used for multi-homed hosts) */
@@ -847,11 +885,18 @@ int main(
 
         break;
 
+      case 'v':
+
+          fprintf(stderr,"version: %s\n",
+            PACKAGE_VERSION);
+
+          exit(0);
+
+          break;
+
       default:
 
-        fprintf(stderr,"%s: unknown option: %c\n",
-          argv[0],
-          c);
+        PBSShowUsage("invalid command line arg");
 
         exit(1);
 
@@ -877,6 +922,11 @@ int main(
     return(1);
     }
 
+  i = sysconf(_SC_OPEN_MAX);
+  while (--i > 2)
+    close(i); /* close any file desc left open by parent */
+
+
   /* make sure no other server is running with this home directory */
 
   sprintf(lockfile,"%s/%s/server.lock",
@@ -897,7 +947,30 @@ int main(
     exit(2);
     }
 
-  lock_out(lockfds,F_WRLCK);
+
+  if (high_availability_mode)
+    {
+    /* This will allow multiple instance of the pbs_server to be
+     * running.  This must be done before setting up the client
+     * sockets interface, reading the config file, and contacting
+     * the compute nodes.
+     */
+
+    if (TDoBackground == 1)
+      {
+      if (fork() > 0)
+        {
+        /* parent goes away */
+        exit(0);
+        }
+      }
+    while (try_lock_out(lockfds,F_WRLCK))
+      sleep(TSERVER_HA_CHECK_TIME);	/* Relinquish */
+    }
+  else
+    {
+    lock_out(lockfds,F_WRLCK);
+    }
 	
   server.sv_started = time(&time_now);	/* time server started */
 
@@ -927,11 +1000,11 @@ int main(
   /* initialize the server objects and perform specified recovery */
   /* will be left in the server's private directory		*/
 
-  if ((pc = getenv("PBSLOGLEVEL")) != NULL)
+  if ((plogenv = getenv("PBSLOGLEVEL")) != NULL)
     {
-    LOGLEVEL = (int)strtol(pc,NULL,10);
+    LOGLEVEL = (int)strtol(plogenv,NULL,10);
     }
-
+    
   if ((pc = getenv("PBSDEBUG")) != NULL)
     {
     DEBUGMODE = 1;
@@ -1008,8 +1081,8 @@ int main(
     }  /* END if (TDoBackground == 1) */
   else
     {
-    if ((pc != NULL) && isdigit(pc[0]))
-      LOGLEVEL = (int)strtol(pc,NULL,0);
+    if ((plogenv != NULL) && isdigit(plogenv[0]))
+      LOGLEVEL = (int)strtol(plogenv,NULL,0);
 
     sid = getpid();
   
@@ -1070,8 +1143,8 @@ int main(
       "creating rpp and private interfaces");
     }
 
-  add_conn(rppfd,Primary,(pbs_net_t)0,0,rpp_request);
-  add_conn(privfd,Primary,(pbs_net_t)0,0,rpp_request);
+  add_conn(rppfd,Primary,(pbs_net_t)0,0,PBS_SOCK_INET,rpp_request);
+  add_conn(privfd,Primary,(pbs_net_t)0,0,PBS_SOCK_INET,rpp_request);
 
   /* record the fact that we are up and running */
 
@@ -1194,14 +1267,11 @@ int main(
       log_err(-1,msg_daemonname,"wait_request failed");
       }
 
-    /* update dynamic loglevel specification */
+    /* qmgr can dynamically set the loglevel specification
+     * we use the new value if PBSLOGLEVEL was not specified
+     */
 
-    /* FIXME: This overrides PBSLOGLEVEL and PBSDEBUG */
-
-    /* if (!getenv("PBSLOGLEVEL") && !getenv("PBSDEBUG"))
-     * (and SRV_ATR_LogLevel's at_action can set LOGLEVEL */
-
-    if (!getenv("PBSLOGLEVEL"))
+   if (plogenv == NULL )
       LOGLEVEL = server.sv_attr[(int)SRV_ATR_LogLevel].at_val.at_long;
 
     /* any running jobs need a status update? */ 
@@ -1279,6 +1349,10 @@ int main(
   shutdown_ack();
 
   net_close(-1);		/* close all network connections */
+
+#ifdef ENABLE_UNIX_SOCKETS
+  unlink(TSOCK_PATH);
+#endif /* END ENABLE_UNIX_SOCKETS */
 
   log_event(
     PBSEVENT_SYSTEM|PBSEVENT_FORCE,
@@ -1504,11 +1578,11 @@ static int start_hot_jobs(void)
 
 
 
-/*
- * lock_out - lock out other daemons from this directory.
+/**
+ * Try to lock
+ * @return Zero on success, one on failure
  */
-
-static void lock_out(
+static int try_lock_out(
 
   int fds,
   int op)		/* F_WRLCK  or  F_UNLCK */
@@ -1521,7 +1595,20 @@ static void lock_out(
   flock.l_start  = 0;
   flock.l_len    = 0;
 
-  if (fcntl(fds,F_SETLK,&flock) < 0) 
+  return(fcntl(fds,F_SETLK,&flock) != 0);
+  }
+
+
+/*
+ * lock_out - lock out other daemons from this directory.
+ */
+static void lock_out(
+
+  int fds,
+  int op)		/* F_WRLCK  or  F_UNLCK */
+
+  {
+  if (try_lock_out(fds,op)) 
     {
     strcpy(log_buffer,"pbs_server: another server running\n");
 
@@ -1531,8 +1618,6 @@ static void lock_out(
 
     exit(1);
     }
-
-  return;
   }
 
 /* END pbsd_main.c */

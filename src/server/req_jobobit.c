@@ -1740,7 +1740,7 @@ void req_jobobit(
   pjob->ji_qs.ji_un.ji_exect.ji_exitstat = exitstatus;
 
   pjob->ji_wattr[(int)JOB_ATR_exitstat].at_val.at_long = exitstatus;
-  pjob->ji_wattr[(int)JOB_ATR_exitstat].at_flags |=ATR_VFLAG_SET;
+  pjob->ji_wattr[(int)JOB_ATR_exitstat].at_flags |= ATR_VFLAG_SET;
 
   patlist = (svrattrl *)GET_NEXT(preq->rq_ind.rq_jobobit.rq_attr);
  
@@ -1780,8 +1780,11 @@ void req_jobobit(
 
   while (patlist != NULL) 
     {
-    need = strlen(patlist->al_resc) + strlen(patlist->al_value) + 3;
-
+    need = strlen(patlist->al_name) + strlen(patlist->al_value) + 3;
+    if (patlist->al_resc) {
+      need += strlen(patlist->al_resc) + 3;
+    }
+    
     if (need < amt) 
       {
       strcat(acctbuf,"\n");

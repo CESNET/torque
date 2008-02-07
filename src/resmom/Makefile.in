@@ -41,6 +41,7 @@ host_triplet = @host@
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(top_srcdir)/buildutils/config.mk
 sbin_PROGRAMS = pbs_mom$(EXEEXT) pbs_demux$(EXEEXT)
+@BUILDCPA_TRUE@am__append_1 = cray_cpa.c
 subdir = src/resmom
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
@@ -51,6 +52,7 @@ am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/buildutils/ac_c_bigendian_cross.m4 \
 	$(top_srcdir)/buildutils/t_add_rpath.m4 \
 	$(top_srcdir)/buildutils/tac_tcltk.m4 \
+	$(top_srcdir)/buildutils/ax_cflags_gcc_option.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
@@ -66,21 +68,28 @@ pbs_demux_LDADD = $(LDADD)
 am__DEPENDENCIES_1 =
 am__DEPENDENCIES_2 = ../lib/Libattr/libattr.a ../lib/Libsite/libsite.a \
 	../lib/Libpbs/libtorque.la
-@BUILDCPA_TRUE@am__DEPENDENCIES_3 = cpa/libmomcpa.a
 pbs_demux_DEPENDENCIES = @PBS_MACH@/libmommach.a $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_2) $(am__DEPENDENCIES_3)
+	$(am__DEPENDENCIES_2)
+am__pbs_mom_SOURCES_DIST = catch_child.c mom_comm.c mom_inter.c \
+	mom_main.c mom_server.c prolog.c requests.c start_exec.c \
+	tmsock_recov.c req_quejob.c job_func.c ../server/attr_recov.c \
+	../server/dis_read.c ../server/job_attr_def.c \
+	../server/job_recov.c ../server/process_request.c \
+	../server/reply_send.c ../server/resc_def_all.c \
+	../server/job_qs_upgrade.c cray_cpa.c
+@BUILDCPA_TRUE@am__objects_1 = cray_cpa.$(OBJEXT)
 am_pbs_mom_OBJECTS = catch_child.$(OBJEXT) mom_comm.$(OBJEXT) \
 	mom_inter.$(OBJEXT) mom_main.$(OBJEXT) mom_server.$(OBJEXT) \
 	prolog.$(OBJEXT) requests.$(OBJEXT) start_exec.$(OBJEXT) \
-	tmsock_recov.$(OBJEXT) attr_recov.$(OBJEXT) dis_read.$(OBJEXT) \
-	job_attr_def.$(OBJEXT) job_func.$(OBJEXT) job_recov.$(OBJEXT) \
-	process_request.$(OBJEXT) reply_send.$(OBJEXT) \
-	req_quejob.$(OBJEXT) resc_def_all.$(OBJEXT) \
-	job_qs_upgrade.$(OBJEXT)
+	tmsock_recov.$(OBJEXT) req_quejob.$(OBJEXT) job_func.$(OBJEXT) \
+	attr_recov.$(OBJEXT) dis_read.$(OBJEXT) job_attr_def.$(OBJEXT) \
+	job_recov.$(OBJEXT) process_request.$(OBJEXT) \
+	reply_send.$(OBJEXT) resc_def_all.$(OBJEXT) \
+	job_qs_upgrade.$(OBJEXT) $(am__objects_1)
 pbs_mom_OBJECTS = $(am_pbs_mom_OBJECTS)
 pbs_mom_LDADD = $(LDADD)
 pbs_mom_DEPENDENCIES = @PBS_MACH@/libmommach.a $(am__DEPENDENCIES_1) \
-	$(am__DEPENDENCIES_2) $(am__DEPENDENCIES_3)
+	$(am__DEPENDENCIES_2)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/src/include
 depcomp = $(SHELL) $(top_srcdir)/buildutils/depcomp
 am__depfiles_maybe = depfiles
@@ -93,7 +102,7 @@ CCLD = $(CC)
 LINK = $(LIBTOOL) --mode=link --tag=CC $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(pbs_demux_SOURCES) $(pbs_mom_SOURCES)
-DIST_SOURCES = $(pbs_demux_SOURCES) $(pbs_mom_SOURCES)
+DIST_SOURCES = $(pbs_demux_SOURCES) $(am__pbs_mom_SOURCES_DIST)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-exec-recursive install-info-recursive \
@@ -361,28 +370,23 @@ DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
-@BUILDCPA_TRUE@cpasubdir = cpa
-@BUILDCPA_TRUE@momcpalib = cpa/libmomcpa.a
-SUBDIRS = @PBS_MACH@ $(cpasubdir)
+SUBDIRS = @PBS_MACH@
 DIST_SUBDIRS = aix4 aix5 darwin digitalunix freebsd freebsd5 fujitsu hpux10 hpux11 \
-	irix5 irix6 irix6array linux netbsd solaris5 solaris7 sunos4 unicos8 unicosmk2 cpa
+	irix5 irix6 irix6array linux netbsd solaris5 solaris7 sunos4 unicos8 unicosmk2
 
 PBS_LIBS = ../lib/Libattr/libattr.a \
 	   ../lib/Libsite/libsite.a \
 	   ../lib/Libpbs/libtorque.la
 
 EXTRA_DIST = rm_dep.h
-LDADD = @PBS_MACH@/libmommach.a $(MOMLIBS) $(PBS_LIBS) $(momcpalib)
+LDADD = @PBS_MACH@/libmommach.a $(MOMLIBS) $(PBS_LIBS)
 pbs_mom_SOURCES = catch_child.c mom_comm.c mom_inter.c mom_main.c \
-		   mom_server.c prolog.c requests.c start_exec.c \
-                   tmsock_recov.c \
-		   ../server/attr_recov.c ../server/dis_read.c \
-		   ../server/job_attr_def.c ../server/job_func.c \
-		   ../server/job_recov.c  \
-		   ../server/process_request.c ../server/reply_send.c \
-		   ../server/req_quejob.c ../server/resc_def_all.c \
-		   ../server/job_qs_upgrade.c
-
+	mom_server.c prolog.c requests.c start_exec.c tmsock_recov.c \
+	req_quejob.c job_func.c ../server/attr_recov.c \
+	../server/dis_read.c ../server/job_attr_def.c \
+	../server/job_recov.c ../server/process_request.c \
+	../server/reply_send.c ../server/resc_def_all.c \
+	../server/job_qs_upgrade.c $(am__append_1)
 pbs_demux_SOURCES = pbs_demux.c
 all: all-recursive
 
@@ -460,6 +464,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/attr_recov.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/catch_child.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cray_cpa.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dis_read.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/job_attr_def.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/job_func.Po@am__quote@
@@ -542,20 +547,6 @@ job_attr_def.obj: ../server/job_attr_def.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o job_attr_def.obj `if test -f '../server/job_attr_def.c'; then $(CYGPATH_W) '../server/job_attr_def.c'; else $(CYGPATH_W) '$(srcdir)/../server/job_attr_def.c'; fi`
 
-job_func.o: ../server/job_func.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT job_func.o -MD -MP -MF "$(DEPDIR)/job_func.Tpo" -c -o job_func.o `test -f '../server/job_func.c' || echo '$(srcdir)/'`../server/job_func.c; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/job_func.Tpo" "$(DEPDIR)/job_func.Po"; else rm -f "$(DEPDIR)/job_func.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../server/job_func.c' object='job_func.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o job_func.o `test -f '../server/job_func.c' || echo '$(srcdir)/'`../server/job_func.c
-
-job_func.obj: ../server/job_func.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT job_func.obj -MD -MP -MF "$(DEPDIR)/job_func.Tpo" -c -o job_func.obj `if test -f '../server/job_func.c'; then $(CYGPATH_W) '../server/job_func.c'; else $(CYGPATH_W) '$(srcdir)/../server/job_func.c'; fi`; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/job_func.Tpo" "$(DEPDIR)/job_func.Po"; else rm -f "$(DEPDIR)/job_func.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../server/job_func.c' object='job_func.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o job_func.obj `if test -f '../server/job_func.c'; then $(CYGPATH_W) '../server/job_func.c'; else $(CYGPATH_W) '$(srcdir)/../server/job_func.c'; fi`
-
 job_recov.o: ../server/job_recov.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT job_recov.o -MD -MP -MF "$(DEPDIR)/job_recov.Tpo" -c -o job_recov.o `test -f '../server/job_recov.c' || echo '$(srcdir)/'`../server/job_recov.c; \
 @am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/job_recov.Tpo" "$(DEPDIR)/job_recov.Po"; else rm -f "$(DEPDIR)/job_recov.Tpo"; exit 1; fi
@@ -597,20 +588,6 @@ reply_send.obj: ../server/reply_send.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../server/reply_send.c' object='reply_send.obj' libtool=no @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o reply_send.obj `if test -f '../server/reply_send.c'; then $(CYGPATH_W) '../server/reply_send.c'; else $(CYGPATH_W) '$(srcdir)/../server/reply_send.c'; fi`
-
-req_quejob.o: ../server/req_quejob.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT req_quejob.o -MD -MP -MF "$(DEPDIR)/req_quejob.Tpo" -c -o req_quejob.o `test -f '../server/req_quejob.c' || echo '$(srcdir)/'`../server/req_quejob.c; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/req_quejob.Tpo" "$(DEPDIR)/req_quejob.Po"; else rm -f "$(DEPDIR)/req_quejob.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../server/req_quejob.c' object='req_quejob.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o req_quejob.o `test -f '../server/req_quejob.c' || echo '$(srcdir)/'`../server/req_quejob.c
-
-req_quejob.obj: ../server/req_quejob.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT req_quejob.obj -MD -MP -MF "$(DEPDIR)/req_quejob.Tpo" -c -o req_quejob.obj `if test -f '../server/req_quejob.c'; then $(CYGPATH_W) '../server/req_quejob.c'; else $(CYGPATH_W) '$(srcdir)/../server/req_quejob.c'; fi`; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/req_quejob.Tpo" "$(DEPDIR)/req_quejob.Po"; else rm -f "$(DEPDIR)/req_quejob.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../server/req_quejob.c' object='req_quejob.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o req_quejob.obj `if test -f '../server/req_quejob.c'; then $(CYGPATH_W) '../server/req_quejob.c'; else $(CYGPATH_W) '$(srcdir)/../server/req_quejob.c'; fi`
 
 resc_def_all.o: ../server/resc_def_all.c
 @am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT resc_def_all.o -MD -MP -MF "$(DEPDIR)/resc_def_all.Tpo" -c -o resc_def_all.o `test -f '../server/resc_def_all.c' || echo '$(srcdir)/'`../server/resc_def_all.c; \

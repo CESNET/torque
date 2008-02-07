@@ -79,7 +79,7 @@
 .TH pbs_Resources_freebsd5 7B "" Local PBS
 .so ../ers/ers.macros
 .SH NAME
-pbs_resources_freebsd5 - pbs resources on FreeBSD 5.x and 6.x
+pbs_resources_freebsd5 - pbs resources on FreeBSD 5.x
 .SH DESCRIPTION
 This page summarizes the resources supported by PBS for AMD/Intel/Cyrix
 workstations running FreeBSD.

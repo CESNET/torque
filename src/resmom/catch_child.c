@@ -113,16 +113,11 @@
 #ifdef ENABLE_CPA
 #include "pbs_cpa.h"
 #endif
+#ifdef PENABLE_LINUX26_CPUSETS
+#include "pbs_cpuset.h"
+#endif
 
-#ifndef CPUSETISREADY
-#ifdef PENABLE_DYNAMIC_CPUSETS
-  #undef PENABLE_DYNAMIC_CPUSETS
-#endif /* PENABLE_DYNAMIC_CPUSETS */
-#endif /* !CPUSETISREADY */
 
-#if defined(PENABLE_DYNAMIC_CPUSETS)
-#include <cpuset.h>
-#endif /* PENABLE_DYNAMIC_CPUSETS */
 
 /* External Functions */
 
@@ -146,6 +141,8 @@ extern int              LOGLEVEL;
 
 extern char            *PJobSubState[];
 extern char             mom_host[];
+extern int              PBSNodeCheckProlog;
+extern int              PBSNodeCheckEpilog;
 
 
 /* external prototypes */
@@ -156,8 +153,11 @@ static void obit_reply A_((int));
 extern int tm_reply A_((int,int,tm_event_t));
 extern u_long addclient A_((char *));
 extern void encode_used A_((job *,tlist_head *));
+extern void encode_flagged_attrs A_((job *,tlist_head *));
 extern void job_nodes A_((job *));
 extern int task_recov A_((job *));
+extern void is_update_stat(int);
+extern void check_state(int);
 
 
 
@@ -234,9 +234,9 @@ void chkpt_partial(
 
   assert(pjob != NULL);
 
-  strcpy(namebuf, path_checkpoint);
-  strcat(namebuf, pjob->ji_qs.ji_fileprefix);
-  strcat(namebuf, JOB_CKPT_SUFFIX);
+  strcpy(namebuf,path_checkpoint);
+  strcat(namebuf,pjob->ji_qs.ji_fileprefix);
+  strcat(namebuf,JOB_CKPT_SUFFIX);
 
   i = strlen(namebuf);
 
@@ -332,6 +332,7 @@ fail:
 
 
 
+
 void scan_for_exiting()
 
   {
@@ -355,14 +356,9 @@ void scan_for_exiting()
   task         *task_find	A_((job	*,tm_task_id));
   int im_compose A_((int,char *,char *,int,tm_event_t,tm_task_id));
 
-  static int ForceObit = -1;
-  static int ObitsAllowed = 2;
+  static int ForceObit    = -1;   /* boolean - if TRUE, ObitsAllowed will be enforced */
+  static int ObitsAllowed = 1;
 
-#ifdef  PENABLE_DYNAMIC_CPUSETS
-  char           cQueueName[8];
-  char           cPermFile[1024];
-  struct passwd *pwdp;
-#endif  /* PENABLE_DYNAMIC_CPUSETS */
 
   /*
   ** Look through the jobs.  Each one has it's tasks examined
@@ -381,6 +377,9 @@ void scan_for_exiting()
 
   if (ForceObit == -1)
     {
+    /* NOTE:  Allow sites to locally specify obit groupings larger than 1. */
+    /*        Remove after 6/1/2008 if no further obit issues are encountered */
+
     char *ptr;
 
     if ((ptr = getenv("TORQUEFORCESEND")) != NULL)
@@ -396,7 +395,7 @@ void scan_for_exiting()
       }
     else
       {
-      ForceObit = 0;
+      ForceObit = 1;
       }
     }
 
@@ -818,6 +817,7 @@ void scan_for_exiting()
       ToServerDIS,
       pjob->ji_qs.ji_un.ji_momt.ji_svraddr,
       port, 
+      PBS_SOCK_INET, 
       preobit_reply);
 
     if (LOGLEVEL >= 2)
@@ -831,6 +831,7 @@ void scan_for_exiting()
 
     pjob->ji_qs.ji_substate = JOB_SUBSTATE_PREOBIT;
 
+#ifdef TREMOVEME
     if (ForceObit == 0)
       {
       if (found_one++ >= ObitsAllowed) 
@@ -840,6 +841,7 @@ void scan_for_exiting()
         break;
         }
       }
+#endif /* TREMOVEME */
 
     /* send the pre-obit job stat request */
 
@@ -854,14 +856,11 @@ void scan_for_exiting()
 
     DIS_tcp_wflush(sock3);
 
-    if (ForceObit == 1)
+    if (found_one++ >= ObitsAllowed)
       {
-      if (found_one++ >= ObitsAllowed)
-        {
-        /* do not exceed max obits per iteration limit */
+      /* do not exceed max obits per iteration limit */
 
-        break; 
-        }
+      break; 
       }
     }  /* END for (pjob) */
 
@@ -915,25 +914,6 @@ int post_epilogue(
   else
     port = default_server_port;
 
-  /* allocate memory */
-
-  preq = alloc_br(PBS_BATCH_JobObit);
-
-  if (preq == NULL)
-    {
-    /* FAILURE */
-
-    sprintf(log_buffer,"cannot allocate memory for obit message");
-
-    LOG_EVENT(
-      PBSEVENT_DEBUG,
-      PBS_EVENTCLASS_REQUEST,
-      id,
-      log_buffer);
-
-    return(1);
-    }
-
   sock = client_to_svr(pjob->ji_qs.ji_un.ji_momt.ji_svraddr,port,1,NULL);
 
   if (sock < 0)
@@ -982,32 +962,9 @@ int post_epilogue(
     ToServerDIS,
     pjob->ji_qs.ji_un.ji_momt.ji_svraddr,
     port, 
+    PBS_SOCK_INET,
     obit_reply);
 
-#ifdef PENABLE_DYNAMIC_CPUSETS
-
-  /* FIXME: this is the wrong place for this code.
-   * it should be called from job_purge() */
-
-  pwdp = getpwuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid);
-  strncpy(cQueueName,pwdp->pw_name,3);
-  strncat(cQueueName,pjob->ji_qs.ji_jobid,5);
-
-  /* FIXME: use the path_jobs variable */
-  strcpy(cPermFile,PBS_SERVER_HOME);
-  strcat(cPermFile,"/mom_priv/jobs/");
-  strcat(cPermFile,cQueueName);
-  strcat(cPermFile,".CS");
-
-  cpusetDestroy(cQueueName);
-  unlink(cPermFile);
-
-  memset(cQueueName,0,sizeof(cQueueName));
-  memset(cPermFile,0,sizeof(cPermFile));
-
-  /* NOTE:  must clear cpusets even if child not captured, ie, mom is down when job completes */
-
-#endif /* PENABLE_DYNAMIC_CPUSETS */
 
   /* send the job obiturary notice to the server */
 
@@ -1039,6 +996,8 @@ int post_epilogue(
 
   encode_used(pjob,&preq->rq_ind.rq_jobobit.rq_attr);
 
+  encode_flagged_attrs(pjob,&preq->rq_ind.rq_jobobit.rq_attr);
+
   DIS_tcp_setup(sock);
 
   if (encode_DIS_ReqHdr(sock,PBS_BATCH_JobObit,pbs_current_user) ||
@@ -1063,6 +1022,9 @@ int post_epilogue(
     }
 
   DIS_tcp_wflush(sock);  /* does flush close sock? */
+
+  free_br(preq);
+
 
   /* SUCCESS */
 
@@ -1564,6 +1526,13 @@ static void obit_reply(
   shutdown(sock,2);
 
   close_conn(sock);
+
+  if (PBSNodeCheckEpilog)
+    {
+    check_state(1);
+
+    is_update_stat(0);
+    }
 
   return;
   }  /* END obit_reply() */

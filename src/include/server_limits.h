@@ -89,14 +89,17 @@
 #ifndef SERVER_LIMITS_H
 #define SERVER_LIMITS_H
 
-#define PBS_JOBBASE  11		/* basename size for job file, 11 = 14 - 3  */
-				/* where 14 is min file name, 3 for suffix  */
+/* removing outdated 14 char filename limit */
+#define PBS_JOBBASE  	61	/* basename size for job file, 61 = 64 - 3  */
+
 #define PBS_NUMJOBSTATE 6
 
 #define PBS_MAX_HOPCOUNT 10	/* limit on number of routing hops per job */
 
 #define PBS_SEQNUMTOP 99999999	/* top number for job sequence number, reset */
 				/* to zero when reached, see req_quejob.c    */
+
+#define TORQUE_LISTENQUEUE     10  /* used for X11 and stdout/stderr forwarding */
 
 #define PBS_NET_RETRY_TIME     30 /* retry time between re-sending requests  */
 #define PBS_NET_RETRY_LIMIT 14400 /* max retry time */
@@ -121,7 +124,6 @@
 #define PBS_ACTFILES		"accounting"
 #define PBS_SERVERDB		"serverdb"
 #define PBS_SVRACL		"acl_svr"
-#define PBS_RESOURCES           "resourcedef"
 #define PBS_TRACKING		"tracking"
 #define NODE_DESCRIP		"nodes"
 #define NODE_STATUS		"node_status"

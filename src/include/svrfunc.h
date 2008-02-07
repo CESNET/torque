@@ -104,7 +104,7 @@ extern int   node_avail A_((char *spec, int  *navail,
 			    int *nalloc, int *nreserved, int *ndown));
 extern void  node_unreserve A_((resource_t handle));
 extern int   node_reserve A_((char *speclist, resource_t tag));
-extern int   init_resc_defs A_((char *));
+extern int   init_resc_defs A_((void));
 
 #ifdef JOB_H
 extern int   set_nodes A_((job *,char *,char **,char *,char *));
@@ -159,12 +159,12 @@ struct stat_cntl {		/* used in req_stat_job */
 
 extern int stat_to_mom A_((job *, struct stat_cntl *));
 
+#endif	/* STAT_CNTL */
+
 /*
  * the following defines are due to the fact that O_SYNC was not
- * POSIX standard (TDISABLEFILESYNC managed w/configure --disable-filesync) 
+ * POSIX standard (TDISABLEFILESYNC managed w/configure --enable-filesync) 
  */
-
-#endif	/* STAT_CNTL */
 
 #if TDISABLEFILESYNC
 #define O_Sync 0

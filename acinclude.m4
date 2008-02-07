@@ -5,6 +5,7 @@ m4_include([buildutils/ax_prog_dot.m4])
 m4_include([buildutils/ac_c_bigendian_cross.m4])
 m4_include([buildutils/t_add_rpath.m4])
 m4_include([buildutils/tac_tcltk.m4])
+m4_include([buildutils/ax_cflags_gcc_option.m4])
 
 
 dnl
@@ -161,6 +162,12 @@ AC_CHECK_FUNC(stat64,
    AC_CHECK_FUNC(stat64,
     AC_DEFINE(HAVE_STAT64,1,[Define if stat64() is available]),
      [CFLAGS="$orig_CFLAGS"])])
+
+AC_CHECK_FUNC(open64,
+  AC_DEFINE(HAVE_OPEN64,1,[Define if open64() is available]))
+
+AC_CHECK_FUNC(lseek64,
+  AC_DEFINE(HAVE_LSEEK64,1,[Define if lseek64() is available]))
 
 AC_CHECK_MEMBER(struct stat64.st_mode,
   AC_DEFINE(HAVE_STRUCT_STAT64,1,[Define if struct stat64 is available]),

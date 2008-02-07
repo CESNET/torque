@@ -122,6 +122,10 @@
 #include        "batch_request.h"
 #include        "resmon.h"
 #include        "mcom.h"
+#include	"svrfunc.h"
+#ifdef PENABLE_LINUX26_CPUSETS
+#include "pbs_cpuset.h"
+#endif
 
 
 /* Global Data Items */
@@ -186,18 +190,6 @@ extern int TMakeTmpDir (job *,char *);
 /* END external functions */
 
 
-/*
- * the following funny business is due to the fact that O_SYNC
- * is not currently POSIX
- */
-#ifdef O_SYNC
-#define O_Sync O_SYNC
-#elif _FSYNC
-#define O_Sync _FSYNC
-#else
-#define O_Sync 0
-#endif
-
 
 /*
 **	Save the critical information associated with a task to disk.
@@ -214,14 +206,11 @@ int task_save(
   int	fds;
   int	i;
   char	namebuf[MAXPATHLEN];
-  char	filnam[MAXPATHLEN];
   int	openflags;
 
   strcpy(namebuf,path_jobs);      /* job directory path */
   strcat(namebuf,pjob->ji_qs.ji_fileprefix);
   strcat(namebuf,JOB_TASKDIR_SUFFIX);
-  sprintf(filnam,task_fmt,ptask->ti_qs.ti_task);
-  strcat(namebuf,filnam);
 
   openflags = O_WRONLY|O_CREAT|O_Sync;
 
@@ -237,11 +226,28 @@ int task_save(
       log_buffer);
     }
 
+#ifdef HAVE_OPEN64
+  fds = open64(namebuf,openflags,0600);
+#else
   fds = open(namebuf,openflags,0600);
+#endif
 
   if (fds < 0) 
     {
     log_err(errno,id,"error on open");
+
+    return(-1);
+    }
+
+#ifdef HAVE_LSEEK64
+  if (lseek64(fds,(off_t)(ptask->ti_qs.ti_task*sizeof(ptask->ti_qs)),SEEK_SET) < 0) 
+#else
+  if (lseek(fds,(off_t)(ptask->ti_qs.ti_task*sizeof(ptask->ti_qs)),SEEK_SET) < 0) 
+#endif
+    {
+    log_err(errno,id,"lseek");
+
+    close(fds);
 
     return(-1);
     }
@@ -261,7 +267,11 @@ int task_save(
       {	
       /* retry the write */
 
-      if (lseek(fds,(off_t)0,SEEK_SET) < 0) 
+#ifdef HAVE_LSEEK64
+      if (lseek64(fds,(off_t)(ptask->ti_qs.ti_task*sizeof(ptask->ti_qs)),SEEK_SET) < 0) 
+#else
+      if (lseek(fds,(off_t)(ptask->ti_qs.ti_task*sizeof(ptask->ti_qs)),SEEK_SET) < 0) 
+#endif
         {
         log_err(errno,id,"lseek");
 
@@ -496,74 +506,45 @@ int task_recov(
   static	char	id[] = "task_recov";
   int		fds;
   task		*pt;
-  char		dirname[MAXPATHLEN];
   char		namebuf[MAXPATHLEN];
-  DIR		*dir;
-  struct	dirent	*pdirent;
   struct	taskfix	task_save;
 
-  strcpy(dirname,path_jobs);      /* job directory path */
-  strcat(dirname,pjob->ji_qs.ji_fileprefix);
-  strcat(dirname,JOB_TASKDIR_SUFFIX);
+  strcpy(namebuf,path_jobs);      /* job directory path */
+  strcat(namebuf,pjob->ji_qs.ji_fileprefix);
+  strcat(namebuf,JOB_TASKDIR_SUFFIX);
 
-  if ((dir = opendir(dirname)) == NULL)
+#ifdef HAVE_OPEN64
+  fds = open64(namebuf,O_RDONLY,0);
+#else
+  fds = open(namebuf,O_RDONLY,0);
+#endif
+
+  if (fds < 0) 
     {
-    return(-1);
+    log_err(errno,id,"open of task file");
+
+    unlink(namebuf);
+
+    return -1;
     }
 
-  strcat(dirname,"/");
+  /* read in task quick save sub-structure */
 
-  while ((pdirent = readdir(dir)) != NULL) 
+  while (read(fds,(char *)&task_save,sizeof(task_save)) == sizeof(task_save))
     {
-    if (pdirent->d_name[0] == '.')
-      continue;
-
-    strcpy(namebuf,dirname);
-    strcat(namebuf,pdirent->d_name);
-
-    fds = open(namebuf,O_RDONLY,0);
-
-    if (fds < 0) 
-      {
-      log_err(errno,id,"open of task file");
-
-      unlink(namebuf);
-
-      continue;
-      }
-
-    /* read in task quick save sub-structure */
-
-    if (read(fds,(char *)&task_save,sizeof(task_save)) != sizeof(task_save)) 
-      {
-      log_err(errno,id,"read");
-
-      unlink(namebuf);
-
-      close(fds);
-
-      continue;
-      }
-
     if ((pt = pbs_task_create(pjob,TM_NULL_TASK)) == NULL)  
       {
       log_err(errno,id,"cannot create task");
 
-      unlink(namebuf);
-
       close(fds);
 
-      continue;
+      return -1;
       }
 
     pt->ti_qs = task_save;
+    } /* END while read */
 
-    close(fds);
-    }  /* END while ((pdirent = readdir(dir)) != NULL) */
-
-  closedir(dir);
-
-  /* SUCCESS */
+  close(fds);
 
   return(0);
   }  /* END task_recov() */
@@ -2120,6 +2101,21 @@ void im_request(
           }
         }
 
+#ifdef PENABLE_LINUX26_CPUSETS
+
+      sprintf(log_buffer,"about to create cpuset for job %s.\n",
+        pjob->ji_qs.ji_jobid);
+
+      log_err(-1,id,log_buffer);
+    if (create_jobset(pjob) != 0)
+      {   
+      sprintf(log_buffer,"Could not create cpuset for job %s.\n",
+        pjob->ji_qs.ji_jobid);
+
+      log_err(-1,id,log_buffer);
+      }   
+#endif  /* (PENABLE_LINUX26_CPUSETS) */
+
       /* run local prolog */
 
       if ((j = run_pelog(
@@ -2189,23 +2185,6 @@ void im_request(
 
       job_save(pjob,SAVEJOB_FULL);
 
-      strcpy(namebuf,path_jobs);      /* job directory path */
-      strcat(namebuf,pjob->ji_qs.ji_fileprefix);
-      strcat(namebuf,JOB_TASKDIR_SUFFIX);
-  
-      if (mkdir(namebuf,0700) == -1) 
-        {
-        log_err(-1,id,"cannot create temporary directory");
-
-        job_purge(pjob);
-
-        /* cannot create temporary job directory */
-
-        SEND_ERR(PBSE_SYSTEM)
-  
-        goto done;
-        }
-  
       sprintf(log_buffer,"JOIN JOB as node %d", 
         nodeid);
   

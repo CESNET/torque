@@ -117,6 +117,7 @@
 #include "net_connect.h"
 #include "pbs_proto.h"
 #include "batch_request.h"
+#include "array.h"
 
 
 /*#ifndef SIGKILL*/
@@ -179,7 +180,6 @@ extern char	*path_nodes_new;
 extern char	*path_nodestate;
 extern char	*path_nodenote;
 extern char	*path_nodenote_new;
-extern char	*path_resources;
 #ifdef GSSAPI
 extern char     *path_creds;
 #endif
@@ -198,6 +198,9 @@ extern tlist_head task_list_timed;
 extern tlist_head task_list_event;
 extern time_t	 time_now;
 
+extern int LOGLEVEL;
+extern char *plogenv;
+
 extern struct server server;
 
 /* External Functions Called */
@@ -209,7 +212,6 @@ extern void   set_old_nodes A_((job *));
 extern void   acct_close A_((void));
 extern struct work_task *apply_job_delete_nanny A_((struct job *,int));
 extern int     net_move A_((job *,struct batch_request *));
-extern int delete_array_struct(job_array *pa);
 extern void  job_clone_wt A_((struct work_task *));
 
 /* Private functions in this file */
@@ -219,6 +221,7 @@ static char *build_path A_((char *,char *,char *));
 static void  catch_child A_((int));
 static void  catch_abort A_((int));
 static void  change_logs A_((int));
+static void  change_log_level A_((int));
 static int   chk_save_file A_((char *));
 static void  need_y_response A_((int));
 static int   pbsd_init_job A_((job *,int));
@@ -232,6 +235,37 @@ static void  stop_me A_((int));
 #define CHANGE_STATE 1
 #define KEEP_STATE   0
 
+/* Add the server names from /var/spool/torque/server_name to the trusted hosts list. */
+void add_server_names_to_acl_hosts()
+
+  {
+  int n, list_len, rc;
+  char *server_list_ptr;
+  char *tp;
+  char buffer[PBS_MAXSERVERNAME+1];
+  attribute temp;
+  struct attribute *patr = &server.sv_attr[(int)SRV_ATR_acl_hosts];
+ 
+    server_list_ptr = pbs_get_server_list();
+    list_len = csv_length(server_list_ptr);
+    for (n=0; n<list_len; n++)
+      {
+      tp = csv_nth(server_list_ptr, n);
+      if (tp)
+      {
+      strcpy(buffer, tp);
+      if ((tp = strchr(buffer, ':')))  /* Don't include any port specification */
+        *tp = 0;
+      if ((rc = decode_arst_direct(&temp,buffer)) != 0)
+        {
+        return;
+        }
+      set_arst(patr,&temp,DECR); /* First make sure that the strings are not there. */
+      set_arst(patr,&temp,INCR);
+      free_arst(&temp);
+      }
+    }
+  }
 
 
 /*
@@ -285,11 +319,6 @@ int pbsd_init(
   i = getgid();
 
   setgroups(1,(gid_t *)&i);	/* secure suppl. groups */
-
-  i = sysconf(_SC_OPEN_MAX);
-
-  while (--i < 2)
-    close(i); /* close any file desc left open by parent */
 
 #ifndef DEBUG
 #ifdef _CRAY
@@ -413,6 +442,8 @@ int pbsd_init(
     return(2);
     }
 
+  act.sa_handler = change_log_level;
+
   if (sigaction(SIGUSR1,&act,&oact) != 0) 
     {
     log_err(errno,id,"sigaction for USR1");
@@ -446,9 +477,8 @@ int pbsd_init(
 #endif
   path_nodenote  = build_path(path_priv, NODE_NOTE,    NULL);
   path_nodenote_new = build_path(path_priv, NODE_NOTE, new_tag);
-  path_resources = build_path(path_home, PBS_RESOURCES, NULL);
 
-  init_resc_defs(path_resources);
+  init_resc_defs();
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 
@@ -608,7 +638,9 @@ int pbsd_init(
 
     return(-1);
     }
- 
+
+  add_server_names_to_acl_hosts(); 
+
   /*
    * 8. If not a "create" initialization, recover queues.
    *    If a create, remove any queues that might be there.
@@ -709,6 +741,7 @@ int pbsd_init(
        
        if ((type != RECOV_CREATE) && (type != RECOV_COLD))
          {
+	 
 	 /* skip files without the proper suffix */
 	 baselen = strlen(pdirent->d_name) - array_suf_len;
 
@@ -718,25 +751,13 @@ int pbsd_init(
            continue;
 	 
 	 
-	 pa = (job_array*)malloc(sizeof(job_array));
-	 CLEAR_LINK(pa->all_arrays);
-	 CLEAR_HEAD(pa->array_alljobs);
-	 pa->jobs_recovered = 0;
-	 
-	 fd = open(pdirent->d_name, O_RDONLY,0);
-	 	 	 
-	 if (read(fd, &(pa->ai_qs), sizeof(pa->ai_qs)) != sizeof(pa->ai_qs))
+	 pa = recover_array_struct(pdirent->d_name);
+	 if (pa == NULL)
 	   {
-	   sprintf(log_buffer,"unable to read %s", pdirent->d_name);
-
-           log_err(errno,"pbsd_init",log_buffer);
-
-           return(-1);
+	   /* TODO GB */
 	   }
-	   
-	 close(fd);
-	 
-	 append_link(&svr_jobarrays, &pa->all_arrays, (void*)pa);
+	
+	 pa->jobs_recovered = 0;
 	 
 	 }
        else
@@ -807,7 +828,7 @@ int pbsd_init(
 	  if ((pjob = job_recov(pdirent->d_name)) != NULL) 
             {
 	    append_link(&svr_alljobs,&pjob->ji_alljobs,pjob);
-	    pjob ->ji_isparent = TRUE;
+	    pjob->ji_isparent = TRUE;
 	    }
 	  else
 	    {
@@ -848,7 +869,7 @@ int pbsd_init(
 
           if ((type != RECOV_COLD) &&
               (type != RECOV_CREATE) &&
-	       pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long == 1 &&
+	      (!(pjob->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET)) &&
               (pjob->ji_qs.ji_svrflags & JOB_SVFLG_SCRIPT))
             {
             strcpy(basen,pdirent->d_name);
@@ -960,7 +981,7 @@ int pbsd_init(
 	   we probably should delete that last job and start the cloning process off at 
 	   num_cloned */
         wt = set_task(WORK_Timed,time_now+1,job_clone_wt,(void*)pjob);
-        wt->wt_aux = pa->ai_qs.num_cloned;
+        
         }
       
       }
@@ -1514,7 +1535,7 @@ static void catch_child(
 
     ptask = (struct work_task *)GET_NEXT(task_list_event);
 
-    while (ptask) 
+    while (ptask != NULL) 
       {
       if ((ptask->wt_type == WORK_Deferred_Child) &&
           (ptask->wt_event == pid)) 
@@ -1527,7 +1548,7 @@ static void catch_child(
 
       ptask = (struct work_task *)GET_NEXT(ptask->wt_linkall);
       }
-    }
+    }    /* END while (1) */
 
   return;
   }  /* END catch_child() */
@@ -1557,6 +1578,63 @@ static void change_logs(
 
   return;
   }
+
+/*
+ * change_log_level - signal handler for SIGUSR! and SIGUSR2
+ * Increases log level if SIGUSR1 is received.
+ * Decreases log level if SIGUSR2 is received.
+ * Variable plogenv tells us whether or not PBSLOGLEVEL was specified
+ * If it was not then we will update the server log level attribute
+ * which allows qmgr to see the current log level value
+ */
+
+static void change_log_level(
+
+  int sig)
+
+  {
+  if (sig == SIGUSR1)
+    {
+    /* increase log level */
+  
+    if (plogenv == NULL )
+      LOGLEVEL = server.sv_attr[(int)SRV_ATR_LogLevel].at_val.at_long;
+    
+    LOGLEVEL = MIN(LOGLEVEL + 1,7);
+    
+    if (plogenv == NULL )
+      {
+      server.sv_attr[(int)SRV_ATR_LogLevel].at_val.at_long = LOGLEVEL;
+      server.sv_attr[(int)SRV_ATR_LogLevel].at_flags = ATR_VFLAG_SET;
+      }
+    }
+  else if (sig == SIGUSR2)
+    {
+    /* increase log level */
+    if (plogenv == NULL )
+      LOGLEVEL = server.sv_attr[(int)SRV_ATR_LogLevel].at_val.at_long;
+    
+    LOGLEVEL = MAX(LOGLEVEL - 1,0);
+    
+    if (plogenv == NULL )
+      {
+      server.sv_attr[(int)SRV_ATR_LogLevel].at_val.at_long = LOGLEVEL;
+      server.sv_attr[(int)SRV_ATR_LogLevel].at_flags = ATR_VFLAG_SET;
+      }
+    }
+
+  sprintf(log_buffer,"received signal %d: adjusting loglevel to %d",
+    sig,
+    LOGLEVEL);
+
+  log_record(
+    PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+    PBS_EVENTCLASS_SERVER,
+    msg_daemonname,
+    log_buffer);
+
+  return;
+  }  /* END change_log_level() */
 
 
 

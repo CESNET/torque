@@ -49,6 +49,7 @@ am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/buildutils/ac_c_bigendian_cross.m4 \
 	$(top_srcdir)/buildutils/t_add_rpath.m4 \
 	$(top_srcdir)/buildutils/tac_tcltk.m4 \
+	$(top_srcdir)/buildutils/ax_cflags_gcc_option.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
@@ -331,7 +332,11 @@ noinst_HEADERS = acct.h array.h attribute.h batch_request.h cmds.h \
 		 qmgr_que_readonly.h qmgr_svr_public.h qmgr_svr_readonly.h \
 		 queue.h resmon.h resource.h sched_cmds.h server.h \
 		 server_limits.h svrfunc.h tracking.h work_task.h \
+<<<<<<< .working
                  port_forwarding.h pbs_cpa.h pbsgss.h
+=======
+                 port_forwarding.h pbs_cpa.h pbs_cpuset.h
+>>>>>>> .merge-right.r1840
 
 BUILT_SOURCES = site_job_attr_def.h site_job_attr_enum.h \
 		site_qmgr_node_print.h site_qmgr_que_print.h \

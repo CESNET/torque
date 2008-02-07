@@ -47,6 +47,7 @@ am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/buildutils/ac_c_bigendian_cross.m4 \
 	$(top_srcdir)/buildutils/t_add_rpath.m4 \
 	$(top_srcdir)/buildutils/tac_tcltk.m4 \
+	$(top_srcdir)/buildutils/ax_cflags_gcc_option.m4 \
 	$(top_srcdir)/configure.ac
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
@@ -317,13 +318,13 @@ XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
 DIST_SUBDIRS = cmds  iff      lib      resmom          scheduler.cc   server \
- gui scheduler.basl   include  mom_rcp    scheduler.tcl  tools pam drmaa
+ gui scheduler.basl   include  mom_rcp    scheduler.tcl  tools pam drmaa momctl
 
 @INCLUDE_SERVER_TRUE@SERVER_DIRS = server @SCHD_TYPE_SUBDIR@
-@INCLUDE_MOM_TRUE@RESMOM_DIR = resmom
+@INCLUDE_MOM_TRUE@RESMOM_DIR = resmom momctl
 @INCLUDE_MOM_RCP_TRUE@@INCLUDE_MOM_TRUE@MOMRCP_DIR = mom_rcp
 @INCLUDE_MOM_TRUE@MOM_DIRS = $(RESMOM_DIR) $(MOMRCP_DIR)
-@INCLUDE_CLIENTS_TRUE@CLIENTS_DIRS = iff cmds tools
+@INCLUDE_CLIENTS_TRUE@CLIENTS_DIRS = iff cmds tools momctl
 @INCLUDE_GUI_TRUE@GUI_DIRS = gui tools
 @INCLUDE_PAM_TRUE@PAM_DIRS = pam
 @INCLUDE_DRMAA_TRUE@DRMAA_DIRS = drmaa

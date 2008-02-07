@@ -91,6 +91,7 @@
 #include <unistd.h>    /* added - CRI 9/05 */
 #include <sys/time.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -234,6 +235,10 @@ int init_network(
   int 		 sock;
   struct sockaddr_in socname;
   enum conn_type   type;
+#ifdef ENABLE_UNIX_SOCKETS
+  struct sockaddr_un unsocname;
+  int unixsocket;
+#endif
 
   if (initialized == 0) 
     {
@@ -290,7 +295,7 @@ int init_network(
 	
   /* record socket in connection structure and select set */
 
-  add_conn(sock,type,(pbs_net_t)0,0,accept_conn);
+  add_conn(sock,type,(pbs_net_t)0,0,PBS_SOCK_INET,accept_conn);
 	
   /* start listening for connections */
 
@@ -299,6 +304,46 @@ int init_network(
 
     return(-1);
     }
+
+
+#ifdef ENABLE_UNIX_SOCKETS
+  /* setup unix domain socket */
+
+  unixsocket=socket(AF_UNIX,SOCK_STREAM,0);
+  if (unixsocket < 0) 
+    {
+    return(-1);
+    }
+
+  unsocname.sun_family=AF_UNIX;
+  strncpy(unsocname.sun_path,TSOCK_PATH,107);  /* sun_path is defined to be 108 bytes */
+
+  unlink(TSOCK_PATH);  /* don't care if this fails */
+
+  if (bind(unixsocket,
+            (struct sockaddr *)&unsocname,
+            strlen(unsocname.sun_path) + sizeof(unsocname.sun_family)) < 0) 
+    {
+    close(unixsocket);
+
+    return(-1);
+    }
+
+  if (chmod(TSOCK_PATH,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH) != 0)
+    {
+    close(unixsocket);
+
+    return(-1);
+    }
+
+  add_conn(unixsocket,type,(pbs_net_t)0,0,PBS_SOCK_UNIX,accept_conn);
+  if (listen(unixsocket,512) < 0) 
+    {
+
+    return(-1);
+    }
+#endif /* END ENABLE_UNIX_SOCKETS */
+
 
   /* allocate a minute's worth of counter structs */
 
@@ -369,7 +414,7 @@ int wait_request(
 
       /* NOTE:  selset may be modified by failed select() */
 
-      for (i = 0;i < FD_SETSIZE;i++)
+      for (i = 0;i < (int)FD_SETSIZE;i++)
         {
         if (FD_ISSET(i,&readset) == 0)
           continue;
@@ -483,6 +528,7 @@ static void accept_conn(
   {
   int newsock;
   struct sockaddr_in from;
+  struct sockaddr_un unixfrom;
 
   torque_socklen_t fromsize;
 	
@@ -490,9 +536,17 @@ static void accept_conn(
 
   svr_conn[sd].cn_lasttime = time((time_t *)0);
 
-  fromsize = sizeof(from);
 
-  newsock = accept(sd,(struct sockaddr *)&from,&fromsize);
+  if (svr_conn[sd].cn_socktype == PBS_SOCK_INET)
+    {
+    fromsize = sizeof(from);
+    newsock = accept(sd,(struct sockaddr *)&from,&fromsize);
+    }
+  else
+    {
+    fromsize = sizeof(unixfrom);
+    newsock = accept(sd,(struct sockaddr *)&unixfrom,&fromsize);
+    }
 
   if (newsock == -1) 
     {
@@ -514,6 +568,7 @@ static void accept_conn(
     FromClientDIS, 
     (pbs_net_t)ntohl(from.sin_addr.s_addr),
     (unsigned int)ntohs(from.sin_port),
+    svr_conn[sd].cn_socktype,
     read_func[(int)svr_conn[sd].cn_active]);
 
   return;
@@ -533,6 +588,7 @@ void add_conn(
   enum conn_type type,	   /* type of connection */
   pbs_net_t      addr,	   /* IP address of connected host */
   unsigned int   port,	   /* port number (host order) on connected host */
+  unsigned int   socktype, /* inet or unix */
   void (*func) A_((int)))  /* function to invoke on data rdy to read */
 
   {
@@ -546,9 +602,10 @@ void add_conn(
   svr_conn[sock].cn_lasttime = time((time_t *)0);
   svr_conn[sock].cn_func     = func;
   svr_conn[sock].cn_oncl     = 0;
+  svr_conn[sock].cn_socktype = socktype;
 
 #ifndef NOPRIVPORTS
-  if (port < IPPORT_RESERVED)
+  if (socktype == PBS_SOCK_INET && port < IPPORT_RESERVED)
     svr_conn[sock].cn_authen = PBS_NET_CONN_FROM_PRIVIL;
   else
     svr_conn[sock].cn_authen = 0;

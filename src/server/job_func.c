@@ -146,25 +146,11 @@
 int conn_qsub(char *,long,char *);
 void job_purge(job *);
 
-#ifndef CPUSETISREADY
-#ifdef PENABLE_DYNAMIC_CPUSETS
-  #undef PENABLE_DYNAMIC_CPUSETS
-#endif /* PENABLE_DYNAMIC_CPUSETS */
-#endif /* !CPUSETISREADY */
-
 /* External functions */
 
-#ifdef PBS_MOM
-#if IBM_SP2==2		/* IBM SP PSSP 3.1 */
-void unload_sp_switch A_((job *pjob));
-#endif			/* IBM SP */
-#endif	/*  PBS_MOM */
-
-#ifndef PBS_MOM
 extern int array_save(job_array *);
 extern job_array *get_array(char *id);
 extern int delete_array_struct(job_array *pa);
-#endif
 
 /* Local Private Functions */
 
@@ -172,14 +158,10 @@ static void job_init_wattr A_((job *));
 
 /* Global Data items */
 
-#ifndef PBS_MOM
 extern struct server   server;
 extern int queue_rank;
 extern tlist_head svr_jobarrays;
 extern char *path_arrays;
-#else
-extern gid_t pbsgroup;
-#endif	/* PBS_MOM */
 extern char *msg_abt_err;
 extern char *path_jobs;
 extern char *path_spool;
@@ -194,185 +176,6 @@ extern char *path_creds;
 extern tlist_head svr_newjobs;
 extern tlist_head svr_alljobs;
 
-
-#ifdef PBS_MOM
-void nodes_free A_((job *));
-int TTmpDirName A_((job *,char *));
-
-
-void tasks_free(
-
-  job *pj)
-
-  {
-  task	*tp = (task *)GET_NEXT(pj->ji_tasks);
-  obitent	*op;
-  infoent *ip;
-
-  while (tp != NULL) 
-    {
-    op = (obitent *)GET_NEXT(tp->ti_obits);
-
-    while (op != NULL) 
-      {
-      delete_link(&op->oe_next);
-
-      free(op);
-
-      op = (obitent *)GET_NEXT(tp->ti_obits);
-      }  /* END while (op != NULL) */
-
-    ip = (infoent *)GET_NEXT(tp->ti_info);
-
-    while (ip != NULL) 
-      {
-      delete_link(&ip->ie_next);
-
-      free(ip->ie_name);
-      free(ip->ie_info);
-      free(ip);
-
-      ip = (infoent *)GET_NEXT(tp->ti_info);
-      }
-
-    close_conn(tp->ti_fd);
-
-    delete_link(&tp->ti_jobtask);
-
-    free(tp);
-
-    tp = (task *)GET_NEXT(pj->ji_tasks);
-    }  /* END while (tp != NULL) */
-
-  return;
-  }  /* END tasks_free() */
-
-
-
-
-
-/*
- * remtree - remove a tree (or single file)
- *
- *	returns	 0 on success
- *		-1 on failure
- */
-
-int remtree(
-
-  char *dirname)
-
-  {
-  static	char	id[] = "remtree";
-  DIR		*dir;
-  struct dirent	*pdir;
-  char		namebuf[MAXPATHLEN], *filnam;
-  int		i;
-  int		rtnv = 0;
-#if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64)
-  struct stat64	sb;
-#else
-  struct stat	sb;
-#endif
-
-#if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64)
-  if (lstat64(dirname,&sb) == -1) 
-#else
-  if (lstat(dirname,&sb) == -1) 
-#endif
-    {
-  if (errno != ENOENT)
-    log_err(errno,id,"stat");
-
-  return(-1);
-  }
-
-  if (S_ISDIR(sb.st_mode)) 
-    {
-    if ((dir = opendir(dirname)) == NULL) 
-      {
-      if (errno != ENOENT)
-        log_err(errno,id,"opendir");
-
-      return(-1);
-      }
-
-    strcpy(namebuf,dirname);
-    strcat(namebuf,"/");
-
-    i = strlen(namebuf);
-
-    filnam = &namebuf[i];
-
-    while ((pdir = readdir(dir)) != NULL) 
-      {
-      if ((pdir->d_name[0] == '.') &&
-         ((pdir->d_name[1] == '\0') || (pdir->d_name[1] == '.')))
-        continue;
-
-      strcpy(filnam,pdir->d_name);
-
-#if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64)
-      if (lstat64(namebuf,&sb) == -1) 
-#else
-      if (lstat(namebuf,&sb) == -1) 
-#endif
-        {
-        log_err(errno,id,"stat");
- 
-        rtnv = -1;
- 
-        continue;
-        }
-
-      if (S_ISDIR(sb.st_mode)) 
-        {
-        rtnv = remtree(namebuf);
-        }
-      else if (unlink(namebuf) < 0) 
-        {
-        if (errno != ENOENT) 
-          {
-          sprintf(log_buffer,"unlink failed on %s", 
-            namebuf);
-
-          log_err(errno,id,log_buffer);
-
-          rtnv = -1;
-          }
-        }
-      }    /* END while ((pdir = readdir(dir)) != NULL) */
-
-    closedir(dir);
-
-    if (rmdir(dirname) < 0) 
-      {
-      if ((errno != ENOENT) && (errno != EINVAL)) 
-        {
-        sprintf(log_buffer,"rmdir failed on %s", 
-          dirname);
-
-        log_err(errno,id,log_buffer);
-
-        rtnv = -1;
-        }
-      }
-    } 
-  else if (unlink(dirname) < 0) 
-    {
-    sprintf(log_buffer,"unlink failed on %s", 
-      dirname);
-
-    log_err(errno,id,log_buffer);
-
-    rtnv = -1;
-    }
-
-  return(rtnv);
-  }  /* END remtree() */
-
-
-#else	/* PBS_MOM */
 
 
 void send_qsub_delmsg(
@@ -419,7 +222,22 @@ void send_qsub_delmsg(
  *	to the job owner.
  */
 
-/* NOTE:  this routine is called under the following conditions:  ??? */
+/* NOTE:  this routine is called under the following conditions:
+ * 1) by req_deletejob whenever deleting a job that is not running,
+ *    not transitting, not exiting and does not have a checkpoint
+ *    file on the mom.
+ * 2) by req_deletearray whenever deleting a job that is not running,
+ *    not transitting, not in prerun, not exiting and does not have a
+ *    checkpoint file on the mom.
+ * 3) by close_quejob when the server fails to enqueue the job.
+ * 4) by array_delete_wt for prerun jobs that hang around too long and 
+ *    do not have a checkpoint file on the mom.
+ * 5) by pbsd_init when recovering jobs.
+ * 6) by svr_movejob when done routing jobs around.
+ * 7) by queue_route when trying toroute any "ready" jobs in a specific queue.
+ * 8) by req_shutdown when trying to shutdown.
+ * 9) by req_register when the request oparation is JOB_DEPEND_OP_DELETE.
+ */
 
 int job_abt(
 
@@ -523,8 +341,6 @@ int job_abt(
   return(rc);
   }  /* END job_abt() */
 
-#endif	/* else PBS_MOM */
-
 
 /*
  * conn_qsub - connect to the qsub that submitted this interactive job
@@ -623,27 +439,10 @@ job *job_alloc()
   CLEAR_LINK(pj->ji_alljobs);
   CLEAR_LINK(pj->ji_jobque);
 
-#ifdef	PBS_MOM
-  CLEAR_HEAD(pj->ji_tasks);
-  pj->ji_taskid = TM_NULL_TASK + 1;
-  pj->ji_numnodes = 0;
-  pj->ji_numvnod  = 0;
-  pj->ji_hosts = NULL;
-  pj->ji_vnods = NULL;
-  pj->ji_resources = NULL;
-  pj->ji_obit = TM_NULL_EVENT;
-  pj->ji_preq = NULL;
-  pj->ji_nodekill = TM_ERROR_NODE;
-  pj->ji_flags = 0;
-  pj->ji_globid = NULL;
-  pj->ji_stdout = 0;
-  pj->ji_stderr = 0;
-#else	/* SERVER */
   CLEAR_HEAD(pj->ji_svrtask);
   CLEAR_HEAD(pj->ji_rejectdest);
   CLEAR_LINK(pj->ji_arrayjobs);
   pj->ji_isparent = FALSE;
-#endif  /* else PBS_MOM */
 
   pj->ji_momhandle = -1;		/* mark mom connection invalid */
 
@@ -669,10 +468,8 @@ void job_free(
   {
   int			 i;
 
-#ifndef PBS_MOM
   struct work_task	*pwt;
   badplace		*bp;
-#endif /* PBS_MOM */
 
   if (LOGLEVEL >= 8)
     {
@@ -690,8 +487,6 @@ void job_free(
     {
     job_attr_def[i].at_free(&pj->ji_wattr[i]);
     }
-
-#ifndef PBS_MOM
 
   /* delete any work task entries associated with the job */
 
@@ -713,24 +508,6 @@ void job_free(
     bp = (badplace *)GET_NEXT(pj->ji_rejectdest);
     }
 
-#else
- 
-  if (pj->ji_grpcache)
-    free(pj->ji_grpcache);
-
-  assert(pj->ji_preq == NULL);
-
-  nodes_free(pj);
-  tasks_free(pj);
-
-  if (pj->ji_resources)
-    free(pj->ji_resources);
-
-  if (pj->ji_globid)
-    free(pj->ji_globid);
-
-#endif	/* PBS_MOM */
-
   /* now free the main structure */
 
   free((char *)pj);
@@ -738,8 +515,6 @@ void job_free(
   return;
   }  /* END job_free() */
   
-
-#ifndef PBS_MOM
 
 /*
  * job_clone - create a clone of a job for use with job arrays
@@ -888,7 +663,7 @@ job *job_clone(
     {
     if(poldjob->ji_wattr[i].at_flags & ATR_VFLAG_SET)
       {
-      if (i == JOB_ATR_errpath || i == JOB_ATR_outpath)
+      if (i == JOB_ATR_errpath || i == JOB_ATR_outpath || i == JOB_ATR_jobname)
         {
 	/* modify the errpath adn outpath */
 	slen = strlen(poldjob->ji_wattr[i].at_val.at_str);
@@ -903,6 +678,8 @@ job *job_clone(
 	    &pnewjob->ji_wattr[i],
 	    &tempattr,
 	    SET);
+
+        job_attr_def[i].at_free(&tempattr);
 	free(tmpstr);
 	}
       else
@@ -936,12 +713,14 @@ job *job_clone(
     &tempattr, 
     INCR);  
 
+  job_attr_def[(int)JOB_ATR_variables].at_free(&tempattr);
+
   /* we need to link the cloned job into the array task list */
   pa = get_array(poldjob->ji_qs.ji_jobid);
   
   CLEAR_LINK(pnewjob->ji_arrayjobs);
   append_link(&pa->array_alljobs, &pnewjob->ji_arrayjobs, (void*)pnewjob);
-  pnewjob->ji_arrayjoblist = pa;
+  pnewjob->ji_arraystruct = pa;
  
 
   return pnewjob;
@@ -959,63 +738,97 @@ struct work_task *ptask)
   job *pjobclone;
   struct work_task *new_task;
   int i;
-  int startindex;
+  int num_cloned;
   int newstate;
   int newsub;
   int rc;
   char namebuf[MAXPATHLEN];
   job_array *pa;
+  
+  array_request_node *rn;
+  int start;
+  int end;
+  int loop;
+  
   pjob = (job*)(ptask->wt_parm1);
   
   pa = get_array(pjob->ji_qs.ji_jobid);
-  
-  startindex = pa->ai_qs.num_cloned;
-  
+  rn = (array_request_node*)GET_NEXT(pa->request_tokens);
+   
   strcpy(namebuf, path_jobs);
   strcat(namebuf, pjob->ji_qs.ji_fileprefix);
   strcat(namebuf, ".AR");
   
   
   /* do the clones in batches of 256 */
-  
-  
-  for (i = startindex; 
-       i < startindex + 256 
-       && i < pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long;
-       i++)
-    {
-    pjobclone = job_clone(pjob, i);
-    if (pjobclone == NULL)
-      {
-      log_err(-1, id, "unable to clone job in job_clone_wt");
-      continue;
-      }
+ 
 
-    svr_evaljobstate(pjobclone,&newstate,&newsub,1);
-    svr_setjobstate(pjobclone,newstate,newsub);
-    pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long = ++queue_rank;
-    pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_flags |= ATR_VFLAG_SET;
+  num_cloned = 0;
+  loop = TRUE;
+  
+  while (loop)
+    {
+    start = rn->start;
+    end = rn->end;
     
-    
-    if ((rc = svr_enquejob(pjobclone))) 
+    if (end - start > 256)
       {
-      job_purge(pjobclone);
+      end = start + 255;
       }
       
-    if (job_save(pjobclone,SAVEJOB_FULL) != 0) 
+    for (i = start; i <= end; i++)
       {
-      job_purge(pjobclone);
+      pjobclone = job_clone(pjob, i);
+      if (pjobclone == NULL)
+        {
+        log_err(-1, id, "unable to clone job in job_clone_wt");
+        continue;
+        }
+
+      svr_evaljobstate(pjobclone,&newstate,&newsub,1);
+      svr_setjobstate(pjobclone,newstate,newsub);
+      pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long = ++queue_rank;
+      pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_flags |= ATR_VFLAG_SET;
+    
+    
+      if ((rc = svr_enquejob(pjobclone))) 
+        {
+        job_purge(pjobclone);
+        }
+      
+      if (job_save(pjobclone,SAVEJOB_FULL) != 0) 
+        {
+        job_purge(pjobclone);
+        }
+      
+      pa->ai_qs.num_cloned++;
+      
+      rn->start++;
+
+      
+      array_save(pa);
+      num_cloned++;
+      
       }
       
-    pa->ai_qs.num_cloned++;
-    array_save(pa);
+    if (rn->start > rn->end)
+      {
+      delete_link(&rn->request_tokens_link);
+      free(rn);
+      rn = (array_request_node*)GET_NEXT(pa->request_tokens);
+      array_save(pa);
+      }
+      
+    if (num_cloned == 256 || rn == NULL)
+      {
+      loop = FALSE;
+      }
+    
     }
   
-  
 
   
-  
-  if (i < pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long)
+  if (rn != NULL)
     {
     new_task = set_task(WORK_Timed,time_now + 1,job_clone_wt,ptask->wt_parm1);
     }
@@ -1051,8 +864,6 @@ struct work_task *ptask)
     }
   } /* end job_clone_tw */
   
-#endif /* END !PBS_MOM */
-
 
 
 
@@ -1097,104 +908,10 @@ void job_purge(
 
   char          namebuf[MAXPATHLEN + 1];
   extern char  *msg_err_purgejob;
-#ifdef PBS_MOM
-  int           rc;
-  extern void MOMCheckRestart A_((void));
-#ifdef PENABLE_LINUX26_CPUSETS 
-  char                 cpuset_name[MAXPATHLEN + 1];
-#endif
-#endif
 #ifdef GSSAPI
   char          *ccname;
   char          *kdestroy;
 #endif
-
-
-#ifdef PBS_MOM
-
-  if (pjob->ji_flags & MOM_HAS_TMPDIR)
-    {
-    if (TTmpDirName(pjob,namebuf))
-      {
-      sprintf(log_buffer,"removing transient job directory %s",
-        namebuf);
-      
-      log_record(PBSEVENT_DEBUG,
-        PBS_EVENTCLASS_JOB,
-        pjob->ji_qs.ji_jobid,
-        log_buffer);
-      
-      if ((setegid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1) ||
-          (seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) == -1))
-        {
-        /* FAILURE */
- 
-        return;
-        }
-
-      rc = remtree(namebuf);
-
-      seteuid(0);
-      setegid(pbsgroup);
-
-      if ((rc != 0) && (LOGLEVEL >= 5))
-        {
-        sprintf(log_buffer,
-          "recursive remove of job transient tmpdir %s failed",
-          namebuf);
-    
-        log_err(errno, "recursive (r)rmdir",log_buffer);
-        }
-         
-      pjob->ji_flags &= ~MOM_HAS_TMPDIR;
-      }
-    }
-
-#ifdef PENABLE_LINUX26_CPUSETS 
-
-  {
-  extern void cpuset_delete(char *);
-
-  /* Delete the cpuset for the job. */
-
-  sprintf(cpuset_name,"torque/%s", 
-    pjob->ji_qs.ji_jobid);
-
-  cpuset_delete(cpuset_name);
-  }
-
-#endif /* PENABLE_LINUX26_CPUSETS */
-
-  /* delete the nodefile if still hanging around */
-
-  if (pjob->ji_flags & MOM_HAS_NODEFILE)
-    {
-    char file[MAXPATHLEN + 1];
-
-    sprintf(file,"%s/%s",
-      path_aux,
-      pjob->ji_qs.ji_jobid);
-
-    unlink(file);
-
-    pjob->ji_flags &= ~MOM_HAS_NODEFILE;
-    }
-
-  delete_link(&pjob->ji_jobque);
-  delete_link(&pjob->ji_alljobs);
-
-  if (LOGLEVEL >= 6)
-    {
-    sprintf(log_buffer,"removing job");
-
-    log_record(PBSEVENT_DEBUG,
-      PBS_EVENTCLASS_JOB,
-      pjob->ji_qs.ji_jobid,
-      log_buffer);
-    }
-#else /* PBS_MOM */
-
-  /* server only */
 
   if ((pjob->ji_qs.ji_substate != JOB_SUBSTATE_TRANSIN) &&
       (pjob->ji_qs.ji_substate != JOB_SUBSTATE_TRANSICM))
@@ -1203,16 +920,16 @@ void job_purge(
     }
     
   /* if part of job array then remove from array's job list */ 
-  if (pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_flags & ATR_VFLAG_SET &&
-      pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long > 1 && pjob->ji_isparent == FALSE)
+  if (pjob->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET &&
+      pjob->ji_isparent == FALSE)
     {
     
     delete_link(&pjob->ji_arrayjobs);
     /* if the only thing in the array alljobs list is the head, then we can 
        clean that up too */
-    if ( GET_NEXT(pjob->ji_arrayjoblist->array_alljobs) == pjob->ji_arrayjoblist->array_alljobs.ll_struct)
+    if ( GET_NEXT(pjob->ji_arraystruct->array_alljobs) == pjob->ji_arraystruct->array_alljobs.ll_struct)
       {
-      delete_array_struct(pjob->ji_arrayjoblist);
+      delete_array_struct(pjob->ji_arraystruct);
       }
     }
     
@@ -1222,8 +939,7 @@ void job_purge(
     }
 
 
-  if (!(pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_flags & ATR_VFLAG_SET) || 
-      pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long == 1)
+  if (!(pjob->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET))
     {
     strcpy(namebuf,path_jobs);	/* delete script file */
     strcat(namebuf,pjob->ji_qs.ji_fileprefix);
@@ -1245,51 +961,6 @@ void job_purge(
       }
     }
 
-#endif  /* PBS_MOM */
-
-
-
-#ifdef PBS_MOM
-
-  strcpy(namebuf,path_jobs);	/* delete script file */
-  strcat(namebuf,pjob->ji_qs.ji_fileprefix);
-  strcat(namebuf,JOB_SCRIPT_SUFFIX);
-
-  if (unlink(namebuf) < 0)
-    {
-    if (errno != ENOENT)
-      log_err(errno,id,msg_err_purgejob);
-    }
-  else if (LOGLEVEL >= 6)
-    {
-    sprintf(log_buffer,"removed job script");
-
-    log_record(PBSEVENT_DEBUG,
-      PBS_EVENTCLASS_JOB,
-      pjob->ji_qs.ji_jobid,
-      log_buffer);
-    }
-
-
-#if IBM_SP2==2        /* IBM SP PSSP 3.1 */
-  unload_sp_switch(pjob);
-#endif			/* IBM SP */
-  strcpy(namebuf,path_jobs);      /* job directory path */
-  strcat(namebuf,pjob->ji_qs.ji_fileprefix);
-  strcat(namebuf,JOB_TASKDIR_SUFFIX);
-  remtree(namebuf);
-
-#if MOM_CHECKPOINT == 1
-  {
-  extern char *path_checkpoint;
-
-  strcpy(namebuf,path_checkpoint);	/* delete any checkpoint file */
-  strcat(namebuf,pjob->ji_qs.ji_fileprefix);
-  strcat(namebuf,JOB_CKPT_SUFFIX);
-  remtree(namebuf);
-  }
-#endif	/* MOM_CHECKPOINT */
-#else	/* PBS_MOM */
   strcpy(namebuf,path_spool);	/* delete any spooled stdout */
   strcat(namebuf,pjob->ji_qs.ji_fileprefix);
   strcat(namebuf,JOB_STDOUT_SUFFIX);
@@ -1327,15 +998,10 @@ void job_purge(
       pjob->ji_qs.ji_jobid,
       log_buffer);
     }
-#endif	/* PBS_MOM */
-
-
 
   strcpy(namebuf,path_jobs);	/* delete job file */
   strcat(namebuf,pjob->ji_qs.ji_fileprefix);
-#ifdef PBS_MOM
-   strcat(namebuf,JOB_FILE_SUFFIX);
-#else  
+
   if (pjob->ji_isparent == TRUE)
     {
     strcat(namebuf, JOB_FILE_TMP_SUFFIX);
@@ -1344,7 +1010,6 @@ void job_purge(
     {
     strcat(namebuf,JOB_FILE_SUFFIX);
     }
-#endif
     
   if (unlink(namebuf) < 0)
     {
@@ -1375,13 +1040,6 @@ void job_purge(
 #endif
 
   job_free(pjob);
-
-#ifdef PBS_MOM
-  /* if no jobs are left, check if MOM should be restarted */
-
-  if (((job *)GET_NEXT(svr_alljobs)) == NULL)
-    MOMCheckRestart();
-#endif	/* PBS_MOM */
 
   return;
   }  /* END job_purge() */

@@ -172,6 +172,7 @@ int isjobid(
 
 
 
+
 int istrue(
 
   char *string)  /* I */
@@ -189,6 +190,7 @@ int istrue(
 
   return(FALSE);
   }  /* END istrue() */
+
 
 
 
@@ -501,31 +503,46 @@ static char *cnv_size(
   char *suffix;
   static char outbuf[25];
 
-	if (opt & ALT_DISPLAY_Mb) {
-		out = 0;
-		suffix = "mb";
-	} else if (opt & ALT_DISPLAY_Mw) {
-		out = 1;
-		suffix = "mw";
-	} else if (opt & ALT_DISPLAY_G) {
-		out = 2;
-		suffix = "gb";
-	} else {
-		return (value);		/* return unmodified */
-	}
+  if (opt & ALT_DISPLAY_Mb) 
+    {
+    out = 0;
 
-	nval = strtol(value, &pc, 10);
-	if (*pc == 'k')	in = 1;
-	else if (*pc == 'm') in = 2;
-	else if (*pc == 'g') in = 3;
-	else if (*pc == 't') in = 4;
-	else in = 0;
+    suffix = "mb";
+    } 
+  else if (opt & ALT_DISPLAY_Mw) 
+    {
+    out = 1;
 
-	sft = sift_factor[out][in];
+    suffix = "mw";
+    } 
+  else if (opt & ALT_DISPLAY_G) 
+    {
+    out = 2;
 
-	if ((*pc == 'w') || (*(pc+1) == 'w'))
-		nval = nval << 3;	/* convert to bytes */
+    suffix = "gb";
+    } 
+  else 
+    {
+    return (value);		/* return unmodified */
+    }
 
+  nval = strtol(value,&pc,10);
+
+  if (*pc == 'k')
+    in = 1;
+  else if (*pc == 'm')
+    in = 2;
+  else if (*pc == 'g')
+    in = 3;
+  else if (*pc == 't')
+    in = 4;
+  else 
+    in = 0;
+
+  sft = sift_factor[out][in];
+
+  if ((*pc == 'w') || (*(pc+1) == 'w'))
+    nval = nval << 3;	/* convert to bytes */
 	
 	if (sft < 0) {
 		nval = nval + ((1 << -sft) - 1);  /* round up (ceiling) */
@@ -1123,6 +1140,7 @@ void display_statjob(
                 !strcmp(a->name,ATTR_etime) ||
                 !strcmp(a->name,ATTR_mtime) ||
                 !strcmp(a->name,ATTR_qtime) ||
+                !strcmp(a->name,ATTR_start_time) ||
                 !strcmp(a->name,ATTR_a)) 
               {
               epoch = (time_t)atoi(a->value);

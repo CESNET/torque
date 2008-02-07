@@ -123,7 +123,7 @@ int save_tmsock(job *);
 int recov_tmsock(int,job *);
 #endif
 
-extern int job_qs_upgrade(job *,int);
+extern int job_qs_upgrade(job *,int,int);
 #ifndef PBS_MOM
 extern void get_parent_id(char *job_id, char *parent_id);
 extern job_array *get_array(char *id);
@@ -147,12 +147,11 @@ static const unsigned int quicksize = sizeof(struct jobfix);
  *			 - a full write for a new job
  *
  *	For a quick update, the data written is less than a disk block
- *	size and no size change occurs; so it is rewritten in place
- *	with O_SYNC.
+ *	size and no size change occurs; so it is rewritten in place.
  *
  *	For a full update (usually following modify job request), to
  *	insure no data is ever lost due to system crash:
- *	1. write (with O_SYNC) new image to a new file using a temp name
+ *	1. write new image to a new file using a temp name
  *	2. unlink the old (image) file
  *	3. link the correct name to the new file
  *	4. unlink the temp name
@@ -449,21 +448,7 @@ job *job_recov(
          namebuf);
     log_err(-1,"job_recov",log_buffer);
     
-    /* reset the file descriptor */
-    if (lseek(fds, 0, SEEK_SET) != 0)
-      {
-      sprintf(log_buffer, "unable to upgrade %s\n", namebuf);
-      
-      log_err(-1,"job_recov",log_buffer);
-      
-      free((char *)pj);
-
-      close(fds);
-
-      return(NULL);      
-      }
-      
-    if (job_qs_upgrade(pj,fds) != 0)
+    if (job_qs_upgrade(pj,fds,pj->ji_qs.qs_version) != 0)
       {
       sprintf(log_buffer, "unable to upgrade %s\n",namebuf);
       
@@ -535,7 +520,7 @@ job *job_recov(
     }
 #else /* PBS_MOM */
 
-  if (pj->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long > 1)
+  if (pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET)
     {
     /* job is part of an array.  We need to put a link back to the server job array struct
        for this array. We also have to link this job into the linked list of jobs belonging 
@@ -552,14 +537,18 @@ job *job_recov(
         if (pa == NULL)
           {
           /* couldn't find array struct, it must not have been recovered, 
-             treat job as indepentent job */
+             treat job as indepentent job?  perhaps we should delete the job
+	     XXX_JOB_ARRAY: should I unset this?*/
           pj->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long = 1;
+	  pj->ji_wattr[(int)JOB_ATR_job_array_size].at_flags |= ATR_VFLAG_SET;
+	  
+	  pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags &= ~ATR_VFLAG_SET;
           }
         else
           {
 	   CLEAR_LINK(pj->ji_arrayjobs);
 	   append_link(&pa->array_alljobs, &pj->ji_arrayjobs, (void*)pj);
-	   pj->ji_arrayjoblist = pa;
+	   pj->ji_arraystruct = pa;
 	   pa->jobs_recovered++;
 	  }
 	}

@@ -1,13 +1,8 @@
 include $(top_srcdir)/buildutils/config.mk
 
-if BUILDCPA
-cpasubdir=cpa
-momcpalib=cpa/libmomcpa.a
-endif
-
-SUBDIRS = @PBS_MACH@ $(cpasubdir)
+SUBDIRS = @PBS_MACH@
 DIST_SUBDIRS = aix4 aix5 darwin digitalunix freebsd freebsd5 fujitsu hpux10 hpux11 \
-	irix5 irix6 irix6array linux netbsd solaris5 solaris7 sunos4 unicos8 unicosmk2 cpa
+	irix5 irix6 irix6array linux netbsd solaris5 solaris7 sunos4 unicos8 unicosmk2
 
 AM_CPPFLAGS += -I$(top_srcdir)/src/resmom/@PBS_MACH@ -DPBS_MOM \
 	       -DDEMUX=\"$(program_prefix)$(DEMUX_PATH)$(program_suffix)\" \
@@ -22,17 +17,20 @@ PBS_LIBS = ../lib/Libattr/libattr.a \
 EXTRA_DIST = rm_dep.h
 sbin_PROGRAMS = pbs_mom pbs_demux
 
-LDADD = @PBS_MACH@/libmommach.a $(MOMLIBS) $(PBS_LIBS) $(momcpalib)
+LDADD = @PBS_MACH@/libmommach.a $(MOMLIBS) $(PBS_LIBS)
 
 pbs_mom_SOURCES = catch_child.c mom_comm.c mom_inter.c mom_main.c \
 		   mom_server.c prolog.c requests.c start_exec.c \
-                   tmsock_recov.c \
+                   tmsock_recov.c req_quejob.c job_func.c \
 		   ../server/attr_recov.c ../server/dis_read.c \
-		   ../server/job_attr_def.c ../server/job_func.c \
+		   ../server/job_attr_def.c \
 		   ../server/job_recov.c  \
 		   ../server/process_request.c ../server/reply_send.c \
-		   ../server/req_quejob.c ../server/resc_def_all.c \
+		   ../server/resc_def_all.c \
 		   ../server/job_qs_upgrade.c
+if BUILDCPA
+pbs_mom_SOURCES += cray_cpa.c
+endif
 
 pbs_demux_SOURCES = pbs_demux.c
 

@@ -120,7 +120,7 @@
 #define ATTR_p "Priority"
 #define ATTR_q "destination"
 #define ATTR_r "Rerunable"
-#define ATTR_t "job_array_size"
+#define ATTR_t "job_array_request"
 #define ATTR_array_id "job_array_id"
 #define ATTR_u "User_List"
 #define ATTR_v "Variable_List"
@@ -167,6 +167,9 @@
 #define ATTR_tokens      "tokens"
 #define ATTR_netcounter "net_counter"
 #define ATTR_umask	"umask"
+#define ATTR_array_size "job_array_size"
+#define ATTR_start_time  "start_time"
+#define ATTR_start_count "start_count"
 
 /* additional queue attributes names */
 
@@ -259,6 +262,8 @@
 #define ATTR_logfilemaxsize "log_file_max_size"
 #define ATTR_logfilerolldepth "log_file_roll_depth"
 #define ATTR_nextjobnum "next_job_number"
+#define ATTR_extraresc "extra_resc"
+#define ATTR_schedversion "sched_version"
 
 /* additional node "attributes" names */
 
@@ -370,8 +375,16 @@
 #define PBS_TERM_BUF_SZ		80	/* Interactive term buffer size */
 #define PBS_TERM_CCA		6	/* Interactive term cntl char array */
 
-#define PBS_QS_VERSION		0x00020200 /* magic number used to determine version of pbs job quick save struct */
-
+#define PBS_QS_VERSION		0x00020300 /* magic number used to determine version of pbs job quick save struct */
+                                           /* the magic number is split into 4 8-bit chunks.  the first 8 bits are 
+                                              unused.  the second b bits represent the major version number
+                                              third 8 bits are the minor version, and the final 8 bits are the 
+                                              bug fix version.  we write the torque version that the job qs struct 
+                                              was last changed in this constant writing them as if they are two 
+                                              digit decimal numbers. all that really matters is that we assign a 
+                                              unique value for each change in the ji_qs struct and that it can't 
+                                              be confused with data at the start of a ji_qs struct from before 
+                                              torque version 2.2.0 */ 
 /* someday the PBS_*_PORT definition will go away and only the	*/
 /* PBS_*_SERVICE_NAME form will be used, maybe			*/
 
@@ -455,7 +468,10 @@ extern int pbs_connect A_((char *server));
 extern int pbs_query_max_connections();
 extern char *pbs_default A_((void));
 extern char *pbs_fbserver A_((void));
-
+extern int csv_length A_(( char *str ));
+extern char *csv_nth A_(( char *str, int n ));
+extern char *pbs_get_server_list A_((void));
+ 
 extern int pbs_deljob A_((int connect,char *job_id,char *extend));
 extern int pbs_disconnect A_((int connect));
 extern char *pbs_geterrmsg A_((int connect));

@@ -123,7 +123,7 @@ AC_SUBST(build_clients)
 
 AC_MSG_CHECKING([whether to build DRMAA lib])
 AC_ARG_ENABLE(drmaa,
-    [  --disable-drmaa       do not build the DRMAA 1.0 library (default is off)],
+    [  --disable-drmaa         do not build the DRMAA 1.0 library (default is off)],
     build_drmaa=$enableval, build_drmaa=no)
 AC_MSG_RESULT($build_drmaa)
 AM_CONDITIONAL(INCLUDE_DRMAA, [test "x$build_drmaa" = "xyes"])
@@ -180,19 +180,20 @@ dnl Torque's own largefile support
 TAC_SYS_LARGEFILE
 
 dnl if using gcc, we can be very strict
-gcc_warning_flags="-W -Wall -Wno-unused-parameter -Wno-long-long -pedantic -Werror"
-AC_ARG_ENABLE(gcc_warnings,
-    [  --disable-gcc-warnings   If using gcc, use strict warnings])
+AC_ARG_ENABLE(gcc_warnings, [
+  --disable-gcc-warnings  Disable gcc strictness and warnings.  If using
+                          gcc, default is to error on any warning])
 if test "x$GCC" = "xyes" ;then
   AC_MSG_CHECKING([whether to use strict gcc warnings])
   if test "${enable_gcc_warnings}" == "no" ; then
     AC_MSG_RESULT([no])
   else
     if test "x$build_drmaa" = "xyes" ;then
-      AC_MSG_RESULT([no])
+      AC_MSG_RESULT([no... because DRMAA is being built])
     else
       AC_MSG_RESULT([yes])
-      CFLAGS="$CFLAGS $gcc_warning_flags"
+      AX_CFLAGS_GCC_OPTION([-W -Wall -Wno-unused-parameter -Wno-long-long -pedantic -Werror])
+      gccwarnings=yes
     fi
   fi
 fi
@@ -200,8 +201,9 @@ fi
 dnl
 dnl If hpux and gcc, force the XOPEN interface.
 AC_MSG_CHECKING([whether to force XOPEN networking stack])
-AC_ARG_ENABLE(xopen_networking,
-    [  --disable-xopen-networking      With HPUX and GCC, don't force usage of XOPEN and libxnet])
+AC_ARG_ENABLE(xopen_networking, [
+  --disable-xopen-networking      
+                          With HPUX and GCC, don't force usage of XOPEN and libxnet])
 if test "${enable_xopen_networking}" != "no" ; then
 case $GCC,$PBS_MACH in
   yes,hpux*) AC_MSG_RESULT([yes])
@@ -232,8 +234,8 @@ AC_HEADER_SYS_WAIT
 AC_CHECK_HEADERS([arpa/inet.h fcntl.h float.h limits.h malloc.h netdb.h \
 		  netinet/in.h stddef.h sys/file.h sys/param.h sys/tty.h \
 		  sys/socket.h sys/time.h sys/ioctl.h sys/mount.h \
-                  sys/vfs.h sys/statfs.h sys/statvfs.h syslog.h \
-                  readline/readline.h \
+                  sys/vfs.h sys/statfs.h sys/statvfs.h sys/ucred.h sys/un.h sys/uio.h \
+                  syslog.h readline/readline.h \
                   termios.h err.h sys/poll.h pam/pam_modules.h security/pam_appl.h])
 
 # On Solaris, pam_modules.h requires pam_appl.h
@@ -255,8 +257,7 @@ dnl  System specific settings
 dnl
 
 
-AC_ARG_ENABLE(nodemask,
-    [  --enable-nodemask       enable nodemask-based scheduling on the Origin 2000])
+AC_ARG_ENABLE(nodemask, [  --enable-nodemask       enable nodemask-based scheduling on the Origin 2000])
 if test "${enable_nodemask}" = "yes" ; then
   case "${PBS_MACH}" in
     irix6*) AC_DEFINE(NODEMASK, 1, [use nodemask-based scheduling on O2k]) ;;
@@ -311,16 +312,11 @@ AC_DEFINE_UNQUOTED(IBM_SP2, ${IBM_SP2}, [defined if this is an SP2])
 AC_SUBST(PBSPOE)    
 AC_SUBST(PBSPOEO)
 
-AC_ARG_ENABLE(cpuset,[  --disable-cpuset        enable Linux 2.6 kernel cpusets])
+AC_ARG_ENABLE(cpuset,[  --enable-cpuset         enable Linux 2.6 kernel cpusets (in development)])
 build_l26_cpuset=no
-if test "x$enable_cpuset" != "xno" ;then
-  AC_CHECK_LIB(cpuset, cpuset_cpus_weight, 
-    [AC_CHECK_LIB(bitmask, bitmask_alloc,
-      [build_l26_cpuset=yes
-       MOMLIBS="$MOMLIBS -lcpuset -lbitmask"
+if test "x$enable_cpuset" = "xyes" ;then
+      build_l26_cpuset=yes
        AC_DEFINE(PENABLE_LINUX26_CPUSETS, 1, [Define to enable Linux 2.6 cpusets])
-      ])
-    ])
 fi
 AM_CONDITIONAL([BUILD_L26_CPUSETS], test "$build_l26_cpuset" = yes)
 
@@ -484,8 +480,8 @@ dnl
 dnl  ######################################################################
 dnl  Scheduler settings
 dnl
-AC_ARG_WITH(sched,
-    [  --with-sched=TYPE       sets the scheduler type. If TYPE is
+AC_ARG_WITH(sched, [
+  --with-sched=TYPE       sets the scheduler type. If TYPE is
                           "c" the scheduler will be written in C
                           "tcl" the server will use a Tcl based scheduler
                           "basl" will use the rule based scheduler
@@ -517,8 +513,8 @@ if test "$SCHD_TYPE" = basl ;then
 fi
 AC_SUBST(SCHD_LIBS)
 
-AC_ARG_WITH(sched_code,
-    [  --with-sched-code=PATH  sets the name of the scheduler to use.
+AC_ARG_WITH(sched_code, [
+  --with-sched-code=PATH  sets the name of the scheduler to use.
                           This only applies to BASL schedulers and those
                           written in the C language. For C schedulers
                           this should be a directory name and for BASL
@@ -677,8 +673,7 @@ AM_CONDITIONAL(USING_RPP, [test "$RPP" = "1"])
 
 
 
-AC_ARG_ENABLE(filesync,
-[
+AC_ARG_ENABLE(filesync, [
   --enable-filesync       open files with sync on each write operation.  Don't
                           bother enabling this, all it does is slow down TORQUE.
                           This is disabled by default.],
@@ -691,8 +686,8 @@ AC_DEFINE_UNQUOTED(TDISABLEFILESYNC, ${TDISABLEFILESYNC}, [Define to prevent syn
 
 
 
-AC_ARG_ENABLE(plock_daemons,
-    [  --enable-plock-daemons[[=ARG]]
+AC_ARG_ENABLE(plock_daemons, [
+  --enable-plock-daemons[[=ARG]]
                           enable daemons to lock themselves into memory:
                           logical-or of 1 for pbs_server, 2 for pbs_scheduler,
                           4 for pbs_mom (no argument means 7 for all three)],
@@ -705,8 +700,7 @@ AC_DEFINE_UNQUOTED(PLOCK_DAEMONS, ${PLOCK_DAEMONS},
 	[Select which daemons plock themselves, a bit pattern])
 
 
-AC_ARG_ENABLE(syslog,
-[
+AC_ARG_ENABLE(syslog, [
   --enable-syslog         enable (default) the use of syslog for error reporting],
 [case "${enableval}" in
   yes) SYSLOG=1 ;;
@@ -729,8 +723,7 @@ esac],[SHELL_INVOKE=1])
 AC_DEFINE_UNQUOTED(SHELL_INVOKE, ${SHELL_INVOKE},
 	[set whether job scripts use a pipe])
 
-AC_ARG_WITH(maildomain,
-[
+AC_ARG_WITH(maildomain, [
   --with-maildomain=MAILDOMAIN
                           override the default domain for outgoing mail messages,
                           i.e. "user@maildomain".  The default maildomain is the
@@ -739,8 +732,7 @@ AC_ARG_WITH(maildomain,
 AC_MSG_WARN([--with-maildomain is depricated.  Set mail_domain in qmgr.])
 AC_DEFINE_UNQUOTED(TMAILDOMAIN, "${MAILDOMAIN}", [override the default domain for outgoing mail messages])])
 
-AC_ARG_ENABLE(spool,
-[
+AC_ARG_ENABLE(spool, [
   --disable-spool         if disabled, TORQUE will create output and error files
                           directly in $HOME/.pbs_spool if it exists or in $HOME
                           otherwise.  By default, TORQUE will spool files in
@@ -753,8 +745,7 @@ AC_ARG_ENABLE(spool,
 esac],[NO_SPOOL_OUTPUT=0])dnl
 AC_DEFINE_UNQUOTED(NO_SPOOL_OUTPUT, ${NO_SPOOL_OUTPUT}, [directly use homedirs instead of $TORQUEHOME/spool])
 
-AC_ARG_ENABLE(shell-use-argv,
-[
+AC_ARG_ENABLE(shell-use-argv, [
   --enable-shell-use-argv enable this to put the job script name on the
                           command line that invokes the shell.  Not on by
                           default.  Ignores --enable-shell-pipe setting.],
@@ -766,10 +757,10 @@ esac],[SHELL_USE_ARGV=0])dnl
 AC_DEFINE_UNQUOTED(SHELL_USE_ARGV, ${SHELL_USE_ARGV}, [job script name passed as the shell's arg])
 
 
-AC_ARG_ENABLE(privports,
-[
-  --disable-privports     disable the use of privileged ports for authentication.  Some versions of OSX have
-                          a buggy bind() and cannot bind to privileged ports.],
+AC_ARG_ENABLE(privports, [
+  --disable-privports     disable the use of privileged ports for authentication.  
+                          Some versions of OSX have a buggy bind() and cannot
+                          bind to privileged ports.],
 [case "${enableval}" in
   yes)  ;;
   no)  NOPRIVPORTS=1; AC_DEFINE(NOPRIVPORTS, 1, [Define to disable privileged ports]) ;;
@@ -777,8 +768,7 @@ AC_ARG_ENABLE(privports,
 esac])dnl
 
 
-AC_ARG_ENABLE(mom-checkspool,
-[
+AC_ARG_ENABLE(mom-checkspool, [
   --disable-mom-checkspool
                           Don't check free space on spool directory and set an error],
 [case "${enableval}" in
@@ -789,16 +779,15 @@ esac],[MOMCHECKLOCALSPOOL=1])dnl
 AC_DEFINE_UNQUOTED(MOMCHECKLOCALSPOOL, ${MOMCHECKLOCALSPOOL}, [Define to error if spool is full on MOM])
 
 
-AC_ARG_WITH(tmpdir,
-    [  --with-tmpdir=DIR       set the tmp directory that pbs_mom will use
+AC_ARG_WITH(tmpdir, [
+  --with-tmpdir=DIR       set the tmp directory that pbs_mom will use
                           defaults to "/tmp". This is a Cray-specific feature.],
     [TMP_DIR="${withval}"], [TMP_DIR="/tmp"])
 test "$TMP_DIR" = yes && TMP_DIR="/tmp"
 AC_DEFINE_UNQUOTED(TMP_DIR, "${TMP_DIR}",
 		   [The pathname of the Cray temporary directory for mom])
 
-AC_ARG_ENABLE(force-nodefile,
-[
+AC_ARG_ENABLE(force-nodefile, [
   --enable-force-nodefile forces creation of nodefile regardless of job
                           submission parameters. Not on by default.],
 [case "${enableval}" in
@@ -808,16 +797,50 @@ AC_ARG_ENABLE(force-nodefile,
 esac],[MOM_FORCENODEFILE=0])dnl
 AC_DEFINE_UNQUOTED(MOM_FORCENODEFILE, ${MOM_FORCENODEFILE}, [force creation of nodefile])
 
-AC_ARG_WITH(server_home,
-    [  --with-server-home=DIR  set the server home/spool directory for PBS use
+
+
+AC_MSG_CHECKING([for CMSG_SPACE])
+torque_cv_have_cmsg="no"
+  AC_TRY_COMPILE([
+  #ifdef HAVE_SYS_UCRED_H
+  #include <sys/ucred.h>
+  #endif
+  #ifdef HAVE_SYS_SOCKET_H
+  #include <sys/socket.h>
+  #endif
+  #ifdef HAVE_SYS_UN_H
+  #include <sys/un.h>
+  #endif
+  #include <stdlib.h>
+  ],[exit(CMSG_SPACE(sizeof(struct ucred)));],
+    [torque_cv_have_cmsg="yes"])
+AC_MSG_RESULT([$torque_cv_have_cmsg])
+
+AC_MSG_CHECKING([if enabling Unix Domain socket supprt])
+ENABLE_UNIX_SOCKETS=$torque_cv_have_cmsg
+AC_ARG_ENABLE(unixsockets, [
+  --enable-unixsockets    enable the use of Unix Domain sockets for authentication.],
+[case "${enableval}" in
+  yes) ENABLE_UNIX_SOCKETS=yes ;;
+  no) ENABLE_UNIX_SOCKETS=no;;
+  *)   AC_MSG_ERROR(--enable-unixsockets cannot take a value) ;;
+esac])dnl
+if test "x$ENABLE_UNIX_SOCKETS" = "xyes" ;then
+   AC_DEFINE(ENABLE_UNIX_SOCKETS, 1, [Define to enable unix domain sockets])
+fi
+AC_MSG_RESULT([$ENABLE_UNIX_SOCKETS])
+
+
+AC_ARG_WITH(server_home, [
+  --with-server-home=DIR  set the server home/spool directory for PBS use
                           defaults to /var/spool/torque],
     [PBS_SERVER_HOME="${withval}"], [PBS_SERVER_HOME="/var/spool/torque"])
 AC_SUBST(PBS_SERVER_HOME)
 
     dnl [PBS_SERVER_HOME="${withval}"], [PBS_SERVER_HOME="$localstatedir/spool/torque"])
 
-AC_ARG_WITH(server_name_file, 
-    [  --with-server-name-file=FILE
+AC_ARG_WITH(server_name_file, [
+  --with-server-name-file=FILE
                           set the file that will contain the name of
                           the default server for clients to use. If this
                           is not an absolute pathname, it will be evaluated
@@ -834,8 +857,8 @@ esac
 AC_SUBST(PBS_DEFAULT_FILE)
 
 
-AC_ARG_WITH(default_server,
-    [  --with-default-server=HOSTNAME
+AC_ARG_WITH(default_server, [
+  --with-default-server=HOSTNAME
                           set the name of the computer that clients will
                           access when no machine name is specified as part
                           of the queue name. It defaults to the hostname
@@ -846,8 +869,8 @@ AC_DEFINE_UNQUOTED(PBS_DEFAULT_SERVER, "${PBS_DEFAULT_SERVER}",
 AC_SUBST(PBS_DEFAULT_SERVER)
 
 
-AC_ARG_WITH(environ,
-    [  --with-environ=PATH     set the path containing the environment variables
+AC_ARG_WITH(environ, [
+  --with-environ=PATH     set the path containing the environment variables
                           for the daemons.  For SP2 and AIX systems,
                           suggested setting is to /etc/environment. Defaults
                           to the file "pbs_environment" in the server-home.
@@ -863,8 +886,8 @@ esac
 AC_SUBST(PBS_ENVIRON)
 
 
-AC_ARG_WITH(qstatrc-file,
-    [  --with-qstatrc-file=FILE
+AC_ARG_WITH(qstatrc-file, [
+  --with-qstatrc-file=FILE
                           set the name of the file that qstat will use
                           if there is no ".qstatrc" file in the directory
                           where it is being invoked.
@@ -1304,12 +1327,12 @@ AC_DEFINE_UNQUOTED([PBS_INSTALL_DIR],"${prefix}",[Define to the install director
 AC_DEFINE_UNQUOTED([PBS_CONFIG_ARGS],"${ac_configure_args}",[Define to the install directory])
 AC_DEFINE_UNQUOTED([PBS_CFLAGS],"${CFLAGS}",[Define to the install directory])
 
+AC_CONFIG_FILES([torque.spec:buildutils/torque.spec.in])
 AC_OUTPUT(buildutils/pbs_mkdirs
 	  buildutils/self-extract-head-sh
 	  buildutils/modulefiles
 	  buildutils/modulefiles.vers
 	  Makefile
-	  torque.spec
 	  doc/Makefile
 	  doc/man1/Makefile
 	  doc/man3/Makefile
@@ -1332,6 +1355,7 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/lib/Libsite/Makefile
 	  src/lib/Libgss/Makefile
 	  src/mom_rcp/Makefile
+	  src/momctl/Makefile
 	  src/resmom/Makefile
 	  src/resmom/aix4/Makefile
 	  src/resmom/aix5/Makefile
@@ -1346,14 +1370,12 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/resmom/irix6/Makefile
 	  src/resmom/irix6array/Makefile
 	  src/resmom/linux/Makefile
-	  src/resmom/linux/cpuset/Makefile
 	  src/resmom/netbsd/Makefile
 	  src/resmom/solaris5/Makefile
 	  src/resmom/solaris7/Makefile
 	  src/resmom/sunos4/Makefile
 	  src/resmom/unicos8/Makefile
 	  src/resmom/unicosmk2/Makefile
-	  src/resmom/cpa/Makefile
 	  src/scheduler.basl/Makefile
 	  src/scheduler.cc/Makefile
 	  src/scheduler.cc/samples/Makefile
@@ -1374,3 +1396,23 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/drmaa/Doxyfile
 	  src/pam/Makefile)
 
+echo
+echo "Building components: server=$build_server mom=$build_mom clients=$build_clients 
+                     gui=$build_gui drmaa=$build_drmaa pam=`test "x$pammoddir" = "xdisabled" && echo no || echo yes`"
+echo "PBS Machine type: $PBS_MACH"
+echo "Remote copy: $RCP_PATH $RCP_ARGS"
+echo "PBS home: $PBS_SERVER_HOME"
+echo "Default server: $PBS_DEFAULT_SERVER"
+echo "Unix Domain sockets: $ENABLE_UNIX_SOCKETS"
+echo "Tcl: `test "$TCL" = "1" && echo $MY_TCL_INCS $MY_TCL_LIBS || echo disabled`"
+echo "Tk: `test "$TK" = "1" && echo $MY_TCLTK_INCS $MY_TCLTK_LIBS || echo disabled`"
+echo
+
+if test "x$gccwarnings" = "xyes" ;then
+   AC_MSG_WARN([This compilation has strict compiler options enabled that cause
+the build to fail if any compiler warnings are emitted.  If this build fails
+because of a harmless warning, please report the problem to $PACKAGE_BUGREPORT
+and run configure again with --disable-gcc-warnings.])
+   echo
+fi
+echo "Ready for '${MAKE-make}'."

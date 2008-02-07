@@ -21,6 +21,9 @@
 /* Define to enable Cray's CPA support */
 #undef ENABLE_CPA
 
+/* Define to enable unix domain sockets */
+#undef ENABLE_UNIX_SOCKETS
+
 /* are FD_SET and friends defined in sys/select.h */
 #undef FD_SET_IN_SYS_SELECT_H
 
@@ -117,6 +120,9 @@
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
 
+/* Define if lseek64() is available */
+#undef HAVE_LSEEK64
+
 /* Define to 1 if you have the <malloc.h> header file. */
 #undef HAVE_MALLOC_H
 
@@ -137,6 +143,9 @@
 
 /* Define to 1 if you have the `on_exit' function. */
 #undef HAVE_ON_EXIT
+
+/* Define if open64() is available */
+#undef HAVE_OPEN64
 
 /* Define to 1 if you have the <pam/pam_modules.h> header file. */
 #undef HAVE_PAM_PAM_MODULES_H
@@ -259,6 +268,15 @@
 
 /* Define to 1 if you have the <sys/types.h> header file. */
 #undef HAVE_SYS_TYPES_H
+
+/* Define to 1 if you have the <sys/ucred.h> header file. */
+#undef HAVE_SYS_UCRED_H
+
+/* Define to 1 if you have the <sys/uio.h> header file. */
+#undef HAVE_SYS_UIO_H
+
+/* Define to 1 if you have the <sys/un.h> header file. */
+#undef HAVE_SYS_UN_H
 
 /* Define to 1 if you have the <sys/vfs.h> header file. */
 #undef HAVE_SYS_VFS_H

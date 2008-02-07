@@ -815,6 +815,8 @@ static void chk_svr_resc_limit(
     nodectresc   = find_resc_def(svr_resc_def,"nodect",svr_resc_size);
     mppwidthresc = find_resc_def(svr_resc_def,"mppwidth",svr_resc_size);
 
+    SvrNodeCt = 0;
+
     if (nodectresc != NULL)
       {
       svrc = (resource *)GET_NEXT(
@@ -1754,6 +1756,8 @@ void set_resc_deflt(
 
 
 
+
+
 /*
  * set_statechar - set the job state attribute to the letter that correspondes
  *	to its current state.
@@ -1784,7 +1788,9 @@ void set_statechar(
       pjob->ji_wattr[JOB_ATR_state].at_val.at_char = 'U'; /* Unknown */
       }
     }
-  }
+
+  return;
+  }  /* END set_statechar() */
 
 
 

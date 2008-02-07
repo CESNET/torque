@@ -146,11 +146,13 @@ enum srv_atr {
 	SRV_ATR_AutoNodeNP,
 	SRV_ATR_LogFileMaxSize,
 	SRV_ATR_LogFileRollDepth,
-	SRV_ATR_NextJobNum,
-	SVR_ATR_tokens,
+	SRV_ATR_NextJobNumber,
+	SRV_ATR_tokens,
 	SRV_ATR_NetCounter,
-#include "site_svr_attr_enum.h"
+	SRV_ATR_ExtraResc,
 	SRV_ATR_ServerName,
+	SRV_ATR_SchedVersion,
+#include "site_svr_attr_enum.h"
 	/* This must be last */
 	SRV_ATR_LAST
 };

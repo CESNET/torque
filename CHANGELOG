@@ -2,13 +2,39 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.0
   e - redesign how torque.spec is built
+  e - added -a to qrun to allow asynchronous job start
+  e - allow qrerun on completed jobs
+  e - allow qdel to delete all jobs
+  e - make qdel -m functionality match the documentation
+  b - prevent runaway hellos being sent to server when mom's node is removed
+      from the server's node list
+  e - local client connections use a unix domain socket, bypassing inet and pbs_iff
+  f - Linux 2.6 cpuset support  (in development)
+  e - new job array submission syntax
+  b - fixed SIGUSR1 / SIGUSR2 to correctly change the log level
+  f - health check script can now be run at job start and end
+  e - tm tasks are now stored in a single .TK file rather than eat lots of inodes
+  f - new "extra_resc" server attribute
+  b - "pbs_version" attr is now correctly read-only
+  e - increase max size of .JB and .SC file names
+  e - new "sched_version" server attribute
+  f - new printserverdb tool
+  e - pbs_server/pbs_mom hostname arg is now -H, -h is help
+
+2.2.1
+  b - fix a bug where dependent jobs get put on hold when the previous job has
+      completed but its state is still available for life of keep_completed
+  b - fixed a bug where pbs_server never delete files from the "jobs" directory
+  b - fixed a bug where compute nodes were being put in an indefinite "down" state
+  e - added job_array_size attribute to pbs_submit documentation 
+  b - correctly parse /proc/pid/stat that contains parens (Meier)
+  b - fix qdel of entire job arrays for non operator/managers
 
 2.2.0
   e - improve RPP logging for corruption issues
   f - dynamic resources
   e - use mlockall() in pbs_mom if _POSIX_MEMLOCK
   f - consumable resource "tokens" support (Harte-Hanks)
-  f - Linux 2.6 cpuset support
   e - build process sets default submit filter path to ${libexecdir}/qsub_filter
       we fall back to /usr/local/sbin/torque_submitfilter to maintain 
       compatibility
@@ -47,6 +73,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - pbs_mom remote reconfig pbs_mom now disabled by default
       use $remote_reconfig to enable it
   b - fix pam configure (Adrian Knoth)
+  b - handle /dev/null correctly when job rerun
 
 2.1.9
   f - new queue attribute disallowed_types, currently recognized types:
