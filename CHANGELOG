@@ -20,6 +20,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       and commit phases into 1 network transmission.
   e - added --enable-nochildsignal to allow pbs_server to use inline checking
       for SIGCHLD instead of using the signal handler.
+  b - fix qdel of entire job arrays for non operator/managers
 
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has

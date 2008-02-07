@@ -3879,12 +3879,14 @@ int init_server_stream(
 
 
 
-/*
- **   is_update_stat
- **   This should update the PBS server with the status information
- **   that the resource manager should need.  This should allow for
- **   less trouble on the part of the resource manager.  It can get
- **   this information from the server rather than going to each mom.
+/**
+ *    is_update_stat
+ *
+ *    This should update the PBS server with the status information
+ *    that the resource manager should need.  This should allow for
+ *    less trouble on the part of the resource manager.  It can get
+ *    this information from the server rather than going to each mom.
+ *
  */
 
 void is_update_stat(
@@ -4002,9 +4004,7 @@ void is_update_stat(
 
       continue;
       }
-  
-    } /* END for each server */
-
+    }    /* END for (ServerIndex) */
 
   for (i = 0;stats[i] != NULL;i++) 
     {
@@ -4232,8 +4232,8 @@ void is_update_stat(
 
         continue;
         }
-      } /* END for each server */
-    }    /* END for (i) */
+      }   /* END for each server */
+    }     /* END for (i) */
 
   if (LOGLEVEL >= 8)
     log_record(PBSEVENT_SYSTEM,0,id,"clearing alarm in is_update_stat");
@@ -4242,7 +4242,6 @@ void is_update_stat(
 
   for (ServerIndex = 0;ServerIndex < PBS_MAXSERVER;ServerIndex++)
     {
-
     if (SStream[ServerIndex] == -1)
       continue;
   
@@ -6867,7 +6866,9 @@ int main(
 
   if (lockfds < 0) 
     {
-    strcpy(log_buffer,"pbs_mom: Unable to open lock file\n");
+    sprintf(log_buffer,"pbs_mom: unable to open lock file - errno=%d '%s'\n",
+      errno,
+      strerror(errno));
     
     fprintf(stderr,log_buffer);
 
@@ -7404,30 +7405,36 @@ int main(
         /* we're either just starting up, or the server has gone away.
          * Either way, let's be sure to say hello */
          
-        /* If the server has gone away and we are trying to reestablish
+        /* If the server has gone away and we are trying to re-establish
          * communication with it, we need to slow down the rate of retries
          * so we do not flood the server with Hello requests. We may have
          * been removed from the servers list of nodes */
 
         if (MOMSendHelloTryCount[sindex] > 0)
           {
+          /* hello previously sent */
+
           if (MOMSendHelloTryCount[sindex] < 20)
             {
             retry_interval = power(STARTING_RETRY_INTERVAL_IN_SECS,
               MOMSendHelloTryCount[sindex]);
+
             if (retry_interval > MAX_RETRY_TIME_IN_SECS)
               {
               retry_interval = MAX_RETRY_TIME_IN_SECS;
               }
             }
-            else
+          else
             {
-              retry_interval = MAX_RETRY_TIME_IN_SECS;
+            retry_interval = MAX_RETRY_TIME_IN_SECS;
             }
             
           if (MOMSendHelloTime[sindex] + retry_interval > time_now)
             {
-            break;
+            /* failed in recent attempt to connect to this server - do not
+               yet re-attempt */
+
+            continue;
             }
             
           sprintf(log_buffer,"Retrying hello to server %s",
@@ -7438,6 +7445,8 @@ int main(
 
         if (init_server_stream(sindex) != DIS_SUCCESS)
           {
+          /* attempt to restore connection to pbs_server failed */
+
           continue;                                                                        
           }
 

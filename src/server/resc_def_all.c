@@ -619,7 +619,7 @@ resource_def svr_resc_def_const[] = {
         READ_WRITE,
         ATR_TYPE_STR
     },
-    {   "mpptimeMPP",   /* NYI */
+    {   "mpptime",   /* NYI */
         decode_time,
         encode_time,
         set_l,
@@ -629,7 +629,7 @@ resource_def svr_resc_def_const[] = {
         READ_WRITE,
         ATR_TYPE_LONG
     },
-    {   "mpphostMPP",
+    {   "mpphost",
         decode_str,
         encode_str,
         set_str,
@@ -639,7 +639,7 @@ resource_def svr_resc_def_const[] = {
         READ_WRITE,
         ATR_TYPE_STR
     },
-    {   "mpparchMPP",    /* node architecture (XT3, XT4, etc.) */
+    {   "mpparch",    /* node architecture (XT3, XT4, etc.) */
         decode_str,
         encode_str,
         set_str,

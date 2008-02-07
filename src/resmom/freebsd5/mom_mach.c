@@ -103,6 +103,7 @@
 #include	<limits.h>
 #include	<stdio.h>
 #include	<stdlib.h>
+#include    <unistd.h>
 #include	<ctype.h>
 #include	<dirent.h>
 #include	<string.h>
@@ -128,6 +129,7 @@
 #include	<sys/vmmeter.h>
 #include	<ufs/ufs/quota.h>
 #include	<vm/vm_map.h>
+#include    <signal.h>
 
 
 #include	"portability.h"
@@ -161,6 +163,8 @@ extern  long    system_ncpus;
 extern  int     ignwalltime;
 
 extern  int     LOGLEVEL;
+extern void checkret( char **, int );
+
 
 /*
 ** local functions
@@ -376,8 +380,8 @@ static unsigned long cput_sum(pjob)
 		nps++;
 
 		cputime += pp->ki_runtime / 1000000;
-		DBPRT(("%s: ses %d pid %d cputime %lu\n", id,
-				sess_tbl[i], pp->ki_pid,  (long unsigned)pp->ki_runtime / 1000000))
+		DBPRT(("%s: ses %d pid %d cputime %llu\n", id,
+				sess_tbl[i], pp->ki_pid,  (long long unsigned)pp->ki_runtime / 1000000))
 	}
 
 	if (nps == 0)
@@ -607,7 +611,7 @@ int mom_set_limits(pjob, set_mode)
 		} else if (strcmp(pname, "nice") == 0) {	/* set nice */
 			if (set_mode == SET_LIMIT_SET)  {
 			    errno = 0;
-			    if ((nice((int)pres->rs_value.at_val.at_long) == -1)
+			    if ((nice((time_t)pres->rs_value.at_val.at_long) == -1)
 				&& (errno != 0))
 				return (error(pname, PBSE_BADATVAL));
 			}
@@ -1025,7 +1029,6 @@ int
 getprocs()
 {
 	static	unsigned	int	lastproc = 0;
-
 
 	if (lastproc == reqnum)	/* don't need new proc table */
 		return 1;
@@ -1590,7 +1593,7 @@ char	*param;
 		return NULL;
 	}
 
-	sprintf(ret_string, "%lukb", (long unsigned)sbuf.st_size >> 10); /* in KB */
+	sprintf(ret_string, "%llukb", (long long unsigned)sbuf.st_size >> 10); /* in KB */
 	return ret_string;
 }
 
@@ -1970,10 +1973,10 @@ struct	rm_attribute	*attrib;
 		sprintf(ret_string, "%u", qi.dqb_curinodes);
 		break;
 	case timedata:
-		sprintf(ret_string, "%lu", gracetime(qi.dqb_btime));
+		sprintf(ret_string, "%lu", (long unsigned)gracetime(qi.dqb_btime));
 		break;
 	case timefile:
-		sprintf(ret_string, "%lu", gracetime(qi.dqb_itime));
+		sprintf(ret_string, "%lu", (long unsigned)gracetime(qi.dqb_itime));
 		break;
 	}
 

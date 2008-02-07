@@ -755,7 +755,7 @@ int bs_cmp(
 int
 mom_get_sample()
 {
-	char			*id = "mom_get_sample";
+	char   *id = "mom_get_sample";
 	int			i;
 	struct	session		ss;
 	struct	kinfo_proc	*kp;

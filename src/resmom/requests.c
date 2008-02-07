@@ -1913,27 +1913,17 @@ void req_signaljob(
 
 
 
-
-/* encode used resource info for sending to pbs_server in job obit */
-
 void encode_used(
 
   job        *pjob,   /* I */
   tlist_head *phead)  /* O */
 
   {
-  unsigned long  lnum;
-  int            i;
-  attribute     *at;
-  attribute_def *ad;
-  resource      *rs;
-
-  attribute      val;
-  int            rc;
-
-  task *ptask;
-
-  resource_def *rd = NULL;
+  unsigned long		lnum;
+  int			i;
+  attribute		*at;
+  attribute_def		*ad;
+  resource		*rs;
 
   at = &pjob->ji_wattr[JOB_ATR_resc_used];
   ad = &job_attr_def[JOB_ATR_resc_used];
@@ -1947,7 +1937,9 @@ void encode_used(
        rs != NULL;
        rs = (resource *)GET_NEXT(rs->rs_link)) 
     {
-    rd = rs->rs_defin;
+    resource_def *rd = rs->rs_defin;
+    attribute     val;
+    int           rc;
 
     if ((rd->rs_flags & resc_access_perm) == 0)
       continue;
@@ -1996,38 +1988,53 @@ void encode_used(
       break;
     }  /* END for (rs) */
 
-  ptask = (task *)GET_NEXT(pjob->ji_tasks);
-
-  if ((ptask != NULL) && (ptask->ti_qs.ti_sid < 0))
-    {
-    /* pass session info through obit as attribute to allow detection of various failures 
-       by pbs_server */
-
-    at = &pjob->ji_wattr[JOB_ATR_session_id];
-    ad = &job_attr_def[JOB_ATR_session_id];
-
-    rs = (resource *)GET_NEXT(at->at_val.at_list);
-
-    if (rs != NULL)
-      {
-      rd = rs->rs_defin;
-
-      val.at_val.at_long = ptask->ti_qs.ti_sid;
-      val.at_flags |= ATR_VFLAG_SET;
-      val.at_type = ATR_TYPE_LONG;
-
-      rd->rs_encode(
-        &val,
-        phead,
-        ATTR_session,
-        NULL,
-        ATR_ENCODE_CLIENT);
-      }
-    }    /* END if ((ptask != NULL) && (ptask->ti_qs.ti_sid < 0)) */
-
   return;
   }  /* END encode_used() */
 
+
+
+void encode_flagged_attrs(
+
+  job        *pjob,   /* I */
+  tlist_head *phead)  /* O */
+
+  {
+  int index;
+  attribute		*at;
+  attribute_def		*ad;
+
+  for (index = 0;(int)index < JOB_ATR_LAST;++index)
+    {
+    at  = &pjob->ji_wattr[index];
+    ad  = &job_attr_def[index];
+
+    if (at->at_flags & ATR_VFLAG_SEND)
+      {
+      /* turn off "need to send" flag */
+
+      at->at_flags &= ~ATR_VFLAG_SEND;
+
+      if (LOGLEVEL >= 4)
+        {
+        sprintf(log_buffer,"encoding \"send flagged\" attr: %s",
+          ad->at_name);
+
+        LOG_EVENT(
+          PBSEVENT_DEBUG,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          log_buffer);
+        }
+
+      ad->at_encode(
+        at,
+        phead,
+        ad->at_name,
+        NULL,
+        ATR_ENCODE_CLIENT);
+      }
+    }
+  }
 
 
 
@@ -2045,11 +2052,8 @@ void req_stat_job(
   int			all;
   char			*name;
   job			*pjob;
-  int			index;
   struct batch_reply	*preply = &preq->rq_reply;
   struct brp_status	*pstat;
-  attribute		*at;
-  attribute_def		*ad;
 
   /*
    * first, validate the name of the requested object, either
@@ -2110,43 +2114,9 @@ void req_stat_job(
 
     append_link(&preply->brp_un.brp_status,&pstat->brp_stlink,pstat);
 
-    /* add attributes to the status reply */
+    encode_used(pjob,&pstat->brp_attr);  /* adds resources_used attr */
 
-    for (index = 0;(int)index < JOB_ATR_LAST;++index) 
-      {
-      at  = &pjob->ji_wattr[index];
-      ad  = &job_attr_def[index];
-
-      if (at->at_flags & ATR_VFLAG_SEND) 
-        {
-        /* turn off "need to send" flag */
- 
-        at->at_flags &= ~ATR_VFLAG_SEND;
-
-        if (LOGLEVEL >= 4)
-          {
-          sprintf(log_buffer,"sending \"send flagged\" attr: %s",
-            ad->at_name);
-
-          LOG_EVENT(
-            PBSEVENT_DEBUG, 
-            PBS_EVENTCLASS_JOB,
-            pjob->ji_qs.ji_jobid, 
-            log_buffer);
-          }
-
-        ad->at_encode(
-          at, 
-          &pstat->brp_attr,
-          ad->at_name, 
-          NULL,
-          ATR_ENCODE_CLIENT);
-        }
-      }
-
-    /* now do resources used */
-
-    encode_used(pjob,&pstat->brp_attr);
+    encode_flagged_attrs(pjob,&pstat->brp_attr);  /* adds other flagged attrs */
     }
 
   reply_send(preq);

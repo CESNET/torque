@@ -221,6 +221,7 @@ dnl
 dnl Torque's own largefile support
 TAC_SYS_LARGEFILE
 
+
 dnl if using gcc, we can be very strict
 AC_ARG_ENABLE(gcc_warnings, [
   --disable-gcc-warnings  Disable gcc strictness and warnings.  If using
@@ -239,6 +240,7 @@ if test "x$GCC" = "xyes" ;then
     fi
   fi
 fi
+
 
 dnl
 dnl If hpux and gcc, force the XOPEN interface.
@@ -476,12 +478,12 @@ case $PBS_MACH in
 esac
 
 case $PBS_MACH in
-aix4|aix5|sunos4|solaris5|freebsd|freebsd5|freebsd6|darwin|fujitsu)
+aix4|aix5|sunos4|solaris5|freebsd|freebsd5|darwin|fujitsu)
   AC_CHECK_FUNC(nlist, , AC_CHECK_LIB(elf, nlist)) ;;
 esac
 
 case $PBS_MACH in
-sunos4|solaris5|netbsd|freebsd|freebsd5|freebsd6)
+sunos4|solaris5|netbsd|freebsd|freebsd5)
   AC_CHECK_LIB(kvm, kvm_open) ;;
 esac
 
@@ -1269,7 +1271,6 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/resmom/digitalunix/Makefile
 	  src/resmom/freebsd/Makefile
 	  src/resmom/freebsd5/Makefile
-	  src/resmom/freebsd6/Makefile
 	  src/resmom/fujitsu/Makefile
 	  src/resmom/hpux10/Makefile
 	  src/resmom/hpux11/Makefile

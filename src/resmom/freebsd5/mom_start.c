@@ -84,6 +84,7 @@
 #include <fcntl.h>
 #include <signal.h>
 #include <string.h>
+#include <stdio.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <pwd.h>
@@ -98,6 +99,9 @@
 #include "mom_mach.h"
 #include "mom_func.h"
 
+#if 0
+static char ident[] = "@(#) $RCSfile$ $Revision: 524 $";
+#endif
 
 /* Global Variables */
 
@@ -193,7 +197,7 @@ void scan_for_terminated()
 	int		exiteval;
 	pid_t		pid;
 	job		*pjob;
-	task		*ptask;
+	task		*ptask = 0;
 	int		statloc;
 
 	/* update the latest intelligence about the running jobs;         */
