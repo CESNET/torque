@@ -859,7 +859,8 @@ int pbs_original_connect(
   } else {
     neediff = 1;
   }
-  if (neediff) {
+  if (neediff) 
+    {
 #endif
 
 /* FIXME: is this necessary?  Contributed by one user that fixes a problem, 
@@ -891,13 +892,11 @@ int pbs_original_connect(
   
       return(-1);
       }
-    } /* END if !use_unixsock */
-
-    return(-1);
-    }
 #ifdef GSSAPI
-  }
+    } /* END if neediff */
 #endif
+
+    } /* END !useunix */
 
   return(out);
   }  /* END pbs_connect() */
