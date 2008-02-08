@@ -1,5 +1,8 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
+2.1.11
+  b - nqs2pbs is now a generated script
+
 2.1.10
   b - fix buffer overflow in rm_request, 
       fix 2 printf that should be sprintf (Umea University)
