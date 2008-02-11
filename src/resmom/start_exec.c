@@ -116,6 +116,15 @@
 # include <cpuset.h>
 #endif /* PENABLE_DYNAMIC_CPUSETS */
 
+/*
+* The following #undef is a work around for FreeBSD 6 since the OS does
+* not seem to fully implement the _POSIX_MEMLOCK
+*/
+
+#ifdef _POSIX_MEMLOCK
+#undef _POSIX_MEMLOCK
+#endif /* _POSIX_MEMLOCK */
+
 #include "libpbs.h"
 #include "portability.h"
 #include "list_link.h"
