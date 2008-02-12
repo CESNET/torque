@@ -7254,7 +7254,7 @@ int main(
     return(3);
     }
 
-  if ((strncmp(PBS_MACH, "freebsd", 7) != 0) 
+  if ((strncmp(PBS_MACH,"freebsd",sizeof("freebsd")) != 0) 
       && ((mom_get_sample()) != PBSE_NONE))
     {
     log_err(c,msg_daemonname,"mom_get_sample failed after mom_open_poll");

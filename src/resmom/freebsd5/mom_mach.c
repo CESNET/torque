@@ -1789,6 +1789,7 @@ get_la(rv)
 		log_err(-1, id, nokernel);
 		return (rm_errno = RM_ERR_SYSTEM);
 	}
+
 	if (kvm_getloadavg(kd, rv, 1) != 1) {
 		log_err(errno, id, "kvm_getloadavg");
 		return (rm_errno = RM_ERR_SYSTEM);

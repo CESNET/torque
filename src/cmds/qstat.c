@@ -386,6 +386,10 @@ static char *findattrl(
   return(NULL);
   }
 
+#ifndef PBS_MINNAMELEN
+#define PBS_MINNAMELEN  16 /* min size for printf job jobs, queues, and servers */
+#endif /* PBS_MINNAMELEN */
+
 #ifndef PBS_NAMELEN
 #define PBS_NAMELEN   16  /* printf of jobs, queues, and servers */
 #endif  /* PBS_NAMELEN */
@@ -1049,7 +1053,7 @@ void display_statjob(
     {
     sprintf(format,"%%-%ds %%-%ds %%-%ds %%%ds %%%ds %%-%ds\n", 
       PBS_MAXSEQNUM + PBS_MAXJOBARRAYLEN + 11, 
-      PBS_NAMELEN, 
+      PBS_MINNAMELEN, 
       OWNERL, 
       TIMEUL, 
       STATEL, 
@@ -1370,7 +1374,7 @@ void display_statque(
 
 
   sprintf(format,"%%-%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%-%ds\n", 
-    PBS_NAMELEN, 
+    PBS_MINNAMELEN, 
     NUML, 
     NUML, 
     NUML, 
@@ -1558,7 +1562,7 @@ void display_statserver(
   NUML = MAXNUML;
 
   sprintf(format,"%%-%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%%ds %%-%ds\n", 
-    PBS_NAMELEN, 
+    PBS_MINNAMELEN, 
     NUML, 
     NUML, 
     NUML, 
