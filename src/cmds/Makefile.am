@@ -2,27 +2,28 @@ include $(top_srcdir)/buildutils/config.mk
 
 PBS_LIBS = ../lib/Libpbs/libtorque.la
 
-bin_SCRIPTS = nqs2pbs
-sbin_PROGRAMS = pbs_demux momctl
+dist_bin_SCRIPTS = nqs2pbs
 bin_PROGRAMS = qalter qdel qhold qmove qorder qmsg qrerun qrls qselect qsig \
 	       qstat qsub pbsdsh qdisable qenable qrun qstart qstop qterm \
 	       pbsnodes qmgr @PBSPOE@
 EXTRA_PROGRAMS = pbspd pbspoe
-EXTRA_DIST = nqs2pbs sample.qstatrc
+EXTRA_DIST = nqs2pbs.in sample.qstatrc
 
 LDADD = $(PBS_LIBS)
 
-AM_CFLAGS = $(MY_TCL_INCS) -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\" \
-	    -DPBSPD=\"$(bindir)/pbspd\"
-
 if USE_TCLQSTAT
 TCLQSTATLIBS = $(MY_TCL_LIBS)
+TCLQSTATCFLAGS = $(MY_TCL_INCS)
 endif
 qstat_LDADD = $(PBS_LIBS) $(TCLQSTATLIBS)
+qstat_CFLAGS = $(TCLQSTATCFLAGS)
 
 qmgr_LDADD = $(PBS_LIBS) $(READLINE_LIBS)
 
-pbs_demux_SOURCES = pbs_demux.c
+pbspoe_CFLAGS = -DPBSPD=\"$(bindir)/pbspd\"
+qsub_CFLAGS = -DSUBMIT_FILTER_PATH=\"$(SUBMIT_FILTER_PATH)\" \
+              -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\"
+
 pbsdsh_SOURCES = pbsdsh.c
 pbsnodes_SOURCES = pbsnodes.c MXML.c
 pbspd_SOURCES = pbspd.c
@@ -46,11 +47,23 @@ qstat_SOURCES = qstat.c MXML.c
 qstop_SOURCES = qstop.c
 qsub_SOURCES = qsub.c
 qterm_SOURCES = qterm.c
-momctl_SOURCES = momctl.c
+
+CLEANFILES = $(dist_bin_SCRIPTS)
+
+do_subst = sed -e 's,[@]AWK[@],$(AWK),g'
+
+nqs2pbs: nqs2pbs.in Makefile
+	$(do_subst) < $(srcdir)/nqs2pbs.in > nqs2pbs
+	chmod +x nqs2pbs
+
 
 install-exec-hook:
 	$(PBS_MKDIRS) aux || :
 	$(PBS_MKDIRS) default
+	rm -f $(DESTDIR)$(bindir)/$(program_prefix)qnodes$(program_suffix)$(EXEEXT)
+	ln -s $(program_prefix)pbsnodes$(program_suffix)$(EXEEXT) \
+	  $(DESTDIR)$(bindir)/$(program_prefix)qnodes$(program_suffix)$(EXEEXT)
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_DEFAULT_FILE)
+	rm -f $(DESTDIR)$(bindir)/$(program_prefix)qnodes$(program_suffix)$(EXEEXT)

@@ -105,7 +105,6 @@
 /* External Global Data */
 
 extern char	*msg_nosupport;
-extern char     *PBatchReqType[];
 
 extern int       LOGLEVEL;
 
@@ -144,10 +143,12 @@ int dis_request_read(
       return(EOF);
       }
 
-    sprintf(log_buffer,"req header bad, dis error %d", 
-      rc);
+    sprintf(log_buffer,"req header bad, dis error %d (%s), type=%s", 
+      rc,
+      dis_emsg[rc],
+      reqtype_to_txt(request->rq_type));
 
-    LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_REQUEST,"?",
+    LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_REQUEST,id,
       log_buffer);
 
     return(PBSE_DISPROTO);
@@ -159,7 +160,18 @@ int dis_request_read(
       proto_ver,
       PBS_BATCH_PROT_VER);
 
-    LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_REQUEST,"?",
+    LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_REQUEST,id,
+      log_buffer);
+
+    return(PBSE_DISPROTO);
+    }
+
+  if ((request->rq_type < 0) || (request->rq_type > PBS_BATCH_Disconnect))
+    {
+    sprintf(log_buffer,"invalid request type: %d",
+      request->rq_type);
+
+    LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_REQUEST,id,
       log_buffer);
 
     return(PBSE_DISPROTO);
@@ -170,7 +182,7 @@ int dis_request_read(
   if (LOGLEVEL >= 5)
     {
     sprintf(log_buffer,"decoding command %s from %s",
-      PBatchReqType[request->rq_type],
+      reqtype_to_txt(request->rq_type),
       request->rq_user);
 
     LOG_EVENT(
@@ -293,6 +305,7 @@ int dis_request_read(
     case PBS_BATCH_StatusNode:
     case PBS_BATCH_StatusQue:
     case PBS_BATCH_StatusSvr:
+/* DIAGTODO: add PBS_BATCH_StatusDiag */
     
       rc = decode_DIS_Status(sfds,request);
 
@@ -345,9 +358,9 @@ int dis_request_read(
 
     default:
 
-      sprintf(log_buffer,"%s: %s from %s", 
+      sprintf(log_buffer,"%s: %d from %s", 
         msg_nosupport, 
-        PBatchReqType[request->rq_type], 
+        request->rq_type, 
         request->rq_user);
 
       LOG_EVENT(
@@ -370,7 +383,7 @@ int dis_request_read(
       sprintf(log_buffer,"req extension bad, dis error %d (%s), type=%s", 
         rc,
         dis_emsg[rc],
-        PBatchReqType[request->rq_type]);
+        reqtype_to_txt(request->rq_type));
 
       LOG_EVENT(
         PBSEVENT_DEBUG, 
@@ -386,7 +399,7 @@ int dis_request_read(
     sprintf(log_buffer,"req body bad, dis error %d (%s), type=%s",
       rc, 
       dis_emsg[rc],
-      PBatchReqType[request->rq_type]);
+      reqtype_to_txt(request->rq_type));
 
     LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_REQUEST,"?",log_buffer);
 
@@ -411,8 +424,8 @@ int dis_request_read(
 
 int DIS_reply_read(
 
-  int                 sock,
-  struct batch_reply *preply)
+  int                 sock,    /* I */
+  struct batch_reply *preply)  /* I (modified) */
 
   {
   DIS_tcp_setup(sock);

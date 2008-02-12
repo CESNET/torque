@@ -196,9 +196,10 @@ void req_rerunjob(
     return;
     }
 
-  /* the job must be running */
+  /* the job must be running or completed */
 
-  if (pjob->ji_qs.ji_state != JOB_STATE_RUNNING) 
+  if ((pjob->ji_qs.ji_state < JOB_STATE_EXITING) &&
+      (pjob->ji_qs.ji_state != JOB_STATE_RUNNING))
     {
     /* FAILURE */
 
@@ -221,17 +222,35 @@ void req_rerunjob(
     return;
     }
 
-  /* ask MOM to kill off the job */
+  if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING)
+    {
+    /* ask MOM to kill off the job if it is running */
 
-  rc = issue_signal(pjob,"SIGKILL",post_rerun,0);
+    rc = issue_signal(pjob,"SIGKILL",post_rerun,0);
+    }
+  else
+    {
+    pjob->ji_qs.ji_state = JOB_STATE_QUEUED;
+    pjob->ji_qs.ji_substate = JOB_SUBSTATE_QUEUED;
+
+    set_statechar(pjob);
+
+    rc = -1;
+    }
 
   switch (rc) 
     {
+    case -1:
+    
+      /* completed job was requeued - NO-OP */
+
+      break;
+
     case 0:
 
       /* requeue request successful */
 
-      pjob->ji_qs.ji_substate  = JOB_SUBSTATE_RERUN;
+      pjob->ji_qs.ji_substate = JOB_SUBSTATE_RERUN;
 
       break;
 
@@ -281,13 +300,16 @@ void req_rerunjob(
 
         rel_resc(pjob); /* free resc assigned to job */
 
-        if ((pjob->ji_qs.ji_svrflags | JOB_SVFLG_HOTSTART) == 0)
+        if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HOTSTART) == 0)
           {
           /* in case of server shutdown, don't clear exec_host */
           /* will use it on hotstart when next comes up        */
 
           job_attr_def[(int)JOB_ATR_exec_host].at_free(
             &pjob->ji_wattr[(int)JOB_ATR_exec_host]);
+
+          job_attr_def[(int)JOB_ATR_session_id].at_free(
+            &pjob->ji_wattr[(int)JOB_ATR_session_id]);
           }
       
         pjob->ji_modified = 1;    /* force full job save */
@@ -326,4 +348,5 @@ void req_rerunjob(
   }  /* END req_rerunjob() */
 
 
+/* END req_rerun.c */
 

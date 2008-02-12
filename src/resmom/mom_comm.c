@@ -122,6 +122,10 @@
 #include        "batch_request.h"
 #include        "resmon.h"
 #include        "mcom.h"
+#include	"svrfunc.h"
+#ifdef PENABLE_LINUX26_CPUSETS
+#include "pbs_cpuset.h"
+#endif
 
 
 /* Global Data Items */
@@ -186,18 +190,6 @@ extern int TMakeTmpDir (job *,char *);
 /* END external functions */
 
 
-/*
- * the following funny business is due to the fact that O_SYNC
- * is not currently POSIX
- */
-#ifdef O_SYNC
-#define O_Sync O_SYNC
-#elif _FSYNC
-#define O_Sync _FSYNC
-#else
-#define O_Sync 0
-#endif
-
 
 /*
 **	Save the critical information associated with a task to disk.
@@ -214,14 +206,11 @@ int task_save(
   int	fds;
   int	i;
   char	namebuf[MAXPATHLEN];
-  char	filnam[MAXPATHLEN];
   int	openflags;
 
   strcpy(namebuf,path_jobs);      /* job directory path */
   strcat(namebuf,pjob->ji_qs.ji_fileprefix);
   strcat(namebuf,JOB_TASKDIR_SUFFIX);
-  sprintf(filnam,task_fmt,ptask->ti_qs.ti_task);
-  strcat(namebuf,filnam);
 
   openflags = O_WRONLY|O_CREAT|O_Sync;
 
@@ -237,11 +226,28 @@ int task_save(
       log_buffer);
     }
 
+#ifdef HAVE_OPEN64
+  fds = open64(namebuf,openflags,0600);
+#else
   fds = open(namebuf,openflags,0600);
+#endif
 
   if (fds < 0) 
     {
     log_err(errno,id,"error on open");
+
+    return(-1);
+    }
+
+#ifdef HAVE_LSEEK64
+  if (lseek64(fds,(off_t)(ptask->ti_qs.ti_task*sizeof(ptask->ti_qs)),SEEK_SET) < 0) 
+#else
+  if (lseek(fds,(off_t)(ptask->ti_qs.ti_task*sizeof(ptask->ti_qs)),SEEK_SET) < 0) 
+#endif
+    {
+    log_err(errno,id,"lseek");
+
+    close(fds);
 
     return(-1);
     }
@@ -261,7 +267,11 @@ int task_save(
       {	
       /* retry the write */
 
-      if (lseek(fds,(off_t)0,SEEK_SET) < 0) 
+#ifdef HAVE_LSEEK64
+      if (lseek64(fds,(off_t)(ptask->ti_qs.ti_task*sizeof(ptask->ti_qs)),SEEK_SET) < 0) 
+#else
+      if (lseek(fds,(off_t)(ptask->ti_qs.ti_task*sizeof(ptask->ti_qs)),SEEK_SET) < 0) 
+#endif
         {
         log_err(errno,id,"lseek");
 
@@ -496,74 +506,45 @@ int task_recov(
   static	char	id[] = "task_recov";
   int		fds;
   task		*pt;
-  char		dirname[MAXPATHLEN];
   char		namebuf[MAXPATHLEN];
-  DIR		*dir;
-  struct	dirent	*pdirent;
   struct	taskfix	task_save;
 
-  strcpy(dirname,path_jobs);      /* job directory path */
-  strcat(dirname,pjob->ji_qs.ji_fileprefix);
-  strcat(dirname,JOB_TASKDIR_SUFFIX);
+  strcpy(namebuf,path_jobs);      /* job directory path */
+  strcat(namebuf,pjob->ji_qs.ji_fileprefix);
+  strcat(namebuf,JOB_TASKDIR_SUFFIX);
 
-  if ((dir = opendir(dirname)) == NULL)
+#ifdef HAVE_OPEN64
+  fds = open64(namebuf,O_RDONLY,0);
+#else
+  fds = open(namebuf,O_RDONLY,0);
+#endif
+
+  if (fds < 0) 
     {
-    return(-1);
+    log_err(errno,id,"open of task file");
+
+    unlink(namebuf);
+
+    return -1;
     }
 
-  strcat(dirname,"/");
+  /* read in task quick save sub-structure */
 
-  while ((pdirent = readdir(dir)) != NULL) 
+  while (read(fds,(char *)&task_save,sizeof(task_save)) == sizeof(task_save))
     {
-    if (pdirent->d_name[0] == '.')
-      continue;
-
-    strcpy(namebuf,dirname);
-    strcat(namebuf,pdirent->d_name);
-
-    fds = open(namebuf,O_RDONLY,0);
-
-    if (fds < 0) 
-      {
-      log_err(errno,id,"open of task file");
-
-      unlink(namebuf);
-
-      continue;
-      }
-
-    /* read in task quick save sub-structure */
-
-    if (read(fds,(char *)&task_save,sizeof(task_save)) != sizeof(task_save)) 
-      {
-      log_err(errno,id,"read");
-
-      unlink(namebuf);
-
-      close(fds);
-
-      continue;
-      }
-
     if ((pt = pbs_task_create(pjob,TM_NULL_TASK)) == NULL)  
       {
       log_err(errno,id,"cannot create task");
 
-      unlink(namebuf);
-
       close(fds);
 
-      continue;
+      return -1;
       }
 
     pt->ti_qs = task_save;
+    } /* END while read */
 
-    close(fds);
-    }  /* END while ((pdirent = readdir(dir)) != NULL) */
-
-  closedir(dir);
-
-  /* SUCCESS */
+  close(fds);
 
   return(0);
   }  /* END task_recov() */
@@ -691,14 +672,16 @@ err:
 
 
 /*
-**	Send a message (command = com) to all the other MOMs in
-**	the job -> pjob.
+**  Send a message (command = com) to all the other MOMs in
+**  the job -> pjob.
+**
+**  NOTE:  returns number of sister mom's successfully contacted 
 */
 
 int send_sisters(
 
   job *pjob,  /* I */
-  int  com)   /* I */
+  int  com)   /* I (command to send to all sisters) */
 
   {
   char *id = "send_sisters";
@@ -723,6 +706,8 @@ int send_sisters(
 
   if (!(pjob->ji_wattr[(int)JOB_ATR_Cookie].at_flags & ATR_VFLAG_SET))
     {
+    /* cookie not set - return FAILURE */
+
     return(0);
     }
 
@@ -750,16 +735,59 @@ int send_sisters(
 
     if (np->hn_sister != SISTER_OKAY)	/* sister is gone? */
       {
-      DBPRT(("send_sisters: nodeid %d is not okay\n",
-        np->hn_node));
+      snprintf(log_buffer,1024,"%s:  sister #%d (%s) is not ok (%d)",
+        id,
+        i,
+        (np->hn_host != NULL) ? np->hn_host : "NULL",
+        np->hn_sister);
 
-      /* continue; I don't like this -garrick */
+      log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+
+      /* garrick commented out continue statement below */
+
+      /* continue; */
       }
 
     if (np->hn_stream == -1)
-      np->hn_stream = rpp_open(np->hn_host,pbs_rm_port,NULL);
+      {
+      char EMsg[1024];
+
+      np->hn_stream = rpp_open(np->hn_host,pbs_rm_port,EMsg);
+
+      if (np->hn_stream == -1)
+        {
+        snprintf(log_buffer,1024,"%s:  cannot open rpp connection to sister #%d (%s) - %s",
+          id,
+          i,
+          (np->hn_host != NULL) ? np->hn_host : "NULL",
+          EMsg);
+
+        log_record(
+          PBSEVENT_ERROR,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          log_buffer);
+        }
+
+      continue;
+      }
 
     ep = event_alloc(com,np,TM_NULL_EVENT,TM_NULL_TASK);
+
+    if (ep == NULL)
+      {
+      log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        "cannot alloc event object in send_sisters");
+
+      continue;
+      }
 
     ret = im_compose(
       np->hn_stream, 
@@ -771,6 +799,18 @@ int send_sisters(
 
     if (ret != DIS_SUCCESS)
       {
+      snprintf(log_buffer,1024,"%s:  cannot compose message to sister #%d (%s) - %d",
+        id,
+        i,
+        (np->hn_host != NULL) ? np->hn_host : "NULL",
+        ret);
+
+      log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+
       rpp_close(np->hn_stream);
 
       np->hn_stream = -1;
@@ -783,6 +823,17 @@ int send_sisters(
 
     if (ret == -1)
       {
+      snprintf(log_buffer,1024,"%s:  cannot flush message to sister #%d (%s)",
+        id,
+        i,
+        (np->hn_host != NULL) ? np->hn_host : "NULL");
+
+      log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+
       rpp_close(np->hn_stream);
 
       np->hn_stream = -1;
@@ -831,13 +882,8 @@ hnodent	*find_node(
   int			i;
   vnodent		*vp;
   hnodent		*hp;
-#ifdef ENABLE_IPV6
-  struct  sockaddr_in6  *stream_addr;
-  struct  sockaddr_in6  *node_addr;
-#else
   struct  sockaddr_in   *stream_addr;
   struct  sockaddr_in   *node_addr;
-#endif
 
   for (vp = pjob->ji_vnods,i = 0;i < pjob->ji_numvnod;vp++,i++) 
     {
@@ -907,17 +953,15 @@ hnodent	*find_node(
         sizeof(node_addr->sin_addr)) != 0) 
     {
 */
-#ifdef ENABLE_IPV6
-  if (stream_addr->sin6_addr.s6_addr32[0] != node_addr->sin6_addr.s6_addr32[0])
-#else
   if (stream_addr->sin_addr.s_addr != node_addr->sin_addr.s_addr)
-#endif
     {
     char *addr1;
     char *addr2;
 
-    addr1=strdup(netaddr(stream_addr));
-    addr2=strdup(netaddr(node_addr));
+    addr1 = strdup(netaddr(stream_addr));
+
+    addr2 = strdup(netaddr(node_addr));
+
     sprintf(log_buffer,"stream id %d does not match %d to node %d (stream=%s node=%s)",
       stream, 
       hp->hn_stream, 
@@ -953,10 +997,13 @@ void job_start_error(
 
   {
   static  char  id[] = "job_start_error";
-  int           nodes;
 
-  static char abortjobid[64];
-  static int  abortcount = -1;
+  static char   abortjobid[64];
+  static int    abortcount = -1;
+
+  attribute    *pattr;
+
+  char          tmpLine[1024];
 
   if (abortcount == -1)
     {
@@ -995,17 +1042,31 @@ void job_start_error(
     abortcount = 1;
     }
 
-  nodes = send_sisters(pjob,IM_ABORT_JOB);
+  /* annotate job with failed node info */
 
-  if (nodes != pjob->ji_numnodes - 1) 
-    {
-    sprintf(log_buffer,"%s: sent %d ABORT requests, should be %d",
-      id,
-      nodes,
-      pjob->ji_numnodes - 1);
+  snprintf(tmpLine,sizeof(tmpLine),"REJHOST=%s",
+    nodename);
 
-    log_err(-1,id,log_buffer);
-    }
+  pattr = &pjob->ji_wattr[(int)JOB_ATR_sched_hint];
+
+  job_attr_def[(int)JOB_ATR_sched_hint].at_free(pattr);
+
+  job_attr_def[(int)JOB_ATR_sched_hint].at_decode(
+    pattr,
+    NULL,
+    NULL,
+    tmpLine);
+
+  pjob->ji_wattr[(int)JOB_ATR_errpath].at_flags =
+    (ATR_VFLAG_SET | ATR_VFLAG_MODIFY | ATR_VFLAG_SEND);
+
+  /* NOTE:  is there a way to force the updated 'sched_hint' info to pbs_server 
+            before the obit to avoid a race condition? */
+
+  /*        Perhaps, pbs_mom could register job and perform 'exec_bail' after 
+            next job status query from pbs_server? */
+
+  /* NOTE:  exec_bail will issue 'send_sisters(pjob,IM_ABORT_JOB);' */
 
   exec_bail(pjob,JOB_EXEC_RETRY);
 
@@ -1022,7 +1083,7 @@ void job_start_error(
 
 void arrayfree(
 
-  char **array)
+  char **array)  /* I - freed */
 
   {
   int i;
@@ -1065,7 +1126,7 @@ void node_bailout(
 
         /*
         ** I'm MS and a node has failed to respond to the
-        ** call.  Maybe in the future the use can specify
+        ** call.  Maybe in the future the user can specify
         ** the job can start with a range of nodes so
         ** one (or more) missing can be tolerated.  Not
         ** for now.
@@ -1152,14 +1213,29 @@ void node_bailout(
         ** this is an error reply to a poll request.
         */
 
-        sprintf(log_buffer, "%s POLL failed from node %s %d)",
+#ifdef __TRR  /* roadrunner */          
+
+        sprintf(log_buffer, "%s POLL failed from node %s %d - recovery attempted - job will not be killed)",
+          pjob->ji_qs.ji_jobid,
+          np->hn_host,
+          np->hn_node);
+
+        log_err(-1,id,log_buffer);       
+
+#else /* __TRR */
+
+        sprintf(log_buffer, "%s POLL failed from node %s %d - recovery not attempted - job will be killed)",
           pjob->ji_qs.ji_jobid, 
           np->hn_host,
           np->hn_node);
 
         log_err(-1,id,log_buffer);
 
+        /* we should be more patient - how do we recover this connection? (NYI) */
+
         pjob->ji_nodekill = np->hn_node;
+
+#endif /* __TRR */
 
         break;
 
@@ -1177,7 +1253,7 @@ void node_bailout(
         arrayfree(ep->ee_argv);
         arrayfree(ep->ee_envp);
 
-        ptask = task_check(pjob, ep->ee_forward.fe_taskid);
+        ptask = task_check(pjob,ep->ee_forward.fe_taskid);
 
         if (ptask == NULL)
           break;
@@ -1219,7 +1295,7 @@ void node_bailout(
 
 void term_job(
 
-  job *pjob)
+  job *pjob) /* I */
 
   {
   hnodent *np;
@@ -1260,11 +1336,7 @@ void im_eof(
   int                   num;
   job                  *pjob;
   hnodent              *np;
-#ifdef ENABLE_IPV6
-  struct sockaddr_in6  *addr;
-#else
   struct sockaddr_in   *addr;
-#endif
   int                   sindex;
 
   addr = rpp_getaddr(stream);
@@ -1372,25 +1444,17 @@ int check_ms(
   {
   static char id[] = "check_ms";
 
-#ifdef ENABLE_IPV6
-  struct sockaddr_in6 *addr;
-#else
-  struct sockaddr_in  *addr;
-#endif
+  struct sockaddr_in *addr;
   hnodent            *np;
 
   addr = rpp_getaddr(stream);
 
-#ifdef ENABLE_IPV6
-  if ((port_care != 0) && (ntohs(addr->sin6_port) >= IPPORT_RESERVED))
-#else
   if ((port_care != 0) && (ntohs(addr->sin_port) >= IPPORT_RESERVED))
-#endif
     {
     sprintf(log_buffer,"non-privileged connection from %s", 
       netaddr(addr));
 
-    log_err(-1, id, log_buffer);
+    log_err(-1,id,log_buffer);
 
     rpp_close(stream);
 
@@ -1427,7 +1491,7 @@ int check_ms(
         stream, 
         netaddr(addr));
 
-      log_err(-1, id, log_buffer);
+      log_err(-1,id,log_buffer);
       }
 
     np->hn_stream = stream;
@@ -1440,20 +1504,24 @@ int check_ms(
 
 
 
+u_long resc_used(
 
-u_long resc_used(pjob, name, func)
-    job		*pjob;
-    char	*name;
-    u_long	(*func) A_((resource *pres));
-{
-	attribute		*at;
-	resource_def		*rd;
-	resource		*pres;
-	u_long	val = 0L;
+  job    *pjob,
+  char	 *name,
+  u_long  (*func) A_((resource *)))
 
-	at = &pjob->ji_wattr[(int)JOB_ATR_resc_used];
-	if (at == NULL)
-		return 0;
+  {
+  attribute    *at;
+  resource_def *rd;
+  resource     *pres;
+  u_long        val = 0L;
+
+  at = &pjob->ji_wattr[(int)JOB_ATR_resc_used];
+
+  if (at == NULL)
+    {
+    return(0);
+    }
 
 	rd = find_resc_def(svr_resc_def, name, svr_resc_size);
 	if (rd == NULL)
@@ -1465,8 +1533,9 @@ u_long resc_used(pjob, name, func)
 
 	val = func(pres);
 	DBPRT(("resc_used: %s %lu\n", name, val))
-	return val;
-}
+
+  return(val);
+  }
 
 
 
@@ -1503,12 +1572,12 @@ void task_saveinfo(
   task *ptask,
   char *name,
   void *info,
-  int	len)
+  size_t	len)
 
   {
   infoent *ip;
 
-  if ((ip = task_findinfo(ptask, name)) == NULL) 
+  if ((ip = task_findinfo(ptask,name)) == NULL) 
     {	
     /* new name */
 
@@ -1518,7 +1587,7 @@ void task_saveinfo(
 
     CLEAR_LINK(ip->ie_next);
 
-    append_link(&ptask->ti_info, &ip->ie_next, ip);
+    append_link(&ptask->ti_info,&ip->ie_next,ip);
 
     ip->ie_name = name;
     }
@@ -1573,15 +1642,22 @@ char *resc_string(
     return(res_str);
     }
 
-	ad = &job_attr_def[(int)JOB_ATR_resource];
-	resc_access_perm = ATR_DFLAG_USRD;
-	CLEAR_HEAD(lhead);
-	(void)ad->at_encode(at,
-			&lhead, ad->at_name,
-			NULL, ATR_ENCODE_CLIENT);
-	attrl_fixlink(&lhead);
+  ad = &job_attr_def[(int)JOB_ATR_resource];
 
-	for (pal = (svrattrl *)GET_NEXT(lhead);
+  resc_access_perm = ATR_DFLAG_USRD;
+
+  CLEAR_HEAD(lhead);
+
+  ad->at_encode(
+    at,
+    &lhead, 
+    ad->at_name,
+    NULL, 
+    ATR_ENCODE_CLIENT);
+
+  attrl_fixlink(&lhead);
+
+  for (pal = (svrattrl *)GET_NEXT(lhead);
 			pal;
 			pal = (svrattrl *)GET_NEXT(pal->al_link)) {
 		while (used + pal->al_rescln + pal->al_valln > tot) {
@@ -1642,11 +1718,7 @@ void im_request(
   hnodent		*np;
   eventent		*ep = NULL;
   infoent		*ip;
-#ifdef ENABLE_IPV6
-  struct sockaddr_in6	*addr;
-#else
   struct sockaddr_in	*addr;
-#endif
   u_long		ipaddr;
   int			i, j, errcode, nodeidx = 0;
   int			reply;
@@ -1671,6 +1743,8 @@ void im_request(
   u_long gettime	A_((resource *));
   u_long getsize	A_((resource *));
 
+  memset(&efwd,0,sizeof(efwd));
+
   if (version != IM_PROTOCOL_VER) 
     {
     sprintf(log_buffer,"protocol version %d unknown",
@@ -1686,11 +1760,7 @@ void im_request(
   /* check that machine is known */
 
   addr = rpp_getaddr(stream);
-#ifdef ENABLE_IPV6
-  ipaddr = ntohl(addr->sin6_addr.s6_addr32[0]);
-#else
   ipaddr = ntohl(addr->sin_addr.s_addr);
-#endif
 
   if (LOGLEVEL >= 3)
     {
@@ -1996,6 +2066,8 @@ void im_request(
  
       if (check_pwd(pjob) == NULL) 
         {
+        /* log_buffer populated in check_pwd() */
+
         LOG_EVENT(
           PBSEVENT_JOB, 
           PBS_EVENTCLASS_JOB,
@@ -2028,6 +2100,21 @@ void im_request(
           goto done;
           }
         }
+
+#ifdef PENABLE_LINUX26_CPUSETS
+
+      sprintf(log_buffer,"about to create cpuset for job %s.\n",
+        pjob->ji_qs.ji_jobid);
+
+      log_err(-1,id,log_buffer);
+    if (create_jobset(pjob) != 0)
+      {   
+      sprintf(log_buffer,"Could not create cpuset for job %s.\n",
+        pjob->ji_qs.ji_jobid);
+
+      log_err(-1,id,log_buffer);
+      }   
+#endif  /* (PENABLE_LINUX26_CPUSETS) */
 
       /* run local prolog */
 
@@ -2098,23 +2185,6 @@ void im_request(
 
       job_save(pjob,SAVEJOB_FULL);
 
-      strcpy(namebuf,path_jobs);      /* job directory path */
-      strcat(namebuf,pjob->ji_qs.ji_fileprefix);
-      strcat(namebuf,JOB_TASKDIR_SUFFIX);
-  
-      if (mkdir(namebuf,0700) == -1) 
-        {
-        log_err(-1,id,"cannot create temporary directory");
-
-        job_purge(pjob);
-
-        /* cannot create temporary job directory */
-
-        SEND_ERR(PBSE_SYSTEM)
-  
-        goto done;
-        }
-  
       sprintf(log_buffer,"JOIN JOB as node %d", 
         nodeid);
   
@@ -2315,37 +2385,15 @@ void im_request(
       if (check_ms(stream,pjob))
         goto fini;
 
-      LOG_EVENT(
-        PBSEVENT_DEBUG2, 
-        PBS_EVENTCLASS_JOB,
-        pjob->ji_qs.ji_jobid, 
-        "kill_job received");
-
       /*
       ** Send the jobs a signal but we have to wait to
       ** do a reply to mother superior until the procs
       ** die and are reaped.
       */
 
-      if (LOGLEVEL >= 3)
-        {
-        sprintf(log_buffer,"%s: KILL_JOB %s node %s",
-          id,
-          jobid,
-          netaddr(addr));
-
-        log_record(
-          PBSEVENT_JOB,
-          PBS_EVENTCLASS_JOB,
-          jobid,
-          log_buffer);
-
-        DBPRT(("%s\n",log_buffer));
-        }
-
       reply = 0;
 
-      kill_job(pjob,SIGKILL);
+      kill_job(pjob,SIGKILL,id,"kill_job message received");
 
       pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
       pjob->ji_obit = event;
@@ -2694,7 +2742,7 @@ void im_request(
 
       for (ptask = (task *)GET_NEXT(pjob->ji_tasks);ptask != NULL;ptask = (task *)GET_NEXT(ptask->ti_jobtask))
         {
-        ret = diswsi(stream, ptask->ti_qs.ti_task);
+        ret = diswsi(stream,ptask->ti_qs.ti_task);
 
         if (ret != DIS_SUCCESS)
           break;
@@ -2740,7 +2788,10 @@ void im_request(
       if (taskid == 0)
         {
         DBPRT(("%s: SIGNAL_TASK %s from node %d all tasks signal %d\n",
-          id,jobid,nodeid,sig))
+          id,
+          jobid,
+          nodeid,
+          sig))
 
         for (
             ptask = (task *)GET_NEXT(pjob->ji_tasks);
@@ -2765,7 +2816,11 @@ void im_request(
       else
         {
         DBPRT(("%s: SIGNAL_TASK %s from node %d task %d signal %d\n",
-          id,jobid,nodeid,taskid,sig))
+          id,
+          jobid,
+          nodeid,
+          taskid,
+          sig))
 
         ptask = task_find(pjob,taskid);
 
@@ -2777,7 +2832,11 @@ void im_request(
           }
 
         sprintf(log_buffer,"%s: SIGNAL_TASK %s from node %d task %d signal %d",
-          id,jobid,nodeid,taskid,sig);
+          id,
+          jobid,
+          nodeid,
+          taskid,
+          sig);
 
         LOG_EVENT(
           PBSEVENT_JOB,
@@ -3029,6 +3088,9 @@ void im_request(
 
       if (ret != DIS_SUCCESS)
         break;
+
+      /* get fresh resource usage */
+      mom_set_use(pjob);
 
       /* ** Send the information tallied for the job.  */
 
@@ -3622,7 +3684,7 @@ void im_request(
                 pjob->ji_qs.ji_jobid,
                 log_buffer);
               }
-  
+ 
             pjob->ji_nodekill = np->hn_node;
             }
   
@@ -4124,7 +4186,8 @@ int tm_request(
   task		*ptask;
   vnodent	*pnode;
   hnodent	*phost;
-  int		i, len, event, numele;
+  int		i, event, numele;
+  size_t	len;
   long		ipadd;
   char		**argv, **envp;
   char		*name, *info;
@@ -4369,7 +4432,7 @@ int tm_request(
       if (ret != DIS_SUCCESS)
         goto err;
 
-      info = disrcs(fd, (size_t *)&len, &ret);
+      info = disrcs(fd, &len, &ret);
 
       if (ret != DIS_SUCCESS) 
         {
@@ -4380,7 +4443,7 @@ int tm_request(
 
       DBPRT(("%s: POSTINFO %s task %d sent info %s:%s(%d)\n", 
         id,
-        jobid, fromtask, name, info, len))
+        jobid, fromtask, name, info, (int)len))
 
       if (prev_error)
         goto done;
@@ -4867,17 +4930,17 @@ int tm_request(
         if (ret != DIS_SUCCESS)
           goto done;
 
-        ret = diswui(phost->hn_stream, pjob->ji_nodeid); /* XXX */
+        ret = diswui(phost->hn_stream,pjob->ji_nodeid); /* XXX */
 
         if (ret != DIS_SUCCESS)
           goto done;
 
-        ret = diswsi(phost->hn_stream, taskid);
+        ret = diswsi(phost->hn_stream,taskid);
 
         if (ret != DIS_SUCCESS)
           goto done;
 
-        ret = diswsi(phost->hn_stream, signum);
+        ret = diswsi(phost->hn_stream,signum);
 
         if (ret != DIS_SUCCESS)
           goto done;
@@ -4898,12 +4961,12 @@ int tm_request(
 
       if ((ptask = task_find(pjob,taskid)) == NULL) 
         {
-        ret = tm_reply(fd, TM_ERROR, event);
+        ret = tm_reply(fd,TM_ERROR,event);
 
         if (ret != DIS_SUCCESS)
           goto done;
 
-        ret = diswsi(fd, TM_ENOTFOUND);
+        ret = diswsi(fd,TM_ENOTFOUND);
 
         break;
         }
@@ -4958,18 +5021,23 @@ int tm_request(
           phost->hn_stream = rpp_open(phost->hn_host,pbs_rm_port,NULL);
           }
 
-        ret = im_compose(phost->hn_stream, jobid, cookie,
-                IM_OBIT_TASK, event, fromtask);
+        ret = im_compose(
+          phost->hn_stream, 
+          jobid, 
+          cookie,
+          IM_OBIT_TASK, 
+          event, 
+          fromtask);
 
         if (ret != DIS_SUCCESS)
           goto done;
 
-        ret = diswui(phost->hn_stream, pjob->ji_nodeid);
+        ret = diswui(phost->hn_stream,pjob->ji_nodeid);
 
         if (ret != DIS_SUCCESS)
           goto done;
 
-        ret = diswsi(phost->hn_stream, taskid);
+        ret = diswsi(phost->hn_stream,taskid);
 
         if (ret != DIS_SUCCESS)
           goto done;

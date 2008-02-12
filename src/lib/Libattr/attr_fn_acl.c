@@ -167,14 +167,18 @@ int set_uacl(attr, new, op)
  *		>0 if error
  */
 
-int set_hostacl(attr, new, op)
-	struct attribute *attr;
-	struct attribute *new;
-	enum batch_op op;
-{
+int set_hostacl(
 
-	return (set_allacl(attr, new, op, host_order));
-}
+  struct attribute *attr,
+  struct attribute *new,
+  enum batch_op     op)
+
+  {
+  return(set_allacl(attr,new,op,host_order));
+  }
+
+
+
 
 
 /*
@@ -189,79 +193,111 @@ int set_hostacl(attr, new, op)
  * Returns: 1 if access is allowed;  0 if not allowed
  */
 
-int acl_check(pattr, name, type)
-	attribute *pattr;
-	char      *name;
-	int	   type;
-{
-	int		      i;
+int acl_check(
+
+  attribute *pattr,
+  char      *name,  /* I (optional) */
+  int	     type)
+
+  {
+  int		      i;
 #ifdef HOST_ACL_DEFAULT_ALL
-	int		      default_rtn = 1;
+  int		      default_rtn = 1;
 #else	/* HOST_ACL_DEFAULT_ALL */
-	int		      default_rtn = 0;
+  int		      default_rtn = 0;
 #endif	/* HOST_ACL_DEFAULT_ALL */
-	struct array_strings *pas;
-	char		     *pstr;
-	int (*match_func) A_((const char *name, const char *master));
+  struct array_strings *pas;
+  char		     *pstr;
+  int (*match_func) A_((const char *,const char *));
 
-	extern char server_host[];
+  extern char server_host[];
 
-	switch (type) {
-	    case ACL_Host:
-		match_func = hacl_match;
-		break;
-	    case ACL_User:
-		match_func = user_match;
-		break;
-	    case ACL_Gid:
-		match_func = gid_match;
-		break;
-	    case ACL_Group:
-	    default:
-		match_func = (int (*)())strcmp;
-		break;
-	}
+  switch (type) 
+    {
+    case ACL_Host:
+
+      match_func = hacl_match;
+      break;
+
+    case ACL_User:
+
+      match_func = user_match;
+      break;
+
+    case ACL_Gid:
+
+      match_func = gid_match;
+      break;
+
+    case ACL_Group:
+    default:
+
+      match_func = (int (*)())strcmp;
+
+      break;
+    }
 	    
-	if ( !(pattr->at_flags & ATR_VFLAG_SET) || 
-	    ((pas = pattr->at_val.at_arst) == (struct array_strings *)0) ||
-	    (pas->as_usedptr == 0)) {
-
+  if (!(pattr->at_flags & ATR_VFLAG_SET) || 
+     ((pas = pattr->at_val.at_arst) == NULL) || (pas->as_usedptr == 0)) 
+    {
 #ifdef HOST_ACL_DEFAULT_ALL
-		/* no list, default to everybody is allowed */
-		return (1);
+    /* no list, default to everybody is allowed */
+
+    return(1);
 #else
-		if (type == ACL_Host) {
-			/* if there is no list set, allow only from my host */
-			return ( ! hacl_match(name, server_host));
-		} else
-			return (0);
+    if (type != ACL_Host) 
+      {
+      /* FAILURE - deny */
+
+      return(0);
+      }
+
+    /* if there is no list set, allow only from my host */
+
+    return(!hacl_match(name,server_host));
 #endif
-	}
+    }
 
-	for (i=0; i<pas->as_usedptr; i++) {
-		pstr = pas->as_string[i];
-		if ((*pstr == '+') || (*pstr == '-')) {
-			if (*(pstr+1) == '\0')	/* "+" or "-" sets default */
-                          {
-				if (*pstr == '+')
-					default_rtn = 1;
-				else
-					default_rtn = 0;
-                          }
+  for (i = 0; i < pas->as_usedptr;i++) 
+    {
+    pstr = pas->as_string[i];
 
-			pstr++;		/* skip over +/- if present */
-		}
-		if ( ! match_func(name, pstr))
-                  {
-			if (*pas->as_string[i] == '-')
-				return (0);	/* deny */
-			else
-				return (1);	/* allow */
-                  }
-	}
-	return (default_rtn);
-}
+    if ((*pstr == '+') || (*pstr == '-')) 
+      {
+      if (*(pstr + 1) == '\0')	/* "+" or "-" sets default */
+        {
+        if (*pstr == '+')
+          default_rtn = 1;  /* allow by default */
+        else
+          default_rtn = 0;  /* deny by default */
+        }
+
+      pstr++;		/* skip over +/- if present */
+      }
+
+    if ((name != NULL) && !match_func(name,pstr))
+      {
+      /* acl matches */
+
+      if (*pas->as_string[i] == '-')
+        {
+        /* deny */
+
+        return(0);
+        }
+
+      /* allow */
+
+      return(1);
+      }
+    }    /* END for (i) */
+
+  return(default_rtn);
+  }  /* END acl_check() */
 	
+
+
+
 
 /*
  * chk_dup_acl - check for duplicate in list (array_strings)
@@ -269,15 +305,17 @@ int acl_check(pattr, name, type)
  *	between the new and old list.
  */
 
-static int chk_dup_acl(old, new)
-	struct array_strings *old;
-	struct array_strings *new;
-{
-	int i;
-	int j;
+static int chk_dup_acl(
 
-	for (i=0; i<new->as_usedptr; ++i) {
+  struct array_strings *old,
+  struct array_strings *new)
 
+  {
+  int i;
+  int j;
+
+  for (i = 0;i < new->as_usedptr;++i) 
+    {
 		/* first check against self */
 
 		for (j=0; j<new->as_usedptr; ++j) {
@@ -616,6 +654,9 @@ static int gid_match(const char *group1, const char *group2)
    return (! (gid1 == gid2));
 }
 
+
+
+
     
 /*
  * host acl order match - match two strings from the tail end first
@@ -630,16 +671,25 @@ static int gid_match(const char *group1, const char *group2)
  * Returns 0 if strings match,  1 if not   - to match strcmp()
  */
 
-static int hacl_match(can, master)
-	const char *can;
-	const char *master;
-{
-	const char *pc;
-	const char *pm;
+static int hacl_match(
 
-	pc = can + strlen(can) - 1;
-	pm = master + strlen(master) - 1;
-	while ((pc > can) && (pm > master)) {
+  const char *can,
+  const char *master)
+
+  {
+  const char *pc;
+  const char *pm;
+
+  if ((can == NULL) || (!strcmp(can,"LOCAL")))
+    {
+    return(0);
+    }
+
+  pc = can + strlen(can) - 1;
+  pm = master + strlen(master) - 1;
+
+  while ((pc > can) && (pm > master))
+    {
 		if (tolower(*pc) != tolower(*pm))
 			return (1);
 		pc--;
@@ -656,6 +706,10 @@ static int hacl_match(can, master)
 	}
 	return (1);
 }
+
+
+
+
 
 /* 
  * host reverse order compare - compare two host entrys from the tail end first

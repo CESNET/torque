@@ -124,6 +124,9 @@
 #include "batch_request.h"
 #include "pbs_proto.h"
 
+
+#define TSERVER_HA_CHECK_TIME  1  /* 1 second sleep time between checks on the lock file for high availability */
+
 /* external functions called */
 
 extern int  pbsd_init A_((int));
@@ -142,7 +145,7 @@ extern int RPPConfigure(int,int);
 /* external data items */
 
 extern int    svr_chngNodesfile;
-
+extern int    svr_totnodes;
 
 /* Local Private Functions */
 
@@ -150,15 +153,18 @@ static int    get_port A_((char *,unsigned int *,pbs_net_t *));
 static time_t next_task A_(());
 static int    start_hot_jobs();
 static void   lock_out A_((int,int));
+static int   try_lock_out A_((int,int));
 
 /* Global Data Items */
 
+int             high_availability_mode = FALSE;
 char	       *acct_file = NULL;
 char	       *log_file  = NULL;
 char	       *path_home = PBS_SERVER_HOME;
 char	       *path_acct;
 char	        path_log[MAXPATHLEN + 1];
 char	       *path_priv;
+char	       *path_arrays;
 char	       *path_jobs;
 char	       *path_queues;
 char	       *path_spool;
@@ -168,16 +174,17 @@ char 	       *path_track;
 char	       *path_nodes;
 char	       *path_nodes_new;
 char	       *path_nodestate;
-char	       *path_resources;
+char	       *path_nodenote;
+char	       *path_nodenote_new;
 extern char    *msg_daemonname;
 extern int	pbs_errno;
 char	       *pbs_o_host = "PBS_O_HOST";
 pbs_net_t	pbs_mom_addr;
-unsigned int	pbs_mom_port;
+unsigned int	pbs_mom_port = 0;
 unsigned int	pbs_rm_port;
 pbs_net_t	pbs_scheduler_addr;
 unsigned int	pbs_scheduler_port;
-extern pbs_net_t	pbs_server_addr;
+extern pbs_net_t pbs_server_addr;
 unsigned int	pbs_server_port_dis;
 int		queue_rank = 0;
 struct server	server;		/* the server structure */
@@ -191,18 +198,21 @@ tlist_head	svr_queues;            /* list of queues                   */
 tlist_head	svr_alljobs;           /* list of all jobs in server       */
 tlist_head	svr_newjobs;           /* list of incoming new jobs        */
 tlist_head	svr_newnodes;          /* list of newly created nodes      */
+tlist_head	svr_jobarrays;         /* list of all job arrays           */
 tlist_head	task_list_immed;
 tlist_head	task_list_timed;
 tlist_head	task_list_event;
 
 time_t		time_now = 0;
 
+char           *plogenv = NULL;
 int             LOGLEVEL = 0;
 int             DEBUGMODE = 0;
+int             TDoBackground = 1;  /* background daemon */
 int             TForceUpdate = 0;  /* (boolean) */
 
 char           *ProgName;
-
+char           *NodeSuffix = NULL;
 
 
 
@@ -212,9 +222,9 @@ void DIS_rpp_reset()
   if (dis_getc != rpp_getc) 
     {
     dis_getc    = rpp_getc;
-    dis_puts    = (int (*) A_((int,const char *,size_t)))rpp_write;
-    dis_gets    = (int (*) A_((int,char *,size_t)))rpp_read;
-    disr_skip   = (int (*) A_((int,size_t)))rpp_skip;
+    dis_puts    = (int (*)A_((int,const char *,size_t)))rpp_write;
+    dis_gets    = (int (*)A_((int,char *,size_t)))rpp_read;
+    disr_skip   = (int (*)A_((int,size_t)))rpp_skip;
     disr_commit = rpp_rcommit;
     disw_commit = rpp_wcommit;
     }
@@ -225,9 +235,12 @@ void DIS_rpp_reset()
 
 
 
-/*
-** Read a RPP message from a stream.  Only one kind of message
-** is expected -- Inter Server requests from MOM's.
+/**
+ * Read a RPP message from a stream.  
+ *
+ * NOTE: Only one kind of message is expected -- Inter Server requests from MOM's.
+ *
+ * @param stream (I)
 */
 
 void do_rpp(
@@ -244,7 +257,7 @@ void do_rpp(
 
   if (LOGLEVEL >= 4)
     {
-    sprintf(log_buffer,"rpp request received on stream %d\n",
+    sprintf(log_buffer,"rpp request received on stream %d",
       stream);
 
     log_record(
@@ -260,6 +273,8 @@ void do_rpp(
 
   if (ret != DIS_SUCCESS) 
     {
+    /* FAILURE */
+
     if (LOGLEVEL >= 1)
       {
       struct pbsnode *node;
@@ -270,7 +285,7 @@ void do_rpp(
 
       node = tfind((u_long)stream,&streams);
 
-      sprintf(log_buffer,"corrupt rpp request received on stream %d (node: %s) - invalid protocol - rc=%d (%s)\n",
+      sprintf(log_buffer,"corrupt rpp request received on stream %d (node: %s) - invalid protocol - rc=%d (%s)",
         stream,
         (node != NULL) ? node->nd_name : "NULL",
         ret,
@@ -286,7 +301,7 @@ void do_rpp(
     stream_eof(stream,0,ret);
 
     return;
-    }
+    }  /* END if (ret != DIS_SUCCESS) */
 
   version = disrsi(stream,&ret);
 
@@ -294,7 +309,7 @@ void do_rpp(
     {
     if (LOGLEVEL >= 1)
       {
-      sprintf(log_buffer,"corrupt rpp request received on stream %d - invalid version - rc=%d (%s)\n",
+      sprintf(log_buffer,"corrupt rpp request received on stream %d - invalid version - rc=%d (%s)",
         stream,
         ret,
         dis_emsg[ret]);
@@ -386,11 +401,26 @@ int PBSShowUsage(
   char *EMsg)  /* I (optional) */
 
   {
-  const char *Msg = "[ -A <ACCTFILE> ] [ -a <ATTR> ] [ -d <HOMEDIR> ] [ -L <LOGFILE> ] [ -M <MOMPORT> ]\n  [ -p <SERVERPORT> ] [ -R <RMPORT> ] [ -S <SCHEDULERPORT> ] [ -t <TYPE> ]\n  [ --version|--help ]\n";
+  fprintf(stderr,"Usage: %s\n",
+    ProgName);
 
-  fprintf(stderr,"usage:  %s %s\n",
-    ProgName,
-    Msg);
+  fprintf(stderr,"  -A <INT>  \\\\ Alarm Time\n");
+  fprintf(stderr,"  -a <BOOL> \\\\ Scheduling\n");
+  fprintf(stderr,"  -d <PATH> \\\\ Homedir\n");
+  fprintf(stderr,"  -D        \\\\ Debugmode\n");
+  fprintf(stderr,"  -f        \\\\ Force Overwrite Serverdb\n");
+  fprintf(stderr,"  -h        \\\\ Print Usage\n");
+  fprintf(stderr,"  -H <HOST> \\\\ Daemon Hostname\n");
+  fprintf(stderr,"  -L <PATH> \\\\ Logfile\n");
+  fprintf(stderr,"  -M <PORT> \\\\ MOM Port\n");
+  fprintf(stderr,"  -p <PORT> \\\\ Server Port\n");
+  fprintf(stderr,"  -R <PORT> \\\\ RM Port\n");
+  fprintf(stderr,"  -S <PORT> \\\\ Scheduler Port\n");
+  fprintf(stderr,"  -t <TYPE> \\\\ Startup Type (hot, warm, cold, create)\n");
+  fprintf(stderr,"  -v        \\\\ Version\n");
+  fprintf(stderr,"  --ha      \\\\ High Availability MODE\n");
+  fprintf(stderr,"  --help    \\\\ Print Usage\n");
+  fprintf(stderr,"  --version \\\\ Version\n");
 
   if (EMsg != NULL)
     {
@@ -423,7 +453,8 @@ int main(
   int	 privfd;		/* fd to send is messages */
   uint	 tryport;
   char	 lockfile[MAXPATHLEN + 1];
-  char	*pc;
+  char	*pc = NULL;
+  char  *ptr;
   job	*pjob;
   pbs_queue *pque;
   char	*servicename = NULL;
@@ -434,9 +465,11 @@ int main(
   time_t last_jobstat_time;
   int    when;
 
-  void	 ping_nodes A_((struct work_task *ptask));
-  void   check_nodes A_((struct work_task *ptask));
-  void   check_log A_((struct work_task *ptask));
+  void ping_nodes A_((struct work_task *));
+  void check_nodes A_((struct work_task *));
+  void check_log A_((struct work_task *));
+
+  char   EMsg[1024];
 
   static struct {
     char *it_name;
@@ -457,17 +490,8 @@ int main(
   ProgName = argv[0];
 
   strcpy(pbs_current_user,"PBS_Server");
-  msg_daemonname=strdup(pbs_current_user);
 
-  /* if we are not running with real and effective uid of 0, forget it */
-
-  if ((getuid() != 0) || (geteuid() != 0)) 
-    {
-    fprintf(stderr,"%s: Must be run by root\n", 
-      ProgName);
-
-    return(1);
-    }
+  msg_daemonname = strdup(pbs_current_user);
 
   /* set standard umask */
 
@@ -481,27 +505,91 @@ int main(
 
   server_host[0] = '\0';
 
-  if (((server_host[0] == '\0') && (gethostname(server_host,PBS_MAXHOSTNAME) == -1)) ||
-       (get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME) == -1)) 
-    {
-    log_err(-1,"pbsd_main","Unable to get my host name");
+  EMsg[0] = '\0';
 
-    return(-1);
+  if (((server_host[0] == '\0') && (gethostname(server_host,PBS_MAXHOSTNAME) == -1)) ||
+       (get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME,EMsg) == -1)) 
+    {
+    /* FAILURE - shutdown */
+
+    if (EMsg[0] != '\0')
+      {
+      char tmpLine[1024];
+
+      snprintf(tmpLine,sizeof(tmpLine),"unable to determine local server hostname - %s",
+        EMsg);
+
+      log_err(-1,"pbsd_main",tmpLine);
+      }
+    else
+      {
+      log_err(-1,"pbsd_main","unable to determine local server hostname");
+      }
+
+    exit(1);
     }
 
   /* initialize service port numbers for self, Scheduler, and MOM */
 
-  pbs_server_port_dis = get_svrport(PBS_BATCH_SERVICE_NAME,"tcp", 
-    PBS_BATCH_SERVICE_PORT_DIS);
+  ptr = getenv("PBS_BATCH_SERVICE_PORT");
 
-  pbs_scheduler_port = get_svrport(PBS_SCHEDULER_SERVICE_NAME,"tcp",
-    PBS_SCHEDULER_SERVICE_PORT);
+  if (ptr != NULL)
+    {
+    pbs_server_port_dis = (int)strtol(ptr,NULL,10);
+    }
 
-  pbs_mom_port = get_svrport(PBS_MOM_SERVICE_NAME,"tcp",
-    PBS_MOM_SERVICE_PORT);
+  if (pbs_server_port_dis <= 0)
+    {
+    pbs_server_port_dis = get_svrport(
+      PBS_BATCH_SERVICE_NAME,
+      "tcp", 
+      PBS_BATCH_SERVICE_PORT_DIS);
+    }
 
-  pbs_rm_port = get_svrport(PBS_MANAGER_SERVICE_NAME,"tcp",
-    PBS_MANAGER_SERVICE_PORT);
+  ptr = getenv("PBS_SCHEDULER_SERVICE_PORT");
+
+  if (ptr != NULL)
+    {
+    pbs_scheduler_port = (int)strtol(ptr,NULL,10);
+    }
+
+  if (pbs_scheduler_port <= 0)
+    { 
+    pbs_scheduler_port = get_svrport(
+      PBS_SCHEDULER_SERVICE_NAME,
+      "tcp",
+      PBS_SCHEDULER_SERVICE_PORT);
+    }
+
+  ptr = getenv("PBS_MOM_SERVICE_PORT");
+
+  if (ptr != NULL)
+    {
+    pbs_mom_port = (int)strtol(ptr,NULL,10);
+    }
+
+  if (pbs_mom_port <= 0)
+    { 
+    pbs_mom_port = get_svrport(
+      PBS_MOM_SERVICE_NAME,
+      "tcp",
+      PBS_MOM_SERVICE_PORT);
+    }
+
+  ptr = getenv("PBS_MANAGER_SERVICE_PORT");
+
+  if (ptr != NULL)
+    {
+    pbs_rm_port = (int)strtol(ptr,NULL,10);
+    }
+
+  if (pbs_rm_port <= 0)
+    {
+    pbs_rm_port = get_svrport(
+      PBS_MANAGER_SERVICE_NAME,
+      "tcp",
+      PBS_MANAGER_SERVICE_PORT);
+    }
 
   strcpy(server_name,server_host);	/* by default server = host */
 
@@ -511,7 +599,7 @@ int main(
 
   /* parse the parameters from the command line */
 
-  while ((c = getopt(argc,argv,"A:a:d:fh:p:t:L:M:R:S:-:")) != -1) 
+  while ((c = getopt(argc,argv,"A:a:d:DfhH:L:M:p:R:S:t:v-:")) != -1) 
     {
     switch (c) 
       {
@@ -531,18 +619,42 @@ int main(
 
           exit(0);
           }
-        else if (!strcmp(optarg,"help"))
+
+        if (!strcmp(optarg,"about"))
+          {
+	  printf("package:     %s\n",PACKAGE_STRING);
+	  printf("sourcedir:   %s\n",PBS_SOURCE_DIR);
+	  printf("configure:   %s\n",PBS_CONFIG_ARGS);
+	  printf("buildcflags: %s\n",PBS_CFLAGS);
+	  printf("buildhost:   %s\n",PBS_BUILD_HOST);
+	  printf("builddate:   %s\n",PBS_BUILD_DATE);
+	  printf("builddir:    %s\n",PBS_BUILD_DIR);
+	  printf("builduser:   %s\n",PBS_BUILD_USER);
+	  printf("installdir:  %s\n",PBS_INSTALL_DIR);
+	  printf("serverhome:  %s\n",PBS_SERVER_HOME);
+	  printf("version:     %s\n",PACKAGE_VERSION);
+
+          exit(0);
+          }
+
+        if (!strcmp(optarg,"help"))
           {
           PBSShowUsage(NULL);
     
-          exit(1);
+          exit(0);
           }
-        else
-          {
-          PBSShowUsage("invalid command line arg");
 
-          exit(1);
+        if (!strcasecmp(optarg,"ha"))	/* High Availability */
+          {
+          high_availability_mode = TRUE;
+          break;
           }
+
+        PBSShowUsage("invalid command line arg");
+
+        exit(1);
+
+        /*NOTREACHED*/
 
         break;
 
@@ -557,7 +669,7 @@ int main(
           (void)fprintf(stderr,"%s: bad -a option\n", 
             argv[0]);
 
-          return(1);
+          exit(1);
           }
 
         break;
@@ -565,6 +677,12 @@ int main(
       case 'd':
 
         path_home = optarg;
+
+        break;
+
+      case 'D':
+
+        TDoBackground = 0;
 
         break;
 
@@ -576,16 +694,39 @@ int main(
 
       case 'h':
 
+        PBSShowUsage(NULL);
+  
+        exit(0);
+
+        break;
+
+      case 'H':
+
         /* overwrite locally detected hostname with specified hostname */
         /*  (used for multi-homed hosts) */
 
         strncpy(server_host,optarg,PBS_MAXHOSTNAME);
 
-        if (get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME) == -1)
+        if (get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME,EMsg) == -1)
           {
-          log_err(-1,"pbsd_main","Unable to get host name");
+          /* FAILURE */
 
-          return(1);
+          if (EMsg[0] != '\0')
+            {
+            char tmpLine[1024];
+
+            snprintf(tmpLine,sizeof(tmpLine),"unable to determine full hostname for specified server host '%s' - %s",
+              server_host,
+              EMsg);
+
+            log_err(-1,"pbsd_main",tmpLine);
+            }
+          else
+            {
+            log_err(-1,"pbsd_main","unable to determine full server hostname");
+            }
+
+          exit(1);
           }
 
         strcpy(server_name,server_host);
@@ -607,7 +748,7 @@ int main(
             fprintf(stderr,"%s: -h host too long\n", 
               argv[0]);
 
-            return(1);
+            exit(1);
             }
 
           strcat(server_name,":");
@@ -624,7 +765,7 @@ int main(
             fprintf(stderr, "%s: -h host invalid\n", 
               argv[0]);
 
-            return(1);
+            exit(1);
             }
           }    /* END if (strlen(servicename) > 0) */
 
@@ -639,7 +780,7 @@ int main(
           fprintf(stderr,"%s: -p host:port too long\n",
             argv[0]);
 
-          return(1);
+          exit(1);
           }
 
         strcat(server_name,":");
@@ -650,7 +791,7 @@ int main(
           fprintf(stderr,"%s: -p host:port invalid\n", 
             argv[0]);
 
-          return(1);
+          exit(1);
           }
 
         break;
@@ -672,7 +813,7 @@ int main(
           fprintf(stderr, "%s -t bad recovery type\n",
             argv[0]);
 
-          return(1);
+          exit(1);
           }
 
         break;
@@ -697,7 +838,7 @@ int main(
             argv[0],
             optarg);
 
-          return(1);
+          exit(1);
           }
 
         if (isalpha((int)*optarg)) 
@@ -718,12 +859,14 @@ int main(
             argv[0], 
             optarg);
 
-          return(1);
+          exit(1);
           }
 
         break;
 
       case 'S':
+
+        /* FORMAT: ??? */
 
         if (get_port(
               optarg, 
@@ -734,30 +877,52 @@ int main(
             argv[0],
             optarg);
 
-          return(1);
+          exit(1);
           }
 
         break;
 
+      case 'v':
+
+          fprintf(stderr,"version: %s\n",
+            PACKAGE_VERSION);
+
+          exit(0);
+
+          break;
+
       default:
 
-        fprintf(stderr,"%s: unknown option: %c\n",
-          argv[0],
-          c);
+        PBSShowUsage("invalid command line arg");
 
-        return(1);
+        exit(1);
 
         break;
-      }  /* END switch(c) */
+      }  /* END switch (c) */
     }    /* END while (c) */
 
   if (optind < argc) 
     {
-    fprintf(stderr, "%s: invalid operand\n", 
+    fprintf(stderr,"%s: invalid operand\n", 
       argv[0]);
+
+    exit(1);
+    }
+
+  /* if we are not running with real and effective uid of 0, forget it */
+
+  if ((getuid() != 0) || (geteuid() != 0)) 
+    {
+    fprintf(stderr,"%s: must be run by root\n", 
+      ProgName);
 
     return(1);
     }
+
+  i = sysconf(_SC_OPEN_MAX);
+  while (--i > 2)
+    close(i); /* close any file desc left open by parent */
+
 
   /* make sure no other server is running with this home directory */
 
@@ -765,20 +930,44 @@ int main(
     path_home,
     PBS_SVR_PRIVATE);
 
-  if ((lockfds = open(lockfile,O_CREAT | O_TRUNC | O_WRONLY, 0600)) < 0) 
+  if ((lockfds = open(lockfile,O_CREAT|O_TRUNC|O_WRONLY,0600)) < 0) 
     {
-    sprintf(log_buffer, "%s: unable to open lock file",
-      msg_daemonname);
+    sprintf(log_buffer, "%s: unable to open lock file '%s'",
+      msg_daemonname,
+      lockfile);
 
     fprintf(stderr,"%s\n", 
       log_buffer);
 
     log_err(errno,msg_daemonname,log_buffer);
 
-    return(2);
+    exit(2);
     }
 
-  lock_out(lockfds,F_WRLCK);
+
+  if (high_availability_mode)
+    {
+    /* This will allow multiple instance of the pbs_server to be
+     * running.  This must be done before setting up the client
+     * sockets interface, reading the config file, and contacting
+     * the compute nodes.
+     */
+
+    if (TDoBackground == 1)
+      {
+      if (fork() > 0)
+        {
+        /* parent goes away */
+        exit(0);
+        }
+      }
+    while (try_lock_out(lockfds,F_WRLCK))
+      sleep(TSERVER_HA_CHECK_TIME);	/* Relinquish */
+    }
+  else
+    {
+    lock_out(lockfds,F_WRLCK);
+    }
 	
   server.sv_started = time(&time_now);	/* time server started */
 
@@ -797,7 +986,6 @@ int main(
 
   log_open(log_file,path_log);
 
-
   sprintf(log_buffer,msg_startup1,server_name,server_init_type);
 
   log_event(
@@ -809,14 +997,15 @@ int main(
   /* initialize the server objects and perform specified recovery */
   /* will be left in the server's private directory		*/
 
-  if ((pc = getenv("PBSLOGLEVEL")) != NULL)
+  if ((plogenv = getenv("PBSLOGLEVEL")) != NULL)
     {
-    LOGLEVEL = (int)strtol(pc,NULL,10);
+    LOGLEVEL = (int)strtol(plogenv,NULL,10);
     }
-
+    
   if ((pc = getenv("PBSDEBUG")) != NULL)
     {
     DEBUGMODE = 1;
+    TDoBackground = 0;
     }
 
   /* NOTE:  env cleared in pbsd_init() */
@@ -825,7 +1014,7 @@ int main(
     {
     log_err(-1,msg_daemonname,"pbsd_init failed");
 
-    return(3);
+    exit(3);
     }
 
   /* initialize the network interface */
@@ -847,12 +1036,12 @@ int main(
 
     log_err(-1,msg_daemonname,"init_network failed dis");
 
-    return(3);
+    exit(3);
     }
 
   net_set_type(Secondary,FromClientDIS);	/* "there" */
 
-  if (DEBUGMODE == 0)
+  if (TDoBackground == 1)
     {
     /* go into the background and become own session/process group */
 
@@ -869,7 +1058,7 @@ int main(
       {
       log_err(errno,msg_daemonname,"setsid failed");
 
-      return(2);
+      exit(2);
       }
 
     lock_out(lockfds,F_WRLCK);
@@ -886,11 +1075,11 @@ int main(
 
     dummyfile = fopen("/dev/null","w");
     assert((dummyfile != 0) && (fileno(dummyfile) == 2));
-    }
+    }  /* END if (TDoBackground == 1) */
   else
     {
-    if (isdigit(pc[0]))
-      LOGLEVEL = (int)strtol(pc,NULL,0);
+    if ((plogenv != NULL) && isdigit(plogenv[0]))
+      LOGLEVEL = (int)strtol(plogenv,NULL,0);
 
     sid = getpid();
   
@@ -901,12 +1090,14 @@ int main(
   sprintf(log_buffer,"%ld\n", 
     (long)sid);
 
-  if (write(lockfds,log_buffer,strlen(log_buffer)) != (ssize_t)strlen(log_buffer))
+  if (write(lockfds,log_buffer,strlen(log_buffer)) != 
+      (ssize_t)strlen(log_buffer))
     {
     log_err(errno,msg_daemonname,"failed to write pid to lockfile");
 
-    return(-1);
+    exit(-1);
     }
+
 #if (PLOCK_DAEMONS & 1)
   plock(PROCLOCK);
 #endif
@@ -915,7 +1106,7 @@ int main(
     {
     log_err(errno,msg_daemonname,"rpp_bind");
 
-    return(1);
+    exit(1);
     }
 
   rpp_fd = -1;		/* force rpp_bind() to get another socket */
@@ -937,7 +1128,7 @@ int main(
     {
     log_err(errno,msg_daemonname,"no privileged ports");
 
-    return(1);
+    exit(1);
     }
 
   if (LOGLEVEL >= 5)
@@ -949,8 +1140,8 @@ int main(
       "creating rpp and private interfaces");
     }
 
-  add_conn(rppfd,Primary,(pbs_net_t)0,0,rpp_request);
-  add_conn(privfd,Primary,(pbs_net_t)0,0,rpp_request);
+  add_conn(rppfd,Primary,(pbs_net_t)0,0,PBS_SOCK_INET,rpp_request);
+  add_conn(privfd,Primary,(pbs_net_t)0,0,PBS_SOCK_INET,rpp_request);
 
   /* record the fact that we are up and running */
 
@@ -965,14 +1156,25 @@ int main(
   /* do not check nodes immediately as they will initially be marked 
      down unless they have already reported in */
 
-  set_task(WORK_Immed,time_now + 60,check_nodes,NULL);
+  when = server.sv_attr[(int)SRV_ATR_check_rate].at_val.at_long + time_now;
+
+  if (svr_totnodes > 1024)
+    {
+    /* for large systems, give newly reported nodes more time before 
+       being marked down while pbs_moms are intialy reporting in */
+
+    set_task(WORK_Timed,when + svr_totnodes / 12,check_nodes,NULL);
+    }
+  else
+    {
+    set_task(WORK_Timed,when,check_nodes,NULL);
+    }
 
   /* Just check the nodes with check_nodes above and don't ping anymore. */
 
-  set_task(WORK_Timed,time_now+5,ping_nodes,NULL); 
-  
+  set_task(WORK_Timed,time_now + 5,ping_nodes,NULL); 
 
-  set_task(WORK_Immed, time_now + 5, check_log, NULL);
+  set_task(WORK_Timed,time_now + 5,check_log,NULL);
 
   /*
    * Now at last, we are ready to do some batch work.  The
@@ -1062,14 +1264,11 @@ int main(
       log_err(-1,msg_daemonname,"wait_request failed");
       }
 
-    /* update dynamic loglevel specification */
+    /* qmgr can dynamically set the loglevel specification
+     * we use the new value if PBSLOGLEVEL was not specified
+     */
 
-    /* FIXME: This overrides PBSLOGLEVEL and PBSDEBUG */
-
-    /* if (!getenv("PBSLOGLEVEL") && !getenv("PBSDEBUG"))
-     * (and SRV_ATR_LogLevel's at_action can set LOGLEVEL */
-
-    if (!getenv("PBSLOGLEVEL"))
+   if (plogenv == NULL )
       LOGLEVEL = server.sv_attr[(int)SRV_ATR_LogLevel].at_val.at_long;
 
     /* any running jobs need a status update? */ 
@@ -1087,15 +1286,15 @@ int main(
           {
           /* spread these out over the next JobStatRate seconds */
 
-          when = pjob->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long % JobStatRate;
+          when = pjob->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long % 
+                 JobStatRate;
     
           ptask = set_task(WORK_Timed,when + time_now,poll_job_task,pjob);
 
-          if (ptask)
+          if (ptask != NULL)
             {
             append_link(&pjob->ji_svrtask,&ptask->wt_linkobj,ptask);
             }
-
           }
         }
 
@@ -1148,6 +1347,10 @@ int main(
 
   net_close(-1);		/* close all network connections */
 
+#ifdef ENABLE_UNIX_SOCKETS
+  unlink(TSOCK_PATH);
+#endif /* END ENABLE_UNIX_SOCKETS */
+
   log_event(
     PBSEVENT_SYSTEM|PBSEVENT_FORCE,
     PBS_EVENTCLASS_SERVER,
@@ -1158,13 +1361,15 @@ int main(
 
   log_close(1);
 
-  return(0);
+  exit(0);
   }  /* END main() */
+
+
 
 
 void check_log(
 
- struct work_task *ptask)
+ struct work_task *ptask) /* I */
 
  {
  long depth = 1;
@@ -1196,8 +1401,14 @@ void check_log(
         }
       }
     }
- set_task(WORK_Timed,time_now + PBS_LOG_CHECK_RATE, check_log, NULL);   
- } /* END check_log */
+
+  set_task(WORK_Timed,time_now + PBS_LOG_CHECK_RATE,check_log,NULL);   
+
+  return;
+  } /* END check_log */
+
+
+
 
 
 
@@ -1230,18 +1441,20 @@ static int get_port(
     {
     name = parse_servername(arg,port);
 
-    if (name != NULL) 
+    if (name == NULL) 
       {
-      *addr = get_hostaddr(name);
-      } 
-    else 
-      {
+      /* FAILURE */
+
       return(-1);
       }
+
+    *addr = get_hostaddr(name);
     }
 
   if ((*port <= 0) || (*addr == 0))
     {
+    /* FAILURE */
+
     return(-1);
     }
 
@@ -1362,11 +1575,11 @@ static int start_hot_jobs(void)
 
 
 
-/*
- * lock_out - lock out other daemons from this directory.
+/**
+ * Try to lock
+ * @return Zero on success, one on failure
  */
-
-static void lock_out(
+static int try_lock_out(
 
   int fds,
   int op)		/* F_WRLCK  or  F_UNLCK */
@@ -1379,7 +1592,20 @@ static void lock_out(
   flock.l_start  = 0;
   flock.l_len    = 0;
 
-  if (fcntl(fds,F_SETLK,&flock) < 0) 
+  return(fcntl(fds,F_SETLK,&flock) != 0);
+  }
+
+
+/*
+ * lock_out - lock out other daemons from this directory.
+ */
+static void lock_out(
+
+  int fds,
+  int op)		/* F_WRLCK  or  F_UNLCK */
+
+  {
+  if (try_lock_out(fds,op)) 
     {
     strcpy(log_buffer,"pbs_server: another server running\n");
 
@@ -1389,8 +1615,6 @@ static void lock_out(
 
     exit(1);
     }
-
-  return;
   }
 
 /* END pbsd_main.c */

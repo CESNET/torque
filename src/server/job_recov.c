@@ -110,6 +110,10 @@
 #include <memory.h>
 #endif
 
+#ifndef TRUE
+#define TRUE 1
+#define FALSE 0
+#endif
 
 #define JOBBUFSIZE 2048
 #define MAX_SAVE_TRIES 3
@@ -119,6 +123,11 @@ int save_tmsock(job *);
 int recov_tmsock(int,job *);
 #endif
 
+extern int job_qs_upgrade(job *,int,int);
+#ifndef PBS_MOM
+extern void get_parent_id(char *job_id, char *parent_id);
+extern job_array *get_array(char *id);
+#endif
 /* global data items */
 
 extern char  *path_jobs;
@@ -138,12 +147,11 @@ static const unsigned int quicksize = sizeof(struct jobfix);
  *			 - a full write for a new job
  *
  *	For a quick update, the data written is less than a disk block
- *	size and no size change occurs; so it is rewritten in place
- *	with O_SYNC.
+ *	size and no size change occurs; so it is rewritten in place.
  *
  *	For a full update (usually following modify job request), to
  *	insure no data is ever lost due to system crash:
- *	1. write (with O_SYNC) new image to a new file using a temp name
+ *	1. write new image to a new file using a temp name
  *	2. unlink the old (image) file
  *	3. link the correct name to the new file
  *	4. unlink the temp name
@@ -170,7 +178,19 @@ int job_save(
   strcpy(namebuf1,path_jobs);	/* job directory path */
   strcat(namebuf1,pjob->ji_qs.ji_fileprefix);
   strcpy(namebuf2,namebuf1);	/* setup for later */
+
+#ifdef PBS_MOM
   strcat(namebuf1,JOB_FILE_SUFFIX);
+#else
+  if (pjob->ji_isparent == TRUE)
+    {
+    strcat(namebuf1, JOB_FILE_TMP_SUFFIX);
+    }
+  else
+    {
+    strcat(namebuf1,JOB_FILE_SUFFIX);
+    }
+#endif
 
   /* if ji_modified is set, ie an attribute changed, then update mtime */
 
@@ -236,8 +256,8 @@ int job_save(
       }
 
     close(fds);
-    } 
-  else 
+    }
+  else /* SAVEJOB_FULL, SAVEJOB_NEW, SAVEJOB_ARY */
     {
     /*
      * write the whole structure to the file.
@@ -366,6 +386,13 @@ job *job_recov(
   job	*pj;
   char	*pn;
   char	 namebuf[MAXPATHLEN];
+  int    qs_upgrade;
+#ifndef PBS_MOM
+  char   parent_id[PBS_MAXSVRJOBID + 1];
+  job_array *pa;
+#endif
+  
+  qs_upgrade = FALSE;
 
   pj = job_alloc();	/* allocate & initialize job structure space */
 
@@ -410,6 +437,32 @@ job *job_recov(
 
     return(NULL);
     }
+    
+  /* is ji_qs the version we expect? */
+
+  if (pj->ji_qs.qs_version != PBS_QS_VERSION)
+    {
+    /* ji_qs is older version */
+    sprintf(log_buffer, 
+        "%s appears to be from an old version. Attempting to convert.\n",
+         namebuf);
+    log_err(-1,"job_recov",log_buffer);
+    
+    if (job_qs_upgrade(pj,fds,pj->ji_qs.qs_version) != 0)
+      {
+      sprintf(log_buffer, "unable to upgrade %s\n",namebuf);
+      
+      log_err(-1,"job_recov",log_buffer);
+      
+      free((char *)pj);
+
+      close(fds);
+
+      return(NULL);    
+      }
+      
+    qs_upgrade = TRUE;
+    }  /* END if (pj->ji_qs.qs_version != PBS_QS_VERSION) */
 
   /* Does file name match the internal name? */
   /* This detects ghost files */
@@ -465,11 +518,52 @@ job *job_recov(
 
     log_err(-1,"job_recov",log_buffer);
     }
-#endif /* PBS_MOM */
+#else /* PBS_MOM */
+
+  if (pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET)
+    {
+    /* job is part of an array.  We need to put a link back to the server job array struct
+       for this array. We also have to link this job into the linked list of jobs belonging 
+       to the array. */
+       
+      get_parent_id(pj->ji_qs.ji_jobid, parent_id);
+      pa = get_array(parent_id);
+      if (strcmp(parent_id, pj->ji_qs.ji_jobid) == 0)
+        {
+	pj->ji_isparent = TRUE;
+	}
+      else
+        {
+        if (pa == NULL)
+          {
+          /* couldn't find array struct, it must not have been recovered, 
+             treat job as indepentent job?  perhaps we should delete the job
+	     XXX_JOB_ARRAY: should I unset this?*/
+          pj->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long = 1;
+	  pj->ji_wattr[(int)JOB_ATR_job_array_size].at_flags |= ATR_VFLAG_SET;
+	  
+	  pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags &= ~ATR_VFLAG_SET;
+          }
+        else
+          {
+	   CLEAR_LINK(pj->ji_arrayjobs);
+	   append_link(&pa->array_alljobs, &pj->ji_arrayjobs, (void*)pj);
+	   pj->ji_arraystruct = pa;
+	   pa->jobs_recovered++;
+	  }
+	}
+    }
+
+#endif
 
   close(fds);
 
   /* all done recovering the job */
+
+  if (qs_upgrade == TRUE)
+    {
+    job_save(pj, 1);
+    }
 
   return(pj);
   }  /* END job_recov() */

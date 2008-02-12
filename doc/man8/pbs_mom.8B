@@ -78,15 +78,15 @@
 .TH pbs_mom 8B "" Local PBS
 .so ../ers/ers.macros
 .Iq
-.Sh NAME
+.SH NAME
 pbs_mom \- start a pbs batch execution mini-server
-.Sh SYNOPSIS
-pbs_mom [\^-C\ chkdirectory\^] [\^-c\ config\^] [\^-d\ directory] [\^-L\ logfile] [\^-M\ MOMport\^] [\^-R\ RPPport\^] [\^-p\^|\^-r] [\^-x]
-.Sh DESCRIPTION
+.SH SYNOPSIS
+pbs_mom [\^-C\ chkdirectory\^] [\^-c\ config\^] [\^-d\ directory] [\^-h\ hostname] [\^-L\ logfile] [\^-M\ MOMport\^] [\^-R\ RPPport\^] [\^-p\^|\^-r] [\^-x]
+.SH DESCRIPTION
 The
 .B pbs_mom
-command starts the operation of a batch \f3M\f1achine \f3O\f1riented
-\f3M\f1ini\-server, MOM, on the local host.
+command starts the operation of a batch \fBM\fPachine \fBO\fPriented
+\fBM\fPini\-server, MOM, on the local host.
 Typically, this command will be in a local boot file such as
 .I /etc/rc.local .
 To insure that the pbs_mom
@@ -113,7 +113,7 @@ error occurrence.  The log files are maintained in the
 directory below the home directory of the server.
 If the log file cannot be opened, the diagnostic message is written
 to the system console.
-.Sh OPTIONS
+.SH OPTIONS
 .IP "-C chkdirectory" 16
 Specifieds the path of the directory used to hold checkpoint files.
 [Currently this is only valid on Cray systems.]
@@ -127,6 +127,8 @@ see the -d option.  If the specified file cannot be opened, pbs_mom will abort.
 If the -c option is not supplied, pbs_mom will attempt to open the default
  configuration file "config" in PBS_HOME/mom_priv.  If this file is not
 present, pbs_mom will log the fact and continue.
+.IP "-h hostname" 16
+Set MOM's hostname.  This can be useful on multi-homed networks.
 .IP "-d directory" 16
 Specifies the path of the directory which is the home of the servers
 working files, PBS_HOME.
@@ -186,7 +188,7 @@ Disables the check for privileged port resource monitor connections.  This is
 used mainly for testing since the privileged port is the only
 mechanism used to prevent any ordinary user from connecting.
 .LP
-.Sh CONFIGURATION FILE
+.SH CONFIGURATION FILE
 The configuration file may be specified on the command line at
 program start with the -c flag.  The use of this file is
 to provide several types of run time information to pbs_mom:
@@ -214,7 +216,7 @@ the number of tape drives of different types and could be specified by
 .IP "Shell Commands"
 If the first character of the value is an exclamation mark (!),
 the entire rest of the line is saved to be executed through the services of
-the \f3system\fP(3) standard library routine.
+the \fBsystem\fP(3) standard library routine.
 .IP
 The shell escape provides a means for the resource monitor to yield
 arbitrary information to the scheduler.  Parameter substitution is
@@ -335,6 +337,13 @@ the future.  See HEALTH CHECK below.
 .IP ideal_load
 ideal processor load.  Represents a low water mark for the load average.  Nodes
 that are currently busy will consider itself free after falling below ideal_load.
+.IP auto_ideal_load
+if jobs are running, sets idea_load based on a simple expression.  The expressions
+start with the variable 't' (total assigned CPUs) or 'c' (existing CPUs), an
+operator (+ - / *), and followed by a float constant.
+.IP
+.Ty "$auto_ideal_load t-0.2"
+.br
 .IP loglevel
 specifies the verbosity of logging with higher numbers specifying more verbose
 logging.  Values may range between 0 and 7.
@@ -352,6 +361,10 @@ log-file-name.log_file_roll_depth.
 .IP max_load
 maximum processor load.  Nodes over this load average are considered busy (see
 ideal_load above).
+.IP auto_max_load
+if jobs are running, sets max_load based on a simple expression.  The expressions
+start with the variable 't' (total assigned CPUs) or 'c' (existing CPUs), an
+operator (+ - / *), and followed by a float constant.
 .IP enablemomrestart
 enable automatic restarts of MOM.  If enabled, MOM will check if its binary has
 been updated and restart itself at a safe point when no jobs are running; thus
@@ -364,9 +377,20 @@ for more information.)
 specifies the fully qualified pathname of the health check script to run (see
 HEALTH CHECK for more information).
 .IP node_check_interval
-specifies the number of MOM intervals between subsequent executions of the
-specified health check.  This value default to 1 indicating the check is run every
-mom interval. (see HEALTH CHECK for more information)
+specifies when to run the MOM health check.  The check can be either periodic,
+event-driver, or both.  The value starts with an integer specifying the number
+of MOM intervals between subsequent executions of the specified health check.
+After the integer is an optional comma-separated list of event names.
+Currently supported are "jobstart" and "jobend".  This value defaults to 1 with
+no events indicating the check is run every mom interval. (see HEALTH CHECK for
+more information)
+.IP
+.Ty "$node_check_interval 0"  Disabled.
+.br
+.Ty "$node_check_interval 0,jobstart"  Only runs at job starts
+.br
+.Ty "$node_check_interval 10,jobstart,jobend"
+.IP
 .IP prologalarm
 Specifies maximum duration (in seconds) which the mom will wait for the job prolog
 or job job epilog to complete.  This parameter default to 300 seconds (5 minutes)
@@ -379,6 +403,8 @@ the remote host and accept arguments of the form "user@host:files"  For example:
 .Ty "$rcpcmd /usr/bin/rcp -rp
 .br
 .Ty "$rcpcmd /usr/bin/scp -rpB
+.IP remote_reconfig
+Enables the ability to remotely reconfigure pbs_mom with a new config file.  Default is disabled.
 .IP timeout
 Specifies the number of seconds before TCP messages will time out.  TCP messages include job obituaries, and TM requests if RPP is disabled.
 Default is 60 seconds.
@@ -399,12 +425,32 @@ specifies (in seconds) how often MOM updates its status information to
 pbs_server.  This value should correlate with the server's scheduling interval.
 High values increase the load of pbs_server and the network.  Low values cause
 pbs_server to report stale information.  Default is 45 seconds.
+.IP varattr
+This is similar to a shell escape above, but includes a TTL.  The command will
+only be run every TTL seconds.  A TTL of -1 will cause the command to be
+executed only once.  A TTL of 0 will cause the command to be run everytime
+varattr is requested.  This parameter may be used multiple times, but all
+output will be grouped into a single "varattr" attribute in the request and
+status output.  If the command has no output, the name will be skipped in the
+output.
+.IP
+.Ty $varattr seta 3600 /path/to/script [<ARGS>]...
+.br
+.Ty $varattr setb 3600 /path/to/script [<ARGS>]...
+.IP
 .RE
 .LP
-The configuration file must be "secure".  It must be owned by a user id and
-group id less than 10 and not be world writtable.
+The configuration file must be executable and "secure".  It must be owned by a user id and
+group id less than 10 and not be world writable.  Output from this file must be in
+the format $VAR=$VAL, i.e.,
+.IP
+.Ty dataset13=20070104
+.br
+.Ty dataset22=20070202
+.br
+.Ty viraltest=abdd3
 .LP
-.Sh RESOURCES
+.SH RESOURCES
 Resource Monitor queries can be made with momctl's -q option to retrieve and
 set pbs_mom options.  Any configured static resource may be retrieved with a
 request of the same name.  These are resource requests not otherwise documented
@@ -431,7 +477,7 @@ retrieves various diagnostic information
 retrieve or set the $rcpcmd parameter
 .IP version
 retrieves the pbs_mom version
-.Sh HEALTH CHECK
+.SH HEALTH CHECK
 The health check script is executed directly by the pbs_mom daemon under the
 root user id. It must be accessible from the compute node and may be a script
 or compiled executable program.  It may make any needed system calls and execute
@@ -446,6 +492,10 @@ followed by an error message.  The message (up to 256 characters) immediately
 following the ERROR string will be assigned to the node attribute 'message' of
 the associated node. 
 .LP
+If the script detects a failure when run from "jobstart", then the job will be
+rejected.  This should probably only be used with advanced schedulers like Moab
+so that the job can be routed to another node.
+.LP
 TORQUE currently ignores ERROR messages by default, but advanced schedulers
 like moab can be configured to react appropriately.
 .LP
@@ -456,7 +506,7 @@ enabled which has the same effect but moves the decision to pbs_server.  It is
 redundant to have MOM's $down_on_error and pbs_server's down_on_error features
 enabled.  See "down_on_error" in pbs_server_attributes(7B).
 .LP
-.Sh FILES
+.SH FILES
 .IP $PBS_SERVER_HOME/server_name
 contains the hostname running pbs_server.
 .IP $PBS_SERVER_HOME/mom_priv 10
@@ -468,7 +518,7 @@ directory for log files recorded by the server.
 the administrative script to be run before job execution.
 .IP $PBS_SERVER_HOME/mom_priv/epilogue 10
 the administrative script to be run after job execution.
-.Sh SIGNAL HANDLING
+.SH SIGNAL HANDLING
 pbs_mom handles the following signals:
 .IP SIGHUP
 causes pbs_mom to re-read its configuration file, close and reopen the log
@@ -490,10 +540,10 @@ cause a core dump if the PBSCOREDUMP environmental variable is defined.
 are ignored.
 .LP
 All other signals have their default behavior installed.
-.Sh EXIT STATUS
+.SH EXIT STATUS
 If the mini-server command fails to begin operation, the
 server exits with a value greater than zero.
-.Sh SEE ALSO
+.SH SEE ALSO
 pbs_server(8B), pbs_scheduler_basl(8B), pbs_scheduler_tcl(8B),
 the PBS External Reference Specification, and the PBS Administrator's Guide.
 .\" turn off any extra indent left by the Sh macro

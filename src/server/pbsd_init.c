@@ -117,6 +117,7 @@
 #include "net_connect.h"
 #include "pbs_proto.h"
 #include "batch_request.h"
+#include "array.h"
 
 
 /*#ifndef SIGKILL*/
@@ -167,6 +168,7 @@ extern char	*path_home;
 extern char	*path_acct;
 extern char	path_log[];
 extern char	*path_priv;
+extern char	*path_arrays;
 extern char	*path_jobs;
 extern char	*path_queues;
 extern char	*path_spool;
@@ -176,7 +178,8 @@ extern char	*path_track;
 extern char	*path_nodes;
 extern char	*path_nodes_new;
 extern char	*path_nodestate;
-extern char	*path_resources;
+extern char	*path_nodenote;
+extern char	*path_nodenote_new;
 
 extern int	 queue_rank;
 extern char	 server_name[];
@@ -186,10 +189,14 @@ extern tlist_head svr_alljobs;
 extern tlist_head svr_queues;
 extern tlist_head svr_requests;
 extern tlist_head svr_newnodes;
+extern tlist_head svr_jobarrays;
 extern tlist_head task_list_immed;
 extern tlist_head task_list_timed;
 extern tlist_head task_list_event;
 extern time_t	 time_now;
+
+extern int LOGLEVEL;
+extern char *plogenv;
 
 extern struct server server;
 
@@ -202,7 +209,7 @@ extern void   set_old_nodes A_((job *));
 extern void   acct_close A_((void));
 extern struct work_task *apply_job_delete_nanny A_((struct job *,int));
 extern int     net_move A_((job *,struct batch_request *));
-
+extern void  job_clone_wt A_((struct work_task *));
 
 /* Private functions in this file */
 
@@ -211,6 +218,7 @@ static char *build_path A_((char *,char *,char *));
 static void  catch_child A_((int));
 static void  catch_abort A_((int));
 static void  change_logs A_((int));
+static void  change_log_level A_((int));
 static int   chk_save_file A_((char *));
 static void  need_y_response A_((int));
 static int   pbsd_init_job A_((job *,int));
@@ -224,6 +232,37 @@ static void  stop_me A_((int));
 #define CHANGE_STATE 1
 #define KEEP_STATE   0
 
+/* Add the server names from /var/spool/torque/server_name to the trusted hosts list. */
+void add_server_names_to_acl_hosts()
+
+  {
+  int n, list_len, rc;
+  char *server_list_ptr;
+  char *tp;
+  char buffer[PBS_MAXSERVERNAME+1];
+  attribute temp;
+  struct attribute *patr = &server.sv_attr[(int)SRV_ATR_acl_hosts];
+ 
+    server_list_ptr = pbs_get_server_list();
+    list_len = csv_length(server_list_ptr);
+    for (n=0; n<list_len; n++)
+      {
+      tp = csv_nth(server_list_ptr, n);
+      if (tp)
+      {
+      strcpy(buffer, tp);
+      if ((tp = strchr(buffer, ':')))  /* Don't include any port specification */
+        *tp = 0;
+      if ((rc = decode_arst_direct(&temp,buffer)) != 0)
+        {
+        return;
+        }
+      set_arst(patr,&temp,DECR); /* First make sure that the strings are not there. */
+      set_arst(patr,&temp,INCR);
+      free_arst(&temp);
+      }
+    }
+  }
 
 
 /*
@@ -247,6 +286,7 @@ int pbsd_init(
   static char id[] = "pbsd_init";
   char	*job_suffix = JOB_FILE_SUFFIX;
   int	 job_suf_len = strlen(job_suffix);
+  int    array_suf_len = strlen(ARRAY_FILE_SUFFIX);
   int	 logtype;
   char	*new_tag = ".new";
   job	*pjob;
@@ -257,6 +297,12 @@ int pbsd_init(
   char	*suffix_slash = "/";
   struct sigaction act;
   struct sigaction oact;
+  
+  
+  struct work_task *wt;
+  job_array *pa;
+
+  char   EMsg[1024];
 
   extern int TForceUpdate;
 
@@ -270,11 +316,6 @@ int pbsd_init(
   i = getgid();
 
   setgroups(1,(gid_t *)&i);	/* secure suppl. groups */
-
-  i = sysconf(_SC_OPEN_MAX);
-
-  while (--i < 2)
-    close(i); /* close any file desc left open by parent */
 
 #ifndef DEBUG
 #ifdef _CRAY
@@ -297,10 +338,10 @@ int pbsd_init(
   setrlimit(RLIMIT_DATA,  &rlimit);
   setrlimit(RLIMIT_STACK, &rlimit);
 #ifdef	RLIMIT_RSS
-  setrlimit(RLIMIT_RSS  , &rlimit);
+  setrlimit(RLIMIT_RSS,   &rlimit);
 #endif	/* RLIMIT_RSS */
 #ifdef	RLIMIT_VMEM
-  setrlimit(RLIMIT_VMEM  , &rlimit);
+  setrlimit(RLIMIT_VMEM,  &rlimit);
 #endif	/* RLIMIT_VMEM */
   }
 #endif	/* not _CRAY */
@@ -373,11 +414,11 @@ int pbsd_init(
     act.sa_handler = catch_abort;   /* make sure we core dump */
 
     sigaction(SIGSEGV, &act, NULL);
-    sigaction(SIGBUS, &act, NULL);
-    sigaction(SIGFPE, &act, NULL);
-    sigaction(SIGILL, &act, NULL);
+    sigaction(SIGBUS,  &act, NULL);
+    sigaction(SIGFPE,  &act, NULL);
+    sigaction(SIGILL,  &act, NULL);
     sigaction(SIGTRAP, &act, NULL);
-    sigaction(SIGSYS, &act, NULL);
+    sigaction(SIGSYS,  &act, NULL);
     }
 
   act.sa_handler = catch_child;
@@ -398,6 +439,8 @@ int pbsd_init(
     return(2);
     }
 
+  act.sa_handler = change_log_level;
+
   if (sigaction(SIGUSR1,&act,&oact) != 0) 
     {
     log_err(errno,id,"sigaction for USR1");
@@ -415,6 +458,7 @@ int pbsd_init(
   /* 2. set up the various paths and other global variables we need */
 
   path_priv      = build_path(path_home, PBS_SVR_PRIVATE, suffix_slash);
+  path_arrays	 = build_path(path_priv, PBS_ARRAYDIR, suffix_slash);
   path_spool     = build_path(path_home, PBS_SPOOLDIR, suffix_slash);
   path_queues    = build_path(path_priv, PBS_QUEDIR,   suffix_slash);
   path_jobs      = build_path(path_priv, PBS_JOBDIR,   suffix_slash);
@@ -425,19 +469,20 @@ int pbsd_init(
   path_nodes	 = build_path(path_priv, NODE_DESCRIP, NULL);
   path_nodes_new = build_path(path_priv, NODE_DESCRIP, new_tag);
   path_nodestate = build_path(path_priv, NODE_STATUS,  NULL);
-  path_resources = build_path(path_home, PBS_RESOURCES,  NULL);
+  path_nodenote  = build_path(path_priv, NODE_NOTE,    NULL);
+  path_nodenote_new = build_path(path_priv, NODE_NOTE, new_tag);
 
-  init_resc_defs(path_resources);
+  init_resc_defs();
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 
-  rc  = chk_file_sec(path_jobs,  1,0,S_IWGRP|S_IWOTH,1);
-  rc |= chk_file_sec(path_queues,1,0,S_IWGRP|S_IWOTH,0);
-  rc |= chk_file_sec(path_spool, 1,1,S_IWOTH,        0);
-  rc |= chk_file_sec(path_acct,	 1,1,S_IWGRP|S_IWOTH,0);
-  rc |= chk_file_sec(PBS_ENVIRON,0,0,S_IWGRP|S_IWOTH,1);
+  rc  = chk_file_sec(path_jobs,  1,0,S_IWGRP|S_IWOTH,1,EMsg);
+  rc |= chk_file_sec(path_queues,1,0,S_IWGRP|S_IWOTH,0,EMsg);
+  rc |= chk_file_sec(path_spool, 1,1,S_IWOTH,        0,EMsg);
+  rc |= chk_file_sec(path_acct,	 1,0,S_IWGRP|S_IWOTH,0,EMsg);
+  rc |= chk_file_sec(PBS_ENVIRON,0,0,S_IWGRP|S_IWOTH,1,EMsg);
 
-  if (rc) 
+  if (rc != 0) 
     {
     return(3);
     }
@@ -452,6 +497,7 @@ int pbsd_init(
   CLEAR_HEAD(svr_alljobs);
   CLEAR_HEAD(svr_newjobs);
   CLEAR_HEAD(svr_newnodes);
+  CLEAR_HEAD(svr_jobarrays);
 
   time_now = time((time_t *)0);
 
@@ -582,7 +628,9 @@ int pbsd_init(
 
     return(-1);
     }
- 
+
+  add_server_names_to_acl_hosts(); 
+
   /*
    * 8. If not a "create" initialization, recover queues.
    *    If a create, remove any queues that might be there.
@@ -661,6 +709,59 @@ int pbsd_init(
    *    If a a create or clean recovery, delete any jobs.
    */
 
+ /* 9.a, recover job array info */
+  
+   if (chdir(path_arrays) != 0) 
+    {
+    sprintf(log_buffer,msg_init_chdir,
+      path_arrays);
+
+    log_err(errno,"pbsd_init",log_buffer);
+
+    return(-1);
+    }
+    
+  dir = opendir(".");  
+  while ((pdirent = readdir(dir)) != NULL) 
+     {       
+
+     if (chk_save_file(pdirent->d_name) == 0) 
+       {
+       /* if not create or clean recovery, recover arrays */
+       
+       if ((type != RECOV_CREATE) && (type != RECOV_COLD))
+         {
+	 
+	 /* skip files without the proper suffix */
+	 baselen = strlen(pdirent->d_name) - array_suf_len;
+
+         psuffix = pdirent->d_name + baselen;
+
+         if (strcmp(psuffix,ARRAY_FILE_SUFFIX))
+           continue;
+	 
+	 
+	 pa = recover_array_struct(pdirent->d_name);
+	 if (pa == NULL)
+	   {
+	   /* TODO GB */
+	   }
+	
+	 pa->jobs_recovered = 0;
+	 
+	 }
+       else
+         {
+	 unlink(pdirent->d_name);
+	 }
+       
+       }
+              
+     }
+  closedir(dir);    
+  
+  /* 9.b,  recover jobs */
+
   if (chdir(path_jobs) != 0) 
     {
     sprintf(log_buffer,msg_init_chdir,
@@ -712,6 +813,21 @@ int pbsd_init(
 
         psuffix = pdirent->d_name + baselen;
 
+        if (!strcmp(psuffix, ".TA"))
+	  {
+	  if ((pjob = job_recov(pdirent->d_name)) != NULL) 
+            {
+	    append_link(&svr_alljobs,&pjob->ji_alljobs,pjob);
+	    pjob->ji_isparent = TRUE;
+	    }
+	  else
+	    {
+	    /* should we do something here?  we won't beable to finish cloning this array */
+	    }
+	  continue;
+	  }
+	
+	
         if (strcmp(psuffix,job_suffix))
           continue;
 
@@ -743,6 +859,7 @@ int pbsd_init(
 
           if ((type != RECOV_COLD) &&
               (type != RECOV_CREATE) &&
+	      (!(pjob->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET)) &&
               (pjob->ji_qs.ji_svrflags & JOB_SVFLG_SCRIPT))
             {
             strcpy(basen,pdirent->d_name);
@@ -830,7 +947,49 @@ int pbsd_init(
       pjob = (job *)GET_NEXT(pjob->ji_alljobs);
       }
     }
-
+    
+  /* look for empty arrays and delete them 
+     also look for arrays that weren't fully built and setup a work task to 
+     continue the cloning process*/
+  pa = (job_array*)GET_NEXT(svr_jobarrays);  
+  while (pa != NULL)
+    {
+    if (pa->ai_qs.num_cloned != pa->ai_qs.array_size)
+      {
+      
+      job *pjob = find_job(pa->ai_qs.parent_id);
+      if (pjob == NULL)
+        {
+        /* TODO, we need to so something here, we can't finish cloning the array! */
+	
+	}
+      else
+        {
+	/* TODO if num_cloned != num_recovered then something strange happend
+	   it is possible num_recovered == num_cloned+1.  That means that the server
+	   terminated after cloning a job but before updating the saved array_info struct.
+	   we probably should delete that last job and start the cloning process off at 
+	   num_cloned */
+        wt = set_task(WORK_Timed,time_now+1,job_clone_wt,(void*)pjob);
+        
+        }
+      
+      }
+    else if (GET_NEXT(pa->array_alljobs) == pa->array_alljobs.ll_struct)
+      {
+      job_array *temp = (job_array*)GET_NEXT(pa->all_arrays);
+      delete_array_struct(pa);
+      pa = temp;
+      }
+    
+    if (pa != NULL)
+      {
+      pa = (job_array*)GET_NEXT(pa->all_arrays);
+      }
+      
+    }
+    
+    
   /* Put us back in the Server's Private directory */
 
   if (chdir(path_priv) != 0) 
@@ -842,6 +1001,7 @@ int pbsd_init(
     return(3);
     }
 
+     
   /* 10. Open and read in tracking records */
 
   fd = open(path_track,O_RDONLY|O_CREAT,0600);
@@ -855,7 +1015,7 @@ int pbsd_init(
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
   
-  if (chk_file_sec(path_track,0,0,S_IWGRP|S_IWOTH,0) != 0)
+  if (chk_file_sec(path_track,0,0,S_IWGRP|S_IWOTH,0,EMsg) != 0)
     {
     return(-1);
     }
@@ -974,6 +1134,7 @@ static int pbsd_init_job(
 
   {
   unsigned int d;
+  struct work_task *pwt;
 
   pjob->ji_momhandle = -1;
 
@@ -1058,7 +1219,12 @@ static int pbsd_init_job(
 
       /* resend rtc */
 
-      set_task(WORK_Immed,0,resume_net_move,(void *)pjob);
+      pwt = set_task(WORK_Immed,0,resume_net_move,(void *)pjob);
+
+      if (pwt)
+        {
+        append_link(&pjob->ji_svrtask,&pwt->wt_linkobj,pwt);
+        }
 
       break;
 		
@@ -1118,7 +1284,12 @@ static int pbsd_init_job(
 
       apply_job_delete_nanny(pjob,time_now + 60);
 
-      set_task(WORK_Immed,0,on_job_exit,(void *)pjob);
+      pwt = set_task(WORK_Immed,0,on_job_exit,(void *)pjob);
+
+      if (pwt)
+        {
+        append_link(&pjob->ji_svrtask,&pwt->wt_linkobj,pwt);
+        }
 
       pbsd_init_reque(pjob,KEEP_STATE);
 
@@ -1129,7 +1300,12 @@ static int pbsd_init_job(
       /* NOOP - completed jobs are already purged above */
       /* for some reason, this doesn't actually work */
 
-      set_task(WORK_Immed,0,on_job_exit,(void *)pjob);
+      pwt = set_task(WORK_Immed,0,on_job_exit,(void *)pjob);
+
+      if (pwt)
+        {
+        append_link(&pjob->ji_svrtask,&pwt->wt_linkobj,pwt);
+        }
 
       pbsd_init_reque(pjob,KEEP_STATE);
 
@@ -1138,7 +1314,14 @@ static int pbsd_init_job(
     case JOB_SUBSTATE_RERUN:
 
       if (pjob->ji_qs.ji_state == JOB_STATE_EXITING)
-        set_task(WORK_Immed,0,on_job_rerun,(void *)pjob);
+        {
+        pwt = set_task(WORK_Immed,0,on_job_rerun,(void *)pjob);
+
+        if (pwt)
+          {
+          append_link(&pjob->ji_svrtask,&pwt->wt_linkobj,pwt);
+          }
+        }
 
       pbsd_init_reque(pjob,KEEP_STATE);
 
@@ -1147,7 +1330,12 @@ static int pbsd_init_job(
     case JOB_SUBSTATE_RERUN1:
     case JOB_SUBSTATE_RERUN2:
 
-      set_task(WORK_Immed,0,on_job_rerun,(void *)pjob);
+      pwt = set_task(WORK_Immed,0,on_job_rerun,(void *)pjob);
+
+      if (pwt)
+        {
+        append_link(&pjob->ji_svrtask,&pwt->wt_linkobj,pwt);
+        }
 
       pbsd_init_reque(pjob,KEEP_STATE);
 
@@ -1246,7 +1434,7 @@ static void pbsd_init_reque(
       pjob->ji_qs.ji_jobid, 
       pjob->ji_qs.ji_queue);
 
-    log_err(-1,"pbsd_init",logbuf);
+    log_err(-1,"pbsd_init_reque",logbuf);
 
     job_abt(&pjob,logbuf);
 
@@ -1268,7 +1456,7 @@ static void pbsd_init_reque(
 
 static void catch_abort(
 
-  int sig)
+  int sig)  /* I */
 
   {
   struct rlimit rlimit;
@@ -1337,7 +1525,7 @@ static void catch_child(
 
     ptask = (struct work_task *)GET_NEXT(task_list_event);
 
-    while (ptask) 
+    while (ptask != NULL) 
       {
       if ((ptask->wt_type == WORK_Deferred_Child) &&
           (ptask->wt_event == pid)) 
@@ -1350,7 +1538,7 @@ static void catch_child(
 
       ptask = (struct work_task *)GET_NEXT(ptask->wt_linkall);
       }
-    }
+    }    /* END while (1) */
 
   return;
   }  /* END catch_child() */
@@ -1380,6 +1568,63 @@ static void change_logs(
 
   return;
   }
+
+/*
+ * change_log_level - signal handler for SIGUSR! and SIGUSR2
+ * Increases log level if SIGUSR1 is received.
+ * Decreases log level if SIGUSR2 is received.
+ * Variable plogenv tells us whether or not PBSLOGLEVEL was specified
+ * If it was not then we will update the server log level attribute
+ * which allows qmgr to see the current log level value
+ */
+
+static void change_log_level(
+
+  int sig)
+
+  {
+  if (sig == SIGUSR1)
+    {
+    /* increase log level */
+  
+    if (plogenv == NULL )
+      LOGLEVEL = server.sv_attr[(int)SRV_ATR_LogLevel].at_val.at_long;
+    
+    LOGLEVEL = MIN(LOGLEVEL + 1,7);
+    
+    if (plogenv == NULL )
+      {
+      server.sv_attr[(int)SRV_ATR_LogLevel].at_val.at_long = LOGLEVEL;
+      server.sv_attr[(int)SRV_ATR_LogLevel].at_flags = ATR_VFLAG_SET;
+      }
+    }
+  else if (sig == SIGUSR2)
+    {
+    /* increase log level */
+    if (plogenv == NULL )
+      LOGLEVEL = server.sv_attr[(int)SRV_ATR_LogLevel].at_val.at_long;
+    
+    LOGLEVEL = MAX(LOGLEVEL - 1,0);
+    
+    if (plogenv == NULL )
+      {
+      server.sv_attr[(int)SRV_ATR_LogLevel].at_val.at_long = LOGLEVEL;
+      server.sv_attr[(int)SRV_ATR_LogLevel].at_flags = ATR_VFLAG_SET;
+      }
+    }
+
+  sprintf(log_buffer,"received signal %d: adjusting loglevel to %d",
+    sig,
+    LOGLEVEL);
+
+  log_record(
+    PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+    PBS_EVENTCLASS_SERVER,
+    msg_daemonname,
+    log_buffer);
+
+  return;
+  }  /* END change_log_level() */
 
 
 
@@ -1414,6 +1659,11 @@ static int chk_save_file(
 
   {
   struct stat sb;
+
+  if (*filename == '.')
+    {
+    return(-1);
+    }
 
   if (stat(filename,&sb) == -1)
     {
@@ -1544,6 +1794,7 @@ static void rm_files(
     "acl_hosts",
     "acl_svr",
     "acl_users",
+    "hostlist",
     "queues",
     NULL };      /* keep as last entry */
 

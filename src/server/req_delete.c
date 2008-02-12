@@ -149,7 +149,7 @@ extern void set_resc_assigned(job *,enum batch_op);
 
 void remove_stagein(
 
-  job *pjob)
+  job *pjob)  /* I */
 
   {
   struct batch_request *preq = 0;
@@ -202,7 +202,7 @@ void remove_stagein(
 
 void req_deletejob(
 
-  struct batch_request *preq)
+  struct batch_request *preq)  /* I */
 
   {
   job              *pjob;
@@ -219,11 +219,41 @@ void req_deletejob(
     return;
     }
 
+  /* NOTE:  should support rq_objname={<JOBID>|ALL|<name:<JOBNAME>} */
+
+  /* NYI */
+
   pjob = chk_job_request(preq->rq_ind.rq_delete.rq_objname,preq);
 
   if (pjob == NULL)
     {
+    /* NOTE:  chk_job_request() will issue req_reject() */
+
     return;
+    }
+
+  if (preq->rq_extend != NULL)
+    {
+    if (strncmp(preq->rq_extend,deldelaystr,strlen(deldelaystr)) &&
+        strncmp(preq->rq_extend,delpurgestr,strlen(delpurgestr)))
+      {
+      /* have text message in request extension, add it */
+
+      Msg = preq->rq_extend;
+      
+      /*
+       * Message capability is only for operators and managers.
+       * Check if request is authorized
+      */
+  
+      if ((preq->rq_perm & (ATR_DFLAG_OPRD|ATR_DFLAG_OPWR|
+                        ATR_DFLAG_MGRD|ATR_DFLAG_MGWR)) == 0)
+        {
+        req_reject(PBSE_PERM,0,preq,NULL,
+          "must have operator or manager privilege to use -m parameter");
+        return;
+        }
+      }
     }
 
   if (pjob->ji_qs.ji_state == JOB_STATE_TRANSIT) 
@@ -288,7 +318,7 @@ void req_deletejob(
   if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN) 
     {
     /* being sent to MOM, wait till she gets it going */
-    /* retry in one second				  */
+    /* retry in one second                            */
 
     static time_t  cycle_check_when = 0;
     static char    cycle_check_jid[PBS_MAXSVRJOBID + 1];
@@ -343,7 +373,7 @@ void req_deletejob(
       req_reject(PBSE_SYSTEM,0,preq,NULL,NULL);
 
     return;
-    }
+    }  /* END if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN) */
 
 jump:
 
@@ -355,16 +385,6 @@ jump:
     preq->rq_user,
     preq->rq_host);
 
-  if (preq->rq_extend != NULL)
-    {
-    if (strncmp(preq->rq_extend,deldelaystr,strlen(deldelaystr)) &&
-        strncmp(preq->rq_extend,delpurgestr,strlen(delpurgestr)))
-      {
-      /* have text message in request extension, add it */
-
-      Msg = preq->rq_extend;
-      }
-    }
 
   /* NOTE:  should annotate accounting record with extend message (NYI) */
 
@@ -398,6 +418,15 @@ jump:
        has not been previously attempted */
 
     svr_mailowner(pjob,MAIL_DEL,MAIL_FORCE,log_buffer);
+    /*
+     * If we sent mail and already sent the extra message
+     * then reset message so we don't trigger a redundant email
+     * in job_abt()
+    */
+    if (Msg != NULL) 
+      {
+      Msg = NULL;
+      }
     }
 	
   if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING) 
@@ -422,7 +451,11 @@ jump:
      */
 
     if ((rc = issue_signal(pjob,sigt,post_delete_mom1,preq)))
-      req_reject(rc,0,preq,NULL,NULL);   /* cant send to MOM */
+      {
+      /* cant send to MOM */
+
+      req_reject(rc,0,preq,NULL,NULL);   
+      }
 
     /* normally will ack reply when mom responds */
 
@@ -436,7 +469,7 @@ jump:
       log_buffer);
 
     return; 
-    } 
+    }  /* END if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING) */ 
 
   if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_CHKPT) != 0) 
     {
@@ -448,7 +481,12 @@ jump:
 
     /* force new connection */
 
-    set_task(WORK_Immed,0,on_job_exit,(void *)pjob);
+    pwtnew = set_task(WORK_Immed,0,on_job_exit,(void *)pjob);
+
+    if (pwtnew)
+      {
+      append_link(&pjob->ji_svrtask,&pwtnew->wt_linkobj,pwtnew);
+      }
     } 
   else if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_StagedIn) != 0) 
     {
@@ -466,7 +504,7 @@ jump:
      */
 
     job_abt(&pjob,Msg);
-    }
+    }  /* END else if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_CHKPT) != 0) */
 
   reply_ack(preq);
 
@@ -859,7 +897,7 @@ struct work_task *apply_job_delete_nanny(
  * We are also called from pbsd_init_job() after recovering EXITING jobs.
  */
 
-void job_delete_nanny(
+static void job_delete_nanny(
       
   struct work_task *pwt)
     

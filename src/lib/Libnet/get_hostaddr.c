@@ -131,8 +131,9 @@ pbs_net_t get_hostaddr(
   char *hostname) /* I */
 
   {
-  static struct in_addr hostaddr;
-  struct hostent *hp;
+  static struct in_addr  hostaddr;
+  struct hostent        *hp;
+
   extern int pbs_errno;
 
   hp = gethostbyname(hostname);
@@ -152,4 +153,5 @@ pbs_net_t get_hostaddr(
   return((pbs_net_t)ntohl(hostaddr.s_addr));
   }  /* END get_hostaddr() */
 
+/* END get_hostaddr.c */
 

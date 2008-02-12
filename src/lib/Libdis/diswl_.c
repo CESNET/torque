@@ -113,6 +113,23 @@
 #endif /* SIZEOF_LONG_DOUBLE == SIZEOF_DOUBLE */
 
 
+#if defined(__GNUC__) && defined(__DBL_MAX__)
+ 
+#ifdef LDBL_MAX
+#undef LDBL_MAX
+#endif /* LDBL_MAX */
+
+#define LDBL_MAX __DBL_MAX__
+
+
+#ifdef HUGE_VAL
+#undef HUGE_VAL
+#endif
+#define HUGE_VAL LDBL_MAX
+
+#endif
+
+
 int diswl_(stream, value, ndigs)
     int			stream;
     dis_long_double_t		value;

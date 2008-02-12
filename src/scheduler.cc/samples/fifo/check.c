@@ -79,8 +79,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <pbs_ifl.h>
-#include <log.h>
+#include "pbs_ifl.h"
+#include "log.h"
 #include <string.h>
 #include "check.h"
 #include "config.h"
@@ -494,12 +494,14 @@ int check_nodes( int pbs_sd, job_info *jinfo, node_info **ninfo_arr )
     tmp = node_str;
     if( (rc = pbs_rescquery(pbs_sd, &tmp, 1, &av, &al, &res, &down)) != 0 )
     {
+      free(node_str);
       sprintf(errbuf, "pbs_resquery error: %d", rc);
       sched_log(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, jinfo -> name, errbuf );
       return SCHD_ERROR;
     }
     else
     {
+      free(node_str);
       /* the requested nodes will never be available */
       if( av < 0 )
         jinfo -> can_never_run = 1;

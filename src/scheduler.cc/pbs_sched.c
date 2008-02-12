@@ -135,14 +135,10 @@ int             mask_num = 0;
 char		*configfile = NULL;	/* name of config file */
 
 char		*oldpath;
-extern char		*msg_daemonname;
+extern char	*msg_daemonname;
 char		**glob_argv;
 char		usage[] = "[-S port][-d home][-p output][-c config][-a alarm]";
-#ifdef ENABLE_IPV6
-struct	sockaddr_in6	saddr;
-#else
 struct	sockaddr_in	saddr;
-#endif
 sigset_t	allsigs;
 int		alarm_time;
 static char    *logfile = (char *)0;
@@ -150,9 +146,9 @@ static char	path_log[_POSIX_PATH_MAX];
 char	path_acct[_POSIX_PATH_MAX];
 int 		pbs_rm_port;
 
-int	schedreq();
+int             schedreq();
 
-extern int get_4byte(int,int *);
+extern int get_4byte(int,unsigned int *);
 
 
 /*
@@ -222,8 +218,8 @@ static void catch_abort(
   rlimit.rlim_cur = RLIM_INFINITY;
   rlimit.rlim_max = RLIM_INFINITY;
 
-  (void)setrlimit(RLIMIT_CORE, &rlimit);
-  (void)abort();
+  setrlimit(RLIMIT_CORE, &rlimit);
+  abort();
 
   return;
   }  /* END catch_abort() */
@@ -256,16 +252,19 @@ static int server_disconnect(
 /*
 **	Got an alarm call.
 */
-void
-toolong(sig)
-int	sig;
-{
-	char	*id = "toolong";
-	struct	stat	sb;
-	pid_t	cpid;
 
-	log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, "alarm call");
-	DBPRT(("alarm call\n"))
+void toolong(
+
+  int sig)
+
+  {
+  char	*id = "toolong";
+  struct	stat	sb;
+  pid_t	cpid;
+
+	log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, 
+                   "scheduling iteration took too long");
+	DBPRT(("scheduling iteration too long\n"))
 
 	if (connector >= 0 && server_disconnect(connector))
 		log_err(errno, id, "server_disconnect");
@@ -317,9 +316,10 @@ int	sig;
 	exit(0);
 }
 
+
+/* sock refers to an opened socket */
 int
-socket_to_conn(sock)
-    int sock;		/* opened socket */
+socket_to_conn(int sock)
 {
 	int     i;
 
@@ -459,7 +459,7 @@ static int read_config(
 
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
-  if (chk_file_sec(file,0,0,S_IWGRP|S_IWOTH, 1))
+  if (chk_file_sec(file,0,0,S_IWGRP|S_IWOTH,1,NULL))
     {
     return(-1);
     }
@@ -469,10 +469,13 @@ static int read_config(
  
   mask_num = 0;
 
-	if ((conf = fopen(file, "r")) == NULL) {
-		log_err(errno, id, "cannot open config file");
-		return (-1);
-	}
+  if ((conf = fopen(file,"r")) == NULL) 
+    {
+    log_err(errno,id,"cannot open config file");
+
+    return(-1);
+    }
+
 	while (fgets(line, CONF_LINE_LEN, conf)) {
 
 		if ((line[0] == '#') || (line[0] == '\n'))
@@ -514,8 +517,7 @@ static int read_config(
 }
 
 void
-restart(sig)
-    int	sig;
+restart(int sig)
 {
 	char    *id = "restart";
 
@@ -534,33 +536,20 @@ restart(sig)
 }
 
 void
-badconn(msg)
-    char	*msg;
+badconn(char *msg)
 {
 	static	char	id[] = "badconn";
-#ifdef ENABLE_IPV6
-	struct	in6_addr addr;
-#else
-	struct	in_addr	 addr;
-#endif
+	struct	in_addr	addr;
 	char		buf[5*sizeof(addr) + 100];
 	struct	hostent	*phe;
 
-#ifdef ENABLE_IPV6
-	addr = saddr.sin6_addr;
-#else
 	addr = saddr.sin_addr;
-#endif
 	phe = gethostbyaddr((void *)&addr, sizeof(addr), AF_INET);
 	if (phe == NULL) {
 		char	hold[6];
 		int	i;
 		union {
-#ifdef ENABLE_IPV6
-			struct	in6_addr aa;
-#else
-			struct	in_addr  aa;
-#endif
+			struct	in_addr aa;
 			u_char		bb[sizeof(addr)];
 		} uu;
 
@@ -577,11 +566,7 @@ badconn(msg)
 	}
 
 	sprintf(log_buffer, "%s on port %u %s",
-#ifdef ENABLE_IPV6
-			buf, ntohs(saddr.sin6_port), msg);
-#else
 			buf, ntohs(saddr.sin_port), msg);
-#endif
 	log_err(-1, id, log_buffer);
 
   return;
@@ -598,7 +583,8 @@ int server_command()
 
   int           new_socket;
   torque_socklen_t	slen;
-  int		i, cmd;
+  int		i;
+  unsigned int  cmd;
   pbs_net_t	addr;
 
   slen = sizeof(saddr);
@@ -612,16 +598,9 @@ int server_command()
     return(SCH_ERROR);
     }
 
-#ifdef ENABLE_IPV6
-  addr = (pbs_net_t)saddr.sin6_addr.s6_addr32[0];
-
-  if (ntohs(saddr.sin6_port) >= IPPORT_RESERVED) 
-#else
   addr = (pbs_net_t)saddr.sin_addr.s_addr;
-
-  if (ntohs(saddr.sin_port) >= IPPORT_RESERVED) 
-#endif
  
+  if (ntohs(saddr.sin_port) >= IPPORT_RESERVED) 
     {
     for (i = 0;i < mask_num;i++) 
       {
@@ -670,7 +649,7 @@ int server_command()
     return(SCH_ERROR);
     }
 
-  return(cmd);
+  return((int)cmd);
   }
 
 
@@ -679,11 +658,11 @@ int server_command()
 
 /*
  * lock_out - lock out other daemons from this directory.
+ *
+ * op is either F_WRLCK or F_UNLCK
  */
 
-static void lock_out(fds, op)
-	int fds;
-	int op;		/* F_WRLCK  or  F_UNLCK */
+static void lock_out(int fds, int op)
 {
 	struct flock flock;
 
@@ -708,26 +687,27 @@ int main(
   char *argv[])
 
   {
-	char		*id = "main";
-	struct	hostent	*hp;
-	int		go, c, errflg = 0;
-	int		lockfds;
-	int		t = 1;
-	pid_t		pid;
-	char		host[100];
-	char		*homedir = PBS_SERVER_HOME;
-	unsigned int	port;
-	char		*dbfile = "sched_out";
-	struct	sigaction	act;
-	sigset_t	oldsigs;
-	caddr_t		curr_brk = 0;
-	caddr_t		next_brk;
-	extern	char	*optarg;
-	extern	int	optind, opterr;
-	extern	int	rpp_fd;
-	fd_set		fdset;
-	int		schedinit A_((int argc, char **argv));
-	int		schedule A_((int com, int connector));
+  char		*id = "main";
+  struct	hostent	*hp;
+  int		go, c, errflg = 0;
+  int		lockfds;
+  int		t = 1;
+  pid_t		pid;
+  char		host[100];
+  char		*homedir = PBS_SERVER_HOME;
+  unsigned int	port;
+  char		*dbfile = "sched_out";
+  struct	sigaction	act;
+  sigset_t	oldsigs;
+  caddr_t	curr_brk = 0;
+  caddr_t	next_brk;
+  extern char	*optarg;
+  extern int	optind, opterr;
+  extern int	rpp_fd;
+  fd_set	fdset;
+
+  int		schedinit A_((int argc, char **argv));
+  int		schedule A_((int com, int connector));
 
 	glob_argv = argv;
 	alarm_time = 180;
@@ -816,8 +796,8 @@ int main(
 
 	(void)sprintf(log_buffer, "%s/sched_priv", homedir);
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
-	c  = chk_file_sec(log_buffer, 1, 0, S_IWGRP|S_IWOTH, 1);
-	c |= chk_file_sec(PBS_ENVIRON, 0, 0, S_IWGRP|S_IWOTH, 0);
+	c  = chk_file_sec(log_buffer,1,0,S_IWGRP|S_IWOTH,1,NULL);
+	c |= chk_file_sec(PBS_ENVIRON,0,0,S_IWGRP|S_IWOTH,0,NULL);
 	if (c != 0) exit(1);
 #endif  /* not DEBUG and not NO_SECURITY_CHECK */
 	if (chdir(log_buffer) == -1) {
@@ -892,15 +872,9 @@ int main(
 		log_err(errno, id, "setsockopt");
 		die(0);
 	}
-#ifdef ENABLE_IPV6
-	saddr.sin6_family = AF_INET6;
-	saddr.sin6_port = htons(port);
-	memcpy (&saddr.sin6_addr, hp->h_addr, hp->h_length);
-#else
 	saddr.sin_family = AF_INET;
 	saddr.sin_port = htons(port);
 	memcpy (&saddr.sin_addr, hp->h_addr, hp->h_length);
-#endif
 	if (bind (server_sock, (struct sockaddr *)&saddr, sizeof(saddr)) < 0) {
 		log_err(errno, id, "bind");
 		die(0);
@@ -1042,8 +1016,10 @@ int main(
 	log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, log_buffer);
 
 	FD_ZERO(&fdset);
-	for (go=1; go;) {
-		int	cmd;
+
+  for (go = 1;go;) 
+    {
+    int cmd;
 
 		if (rpp_fd != -1)
 			FD_SET(rpp_fd, &fdset);
@@ -1085,11 +1061,15 @@ int main(
 		}
 		if (sigprocmask(SIG_SETMASK, &oldsigs, NULL) == -1)
 			log_err(errno, id, "sigprocmask(SIG_SETMASK)");
-	}
+    }
 
-	sprintf(log_buffer, "%s normal finish pid %ld", argv[0], (long)pid);
-	log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, log_buffer);
+  sprintf(log_buffer,"%s normal finish pid %ld", 
+    argv[0], 
+    (long)pid);
 
-	(void)close(server_sock);
-	exit(0);
-}
+  log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
+
+  close(server_sock);
+
+  exit(0);
+  }  /* END main() */

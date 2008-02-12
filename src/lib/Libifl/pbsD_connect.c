@@ -76,9 +76,10 @@
 * This license will be governed by the laws of the Commonwealth of Virginia,
 * without reference to its choice of law rules.
 */
+
 /*	pbs_connect.c
  *
- *	Open a connection with the pbs server.  At this point several
+ *	Open a connection with the TORQUE server.  At this point several
  *	things are stubbed out, and other things are hard-wired.
  *
  */
@@ -96,10 +97,25 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <netinet/in.h>
+#include <sys/param.h>
+#if HAVE_SYS_UCRED_H
+#include <sys/ucred.h>
+#endif
+#if HAVE_SYS_UIO_H
+#include <sys/uio.h>
+#endif
+
 #include "libpbs.h"
 #include "dis.h"
 #include "net_connect.h"
+
+
+
+#define CNTRETRYDELAY 5
+
+
 
 /* NOTE:  globals, must not impose per connection constraints */
 
@@ -108,7 +124,11 @@ static uid_t pbs_current_uid;               /* only one uid per requestor */
 extern time_t pbs_tcp_timeout;              /* source? */
 
 static unsigned int dflt_port = 0;
+
+static char server_list[PBS_MAXSERVERNAME*3 + 1];
 static char dflt_server[PBS_MAXSERVERNAME + 1];
+static char fb_server[PBS_MAXSERVERNAME + 1];
+
 static int got_dflt = FALSE;
 static char server_name[PBS_MAXSERVERNAME + 1];  /* definite conflicts */
 static unsigned int server_port;                 /* definite conflicts */
@@ -117,17 +137,96 @@ static const char *pbs_destn_file = PBS_DEFAULT_FILE;
 char *pbs_server = NULL;
 
 
+/**
+ * Gets the number of items in a string list.
+ * @param str  The string list.
+ * @return The number of items in the list.
+ */
+int csv_length( char *str )
+{
+	int		length = 0;
+	char	*cp;
+
+	if (!str || *str == 0)
+		return(0);
+
+	length++;
+	cp = str;
+	while ((cp = strchr(cp, ',')))
+	{
+		cp++;
+		length++;
+	}
+	return(length);
+}
+
+/**
+ * Gets the nth item from a comma seperated list of names.
+ * @param str  The string list.
+ * @param n The item number requested (0 is the first item).
+ * @return Null if str is null or empty,
+ *     otherwise, a pointer to a local buffer containing the nth item.
+ */
+char *csv_nth( char *str, int n )
+{
+	int		i;
+	char	*cp;
+	char	*tp;
+static	char	buffer[128];
+
+	if (!str || *str == 0)
+		return(0);
+
+	cp = str;
+	for (i = 0; i < n; i++)
+	{
+		if (!(cp = strchr(cp, ',')))
+		{
+			return(0);
+		}
+		cp++;
+	}
+	memset(buffer, 0, sizeof(buffer));
+	if ((tp = strchr(cp, ',')))
+	{
+		strncpy(buffer, cp, tp-cp);
+	}
+	else
+	{
+		strcpy(buffer, cp);
+	}
+	return(buffer);
+}
 
 
-char *pbs_default()
 
-  {
+
+/**
+ * Attempts to get a list of server names.  Trys first
+ * to obtain the list from an envrionment variable PBS_DEFAULT.
+ * If this is not set, it then trys to read the first line
+ * from the file <b>server_name</b> in the <b>/var/spool/torque</b>
+ * directory.
+ * <p>
+ * NOTE:  PBS_DEFAULT format:    <SERVER>[,<FBSERVER>]
+ *        pbs_destn_file format: <SERVER>[,<FBSERVER>]
+ * <p>
+ * @return A pointer to the server list.
+ * The side effect is
+ * that the global variable <b>server_list</b> is set.  The one-shot
+ * flag <b>got_dflt</b> is used to limit re-reading of the list.
+ * @see pbs_default()
+ * @see pbs_fbserver()
+ */
+char *pbs_get_server_list()
+{
   FILE *fd;
   char *pn;
   char *server;
 
   if (got_dflt != TRUE) 
     {
+    memset(server_list, 0, sizeof(server_list));
     server = getenv("PBS_DEFAULT");
 
     if ((server == NULL) || (*server == '\0')) 
@@ -136,40 +235,86 @@ char *pbs_default()
 
       if (fd == NULL) 
         {
-        return(NULL);
+        return(server_list);
         }
 
-      if (fgets(dflt_server,PBS_MAXSERVERNAME,fd) == NULL)
+      if (fgets(server_list,PBS_MAXSERVERNAME,fd) == NULL)
         {
         fclose(fd);
 
-        return(NULL);
+        return(server_list);
         }
 
-      if ((pn = strchr(dflt_server,(int)'\n')))
+      if ((pn = strchr(server_list,(int)'\n')))
         *pn = '\0';
 
       fclose(fd);
       } 
     else 
       {
-      strncpy(dflt_server,server,PBS_MAXSERVERNAME);
+      strncpy(server_list,server,PBS_MAXSERVERNAME);
       }
-
     got_dflt = TRUE;
     }  /* END if (got_dflt != TRUE) */
+    return(server_list);
+}
 
-  strcpy(server_name,dflt_server);
+/**
+ * The routine is called to get the name of the primary
+ * server.  It can possibly trigger reading of the server name
+ * list from the envrionment or the disk.
+ * As a side effect, it set file local strings <b>dflt_server</b>
+ * and <b>server_name</b>.  I am not sure if this is needed but
+ * it seems in the spirit of the original routine.
+ * @return A pointer to the default server name.
+ * @see pbs_fbserver()
+ */
+char *pbs_default()
+  {
+	char *cp;
 
-  return(dflt_server);
-  }  /* END pbs_default() */
+    pbs_get_server_list();
+	server_name[0] = 0;
+	cp = csv_nth(server_list, 0);	/* get the first item from list */
+	if (cp)
+      {
+      strcpy(dflt_server,cp);
+      strcpy(server_name,cp);
+      }
+    return(server_name);
+  }
 
+
+/**
+ * The routine is called to get the name of the fall-back
+ * server.  It can possibly trigger reading of the server name
+ * list from the envrionment or the disk.
+ * As a side effect, it set file local strings <b>fb_server</b>
+ * and <b>server_name</b>.  I am not sure if this is needed but
+ * it seems in the spirit of the original routine.
+ * @return A pointer to the fall-back server name.
+ * @see pbs_default()
+ */
+char *pbs_fbserver()
+  {
+	char *cp;
+
+    pbs_get_server_list();
+    server_name[0] = 0;
+	cp = csv_nth(server_list, 1);	/* get the second item from list */
+	if (cp)
+    {
+      strcpy(fb_server,cp);
+      strcpy(server_name,cp);
+    }
+    return(server_name);
+  }
 
 
 
 static char *PBS_get_server(
 
-  char         *server,  /* I (modified) */
+  char         *server,  /* I (NULL|'\0' for not set,modified) */
   unsigned int *port)    /* O */
 
   {
@@ -243,39 +388,73 @@ static int PBSD_authenticate(
   FILE	*piff;
   char  *ptr;
 
-  char   tmpLine[1024];
-
   struct stat buf;
+
+  static char iffpath[1024];
+
+  int    rc;
 
   /* use pbs_iff to authenticate me */
 
-  if ((ptr = getenv("PBSBINDIR")) != NULL)
+  if (iffpath[0] == '\0')
     {
-    snprintf(tmpLine,sizeof(tmpLine),"%s/pbs_iff",
-      ptr);
-    }
-  else
-    {
-    strcpy(tmpLine,IFF_PATH);
-    }
-
-  if (stat(tmpLine,&buf) == -1)
-    {
-    /* FAILURE */
-
-    if (getenv("PBSDEBUG"))
+    if ((ptr = getenv("PBSBINDIR")) != NULL)
       {
-      fprintf(stderr,"ALERT:  cannot verify file '%s', errno=%d (%s)\n",
-        cmd,
-        errno,
-        strerror(errno));
+      snprintf(iffpath,sizeof(iffpath),"%s/pbs_iff",
+        ptr);
+      }
+    else
+      {
+      strcpy(iffpath,IFF_PATH);
       }
 
-    return(-1);
-    }
+    rc = stat(iffpath,&buf);
+
+    if (rc == -1)
+      {
+      /* cannot locate iff in default location - search PATH */
+
+      if ((ptr = getenv("PATH")) != NULL)
+        {
+        ptr = strtok(ptr,";");
+
+        while (ptr != NULL)
+          {
+          snprintf(iffpath,sizeof(iffpath),"%s/pbs_iff",
+            ptr);
+
+          rc = stat(iffpath,&buf);
+
+          if (rc != -1)
+            break;
+
+          ptr = strtok(NULL,";");
+          }  /* END while (ptr != NULL) */
+        }    /* END if ((ptr = getenv("PATH")) != NULL) */
+
+      if (rc == -1)
+        {
+        /* FAILURE */
+
+        if (getenv("PBSDEBUG"))
+          {
+          fprintf(stderr,"ALERT:  cannot verify file '%s', errno=%d (%s)\n",
+            cmd,
+            errno,
+            strerror(errno));
+          }
+
+        /* cannot locate iff in default location - search PATH */
+
+        iffpath[0] = '\0';
+
+        return(-1);
+        }
+      }
+    }    /* END if (iffpath[0] == '\0') */
 
   snprintf(cmd,sizeof(cmd),"%s %s %u %d", 
-    tmpLine, 
+    iffpath, 
     server_name, 
     server_port,
     psock);
@@ -321,7 +500,7 @@ static int PBSD_authenticate(
     pclose(piff);
 
     return(-1);
-    }
+    }  /* END if ((i != sizeof(int)) || ...) */
 
   j = pclose(piff);
 
@@ -348,32 +527,65 @@ static int PBSD_authenticate(
 
 
 
+#ifdef ENABLE_UNIX_SOCKETS
+ssize_t    send_unix_creds(int sd)
+  {
+  struct iovec    vec;
+  struct msghdr   msg;
+  struct cmsghdr  *cmsg;
+  char dummy='m';
+  char buf[CMSG_SPACE(sizeof(struct ucred))];
+  struct ucred *uptr;
+
+
+  memset (&msg, 0, sizeof(msg));
+  vec.iov_base = &dummy;
+  vec.iov_len = 1;
+  msg.msg_iov = &vec;
+  msg.msg_iovlen = 1;
+  msg.msg_control = buf;
+  msg.msg_controllen = sizeof(buf);
+  cmsg = CMSG_FIRSTHDR(&msg);
+  cmsg->cmsg_level = SOL_SOCKET;
+  cmsg->cmsg_type = SCM_CREDS;
+  cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+  uptr = (struct ucred *)CMSG_DATA(cmsg);
+  SPC_PEER_UID(uptr) = getuid();
+  SPC_PEER_GID(uptr) = getgid();
+#ifdef linux
+  uptr->pid = getpid();
+#endif
+  msg.msg_controllen = cmsg->cmsg_len;
+
+  return (sendmsg(sd, &msg, 0) != -1);
+
+}
+#endif /* END ENABLE_UNIX_SOCKETS */
+
 
 /* returns socket descriptor or negative value (-1) on failure */
 
-/* NOTE:  cannot use globals or static infomration as API
+/* NOTE:  cannot use globals or static information as API
    may be used to connect a single server to multiple TORQUE
    interfaces */
 
 /* NOTE:  0 is not a valid return value */
 
-int pbs_connect(
+int pbs_original_connect(
 
-  char *server)  /* I (FORMAT:  NULL | HOSTNAME | HOSTNAME:PORT )*/
+  char *server)  /* I (FORMAT:  NULL | '\0' | HOSTNAME | HOSTNAME:PORT )*/
 
   {
-#if defined(HAVE_GETADDRINFO) && defined(ENABLE_IPV6)
-  struct addrinfo hints, *ai, *aitop;
-  char strport[NI_MAXSERV];
-  int gaierr;
-#else /* HAVE_GETADDRINFO */
   struct sockaddr_in server_addr;
   struct hostent *hp;
-#endif /* HAVE_GETADDRINFO */
-
   int out;
   int i;
   struct passwd *pw;
+  int use_unixsock=0;
+#ifdef ENABLE_UNIX_SOCKETS
+  struct sockaddr_un unserver_addr;
+  char hnamebuf[256];
+#endif
 
   char  *ptr;
 
@@ -442,124 +654,157 @@ int pbs_connect(
 
   strcpy(pbs_current_user,pw->pw_name);
 
-  /* determine where we are going */
-
   pbs_server = server;    /* set for error messages from commands */
-	
-#if defined(HAVE_GETADDRINFO) && defined(ENABLE_IPV6)
-  /* Look up the host address */
-  memset(&hints, 0, sizeof(hints));
-  hints.ai_family = AF_UNSPEC;
-  hints.ai_socktype = SOCK_STREAM;
-  snprintf(strport, sizeof strport, "%d", server_port);
 
-  if ((gaierr = getaddrinfo(server, strport, &hints, &aitop)) != 0)
-    {
-    fprintf(stderr,"%100s: unknown host. (%s)", server, gai_strerror(gaierr));
-    connection[out].ch_inuse = 0;
-    pbs_errno = PBSE_BADHOST;
 
-    return -1;
-    }
-  for (ai = aitop; ai; ai = ai->ai_next)
-    {
-    /* Create a socket. */
-    connection[out].ch_socket = socket(ai->ai_family, SOCK_STREAM, 0);
+#ifdef ENABLE_UNIX_SOCKETS
+  /* determine if we want to use unix domain socket */
 
-    if (connection[out].ch_socket < 0)
-      {
-      fprintf(stderr,"socket: %.100s", strerror(errno));
-      continue;
-      }
+  if (!strcmp(server,"localhost"))
+    use_unixsock=1;
+  else if ((gethostname(hnamebuf,sizeof(hnamebuf)-1)==0) && !strcmp(hnamebuf,server))
+    use_unixsock=1;
 
-    /* Connect it to the display. */
-    if (connect(connection[out].ch_socket, ai->ai_addr, ai->ai_addrlen) < 0)
-      {
-      fprintf(stderr,"connect %.100s port %d: %.100s", server,
-        server_port, strerror(errno));
-      close(connection[out].ch_socket);
-      continue;
-      }
-    /* Success */
-    break;
-    }
+  /* NOTE: if any part of using unix domain sockets fails,
+   * we just cleanup and try again with inet sockets */
 
-  freeaddrinfo(aitop);
-
-  if (!ai)
-    {
-    fprintf(stderr,"connect %.100s port %d: %.100s", server, server_port,
-      strerror(errno));
-    connection[out].ch_inuse = 0;
-    pbs_errno = errno;
-    return -1;
-    }
-
-#else /* HAVE_GETADDRINFO */
-  server_addr.sin_family = AF_INET;
-  hp = NULL;
-  hp = gethostbyname(server);
-
-  if (hp == NULL) 
-    {
-    connection[out].ch_inuse = 0;
-    pbs_errno = PBSE_BADHOST;
-
-    if (getenv("PBSDEBUG"))
-      {
-      fprintf(stderr,"ERROR:  cannot get servername (%s) errno=%d (%s)\n",
-        (server != NULL) ? server : "NULL",
-        errno,
-        strerror(errno));
-      }
-
-    return(-1);
-    }
-
-  memcpy((char *)&server_addr.sin_addr,hp->h_addr_list[0],hp->h_length);
-  server_addr.sin_port = htons(server_port);
-	
   /* get socket	*/
 
-  connection[out].ch_socket = socket(AF_INET,SOCK_STREAM,0);
-
-  if (connection[out].ch_socket < 0) 
+  if (use_unixsock)
     {
-    if (getenv("PBSDEBUG"))
+    connection[out].ch_socket = socket(AF_UNIX,SOCK_STREAM,0);
+
+    if (connection[out].ch_socket < 0) 
       {
-      fprintf(stderr,"ERROR:  cannot create socket:  errno=%d (%s)\n",
-        errno,
-        strerror(errno));
+      if (getenv("PBSDEBUG"))
+        {
+        fprintf(stderr,"ERROR:  cannot create socket:  errno=%d (%s)\n",
+          errno,
+          strerror(errno));
+        }
+  
+      connection[out].ch_inuse = 0;
+      pbs_errno = PBSE_PROTOCOL;
+  
+      use_unixsock=0;
       }
-
-    connection[out].ch_inuse = 0;
-    pbs_errno = PBSE_PROTOCOL;
-
-    return(-1);
     }
 
   /* and connect... */
 
-  if (connect(
-        connection[out].ch_socket,
-        (struct sockaddr *)&server_addr,
-        sizeof(server_addr)) < 0) 
+  if (use_unixsock)
     {
-    close(connection[out].ch_socket);
+    unserver_addr.sun_family = AF_UNIX;
+    strcpy(unserver_addr.sun_path,TSOCK_PATH);
 
-    connection[out].ch_inuse = 0;
-    pbs_errno = errno;
-
-    if (getenv("PBSDEBUG"))
+    if (connect(
+          connection[out].ch_socket,
+          (struct sockaddr *)&unserver_addr,
+          (strlen(unserver_addr.sun_path) + sizeof(unserver_addr.sun_family))) < 0)
       {
-      fprintf(stderr,"ERROR:  cannot connect to server, errno=%d (%s)\n",
-        errno,
-        strerror(errno));
+      close(connection[out].ch_socket);
+
+      connection[out].ch_inuse = 0;
+      pbs_errno = errno;
+
+      if (getenv("PBSDEBUG"))
+        {
+        fprintf(stderr,"ERROR:  cannot connect to server, errno=%d (%s)\n",
+          errno,
+          strerror(errno));
+        }
+
+      use_unixsock=0;  /* will try again with inet socket */
+      }
+    }
+
+  if (use_unixsock)
+    {
+    if(!send_unix_creds(connection[out].ch_socket))
+      {
+      if (getenv("PBSDEBUG"))
+        {
+        fprintf(stderr,"ERROR:  cannot send unix creds to pbs_server:  errno=%d (%s)\n",
+          errno,
+          strerror(errno));
+        }
+      close(connection[out].ch_socket);
+
+      connection[out].ch_inuse = 0;
+      pbs_errno = PBSE_PROTOCOL;
+
+      use_unixsock=0;  /* will try again with inet socket */
+      }
+    }
+#endif /* END ENABLE_UNIX_SOCKETS */
+
+  if (!use_unixsock)
+    {
+
+    /* at this point, either using unix sockets failed, or we determined not to
+     * try */
+
+    connection[out].ch_socket = socket(AF_INET,SOCK_STREAM,0);
+
+    if (connection[out].ch_socket < 0) 
+      {
+      if (getenv("PBSDEBUG"))
+        {
+        fprintf(stderr,"ERROR:  cannot connect to server \"%s\", errno=%d (%s)\n",
+          server,
+          errno,
+          strerror(errno));
+        }
+
+      connection[out].ch_inuse = 0;
+      pbs_errno = PBSE_PROTOCOL;
+
+      return(-1);
       }
 
-    return(-1);
-    }
-#endif /* HAVE_GETADDRINFO */
+    server_addr.sin_family = AF_INET;
+    hp = NULL;
+    hp = gethostbyname(server);
+
+    if (hp == NULL) 
+      {
+      close(connection[out].ch_socket);
+      connection[out].ch_inuse = 0;
+      pbs_errno = PBSE_BADHOST;
+
+      if (getenv("PBSDEBUG"))
+        {
+        fprintf(stderr,"ERROR:  cannot get servername (%s) errno=%d (%s)\n",
+          (server != NULL) ? server : "NULL",
+          errno,
+          strerror(errno));
+        }
+
+      return(-1);
+      }
+
+    memcpy((char *)&server_addr.sin_addr,hp->h_addr_list[0],hp->h_length);
+    server_addr.sin_port = htons(server_port);
+	
+    if (connect(
+          connection[out].ch_socket,
+          (struct sockaddr *)&server_addr,
+          sizeof(server_addr)) < 0) 
+      {
+      close(connection[out].ch_socket);
+
+      connection[out].ch_inuse = 0;
+      pbs_errno = errno;
+
+      if (getenv("PBSDEBUG"))
+        {
+        fprintf(stderr,"ERROR:  cannot connect to server, errno=%d (%s)\n",
+          errno,
+          strerror(errno));
+        }
+  
+      return(-1);
+      }
 
 /* FIXME: is this necessary?  Contributed by one user that fixes a problem, 
    but doesn't fix the same problem for another user! */
@@ -572,23 +817,25 @@ int pbs_connect(
 
   /* Have pbs_iff authenticate connection */
 
-  if (PBSD_authenticate(connection[out].ch_socket) != 0) 
-    {
-    close(connection[out].ch_socket);
-
-    connection[out].ch_inuse = 0;
-
-    pbs_errno = PBSE_PERM;
-
-    if (getenv("PBSDEBUG"))
+    if (PBSD_authenticate(connection[out].ch_socket) != 0) 
       {
-      fprintf(stderr,"ERROR:  cannot authenticate connection, errno=%d (%s)\n",
-        errno,
-        strerror(errno));
+      close(connection[out].ch_socket);
+  
+      connection[out].ch_inuse = 0;
+  
+      pbs_errno = PBSE_PERM;
+  
+      if (getenv("PBSDEBUG"))
+        {
+        fprintf(stderr,"ERROR:  cannot authenticate connection to server \"%s\", errno=%d (%s)\n",
+          server,
+          errno,
+          strerror(errno));
+        }
+  
+      return(-1);
       }
-
-    return(-1);
-    }
+    } /* END if !use_unixsock */
 
   /* setup DIS support routines for following pbs_* calls */
 
@@ -674,6 +921,98 @@ int pbs_disconnect(
   }  /* END pbs_disconnect() */
 
 
+
+/**
+ * This is a new version of this function that allows
+ * connecting to a list of servers.  It is backwards
+ * compatible with the previous version in that it
+ * will accept a single server name.
+ *
+ * @param server_name_ptr A pointer to a server name or server name list.
+ * @returns A file descriptor number.
+ */
+int pbs_connect( char *server_name_ptr )  /* I (optional) */
+  {
+  int connect = -1;
+  int i, list_len;
+  char server_name_list[PBS_MAXSERVERNAME*3+1];
+  char current_name[PBS_MAXSERVERNAME+1];
+  char *tp;
+
+  memset(server_name_list, 0, sizeof(server_name_list));
+
+  /* If a server name is passed in, use it, otherwise use the list from server_name file. */
+
+  if (server_name_ptr && server_name_ptr[0])
+    {
+    strncpy(server_name_list, server_name_ptr, sizeof(server_name_list)-1);
+    if (getenv("PBSDEBUG"))
+      {
+      fprintf(stderr,"pbs_connect called with explicit server name \"%s\"\n",
+        server_name_list);
+      }
+    }
+  else
+    {
+    strncpy(server_name_list, pbs_get_server_list(), sizeof(server_name_list)-1);
+    if (getenv("PBSDEBUG"))
+      {
+      fprintf(stderr,"pbs_connect using default server name list \"%s\"\n",
+        server_name_list);
+      }
+    }
+
+  list_len = csv_length(server_name_list);
+
+  for (i=0; i<list_len; i++)  /* Try all server names in the list. */
+    {
+    tp = csv_nth(server_name_list, i);
+    if (tp && tp[0])
+      {
+      memset(current_name, 0, sizeof(current_name));
+      strncpy(current_name, tp, sizeof(current_name)-1);
+      if (getenv("PBSDEBUG"))
+        {
+        fprintf(stderr,"pbs_connect attempting connection to server \"%s\"\n",
+          current_name);
+        }
+      if ((connect = pbs_original_connect(current_name)) >= 0)
+        {
+        if (getenv("PBSDEBUG"))
+          {
+          fprintf(stderr,"pbs_connect: Successful connection to server \"%s\", fd = %d\n",
+            current_name, connect);
+          }
+        return(connect);  /* Success, we have a connection, return it. */
+        }
+      }
+    }
+  return(connect);
+  }
+
+
+/**
+ * This routine is not used but was implemented to
+ * support qsub.
+ *
+ * @param server_name_ptr A pointer to a server name or server name list.
+ * @param retry_seconds The period of time for which retrys should be attempted.
+ * @returns A file descriptor number.
+ */
+int pbs_connect_with_retry( char *server_name_ptr, int retry_seconds )
+  {
+  int n_times_to_try = retry_seconds / CNTRETRYDELAY;
+  int connect = -1;
+  int n;
+
+  for (n = 0; n < n_times_to_try; n++)  /* This is the retry loop */
+    {
+    if ((connect = pbs_connect( server_name_ptr )) >= 0)
+      return(connect);  /* Success, we have a connection, return it. */
+    sleep(CNTRETRYDELAY);
+    }
+  return(connect);
+  }
 
 
 int pbs_query_max_connections()

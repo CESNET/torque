@@ -143,16 +143,18 @@ const char *PSchedCmdType[] = {
 
 static int contact_sched(
 
-  int cmd)
+  int cmd)  /* I */
 
   {
   int sock;
 
   char  tmpLine[1024];
+  char  EMsg[1024];
 
   char *id = "contact_sched";
 
-	/* connect to the Scheduler */
+  /* connect to the Scheduler */
+
 #if 0   /* don't check if scheduler runs on same node as server */
         if (!addr_ok(pbs_scheduler_addr)) {
 	    pbs_errno = EHOSTDOWN;
@@ -160,15 +162,18 @@ static int contact_sched(
         }
 #endif
 
-  sock = client_to_svr(pbs_scheduler_addr,pbs_scheduler_port,1);
+  sock = client_to_svr(pbs_scheduler_addr,pbs_scheduler_port,1,EMsg);
 
   if (sock < 0) 
     {
+    /* FAILURE */
+
     bad_node_warning(pbs_scheduler_addr);
 
-    sprintf(tmpLine,"%s - port %d",
+    sprintf(tmpLine,"%s - port %d %s",
       msg_sched_nocall,
-      pbs_scheduler_port);
+      pbs_scheduler_port,
+      EMsg);
     
     log_err(errno,id,tmpLine);
 
@@ -180,6 +185,7 @@ static int contact_sched(
     FromClientDIS, 
     pbs_scheduler_addr, 
     pbs_scheduler_port, 
+    PBS_SOCK_INET,
     process_request);
 
   svr_conn[sock].cn_authen = PBS_NET_CONN_FROM_PRIVIL;
@@ -271,21 +277,29 @@ static void scheduler_close(
   {
   scheduler_sock = -1;
 
-/*
- *	This bit of code is intended to support the scheduler - server - mom
- *	sequence.  A scheduler script may bes written to run only one job per
- *	cycle to  ensure its newly taken resources are considered by the
- *	scheduler before selecting another job.  In that case, rather than
- *	wait a full cycle before scheduling the next job, we check for
- *	one (and only one) job was run by the scheduler.  If true, then
- *	recycle the scheduler.
- */
+  /*
+   *	This bit of code is intended to support the scheduler - server - mom
+   *	sequence.  A scheduler script may best written to run only one job per
+   *	cycle to ensure its newly taken resources are considered by the
+   *	scheduler before selecting another job.  In that case, rather than
+   *	wait a full cycle before scheduling the next job, we check for
+   *	one (and only one) job was run by the scheduler.  If true, then
+   *	recycle the scheduler.
+   */
 
-	if (scheduler_jobct == 1) {
-		/* recycle the scheduler */
-		svr_do_schedule = SCH_SCHEDULE_RECYC;
-	}
-}
+  if (scheduler_jobct == 1) 
+    {
+    /* recycle the scheduler */
+
+    svr_do_schedule = SCH_SCHEDULE_RECYC;
+    }
+
+  return;
+  }
+
+
+
+
 
 /*
  * put_4byte() - write a 4 byte integer in network order
@@ -293,21 +307,33 @@ static void scheduler_close(
  *	Returns:  0 for sucess, -1 if error.
  */
 
-static int put_4byte(sock, val)
-	int		sock;	/* socket to read from */
-	unsigned int	val;	/* 4 byte interger to write */
-{
-	
-	int amt;
-	union {
-		int unl;
-		char unc[sizeof (unsigned int)];
-	} un;
+static int put_4byte(
 
-	un.unl = htonl(val);
-	amt = write(sock, (char *)(un.unc+sizeof(unsigned int)-4), 4);
-	if (amt == 4)
-		return (0);
-	else 
-		return (-1);
-}
+  int          sock,	/* socket to read from */
+  unsigned int val)	/* 4 byte interger to write */
+
+  {
+  int amt;
+
+  union {
+    int unl;
+    char unc[sizeof(unsigned int)];
+    } un;
+
+  un.unl = htonl(val);
+
+  amt = write(sock,(char *)(un.unc + sizeof(unsigned int)-4),4);
+
+  if (amt != 4)
+    {
+    /* FAILURE */
+
+    return(-1);
+    }
+
+  /* SUCCESS */
+
+  return(0);
+  }
+
+

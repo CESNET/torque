@@ -20,7 +20,7 @@ dnl  bi-arches, pbs-config script, and updated to TORQUE 2.x
 dnl  by Garrick Staples (garrick@usc.edu)
 
 AC_PREREQ(2.53)
-AC_INIT([torque], [2.2.0], [torqueusers@supercluster.org])
+AC_INIT([torque], [2.3.0], [torqueusers@supercluster.org])
 AC_REVISION($Revision$)
 AC_CONFIG_SRCDIR([src/cmds/qrun.c])
 AC_CONFIG_AUX_DIR([buildutils])
@@ -98,26 +98,36 @@ fi
 AC_MSG_CHECKING([whether to include server and scheduler])
 AC_ARG_ENABLE(server,
     [  --disable-server        do not include server and scheduler],
-    include_server=$enableval, include_server=$partdefault)
-AC_MSG_RESULT($include_server)
-AM_CONDITIONAL(INCLUDE_SERVER, [test "x$include_server" = "xyes"])
+    build_server=$enableval, build_server=$partdefault)
+AC_MSG_RESULT($build_server)
+AM_CONDITIONAL(INCLUDE_SERVER, [test "x$build_server" = "xyes"])
+AC_SUBST(build_server)
 
 
 AC_MSG_CHECKING([whether to include the mom daemon])
 AC_ARG_ENABLE(mom,
     [  --disable-mom           do not include the mom daemon],
-    include_mom=$enableval, include_mom=$partdefault)
-AC_MSG_RESULT($include_mom)
-AM_CONDITIONAL(INCLUDE_MOM, [test "x$include_mom" = "xyes"])
+    build_mom=$enableval, build_mom=$partdefault)
+AC_MSG_RESULT($build_mom)
+AM_CONDITIONAL(INCLUDE_MOM, [test "x$build_mom" = "xyes"])
+AC_SUBST(build_mom)
 
 
 AC_MSG_CHECKING([whether to include the clients])
 AC_ARG_ENABLE(clients,
     [  --disable-clients       do not include the clients],
-    include_clients=$enableval, include_clients=yes)
-AC_MSG_RESULT($include_clients)
-AM_CONDITIONAL(INCLUDE_CLIENTS, [test "x$include_clients" = "xyes"])
+    build_clients=$enableval, build_clients=yes)
+AC_MSG_RESULT($build_clients)
+AM_CONDITIONAL(INCLUDE_CLIENTS, [test "x$build_clients" = "xyes"])
+AC_SUBST(build_clients)
 
+AC_MSG_CHECKING([whether to build DRMAA lib])
+AC_ARG_ENABLE(drmaa,
+    [  --disable-drmaa         do not build the DRMAA 1.0 library (default is off)],
+    build_drmaa=$enableval, build_drmaa=no)
+AC_MSG_RESULT($build_drmaa)
+AM_CONDITIONAL(INCLUDE_DRMAA, [test "x$build_drmaa" = "xyes"])
+AC_SUBST(build_drmaa)
 
 
 dnl
@@ -132,104 +142,18 @@ user_choosed_cflags_set=${CFLAGS+set}
 
 dnl  look for the C-Compiler
 AC_PROG_CC
+AC_PROG_GCC_TRADITIONAL
 
 dnl
 dnl  ######################################################################
 dnl  Check for programs
 dnl
 
-AC_PROG_GCC_TRADITIONAL
 AC_CHECK_PROGS(AR,ar,exit)
 
-dnl  Libtool
-dnl AC_DISABLE_SHARED
+dnl wrapped libtool macro to remove annoying warning message
 AC_PROG_LIBTOOL
-
-# my libtool seems to be missing the libsuff check for ppc64.  This is pretty
-# ugly, but hopefully temporary.
-case $host_os in
-  linux-gnu*)
-  case "$host_cpu" in
-  powerpc*|ppc*)
-    echo '[#]line __oline__ "configure"' > conftest.$ac_ext
-    if AC_TRY_EVAL(ac_compile); then
-      case `/usr/bin/file conftest.$ac_objext` in
-      *64-bit*)
-        libsuff=64
-        ;;
-      *) libsuff= ;;
-      esac
-    fi
-    rm -rf conftest*
-    sys_lib_dlsearch_path_spec="/lib${libsuff} /usr/lib${libsuff}"
-    sys_lib_search_path_spec="/lib${libsuff} /usr/lib${libsuff} /usr/local/lib${libsuff}"
-    ;;
-  esac
-  ;;
-esac
-
-# patch libtool to remove that annoying lib install warning
-test -f libtool.old || (mv libtool libtool.old && cp libtool.old libtool)
-sed -e '/.*has not been installed in.*/d' <libtool >libtool.new
-(test -s libtool.new || rm libtool.new) 2>/dev/null
-test -f libtool.new && mv libtool.new libtool # not 2>/dev/null !!
-test -f libtool     || mv libtool.old libtool
-test -f libtool.old && rm -f libtool.old
-
-dnl
-dnl  ######################################################################
-dnl  Check for headers
-dnl
-
-AC_HEADER_DIRENT
-AC_HEADER_STDC
-AC_HEADER_SYS_WAIT
-
-
-AC_CHECK_HEADERS([arpa/inet.h fcntl.h float.h limits.h malloc.h netdb.h \
-		  netinet/in.h stddef.h sys/file.h sys/param.h sys/tty.h \
-		  sys/socket.h sys/time.h sys/ioctl.h sys/mount.h \
-                  sys/vfs.h sys/statfs.h sys/statvfs.h syslog.h \
-                  termios.h err.h sys/poll.h pam/pam_modules.h security/pam_appl.h])
-
-# On Solaris, pam_modules.h requires pam_appl.h
-AC_CHECK_HEADERS([security/pam_modules.h], [], [],
-[#if HAVE_SECURITY_PAM_APPL_H
-# include <security/pam_appl.h>
-# endif
-])
-
-
-dnl
-dnl get socklen_t or equivalent.  If hpux and gcc, force the XOPEN interface.
-AC_MSG_CHECKING([whether to force XOPEN networking stack])
-AC_ARG_ENABLE(xopen_networking,
-    [  --disable-xopen-networking      With HPUX and GCC, don't force usage of XOPEN and libxnet])
-if test "${enable_xopen_networking}" != "no" ; then
-case $GCC,$PBS_MACH in
-  yes,hpux*) AC_MSG_RESULT([yes])
-             AC_MSG_WARN([On HPUX and gcc, forcing XOPEN network stack.])
-             AC_MSG_WARN([Use --disable-xopen-networking to prevent it])
-             AC_CHECK_LIB([xnet], [getpeername], 
-              [LIBS="-lxnet $LIBS"
-               CFLAGS="$CFLAGS -D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED=1"],
-              [AC_MSG_WARN([This build will likely fail in mysterious ways at run-time])
-               sleep 10])
-  ;;
-  *) AC_MSG_RESULT([no... phew!])
-esac
-else
-  AC_MSG_RESULT([disabled])
-fi
-AC_CHECK_TYPE([socklen_t],
-  [AC_DEFINE_UNQUOTED([torque_socklen_t],[socklen_t],[type to use in place of socklen_t])],
-  [TAC_SOCKLEN_EQUIV([torque_socklen_t])])
-
-
-
-dnl Torque's own largefile support
-TAC_SYS_LARGEFILE
-
+TAC_PROG_LIBTOOL_PATCH
 
 AC_PROG_LN_S
 
@@ -247,43 +171,93 @@ AC_CHECK_PROGS(PIC, gpic pic, exit)
 AC_CHECK_PROGS(ROFF, groff troff, exit)
 
 
-if test foo = bar ;then
-dnl  Now for some gore...
-dnl  Massage the CFLAGS on a per-machine basis
-dnl  (But only, if the user did not manually choose some.)
-if test -z "$user_choosed_cflags_set"; then
-  dnl
-  dnl  Following values of CFLAGS are known to work well.
-  dnl
-  if   test "$GCC" = "yes"; then
-#    CFLAGS="-g -O2"
-#    do not optimize during SPBS-1.0.1 beta (11/22/03)
-    CFLAGS="-g"
-  elif test "$CC" = "xlc"; then
-    CFLAGS="-O3 -qstrict -qnoansialias -qlibansi -qinfo -qro -qmaxmem=20000"
+dnl
+dnl  ######################################################################
+dnl  Check how to compile
+dnl
+
+dnl Torque's own largefile support
+TAC_SYS_LARGEFILE
+
+dnl if using gcc, we can be very strict
+AC_ARG_ENABLE(gcc_warnings, [
+  --disable-gcc-warnings  Disable gcc strictness and warnings.  If using
+                          gcc, default is to error on any warning])
+if test "x$GCC" = "xyes" ;then
+  AC_MSG_CHECKING([whether to use strict gcc warnings])
+  if test "${enable_gcc_warnings}" == "no" ; then
+    AC_MSG_RESULT([no])
   else
-    case "$build" in
-      *-*-irix*) CFLAGS='-O -Wl,-woff,84' ;;
-      *-*-hpux*) CFLAGS='-Ae' ;;
-      *-*-osf*)  CFLAGS='-std1' ;;
-      *-*-solaris2.7) if test -n "`isainfo -kv | grep 64-bit`" ; then
-                        CFLAGS=-xarch=v9
-                      else
-                        CFLAGS=-O
-                      fi ;;
-      *)         CFLAGS="-O" ;; dnl The only POSIX-approved flag
-    esac
+    if test "x$build_drmaa" = "xyes" ;then
+      AC_MSG_RESULT([no... because DRMAA is being built])
+    else
+      AC_MSG_RESULT([yes])
+      AX_CFLAGS_GCC_OPTION([-W -Wall -Wno-unused-parameter -Wno-long-long -pedantic -Werror])
+      gccwarnings=yes
+    fi
   fi
 fi
+
+dnl
+dnl If hpux and gcc, force the XOPEN interface.
+AC_MSG_CHECKING([whether to force XOPEN networking stack])
+AC_ARG_ENABLE(xopen_networking, [
+  --disable-xopen-networking      
+                          With HPUX and GCC, don't force usage of XOPEN and libxnet])
+if test "${enable_xopen_networking}" != "no" ; then
+case $GCC,$PBS_MACH in
+  yes,hpux*) AC_MSG_RESULT([yes])
+             AC_MSG_WARN([On HPUX and gcc, forcing XOPEN network stack.])
+             AC_MSG_WARN([Use --disable-xopen-networking to prevent it])
+             AC_CHECK_LIB([xnet], [getpeername], 
+              [LIBS="-lxnet $LIBS"
+               CFLAGS="$CFLAGS -D_XOPEN_SOURCE -D_XOPEN_SOURCE_EXTENDED=1"],
+              [AC_MSG_WARN([This build will likely fail in mysterious ways at run-time])
+               sleep 10])
+  ;;
+  *) AC_MSG_RESULT([no... phew!])
+esac
+else
+  AC_MSG_RESULT([disabled])
 fi
+
+
+dnl
+dnl  ######################################################################
+dnl  Check for headers
+dnl
+
+AC_HEADER_DIRENT
+AC_HEADER_STDC
+AC_HEADER_SYS_WAIT
+
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h float.h limits.h malloc.h netdb.h \
+		  netinet/in.h stddef.h sys/file.h sys/param.h sys/tty.h \
+		  sys/socket.h sys/time.h sys/ioctl.h sys/mount.h \
+                  sys/vfs.h sys/statfs.h sys/statvfs.h sys/ucred.h sys/un.h sys/uio.h \
+                  syslog.h readline/readline.h \
+                  termios.h err.h sys/poll.h pam/pam_modules.h security/pam_appl.h])
+
+# On Solaris, pam_modules.h requires pam_appl.h
+AC_CHECK_HEADERS([security/pam_modules.h], [], [],
+[#if HAVE_SECURITY_PAM_APPL_H
+# include <security/pam_appl.h>
+# endif
+])
+
+
+
+
+
 
 
 dnl
 dnl  ######################################################################
 dnl  System specific settings
 dnl
-AC_ARG_ENABLE(nodemask,
-    [  --enable-nodemask       enable nodemask-based scheduling on the Origin 2000])
+
+
+AC_ARG_ENABLE(nodemask, [  --enable-nodemask       enable nodemask-based scheduling on the Origin 2000])
 if test "${enable_nodemask}" = "yes" ; then
   case "${PBS_MACH}" in
     irix6*) AC_DEFINE(NODEMASK, 1, [use nodemask-based scheduling on O2k]) ;;
@@ -338,15 +312,13 @@ AC_DEFINE_UNQUOTED(IBM_SP2, ${IBM_SP2}, [defined if this is an SP2])
 AC_SUBST(PBSPOE)    
 AC_SUBST(PBSPOEO)
 
-AC_ARG_ENABLE(cpuset,[--disable-cpuset  enable Linux 2.6 kernel cpusets])
-if test "x$enable_cpuset" != "xno" ;then
-  AC_CHECK_LIB(cpuset, cpuset_cpus_weight, 
-    [AC_CHECK_LIB(bitmask, bitmask_alloc,
-      [MOMLIBS="$MOMLIBS -lcpuset -lbitmask"
+AC_ARG_ENABLE(cpuset,[  --enable-cpuset         enable Linux 2.6 kernel cpusets (in development)])
+build_l26_cpuset=no
+if test "x$enable_cpuset" = "xyes" ;then
+      build_l26_cpuset=yes
        AC_DEFINE(PENABLE_LINUX26_CPUSETS, 1, [Define to enable Linux 2.6 cpusets])
-      ])
-    ])
 fi
+AM_CONDITIONAL([BUILD_L26_CPUSETS], test "$build_l26_cpuset" = yes)
 
 
 dnl  irix6 can be changed to irix6array explicitly with an
@@ -372,20 +344,6 @@ AC_ARG_ENABLE(array,
     fi
 ])
 
-dnl
-dnl enable IPV6 support
-dnl
-AC_MSG_CHECKING([whether to build IPV6 support])
-AC_ARG_ENABLE(ipv6,
-    [  --enable-ipv6           enable IPV6 support],
-    IPV6=$enableval,IPV6=no)
-AC_MSG_RESULT($IPV6)
-case "$IPV6" in
-  yes) AC_DEFINE([ENABLE_IPV6], 1, [Define to enable IPV6 support]) ;;
-  no) : ;;
-  *) AC_MSG_ERROR([--enable-ipv6 should be yes or no]) ;;
-esac
-
 
 dnl
 dnl enable BLCR support
@@ -406,7 +364,7 @@ dnl enable Cray's CPA support
 dnl
 AC_MSG_CHECKING([whether to build Cray's CPA support])
 AC_ARG_ENABLE(cpa,
-    [  --enable-cpa           enable Cray's CPA support],
+    [  --enable-cpa            enable Cray's CPA support],
     CPA=$enableval,CPA=no)   
 AC_MSG_RESULT($CPA)
 
@@ -471,12 +429,12 @@ case $PBS_MACH in
 esac
 
 case $PBS_MACH in
-aix4|aix5|sunos4|solaris5|freebsd|darwin|fujitsu)
+aix4|aix5|sunos4|solaris5|freebsd|freebsd5|darwin|fujitsu)
   AC_CHECK_FUNC(nlist, , AC_CHECK_LIB(elf, nlist)) ;;
 esac
 
 case $PBS_MACH in
-sunos4|solaris5|netbsd|freebsd|darwin)
+sunos4|solaris5|netbsd|freebsd|freebsd5)
   AC_CHECK_LIB(kvm, kvm_open) ;;
 esac
 
@@ -517,23 +475,13 @@ case "$build" in
 esac
 
 
-dnl  Readline
-AC_ARG_WITH(readline,
-    [  --without-readline      do not include readline support
-                          (default: included if found)],
-    [HAVE_READLINE="${withval}"], [HAVE_READLINE="default"])
-case "$HAVE_READLINE" in
-	yes|no|default) ;;
-	*) AC_MSG_ERROR([--with-readline only takes "yes" or "no" as arguments]) ;;
-esac
-
 
 dnl
 dnl  ######################################################################
 dnl  Scheduler settings
 dnl
-AC_ARG_WITH(sched,
-    [  --with-sched=TYPE       sets the scheduler type. If TYPE is
+AC_ARG_WITH(sched, [
+  --with-sched=TYPE       sets the scheduler type. If TYPE is
                           "c" the scheduler will be written in C
                           "tcl" the server will use a Tcl based scheduler
                           "basl" will use the rule based scheduler
@@ -545,7 +493,7 @@ AC_ARG_WITH(sched,
   basl|BASL)    SCHD_TYPE=basl ;;
   *)            SCHD_TYPE=none ;;
 esac],[SCHD_TYPE=cc])
-if test "x$include_server" != "xyes" ;then
+if test "x$build_server" != "xyes" ;then
    SCHD_TYPE=none
 fi
 AC_DEFINE_UNQUOTED(SCHD_TYPE, "${SCHD_TYPE}",
@@ -565,8 +513,8 @@ if test "$SCHD_TYPE" = basl ;then
 fi
 AC_SUBST(SCHD_LIBS)
 
-AC_ARG_WITH(sched_code,
-    [  --with-sched-code=PATH  sets the name of the scheduler to use.
+AC_ARG_WITH(sched_code, [
+  --with-sched-code=PATH  sets the name of the scheduler to use.
                           This only applies to BASL schedulers and those
                           written in the C language. For C schedulers
                           this should be a directory name and for BASL
@@ -601,6 +549,8 @@ dnl
 dnl  ######################################################################
 dnl  Global settings
 dnl
+AC_MSG_NOTICE([Checking global settings...])
+
 AC_ARG_ENABLE(rpp,
 [
   --disable-rpp           use RPP/UDP for resource queries from PBS server
@@ -618,8 +568,7 @@ AM_CONDITIONAL(USING_RPP, [test "$RPP" = "1"])
 
 
 
-AC_ARG_ENABLE(filesync,
-[
+AC_ARG_ENABLE(filesync, [
   --enable-filesync       open files with sync on each write operation.  Don't
                           bother enabling this, all it does is slow down TORQUE.
                           This is disabled by default.],
@@ -632,8 +581,8 @@ AC_DEFINE_UNQUOTED(TDISABLEFILESYNC, ${TDISABLEFILESYNC}, [Define to prevent syn
 
 
 
-AC_ARG_ENABLE(plock_daemons,
-    [  --enable-plock-daemons[[=ARG]]
+AC_ARG_ENABLE(plock_daemons, [
+  --enable-plock-daemons[[=ARG]]
                           enable daemons to lock themselves into memory:
                           logical-or of 1 for pbs_server, 2 for pbs_scheduler,
                           4 for pbs_mom (no argument means 7 for all three)],
@@ -646,8 +595,7 @@ AC_DEFINE_UNQUOTED(PLOCK_DAEMONS, ${PLOCK_DAEMONS},
 	[Select which daemons plock themselves, a bit pattern])
 
 
-AC_ARG_ENABLE(syslog,
-[
+AC_ARG_ENABLE(syslog, [
   --enable-syslog         enable (default) the use of syslog for error reporting],
 [case "${enableval}" in
   yes) SYSLOG=1 ;;
@@ -670,8 +618,7 @@ esac],[SHELL_INVOKE=1])
 AC_DEFINE_UNQUOTED(SHELL_INVOKE, ${SHELL_INVOKE},
 	[set whether job scripts use a pipe])
 
-AC_ARG_WITH(maildomain,
-[
+AC_ARG_WITH(maildomain, [
   --with-maildomain=MAILDOMAIN
                           override the default domain for outgoing mail messages,
                           i.e. "user@maildomain".  The default maildomain is the
@@ -680,8 +627,7 @@ AC_ARG_WITH(maildomain,
 AC_MSG_WARN([--with-maildomain is depricated.  Set mail_domain in qmgr.])
 AC_DEFINE_UNQUOTED(TMAILDOMAIN, "${MAILDOMAIN}", [override the default domain for outgoing mail messages])])
 
-AC_ARG_ENABLE(spool,
-[
+AC_ARG_ENABLE(spool, [
   --disable-spool         if disabled, TORQUE will create output and error files
                           directly in $HOME/.pbs_spool if it exists or in $HOME
                           otherwise.  By default, TORQUE will spool files in
@@ -694,8 +640,7 @@ AC_ARG_ENABLE(spool,
 esac],[NO_SPOOL_OUTPUT=0])dnl
 AC_DEFINE_UNQUOTED(NO_SPOOL_OUTPUT, ${NO_SPOOL_OUTPUT}, [directly use homedirs instead of $TORQUEHOME/spool])
 
-AC_ARG_ENABLE(shell-use-argv,
-[
+AC_ARG_ENABLE(shell-use-argv, [
   --enable-shell-use-argv enable this to put the job script name on the
                           command line that invokes the shell.  Not on by
                           default.  Ignores --enable-shell-pipe setting.],
@@ -707,19 +652,18 @@ esac],[SHELL_USE_ARGV=0])dnl
 AC_DEFINE_UNQUOTED(SHELL_USE_ARGV, ${SHELL_USE_ARGV}, [job script name passed as the shell's arg])
 
 
-AC_ARG_ENABLE(privports,
-[
-  --disable-privports     disable the use of priviledged ports for authentication.  Some versions of OSX have
-                          a buggy bind() and cannot bind to priviledged ports.],
+AC_ARG_ENABLE(privports, [
+  --disable-privports     disable the use of privileged ports for authentication.  
+                          Some versions of OSX have a buggy bind() and cannot
+                          bind to privileged ports.],
 [case "${enableval}" in
   yes)  ;;
-  no)  NOPRIVPORTS=1; AC_DEFINE(NOPRIVPORTS, 1, [Define to disable priviledged ports]) ;;
+  no)  NOPRIVPORTS=1; AC_DEFINE(NOPRIVPORTS, 1, [Define to disable privileged ports]) ;;
   *)   AC_MSG_ERROR(--enable-privports cannot take a value) ;;
 esac])dnl
 
 
-AC_ARG_ENABLE(mom-checkspool,
-[
+AC_ARG_ENABLE(mom-checkspool, [
   --disable-mom-checkspool
                           Don't check free space on spool directory and set an error],
 [case "${enableval}" in
@@ -730,25 +674,68 @@ esac],[MOMCHECKLOCALSPOOL=1])dnl
 AC_DEFINE_UNQUOTED(MOMCHECKLOCALSPOOL, ${MOMCHECKLOCALSPOOL}, [Define to error if spool is full on MOM])
 
 
-AC_ARG_WITH(tmpdir,
-    [  --with-tmpdir=DIR       set the tmp directory that pbs_mom will use
+AC_ARG_WITH(tmpdir, [
+  --with-tmpdir=DIR       set the tmp directory that pbs_mom will use
                           defaults to "/tmp". This is a Cray-specific feature.],
     [TMP_DIR="${withval}"], [TMP_DIR="/tmp"])
 test "$TMP_DIR" = yes && TMP_DIR="/tmp"
 AC_DEFINE_UNQUOTED(TMP_DIR, "${TMP_DIR}",
 		   [The pathname of the Cray temporary directory for mom])
 
+AC_ARG_ENABLE(force-nodefile, [
+  --enable-force-nodefile forces creation of nodefile regardless of job
+                          submission parameters. Not on by default.],
+[case "${enableval}" in
+  yes) MOM_FORCENODEFILE=1 ;;
+  no)  MOM_FORCENODEFILE=0 ;;
+  *)   AC_MSG_ERROR(--enable-force-nodefile cannot take a value) ;;
+esac],[MOM_FORCENODEFILE=0])dnl
+AC_DEFINE_UNQUOTED(MOM_FORCENODEFILE, ${MOM_FORCENODEFILE}, [force creation of nodefile])
 
-AC_ARG_WITH(server_home,
-    [  --with-server-home=DIR  set the server home/spool directory for PBS use
+
+
+AC_MSG_CHECKING([for CMSG_SPACE])
+torque_cv_have_cmsg="no"
+  AC_TRY_COMPILE([
+  #ifdef HAVE_SYS_UCRED_H
+  #include <sys/ucred.h>
+  #endif
+  #ifdef HAVE_SYS_SOCKET_H
+  #include <sys/socket.h>
+  #endif
+  #ifdef HAVE_SYS_UN_H
+  #include <sys/un.h>
+  #endif
+  #include <stdlib.h>
+  ],[exit(CMSG_SPACE(sizeof(struct ucred)));],
+    [torque_cv_have_cmsg="yes"])
+AC_MSG_RESULT([$torque_cv_have_cmsg])
+
+AC_MSG_CHECKING([if enabling Unix Domain socket supprt])
+ENABLE_UNIX_SOCKETS=$torque_cv_have_cmsg
+AC_ARG_ENABLE(unixsockets, [
+  --enable-unixsockets    enable the use of Unix Domain sockets for authentication.],
+[case "${enableval}" in
+  yes) ENABLE_UNIX_SOCKETS=yes ;;
+  no) ENABLE_UNIX_SOCKETS=no;;
+  *)   AC_MSG_ERROR(--enable-unixsockets cannot take a value) ;;
+esac])dnl
+if test "x$ENABLE_UNIX_SOCKETS" = "xyes" ;then
+   AC_DEFINE(ENABLE_UNIX_SOCKETS, 1, [Define to enable unix domain sockets])
+fi
+AC_MSG_RESULT([$ENABLE_UNIX_SOCKETS])
+
+
+AC_ARG_WITH(server_home, [
+  --with-server-home=DIR  set the server home/spool directory for PBS use
                           defaults to /var/spool/torque],
     [PBS_SERVER_HOME="${withval}"], [PBS_SERVER_HOME="/var/spool/torque"])
 AC_SUBST(PBS_SERVER_HOME)
 
     dnl [PBS_SERVER_HOME="${withval}"], [PBS_SERVER_HOME="$localstatedir/spool/torque"])
 
-AC_ARG_WITH(server_name_file, 
-    [  --with-server-name-file=FILE
+AC_ARG_WITH(server_name_file, [
+  --with-server-name-file=FILE
                           set the file that will contain the name of
                           the default server for clients to use. If this
                           is not an absolute pathname, it will be evaluated
@@ -765,8 +752,8 @@ esac
 AC_SUBST(PBS_DEFAULT_FILE)
 
 
-AC_ARG_WITH(default_server,
-    [  --with-default-server=HOSTNAME
+AC_ARG_WITH(default_server, [
+  --with-default-server=HOSTNAME
                           set the name of the computer that clients will
                           access when no machine name is specified as part
                           of the queue name. It defaults to the hostname
@@ -777,8 +764,8 @@ AC_DEFINE_UNQUOTED(PBS_DEFAULT_SERVER, "${PBS_DEFAULT_SERVER}",
 AC_SUBST(PBS_DEFAULT_SERVER)
 
 
-AC_ARG_WITH(environ,
-    [  --with-environ=PATH     set the path containing the environment variables
+AC_ARG_WITH(environ, [
+  --with-environ=PATH     set the path containing the environment variables
                           for the daemons.  For SP2 and AIX systems,
                           suggested setting is to /etc/environment. Defaults
                           to the file "pbs_environment" in the server-home.
@@ -794,8 +781,8 @@ esac
 AC_SUBST(PBS_ENVIRON)
 
 
-AC_ARG_WITH(qstatrc-file,
-    [  --with-qstatrc-file=FILE
+AC_ARG_WITH(qstatrc-file, [
+  --with-qstatrc-file=FILE
                           set the name of the file that qstat will use
                           if there is no ".qstatrc" file in the directory
                           where it is being invoked.
@@ -811,6 +798,16 @@ esac],[QSTATRC_PATH="${PBS_SERVER_HOME}/qstatrc"])
 AC_DEFINE_UNQUOTED(QSTATRC_PATH, "${QSTATRC_PATH}",
 	[Define to the path of the qstat init file])
 
+
+dnl Possibly define default MOM logdir and file suffix
+AC_ARG_WITH(momlogdir,
+    [  --with-momlogdir        use this directory for MOM logs.],
+    AC_DEFINE_UNQUOTED(DEFAULT_MOMLOGDIR,"$with_momlogdir",[Alternate directory for MOM logs])
+)
+AC_ARG_WITH(momlogsuffix,
+    [  --with-momlogsuffix     use this suffix for MOM logs.],
+    AC_DEFINE_UNQUOTED(DEFAULT_MOMLOGSUFFIX,"$with_momlogsuffix",[Alternate suffix for MOM logs])
+)
 
 
 dnl Declare which of scp, rcp, or mom_rcp is to be used for file delivery
@@ -848,8 +845,9 @@ if test "x$RCP_PATH" = "x" ;then
 fi
 
 # figure out what was requested and turn that into a full path if necessary
+build_pbs_rcp=no
 case "$RCP_PATH" in
-  mom_rcp|pbs_rcp) RCP_PATH="${sbindir}/pbs_rcp"; MOM_RCP=yes ;;
+  mom_rcp|pbs_rcp) RCP_PATH="${sbindir}/pbs_rcp"; build_pbs_rcp=yes ;;
   /*) ;;
   *) AC_PATH_PROG(RCP_PATH, "$RCP_PATH", error)
     if test "x$RCP_PATH" = "xerror" ;then
@@ -870,7 +868,8 @@ AC_MSG_NOTICE([remote file copy program... $RCP_PATH $RCP_ARGS])
 AC_SUBST(RCP_PATH)
 AC_SUBST(RCP_ARGS)
 AC_SUBST(RSH_PATH)
-AM_CONDITIONAL(INCLUDE_MOM_RCP, [test "x$MOM_RCP" = "xyes"])
+AC_SUBST(build_pbs_rcp)
+AM_CONDITIONAL(INCLUDE_MOM_RCP, [test "x$build_pbs_rcp" = "xyes"])
 
 
 
@@ -894,8 +893,8 @@ dnl attempt to find a location to install PAM modules
 AC_MSG_CHECKING([for PAM install directory])
 pammoddir=disabled
 AC_ARG_WITH(pam,
-    [  --with-pamdir=DIR            Directory that holds the system PAM modules.
-                             Defaults to /lib(64)/security on Linux.],
+    [  --with-pam=DIR          Directory that holds the system PAM modules.
+                          Defaults to /lib(64)/security on Linux.],
     [pammoddir=$withval])
 case "$pammoddir" in
   disabled) ;;
@@ -912,42 +911,6 @@ AC_MSG_RESULT([$pammoddir])
 AC_SUBST(pammoddir)
 AM_CONDITIONAL(INCLUDE_PAM, [test "x$pammoddir" != "xdisabled"])
       
-AC_MSG_CHECKING([for pam_get_user() calling type])
-tac_pam_get_user_2nd_arg=none
- for t in "char" "const char" ; do
-    AC_TRY_COMPILE([
-#ifdef HAVE_SECURITY_PAM_APPL_H
-#include <security/pam_appl.h>
-#endif
-
-#ifdef HAVE_SECURITY_PAM_MODULES_H
-#include <security/pam_modules.h>
-#else
-#ifdef HAVE_PAM_PAM_MODULES_H
-#include <pam/pam_modules.h>
-#endif
-#endif
-
-extern int
-pam_get_user(
-        pam_handle_t *pamh,             /* PAM handle */
-        $t **user,                    /* User Name */
-        const char *prompt              /* Prompt */
-);
-
-               ],[
-                  $t* username;
-                  pam_get_user(0,&username,0);
-               ],[
-                  tac_pam_get_user_2nd_arg="$t"
-                  break
-               ])
-            done
-AC_MSG_RESULT([$tac_pam_get_user_2nd_arg])
-AC_DEFINE_UNQUOTED(pam_get_user_2nd_arg_t, $tac_pam_get_user_2nd_arg,
-                        [type to use for 2nd arg of pam_get_user])
-
-
 
 
 
@@ -979,241 +942,46 @@ fi
 AC_DEFINE_UNQUOTED(XAUTH_PATH, "${xauth_path}", [Define to the path of xauth])
 
 
+dnl  Readline
+AC_ARG_WITH(readline,
+    [  --without-readline      do not include readline support
+                          (default: included if found)],
+    [HAVE_READLINE="${withval}"], [HAVE_READLINE="default"])
+case "$HAVE_READLINE" in
+	yes|no) ;;
+        default)
+          case $PBS_MACH in
+            aix5|darwin) HAVE_READLINE="no";;
+            *) HAVE_READLINE="yes";;
+          esac
+           ;;
+	*) AC_MSG_ERROR([--with-readline only takes "yes" or "no" as arguments]) ;;
+esac
 
-dnl
-dnl  ######################################################################
-dnl  Tcl/Tk settings
-dnl
 
-TCL=0
-TCLX=0
-TK=0
-TKX=0
 
-if test "x${with_tcl}" != "xno" ; then
-	if test "x${with_tcl}" = "xyes" ; then
-		with_tcl=""
-		user_requested_tcl=yes
-	fi
-	# find and load tclConfig.sh
-	TEA_PATH_TCLCONFIG
-        if test "x$TCL_BIN_DIR" = "xnone" ; then
-          TCL=0
-        else
-	  TEA_LOAD_TCLCONFIG
-	  TEA_PUBLIC_TCL_HEADERS
-          if test "x$TCL_INCLUDES" = "xnone" ;then
-            TCL=0
-          else
-	    TCL=1
-          fi
-        fi
-	if test "x$user_requested_tcl" = "xyes" -a $TCL = 0 ;then
-          AC_MSG_ERROR([Tcl was requested but not found])
-	fi
+dnl modulefiles
+AC_MSG_CHECKING([whether to install modulefiles])
+
+AC_ARG_WITH(modulefiles,
+    AC_HELP_STRING([--with-modulefiles@<:@=DIR@:>@], [use modulefiles in specified directory [[/etc/modulefiles]]]),
+[], [with_modulefiles="no"])
+if test "$with_modulefiles" != 'no'; then
+  if test "$with_modulefiles" = 'yes'; then
+    MODULEFILES_DIR="/etc/modulefiles"
+  else
+    MODULEFILES_DIR="$with_modulefiles"
+  fi
+else
+  if test -d /etc/modulefiles;then
+    MODULEFILES_DIR=/etc/modulefiles
+  else
+    MODULEFILES_DIR=no
+  fi
 fi
-
-if test "${TCL}" = "1" -a "x${with_tclx}" != "xno" ; then
-	if test "x${with_tclx}" = "xyes" ; then
-		with_tclx=""
-		user_requested_tclx=yes
-	fi
-	# find and load tclxConfig.sh
-	TEA_PATH_CONFIG([tclx])
-        if test "x$tclx_BIN_DIR" = "xnone" ; then
-          TCLX=0
-        else
-	  TEA_LOAD_CONFIG([tclx])
-	  TCLX=1
-        fi
-	if test "x$user_requested_tclx" = "xyes" -a $TCLX = 0 ;then
-          AC_MSG_ERROR([TclX was requested but not found])
-	fi
-fi
-
-if test "${TCL}" = "1" -a "x${with_tk}" != "xno" ; then
-	if test "x${with_tk}" = "xyes" ; then
-		with_tk=""
-		user_requested_tk=yes
-	fi
-	# find and load tkConfig.sh
-	TEA_PATH_TKCONFIG
-        if test "x$TK_BIN_DIR" = "xnone" ; then
-          TK=0
-        else
-	  TEA_LOAD_TKCONFIG
-	  TEA_PUBLIC_TK_HEADERS
-          if test "x$TK_INCLUDES" = "xnone" ; then
-            TK=0
-          else
-	    TK=1
-          fi
-        fi
-	if test "x$user_requested_tk" = "xyes" -a $TK = 0 ;then
-          AC_MSG_ERROR([Tk was requested but not found])
-	fi
-fi
-
-if test "${TK}" = "1" -a "${TCLX}" = "1" -a "x${with_tkx}" != "xno" ; then
-	if test "x${with_tkx}" = "xyes" ; then
-		with_tkx=""
-		user_requested_tkx=yes
-	fi
-	# find and load tkxConfig.sh
-	TEA_PATH_CONFIG([tkx])
-        if test "x$tkx_BIN_DIR" = "xnone" ; then
-          TKX=0
-        else
-	  TEA_LOAD_CONFIG([tkx])
-	  TKX=1
-        fi
-	if test "x$user_requested_tkx" = "xyes" -a $TK = 0 ;then
-          AC_MSG_ERROR([TkX was requested but not found])
-	fi
-fi
-
-AC_DEFINE_UNQUOTED(TCL, ${TCL}, [Define if PBS should use Tcl in its tools])
-AC_DEFINE_UNQUOTED(TCLX, ${TCLX}, [Define if PBS should use TclX in its tools])
-AC_DEFINE_UNQUOTED(TK, ${TK}, [Define if PBS should use Tk in its tools])
-AC_DEFINE_UNQUOTED(TKX, ${TKX}, [Define if PBS should use Tkx in its tools])
-
-
-dnl  It is possible that the user has asked for a gui but no Tk
-dnl  libraries were found. In this case we must disable the gui.
-AC_MSG_CHECKING([whether to include the GUI-clients])
-AC_ARG_ENABLE(gui,
-    [  --disable-gui           do not include the GUI-clients],
-    include_gui=$enableval)
-if test "x${include_clients}" != "xyes" -a "x${include_gui}" = "xyes"; then
-	AC_MSG_ERROR([the GUI can not be build independent of the clients])
-fi
-if test "x${include_clients}" != "xyes" -a "x${include_gui}" = "x"; then
-	include_gui=no 
-fi
-if test "x${include_gui}" = "xyes" -a "${TK}" != "1"; then
-	AC_MSG_ERROR([cannot build GUI without Tk library])
-fi
-if test "x${include_gui}" = "x" -a "${TK}" = "1"; then
-	include_gui=yes
-fi
-if test "x${include_gui}" = "x"; then
-	include_gui=no
-fi
-AC_MSG_RESULT($include_gui)
-AM_CONDITIONAL(INCLUDE_GUI, [test "x$include_gui" = "xyes"])
-
-
-
-
-dnl  Now assemble appropriate compiler flags for includes and linking.
-MY_TCL_LIBS=""
-MY_TCL_INCS=""
-
-if test "${TCL}" = "1"; then
-	MY_TCL_LIBS="${MY_TCL_LIBS} ${TCL_LIB_SPEC} ${TCL_LIBS}"
-	MY_TCL_INCS="${MY_TCL_INCS} ${TCL_INCLUDES}"
-fi
-
-if test "${TCLX}" = "1"; then
-	MY_TCL_LIBS="${TCLX_LIB_SPEC} ${TCLX_LIBS} ${MY_TCL_LIBS}"
-fi
-
-if test "${TK}" = "1"; then
-	MY_TCL_LIBS="${TK_LIB_SPEC} ${TK_XLIBSW} ${MY_TCL_LIBS}"
-	MY_TCL_INCS="${MY_TCL_INCS} ${TK_INCLUDES} ${TK_XINCLUDES}"
-fi
-
-if test "${TKX}" = "1"; then
-	MY_TCL_LIBS="${TKX_LIB_SPEC} ${TKX_LIBS} ${MY_TCL_LIBS}"
-fi
-
-if test "${TCL}" = "1"; then
-  # try to hack in a run-time search path if needed
-  orig_MY_TCL_LIBS="$MY_TCL_LIBS"
-  orig_libdir="$libdir"
-  MY_TCL_LIBS=""
-  for tcllib_part in $orig_MY_TCL_LIBS ;do
-    case $tcllib_part in
-      -L/*)
-        tcllibdir=`echo $tcllib_part | sed s/-L//`
-        tcldir_in_syslib_path=no
-        for sysdir in $sys_lib_dlsearch_path_spec ;do
-           if test "X$tcllibdir" = "X$sysdir" ;then
-               tcldir_in_syslib_path=yes
-               break
-           fi
-        done
-        MY_TCL_LIBS="${MY_TCL_LIBS} ${tcllib_part}"
-        if test "X$tcldir_in_syslib_path" = "Xno" ;then
-           libdir="$tcllibdir"
-           eval "new_lib_spec=\"$hardcode_libdir_flag_spec\""
-           MY_TCL_LIBS="${MY_TCL_LIBS} ${new_lib_spec}"
-        fi
-        ;;
-      -L)
-        ;;
-      *) MY_TCL_LIBS="${MY_TCL_LIBS} ${tcllib_part}"
-        ;;
-    esac
-  done
-  libdir="$orig_libdir"
-  
-  AC_MSG_NOTICE([TCL_LIBS: $MY_TCL_LIBS])
-  AC_MSG_NOTICE([TCL_INCS: $MY_TCL_INCS])
-fi
-
-AC_SUBST(MY_TCL_LIBS)
-AC_SUBST(MY_TCL_INCS)
-AM_CONDITIONAL(USING_TCL, [test "$TCL" = "1"])
-AM_CONDITIONAL(USING_TK, [test "$TK" = "1"])
-
-dnl  Now look around for tclsh and wish
-if test "${TCL}" = "1"; then
-	TEA_PROG_TCLSH
-	dnl automatically subst TCLSH_PROG
-fi
-
-if test "${TK}" = "1"; then
-	TEA_PROG_WISH
-	dnl automatically subst WISH_PROG
-fi
-
-
-AC_ARG_WITH(tclatrsep,
-    [  --with-tclatrsep=CHAR   set the Tcl attribute separator character
-                        this will default to "." if unspecified],
-    [tcl_atrsep="${withval}"], [tcl_atrsep="."])
-if test "$TCL" = "1" ; then
-AC_MSG_CHECKING([checking for Tcl attribute seperator])
-AC_MSG_RESULT([$tcl_atrsep])
-fi
-AC_DEFINE_UNQUOTED(TCL_ATRSEP, "${tcl_atrsep}",
-	[the seperator for Tcl attribute parsing])
-
-
-AC_ARG_ENABLE(tcl-qstat,
-   [  --enable-tcl-qstat      setting this builds qstat with Tcl interpreter
-                          features. This is enabled if Tcl is enabled.])
-AC_MSG_CHECKING([whether to enable tcl-qstat])
-EXTRA_QSTAT_LIBS=""
-if test "x${enable_tcl_qstat}" = "x" -o "x${enable_tcl_qstat}" != "xno"; then
-    if test "$TCL" = "1" ; then
-	EXTRA_QSTAT_LIBS='$(EXTRA_QSTAT_LIBS)'
-        AC_DEFINE(TCL_QSTAT, 1,
-		[Define if PBS should build qstat with Tcl])
-        enable_tcl_qstat=yes
-    else
-        if test "${enable_tcl_qstat}" = "yes" ;then
-           AC_MSG_ERROR([Cannot enable tcl-qstat without also using Tcl])
-        else
-           enable_tcl_qstat=no
-        fi
-    fi
-fi
-AC_MSG_RESULT($enable_tcl_qstat)
-AC_SUBST(EXTRA_QSTAT_LIBS)
-AM_CONDITIONAL(USE_TCLQSTAT, [test "x$EXTRA_QSTAT_LIBS" != "x"])
-
+AM_CONDITIONAL(INSTALL_MODULEFILES, [test "x$MODULEFILES_DIR" != "xno"])
+AC_SUBST(MODULEFILES_DIR)
+AC_MSG_RESULT($MODULEFILES_DIR)
 
 
 dnl
@@ -1227,12 +995,6 @@ AC_CHECK_FUNC(ruserok, , AC_CHECK_LIB(socket, ruserok))
 
 
 dnl  Readline
-if test "$HAVE_READLINE" = "default" ; then
-  case $PBS_MACH in
-    aix5|darwin) HAVE_READLINE="no";;
-    *) HAVE_READLINE="yes";;
-  esac
-fi
 if test "$HAVE_READLINE" = "yes" ; then
 AC_CHECK_LIB(ncurses, initscr, READLINE_LIBS="-lncurses")
 AC_CHECK_LIB(readline, rl_callback_handler_install,
@@ -1241,14 +1003,13 @@ AC_CHECK_LIB(readline, rl_callback_handler_install,
 fi
 AC_SUBST(READLINE_LIBS)
 
-	     
-
-dnl  Readline
-if test "$HAVE_READLINE" = "yes" ; then
-AC_CHECK_HEADER(readline/readline.h, :, [HAVE_READLINE="no"])
+if test "$ac_cv_header_readline_readline_h" = "no" ; then
+	HAVE_READLINE="no"
 fi
 if test "$HAVE_READLINE" = "yes" ; then
 	AC_DEFINE(HAVE_READLINE, 1, [include readline support])
+else
+	AC_MSG_WARN([readline support is disabled])
 fi
 
 
@@ -1284,6 +1045,14 @@ AC_CHECK_SIZEOF(unsigned long, 30)
 AC_CHECK_SIZEOF(signed char, 31)
 AC_C_CHAR_UNSIGNED
 
+AC_CHECK_TYPE([socklen_t],
+  [AC_DEFINE_UNQUOTED([torque_socklen_t],[socklen_t],[type to use in place of socklen_t])],
+  [TAC_SOCKLEN_EQUIV([torque_socklen_t])])
+
+TAC_PAM_GET_USER_2ND_ARG
+if test "$tac_pam_get_user_2nd_arg" = "none" && test "$pammoddir" != "disabled" ;then
+  AC_MSG_ERROR([Unable to compile PAM bits, missing pam-devel?])
+fi
 
 dnl
 dnl  ######################################################################
@@ -1324,6 +1093,69 @@ AC_CHECK_FUNC(ntohl, [ :],
   AC_MSG_RESULT($torque_cv_ntohl_needs_arpa_inet_h)
 )
 
+TAC_TCLTK
+
+dnl
+dnl  ######################################################################
+dnl Checks needed to build DRMAA
+dnl
+if test "$build_drmaa" = "yes" ;then
+AC_MSG_NOTICE([Configuring DRMAA ...])
+AC_PATH_PROG(GPERF, "gperf")
+AX_PROG_DOT
+AC_PATH_PROG(DOXYGEN, "doxygen", "none")
+AC_C_BIGENDIAN_CROSS
+ACX_PTHREAD(,[AC_MSG_ERROR([POSIX threads library is required by DRMAA.])])
+
+AC_CHECK_HEADERS([stddef.h limits.h stdint.h inttypes.h])
+AC_HEADER_STDBOOL
+
+#AC_FUNC_MALLOC
+#AC_FUNC_REALLOC
+AC_FUNC_STRERROR_R
+AC_FUNC_STRFTIME
+AC_CHECK_FUNCS([getcwd strchr strdup strerror mkstemp fstat strlcpy asprintf vasprintf])
+
+AH_TEMPLATE([HAVE_VA_COPY],
+                [Define to 1 if you have the va_copy function.])
+AC_MSG_CHECKING([for va_copy])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdarg.h>]],
+                        [[va_list a, b; va_copy(a, b);]])],[
+  AC_MSG_RESULT([yes])
+  AC_DEFINE([HAVE_VA_COPY])
+  ],[
+      AC_MSG_RESULT([no])
+  ],[
+      AC_MSG_RESULT([no])
+])
+
+AH_TEMPLATE([HAVE___VA_COPY],
+                [Define to 1 if you have the __va_copy function.])
+AC_MSG_CHECKING([for __va_copy])
+AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdarg.h>]],
+                        [[va_list a, b; __va_copy(a, b);]])],[
+  AC_MSG_RESULT([yes])
+  AC_DEFINE([HAVE___VA_COPY])
+        AH_BOTTOM([
+#ifndef HAVE_VA_COPY
+#       define va_copy(a,b) __va_copy(a,b)
+#endif
+])
+  ],[
+  AC_MSG_RESULT([no])
+  ], [
+  AC_MSG_RESULT([no])
+])
+
+ build_drmaa_docs=yes
+else  
+  DOXYGEN=none
+ build_drmaa_docs=no
+fi
+AM_CONDITIONAL(DRMAA_DOCS, [test "$DOXYGEN" != "none"])
+AC_SUBST(build_drmaa_docs)
+drmaadocdir=$datadir/doc/$PACKAGE-drmaa
+AC_SUBST(drmaadocdir)
 
 
 dnl
@@ -1343,12 +1175,30 @@ fi
 AC_SUBST(spec_name)
 AC_SUBST(spec_version)
 AC_SUBST(spec_snap)
+AC_SUBST(ac_configure_args)
+rpmlibdir=`eval eval echo $libdir`
+rpmmandir=`eval eval echo $mandir`
+rpmbindir=`eval eval echo $bindir`
+rpmsbindir=`eval eval echo $sbindir`
+rpmincludedir=`eval eval echo $includedir`
+rpmdrmaadocdir=`eval eval echo $drmaadocdir`
+AC_SUBST(rpmlibdir)
+AC_SUBST(rpmmandir)
+AC_SUBST(rpmbindir)
+AC_SUBST(rpmsbindir)
+AC_SUBST(rpmincludedir)
+AC_SUBST(rpmdrmaadocdir)
 
 dnl  Head and bottom for the config-file
 AH_TOP([#ifndef _PBS_CONFIG_H_
 #define _PBS_CONFIG_H_])
 
-AH_BOTTOM([#endif /* _PBS_CONFIG_H_ */])
+AH_BOTTOM([
+#ifndef __GNUC__
+#       define __attribute__ /* nothing */
+#endif
+#endif /* _PBS_CONFIG_H_ */
+])
 
 
 dnl  Include the Cplant Fault Recovery Patch jugglery
@@ -1358,14 +1208,30 @@ AH_VERBATIM([NEED_BLOCKING_CONNECTIONS],
 #define read(a,b,c) read_nonblocking_socket(a,b,c)
 #endif])
 
+pbs_build_host=`uname -n`
+pbs_build_date=`date`
+pbs_build_dir=`pwd`
+pbs_source_dir=`cd $srcdir && pwd`
+pbs_config_args=$@
+AC_DEFINE_UNQUOTED([PBS_BUILD_HOST],"${pbs_build_host}",[Define to the build hostname])
+AC_DEFINE_UNQUOTED([PBS_BUILD_DATE],"${pbs_build_date}",[Define to the build date])
+AC_DEFINE_UNQUOTED([PBS_BUILD_DIR],"${pbs_build_dir}",[Define to the build directory])
+AC_DEFINE_UNQUOTED([PBS_SOURCE_DIR],"${pbs_source_dir}",[Define to the source directory])
+AC_DEFINE_UNQUOTED([PBS_BUILD_USER],"${USER}",[Define to the building username])
+AC_DEFINE_UNQUOTED([PBS_INSTALL_DIR],"${prefix}",[Define to the install directory])
+AC_DEFINE_UNQUOTED([PBS_CONFIG_ARGS],"${ac_configure_args}",[Define to the install directory])
+AC_DEFINE_UNQUOTED([PBS_CFLAGS],"${CFLAGS}",[Define to the install directory])
 
+AC_CONFIG_FILES([torque.spec:buildutils/torque.spec.in])
 AC_OUTPUT(buildutils/pbs_mkdirs
 	  buildutils/self-extract-head-sh
+	  buildutils/modulefiles
+	  buildutils/modulefiles.vers
 	  Makefile
-	  torque.spec
 	  doc/Makefile
 	  doc/man1/Makefile
 	  doc/man3/Makefile
+	  doc/man7/Makefile
 	  doc/man8/Makefile
 	  src/Makefile
 	  src/cmds/Makefile
@@ -1383,12 +1249,14 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/lib/Libpbs/Makefile
 	  src/lib/Libsite/Makefile
 	  src/mom_rcp/Makefile
+	  src/momctl/Makefile
 	  src/resmom/Makefile
 	  src/resmom/aix4/Makefile
 	  src/resmom/aix5/Makefile
 	  src/resmom/darwin/Makefile
 	  src/resmom/digitalunix/Makefile
 	  src/resmom/freebsd/Makefile
+	  src/resmom/freebsd5/Makefile
 	  src/resmom/fujitsu/Makefile
 	  src/resmom/hpux10/Makefile
 	  src/resmom/hpux11/Makefile
@@ -1402,7 +1270,6 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/resmom/sunos4/Makefile
 	  src/resmom/unicos8/Makefile
 	  src/resmom/unicosmk2/Makefile
-	  src/resmom/cpa/Makefile
 	  src/scheduler.basl/Makefile
 	  src/scheduler.cc/Makefile
 	  src/scheduler.cc/samples/Makefile
@@ -1416,5 +1283,29 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/server/Makefile
 	  src/tools/Makefile
 	  src/tools/xpbsmon/Makefile
+	  src/drmaa/Makefile
+	  src/drmaa/src/Makefile
+	  src/drmaa/test/Makefile
+	  src/drmaa/Doxyfile
 	  src/pam/Makefile)
 
+echo
+echo "Building components: server=$build_server mom=$build_mom clients=$build_clients 
+                     gui=$build_gui drmaa=$build_drmaa pam=`test "x$pammoddir" = "xdisabled" && echo no || echo yes`"
+echo "PBS Machine type: $PBS_MACH"
+echo "Remote copy: $RCP_PATH $RCP_ARGS"
+echo "PBS home: $PBS_SERVER_HOME"
+echo "Default server: $PBS_DEFAULT_SERVER"
+echo "Unix Domain sockets: $ENABLE_UNIX_SOCKETS"
+echo "Tcl: `test "$TCL" = "1" && echo $MY_TCL_INCS $MY_TCL_LIBS || echo disabled`"
+echo "Tk: `test "$TK" = "1" && echo $MY_TCLTK_INCS $MY_TCLTK_LIBS || echo disabled`"
+echo
+
+if test "x$gccwarnings" = "xyes" ;then
+   AC_MSG_WARN([This compilation has strict compiler options enabled that cause
+the build to fail if any compiler warnings are emitted.  If this build fails
+because of a harmless warning, please report the problem to $PACKAGE_BUGREPORT
+and run configure again with --disable-gcc-warnings.])
+   echo
+fi
+echo "Ready for '${MAKE-make}'."

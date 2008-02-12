@@ -126,9 +126,9 @@ extern int             LOGLEVEL;
 
 int status_job A_((job *,struct batch_request *,svrattrl *,tlist_head *,int *));
 int status_attrib A_((svrattrl *,attribute_def *,attribute *,int,int,tlist_head *,int *,int));
-extern int   svr_connect A_((pbs_net_t, unsigned int, void (*)(int), enum conn_type));
+extern int   svr_connect A_((pbs_net_t,unsigned int,void (*)(int), enum conn_type));
 extern int status_nodeattrib(svrattrl *,attribute_def *,struct pbsnode *,int,int,tlist_head *,int*);
-extern int hasprop(struct pbsnode *, struct prop *);
+extern int hasprop(struct pbsnode *,struct prop *);
 
 /* Private Data Definitions */
 
@@ -136,9 +136,9 @@ static int bad;
 
 /* The following private support functions are included */
 
-static void update_state_ct A_((attribute *, int *, char *));
-static int  status_que A_((pbs_queue *, struct batch_request *, tlist_head *));
-static int status_node A_(( struct pbsnode *, struct batch_request *, tlist_head *));
+static void update_state_ct A_((attribute *,int *,char *));
+static int  status_que A_((pbs_queue *,struct batch_request *,tlist_head *));
+static int  status_node A_((struct pbsnode *,struct batch_request *,tlist_head *));
 static void req_stat_job_step2 A_((struct stat_cntl *));
 static void stat_update A_((struct work_task *));
 
@@ -156,6 +156,15 @@ static void stat_update A_((struct work_task *));
  *      If SRV_ATR_PollJobs is true, then we skip step 2.
  */
 
+enum TJobStatTypeEnum {
+  tjstNONE = 0,
+  tjstJob,
+  tjstQueue,
+  tjstServer,
+  tjstTruncatedQueue,
+  tjstTruncatedServer,
+  tjstLAST };
+
 void req_stat_job(
 
   struct batch_request *preq)	/* ptr to the decoded request   */
@@ -166,7 +175,9 @@ void req_stat_job(
   job		   *pjob = NULL;
   pbs_queue	   *pque = NULL;
   int		    rc = 0;
-  int		    type = 0;
+
+
+  enum TJobStatTypeEnum type = tjstNONE;
 
   /*
    * first, validate the name of the requested object, either
@@ -179,33 +190,60 @@ void req_stat_job(
 
   if (isdigit((int)*name)) 
     {
-    pjob = find_job(name);	/* status a single job */
+    /* status a single job */
 
-    if (pjob)
-      type = 1;	
-    else
+    type = tjstJob;
+
+    if ((pjob = find_job(name)) == NULL)
+      {
       rc = PBSE_UNKJOBID;
+      }
     } 
-  else if (isalpha((int)*name)) 
+  else if (isalpha((int)*name) && !strcasecmp("truncated",name)) 
     {
-    pque = find_queuebyname(name)	/* status jobs in a queue */;
+    /* status jobs in a queue */
 
-    if (pque)
-      type = 2;
+    int tlen = strlen("truncated:");
+
+    if (!strncasecmp(name,"truncated:",tlen))
+      {
+      /* format: truncated:queue */
+
+      name += tlen;
+
+      type = tjstTruncatedQueue;
+      }
     else
+      { 
+      type = tjstQueue;
+      }
+ 
+    if ((pque = find_queuebyname(name)) == NULL)
+      {
       rc = PBSE_UNKQUE;
+      }
     } 
+  else if (!strcasecmp(name,"truncated"))
+    {
+    /* status all jobs at server */
+
+    type = tjstTruncatedServer;
+    }
   else if ((*name == '\0') || (*name == '@')) 
     {
-    type = 3;	/* status all jobs at server */
+    /* status all jobs at server */
+
+    type = tjstServer;  
     } 
   else
     {
     rc = PBSE_IVALREQ;
     }
 
-  if (type == 0) 
-    {		/* is invalid - an error */
+  if (rc != 0) 
+    {		
+    /* is invalid - an error */
+
     req_reject(rc,0,preq,NULL,NULL);
 
     return;
@@ -224,7 +262,7 @@ void req_stat_job(
     return;
     }
 
-  cntl->sc_type   = type;
+  cntl->sc_type   = (int)type;
   cntl->sc_conn   = -1;
   cntl->sc_pque   = pque;
   cntl->sc_origrq = preq;
@@ -263,16 +301,22 @@ static void req_stat_job_step2(
   struct batch_request *preq;
   struct batch_reply   *preply;
   int		        rc = 0;
-  int                   type;
+
+  enum TJobStatTypeEnum type;
 
   pbs_queue            *pque = NULL;
   int                   exec_only = 0;
 
-  preq = cntl->sc_origrq;
-  type = cntl->sc_type;
+  int                   IsTruncated = 0;
+
+  preq   = cntl->sc_origrq;
+  type   = (enum TJobStatTypeEnum)cntl->sc_type;
   preply = &preq->rq_reply;
 
   /* See pbs_server_attributes(1B) for details on "poll_jobs" behaviour */
+
+  /* NOTE:  If IsTruncated is true, should walk all queues and walk jobs in each queue
+            until max_reported is reached (NYI) */
 
   if (!server.sv_attr[(int)SRV_ATR_PollJobs].at_val.at_long)
     {
@@ -287,21 +331,30 @@ static void req_stat_job_step2(
         { 	
         /* start from the first job */
 
-        if (type == 1)
+        if (type == tjstJob)
+          {
           pjob = find_job(preq->rq_ind.rq_status.rq_id);
-        else if (type == 2) 
+          }
+        else if (type == tjstQueue) 
+          {
           pjob = (job *)GET_NEXT(cntl->sc_pque->qu_jobs);	
+          }
         else
+          {
+          if ((type == tjstTruncatedServer) || (type == tjstTruncatedQueue))
+            IsTruncated = TRUE;
+
           pjob = (job *)GET_NEXT(svr_alljobs);
+          }
         } 
       else 
         {			
         /* get next job */
 
-        if (type == 1)
+        if (type == tjstJob)
           break;
 
-        if (type == 2)
+        if (type == tjstQueue)
           pjob = (job *)GET_NEXT(pjob->ji_jobque);
         else
           pjob = (job *)GET_NEXT(pjob->ji_alljobs);
@@ -355,16 +408,18 @@ static void req_stat_job_step2(
    * loop through again
    */
 
-  if (type == 1)
+  if (type == tjstJob)
     pjob = find_job(preq->rq_ind.rq_status.rq_id);
-  else if (type == 2) 
+  else if (type == tjstQueue) 
     pjob = (job *)GET_NEXT(cntl->sc_pque->qu_jobs);	
   else
     pjob = (job *)GET_NEXT(svr_alljobs);
 
   if (preq->rq_extend != NULL)
+    {
     if (!strncmp(preq->rq_extend,EXECQUEONLY,strlen(EXECQUEONLY)))
       exec_only = 1;
+    }
 
   free(cntl);
 
@@ -374,10 +429,10 @@ static void req_stat_job_step2(
 
     if (exec_only)
       {
-      pque=find_queuebyname(pjob->ji_qs.ji_queue);
+      pque = find_queuebyname(pjob->ji_qs.ji_queue);
 
       if (pque->qu_qs.qu_type != QTYPE_Execution)
-         goto nextjob;
+        goto nextjob;
       }
 
     pal = (svrattrl *)GET_NEXT(preq->rq_ind.rq_status.rq_attr);
@@ -395,10 +450,10 @@ static void req_stat_job_step2(
 
 nextjob:
 
-    if (type == 1)
+    if (type == tjstJob)
       break;
 
-    if (type == 2)
+    if (type == tjstQueue)
       pjob = (job *)GET_NEXT(pjob->ji_jobque);
     else
       pjob = (job *)GET_NEXT(pjob->ji_alljobs);
@@ -427,10 +482,10 @@ nextjob:
 
     /* get next job */
 
-    if (type == 1)
+    if (type == tjstJob)
       break;
 
-    if (type == 2)
+    if (type == tjstQueue)
       pjob = (job *)GET_NEXT(pjob->ji_jobque);
     else
       pjob = (job *)GET_NEXT(pjob->ji_alljobs);
@@ -456,19 +511,20 @@ nextjob:
  * contact request.
  */
 
+/* NOTE:  called by qstat */
+
 int stat_to_mom(
 
-  job              *pjob,
-  struct stat_cntl *cntl)
+  job              *pjob,  /* I */
+  struct stat_cntl *cntl)  /* I/O */
 
   {
   struct batch_request *newrq;
-  int		                rc;
+  int		        rc;
   struct work_task     *pwt = 0;
-  struct pbsnode *node;
+  struct pbsnode       *node;
 
-
-  if ((newrq = alloc_br(PBS_BATCH_StatusJob)) == (struct batch_request *)0)
+  if ((newrq = alloc_br(PBS_BATCH_StatusJob)) == NULL)
     {
     return(PBSE_SYSTEM);
     }
@@ -489,6 +545,19 @@ int stat_to_mom(
   if (((node = tfind_addr(pjob->ji_qs.ji_un.ji_exect.ji_momaddr)) != NULL) &&
        (node->nd_state & (INUSE_DELETED|INUSE_DOWN)))
     {
+    if (LOGLEVEL >= 6)
+      {
+      sprintf(log_buffer,"node '%s' is allocated to job but in state '%s'",
+        node->nd_name,
+        (node->nd_state & INUSE_DELETED) ? "deleted" : "down");
+ 
+      log_event(
+        PBSEVENT_SYSTEM,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+      }
+ 
     return(PBSE_NORELYMOM);
     }
 
@@ -514,7 +583,7 @@ int stat_to_mom(
 
     if (cntl->sc_conn >= 0)
       svr_disconnect(cntl->sc_conn);
-    }
+    }  /* END if (rc != NULL) */
 
   return(rc);
   }  /* END stat_to_mom() */
@@ -568,13 +637,15 @@ static void stat_update(
           /* must save session id	   */
 
           job_save(pjob,SAVEJOB_FULL);
+
+          svr_mailowner(pjob,MAIL_BEGIN,MAIL_NORMAL,NULL);
           }
 
         pjob->ji_momstat = time_now;
         }
 
       pstatus = (struct brp_status *)GET_NEXT(pstatus->brp_stlink);
-      }  /* END while (pstatus) */
+      }  /* END while (pstatus != NULL) */
     }    /* END if (preply->brp_choice == BATCH_REPLY_CHOICE_Status) */
 
   release_req(pwt);
@@ -696,7 +767,7 @@ void req_stat_que(
 
     if (pque == NULL) 
       {
-      req_reject(PBSE_UNKQUE,0,preq,NULL,"cannot located queue");
+      req_reject(PBSE_UNKQUE,0,preq,NULL,"cannot locate queue");
 
       return;
       }
@@ -869,7 +940,7 @@ void req_stat_node(
 
   if ((pbsndmast == NULL) || (svr_totnodes <= 0)) 
     {
-    req_reject(PBSE_NONODES,0,preq,NULL,"node list is empty");
+    req_reject(PBSE_NONODES,0,preq,NULL,"node list is empty - check 'server_priv/nodes' file");
 
     return;
     }
@@ -880,7 +951,7 @@ void req_stat_node(
     {
     type = 1;
     }
-  else if ((*name == ':') && (*(name+1) != '\0'))
+  else if ((*name == ':') && (*(name + 1) != '\0'))
     {
     if (!strcmp(name+1,"ALL"))
       {
@@ -900,7 +971,7 @@ void req_stat_node(
 
     if (pnode == NULL) 
       {
-      req_reject(PBSE_UNKNODE,0,preq,NULL,"cannot located specified node");
+      req_reject(PBSE_UNKNODE,0,preq,NULL,"cannot locate specified node");
 
       return;
       }
@@ -1044,6 +1115,8 @@ void req_stat_svr(
   svrattrl	   *pal;
   struct batch_reply *preply;
   struct brp_status  *pstat;
+  int *nc;
+  static char nc_buf[128];
 
   /* update count and state counts from sv_numjobs and sv_jobstates */
 
@@ -1054,6 +1127,11 @@ void req_stat_svr(
     &server.sv_attr[(int)SRV_ATR_JobsByState],
     server.sv_jobstates,
     server.sv_jobstbuf);
+
+  nc=netcounter_get();
+  sprintf(nc_buf,"%d %d %d",*nc, *(nc+1), *(nc+2));
+  server.sv_attr[(int)SRV_ATR_NetCounter].at_val.at_str=nc_buf;
+  server.sv_attr[(int)SRV_ATR_NetCounter].at_flags |= ATR_VFLAG_SET;
 
   /* allocate a reply structure and a status sub-structure */
 
@@ -1109,7 +1187,7 @@ void req_stat_svr(
   return;
   }  /* END req_stat_svr() */
 
-
+/* DIAGTODO: write req_stat_diag() */
 
 
 

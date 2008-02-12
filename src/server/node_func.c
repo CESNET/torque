@@ -136,6 +136,7 @@ extern int	 svr_clnodes;
 extern char	*path_nodes_new;
 extern char	*path_nodes;
 extern char	*path_nodestate;
+extern char	*path_nodenote;
 extern int       LOGLEVEL;
 extern attribute_def  node_attr_def[];   /* node attributes defs */
 
@@ -166,11 +167,13 @@ extern attribute_def  node_attr_def[];   /* node attributes defs */
  */
 
 
-#include <work_task.h>
+#include "work_task.h"
 
 extern void ping_nodes(struct work_task *);
 
 
+
+/* us IP address to look up matchin node structure */
 
 struct pbsnode *PGetNodeFromAddr(
 
@@ -214,7 +217,7 @@ void bad_node_warning(
 
   for (i = 0;i < svr_totnodes;i++) 
     {
-    if (pbsndlist[i] == NULL)
+    if (pbsndlist[i] == NULL || pbsndlist[i]->nd_addrs == NULL)
       {
       sprintf(log_buffer,"ALERT:  node table is corrupt at index %d",
         i);
@@ -430,6 +433,7 @@ static short		old_state = (short)0xdead;	/*node's   state   */
 static short		old_ntype = (short)0xdead;	/*node's   ntype   */
 static int		old_nprops = 0xdead;		/*node's   nprops  */
 static int             old_nstatus = 0xdead;            /*node's   nstatus */
+static char           *old_note    = NULL;              /*node's   note    */
 
 
 
@@ -456,6 +460,18 @@ void save_characteristic(
   old_nstatus = pnode->nd_nstatus;
   old_first =   pnode->nd_first;
   old_f_st =    pnode->nd_f_st;
+
+  /* if there was a previous note stored here, free it first */
+  if (old_note != NULL)
+    {
+    free(old_note);
+    old_note = NULL;
+    }
+
+  if (pnode->nd_note != NULL)
+    {
+    old_note = strdup(pnode->nd_note);
+    }
 
   return;
   }  /* END save_characteristic() */
@@ -546,6 +562,18 @@ int chk_characteristic(
   if ((old_nprops != pnode->nd_nprops) || (old_first != pnode->nd_first))
     *pneed_todo |= WRITE_NEW_NODESFILE;
 
+  if (pnode->nd_note != old_note)    /* not both NULL or with the same address */
+    {
+    if (pnode->nd_note == NULL || old_note == NULL)
+      {
+        *pneed_todo |= WRITENODE_NOTE;	       /*node's note changed*/
+      }
+    else if (strcmp(pnode->nd_note,old_note))
+      {
+        *pneed_todo |= WRITENODE_NOTE;	       /*node's note changed*/
+      }
+    }
+
   old_address = NULL;
 
   return(0);
@@ -603,6 +631,8 @@ int status_nodeattrib(
       atemp[i].at_val.at_jinfo = pnode;
     else if (!strcmp ((padef + i)->at_name, ATTR_NODE_np))
       atemp[i].at_val.at_long = pnode->nd_nsn;
+    else if (!strcmp ((padef + i)->at_name, ATTR_NODE_note))
+      atemp[i].at_val.at_str  = pnode->nd_note;
     else 
       {
       /*we don't ever expect this*/
@@ -721,7 +751,7 @@ static void initialize_pbsnode(
 
   pnode->nd_name    = pname;
   pnode->nd_stream  = -1;
-  pnode->nd_addrs   = pul;	    /*list of host byte order */
+  pnode->nd_addrs   = pul;       /* list of host byte order */
   pnode->nd_ntype   = ntype;
   pnode->nd_nsn     = 0;
   pnode->nd_nsnfree = 0;
@@ -729,6 +759,7 @@ static void initialize_pbsnode(
   pnode->nd_order   = 0;
   pnode->nd_prop    = NULL;
   pnode->nd_status  = NULL;
+  pnode->nd_note    = NULL;
   pnode->nd_psn     = NULL;
   pnode->nd_state   = INUSE_NEEDS_HELLO_PING | INUSE_DOWN;
   pnode->nd_first   = init_prop(pnode->nd_name);
@@ -871,8 +902,19 @@ static int process_host_name_part(
   {
   struct hostent *hp;
   struct in_addr  addr;
-  char		 *phostname;     /*caller supplied hostname   */
-  int		  len, i;
+  char		 *phostname;     /* caller supplied hostname   */
+  int             ipcount;
+  int		  len, totalipcount;
+
+  char            tmpHName[1024];
+  char           *hptr;
+
+  static int      NodeSuffixIsSet = 0;
+
+  static char    *NodeSuffix;
+
+  int             hindex;
+  int             size = 0;
 
   len = strlen(objname);
 
@@ -883,12 +925,14 @@ static int process_host_name_part(
 
   phostname = strdup(objname);
 
-  if (phostname == NULL)
+  if ((phostname == NULL) || (pul == NULL))
     {
     return(PBSE_SYSTEM);
     }
 
   *ntype = NTYPE_CLUSTER;
+
+  *pul = NULL;
 
   if ((len >= 3) && !strcmp(&phostname[len - 3],":ts")) 
     {
@@ -902,6 +946,7 @@ static int process_host_name_part(
       objname);
 
     free(phostname);
+    phostname = NULL;
 
     return(PBSE_UNKNODE);
     }
@@ -925,56 +970,144 @@ static int process_host_name_part(
         errno);
 
       free(phostname);
+      phostname = NULL;
 
       return(PBSE_UNKNODE);
       }
 	
-    hname = (char *)strdup(hp->h_name); /*canonical name in theory*/
+    hname = (char *)strdup(hp->h_name); /* canonical name in theory */
 
     if (hname == NULL) 
       {
       free(phostname);
+      phostname = NULL;
 
       return(PBSE_SYSTEM);
       }
 
-    if ((hp = gethostbyname(hname)) == NULL) 
+    totalipcount = 0;
+
+    if (NodeSuffixIsSet == 0)
       {
-      sprintf(log_buffer,"bad cname %s, h_errno=%d errno=%d",
-        hname,
-        h_errno,errno);
+      if (((server.sv_attr[(int)SRV_ATR_NodeSuffix].at_flags & ATR_VFLAG_SET) != 0) &&
+           (server.sv_attr[(int)SRV_ATR_NodeSuffix].at_val.at_str != NULL))
+        {
+        NodeSuffix = strdup(server.sv_attr[(int)SRV_ATR_NodeSuffix].at_val.at_str);
+        }
 
-      free(hname);
-
-      free(phostname);
-
-      return(PBSE_UNKNODE);
+      NodeSuffixIsSet = 1;
       }
 
-    free(hname);
-    }  /* END if (hp->h_addr_list[1] == NULL) */
+    if (NodeSuffix != NULL)
+      {
+      char *ptr;
 
-  for (i = 0;hp->h_addr_list[i];i++);	              /* count ipaddrs */
+      /* NOTE:  extract outside of loop because hname will be freed */
 
-  *pul = (u_long *)malloc(sizeof(u_long) * (i + 1));  /*null end it*/
+      ptr = strchr(hname,'.');
 
-  if (*pul == NULL) 
-    {
-    free(phostname);
-    }
+      if (ptr != NULL)
+        {
+        *ptr = '\0';
 
-  for (i = 0;hp->h_addr_list[i];i++) 
-    {
-    u_long	ipaddr;
+        snprintf(tmpHName,sizeof(tmpHName),"%s%s.%s",
+          hname,
+          NodeSuffix,
+          ptr + 1);
 
-    memcpy((char *)&addr,hp->h_addr_list[i],hp->h_length);
+        *ptr = '.';
+        }
+      else
+        {
+        snprintf(tmpHName,sizeof(tmpHName),"%s%s",
+          hname,
+          NodeSuffix);
+        }
+      }
 
-    ipaddr = ntohl(addr.s_addr);
+    for (hindex = 0;hindex < 2;hindex++)
+      {
+      if (hindex == 0)
+        {
+        hptr = hname;
+        }
+      else if (NodeSuffix != NULL) 
+        {
+        hptr = tmpHName;
+        }     
+      else
+        {
+        continue;
+        }
 
-    (*pul)[i] = ipaddr;
-    }
+      if ((hp = gethostbyname(hptr)) == NULL) 
+        {
+        sprintf(log_buffer,"bad cname %s, h_errno=%d errno=%d",
+          hptr,
+          h_errno,
+          errno);
 
-  (*pul)[i] = 0;			/* null term array ip addrs */
+        if (hname != NULL)
+          {
+          free(hname);
+          hname = NULL;
+          }
+
+        if (phostname != NULL)
+          {
+          free(phostname);
+          phostname = NULL;
+          }
+
+        return(PBSE_UNKNODE);
+        }
+
+      if (hname != NULL)
+        {
+        free(hname);
+        hname = NULL;
+        }
+
+      /* count host ipaddrs */
+
+      for (ipcount = 0;hp->h_addr_list[ipcount];ipcount++); 
+
+      if (*pul == NULL)
+        {
+        size = sizeof(u_long) * (ipcount + 1);
+
+        *pul = (u_long *)malloc(size);  /* zero-terminate list */
+        }
+      else
+        {
+        size += sizeof(u_long) * ipcount;
+
+        *pul = (u_long *)realloc(*pul,size);
+        }
+
+      if (*pul == NULL) 
+        {
+        if (phostname != NULL)
+          {
+          free(phostname);
+          phostname = NULL;
+          }
+        }
+    
+      for (ipcount = 0;hp->h_addr_list[ipcount];ipcount++,totalipcount++) 
+        {
+        u_long ipaddr;
+
+        memcpy((char *)&addr,hp->h_addr_list[ipcount],hp->h_length);
+
+        ipaddr = ntohl(addr.s_addr);
+
+        (*pul)[totalipcount] = ipaddr;
+        }
+
+      (*pul)[totalipcount] = 0;		/* zero-term array ip addrs */
+      }  /* END for (hindex) */
+    }    /* END if (hp->h_addr_list[1] == NULL) */
 
   *pname = phostname;			/* return node name	    */
 
@@ -1230,9 +1363,9 @@ int create_pbs_node(
   {
   struct pbsnode  *pnode = NULL;
   struct pbsnode **tmpndlist;
-  int              ntype;	/*node type; time-shared, not */
-  char            *pname;	/*node name w/o any :ts       */
-  u_long          *pul;		/*0 terminated host adrs array*/
+  int              ntype;	/* node type; time-shared, not */
+  char            *pname;	/* node name w/o any :ts       */
+  u_long          *pul;		/* 0 terminated host adrs array*/
   int              rc;
   int              iht;
 
@@ -1446,6 +1579,7 @@ int setup_nodes(void)
 
   FILE	 *nin;
   char	  line[256];
+  char	  note[MAX_NOTE+1];
   char	 *nodename;
   char	  propstr[256];
   char	 *token;
@@ -1461,7 +1595,7 @@ int setup_nodes(void)
   extern char server_name[];
   extern resource_t next_resource_tag;
 
-  sprintf(log_buffer,"%s()\n",
+  sprintf(log_buffer,"%s()",
     id);
 
   log_record(
@@ -1680,6 +1814,47 @@ int setup_nodes(void)
 
           /* exclusive bits are calculated later in set_old_nodes() */
           np->nd_state &= ~(INUSE_JOB|INUSE_JOBSHARE);
+
+          break;
+          }
+        }
+      }	
+
+    fclose(nin);
+    }
+
+  /* initialize note attributes */
+  nin = fopen(path_nodenote,"r");
+
+  if (nin != NULL)
+    {
+
+    while (fscanf(nin,"%s %" MAX_NOTE_STR "[^\n]",
+        line,
+        note) == 2)
+      {
+      for (i = 0;i < svr_totnodes;i++)
+        {
+        np = pbsndmast[i];
+
+        if (np->nd_state & INUSE_DELETED)
+          continue;
+
+        if (strcmp(np->nd_name,line) == 0)
+          {
+          np->nd_note = strdup(note);
+
+          if ( np->nd_note == NULL )
+            {
+              sprintf(log_buffer,"couldn't allocate space for note (node = %s)",
+                np->nd_name);
+
+              log_record(
+                PBSEVENT_SCHED,
+                PBS_EVENTCLASS_REQUEST,
+                id,
+                log_buffer);
+            }
 
           break;
           }

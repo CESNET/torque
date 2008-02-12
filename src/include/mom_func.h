@@ -112,6 +112,17 @@ struct cphosts {
 };
 extern int cphosts_num;
 
+/* holds the varattrs */
+
+struct varattr {
+	list_link   va_link;
+	char       *va_name;
+        int         va_ttl;
+        char       *va_cmd;
+        char       *va_value;
+        time_t      va_lasttime;
+};
+
 /* public funtions within MOM */
 
 #ifdef _CRAY
@@ -127,7 +138,7 @@ extern pid_t fork_me A_((int sock));
 extern int   get_la A_((double *));
 extern void  init_abort_jobs A_((int));
 extern int   init_groups A_((char *, int, int, int *));
-extern int   kill_job A_((job *, int sig));
+extern int   kill_job A_((job *, int sig, char *killer_id_name, char *why_killed_reason));
 extern void  mom_deljob A_((job *));
 extern void  mom_freenodes A_((job *));
 extern void  scan_for_exiting();
@@ -151,7 +162,7 @@ extern int   site_mom_postchk A_((job *, int));
 extern int   site_mom_prerst A_((job *));
 extern int   reader A_((int, int));
 extern int   writer A_((int, int));
-extern int   conn_qsub A_((char *,unsigned int));
+extern int   conn_qsub A_((char *,unsigned int,char *));  /* NOTE:  should be moved out of here to job_func proto header */
 extern int   run_pelog A_((int, char *,job *,int));
 extern int   is_joined A_((job *));
 extern void  check_busy A_((double));
@@ -164,13 +175,8 @@ extern int send_sisters(job *,int);
 extern int task_save(task *) ;
 extern void DIS_rpp_reset A_((void));
 extern void checkret A_((char **,int));
+extern char *get_job_envvar A_((job *,char *));
 
-#ifdef PENABLE_LINUX26_CPUSETS
-extern void initialize_root_cpuset();
-extern int create_job_set (char *, char *, int , int);
-extern int get_cpuset_size( struct bitmask *, struct bitmask *, char *);
-extern int find_free_cpuset_space(struct bitmask *, struct bitmask *, char *);
-#endif
 
 /* defined in mach-dependant mom_mach.c */
 extern int kill_task A_((struct task *,int,int));

@@ -117,7 +117,7 @@ static struct winsize wsz;
 extern int mom_reader_go;
 
 static int IPv4or6 = AF_UNSPEC;
-extern int conn_qsub(char *,int);
+extern int conn_qsub(char *,int,char *);
 extern char xauth_path[];
 extern int DEBUGMODE;
 
@@ -127,27 +127,44 @@ extern int DEBUGMODE;
  *	returns >0 amount read
  *		-1 on error
  */
-static int read_net(sock, buf, amt)
-	int    sock;
-	char  *buf;
-	int    amt;
-{
-	int got;
-	int total = 0;
 
-	while (amt > 0) {
-		got = read(sock, buf, amt);
-		if (got > 0) {	/* read (some) data */
-			amt   -= got;
-			buf   += got;
-			total += got;
-		} else if (got == 0)
-			break;
-		else
-			return (-1);
-	}
-	return (total); 
-}
+static int read_net(
+
+  int   sock,
+  char *buf,
+  int   amt)
+
+  {
+  int got;
+  int total = 0;
+
+  while (amt > 0) 
+    {
+    got = read(sock,buf,amt);
+
+    if (got == 0)
+      {
+      /* end of file */
+
+      break;
+      }
+
+    if (got < 0)
+      {
+      /* FAILURE */
+
+      return(-1);
+      }
+
+    /* read (some) data */
+
+    amt   -= got;
+    buf   += got;
+    total += got;
+    }  /* END while (amt > 0) */
+
+  return(total); 
+  }  /* END read_net() */
 
 
 
@@ -210,37 +227,42 @@ void set_termcc(
     }
 
 #ifdef IMAXBEL
-	slvtio.c_iflag = (BRKINT|IGNPAR|ICRNL|IXON|IXOFF|IMAXBEL);
+  slvtio.c_iflag = (BRKINT|IGNPAR|ICRNL|IXON|IXOFF|IMAXBEL);
 #else
-	slvtio.c_iflag = (BRKINT|IGNPAR|ICRNL|IXON|IXOFF);
+  slvtio.c_iflag = (BRKINT|IGNPAR|ICRNL|IXON|IXOFF);
 #endif
-	slvtio.c_oflag = (OPOST|ONLCR);
+  slvtio.c_oflag = (OPOST|ONLCR);
 #if defined(ECHOKE) && defined(ECHOCTL)
-	slvtio.c_lflag = (ISIG|ICANON|ECHO|ECHOE|ECHOK|ECHOKE|ECHOCTL);
+  slvtio.c_lflag = (ISIG|ICANON|ECHO|ECHOE|ECHOK|ECHOKE|ECHOCTL);
 #else
-	slvtio.c_lflag = (ISIG|ICANON|ECHO|ECHOE|ECHOK);
+  slvtio.c_lflag = (ISIG|ICANON|ECHO|ECHOE|ECHOK);
 #endif
-	slvtio.c_cc[VEOL]   = '\0';
-	slvtio.c_cc[VEOL2]  = '\0';
-	slvtio.c_cc[VSTART] = '\021';		/* ^Q */
-	slvtio.c_cc[VSTOP]  = '\023';		/* ^S */
+  slvtio.c_cc[VEOL]   = '\0';
+  slvtio.c_cc[VEOL2]  = '\0';
+  slvtio.c_cc[VSTART] = '\021';		/* ^Q */
+  slvtio.c_cc[VSTOP]  = '\023';		/* ^S */
 #if defined(VDSUSP)
-	slvtio.c_cc[VDSUSP] = '\031';		/* ^Y */
+  slvtio.c_cc[VDSUSP] = '\031';		/* ^Y */
 #endif
 #if defined(VREPRINT)
-	slvtio.c_cc[VREPRINT] = '\022';		/* ^R */
+  slvtio.c_cc[VREPRINT] = '\022';	/* ^R */
 #endif
-	slvtio.c_cc[VLNEXT] = '\017';		/* ^V */
+  slvtio.c_cc[VLNEXT] = '\017';		/* ^V */
 
-	slvtio.c_cc[VINTR]  = cc_array[0];
-	slvtio.c_cc[VQUIT]  = cc_array[1];
-	slvtio.c_cc[VERASE] = cc_array[2];
-	slvtio.c_cc[VKILL]  = cc_array[3];
-	slvtio.c_cc[VEOF]   = cc_array[4];
-	slvtio.c_cc[VSUSP]  = cc_array[5];
-	(void)tcsetattr(fd, TCSANOW, &slvtio);
-}
+  slvtio.c_cc[VINTR]  = cc_array[0];
+  slvtio.c_cc[VQUIT]  = cc_array[1];
+  slvtio.c_cc[VERASE] = cc_array[2];
+  slvtio.c_cc[VKILL]  = cc_array[3];
+  slvtio.c_cc[VEOF]   = cc_array[4];
+  slvtio.c_cc[VSUSP]  = cc_array[5];
+  tcsetattr(fd, TCSANOW, &slvtio);
+
+  return;
+  }  /* END set_termcc() */
 	
+
+
+
 
 
 /*
@@ -249,18 +271,37 @@ void set_termcc(
  *	Sent over network as "WINSIZE rn cn xn yn"  where .n is numeric string
  */
 
-int rcvwinsize(sock)
-	int sock;
-{
-	char buf[PBS_TERM_BUF_SZ];
+int rcvwinsize(
 
-	if (read_net(sock, buf, PBS_TERM_BUF_SZ) != PBS_TERM_BUF_SZ)
-		return (-1);
-	if (sscanf(buf, "WINSIZE %hu,%hu,%hu,%hu", &wsz.ws_row, &wsz.ws_col,
-					&wsz.ws_xpixel, &wsz.ws_ypixel) != 4)
-		return (-1);
-	return 0;
-}
+  int sock)
+
+  {
+  char buf[PBS_TERM_BUF_SZ];
+
+  if (read_net(sock,buf,PBS_TERM_BUF_SZ) != PBS_TERM_BUF_SZ)
+    {
+    /* FAILURE */
+
+    return(-1);
+    }
+
+  if (sscanf(buf,"WINSIZE %hu,%hu,%hu,%hu", 
+        &wsz.ws_row, 
+        &wsz.ws_col,
+        &wsz.ws_xpixel, 
+        &wsz.ws_ypixel) != 4)
+    {
+    /* FAILURE */
+
+    return(-1);
+    }
+
+  return(0);
+  }  /* END rcvwinsize() */
+
+
+
+
 
 int setwinsize(pty)
 	int pty;
@@ -431,6 +472,9 @@ int mom_writer(
   }  /* END mom_writer */
 
 
+
+
+
 /* adapted from openssh */
 /*
  * Creates an internet domain socket for listening for X11 connections.
@@ -447,56 +491,77 @@ int x11_create_display(
   char *homedir,         /* need to set $HOME for xauth */
   char *x11authstr)      /* proto:data:screen */
 
-{       
-        int display_number, sock;
-        u_short port;
-        struct addrinfo hints, *ai, *aitop;
-        char strport[NI_MAXSERV];
-        int gaierr, n, num_socks = 0;
-	unsigned int x11screen;
-        char x11proto[512],x11data[512],cmd[512];
-        char auth_display[512];
-	FILE *f;
-        pid_t childpid;
-        struct pfwdsock *socks;
-        char *homeenv;
+  {       
+  int display_number, sock;
+  u_short port;
+  struct addrinfo hints, *ai, *aitop;
+  char strport[NI_MAXSERV];
+  int gaierr, n, num_socks = 0;
+  unsigned int x11screen;
+  char x11proto[512],x11data[512],cmd[512];
+  char auth_display[512];
+  FILE *f;
+  pid_t childpid;
+  struct pfwdsock *socks;
+  char *homeenv;
 
-        *display='\0';
+  *display = '\0';
 
-        socks=calloc(sizeof (struct pfwdsock),NUM_SOCKS);
+  socks = calloc(sizeof (struct pfwdsock),NUM_SOCKS);
 
-        homeenv=malloc(strlen("HOME=") + strlen(homedir) + 2);
-        sprintf(homeenv,"HOME=%s",homedir);
-        putenv(homeenv);
+  homeenv=malloc(strlen("HOME=") + strlen(homedir) + 2);
+  sprintf(homeenv,"HOME=%s",homedir);
+  putenv(homeenv);
 
-        for (n=0;n<NUM_SOCKS;n++)
-           (socks+n)->active=0;
+  for (n = 0;n < NUM_SOCKS;n++)
+    (socks + n)->active = 0;
 
-        x11proto[0] = x11data[0] = '\0';
+  x11proto[0] = x11data[0] = '\0';
 
-        errno=0;
-        if ((n=sscanf(x11authstr,"%511[^:]:%511[^:]:%u",x11proto,x11data,&x11screen)) != 3)
-          {
-          fprintf(stderr,"sscanf(%s)=%d failed: %s\n",x11authstr,n,strerror(errno));
-          free(socks);
-          return -1;
-          }
+  errno = 0;
+  
+  if ((n = sscanf(x11authstr,"%511[^:]:%511[^:]:%u",
+         x11proto,
+         x11data,
+         &x11screen)) != 3)
+    {
+    fprintf(stderr,"sscanf(%s)=%d failed: %s\n",
+      x11authstr,
+      n,
+      strerror(errno));
 
+    free(socks);
 
-        for (display_number = X11OFFSET; display_number < MAX_DISPLAYS; display_number++) {
-                port = 6000 + display_number;
-                memset(&hints, 0, sizeof(hints));
-                hints.ai_family = IPv4or6;
-                hints.ai_flags = x11_use_localhost ? 0: AI_PASSIVE;
-                hints.ai_socktype = SOCK_STREAM;
-                snprintf(strport, sizeof strport, "%d", port);
-                if ((gaierr = getaddrinfo(NULL, strport, &hints, &aitop)) != 0) {
-                        fprintf(stderr,"getaddrinfo: %.100s\n", gai_strerror(gaierr));
-                        free(socks);
-                        return -1;
-                }
-                /* create a socket and bind it to display_number foreach address */
-                for (ai = aitop; ai; ai = ai->ai_next) {
+    return(-1);
+    }
+
+  for (display_number = X11OFFSET;display_number < MAX_DISPLAYS;display_number++) 
+    {
+    port = 6000 + display_number;
+
+    memset(&hints,0,sizeof(hints));
+
+    hints.ai_family = IPv4or6;
+    hints.ai_flags = x11_use_localhost ? 0: AI_PASSIVE;
+    hints.ai_socktype = SOCK_STREAM;
+
+    snprintf(strport,sizeof(strport),"%d", 
+      port);
+
+    if ((gaierr = getaddrinfo(NULL,strport,&hints,&aitop)) != 0) 
+      {
+      fprintf(stderr,"getaddrinfo: %.100s\n", 
+        gai_strerror(gaierr));
+
+      free(socks);
+
+      return(-1);
+      }
+
+    /* create a socket and bind it to display_number foreach address */
+
+    for (ai = aitop;ai != NULL;ai = ai->ai_next) 
+      {
                         if (ai->ai_family != AF_INET && ai->ai_family != AF_INET6)
                                 continue;
                         sock = socket(ai->ai_family, SOCK_STREAM, 0);
@@ -548,67 +613,107 @@ int x11_create_display(
                         }
 #endif
                 }
-                freeaddrinfo(aitop);
-                if (num_socks > 0)
-                        break;
-        }                                                                                   
-        if (display_number >= MAX_DISPLAYS) {
-                fprintf(stderr,"Failed to allocate internet-domain X11 display socket.\n");
-                free(socks);
-                return -1;
-        }
-        /* Start listening for connections on the socket. */
-        for (n = 0; n < num_socks; n++) {
-                DBPRT(("listening on fd %d\n",(socks+n)->sock));
-                if (listen((socks+n)->sock, 5) < 0) {
-                        fprintf(stderr,"listen: %.100s\n", strerror(errno));
-                        close((socks+n)->sock);
-                        free(socks);
-                        return -1;
-                }
-                (socks+n)->listening=1;
-        }
 
-        /* setup local xauth */
-        sprintf(display, "localhost:%u.%u",
-          display_number, x11screen);
-        snprintf(auth_display, sizeof auth_display, "unix:%u.%u",
-          display_number, x11screen);
+    freeaddrinfo(aitop);
 
-        snprintf(cmd, sizeof cmd, "%s %s -",xauth_path,DEBUGMODE?"-v":"-q");
-        f = popen(cmd, "w");
-        if (f) {
-          fprintf(f, "remove %s\n", auth_display);
-          fprintf(f, "add %s %s %s\n",auth_display,x11proto,x11data);
-          pclose(f);
-        } else {
-          fprintf(stderr, "Could not run %s\n",
-            cmd);
-          free(socks);
-          return(-1);
-        }
+    if (num_socks > 0)
+      break;
+    }  /* END for (display) */
+                                                                                   
+  if (display_number >= MAX_DISPLAYS) 
+    {
+    fprintf(stderr,"Failed to allocate internet-domain X11 display socket.\n");
 
-        
-        if ((childpid=fork()) > 0)
-          {
-          free(socks);
-          DBPRT(("successful x11 init, returning display %d\n",display_number));
-          return (display_number);
-          }
-        else if (childpid < 0)
-          {
-          fprintf(stderr,"failed x11 init fork\n");
-          free(socks);
-          return(-1);
-          }
-        else
-          {
-          DBPRT(("entering port_forwarder\n"));
-          port_forwarder(socks,conn_qsub,phost,pport);
-          }
+    free(socks);
 
-        exit(EXIT_FAILURE);
-}
+    return(-1);
+    }
+
+  /* Start listening for connections on the socket. */
+
+  for (n = 0;n < num_socks;n++) 
+    {
+    DBPRT(("listening on fd %d\n",
+      (socks + n)->sock));
+  
+    if (listen((socks + n)->sock,TORQUE_LISTENQUEUE) < 0) 
+      {
+      fprintf(stderr,"listen: %.100s\n", 
+        strerror(errno));
+
+      close((socks + n)->sock);
+
+      free(socks);
+
+      return(-1);
+      }
+
+    (socks+n)->listening = 1;
+    }
+
+  /* setup local xauth */
+
+  sprintf(display,"localhost:%u.%u",
+    display_number, 
+    x11screen);
+
+  snprintf(auth_display,sizeof(auth_display),"unix:%u.%u",
+    display_number, 
+    x11screen);
+
+  snprintf(cmd,sizeof(cmd),"%s %s -",
+    xauth_path,
+    DEBUGMODE ? "-v" : "-q");
+
+  f = popen(cmd,"w");
+
+  if (f) 
+    {
+    fprintf(f,"remove %s\n", 
+      auth_display);
+
+    fprintf(f,"add %s %s %s\n",
+      auth_display,
+      x11proto,
+      x11data);
+
+    pclose(f);
+    } 
+  else 
+    {
+    fprintf(stderr,"could not run %s\n",
+      cmd);
+
+    free(socks);
+
+    return(-1);
+    }
+
+  if ((childpid = fork()) > 0)
+    {
+    free(socks);
+
+    DBPRT(("successful x11 init, returning display %d\n",
+      display_number));
+
+    return(display_number);
+    }
+
+  if (childpid < 0)
+    {
+    fprintf(stderr,"failed x11 init fork\n");
+
+    free(socks);
+
+    return(-1);
+    }
+
+  DBPRT(("entering port_forwarder\n"));
+
+  port_forwarder(socks,conn_qsub,phost,pport,NULL);
+
+  exit(EXIT_FAILURE);
+  }  /* END x11_create_display() */
 
 
 

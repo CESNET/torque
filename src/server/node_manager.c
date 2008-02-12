@@ -148,16 +148,20 @@ extern char	*path_home;
 extern char	*path_nodes;
 extern char	*path_nodes_new;
 extern char	*path_nodestate;
+extern char	*path_nodenote;
+extern char	*path_nodenote_new;
 extern unsigned int pbs_mom_port;
 extern char  server_name[];
 
 extern struct server server;
 extern tlist_head svr_newnodes;
 extern attribute_def  node_attr_def[];   /* node attributes defs */
+extern int            SvrNodeCt;
 
 #define	SKIP_NONE	0
 #define	SKIP_EXCLUSIVE	1
 #define	SKIP_ANYINUSE	2
+#define SKIP_NONE_REUSE 3
 
 int hasprop(struct pbsnode *,struct prop *);
 void send_cluster_addrs(struct work_task *);
@@ -816,7 +820,11 @@ void sync_node_jobs(
 
           /* double check the job struct because we could be in the middle of moving
              the job around because of data staging, suspend, or rerun */
-          if (strstr(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,np->nd_name) == NULL)
+          if (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str == NULL)
+            {
+            pjob=NULL;
+            }
+          else if (strstr(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,np->nd_name) == NULL)
             {
             pjob=NULL;
             }
@@ -900,7 +908,9 @@ void send_cluster_addrs(
     {
     /* new nodes are still being added... don't bother yet or start over */
 
-    DBPRT(("%s: not sending addrs yet, %d tasks exist\n",id,num_addrnote_tasks));
+    DBPRT(("%s: not sending addrs yet, %d tasks exist\n",
+      id,
+      num_addrnote_tasks));
 
     startcount = 0;
 
@@ -922,6 +932,7 @@ void send_cluster_addrs(
      * otherwise we'll get bogged down.  The skipped nodes will get the
      * updated info when they reconnect. 
      */
+
     if ((np == NULL) || (np->nd_state & INUSE_DELETED) || (np->nd_stream < 0))
       continue;
 
@@ -980,17 +991,28 @@ void send_cluster_addrs(
   else
     {
     /* all nodes have new addr list, so clear the new nodes */
+
     while ((nnew = (new_node *)GET_NEXT(svr_newnodes)) != NULL)
       {
-      np=find_nodebyname(nnew->nn_name);
+      np = find_nodebyname(nnew->nn_name);
+
       if (np != NULL)
         {
         np->nd_state &= ~INUSE_OFFLINE;
         }
+
       delete_link(&nnew->nn_link);
       }
+
+      /* reset startcount, as we've sent the updates for all servers */
+      startcount = 0;
     }
-  } /* END send_cluster_addrs */
+  }     /* END send_cluster_addrs */
+
+
+
+
+
 
 /*
  *      setup_notification -  Sets up the  mechanism for notifying
@@ -1165,13 +1187,13 @@ int is_stat_get(
         struct attribute nattr;
 
         /* first we decode ret_info into nattr... */
-        if ((node_attr_def + NODE_ATR_np)->at_decode(&nattr,ATTR_NODE_np,NULL,ret_info+6) == 0)
+        if ((node_attr_def + ND_ATR_np)->at_decode(&nattr,ATTR_NODE_np,NULL,ret_info+6) == 0)
           {
           /* ... and if MOM's ncpus is higher than our np... */
           if (nattr.at_val.at_long > np->nd_nsn)
             {
             /* ... then we do the defined magic to create new subnodes */
-            (node_attr_def + NODE_ATR_np)->at_action(&nattr,(void *)np,ATR_ACTION_ALTER);
+            (node_attr_def + ND_ATR_np)->at_action(&nattr,(void *)np,ATR_ACTION_ALTER);
 
             update_nodes_file();
             }
@@ -1286,11 +1308,12 @@ done:
 
 /* EOF on a stream received (either stream or addr must be specified) */
 /* mark node down and remove associated streams */
+/* NOTE: pass in stream = -1 if you wish the stream to be optional */
 
 void stream_eof(
 
   int	 stream,  /* I (optional) */
-  u_long addr,    /* I (optional) */
+  u_long addr,  /* I (optional) */
   int	 ret)     /* I (ignored) */
 
   {
@@ -1320,7 +1343,7 @@ void stream_eof(
     return;
     }
 
-  sprintf(log_buffer,"connection to %s is bad, remote service may be down, message may be corrupt, or connection may have been dropped remotely (%s).  setting node state to down\n",
+  sprintf(log_buffer,"connection to %s is bad, remote service may be down, message may be corrupt, or connection may have been dropped remotely (%s).  setting node state to down",
     np->nd_name,
     dis_emsg[ret]);
 
@@ -1332,11 +1355,11 @@ void stream_eof(
 
   /* remove stream from list of valid connections */
 
-  if (stream >= 0)
+  if (np->nd_stream >= 0)
     {
-    np->nd_stream = -1;
+    tdelete((u_long)np->nd_stream,&streams);
 
-    tdelete((u_long)stream,&streams);
+    np->nd_stream = -1;
     }
 
   return;
@@ -1354,6 +1377,9 @@ void stream_eof(
  *      connection to the node.
 */
 
+#define TNODE_PINGCOUNT     256
+#define TNODE_PINGRETRYTIME   3
+
 void ping_nodes(
 
   struct work_task *ptask)  /* I (optional) */
@@ -1361,11 +1387,7 @@ void ping_nodes(
   {
   static  char	        *id = "ping_nodes";
   struct  pbsnode	*np;
-#ifdef ENABLE_IPV6
-  struct  sockaddr_in6	*addr;
-#else
   struct  sockaddr_in	*addr;
-#endif
   int                    i, ret, com;
   extern  int            pbs_rm_port;
 
@@ -1383,9 +1405,9 @@ void ping_nodes(
       "starting");
     }
 
-  sprintf(log_buffer,"ping attempting to contact %d nodes\n",
-    (svr_totnodes - startcount > 256) ? 
-      256 : 
+  sprintf(log_buffer,"ping attempting to contact %d nodes",
+    (svr_totnodes - startcount > TNODE_PINGCOUNT) ? 
+      TNODE_PINGCOUNT : 
       (svr_totnodes - startcount < 0) ? 
         svr_totnodes : 
         svr_totnodes - startcount); /* phew! */
@@ -1402,9 +1424,9 @@ void ping_nodes(
 
   for (i = startcount;i < svr_totnodes;i++) 
     {
-    if (i - startcount > 256)
+    if (i - startcount > TNODE_PINGCOUNT)
       {
-      /* only ping 256 nodes at a time, ping next batch later */
+      /* only ping TNODE_PINGCOUNT nodes at a time, ping next batch later */
 
       break;
       }
@@ -1429,13 +1451,13 @@ void ping_nodes(
 
       if (np->nd_stream == -1) 
         {
-	sprintf(log_buffer,"rpp_open to %s",
-	  np->nd_name);
+        sprintf(log_buffer,"rpp_open to %s",
+          np->nd_name);
 
-	log_err(errno,id,log_buffer);
+        log_err(errno,id,log_buffer);
 
-	continue;
-	}
+        continue;
+        }
 
       tinsert((u_long)np->nd_stream,np,&streams);
       }  /* END if (np->nd_stream < 0) */
@@ -1506,9 +1528,9 @@ void ping_nodes(
 
   if (startcount < svr_totnodes)
     {
-    /* continue outstanding pings in 3 seconds */
+    /* continue outstanding pings in TNODE_PINGRETRYTIME seconds */
 
-    set_task(WORK_Timed,time_now + 3,ping_nodes,NULL); 
+    set_task(WORK_Timed,time_now + TNODE_PINGRETRYTIME,ping_nodes,NULL); 
     }
 
   return;
@@ -1551,6 +1573,7 @@ int add_cluster_addrs(
     for (j = 0;np->nd_addrs[j];j++)
       {   
       u_long ipaddr = np->nd_addrs[j];                                                             
+
       if (LOGLEVEL >= 8)
         {
         sprintf(log_buffer,"adding node[%d] interface[%d] %ld.%ld.%ld.%ld to hello response",
@@ -1643,13 +1666,6 @@ void check_nodes(
 
   if (ptask->wt_parm1 == NULL) 
     {
-    if (server_init_type == RECOV_HOT)
-      {
-      /* rapid ping rate while hot restart */
-
-      chk_len = 15;  /* doesn't do much good, this routine only check nodes to mark them down, not up? */
-      }
-
     set_task(
       WORK_Timed,
       time_now + chk_len, 
@@ -1691,11 +1707,7 @@ void is_request(
   int		i;
 
   unsigned long	ipaddr;
-#ifdef ENABLE_IPV6
-  struct	sockaddr_in6 *addr;
-#else
-  struct	sockaddr_in  *addr;
-#endif
+  struct	sockaddr_in *addr;
   struct	pbsnode	*node;
   struct pbssubn *sp;
 
@@ -1747,11 +1759,7 @@ void is_request(
   if ((node = tfind((u_long)stream,&streams)) != NULL)
     goto found;
 
-#ifdef ENABLE_IPV6
-  ipaddr = ntohl(addr->sin6_addr.s6_addr32[0]);
-#else
   ipaddr = ntohl(addr->sin_addr.s_addr);
-#endif
 
   if ((node = tfind(ipaddr,&ipaddrs)) != NULL) 
     {
@@ -1806,7 +1814,7 @@ void is_request(
 
   /* node not listed in trusted ipaddrs list */
 
-  sprintf(log_buffer,"bad attempt to connect from %s (address not trusted)",
+  sprintf(log_buffer,"bad attempt to connect from %s (address not trusted - check entry in server_priv/nodes)",
     netaddr(addr));
 
   if (LOGLEVEL >= 2)
@@ -1879,7 +1887,10 @@ found:
 
       /* NOTE:  re-enabled rpp_flush/disabled rpp_eom (CRI) */
 
-      rpp_flush(stream);
+      ret = rpp_flush(stream);
+
+      if (ret != DIS_SUCCESS)
+        goto err;
 
       if (LOGLEVEL >= 3)
         {
@@ -2112,6 +2123,94 @@ void write_node_state()
 
 
 
+/* Create a new node_note file then overwrite the previous one.
+ *
+ *   The note file could get up to:
+ *      (# of nodes) * (2 + MAX_NODE_NAME + MAX_NOTE)  bytes in size
+ */
+int write_node_note()
+  {
+  static char id[] = "write_node_note";
+  struct pbsnode *np;
+  int	i;
+  FILE	*nin;
+
+  if (LOGLEVEL >= 2)
+    {
+    DBPRT(("%s: entered\n",
+      id))
+    }
+
+  if ((nin = fopen(path_nodenote_new,"w")) == NULL) 
+    goto err1;
+
+  if ((svr_totnodes == 0) || (pbsndmast == NULL)) 
+    {
+    log_event(
+      PBSEVENT_ADMIN, 
+      PBS_EVENTCLASS_SERVER, 
+      "node_note",
+      "Server has empty nodes list");
+
+    fclose(nin);
+
+    return(-1);
+    }
+
+  /* for each node ... */
+
+  for (i = 0;i < svr_totnodes;++i) 
+    {
+    np = pbsndmast[i];
+
+    if (np->nd_state & INUSE_DELETED)
+      continue;
+
+    /* write node name followed by its note string */
+
+    if (np->nd_note != NULL && np->nd_note != '\0')
+      {
+      fprintf(nin,"%s %s\n",
+        np->nd_name,
+        np->nd_note);
+      }
+    }
+
+   fflush(nin);
+
+   if (ferror(nin)) 
+     {
+     fclose(nin);
+     goto err1;
+     }
+
+  fclose(nin);
+
+  if (rename(path_nodenote_new, path_nodenote) != 0)
+    {
+    log_event(
+      PBSEVENT_ADMIN, 
+      PBS_EVENTCLASS_SERVER, 
+      "node_note",
+      "replacing old node note file failed");
+
+    return(-1);
+    }
+
+  return(0);
+
+  err1:
+    log_event(
+      PBSEVENT_ADMIN, 
+      PBS_EVENTCLASS_SERVER, 
+      "node_note",
+      "Node note file update failed");
+
+    return(-1);
+
+  }  /* END write_node_note() */
+
+
 
 /*
  * free_prop - free list of prop structures created by proplist()
@@ -2239,7 +2338,9 @@ static int hasppn(
   int             free)      /* I */
 
   {
-  if ((free != SKIP_NONE) && (pnode->nd_nsnfree >= node_req))
+  if ((free != SKIP_NONE) && 
+      (free != SKIP_NONE_REUSE) && 
+      (pnode->nd_nsnfree >= node_req))
     {
     return(1);
     }
@@ -2262,7 +2363,7 @@ static int hasppn(
 
 static void mark(
 
-  struct pbsnode *pnode,
+  struct pbsnode *pnode,  /* I */
   struct prop    *props)
 
   {
@@ -2287,7 +2388,7 @@ static void mark(
     }
 
   return;
-  }
+  }  /* END mark() */
 
 
 
@@ -2329,10 +2430,17 @@ static int search(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype  == NTYPE_CLUSTER) 
+    if (pnode->nd_ntype == NTYPE_CLUSTER) 
       {
       if (pnode->nd_flag != okay)
-        continue;
+        {
+        if ((skip != SKIP_NONE_REUSE) || (pnode->nd_flag != thinking))
+          {
+          /* allow node re-use if SKIP_NONE_REUSE is set */
+
+          continue;
+          }
+        }
 
 /* FIXME: this is rejecting job submits?
       if (pnode->nd_state & pass)
@@ -2342,7 +2450,7 @@ static int search(
       if (!hasprop(pnode,glorf))
         continue;
 
-      if (skip == SKIP_NONE)  
+      if ((skip == SKIP_NONE) || (skip == SKIP_NONE_REUSE))
         {
         if (vpreq > pnode->nd_nsn)
           continue;
@@ -2359,6 +2467,8 @@ static int search(
         continue;
         }
  
+      /* NOTE: allow node re-use if SKIP_NONE_REUSE by ignoring 'thinking' above */
+
       pnode->nd_flag = thinking;
 
       mark(pnode,glorf);
@@ -2391,7 +2501,11 @@ static int search(
     if (pnode->nd_ntype == NTYPE_CLUSTER) 
       {
       if (pnode->nd_flag != thinking)
+        {
+        /* only shuffle nodes which have been selected above */
+
         continue;
+        }
     
       if (pnode->nd_state & pass)
         continue;
@@ -2435,7 +2549,9 @@ static int search(
 
   /* FAILURE */
 
-  return(0);	/* not found */
+  /* not found */
+
+  return(0);	
   }  /* END search() */
 
 
@@ -2630,15 +2746,21 @@ static int listelem(
   struct pbsnode *pnode;
   int	node_req = 1;
 
-  if ((i = number(str, &num)) == -1)	/* get number */
+  if ((i = number(str,&num)) == -1)	/* get number */
     {
+    /* FAILURE */
+
     return(ret);
     }
 
   if (i == 0) 
-    {				/* number exists */
+    {
+    /* number exists */
+
     if (**str == ':') 
-      {		/* there are properties */
+      {
+      /* there are properties */
+
       (*str)++;
 
       if (proplist(str,&prop,&node_req))
@@ -2648,7 +2770,9 @@ static int listelem(
       } 
     }
   else 
-    {					/* no number */
+    {
+    /* no number */
+
     if (proplist(str,&prop,&node_req))
       {
       /* must be a prop list with no number in front */
@@ -2678,22 +2802,45 @@ static int listelem(
         break;		/* found enough  */
         }
       }
-    }
+    }    /* END for (i) */
 
-  if (hit < num)			/* can never be satisfied */
-    goto done;
+  if (hit < num)	
+    {
+    /* request exceeds configured nodes */
+
+    if ((SvrNodeCt == 0) || (SvrNodeCt < num))
+      {
+      /* request exceeds server resources_available */
+
+      /* request can never be satisfied */
+
+      goto done;
+      }
+    }
 
   /*
   ** Find an initial set of nodes to satisfy the request.
-  ** Go ahead and use any nodes no mater what state they are in.
+  ** Go ahead and use any nodes no matter what state they are in.
   */
+
+  /* NOTE:  SKIP_NONE_REUSE will not mark nodes as inuse, ie allow node re-use */
 
   for (i = 0;i < num;i++) 
     {
-    if (search(prop,node_req,SKIP_NONE,order,0))
-      continue;
+    if (SvrNodeCt == 0)
+      {
+      if (search(prop,node_req,SKIP_NONE,order,0))
+        continue;
+      }
+    else
+      {
+      if (search(prop,node_req,SKIP_NONE_REUSE,order,0))
+        continue;
+      }
 
-    goto done;		/* can never be satisfied */
+    /* can never be satisfied */
+
+    goto done;
     }
 
   ret = 1;
@@ -2905,6 +3052,9 @@ int MSNPrintF(
   }  /* END MSNPrintF() */
 
 
+
+
+
 /*
  *	Test a node specification.  
  *
@@ -2943,14 +3093,17 @@ static int node_spec(
 
   if (LOGLEVEL >= 6)
     {
-    sprintf(log_buffer,"entered spec=%.4000s",spec);
-      log_record(
-        PBSEVENT_SCHED,
-        PBS_EVENTCLASS_REQUEST,
-        id,
-        log_buffer);
+    sprintf(log_buffer,"entered spec=%.4000s",
+      spec);
 
-    DBPRT(("%s\n", log_buffer));
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    DBPRT(("%s\n",
+      log_buffer));
     }
 
   exclusive = 1;	/* by default, nodes (VPs) are requested exclusively */
@@ -3028,7 +3181,7 @@ static int node_spec(
     return(-1);
     }
 
-  if (LOGLEVEL >=6)
+  if (LOGLEVEL >= 6)
     {
     sprintf(log_buffer,"job allocation debug: %d requested, %d svr_clnodes, %d svr_totnodes",
       num,
@@ -3040,7 +3193,8 @@ static int node_spec(
       id,
       log_buffer);
 
-    DBPRT(("%s\n", log_buffer));
+    DBPRT(("%s\n",
+      log_buffer));
     }
 
   /*
@@ -3183,7 +3337,7 @@ static int node_spec(
     return(0);
     }  /* END if ((num > svr_numnodes) && early) */
 
-  if (LOGLEVEL >=6)
+  if (LOGLEVEL >= 6)
     {
     sprintf(log_buffer,"job allocation debug(2): %d requested, %d svr_numnodes",
       num,
@@ -3195,8 +3349,10 @@ static int node_spec(
       id,
       log_buffer);
 
-    DBPRT(("%s\n", log_buffer));
+    DBPRT(("%s\n",
+      log_buffer));
     }
+
   /*
    * 	At this point we know the spec is legal.
    *	Here we find a replacement for any nodes chosen above
@@ -3367,7 +3523,7 @@ static int node_spec(
 
   /* SUCCESS - spec is ok */
 
-  if (LOGLEVEL >=6)
+  if (LOGLEVEL >= 6)
     {
     sprintf(log_buffer,"job allocation debug(3): returning %d requested",
       num);
@@ -3378,7 +3534,8 @@ static int node_spec(
       id,
       log_buffer);
 
-    DBPRT(("%s\n", log_buffer));
+    DBPRT(("%s\n", 
+      log_buffer));
     }
 
   return(num);	
@@ -3488,7 +3645,13 @@ int set_nodes(
       continue;
 
     if (pnode->nd_flag != thinking)
-      continue;			/* skip this one */
+      {
+      /* node is not considered/eligible for job - see search() */
+
+      /* skip node */
+
+      continue;	
+      }
 
     /* within the node, check each subnode */
 
@@ -3595,8 +3758,11 @@ DBPRT(("%s\n",log_buffer));
         log_buffer);
       }
 
+    if (EMsg != NULL)
+      sprintf(EMsg,"no nodes can be allocated to job");
+
     return(PBSE_RESCUNAV);
-    }
+    }  /* END if (hlist == NULL) */
 
   pjob->ji_qs.ji_svrflags |= JOB_SVFLG_HasNodes;  /* indicate has nodes */
 
@@ -3659,10 +3825,11 @@ DBPRT(("%s\n",log_buffer));
 
 /*
  * node_avail_complex - 
- *		*navail is set to number available
- *		*nalloc is set to number allocated
- *		*nresvd is set to number reserved 
- *		*ndown  is set to number down/offline
+ *	*navail is set to number available
+ *	*nalloc is set to number allocated
+ *	*nresvd is set to number reserved 
+ *	*ndown  is set to number down/offline
+ *      return -1 on failure
  */
 
 int node_avail_complex(

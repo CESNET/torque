@@ -84,7 +84,7 @@
  * Functions which support the Status Job Batch Request.
  *
  * Included funtions are:
- *	status_jobs()
+ *	status_job()
  *	status_attrib()
  */
 #include <sys/types.h>
@@ -119,11 +119,11 @@ extern struct server server;
 
 int status_job(
 
-  job	  *pjob,	/* ptr to job to status */
+  job	     *pjob,	/* ptr to job to status */
   struct batch_request *preq,
-  svrattrl  *pal,	/* specific attributes to status */
+  svrattrl   *pal,	/* specific attributes to status */
   tlist_head *pstathd,	/* RETURN: head of list to append status to */
-  int       *bad)	/* RETURN: index of first bad attribute */
+  int        *bad)	/* RETURN: index of first bad attribute */
 
   {
   struct brp_status *pstat;
@@ -236,12 +236,15 @@ int status_attrib(
 
       if ((padef + index)->at_flags & priv) 
         {
-        (padef + index)->at_encode(
-          pattr + index, 
-          phead,
-          (padef + index)->at_name,
-          NULL, 
-          ATR_ENCODE_CLIENT);
+        if (!(((padef + index)->at_flags & ATR_DFLAG_PRIVR) && (IsOwner == 0)))
+          {
+          (padef + index)->at_encode(
+            pattr + index, 
+            phead,
+            (padef + index)->at_name,
+            NULL, 
+            ATR_ENCODE_CLIENT);
+          }
         }
 
       pal = (svrattrl *)GET_NEXT(pal->al_link);
@@ -256,24 +259,16 @@ int status_attrib(
       if (((padef + index)->at_flags & priv) &&
          !((padef + index)->at_flags & ATR_DFLAG_NOSTAT)) 
         {
-        if (IsOwner == 0)
+        if (!(((padef + index)->at_flags & ATR_DFLAG_PRIVR) && (IsOwner == 0)))
           {
-          if (!strcmp(
-                (padef + index)->at_name,
-                job_attr_def[(int)JOB_ATR_variables].at_name))
-            {
-            /* do not display privileged attributes */
 
-            continue;
-            }
+          (padef + index)->at_encode(
+            pattr + index, 
+            phead,
+            (padef + index)->at_name,
+            NULL, 
+            ATR_ENCODE_CLIENT);
           }
-
-        (padef + index)->at_encode(
-          pattr + index, 
-          phead,
-          (padef + index)->at_name,
-          NULL, 
-          ATR_ENCODE_CLIENT);
         }
       }    /* END for (index) */
     }      /* END else () */

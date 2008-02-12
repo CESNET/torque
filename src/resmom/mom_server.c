@@ -111,6 +111,8 @@
 #include "attribute.h"
 #include "pbs_nodes.h"
 #include "resmon.h"
+#include "server_limits.h"
+#include "job.h"
 
 
 /* Global Data Items */
@@ -132,9 +134,11 @@ extern  int             PBSNodeCheckInterval;
 extern  char            PBSNodeMsgBuf[1024];
 extern  int             MOMRecvHelloCount[];
 extern  int             MOMRecvClusterAddrsCount[];
+extern  char            TMOMRejectConn[];
 extern  time_t          LastServerUpdateTime;
 extern  int             ServerStatUpdateInterval;
 extern  char            pbs_servername[PBS_MAXSERVER][PBS_MAXSERVERNAME + 1];
+extern  long            system_ncpus;
 extern  u_long          MOMServerAddrs[PBS_MAXSERVER];
 
 int			SStream[PBS_MAXSERVER];  /* streams to pbs_server daemons */
@@ -373,9 +377,13 @@ void tfree(
 
 
 
-/*
-**	Start a standard inter-server message.
-*/
+/**
+ * Create an inter-server message to send to pbs_server (i.e., 'send status update')
+ *
+ * @see state_to_server() - parent - create state IS_UPDATE message
+ * @see is_update_stat() - parent - create full IS_UPDATE message
+ * @see is_request() - peer - process hello/cluster_addrs requests from pbs_server
+ */
 
 int is_compose(
 
@@ -421,10 +429,15 @@ done:
 
 
 
-/*
-**	Input is coming from another server over a DIS rpp stream.
-**	Read the stream to get a Inter-Server request.
-*/
+/**
+ * Request is coming from another server (i.e., pbs_server) over a DIS rpp 
+ * stream (process 'hello' and 'cluster_addrs' request).
+ *
+ * @see is_compose() - peer - generate message to send to pbs_server.
+ * @see process_request() - peer - handle jobstart, jobcancel, etc messages.
+ *
+ * Read the stream to get a Inter-Server request.
+ */
 
 void is_request(
 
@@ -439,11 +452,7 @@ void is_request(
   int		ret = DIS_SUCCESS;
   u_long	ipaddr;
   short		port;
-#ifdef ENABLE_IPV6
-  struct	sockaddr_in6 *addr = NULL;
-#else
-  struct	sockaddr_in  *addr = NULL;
-#endif
+  struct	sockaddr_in *addr = NULL;
   void		init_addrs();
 
   int           ServerIndex;
@@ -498,13 +507,9 @@ void is_request(
 
   if (ServerIndex == -1)
     {
-#ifdef ENABLE_IPV6
-    port = ntohs((unsigned short)addr->sin6_port);
-    ipaddr = ntohl(addr->sin6_addr.s6_addr32[0]);
-#else
     port = ntohs((unsigned short)addr->sin_port);
+
     ipaddr = ntohl(addr->sin_addr.s_addr);
-#endif
 
     for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
       {
@@ -539,6 +544,10 @@ void is_request(
       {
       sprintf(log_buffer,"bad connect from %s - unauthorized server",
         netaddr(addr));
+
+      sprintf(TMOMRejectConn,"%s  %s",
+        netaddr(addr),
+        "(server not authorized)");
 
       log_err(-1,id,log_buffer);
 
@@ -714,12 +723,125 @@ err:
 
   rpp_close(stream);
 
+  if (ServerIndex != -1)
+    SStream[ServerIndex] = -1;
+
   return;
   }  /* END is_request() */
 
 
 
 
+
+float compute_load_threshold(
+
+  char  *config,
+  int    numvnodes,
+  float  threshold)
+
+  {
+  float  retval = -1;
+  float  tmpval;
+  char  *op;
+
+  if (numvnodes <= 0)
+    {
+    return(threshold);
+    }
+
+  if ((config == NULL) || (*config == '0'))
+    {
+    return(threshold);
+    }
+
+  switch (*config)
+    {
+    case 'c':
+
+      retval = system_ncpus;
+
+      break;
+
+    case 't':
+
+      retval = numvnodes;
+
+      break;
+
+    default:
+
+      return(threshold);
+
+      /*NOTREACHED*/
+
+      break;
+    }
+
+  config++;
+
+  switch (*config)
+    {
+    case '+':
+    case '-':
+    case '*':
+    case '/':
+
+      op = config;
+
+      break;
+
+    default:
+
+      return(retval);
+
+      /*NOTREACHED*/
+
+      break;
+    }
+
+  config++;
+
+  tmpval = atof(config);
+
+  if (!tmpval)
+    {
+    return(retval);
+    }
+
+  switch (*op)
+    {
+    case '+':
+
+      retval = retval + tmpval;
+
+      break;
+
+    case '-':
+
+      retval = retval - tmpval;
+
+      break;
+
+    case '*':
+
+      retval = retval * tmpval;
+
+      break;
+
+    case '/':
+
+      retval = retval / tmpval;
+
+      break;
+    }
+  
+  return(retval);
+  }  /* END compute_load_threshold() */
+
+
+
+
+   
 /*
  * check_busy() - 
  *	If current load average ge max_load_val and busy not already set
@@ -733,16 +855,56 @@ void check_busy(
   double mla) /* I */
 
   {
+  static char id[] = "check_busy";
+
+  int sindex;
+  int numvnodes = 0;
+  job *pjob;
+  float myideal_load;
+  float mymax_load;
+
   extern int   internal_state;
   extern float ideal_load_val;
   extern float max_load_val;
+  extern char *auto_ideal_load;
+  extern char *auto_max_load;
+  extern tlist_head  svr_alljobs;
 
-  int sindex;
+  if ((auto_max_load != NULL) || (auto_ideal_load != NULL))
+    {
+    if ((pjob = (job *)GET_NEXT(svr_alljobs)) != NULL)
+      {
+      for (;pjob != NULL;pjob = (job *)GET_NEXT(pjob->ji_alljobs))
+        numvnodes += pjob->ji_numvnod;
+      }
 
-  if ((mla >= max_load_val) && 
+    mymax_load = compute_load_threshold(auto_max_load,numvnodes,max_load_val);
+
+    myideal_load = compute_load_threshold(auto_ideal_load,numvnodes,ideal_load_val);
+    }
+  else
+    {                                                                                     
+    mymax_load = max_load_val;
+    myideal_load = ideal_load_val;
+    }
+
+  if ((mla >= mymax_load) && 
      ((internal_state & INUSE_BUSY) == 0))
     {
     /* node transitioned from free to busy, report state */
+
+    if (LOGLEVEL >= 2)
+      {
+      sprintf(log_buffer,"state changed from idle to busy (load max=%f  detected=%f)\n",
+        mymax_load,
+        mla);
+
+      log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        id,
+        log_buffer);
+      }
 
     internal_state |= INUSE_BUSY;
 
@@ -752,10 +914,23 @@ void check_busy(
         ReportMomState[sindex] = 1;
       }
     }
-  else if ((mla < ideal_load_val) && 
+  else if ((mla < myideal_load) && 
           ((internal_state & INUSE_BUSY) != 0))
     {
     /* node transitioned from busy to free, report state */
+
+    if (LOGLEVEL >= 4)
+      {
+      sprintf(log_buffer,"state changed from busy to idle (load max=%f  detected=%f)\n",
+        mymax_load,
+        mla);
+
+      log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        id,
+        log_buffer);
+      }
 
     internal_state = (internal_state & ~INUSE_BUSY);
 
@@ -882,9 +1057,9 @@ void check_state(
   extern char *size_fs(char *);  /* FIXME: put this in a header file */
 
   /* size_fs() is arch-specific method in mom_mach.c */
-  sizestr=size_fs(path_spool);  /* returns "free:total" */
+  sizestr = size_fs(path_spool);  /* returns "free:total" */
 
-  freespace=strTouL(sizestr,NULL,10);
+  freespace = strTouL(sizestr,NULL,10);
 
   if (freespace < TMINSPOOLBLOCKS)
     {
@@ -946,9 +1121,11 @@ void check_state(
 
 
 
-/*
+/**
  * state_to_server() - if ReportMomState is set, send state message to
  *	the server.
+ *
+ * @see is_compose() - child
  */
 
 void state_to_server(
@@ -957,7 +1134,7 @@ void state_to_server(
   int force)        /* I (boolean) */
 
   {
-  char *id = "state_to_server";
+  static char id[] = "state_to_server";
 
   if ((force == 0) && (ReportMomState[ServerIndex] == 0))
     {
@@ -974,14 +1151,16 @@ void state_to_server(
   if (is_compose(SStream[ServerIndex],IS_UPDATE) != DIS_SUCCESS) 
     {
     rpp_close(SStream[ServerIndex]);
-    SStream[ServerIndex]=-1;
+    SStream[ServerIndex] = -1;
+
     return;		
     } 
 
   if (diswui(SStream[ServerIndex],internal_state) != DIS_SUCCESS) 
     {
     rpp_close(SStream[ServerIndex]);
-    SStream[ServerIndex]=-1;
+    SStream[ServerIndex] = -1;
+
     return;
     }
 

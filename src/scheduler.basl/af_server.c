@@ -898,7 +898,7 @@ int ServerOpenInit( server )
 Server *server;
 {
        char     *id         = "ServerOpenInit";
-       static   struct   sockaddr_in  saddr;
+       static   struct   sockaddr_in saddr;
        struct   hostent     *hp;
        int	            sock;		
        int                  t = 1;

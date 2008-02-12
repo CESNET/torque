@@ -77,6 +77,7 @@
 * without reference to its choice of law rules.
 */
 
+/* DIAGTODO: write diag.h and fill out new attrs */
 /*
  * server.h - definitions for the server object (structure)
  *
@@ -92,7 +93,7 @@
  */
 
 enum srv_atr {
-	SRV_ATR_State,
+	SRV_ATR_State,                 /* 0 */
 	SRV_ATR_scheduling,
 	SRV_ATR_max_running,
 	SRV_ATR_MaxUserRun,
@@ -102,7 +103,7 @@ enum srv_atr {
 	SRV_ATR_acl_host_enable,
 	SRV_ATR_acl_hosts,
 	SRV_ATR_AclUserEnabled,
-	SRV_ATR_AclUsers,
+	SRV_ATR_AclUsers,              /* 10 */
 	SRV_ATR_AclRoot,
 	SRV_ATR_managers,
 	SRV_ATR_operators,
@@ -112,7 +113,7 @@ enum srv_atr {
 	SRV_ATR_query_others,
 	SRV_ATR_resource_avail,
 	SRV_ATR_resource_deflt,
-	SRV_ATR_ResourceMax,
+	SRV_ATR_ResourceMax,           /* 20 */
 	SRV_ATR_resource_assn,
 	SRV_ATR_resource_cost,
 	SRV_ATR_sys_cost,
@@ -122,16 +123,18 @@ enum srv_atr {
         SRV_ATR_tcp_timeout,
 	SRV_ATR_Comment,
 	SRV_ATR_DefNode,
-	SRV_ATR_NodePack,
+	SRV_ATR_NodePack,              /* 30 */
+        SRV_ATR_NodeSuffix,
         SRV_ATR_JobStatRate,
 	SRV_ATR_PollJobs,
         SRV_ATR_LogLevel,
         SRV_ATR_DownOnError,
+        SRV_ATR_DisableServerIdCheck,
         SRV_ATR_JobNanny,
         SRV_ATR_OwnerPurge,
         SRV_ATR_QCQLimits,
-        SRV_ATR_MomJobSync,
-        SRV_ATR_MailDomain,
+        SRV_ATR_MomJobSync,            /* 40 */
+        SRV_ATR_MailDomain,            
 	SRV_ATR_version,
 	SRV_ATR_KillDelay,
 	SRV_ATR_AclLogic,
@@ -139,13 +142,17 @@ enum srv_atr {
 	SRV_ATR_KeepCompleted,
 	SRV_ATR_SubmitHosts,
 	SRV_ATR_AllowNodeSubmit,
+        SRV_ATR_AllowProxyUser,
 	SRV_ATR_AutoNodeNP,
 	SRV_ATR_LogFileMaxSize,
 	SRV_ATR_LogFileRollDepth,
-	SRV_ATR_NextJobNum,
-	SVR_ATR_tokens,
-#include "site_svr_attr_enum.h"
+	SRV_ATR_NextJobNumber,
+	SRV_ATR_tokens,
+	SRV_ATR_NetCounter,
+	SRV_ATR_ExtraResc,
 	SRV_ATR_ServerName,
+	SRV_ATR_SchedVersion,
+#include "site_svr_attr_enum.h"
 	/* This must be last */
 	SRV_ATR_LAST
 };

@@ -2,7 +2,8 @@ include $(top_srcdir)/buildutils/config.mk
 
 include_HEADERS = pbs_error.h pbs_ifl.h tm.h tm_.h rpp.h rm.h
 
-noinst_HEADERS = acct.h attribute.h batch_request.h cmds.h credential.h \
+noinst_HEADERS = acct.h array.h attribute.h batch_request.h cmds.h \
+		 credential.h \
 		 dis.h dis_init.h job.h libpbs.h list_link.h log.h Long_.h \
 		 Long.h mcom.h md5.h mom_func.h net_connect.h pbs_assert.h \
 		 pbs_nodes.h pbs_proto.h portability.h qmgr.h \
@@ -10,7 +11,7 @@ noinst_HEADERS = acct.h attribute.h batch_request.h cmds.h credential.h \
 		 qmgr_que_readonly.h qmgr_svr_public.h qmgr_svr_readonly.h \
 		 queue.h resmon.h resource.h sched_cmds.h server.h \
 		 server_limits.h svrfunc.h tracking.h work_task.h \
-                 port_forwarding.h pbs_cpa.h
+                 port_forwarding.h pbs_cpa.h pbs_cpuset.h
 
 BUILT_SOURCES = site_job_attr_def.h site_job_attr_enum.h \
 		site_qmgr_node_print.h site_qmgr_que_print.h \

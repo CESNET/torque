@@ -172,7 +172,7 @@ char *msg_svrdown	= "Server shutdown completed";
 
 /* sync w/enum PBatchReqTypeEnum in libpbs.h */
 
-const char *PBatchReqType[] = {
+static const char *PBatchReqType[] = {
   "Connect",
   "QueueJob",
   "JobCred",
@@ -235,6 +235,8 @@ const char *PBatchReqType[] = {
   "Disconnect",
   NULL };
 
+#define NPBatchReqType (sizeof(PBatchReqType)/sizeof(PBatchReqType[0]))
+
 /*
  * This next set of messages are returned to the client on an error.
  * They may also be logged.
@@ -291,6 +293,7 @@ char *msg_sched_nocall  = "Could not contact Scheduler";
 char *msg_stageinfail	= "Stage In of files failed";
 char *msg_rescunav	= "Resource temporarily unavailable";
 char *msg_maxqueued	= "Maximum number of jobs already in queue";
+char *msg_maxuserqued   = "Maximum number of jobs already in queue for user";
 char *msg_chkpointbusy	= "Checkpoint busy, may retry";
 char *msg_exceedlmt	= "Resource limit exceeds allowable";
 char *msg_badacct	= "Invalid Account";
@@ -322,7 +325,14 @@ char *msg_sisreject     = "sister rejected";
 char *msg_toomany       = "Too many submit retries";
 char *msg_jobtype       = "Wrong job type";
 char *msg_badaclhost	= "Bad ACL entry in host list";
-
+char *msg_baddisallowtype = "Bad type in disallowed_types list";
+char *msg_nointeractive = "Queue does not allow interactive jobs";
+char *msg_nobatch       = "Queue does not allow batch jobs";
+char *msg_norerunable   = "Queue does not allow rerunable jobs";
+char *msg_nononrerunable = "Queue does not allow nonrerunable jobs";
+char *msg_unkarrayid    = "Unknown Array ID";
+char *msg_bad_array_req = "Bad Job Array Request";
+char *msg_timeout 	= "Time out";
 /*
  * The following table connects error numbers with text
  * to be returned to the client.  Each is guaranteed to be pure text.
@@ -376,6 +386,7 @@ struct pbs_err_to_txt pbs_err_to_txt[] = {
 	{ PBSE_RESCUNAV, &msg_rescunav },
 	{ PBSE_BADGRP,  &msg_badgrp },
 	{ PBSE_MAXQUED, &msg_maxqueued },
+	{ PBSE_MAXUSERQUED, &msg_maxuserqued },
 	{ PBSE_CKPBSY, &msg_chkpointbusy },
 	{ PBSE_EXLIMIT, &msg_exceedlmt },
 	{ PBSE_BADACCT, &msg_badacct },
@@ -408,6 +419,14 @@ struct pbs_err_to_txt pbs_err_to_txt[] = {
         { PBSE_TOOMANY, &msg_toomany },
 	{ PBSE_JOBTYPE, &msg_jobtype },
         { PBSE_BADACLHOST, &msg_badaclhost },
+        { PBSE_BADDISALLOWTYPE, &msg_baddisallowtype },
+        { PBSE_NOINTERACTIVE, &msg_nointeractive },
+        { PBSE_NOBATCH, &msg_nobatch },
+	{ PBSE_NORERUNABLE, &msg_norerunable },
+	{ PBSE_NONONRERUNABLE, &msg_nononrerunable },
+	{ PBSE_UNKARRAYID, &msg_unkarrayid },
+	{ PBSE_BAD_ARRAY_REQ, &msg_bad_array_req },
+	{ PBSE_TIMEOUT, &msg_timeout },
         { PBSE_NONE, &msg_none },
 	{ 0, (char **)0 }		/* MUST be the last entry */
 };
@@ -440,4 +459,17 @@ char *pbse_to_txt(
   }  /* END pbse_to_txt() */
 
 
+/*
+ * rqtype_to_txt()	- Return the printable name of a request type
+ */
 
+const char *reqtype_to_txt(
+
+  int reqtype)
+
+  {
+  if (reqtype >= 0 && reqtype < (int)NPBatchReqType && PBatchReqType[reqtype])
+    return(PBatchReqType[reqtype]);
+  else
+    return("NONE");
+  }  /* END reqtype_to_txt() */

@@ -91,6 +91,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <stdlib.h>
 #include "portability.h"
 #include "log.h"
 
@@ -101,17 +102,19 @@ int main(
   char *argv[])
 
   {
-	int err = 0;
-	int i;
-	int j;
-	int dir = 0;
-	int no_err = 0;
-	int sticky = 0;
-	extern int optind;
+  int err = 0;
+  int i;
+  int j;
+  int dir = 0;
+  int no_err = 0;
+  int sticky = 0;
+  int umask = S_IWGRP | S_IWOTH;
 
-        chk_file_sec_stderr=1;
+  extern int optind;
 
-	while ((i = getopt(argc, argv, "dns")) != EOF) {
+  chk_file_sec_stderr = 1;
+
+	while ((i = getopt(argc, argv, "dnsu")) != EOF) {
 	    switch (i) {
 		case 'd': dir = 1;
 			  break;
@@ -119,17 +122,19 @@ int main(
 			  break;
 		case 's': sticky = 1;
 			  break;
+		case 'u': umask = strtol(optarg, NULL, 8);
+			  break;
 		default: err = 1;
 	    }
 	}
 
 	if (err || (optind == argc)) {
-		fprintf(stderr, "Usage %s -d -s -n path ...\n\twhere:\t-d indicates directory (file otherwise)\n\t\t-s indicates world write allowed if sticky set\n\t\t-n indicates do not return the error status, exit with 0\n", argv[0]);
+		fprintf(stderr, "Usage %s -d -s -n [-u mask] path ...\n\twhere:\t-d indicates directory (file otherwise)\n\t\t-s indicates world write allowed if sticky set\n\t\t-n indicates do not return the error status, exit with 0\n\t\t-u mask overrides the default umask (022)\n", argv[0]);
 		return 1;
 	}
 
 	for (i=optind; i < argc; ++i)
-		if ((j=chk_file_sec(argv[i], dir, sticky, S_IWGRP|S_IWOTH, 1))) {
+		if ((j=chk_file_sec(argv[i], dir, sticky, umask, 1,NULL))) {
 			err=1;
 		}
 

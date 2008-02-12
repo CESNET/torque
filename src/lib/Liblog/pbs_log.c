@@ -115,6 +115,8 @@
 /* Global Data */
 char log_buffer[LOG_BUF_SIZE];
 char log_directory[_POSIX_PATH_MAX/2];
+char log_host[1024];
+char log_suffix[1024];
 
 char *msg_daemonname = "unset";
 
@@ -150,20 +152,71 @@ static char *class_names[] = {
  *	based on the date: yyyymmdd
  */
 
-static char *mk_log_name(pbuf)
-	char *pbuf;
-{
-	struct tm *ptm;
-	time_t time_now;
+static char *mk_log_name(
 
-	time_now = time((time_t *)0);
-	ptm = localtime(&time_now);
-	(void)sprintf(pbuf, "%s/%04d%02d%02d", log_directory, ptm->tm_year+1900,
-		      ptm->tm_mon+1, ptm->tm_mday);
-	log_open_day = ptm->tm_yday;	/* Julian date log opened */
-	return (pbuf);
-}
+  char *pbuf)     /* O (minsize=1024) */
 
+  {
+  struct tm *ptm;
+  time_t time_now;
+
+  time_now = time((time_t *)0);
+  ptm = localtime(&time_now);
+
+  if (log_suffix[0] != '\0')
+    {
+    if (!strcasecmp(log_suffix,"%h"))
+      {
+      sprintf(pbuf,"%s/%04d%02d%02d.%s",
+        log_directory,
+        ptm->tm_year + 1900,
+        ptm->tm_mon + 1,
+        ptm->tm_mday,
+        (log_host[0] != '\0') ? log_host : "localhost");
+      }
+    else
+      {
+      sprintf(pbuf,"%s/%04d%02d%02d.%s", 
+        log_directory, 
+        ptm->tm_year + 1900,
+        ptm->tm_mon + 1, 
+        ptm->tm_mday,
+        log_suffix);
+      }
+    }
+  else
+    {
+    sprintf(pbuf,"%s/%04d%02d%02d",
+      log_directory,
+      ptm->tm_year + 1900,
+      ptm->tm_mon + 1,
+      ptm->tm_mday);
+    }
+
+  log_open_day = ptm->tm_yday;	/* Julian date log opened */
+
+  return(pbuf);
+  }  /* END mk_log_name() */
+
+
+
+
+
+
+int log_init(
+
+  char *suffix,    /* I (optional) */
+  char *hostname)  /* I (optional) */
+
+  {
+  if (suffix != NULL)
+    strncpy(log_suffix,suffix,sizeof(log_suffix));
+
+  if (hostname != NULL)
+    strncpy(log_host,hostname,sizeof(log_host));
+
+  return(0);
+  }  /* END log_init() */
 
 
 
@@ -232,6 +285,7 @@ int log_open(
      {
      if (logpath != NULL)
         free(logpath);
+
      logpath = strdup(filename);
      }
 
@@ -316,7 +370,7 @@ void log_err(
 
   if (log_opened == 0)  
     {
-#if ! SYSLOG
+#if !SYSLOG
     log_open("/dev/console",log_directory);
 #endif	/* not SYSLOG */
     }
@@ -345,7 +399,7 @@ void log_err(
     syslogopen = 1;
     }
 
-  syslog(LOG_ERR|LOG_DAEMON,buf);
+  syslog(LOG_ERR|LOG_DAEMON,"%s",buf);
 #endif	/* SYSLOG */
 
   return;
@@ -358,22 +412,26 @@ void log_err(
  * log_record - log a message to the log file
  *	The log file must have been opened by log_open().
  *
+ * NOTE:  do not use in pbs_mom spawned children - does not write to syslog!!!
+ *
  *	The caller should ensure proper formating of the message if "text"
  *	is to contain "continuation lines".
  */
 
 void log_record(
 
-  int   eventtype,
-  int   objclass,
-  char *objname,
-  char *text)
+  int   eventtype,  /* I */
+  int   objclass,   /* I */
+  char *objname,    /* I */
+  char *text)       /* I */
 
   {
   time_t now;
   struct tm *ptm;
   int    rc;
   FILE  *savlog;
+  char  *start = NULL, *end = NULL;
+  size_t nchars;
 
   if (log_opened < 1)
     {
@@ -390,20 +448,46 @@ void log_record(
     log_close(1);
 
     log_open(NULL,log_directory);
+
+    if (log_opened < 1)
+      {
+      return;
+      }
     }
 
-  rc = fprintf(logfile,"%02d/%02d/%04d %02d:%02d:%02d;%04x;%10.10s;%s;%s;%s\n",
-	ptm->tm_mon + 1,
-        ptm->tm_mday,
-        ptm->tm_year + 1900,
-	ptm->tm_hour,
-        ptm->tm_min, 
-        ptm->tm_sec,
-	(eventtype & ~PBSEVENT_FORCE),
-	msg_daemonname,
-	class_names[objclass],
-	objname,
-	text);
+  /*
+   * Looking for the newline characters and splitting the output message
+   * on them.  Sequence "\r\n" is mapped to the single newline.
+   */
+  start = text;
+  while (1)
+    {
+    for (end = start; *end != '\n' && *end != '\r' && *end != '\0'; end++)
+      ;
+    nchars = end - start;
+    if (*end == '\r' && *(end + 1) == '\n')
+      end++;
+    rc = fprintf(logfile,
+	  "%02d/%02d/%04d %02d:%02d:%02d;%04x;%10.10s;%s;%s;%s%.*s\n",
+          ptm->tm_mon + 1,
+          ptm->tm_mday,
+          ptm->tm_year + 1900,
+          ptm->tm_hour,
+          ptm->tm_min, 
+          ptm->tm_sec,
+          (eventtype & ~PBSEVENT_FORCE),
+          msg_daemonname,
+          class_names[objclass],
+          objname,
+          (text == start ? "" : "[continued]"),
+          (int)nchars, start);
+    if (rc < 0)
+      break;
+
+    if (*end == '\0')
+      break;
+    start = end + 1;
+    }
 
   fflush(logfile);
 
@@ -462,7 +546,13 @@ void log_close(
   }  /* END log_close() */
 
 
-void log_roll(int max_depth)
+
+
+
+void log_roll(
+
+  int max_depth)
+
    {
    int i, suffix_size, file_buf_len, as;
    int err = 0;
@@ -470,21 +560,23 @@ void log_roll(int max_depth)
    char *dest    = NULL;
 
    if (!log_opened)
-      {
-      return;
-      }
+     {
+     return;
+     }
    
    /* save value of log_auto_switch */
+
    as = log_auto_switch;
 
    log_close(1);
 
    /* find out how many characters the suffix could be. (save in suffix_size)
       start at 1 to account for the "."  */
-   for (i = max_depth, suffix_size=1; i > 0; suffix_size++, i /= 10)
-      ;
+
+   for (i = max_depth,suffix_size = 1;i > 0;suffix_size++,i /= 10);
 
    /* allocate memory for rolling */
+
    file_buf_len = sizeof(char) * (strlen(logpath) + suffix_size + 1); 
    source = (char*)malloc(file_buf_len);
    dest   = (char*)malloc(file_buf_len);
@@ -492,90 +584,101 @@ void log_roll(int max_depth)
    /* call unlink to delete logname.max_depth - it doesn't matter if it 
       doesn't exist, so we'll ignore ENOENT */
 
-   sprintf(dest, "%s.%d", logpath, max_depth);
+   sprintf(dest,"%s.%d",
+     logpath, 
+     max_depth);
  
-   if (unlink(dest) != 0 && errno != ENOENT)
+   if ((unlink(dest) != 0) && (errno != ENOENT))
+     {
+     err = errno;
+     goto done_roll;
+     }
+
+   /* logname.max_depth is gone, so roll the rest of the log files */
+
+  for (i = max_depth - 1;i >= 0;i--)
+    {
+    if (i == 0)
+      {
+      strcpy(source,logpath);
+      }
+    else
+      {
+      sprintf(source,"%s.%d", 
+        logpath, 
+        i);
+      }
+
+    sprintf(dest,"%s.%d", 
+      logpath, 
+      i + 1);
+
+    /* rename file if it exists */
+
+    if ((rename(source,dest) != 0) && (errno != ENOENT))
       {
       err = errno;
       goto done_roll;
       }
-
-
-   /* logname.max_depth is gone, so roll the rest of the log files */
-   for (i = max_depth - 1; i >= 0; i--)
-     {
-
-     if (i == 0)
-        {
-        strcpy(source, logpath);
-        }
-     else
-        {
-        sprintf(source, "%s.%d", logpath, i);
-        }
-     sprintf(dest, "%s.%d", logpath, i+1);
-
-     /* rename file if it exists */
-     if (rename(source, dest) != 0 && errno != ENOENT)
-        {
-        err = errno;
-        goto done_roll;
-        }
-
-     }
+   }
    
-
 done_roll:
 
-   if (as)
-      {
-      log_open(NULL, log_directory);
-      }
-   else
-      {
-      log_open(logpath, log_directory);   
-      }
+  if (as)
+    {
+    log_open(NULL,log_directory);
+    }
+  else
+    {
+    log_open(logpath,log_directory);   
+    }
 
-   free(source);
-   free(dest);
+  free(source);
+  free(dest);
 
-   if (err != 0)
-      {
-      log_err(err, "log_roll", "error while rollng logs");
-      }
-   else
-     {
-      log_record(
-        PBSEVENT_SYSTEM,
-        PBS_EVENTCLASS_SERVER,
-        "Log",
-        "Log Rolled");
-     }
-  
-   } /* END log_roll() */
+  if (err != 0)
+    {
+    log_err(err,"log_roll","error while rollng logs");
+    }
+  else
+    {
+    log_record(
+      PBSEVENT_SYSTEM,
+      PBS_EVENTCLASS_SERVER,
+      "Log",
+      "Log Rolled");
+    }
+ 
+  return; 
+  } /* END log_roll() */
 
 
 
-/* return size of log file in kilobyes */
+/* return size of log file in kilobytes */
+
 long log_size(void)
-{
+
+  {
 #if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64)
-   struct stat64 file_stat;
+  struct stat64 file_stat;
 #else
-   struct stat file_stat;
+  struct stat file_stat;
 #endif
 
 #if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64)
-   if (log_opened && fstat64(fileno(logfile), &file_stat) == 0)
+  if (log_opened && (fstat64(fileno(logfile),&file_stat) != 0))
 #else
-   if (log_opened && fstat(fileno(logfile), &file_stat) == 0)
+  if (log_opened && (fstat(fileno(logfile),&file_stat) != 0))
 #endif
-      {
-      return (file_stat.st_size / 1024);
-      }
-   else
-      {
-      log_err(errno,"log_size","PBS cannot fstat logfile");
-      return 0;
-      }
-}
+    {
+    /* FAILURE */
+
+    log_err(errno,"log_size","PBS cannot fstat logfile");
+
+    return(0);
+    }
+
+  return(file_stat.st_size / 1024);
+  }
+
+/* END pbs_log.c */

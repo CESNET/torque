@@ -90,6 +90,7 @@
 #include <stdio.h>
 #include <netdb.h>
 #include <errno.h>
+#include <time.h>
 #include "libpbs.h"
 #include "server_limits.h"
 #include "list_link.h"
@@ -265,7 +266,14 @@ void req_stagein(
   job *pjob;
   int  rc;
 
-  if ((pjob = chk_job_torun(preq,0)) == NULL) 
+  int  setneednodes;
+
+  if (getenv("TORQUEAUTONN"))
+    setneednodes = 1;
+  else
+    setneednodes = 0;
+
+  if ((pjob = chk_job_torun(preq,setneednodes)) == NULL) 
     {
     return;
     } 
@@ -469,11 +477,7 @@ int svr_startjob(
   struct  hostent *hp;
   char   *nodestr, *cp, *hostlist;
   int     size;
-#ifdef ENABLE_IPV6
-  struct  sockaddr_in6 saddr;
-#else
-  struct  sockaddr_in  saddr;
-#endif
+  struct  sockaddr_in saddr;
 
   badplace *bp;
   char     *id = "svr_startjob";
@@ -772,11 +776,23 @@ static int svr_strtjob2(
 
   int old_state;
   int old_subst;
+  attribute *pattr;
 
   char tmpLine[1024];
 
   old_state = pjob->ji_qs.ji_state;
   old_subst = pjob->ji_qs.ji_substate;
+
+  pattr = &pjob->ji_wattr[(int)JOB_ATR_start_time];
+  if ((pattr->at_flags & ATR_VFLAG_SET) == 0) 
+    {
+    pattr->at_val.at_long = time(NULL);
+    pattr->at_flags |= ATR_VFLAG_SET;
+    }
+
+  pattr = &pjob->ji_wattr[(int)JOB_ATR_start_count];
+  pattr->at_val.at_long++;
+  pattr->at_flags |= ATR_VFLAG_SET;
 
   /* send the job to MOM */
 
@@ -955,8 +971,6 @@ static void post_sendmom(
       if (jobp->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET)
         depend_on_exec(jobp);
 
-      svr_mailowner(jobp,MAIL_BEGIN,MAIL_NORMAL,NULL);
-
       /*
        * it is unfortunate, but while the job has gone into execution,
        * there is no way of obtaining the session id except by making
@@ -974,7 +988,7 @@ static void post_sendmom(
 
       /* NOTE: if r == 10, connection to mom timed out.  Mark node down */
 
-      stream_eof(0,jobp->ji_qs.ji_un.ji_exect.ji_momaddr,0);
+      stream_eof(-1,jobp->ji_qs.ji_un.ji_exect.ji_momaddr,0);
 
       /* send failed, requeue the job */
 
@@ -1081,7 +1095,7 @@ static void post_sendmom(
 
 /*
  * chk_job_torun - check state and past execution host of a job for which
- *	files are about to be staged in or the job is about to be run.
+ *	files are about to be staged in or for a job that is about to be run.
  * 	Returns pointer to job if all is ok, else returns NULL.
  */
 
@@ -1159,7 +1173,7 @@ static job *chk_job_torun(
   if (pjob->ji_qs.ji_svrflags & (JOB_SVFLG_CHKPT|JOB_SVFLG_StagedIn)) 
     {
     /* job has been checkpointed or files already staged in */
-    /* in this case, exec_host must be already set	 	*/
+    /* in this case, exec_host must be already set          */
 
     if (prun->rq_destin != 0) 
       {
@@ -1171,7 +1185,10 @@ static job *chk_job_torun(
         {
         /* FAILURE */
 
-        req_reject(PBSE_EXECTHERE,0,preq,NULL,NULL);
+        if (pjob->ji_qs.ji_svrflags & (JOB_SVFLG_CHKPT))
+          req_reject(PBSE_EXECTHERE,0,preq,NULL,"allocated nodes must match checkpoint location");
+        else
+          req_reject(PBSE_EXECTHERE,0,preq,NULL,"allocated nodes must match input file stagein location");
 
         return(NULL);
         }
@@ -1186,7 +1203,7 @@ static job *chk_job_torun(
             pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,
             0,
             FailHost,
-            EMsg)) != 0) 
+            EMsg)) != 0)   /* O */
         {
         req_reject(PBSE_EXECTHERE,0,preq,FailHost,EMsg);
 
@@ -1220,30 +1237,44 @@ static job *chk_job_torun(
 
   if (setnn == 1)
     {
-#ifdef __TDEV
-    resource *prescjb = find_resc_entry(pjob,"neednodes");
+#ifdef TDEV
+    /* what should neednodes be set to? */
 
-    if ((prescjb == NULL) ||
-       ((prescjb->rs_value.at_flags & ATR_VFLAG_SET) == 0))
+    resource_def *DRes;  /* resource definition */
+
+    resource *JRes;      /* resource on job */
+
+    attribute *Attr;     /* 'neednodes' attribute */
+
+    Attr = &pjob->ji_wattr[(int)JOB_ATR_resource];
+
+    DRes = find_resc_def(svr_resc_def,"neednodes",svr_resc_size);
+
+    JRes = find_resc_entry(Attr,DRes);
+
+    if ((JRes == NULL) ||
+       ((JRes->rs_value.at_flags & ATR_VFLAG_SET) == 0))
       {
       /* resource does not exist or value is not set */
 
-      if (prescjb == NULL)
-        prescjb = add_resource_entry(pjob,"neednodes");
-
-      if (prescjb != NULL)
+      if (JRes == NULL)
         {
-        if (prescdt->rs_defin->rs_set(
-              &prescjb->rs_value,
-              &prescdt->rs_value,
+        JRes = add_resource_entry(Attr,DRes);
+        }
+
+      if (JRes != NULL)
+        {
+        if (DRes->rs_defin->rs_set(
+              &JRes->rs_value,
+              &DRes->rs_value,
               SET) == 0)
           {
-          prescjb->rs_value.at_flags |= ATR_VFLAG_SET;
+          JRes->rs_value.at_flags |= ATR_VFLAG_SET;
           }
         }
       }
-#endif /* __TDEV */
-    }
+#endif /* TDEV */
+    }    /* END if (setnn == 1) */
 
   return(pjob);
   }  /* END chk_job_torun() */

@@ -109,17 +109,19 @@ extern int  MOMPrologTimeoutCount;
 extern int  MOMPrologFailureCount;
 
 extern int  LOGLEVEL;
+extern int  DEBUGMODE;
+
 extern int  lockfds;
 extern char *path_aux;
 
 unsigned int pe_alarm_time = PBS_PROLOG_TIME;
-static pid_t  child;
-static int run_exit;
+static pid_t child;
+static int   run_exit;
 
 /* external prototypes */
 
 extern int pe_input A_((char *));
-extern int TTmpDirName A_((job *,char *tmpdir));
+extern int TTmpDirName A_((job *,char *));
 extern void encode_used A_((job *,tlist_head *));
 
 /* END extern prototypes */
@@ -286,15 +288,19 @@ static void pelogalm(
  *		- argv[1] is the jobid
  *		- argv[2] is the user's name
  *		- argv[3] is the user's group name
+ *              - argv[4] is the job name
  *		- the input file is an architecture-dependent file
  *		- the output and error are the job's output and error
  *	The epilogue also has:
- *		- argv[4] is the job name
  *		- argv[5] is the session id
  *		- argv[6] is the list of resource limits specified
  *		- argv[7] is the list of resources used
  *		- argv[8] is the queue in which the job resides
  *		- argv[9] is the account under which the job run
+ *      The prologue also has:
+ *              - argv[5] is the list of resource limits specified
+ *              - argv[6] is the queue in which the job resides
+ *              - argv[7] is the account under which the job is run
  */
 
 int run_pelog(
@@ -318,6 +324,13 @@ int run_pelog(
   char		 sid[20];
   int		 waitst;
   char		 buf[MAXPATHLEN + 2];
+
+  resource      *r;
+
+  char          *EmptyString = "";
+
+  int            LastArg;
+  int            aindex;
 
   if (stat(pelog,&sbuf) == -1) 
     {
@@ -360,7 +373,7 @@ int run_pelog(
       ((sbuf.st_mode & (S_IRUSR|S_IXUSR)) != (S_IRUSR|S_IXUSR)) ||
       (sbuf.st_mode & (S_IWGRP|S_IWOTH))) 
     {
-    return(pelog_err(pjob,pelog,-1,"Permission Error"));
+    return(pelog_err(pjob,pelog,-1,"permission Error"));
     }
 
   if ((which == PE_PROLOGUSER) || (which == PE_EPILOGUSER))
@@ -369,7 +382,7 @@ int run_pelog(
 
     if ((sbuf.st_mode & (S_IROTH|S_IXOTH)) != (S_IROTH|S_IXOTH))
       {
-      return(pelog_err(pjob,pelog,-1,"Permission Error"));
+      return(pelog_err(pjob,pelog,-1,"permission Error"));
       }
     }
 
@@ -457,6 +470,7 @@ int run_pelog(
     alarm(0);
 
     /* restore the previous handler */
+
     sigaction(SIGALRM,&oldact,0);
 
     if (run_exit == 0) 
@@ -491,7 +505,6 @@ int run_pelog(
       setgid(pjob->ji_qs.ji_un.ji_momt.ji_exgid);
 
       setuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid);
-
       }
 
     if (fd_input != 0) 
@@ -564,6 +577,18 @@ int run_pelog(
 
     /* for both prolog and epilog */
 
+    if (DEBUGMODE == 1)
+      {
+      fprintf(stderr,"PELOGINFO:  script:'%s'  jobid:'%s'  euser:'%s'  egroup:'%s'  jobname:'%s' SSID:'%ld'  RESC:'%s'\n",
+        pelog,
+        pjob->ji_qs.ji_jobid,
+        pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,
+        pjob->ji_wattr[(int)JOB_ATR_egroup].at_val.at_str,
+        pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str,
+        pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long,
+        resc_to_string(pjob,(int)JOB_ATR_resource,resc_list,sizeof(resc_list)));
+      }
+ 
     arg[0] = pelog;
     arg[1] = pjob->ji_qs.ji_jobid;
     arg[2] = pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str;
@@ -585,6 +610,8 @@ int run_pelog(
       arg[8] = pjob->ji_wattr[(int)JOB_ATR_in_queue].at_val.at_str;
       arg[9] = pjob->ji_wattr[(int)JOB_ATR_account].at_val.at_str;
       arg[10] = NULL;
+
+      LastArg = 10;
       } 
     else 
       {
@@ -594,9 +621,16 @@ int run_pelog(
       arg[6] = pjob->ji_wattr[(int)JOB_ATR_in_queue].at_val.at_str;
       arg[7] = pjob->ji_wattr[(int)JOB_ATR_account].at_val.at_str;
       arg[8] = NULL;		
+
+      LastArg = 8;
       }
 
-    {
+    for (aindex = 0;aindex < LastArg;aindex++)
+      {
+      if (arg[aindex] == NULL)
+        arg[aindex] = EmptyString;
+      }  /* END for (aindex) */
+
     /*
      * Pass Resource_List.nodes request in environment
      * to allow pro/epi-logue setup/teardown of system
@@ -606,8 +640,6 @@ int run_pelog(
      *
      */
 
-    resource *r;
- 
     r = find_resc_entry(
       &pjob->ji_wattr[(int)JOB_ATR_resource],
       find_resc_def(svr_resc_def,"nodes",svr_resc_size));
@@ -621,6 +653,29 @@ int run_pelog(
 
       envstr = malloc(
         (strlen(envname) + strlen(r->rs_value.at_val.at_str) + 1) * sizeof(char)); 
+
+      strcpy(envstr,envname);
+
+      strcat(envstr,r->rs_value.at_val.at_str);
+
+      /* do _not_ free the string when using putenv */
+
+      putenv(envstr);
+      }  /* END if (r != NULL) */
+
+    r = find_resc_entry(
+      &pjob->ji_wattr[(int)JOB_ATR_resource],
+      find_resc_def(svr_resc_def,"gres",svr_resc_size));
+
+    if (r != NULL)
+      {
+      /* setenv("PBS_RESOURCE_NODES",r->rs_value.at_val.at_str,1); */
+
+      const char *envname = "PBS_RESOURCE_GRES=";
+      char *envstr;
+
+      envstr = malloc(
+        (strlen(envname) + strlen(r->rs_value.at_val.at_str) + 1) * sizeof(char));
 
       strcpy(envstr,envname);
 
@@ -647,20 +702,21 @@ int run_pelog(
 
       putenv(envstr);
       }  /* END if (TTmpDirName(pjob,&buf)) */
-    }    /* END BLOCK */
 
     /* Set PBS_SCHED_HINT */
     {
     char *envname = "PBS_SCHED_HINT";
     char *envval;
     char *envstr;
-    extern char *get_job_envvar(job *,char *);
   
     if ((envval = get_job_envvar(pjob,envname)) != NULL)
       {
       envstr = malloc((strlen(envname) + strlen(envval) + 2) * sizeof(char));
 
-      sprintf(envstr,"%s=%s",envname,envval);
+      sprintf(envstr,"%s=%s",
+        envname,
+        envval);
+
       putenv(envstr);
       }
     }
@@ -670,11 +726,15 @@ int run_pelog(
     char *envname = "PBS_NODENUM";
     char *envstr;
   
-    sprintf(buf,"%d",pjob->ji_nodeid);
+    sprintf(buf,"%d",
+      pjob->ji_nodeid);
 
     envstr = malloc((strlen(envname) + strlen(buf) + 2) * sizeof(char));
 
-    sprintf(envstr,"%s=%d",envname,pjob->ji_nodeid);
+    sprintf(envstr,"%s=%d",
+      envname,
+      pjob->ji_nodeid);
+
     putenv(envstr);
     }
 
@@ -687,7 +747,10 @@ int run_pelog(
       {
       envstr = malloc((strlen(envname) + strlen(pjob->ji_vnods[0].vn_host->hn_host) + 2) * sizeof(char));
 
-      sprintf(envstr,"%s=%s",envname,pjob->ji_vnods[0].vn_host->hn_host);
+      sprintf(envstr,"%s=%s",
+        envname,
+        pjob->ji_vnods[0].vn_host->hn_host);
+
       putenv(envstr);
       }
     }
@@ -705,11 +768,48 @@ int run_pelog(
 
       envstr = malloc((strlen(envname) + strlen(buf) + 2) * sizeof(char));
 
-      sprintf(envstr,"%s=%s",envname,buf);
+      sprintf(envstr,"%s=%s",
+        envname,
+        buf);
+
       putenv(envstr);
       }
     }
 
+    /* SET BEOWULF_JOB_MAP */
+
+    {
+    struct array_strings *vstrs;
+
+    int    VarIsSet = 0;
+    int    j;
+
+    vstrs = pjob->ji_wattr[(int)JOB_ATR_variables].at_val.at_arst;
+
+    for (j = 0;j < vstrs->as_usedptr;++j)
+      {
+      if (!strncmp(
+            vstrs->as_string[j],
+            "BEOWULF_JOB_MAP=",
+            strlen("BEOWULF_JOB_MAP=")))
+        {
+        VarIsSet = 1;
+
+        break;
+        }
+      }
+
+    if (VarIsSet == 1)
+      {
+      char *envstr;
+
+      envstr = malloc((strlen(vstrs->as_string[j])) * sizeof(char));
+
+      strcpy(envstr,vstrs->as_string[j]);
+
+      putenv(envstr);
+      }
+    }
 
     execv(pelog,arg);
 

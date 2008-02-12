@@ -126,12 +126,12 @@
  
 /* This macro will allocate memory for a character string */
 #define Mstring(x,y)    if ( (x=(char *)malloc(y)) == NULL ) { \
-                            pstderr("qmgr: Out of memory\n"); \
+                            if( ! zopt ) fprintf(stderr,"qmgr: Out of memory\n"); \
                             clean_up_and_exit(5); \
                         }
 /* This macro will allocate memory for some fixed size object */
 #define Mstruct(x,y)    if ( (x=(y *)malloc(sizeof(y))) == NULL ) { \
-                            pstderr("qmgr: Out of memory\n"); \
+                            if( ! zopt ) fprintf(stderr,"qmgr: Out of memory\n"); \
                             clean_up_and_exit(5); \
                         }
 /* server name: "" is the default server and NULL is all active servers */
@@ -139,7 +139,7 @@
                         ( ( strlen((x) -> s_name) ) ? \
                         (x) -> s_name : DEFAULT_SERVER) )
 /* print an input line and then a caret under where the error has occured */
-#define CaretErr(x, y)  pstderr1("%s\n", (x)); blanks((y)); pstderr("^\n");
+#define CaretErr(x, y)  if( ! zopt ) fprintf(stderr,"%s\n", (x)); blanks((y)); if( ! zopt ) fprintf(stderr,"^\n");
 
 /* structures */
 
@@ -178,9 +178,7 @@ int parse_request( );
 void clean_up_and_exit();
 void freeattrl();
 void freeattropl();
-void pstderr();
 void pstderr_big();
-void pstderr1();
 void free_objname_list();
 void free_server();
 void free_objname();
@@ -196,6 +194,8 @@ void disconnect_from_server();
 
 
 /* help messages */
+/* some of these are split into multiple strings to keep the string within
+ * the 509 character ISO C89 limit */
 
 #define HELP_DEFAULT \
 "General syntax: command [object][@server] [name attribute[.resource] OP value]\n" \
@@ -210,7 +210,9 @@ void disconnect_from_server();
 "The active command will set the active objects.  The active objects are used\n" \
 "when no name is specified for different commands.\n" \
 "If no server is specified for nodes or queues, the command will be sent\n" \
-"to all active servers.\n" \
+"to all active servers.\n"
+
+#define HELP_ACTIVE2 \
 "Examples:\n" \
 "active queue q1,batch@server1\n" \
 "active server server2,server3\n" \
@@ -245,7 +247,9 @@ void disconnect_from_server();
 "The \"set\" command sets the value for an attribute on the specified object.\n" \
 "If the object is \"server\" and name is not specified, the attribute will be\n" \
 "set on all the servers specified on the command line.\n" \
-"For multiple names, use a comma separated list with no intervening whitespace.\n" \
+"For multiple names, use a comma separated list with no intervening whitespace.\n"
+
+#define HELP_SET2 \
 "Examples:\n" \
 "set server s1 max_running = 5\n" \
 "set server managers = root\n" \
@@ -346,25 +350,29 @@ void disconnect_from_server();
 "acl_users - list of users allowed/denied access to server\n" \
 "comment - informational text string about the server\n" \
 "default_queue - default queue used when a queue is not specified\n" \
-"log_events - a bit string which specfiies what is logged\n" \
+"log_events - a bit string which specfiies what is logged\n"
+
+#define HELP_SERVERPUBLIC2 \
 "mail_uid - uid of sender of mail which is sent by the server\n" \
 "managers - list of users granted administrator privledges\n" \
 "max_running - maximum number of jobs that can run on the server\n" \
 "max_user_run - maximum number of jobs that a user can run on the server\n" \
 "max_grou_run - maximum number of jobs a UNIX group can run on the server\n" \
 "operators - list of users granted operator privledges\n" \
-"query_other_jobs - when true users can query jobs owned by other users\n" \
-"resources_available - ammount of resources which are available to the server\n" \
+"query_other_jobs - when true users can query jobs owned by other users\n"
+
+#define HELP_SERVERPUBLIC3 \
+"resources_available - amount of resources which are available to the server\n" \
 "resources_cost - the cost factors of resources.  Used for sync. job starting\n" \
 "resources_default - the default resource value when the job does not specify\n" \
-"resource_max - the maximum ammount of resources that are on the system\n" \
-"scheduler_iteration - the ammount of seconds between timed scheduler iterations\n" \
+"resource_max - the maximum amount of resources that are on the system\n" \
+"scheduler_iteration - the amount of seconds between timed scheduler iterations\n" \
 "scheduling - when true the server should tell the scheduler to run\n" \
 "system_cost - arbitirary value factored into resource costs\n" \
 
 #define HELP_SERVERRO \
 "Server Read Only Attributes:\n" \
-"resources_assigned - total ammount of resources allocated to running jobs\n" \
+"resources_assigned - total amount of resources allocated to running jobs\n" \
 "server_name - the name of the server and possibly a port number\n" \
 "server_state - the current state of the server\n" \
 "state_count - total number of jobs in each state\n" \
@@ -377,24 +385,28 @@ void disconnect_from_server();
 "acl_groups - list of groups which have been allowed or denied access\n" \
 "acl_host_enable - enables host level access control on the queue\n" \
 "acl_hosts - list of hosts which have been allowed or denied access\n" \
-"acl_user_enable - enables user level access control on the queue\n" \
+"acl_user_enable - enables user level access control on the queue\n"
+
+#define HELP_QUEUEPUBLIC2 \
 "acl_users - list of users which have been allowed or denied access\n" \
 "enabled - when true users can enqueue jobs\n" \
 "from_route_only - when true queue only accepts jobs when routed by servers\n" \
 "max_queueable - maximum number of jobs allowed to reside in the queue\n" \
 "max_running - maximum number of jobs in the queue that can be routed or running\n" \
-"priority - the priority of the queue\n" \
+"priority - the priority of the queue\n"
+
+#define HELP_QUEUEPUBLIC3 \
 "queue_type - type of queue: execution or routing\n" \
-"resources_max - maximum ammount of a resource which can be requested by a job\n" \
-"resources_min - minimum ammount of a resource which can be requested by a job\n" \
+"resources_max - maximum amount of a resource which can be requested by a job\n" \
+"resources_min - minimum amount of a resource which can be requested by a job\n" \
 "resources_default - the default resource value when the job does not specify\n" \
 "started - when true jobs can be scheduled for execution\n"
 
 #define HELP_QUEUEEXEC \
 "Attributes for Execution queues only:\n" \
 "checkpoint_min - min. number of mins. of CPU time allowed bwtween checkpointing\n" \
-"resources_available - ammount of resources which are available to the queue\n" \
-"kill_delay - ammount of time between SIGTERM and SIGKILL when deleting a job\n" \
+"resources_available - amount of resources which are available to the queue\n" \
+"kill_delay - amount of time between SIGTERM and SIGKILL when deleting a job\n" \
 "max_user_run - maximum number of jobs a user can run in the queue\n" \
 "max_group_run - maximum number of jobs a UNIX group can run in a queue\n"
 
@@ -405,13 +417,13 @@ void disconnect_from_server();
 "route_held_jobs - when true held jobs may be routed from this queue\n" \
 "route_waiting_jobs - when true waiting jobs may be routed from this queue\n" \
 "route_retry_time - time delay between route retries.\n" \
-"route_lifetime - maximum ammount of time a job can be in this routing queue\n"
+"route_lifetime - maximum amount of time a job can be in this routing queue\n"
 
 #define HELP_QUEUERO \
 "Queue read only attributes:\n" \
 "total_jobs - total number of jobs in queue\n" \
 "state_count - total number of jobs in each state in the queue\n" \
-"resources_assigned - ammount of resources allocated to jobs running in queue\n"
+"resources_assigned - amount of resources allocated to jobs running in queue\n"
 
 #define HELP_NODEATTR \
 "Node attributes:\n" \

@@ -84,9 +84,19 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/time.h>
+#include <sys/socket.h>
 #include <netinet/in.h>
 #include <memory.h>
 #include <time.h>
+#include <pwd.h>
+#include <sys/param.h>
+#if HAVE_SYS_UCRED_H
+#include <sys/ucred.h>
+#endif
+#if HAVE_SYS_UIO_H
+#include <sys/uio.h>
+#endif
+
 #include "libpbs.h"
 #include "pbs_error.h"
 #include "server_limits.h"
@@ -102,6 +112,9 @@
 #include "svrfunc.h"
 #include "pbs_proto.h"
 
+#ifndef PBS_MOM
+#include "array.h"
+#endif
 
 /*
  * process_request - this function gets, checks, and invokes the proper
@@ -129,8 +142,9 @@ extern char  *msg_err_noqueue;
 extern char  *msg_err_malloc;
 extern char  *msg_reqbadhost;
 extern char  *msg_request;
-
-extern const char *PBatchReqType[];
+#ifndef PBS_MOM
+extern char            server_name[];
+#endif
 
 extern int LOGLEVEL;
 
@@ -176,10 +190,82 @@ void req_stat_node(struct batch_request *preq);
 void req_track(struct batch_request *preq);
 void req_jobobit(struct batch_request *preq);
 void req_stagein(struct batch_request *preq);
+
+void req_deletearray(struct batch_request *preq);
 #endif
 
 /* END request processing prototypes */
 
+
+#ifdef ENABLE_UNIX_SOCKETS
+#ifndef PBS_MOM
+int get_creds(int sd,char *username,char *hostname) {
+  int             nb/*, sync*/;
+  char            ctrl[CMSG_SPACE(sizeof(struct ucred))];
+  size_t          size;
+  struct iovec    iov[1];
+  struct msghdr   msg;
+  struct cmsghdr  *cmptr;
+  ucreds *credentials;
+  struct passwd *cpwd;
+  char dummy;
+
+  msg.msg_name=NULL;
+  msg.msg_namelen=0;
+  msg.msg_iov=iov;
+  msg.msg_iovlen=1;
+  msg.msg_control=ctrl;
+  msg.msg_controllen=sizeof(ctrl);
+  msg.msg_flags=0;
+
+#ifdef LOCAL_CREDS
+  nb = 1;
+  if (setsockopt(sd, 0, LOCAL_CREDS, &nb, sizeof(nb)) == -1) return 0;
+#else
+#ifdef SO_PASSCRED
+  nb = 1;
+  if (setsockopt(sd, SOL_SOCKET, SO_PASSCRED, &nb, sizeof(nb)) == -1)
+    return 0;
+#endif
+#endif
+
+  dummy='\0';
+
+  do {
+    msg.msg_iov->iov_base = (void *)&dummy;
+    msg.msg_iov->iov_len  = sizeof(dummy);
+    nb = recvmsg(sd, &msg, 0);
+  } while (nb == -1 && (errno == EINTR || errno == EAGAIN));
+  if (nb == -1) return 0;
+
+  if ((unsigned)msg.msg_controllen < sizeof(struct cmsghdr)) return 0;
+  cmptr = CMSG_FIRSTHDR(&msg);
+#ifndef __NetBSD__
+  size = sizeof(ucreds);
+#else
+  if (cmptr->cmsg_len < SOCKCREDSIZE(0)) return 0;
+  size = SOCKCREDSIZE(((cred *)CMSG_DATA(cmptr))->sc_ngroups);
+#endif
+  if ((unsigned)cmptr->cmsg_len != CMSG_LEN(size)) return 0;
+  if (cmptr->cmsg_level != SOL_SOCKET) return 0;
+  if (cmptr->cmsg_type != SCM_CREDS) return 0;
+
+  if (!(credentials = (ucreds *)malloc(size))) return 0;
+  *credentials = *(ucreds *)CMSG_DATA(cmptr);
+
+  cpwd=getpwuid(SPC_PEER_UID(credentials));
+
+  if (cpwd)
+    strcpy(username,cpwd->pw_name);
+
+  strcpy(hostname,server_name);
+
+  free(credentials);
+
+  return 0;
+}
+#endif
+#endif /* END ENABLE_UNIX_SOCKETS */
                        
 
 /*
@@ -216,6 +302,13 @@ void process_request(
 
   if (svr_conn[sfds].cn_active == FromClientDIS) 
     {
+#ifdef ENABLE_UNIX_SOCKETS
+    if ((svr_conn[sfds].cn_socktype & PBS_SOCK_UNIX) &&
+        (svr_conn[sfds].cn_authen != PBS_NET_CONN_AUTHENTICATED))
+      {
+      get_creds(sfds,conn_credent[sfds].username,conn_credent[sfds].hostname);
+      }
+#endif /* END ENABLE_UNIX_SOCKETS */
     rc = dis_request_read(sfds,request);
     } 
   else 
@@ -283,13 +376,18 @@ void process_request(
 
   if (get_connecthost(sfds,request->rq_host,PBS_MAXHOSTNAME) != 0) 
     {
+    char tmpLine[1024];
+
     sprintf(log_buffer,"%s: %lu",
       msg_reqbadhost,
       get_connectaddr(sfds));
 
     LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_REQUEST,"",log_buffer);
 
-    req_reject(PBSE_BADHOST,0,request,NULL,NULL);
+    snprintf(tmpLine,sizeof(tmpLine),"cannot determine hostname for connection from %lu",
+      get_connectaddr(sfds));
+
+    req_reject(PBSE_BADHOST,0,request,NULL,tmpLine);
 
     return;
     }
@@ -297,7 +395,7 @@ void process_request(
   sprintf(
     log_buffer,
     msg_request,
-    PBatchReqType[request->rq_type],
+    reqtype_to_txt(request->rq_type),
     request->rq_user,
     request->rq_host,
     sfds);
@@ -308,13 +406,18 @@ void process_request(
 
 #ifndef PBS_MOM
 
+if (svr_conn[sfds].cn_socktype & PBS_SOCK_UNIX)
+  {
+  strcpy(request->rq_host,server_name);
+  }
+
   if (server.sv_attr[(int)SRV_ATR_acl_host_enable].at_val.at_long) 
     {
     /* acl enabled, check it; always allow myself and nodes */
 
     struct pbsnode *isanode;
 
-    isanode=PGetNodeFromAddr(get_connectaddr(sfds));
+    isanode = PGetNodeFromAddr(get_connectaddr(sfds));
 
     if ((isanode == NULL) &&
         (strcmp(server_host,request->rq_host) != 0) &&
@@ -323,7 +426,12 @@ void process_request(
          request->rq_host, 
          ACL_Host) == 0))
       {
-      req_reject(PBSE_BADHOST,0,request,NULL,NULL);
+      char tmpLine[1024];
+
+      snprintf(tmpLine,sizeof(tmpLine),"request not authorized from host %s",
+        request->rq_host);
+
+      req_reject(PBSE_BADHOST,0,request,NULL,tmpLine);
 
       close_client(sfds);
 
@@ -355,22 +463,34 @@ void process_request(
     request->rq_fromsvr = 0;
 
     /*
-     * Client must be authenticated by a Authenticate User Request,
-     * if not, reject request and close connection.
-     * -- The following is retained for compat with old cmds --
-     * The exception to this is of course the Connect Request which
-     * cannot have been authenticated, because it contains the 
-     * needed ticket; so trap it here.  Of course, there is no
-     * prior authentication on the Authenticate User request either,
-     * but it comes over a reserved port and appears from another
-     * server, hence is automatically granted authorization.
+     * Client must be authenticated by an Authenticate User Request, if not,
+     * reject request and close connection.  -- The following is retained for
+     * compat with old cmds -- The exception to this is of course the Connect
+     * Request which cannot have been authenticated, because it contains the
+     * needed ticket; so trap it here.  Of course, there is no prior
+     * authentication on the Authenticate User request either, but it comes
+     * over a reserved port and appears from another server, hence is
+     * automatically granted authentication.
+     *
+     * The above is only true with inet sockets.  With unix domain sockets, the
+     * user creds were read before the first dis_request_read call above.
+     * We automatically granted authentication because we can trust the socket
+     * creds.  Authorization is still granted in svr_get_privilege below 
      */
 	
     if (request->rq_type == PBS_BATCH_Connect) 
       {
       req_connect(request);
 
-      return;
+      if (svr_conn[sfds].cn_socktype == PBS_SOCK_INET)
+        return;
+
+      }
+
+    if (svr_conn[sfds].cn_socktype & PBS_SOCK_UNIX)
+      {
+      conn_credent[sfds].timestamp = time_now;
+      svr_conn[sfds].cn_authen = PBS_NET_CONN_AUTHENTICATED;
       }
 
     if (svr_conn[sfds].cn_authen != PBS_NET_CONN_AUTHENTICATED)
@@ -386,7 +506,7 @@ void process_request(
 
       return;
       }
-	
+       
     request->rq_perm = svr_get_privilege(request->rq_user,request->rq_host);
     }  /* END else (svr_conn[sfds].cn_authen == PBS_NET_CONN_FROM_PRIVIL) */
 
@@ -427,7 +547,7 @@ void process_request(
   if (LOGLEVEL >= 6)
     {
     sprintf(log_buffer,"request type %s from host %s received",
-      PBatchReqType[request->rq_type],
+      reqtype_to_txt(request->rq_type),
       request->rq_host);
 
     log_record(
@@ -440,7 +560,7 @@ void process_request(
   if (!tfind(svr_conn[sfds].cn_addr,&okclients)) 
     {
     sprintf(log_buffer,"request type %s from host %s rejected (host not authorized)",
-      PBatchReqType[request->rq_type],
+      reqtype_to_txt(request->rq_type),
       request->rq_host);
 
     log_record(
@@ -459,7 +579,7 @@ void process_request(
   if (LOGLEVEL >= 3)
     {
     sprintf(log_buffer,"request type %s from host %s allowed",
-      PBatchReqType[request->rq_type],
+      reqtype_to_txt(request->rq_type),
       request->rq_host);
 
     log_record(
@@ -470,7 +590,7 @@ void process_request(
     }
 
   MOMLastRecvFromServerTime = time_now;
-  strcpy(MOMLastRecvFromServerCmd,PBatchReqType[request->rq_type]);
+  strcpy(MOMLastRecvFromServerCmd,reqtype_to_txt(request->rq_type));
   }    /* END BLOCK */
 		
   request->rq_fromsvr = 1;
@@ -516,7 +636,7 @@ void dispatch_request(
   if (LOGLEVEL >= 5)
     {
     sprintf(log_buffer,"dispatching request %s on sd=%d",
-      PBatchReqType[request->rq_type],
+      reqtype_to_txt(request->rq_type),
       sfds);
 
     log_record(
@@ -564,8 +684,23 @@ void dispatch_request(
 
     case PBS_BATCH_DeleteJob: 
 
+#ifdef PBS_MOM
       req_deletejob(request); 
-
+#else
+      /* if this is a server size job delete request, then the request could also be 
+       * for an entire array.  we check to see if the request object name is an array id.  
+       * if so we hand off the the req_deletearray() function.  If not we pass along to the 
+       * normal req_deltejob() function. 
+       */
+      if (is_array(request->rq_ind.rq_delete.rq_objname))
+        {
+        req_deletearray(request);
+        }
+      else
+        {
+        req_deletejob(request);
+        }
+#endif
       break; 
 
     case PBS_BATCH_HoldJob: 
@@ -705,7 +840,7 @@ void dispatch_request(
       req_stat_svr(request);
   
       break;
-
+/* DIAGTODO: handle PBS_BATCH_StatusDiag and define req_stat_diag() */
     case PBS_BATCH_TrackJob:
 
       req_track(request); 
@@ -944,6 +1079,11 @@ void free_br(
 
       break;
 
+    /* CRI RT #255 reports a memory leak at this point, but I can't
+     * reproduce it, so I'm just leaving this here for now 
+    case PBS_BATCH_MvJobFile:
+      log_err(-1,"free_br","BUG: NOT freeing from PBS_BATCH_MvJobFile");
+      break; */
     case PBS_BATCH_jobscript:
 
       if (preq->rq_ind.rq_jobfile.rq_data)
@@ -974,6 +1114,7 @@ void free_br(
     case PBS_BATCH_StatusQue:
     case PBS_BATCH_StatusNode:
     case PBS_BATCH_StatusSvr:
+/* DIAGTODO: handle PBS_BATCH_StatusDiag */
 
       free_attrlist(&preq->rq_ind.rq_status.rq_attr);
 

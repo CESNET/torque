@@ -91,6 +91,7 @@
 #include <unistd.h>    /* added - CRI 9/05 */
 #include <sys/time.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
@@ -106,6 +107,8 @@
 #include "server_limits.h"
 #include "net_connect.h"
 #include "log.h"
+
+extern int LOGLEVEL;
 
 
 /* External Functions Called */
@@ -140,8 +143,77 @@ pbs_net_t pbs_server_addr;
 static void accept_conn();
 
 
+static struct netcounter nc_list[60];
 
+void netcounter_incr()
+  {
+  time_t now, lastmin;
+  int i;
 
+  now = time(NULL);
+  lastmin = now - 60;
+
+  if (nc_list[0].time == now)
+    {
+    nc_list[0].counter++;
+    }
+  else 
+    {
+    memmove(&nc_list[1],&nc_list[0],sizeof(struct netcounter)*59);
+    
+    nc_list[0].time=now;
+    nc_list[0].counter=1;
+
+    for (i=0;i<60;i++)
+      {
+      if (nc_list[i].time < lastmin)
+        {
+        nc_list[i].time=0;
+        nc_list[i].counter=0;
+        }
+      }
+    }
+  }
+
+int *netcounter_get()
+  {
+  static int netrates[3];
+  int netsums[3]={0,0,0};
+  int i;
+  
+  for (i=0;i<5;i++)
+    {
+    netsums[0]+=nc_list[i].counter;
+    netsums[1]+=nc_list[i].counter;
+    netsums[2]+=nc_list[i].counter;
+    }
+  for (i=5;i<30;i++)
+    {
+    netsums[1]+=nc_list[i].counter;
+    netsums[2]+=nc_list[i].counter;
+    }
+  for (i=30;i<60;i++)
+    {
+    netsums[2]+=nc_list[i].counter;
+    }
+
+  if (netsums[0] > 0)
+    {
+    netrates[0]=netsums[0]/5;
+    netrates[1]=netsums[1]/30;
+    netrates[2]=netsums[2]/60;
+    }
+  else
+    {
+    netrates[0]=0;
+    netrates[1]=0;
+    netrates[2]=0;
+    }
+
+  return netrates;
+  }
+    
+    
 
 /*
  * init_network - initialize the network interface
@@ -160,12 +232,12 @@ int init_network(
   int		 i;
   static int	 initialized = 0;
   int 		 sock;
-#ifdef ENABLE_IPV6
-  struct sockaddr_in6 socname;
-#else
-  struct sockaddr_in  socname;
-#endif
+  struct sockaddr_in socname;
   enum conn_type   type;
+#ifdef ENABLE_UNIX_SOCKETS
+  struct sockaddr_un unsocname;
+  int unixsocket;
+#endif
 
   if (initialized == 0) 
     {
@@ -209,27 +281,20 @@ int init_network(
 
   /* name that socket "in three notes" */
 
-#ifdef ENABLE_IPV6
-  socname.sin6_port= htons((unsigned short)port);
-  socname.sin6_addr.s6_addr32[0] = INADDR_ANY;
-  socname.sin6_family = AF_INET6;
-#else
   socname.sin_port= htons((unsigned short)port);
   socname.sin_addr.s_addr = INADDR_ANY;
   socname.sin_family = AF_INET;
-#endif
 
   if (bind(sock,(struct sockaddr *)&socname,sizeof(socname)) < 0) 
     {
     close(sock);
-
 
     return(-1);
     }
 	
   /* record socket in connection structure and select set */
 
-  add_conn(sock,type,(pbs_net_t)0,0,accept_conn);
+  add_conn(sock,type,(pbs_net_t)0,0,PBS_SOCK_INET,accept_conn);
 	
   /* start listening for connections */
 
@@ -237,6 +302,54 @@ int init_network(
     {
 
     return(-1);
+    }
+
+
+#ifdef ENABLE_UNIX_SOCKETS
+  /* setup unix domain socket */
+
+  unixsocket=socket(AF_UNIX,SOCK_STREAM,0);
+  if (unixsocket < 0) 
+    {
+    return(-1);
+    }
+
+  unsocname.sun_family=AF_UNIX;
+  strncpy(unsocname.sun_path,TSOCK_PATH,107);  /* sun_path is defined to be 108 bytes */
+
+  unlink(TSOCK_PATH);  /* don't care if this fails */
+
+  if (bind(unixsocket,
+            (struct sockaddr *)&unsocname,
+            strlen(unsocname.sun_path) + sizeof(unsocname.sun_family)) < 0) 
+    {
+    close(unixsocket);
+
+    return(-1);
+    }
+
+  if (chmod(TSOCK_PATH,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH) != 0)
+    {
+    close(unixsocket);
+
+    return(-1);
+    }
+
+  add_conn(unixsocket,type,(pbs_net_t)0,0,PBS_SOCK_UNIX,accept_conn);
+  if (listen(unixsocket,512) < 0) 
+    {
+
+    return(-1);
+    }
+#endif /* END ENABLE_UNIX_SOCKETS */
+
+
+  /* allocate a minute's worth of counter structs */
+
+  for (i = 0;i < 60;i++)
+    {
+    nc_list[i].time = 0;
+    nc_list[i].counter = 0;
     }
 
   return (0);
@@ -259,6 +372,8 @@ int wait_request(
   long   *SState)     /* I (optional) */
 
   {
+  extern char *PAddrToString(pbs_net_t *);
+
   int i;
   int n;
 
@@ -266,13 +381,15 @@ int wait_request(
 
   fd_set selset;
 
+  char tmpLine[1024];
+
   struct timeval timeout;
   void close_conn();
 
-  long OrigState=0;
+  long OrigState = 0;
 
   if (SState != NULL)
-    OrigState=*SState;
+    OrigState = *SState;
 
   timeout.tv_usec = 0;
   timeout.tv_sec  = waittime;
@@ -297,7 +414,7 @@ int wait_request(
 
       /* NOTE:  selset may be modified by failed select() */
 
-      for (i = 0;i < FD_SETSIZE;i++)
+      for (i = 0;i < (int)FD_SETSIZE;i++)
         {
         if (FD_ISSET(i,&readset) == 0)
           continue;
@@ -308,7 +425,6 @@ int wait_request(
         /* clean up SdList and bad sd... */
 
         FD_CLR(i,&readset);
-
         }    /* END for (i) */
   
       return(-1);
@@ -327,6 +443,7 @@ int wait_request(
 
       if (svr_conn[i].cn_active != Idle) 
         {
+        netcounter_incr();
         svr_conn[i].cn_func(i);
 
         /* NOTE:  breakout if state changed (probably received shutdown request) */
@@ -349,7 +466,9 @@ int wait_request(
   /* NOTE:  break out if shutdown request received */
 
   if ((SState != NULL) && (OrigState != *SState))
+    {
     return(0);
+    }
 
   /* have any connections timed out ?? */
 
@@ -370,10 +489,18 @@ int wait_request(
     if (cp->cn_authen & PBS_NET_CONN_NOTIMEOUT)
       continue;	/* do not time-out this connection */
 
+    /* NOTE:  add info about node associated with connection - NYI */
+
+    snprintf(tmpLine,sizeof(tmpLine),"connection %d to host %s has timed out out after %d seconds - closing stale connection\n",
+      i,
+      PAddrToString(&cp->cn_addr),
+      PBS_NET_MAXCONNECTIDLE);
+
+    log_err(-1,"wait_request",tmpLine);
+
     /* locate node associated with interface, mark node as down until node responds */
 
     /* NYI */
-
 
     close_conn(i);
     }  /* END for (i) */
@@ -400,11 +527,8 @@ static void accept_conn(
 
   {
   int newsock;
-#ifdef ENABLE_IPV6
-  struct sockaddr_in6 from;
-#else
-  struct sockaddr_in  from;
-#endif
+  struct sockaddr_in from;
+  struct sockaddr_un unixfrom;
 
   torque_socklen_t fromsize;
 	
@@ -412,9 +536,17 @@ static void accept_conn(
 
   svr_conn[sd].cn_lasttime = time((time_t *)0);
 
-  fromsize = sizeof(from);
 
-  newsock = accept(sd,(struct sockaddr *)&from,&fromsize);
+  if (svr_conn[sd].cn_socktype == PBS_SOCK_INET)
+    {
+    fromsize = sizeof(from);
+    newsock = accept(sd,(struct sockaddr *)&from,&fromsize);
+    }
+  else
+    {
+    fromsize = sizeof(unixfrom);
+    newsock = accept(sd,(struct sockaddr *)&unixfrom,&fromsize);
+    }
 
   if (newsock == -1) 
     {
@@ -434,13 +566,9 @@ static void accept_conn(
   add_conn(
     newsock, 
     FromClientDIS, 
-#ifdef ENABLE_IPV6
-    (pbs_net_t)ntohl(from.sin6_addr.s6_addr32[0]),
-    (unsigned int)ntohs(from.sin6_port),
-#else
     (pbs_net_t)ntohl(from.sin_addr.s_addr),
     (unsigned int)ntohs(from.sin_port),
-#endif
+    svr_conn[sd].cn_socktype,
     read_func[(int)svr_conn[sd].cn_active]);
 
   return;
@@ -460,6 +588,7 @@ void add_conn(
   enum conn_type type,	   /* type of connection */
   pbs_net_t      addr,	   /* IP address of connected host */
   unsigned int   port,	   /* port number (host order) on connected host */
+  unsigned int   socktype, /* inet or unix */
   void (*func) A_((int)))  /* function to invoke on data rdy to read */
 
   {
@@ -473,9 +602,10 @@ void add_conn(
   svr_conn[sock].cn_lasttime = time((time_t *)0);
   svr_conn[sock].cn_func     = func;
   svr_conn[sock].cn_oncl     = 0;
+  svr_conn[sock].cn_socktype = socktype;
 
 #ifndef NOPRIVPORTS
-  if (port < IPPORT_RESERVED)
+  if (socktype == PBS_SOCK_INET && port < IPPORT_RESERVED)
     svr_conn[sock].cn_authen = PBS_NET_CONN_FROM_PRIVIL;
   else
     svr_conn[sock].cn_authen = 0;
@@ -573,11 +703,13 @@ void net_close(
 
 pbs_net_t get_connectaddr(
 
-  int sock)
+  int sock)  /* I */
 
   {
   return(svr_conn[sock].cn_addr);
   }
+
+
 
 
 
@@ -677,7 +809,7 @@ int get_connecthost(
   /* SUCCESS */
 
   return(0);
-  }
+  }  /* END get_connecthost() */
 
 
 
@@ -688,11 +820,17 @@ int get_connecthost(
  *	the conversion from ASN.1 to PBS DIS
  */
 
-void net_set_type(which, type)
-	enum conn_type which;
-	enum conn_type type;
-{
-	settype[(int)which] = type;
-}
+void net_set_type(
 
+  enum conn_type which,
+  enum conn_type type)
+
+  {
+  settype[(int)which] = type;
+
+  return;
+  }  /* END net_set_type() */
+
+
+/* END net_server.c */
 

@@ -138,6 +138,7 @@ static void eval_chkpnt A_((attribute *j, attribute *q));
 extern struct server server;
 
 extern tlist_head svr_alljobs;
+extern tlist_head svr_jobarrays;
 extern char  *msg_badwait;		/* error message */
 extern char  *msg_daemonname;
 extern char  *pbs_o_host;
@@ -149,8 +150,12 @@ extern int    svr_do_schedule;
 extern int    LOGLEVEL;
 
 extern time_t time_now;
+extern int    DEBUGMODE;
 
-/* Externl Functions */
+int           SvrNodeCt = 0;  /* cfg nodes or num nodes specified via resources_available */
+
+
+/* External Functions */
 
 extern int node_avail_complex(char *,int *,int *,int *,int *);
 
@@ -468,7 +473,9 @@ void svr_dequejob(
     if (--server.sv_jobstates[pjob->ji_qs.ji_state] < 0)
       bad_ct = 1;
     }
+    
 
+    
   if ((pque = pjob->ji_qhdr) != (pbs_queue *)0) 
     {
     if (is_linked(&pque->qu_jobs, &pjob->ji_jobque)) 
@@ -480,6 +487,10 @@ void svr_dequejob(
 
       if (--pque->qu_njstate[pjob->ji_qs.ji_state] < 0)
         bad_ct = 1;
+
+      if (pjob->ji_qs.ji_state == JOB_STATE_COMPLETE)
+        if (--pque->qu_numcompleted < 0)
+          bad_ct = 1;
       }
 
     pjob->ji_qhdr = (pbs_queue *)0;
@@ -526,7 +537,7 @@ void svr_dequejob(
   svr_do_schedule = SCH_SCHEDULE_TERM;
 
   return;
-  }  /* END svr_dequeuejob() */
+  }  /* END svr_dequejob() */
 
 
 
@@ -744,15 +755,15 @@ char *get_variable(
  * compare the job resource limit against the system limit
  * unless a queue limit exists, it takes priority
  *
- * returns number of .gt. and .lt. comparision in comp_resc_gt and comp_resc_lt
+ * returns number of .gt. and .lt. comparison in comp_resc_gt and comp_resc_lt
  *	does not make use of comp_resc_eq or comp_resc_nc
  */
 
 static void chk_svr_resc_limit(
 
-  attribute *jobatr,
-  attribute *queatr,
-  attribute *svratr,
+  attribute *jobatr, /* I */
+  attribute *queatr, /* I */
+  attribute *svratr, /* I */
   int	     qtype,  /* I */
   char      *EMsg)   /* O (optional,minsize=1024) */
 
@@ -770,22 +781,38 @@ static void chk_svr_resc_limit(
   int       LimitIsFromQueue;
   char     *LimitName;
 
-  static int SvrNodeCt = 0;
+  /* NOTE:  support Cray-specific evaluation */
 
-  static resource_def *noderesc = NULL;
-  static resource_def *needresc = NULL;
-  static resource_def *nodectresc = NULL;
+  int       MPPWidth = 0;
+  int       PPN = 0;
+
+  static resource_def *noderesc     = NULL;
+  static resource_def *needresc     = NULL;
+  static resource_def *nodectresc   = NULL;
+  static resource_def *mppwidthresc = NULL;
+
+  static time_t UpdateTime = 0;
+  static time_t now;
 
   /* NOTE:  server limits are specified with server.resources_available */
 
   if (EMsg != NULL)
     EMsg[0] = '\0';
 
-  if (noderesc == NULL) 
+  time(&now);
+
+  if ((noderesc == NULL) || (now > UpdateTime + 30))
     {
-    noderesc = find_resc_def(svr_resc_def,"nodes",svr_resc_size);
-    needresc = find_resc_def(svr_resc_def,"neednodes",svr_resc_size);
-    nodectresc = find_resc_def(svr_resc_def,"nodect",svr_resc_size);
+    UpdateTime = now;
+
+    /* NOTE:  to optimize, only update once per 30 seconds */
+
+    noderesc     = find_resc_def(svr_resc_def,"nodes",svr_resc_size);
+    needresc     = find_resc_def(svr_resc_def,"neednodes",svr_resc_size);
+    nodectresc   = find_resc_def(svr_resc_def,"nodect",svr_resc_size);
+    mppwidthresc = find_resc_def(svr_resc_def,"mppwidth",svr_resc_size);
+
+    SvrNodeCt = 0;
 
     if (nodectresc != NULL)
       {
@@ -809,7 +836,7 @@ static void chk_svr_resc_limit(
         svrc = (resource *)GET_NEXT(svrc->rs_link);
         } /* END while (svrc != NULL) */
       }   /* END if (nodectresc != NULL) */
-    }     /* END if (noderesc == NULL) */
+    }     /* END if ((noderesc == NULL) || ...) */
 
   /* return values via global comp_resc_gt and comp_resc_lt */
 
@@ -855,6 +882,16 @@ static void chk_svr_resc_limit(
 
         jbrc_nodes = jbrc;
         }
+#ifdef NERSCDEV
+      else if (jbrc->rs_defin == mppwidthresc)
+        {
+
+        if (jbrc->rs_value.at_flags & ATR_VFLAG_SET)
+          {
+          MPPWidth = jbrc->rs_value.at_val.at_long;
+          }
+        }
+#endif /* NERSCDEV */
       else if ((cmpwith != NULL) && (jbrc->rs_defin != needresc)) 
         {
         /* don't check neednodes */
@@ -927,6 +964,17 @@ static void chk_svr_resc_limit(
         comp_resc_lt++;
         }
       }
+    }    /* END if (jbrc_nodes != NULL) */
+
+  if (MPPWidth > 0)
+    {
+    /* NYI */
+
+    if (PPN == 0)
+      {
+      if (EMsg != NULL)
+        strcpy(EMsg,"MPP Width Detected");
+      }
     }
 
   return;
@@ -950,6 +998,9 @@ int chk_resc_limits(
 
   {
   /* NOTE:  comp_resc_gt and comp_resc_lt are global ints */
+
+  if (EMsg != NULL)
+    EMsg[0] = '\0';
 
   /* first check against queue minimum */
 
@@ -996,8 +1047,10 @@ int chk_resc_limits(
  *
  *	returns 0 for yes, 1 for no
  *
- * Note: the following fields must be set in the job struture before
- *	 calling svr_chkque(): 	ji_wattr[JOB_ATR_job_owner]
+ * NOTE: the following fields must be set in the job struture before
+ *   calling svr_chkque():  ji_wattr[JOB_ATR_job_owner]
+ * NOTE: calls chk_resc_limits() to validate resource request
+ *
  * Also if the job is being considered for an execution queue, then
  * set_jobexid() will be called.
  */
@@ -1014,6 +1067,10 @@ int svr_chkque(
   int i;
   int failed_group_acl = 0;
   int failed_user_acl  = 0;
+  int user_jobs;
+  job *pj;
+  struct array_strings *pas;
+  int j = 0;
 
   if (EMsg != NULL)
     EMsg[0] = '\0';
@@ -1030,7 +1087,7 @@ int svr_chkque(
 
     if (!(pjob->ji_wattr[(int)JOB_ATR_euser].at_flags & ATR_VFLAG_SET))
       {
-      if ((i = set_jobexid(pjob,pjob->ji_wattr)) != 0)
+      if ((i = set_jobexid(pjob,pjob->ji_wattr,EMsg)) != 0)
         {
         return(i);  /* PBSE_BADUSER or GRP */
         }
@@ -1058,8 +1115,54 @@ int svr_chkque(
       {
       return(PBSE_NOATTR);
       }
-			
-    /* 1e. if enabled, check the queue's group ACL */
+
+    /* 1e. check queue's disallowed_types */
+
+    if (pque->qu_attr[QA_ATR_DisallowedTypes].at_flags & ATR_VFLAG_SET)
+      {
+      for (i = 0; 
+           i < (pque->qu_attr[QA_ATR_DisallowedTypes]).at_val.at_arst->as_usedptr;
+           i++)
+        {
+	/* if job is interactive...*/
+
+        if ((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) &&
+            (pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long > 0))
+          {
+          if (strcmp(Q_DT_interactive, 
+                pque->qu_attr[QA_ATR_DisallowedTypes].at_val.at_arst->as_string[i]) == 0)
+            {
+            return(PBSE_NOINTERACTIVE);
+            }
+          }
+        else /* else job is batch... */
+          {
+          if (strcmp(Q_DT_batch, 
+               pque->qu_attr[QA_ATR_DisallowedTypes].at_val.at_arst->as_string[i]) == 0)
+            {
+            return(PBSE_NOBATCH);
+            }
+          }
+	  
+	if (strcmp(Q_DT_rerunable,
+	      pque->qu_attr[QA_ATR_DisallowedTypes].at_val.at_arst->as_string[i]) == 0
+            && (pjob->ji_wattr[(int)JOB_ATR_rerunable].at_flags & ATR_VFLAG_SET &&
+	        pjob->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long > 0))
+	  {
+	  return(PBSE_NORERUNABLE);
+	  }
+
+	if (strcmp(Q_DT_nonrerunable,
+	      pque->qu_attr[QA_ATR_DisallowedTypes].at_val.at_arst->as_string[i]) == 0
+            && (!(pjob->ji_wattr[(int)JOB_ATR_rerunable].at_flags & ATR_VFLAG_SET) ||
+	        pjob->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long == 0))
+	  {
+	  return(PBSE_NONONRERUNABLE);
+	  }
+        }	
+      }    /* END if (pque->qu_attr[QA_ATR_DisallowedTypes].at_flags & ATR_VFLAG_SET) */
+		
+    /* 1f. if enabled, check the queue's group ACL */
 
     if (pque->qu_attr[QA_ATR_AclGroupEnabled].at_val.at_long)
       {
@@ -1097,35 +1200,29 @@ int svr_chkque(
 
         strncpy(uname,pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,PBS_MAXUSER);
 
-        setgrent();
+        /* fetch the groups in the ACL and look for matching user membership */
 
-        /* walk all groups looking for matching user membership */
+	pas = pque->qu_attr[QA_ATR_AclGroup].at_val.at_arst;
 
-        while ((grp = getgrent()))
-          {
-          for (i = 0;grp->gr_mem[i] != NULL;i++)
+	for (i = 0;i < pas->as_usedptr;i++) 
+	  {
+          if ((grp = getgrnam(pas->as_string[i])) == NULL) 
+            continue;
+
+          for (j=0;grp->gr_mem[j] != NULL;j++) 
             {
-            if (strcmp(grp->gr_mem[i],uname))
-              continue;
+            if (!strcmp(grp->gr_mem[j],uname))
+              {
+              rc = 1;
 
-            rc = acl_check(
-              &pque->qu_attr[QA_ATR_AclGroup],
-              grp->gr_name,
-              ACL_Gid);
-
-            break;
+              break;
+              }
             }
 
-          if (rc != 0)
-            {
-            /* match found */
-
+          if (rc == 1)
             break;
-            }
-          }  /* END while (grp) */
-
-        endgrent();
-        }    /* END if (rc == 0) && AclGroupSloppy...) */
+          }
+        }    /* END if (rc == 0) && slpygrp && ...) */
 
       if (rc == 0)
         {
@@ -1153,8 +1250,8 @@ int svr_chkque(
             }
           }
         }
-      }
-    }
+      }    /* END if (pque->qu_attr[QA_ATR_AclGroupEnabled].at_val.at_long) */
+    }      /* END if (pque->qu_qs.qu_type == QTYPE_Execution) */
 
   /* checks 2 and 3 are bypassed for a move by manager or qorder */
 
@@ -1168,9 +1265,32 @@ int svr_chkque(
       }
 
     if ((pque->qu_attr[QA_ATR_MaxJobs].at_flags & ATR_VFLAG_SET) &&
-        (pque->qu_numjobs >= pque->qu_attr[QA_ATR_MaxJobs].at_val.at_long))
+        ((pque->qu_numjobs - pque->qu_numcompleted) >= pque->qu_attr[QA_ATR_MaxJobs].at_val.at_long))
       {
       return(PBSE_MAXQUED);
+      }
+
+    if ((pque->qu_attr[QA_ATR_MaxUserJobs].at_flags & ATR_VFLAG_SET) &&
+        (pque->qu_attr[QA_ATR_MaxUserJobs].at_val.at_long >= 0))
+      {
+      /* count number of jobs user has in queue */
+      user_jobs = 0;
+      pj = (job *)GET_NEXT(pque->qu_jobs);
+      while (pj)
+        {
+        if ((pj->ji_qs.ji_state <= JOB_STATE_RUNNING) &&
+            (!strcmp(pj->ji_wattr[JOB_ATR_job_owner].at_val.at_str,
+                     pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str)))
+          {
+          user_jobs++;
+          }
+        pj = (job *)GET_NEXT(pj->ji_jobque);
+        }
+
+      if (user_jobs >= pque->qu_attr[QA_ATR_MaxUserJobs].at_val.at_long)
+        {
+        return(PBSE_MAXUSERQUED);
+        }
       }
     
     /* 3. if "from_route_only" is true, only local route allowed */
@@ -1229,7 +1349,7 @@ int svr_chkque(
         }
       }
 
-    /* 5.5. If failed user and group acls, fail */
+    /* 5.5. if failed user and group acls, fail */
 
     if (failed_group_acl && failed_user_acl)
       {
@@ -1493,19 +1613,26 @@ char *prefix_std_file(
  *	The "to" buffer must be large enought (PBS_MAXUSER+1).
  */
 
-void get_jobowner(from, to)
-	char *from;
-	char *to;
-{
-	int i;
+void get_jobowner(
 
-	for (i=0; i<PBS_MAXUSER; ++i) {
-		if ( (*(from+i) == '@') || (*(from+i) == '\0') )
-			break;
-		*(to+i) = *(from+i);
-	}
-	*(to+i) = '\0';
-}
+  char *from,
+  char *to)
+
+  {
+  int i;
+
+  for (i = 0;i < PBS_MAXUSER;++i) 
+    {
+    if ((*(from + i) == '@') || (*(from + i) == '\0'))
+      break;
+
+    *(to + i) = *(from + i);
+    }
+
+  *(to + i) = '\0';
+
+  return;
+  }
 
 
 
@@ -1626,6 +1753,8 @@ void set_resc_deflt(
 
 
 
+
+
 /*
  * set_statechar - set the job state attribute to the letter that correspondes
  *	to its current state.
@@ -1656,7 +1785,9 @@ void set_statechar(
       pjob->ji_wattr[JOB_ATR_state].at_val.at_char = 'U'; /* Unknown */
       }
     }
-  }
+
+  return;
+  }  /* END set_statechar() */
 
 
 
@@ -1669,30 +1800,44 @@ void set_statechar(
  *	to the queue min time. 
  */
 
-static void eval_chkpnt(jobckp, queckp)
-	attribute *jobckp;	/* job's checkpoint attribute */
-	attribute *queckp;	/* queue's checkpoint attribute */
-{
-	int jobs;
-	char queues[30];
-	char *pv;
-	
-	if ( ((jobckp->at_flags & ATR_VFLAG_SET) == 0)  ||
-	     ((queckp->at_flags & ATR_VFLAG_SET) == 0) )
-		return;		/* need do nothing */
+static void eval_chkpnt(
 
-	pv = jobckp->at_val.at_str;
-	if (*pv++ == 'c') {
-		if (*pv == '=')
-			pv++;
-		jobs = atoi(pv);
-		if (jobs < queckp->at_val.at_long) {
-			(void)sprintf(queues, "c=%ld", queckp->at_val.at_long);
-			free_str(jobckp);
-			(void)decode_str(jobckp, 0, 0, queues);
-		}
-	}
-}
+  attribute *jobckp,	/* job's checkpoint attribute */
+  attribute *queckp)	/* queue's checkpoint attribute */
+
+  {
+  int jobs;
+  char queues[30];
+  char *pv;
+	
+  if (((jobckp->at_flags & ATR_VFLAG_SET) == 0) ||
+      ((queckp->at_flags & ATR_VFLAG_SET) == 0))
+    {
+    return;		/* need do nothing */
+    }
+
+  pv = jobckp->at_val.at_str;
+
+  if (*pv++ == 'c') 
+    {
+    if (*pv == '=')
+      pv++;
+
+    jobs = atoi(pv);
+
+    if (jobs < queckp->at_val.at_long) 
+      {
+      sprintf(queues,"c=%ld", 
+        queckp->at_val.at_long);
+
+      free_str(jobckp);
+
+      decode_str(jobckp,0,0,queues);
+      }
+    }
+
+  return;
+  }  /* END eval_chkpnt() */
 
 
 
@@ -1737,9 +1882,10 @@ static void correct_ct(
     {
     pc = log_buffer + strlen(log_buffer);
 
-    sprintf(pc,"; queue %s %d: ", 
+    sprintf(pc,"; queue %s %d (completed: %d): ", 
       pqj->qu_qs.qu_name,
-      pqj->qu_numjobs);
+      pqj->qu_numjobs,
+      pqj->qu_numcompleted);
 
     for (i = 0;i < PBS_NUMJOBSTATE;++i) 
       {
@@ -1757,6 +1903,7 @@ static void correct_ct(
        pque = (pbs_queue *)GET_NEXT(pque->qu_link)) 
     {
     pque->qu_numjobs = 0;
+    pque->qu_numcompleted = 0;
 
     for (i = 0;i < PBS_NUMJOBSTATE;++i)
       pque->qu_njstate[i] = 0;
@@ -1771,6 +1918,10 @@ static void correct_ct(
 
     (pjob->ji_qhdr)->qu_numjobs++;
     (pjob->ji_qhdr)->qu_njstate[pjob->ji_qs.ji_state]++;
+
+    if (pjob->ji_qs.ji_state == JOB_STATE_COMPLETE)
+      pque->qu_numcompleted++;
+
     }  /* END for (pjob) */
 
   return;

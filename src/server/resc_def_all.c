@@ -86,13 +86,17 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <stdio.h>
-#include "pbs_ifl.h" 
+#include <stdio.h>
 #include <string.h>
+#include "pbs_ifl.h" 
 #include "list_link.h" 
 #include "attribute.h" 
 #include "resource.h" 
 #include "pbs_error.h"
-#include <stdio.h>
+#include "server_limits.h"
+#include "server.h"
+
+extern struct server server;
 
 /*
  * The entries for each attribute are (see attribute.h):
@@ -305,7 +309,7 @@ resource_def svr_resc_def_const[] = {
 	comp_str,
 	free_str,
 	NULL_FUNC,
-	READ_WRITE,
+	READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG,
 	ATR_TYPE_STR
     },
     {	"software",			/* software required for execution */
@@ -564,11 +568,91 @@ resource_def svr_resc_def_const[] = {
 	ATR_TYPE_STR
     },
 
-    /* Cray CPA partitions */
+    /* Cray XT */
     { "size", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM, ATR_TYPE_LONG },
     { "cpapartitionid", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "cpaalloccookie", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "cpaadmincookie", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    {   "mppwidth",     /* Number mpp PEs (processing elements) */
+        decode_l,    /* PE = ALPS launched binary invocation on compute node */
+        encode_l,
+        set_l,
+        comp_l,
+        free_null,
+        NULL_FUNC,
+        READ_WRITE,
+        ATR_TYPE_LONG
+    },
+    {   "mppdepth",    /* Number of threads per PE */
+        decode_l,
+        encode_l,
+        set_l,
+        comp_l,
+        free_null,
+        NULL_FUNC,
+        READ_WRITE,
+        ATR_TYPE_LONG
+    },
+    {   "mppnppn",    /* number of PEs per Node */
+        decode_l,     /* applies to multi-core systems only */
+        encode_l,
+        set_l,
+        comp_l,
+        free_null,
+        NULL_FUNC,
+        READ_WRITE,
+        ATR_TYPE_LONG
+    },
+    {   "mppnodes",    /* node list (can be of the form 1,3-7) */
+        decode_str,
+        encode_str,
+        set_str,
+        comp_str,
+        free_str,
+        NULL_FUNC,
+        READ_WRITE,
+        ATR_TYPE_STR
+    },
+    {   "mpplabels",    /* compute node features */
+        decode_str,
+        encode_str,
+        set_str,
+        comp_str,
+        free_str,
+        NULL_FUNC,
+        READ_WRITE,
+        ATR_TYPE_STR
+    },
+    {   "mpptimeMPP",   /* NYI */
+        decode_time,
+        encode_time,
+        set_l,
+        comp_l,
+        free_null,
+        NULL_FUNC,
+        READ_WRITE,
+        ATR_TYPE_LONG
+    },
+    {   "mpphostMPP",
+        decode_str,
+        encode_str,
+        set_str,
+        comp_str,
+        free_str,
+        NULL_FUNC,
+        READ_WRITE,
+        ATR_TYPE_STR
+    },
+    {   "mpparchMPP",    /* node architecture (XT3, XT4, etc.) */
+        decode_str,
+        encode_str,
+        set_str,
+        comp_str,
+        free_str,
+        NULL_FUNC,
+        READ_WRITE,
+        ATR_TYPE_STR
+    },
 
     /* support external resource manager extensions */
 
@@ -576,20 +660,24 @@ resource_def svr_resc_def_const[] = {
 
     { "advres", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "deadline", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "depend", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "ddisk", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "dmem", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
-    { "jobflags", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "feature", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "flags", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "gattr", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "geometry", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "gmetric", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
-    { "gres", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "gres", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE|ATR_DFLAG_MOM|ATR_DFLAG_RMOMIG, ATR_TYPE_STR },
     { "hostlist", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "image", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "jgroup", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "jobflags", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },  /* same as flags */
     { "latency", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "loglevel", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "minprocspeed", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "minpreempttime", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "minwclimit", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "naccesspolicy", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "nallocpolicy", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "nodeset", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
@@ -597,25 +685,30 @@ resource_def svr_resc_def_const[] = {
     { "os", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "partition", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "pref", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "procs", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "qos", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "queuejob", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "reqattr", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "retrycount", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "retrycc", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "rmtype", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "select", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "sid", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "signal", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "stagein", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "spriority", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "subnode", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "subnode_list", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
-    { "gres", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "taskdistpolicy", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "template", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "termsig", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "termtime", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "tid", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "tpn", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "trig", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "trl", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
-    { "trig", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
     { "var", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+    { "wcrequeue", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
 
     /* the definition for the "unknown" resource MUST be last */
 
@@ -624,50 +717,54 @@ resource_def svr_resc_def_const[] = {
     /* DO NOT ADD DEFINITIONS AFTER "unknown", ONLY BEFORE */
 };
 
-int svr_resc_size = sizeof(svr_resc_def_const) / sizeof(resource_def);
+int svr_resc_size = 0;
 
 
-int init_resc_defs(char *path)
+int init_resc_defs(void)
+
   {
-  FILE *fp;
-  char buff[65];
   resource_def *tmpresc = NULL;
-  int rindex=0, dindex=0, unkindex=0;
+  int rindex = 0, dindex = 0, unkindex = 0;
+#ifndef PBS_MOM
+  struct array_strings *resc_arst = NULL;
+  char                 *extra_resc;
+  int			resc_num=0;
+#endif
 
-  fp = fopen(path,"r");
-  if (fp)
+  svr_resc_size = sizeof(svr_resc_def_const) / sizeof(resource_def);
+
+#ifndef PBS_MOM
+  /* build up a temporary list of string resources */
+  if (server.sv_attr[(int)SRV_ATR_ExtraResc].at_flags & ATR_VFLAG_SET)
     {
+    resc_arst = server.sv_attr[(int)SRV_ATR_ExtraResc].at_val.at_arst;
 
-    tmpresc=calloc(MAX_RESOURCES,sizeof(resource_def));
+    tmpresc = calloc(resc_arst->as_usedptr + 1,sizeof(resource_def));
 
     if (tmpresc == NULL)
       {
-      fclose(fp);
-      return -1;
+      return(-1);
       }
 
-    while (fscanf(fp,"%64s",buff) == 1)
+    for (resc_num = 0;resc_num < resc_arst->as_usedptr;resc_num++)
       {
-      if (strlen(buff) <= 1)
-        continue;
+      extra_resc = resc_arst->as_string[resc_num];
 
-      (tmpresc+dindex)->rs_name=strdup(buff);
-      (tmpresc+dindex)->rs_decode=decode_str;
-      (tmpresc+dindex)->rs_encode=encode_str;
-      (tmpresc+dindex)->rs_set=set_str;
-      (tmpresc+dindex)->rs_comp=comp_str;
-      (tmpresc+dindex)->rs_free=free_str;
-      (tmpresc+dindex)->rs_action=NULL_FUNC;
-      (tmpresc+dindex)->rs_flags=READ_WRITE;
-      (tmpresc+dindex)->rs_type=ATR_TYPE_STR;
+      (tmpresc+resc_num)->rs_name=strdup(extra_resc);
+      (tmpresc+resc_num)->rs_decode=decode_str;
+      (tmpresc+resc_num)->rs_encode=encode_str;
+      (tmpresc+resc_num)->rs_set=set_str;
+      (tmpresc+resc_num)->rs_comp=comp_str;
+      (tmpresc+resc_num)->rs_free=free_str;
+      (tmpresc+resc_num)->rs_action=NULL_FUNC;
+      (tmpresc+resc_num)->rs_flags=READ_WRITE;
+      (tmpresc+resc_num)->rs_type=ATR_TYPE_STR;
 
       dindex++;
 
-      if (dindex >= MAX_RESOURCES)
-        break;
       }
-
     }
+#endif
 
   svr_resc_def=calloc(svr_resc_size+dindex,sizeof(resource_def));
 
@@ -679,23 +776,18 @@ int init_resc_defs(char *path)
   unkindex=rindex;
 
   /* copy our dynamic resources */
-  if (fp)
+  if (tmpresc)
     {
-    if (tmpresc)
+    for (dindex=0; (tmpresc+dindex)->rs_decode; dindex++)
       {
-      for (dindex=0; (tmpresc+dindex)->rs_decode; dindex++)
+      if (find_resc_def(svr_resc_def,(tmpresc+dindex)->rs_name,rindex) == NULL)
         {
-        if (find_resc_def(svr_resc_def,(tmpresc+dindex)->rs_name,rindex) == NULL)
-          {
-          memcpy(svr_resc_def+rindex,tmpresc+dindex,sizeof(resource_def));
-          rindex++;
-          }
+        memcpy(svr_resc_def+rindex,tmpresc+dindex,sizeof(resource_def));
+        rindex++;
         }
+      }
 
-     free(tmpresc);
-     }
-
-    fclose(fp);
+    free(tmpresc);
     }
   
   /* copy the last "unknown" resource */
@@ -878,7 +970,7 @@ static int set_node_ct(
 
   pnct->rs_value.at_flags |= ATR_VFLAG_SET;
 
-  /* Set "neednodes" to "nodes", may be altered by Scheduler */
+  /* Set "neednodes" to "nodes", may be altered by scheduler */
 
   pndef = find_resc_def(svr_resc_def,"neednodes",svr_resc_size);
 
@@ -909,37 +1001,52 @@ static int set_node_ct(
   }  /* END set_node_ct() */
 
 
+
+
+
 /*
  * set_tokens = set node count
  *
  */
 
-static int set_tokens(attr, new, op)
-      struct attribute *attr;
-      struct attribute *new;
-      enum batch_op op;
-{
-  char * colon = NULL;
-  float count = 0;
+static int set_tokens(
+
+  struct attribute *attr,
+  struct attribute *new,
+  enum batch_op     op)
+
+  {
+  char  *colon = NULL;
+  float  count = 0;
 
   int ret = 0;
 
-  if(new != NULL){
-    colon = strchr(new->at_val.at_str, (int)':');
-    if(colon == NULL){
-      ret = PBSE_BADATVAL;
-    } else {
+  if (new != NULL)
+    {
+    colon = strchr(new->at_val.at_str,(int)':');
 
+    if (colon == NULL)
+      {
+      ret = PBSE_BADATVAL;
+      } 
+    else 
+      {
       colon++;
       count = atof(colon);
-      if(count <= 0 || count > 1000){
-      ret = PBSE_BADATVAL;
+
+      if ((count <= 0) || (count > 1000))
+        {
+        ret = PBSE_BADATVAL;
+        }
       }
     }
-  }
-  if(ret == 0){
-    ret = set_str(attr, new, op);
-  }
 
-  return ret;
-}
+  if (ret == 0)
+    {
+    ret = set_str(attr,new,op);
+    }
+
+  return(ret);
+  }  /* END set_tokens() */
+
+

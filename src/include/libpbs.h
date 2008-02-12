@@ -97,15 +97,6 @@
 #include <memory.h>
 #endif	/* _MEMORY_H */
 
-#if defined(PENABLE_LINUX26_CPUSETS)
-#ifndef _BITMASK_H
-#include <bitmask.h>
-#endif	/* _BITMASK_H */
-#ifndef _CPUSET_H
-#include <cpuset.h>
-#endif	/* _CPUSET_H */
-#endif
-
 #include "pbs_ifl.h"
 #include "list_link.h"
 #include "pbs_error.h"
@@ -210,7 +201,7 @@ struct batch_reply {
 		tlist_head 	   brp_status;	/* status (svr) replies */
 		struct brp_cmdstat *brp_statc;  /* status (cmd) replies) */
 		struct {
-			int   brp_txtlen;
+			size_t   brp_txtlen;
 			char *brp_str;
 		} brp_txt;		/* text and credential reply */
 		char	  brp_locate[PBS_MAXDEST+1];
@@ -260,18 +251,17 @@ enum PBatchReqTypeEnum {
   PBS_BATCH_MvJobFile	= 57,
   PBS_BATCH_StatusNode	= 58,
   PBS_BATCH_Disconnect	= 59 };
-
+/* DIAGTODO: define PBS_BATCH_StatusDiag */
 #define PBS_BATCH_FileOpt_Default	0
 #define PBS_BATCH_FileOpt_OFlg		1
 #define PBS_BATCH_FileOpt_EFlg		2
 
 #define PBS_credentialtype_none 0
+const char *reqtype_to_txt(int);
 
 void
 PBS_free_aopl A_(( struct attropl * aoplp ));
 
-void
-advise ();
 
 int
 PBSD_commit A_((int connect, char *jobid));

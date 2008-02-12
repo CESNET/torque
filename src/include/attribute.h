@@ -230,7 +230,7 @@ typedef struct attribute_def attribute_def;
 #define ATR_DFLAG_OPWR   0x08	/* Operator client can write  attribute */
 #define ATR_DFLAG_MGRD   0x10	/* Manager client can read  attribute */
 #define ATR_DFLAG_MGWR   0x20	/* Manager client can write attribute */
-#define ATR_DFLAG_OTHRD	 0x40	/* Reserved */
+#define ATR_DFLAG_PRIVR	 0x40	/* Private (only owner, oper, manager can read) */
 #define ATR_DFLAG_Creat	 0x80	/* Can be set on create only */
 #define ATR_DFLAG_SvRD	 0x100	/* job attribute is sent to server on move */
 #define ATR_DFLAG_SvWR	 0x200	/* job attribute is settable by server/Sch */
@@ -272,6 +272,7 @@ typedef struct attribute_def attribute_def;
 #define PARENT_TYPE_QUE_PULL	 5
 #define PARENT_TYPE_SERVER	 6
 #define PARENT_TYPE_NODE	 7
+/* DIAGTODO: define PARENT_TYPE_DIAG, but atrpart field isn't wide enough */
 
 /*
  * values for the "actmode" parameter to at_action()
@@ -335,6 +336,7 @@ extern int  decode_size   A_((attribute *patr,char *name, char *rn, char *val));
 extern int  decode_str   A_((attribute *patr,char *name, char *rn, char *val));
 extern int  decode_time  A_((attribute *patr,char *name, char *rn, char *val));
 extern int  decode_arst  A_((attribute *patr,char *name, char *rn, char *val));
+extern int  decode_arst_direct  A_((attribute *patr, char *val));
 extern int  decode_resc  A_((attribute *patr,char *name, char *rn, char *val));
 extern int  decode_depend A_((attribute *patr,char *name, char *rn, char *val));
 extern int  decode_hold A_((attribute *patr,char *name, char *rn, char *val));
@@ -434,6 +436,8 @@ extern int      node_np_action  A_(( attribute*, void*, int));
 extern int      node_ntype A_(( attribute*, void*, int));
 extern int      node_prop_list A_(( attribute*, void*, int));
 extern int      node_status_list A_(( attribute*, void*, int));
+extern int      node_note        A_(( attribute*, void*, int));
+extern int      set_note_str     A_((attribute *attr,attribute *new, enum batch_op));
 
 /* Token manipulation functions */
 

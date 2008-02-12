@@ -92,6 +92,9 @@ typedef unsigned long pbs_net_t;        /* for holding host addresses */
 #define PBS_NET_CONN_FROM_PRIVIL   2
 #define PBS_NET_CONN_NOTIMEOUT     4
 
+#define PBS_SOCK_UNIX 	   1
+#define PBS_SOCK_INET 	   2
+
 /*
 **	Protocol numbers and versions for PBS communications.
 */
@@ -127,29 +130,58 @@ typedef unsigned long pbs_net_t;        /* for holding host addresses */
 #define PBS_NET_RC_FATAL -1
 #define PBS_NET_RC_RETRY -2
 
+
+/* defines for unix sockets and creds */
+#ifndef TSOCK_PATH
+#define TSOCK_PATH "/tmp/.torque-unix"
+#endif
+
+#ifndef SCM_CREDS
+#define SCM_CREDS SCM_CREDENTIALS
+#endif
+
+#ifndef linux
+#  ifndef __NetBSD__
+#    define SPC_PEER_UID(c)   ((c)->cr_uid)
+#    define SPC_PEER_GID(c)   ((c)->cr_groups[0])
+#  else
+#    define SPC_PEER_UID(c)   ((c)->sc_uid)
+#    define SPC_PEER_GID(c)   ((c)->sc_gid)
+#  endif
+#else
+#  define SPC_PEER_UID(c)   ((c)->uid)
+#  define SPC_PEER_GID(c)   ((c)->gid)
+#endif
+
+#ifdef __NetBSD__
+typedef struct sockcred ucreds;
+#else
+typedef struct ucred ucreds;
+#endif
+
+
 enum conn_type {
-	Primary = 0,
-	Secondary,
-	FromClientASN,
-	FromClientDIS,
-	ToServerASN,
-	ToServerDIS,
-	TaskManagerDIS,
-	Idle
-};
+  Primary = 0,
+  Secondary,
+  FromClientASN,
+  FromClientDIS,
+  ToServerASN,
+  ToServerDIS,
+  TaskManagerDIS,
+  Idle };
 
 /* functions available in libnet.a */
 
-void add_conn A_((int sock, enum conn_type, pbs_net_t, unsigned int port, void (*func) A_((int)) ));
+void add_conn A_((int,enum conn_type,pbs_net_t,unsigned int,unsigned int,void (*func) A_((int))));
 int  find_conn A_((pbs_net_t));
-int  client_to_svr A_((pbs_net_t, unsigned int port, int));
-void close_conn A_((int socket));
-pbs_net_t get_connectaddr A_((int sock));
-int  get_connecthost A_((int sock, char *namebuf, int size));
-pbs_net_t get_hostaddr A_((char *hostname));
-int  get_fullhostname A_((char *shortname, char *namebuf, int size));
+int  client_to_svr A_((pbs_net_t,unsigned int,int,char *));
+void close_conn A_((int));
+pbs_net_t get_connectaddr A_((int));
+int  get_connecthost A_((int sock,char *,int));
+pbs_net_t get_hostaddr A_((char *));
+int  get_fullhostname A_((char *,char *,int,char *));
 unsigned int  get_svrport A_((char *,char *,unsigned int));
-int  init_network A_((unsigned int, void (*readfunc)()));
+int  init_network A_((unsigned int,void (*readfunc)()));
 void net_close A_((int));
 int  wait_request(time_t waittime,long *);
 void net_add_close_func A_((int,void(*)()));
@@ -157,12 +189,20 @@ void net_set_type A_((enum conn_type,enum conn_type));
 
 
 struct connection {
-	pbs_net_t	cn_addr;	/* internet address of client */
-	int		cn_handle;	/* handle for API, see svr_connect() */
-	unsigned int	cn_port;	/* internet port number of client */
-	unsigned short  cn_authen;	/* authentication flags */
-	enum conn_type	cn_active;	/* idle or type if active */
-	time_t		cn_lasttime;	/* time last active */
-	void		(*cn_func) A_((int)); /* read function when data rdy */
-	void		(*cn_oncl) A_((int)); /* func to call on close */
+  pbs_net_t	cn_addr;	/* internet address of client */
+  int		cn_handle;	/* handle for API, see svr_connect() */
+  unsigned int	cn_port;	/* internet port number of client */
+  unsigned short cn_authen;	/* authentication flags */
+  unsigned short cn_socktype;	/* authentication flags */
+  enum conn_type cn_active;     /* idle or type if active */
+  time_t	cn_lasttime;    /* time last active */
+  void		(*cn_func) A_((int)); /* read function when data rdy */
+  void		(*cn_oncl) A_((int)); /* func to call on close */
 };
+
+struct netcounter {
+   time_t  time;
+   int     counter;
+};
+
+int *netcounter_get();

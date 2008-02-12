@@ -103,7 +103,12 @@ extern char *msg_permlog;
 extern char *msg_unkjobid;
 extern time_t time_now;
 
+extern char *PJobState[];
+
 extern int site_allow_u(char *,char *);
+
+int svr_chk_owner_generic(struct batch_request *preq, char *owner, char *submit_host);
+int svr_authorize_req(struct batch_request *preq, char *owner, char *submit_host);
 
 
 /*
@@ -121,6 +126,22 @@ int svr_chk_owner(
 
   {
   char  owner[PBS_MAXUSER + 1];
+  
+  get_jobowner(pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,owner);
+  
+  
+  return svr_chk_owner_generic(preq, owner, get_variable(pjob,pbs_o_host));
+  }  /* END svr_chk_owner() */
+
+
+int svr_chk_owner_generic(
+
+  struct batch_request *preq,
+  char *owner,
+  char *submit_host)
+  
+  {
+  
   char *pu;
   char  rmtuser[PBS_MAXUSER + 1];
 
@@ -129,32 +150,20 @@ int svr_chk_owner(
   pu = site_map_user(preq->rq_user,preq->rq_host);
 
   if (pu == NULL)
-    {
+    {  
+    /* FAILURE */
+
     return(-1);
     }
 
   strncpy(rmtuser,pu,PBS_MAXUSER);
   rmtuser[PBS_MAXUSER] = '\0';
 
-  /*
-   * Get job owner name without "@host" and then map to "local" name.
-   *
-   * This is a bit of a kludge, the POSIX 1003.15 standard forgot to
-   * include a separate attribute for the submitting (qsub) host.  At
-   * present, the only place defined where this can be found is the 
-   * value of the environmental variable POSIX2_PBS_O_HOST in the
-   * "variable-list" job attribute.
-   */
+  
+  pu = site_map_user(owner,submit_host);
 
-  get_jobowner(pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,owner);
-
-  pu = site_map_user(owner,get_variable(pjob,pbs_o_host));
-
-  return(strcmp(rmtuser,pu));
-  }  /* END svr_chk_owner() */
-
-
-
+  return(strcmp(rmtuser,pu));	
+  }
 
 
 /*
@@ -168,22 +177,42 @@ int svr_chk_owner(
 
 int svr_authorize_jobreq(
 
-  struct batch_request *preq,
-  job                  *pjob)
+  struct batch_request *preq,  /* I */
+  job                  *pjob)  /* I */
 
   {
-  /* Is requestor special privileged? */
+  char  owner[PBS_MAXUSER + 1];
+  
+  get_jobowner(pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,owner);
+  
+  return svr_authorize_req(preq, owner, get_variable(pjob,pbs_o_host));
+  
+  }  /* END svr_authorize_jobreq() */
+
+
+int svr_authorize_req(
+
+  struct batch_request *preq,
+  char *owner,
+  char *submit_host)
+  
+  {
+    /* does requestor have special privileges? */
 
   if ((preq->rq_perm & (ATR_DFLAG_OPRD|ATR_DFLAG_OPWR|
                         ATR_DFLAG_MGRD|ATR_DFLAG_MGWR)) != 0)
     {
+    /* request authorized */
+
     return(0);
     }
 
-  /* is requestor is the job owner */
+  /* is requestor the job owner? */
 
-  if (svr_chk_owner(preq,pjob) == 0)
+  if (svr_chk_owner_generic(preq,owner, submit_host) == 0)
     {
+    /* request authorized */
+
     return(0);
     }
 
@@ -191,9 +220,6 @@ int svr_authorize_jobreq(
 
   return(-1);
   }
-
-
-
 
 
 /*
@@ -215,8 +241,8 @@ int svr_authorize_jobreq(
 
 int svr_get_privilege(
 
-  char *user,
-  char *host)
+  char *user,  /* I */
+  char *host)  /* I */
 
   {
   int   is_root = 0;
@@ -275,10 +301,11 @@ int svr_get_privilege(
 
 int authenticate_user(
 
-  struct batch_request *preq,
-  struct credential    *pcred)
+  struct batch_request *preq,  /* I */
+  struct credential    *pcred) /* I */
 
   {
+  int  rc;
   char uath[PBS_MAXUSER + PBS_MAXHOSTNAME + 1];
 
   if (strncmp(preq->rq_user,pcred->username,PBS_MAXUSER))
@@ -313,15 +340,21 @@ int authenticate_user(
 #ifdef PBS_ROOT_ALWAYS_ADMIN
       if ((strcmp(preq->rq_user,PBS_DEFAULT_ADMIN) != 0) ||
           (strcasecmp(preq->rq_host,server_host) != 0))
-#endif /* PBS_ROOT_ALWAYS_ADMIN */
+        {
         return(PBSE_PERM);
+        }
+#else /* PBS_ROOT_ALWAYS_ADMIN */
+      return(PBSE_PERM);
+#endif /* PBS_ROOT_ALWAYS_ADMIN */
       }
     }
 
   /* A site stub for additional checking */
 
-  return(site_allow_u(preq->rq_user,preq->rq_host));
-  }
+  rc = site_allow_u(preq->rq_user,preq->rq_host);
+
+  return(rc);
+  }  /* END authenticate_user() */
 
 
 
@@ -337,8 +370,8 @@ int authenticate_user(
 
 job *chk_job_request(
 
-  char                 *jobid,
-  struct batch_request *preq)
+  char                 *jobid,  /* I */
+  struct batch_request *preq)   /* I */
 
   {
   job *pjob;
@@ -348,10 +381,10 @@ job *chk_job_request(
     log_event(
       PBSEVENT_DEBUG, 
       PBS_EVENTCLASS_JOB,
-      preq->rq_ind.rq_move.rq_jid, 
+      jobid, 
       msg_unkjobid);
 
-    req_reject(PBSE_UNKJOBID,0,preq,NULL,NULL);
+    req_reject(PBSE_UNKJOBID,0,preq,NULL,"cannot locate job");
 
     return(NULL);
     }
@@ -371,30 +404,58 @@ job *chk_job_request(
       pjob->ji_qs.ji_jobid, 
       log_buffer);
 
-    req_reject(PBSE_PERM,0,preq,NULL,NULL);
+    req_reject(PBSE_PERM,0,preq,NULL,"operation not permitted");
 
     return(NULL);
     }
 
   if (pjob->ji_qs.ji_state >= JOB_STATE_EXITING) 
     {
-    sprintf(log_buffer,"%s %d", 
-      msg_badstate,
-      pjob->ji_qs.ji_state);
+    /* job has completed */
 
-    log_event(
-      PBSEVENT_DEBUG, 
-      PBS_EVENTCLASS_JOB,
-      pjob->ji_qs.ji_jobid, 
-      log_buffer);
+    switch (preq->rq_type)
+      {
+      case PBS_BATCH_Rerun:
 
-    req_reject(PBSE_BADSTATE,0,preq,NULL,NULL);
+        /* allow re-run to be executed for completed jobs */
 
-    return(NULL);
-    }
+        /* NO-OP */
+
+        break;
+
+      default:
+
+        {
+        char tmpLine[1024];
+ 
+        sprintf(log_buffer,"%s %s", 
+          msg_badstate,
+          PJobState[pjob->ji_qs.ji_state]);
+
+        log_event(
+          PBSEVENT_DEBUG, 
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid, 
+          log_buffer);
+
+        sprintf(tmpLine,"invalid state for job - %s",
+          PJobState[pjob->ji_qs.ji_state]);
+
+        req_reject(PBSE_BADSTATE,0,preq,NULL,tmpLine);
+
+        return(NULL);
+        }
+
+        /*NOTREACHED*/
+
+        break;
+      }  /* END switch (preq->rq_type) */
+    }    /* END if (pjob->ji_qs.ji_state >= JOB_STATE_EXITING) */
+
+  /* SUCCESS - request is valid */
 
   return(pjob);
-  }
+  }  /* END chk_job_request() */
 
 
 

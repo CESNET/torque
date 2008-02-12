@@ -90,11 +90,11 @@
 
 /* Extern functions (at_action) called */
 
-extern int job_set_wait A_((attribute *, void *, int));
-extern int action_resc A_((attribute *pattr, void *pobject, int actmode));
-extern int ck_chkpnt A_((attribute *pattr, void *pobject, int actmode));
-extern int depend_on_que A_((attribute *, void *, int));
-extern int comp_chkpnt A_((attribute *, attribute *));
+extern int job_set_wait A_((attribute *,void *,int));
+extern int action_resc A_((attribute *,void *,int));
+extern int ck_chkpnt A_((attribute *,void *,int));
+extern int depend_on_que A_((attribute *,void *,int));
+extern int comp_chkpnt A_((attribute *,attribute *));
 
 #define ATR_DFLAG_SSET  (ATR_DFLAG_SvWR | ATR_DFLAG_SvRD)
 
@@ -271,7 +271,7 @@ attribute_def job_attr_def[] = {
 	comp_str,
 	free_str,
 	NULL_FUNC,
-	READ_ONLY | ATR_DFLAG_MOM,
+	READ_ONLY | ATR_DFLAG_MOM | ATR_DFLAG_OPWR | ATR_DFLAG_SvWR,  /* allow operator/scheduler to modify exec_host */
 	ATR_TYPE_STR,
 	PARENT_TYPE_JOB
     },
@@ -531,7 +531,7 @@ attribute_def job_attr_def[] = {
 	comp_arst,
 	free_arst,
 	NULL_FUNC,
-	READ_WRITE | ATR_DFLAG_SELEQ | ATR_DFLAG_MOM,
+	READ_WRITE | ATR_DFLAG_SELEQ | ATR_DFLAG_MOM | ATR_DFLAG_PRIVR,
 	ATR_TYPE_ARST,
 	PARENT_TYPE_JOB
     },
@@ -716,19 +716,85 @@ attribute_def job_attr_def[] = {
 	ATR_TYPE_STR,
 	PARENT_TYPE_JOB
     },
-
+    
 /* JOB_ATR_job_array_size */
-    {	ATTR_t,
+    {	ATTR_array_size,
 	decode_l,
 	encode_l,
 	set_l,
 	comp_l,
 	free_null,
 	NULL_FUNC,
-	ATR_DFLAG_Creat | ATR_DFLAG_SvRD | READ_ONLY,
+	ATR_DFLAG_SvRD | READ_ONLY,
 	ATR_TYPE_LONG,
 	PARENT_TYPE_JOB
     },
+  
+/* JOB_ATR_job_array_id */
+    {	ATTR_array_id,
+	decode_l,
+	encode_l,
+	set_l,
+	comp_l,
+	free_null,
+	NULL_FUNC,
+	ATR_DFLAG_SvRD | READ_ONLY,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_JOB
+    },
+    
+/* JOB_ATR_job_array_request */
+    {	ATTR_t,
+	decode_str,
+	encode_str,
+	set_str,
+	comp_str,
+	free_str,
+	NULL_FUNC,
+	ATR_DFLAG_Creat | ATR_DFLAG_SvRD | READ_ONLY,
+	ATR_TYPE_STR,
+	PARENT_TYPE_JOB
+    },
+    
+/* JOB_ATR_umask */
+    {	ATTR_umask,
+	decode_l,
+	encode_l,
+	set_l,
+	comp_l,
+	free_null,
+	NULL_FUNC,
+	READ_WRITE | ATR_DFLAG_SELEQ | ATR_DFLAG_MOM,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_JOB
+    },
+
+/* JOB_ATR_start_time */
+    {	ATTR_start_time,
+	decode_l,
+	encode_l,
+	set_l,
+	comp_l,
+	free_null,
+	NULL_FUNC,
+	READ_ONLY | ATR_DFLAG_SSET,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_JOB
+    },
+
+/* JOB_ATR_start_count */
+    {	ATTR_start_count,
+	decode_l,
+	encode_l,
+	set_l,
+	comp_l,
+	free_null,
+	NULL_FUNC,
+	READ_ONLY | ATR_DFLAG_SSET,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_JOB
+    },
+
 /* Site defined attributes if any, see site_job_attr_*.h  */
 #include "site_job_attr_def.h"
 

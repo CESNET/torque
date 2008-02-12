@@ -84,7 +84,7 @@
  *
  * Synopsis:
  *
- *	int cnt2server( char *server )
+ *	int cnt2server(char *server)
  *
  *	server	The name of the server to connect to. A NULL or null string
  *		for the default server.
@@ -98,6 +98,7 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -107,32 +108,46 @@
 #define CNTRETRYDELAY 5
 
 /* >0 is number of seconds to retry, -1 is infinity */
-static long cnt2server_retry=0;
+
+static long cnt2server_retry = 0;
 
 int cnt2server_conf(
-  long retry)
+
+  long retry)  /* I */
+
   {
-  cnt2server_retry=retry;
+  cnt2server_retry = retry;
 
   return(0);
-  }
+  }  /* END cnt2server_conf() */
 
-int cnt2server( 
 
-  char *server)  /* I */
 
+
+
+int cnt2server( char *SpecServer )  /* I (optional) */
   {
   int connect;
-  time_t firsttime=0, thistime=0;
+  time_t firsttime = 0, thistime = 0;
+
+  char Server[1024];
+
 
   if (cnt2server_retry > 0)
     {
-    firsttime=time(NULL);
+    firsttime = time(NULL);
     }
 
+  memset(Server, 0, sizeof(Server));
+  if (SpecServer && SpecServer[0])
+    {
+    strncpy(Server, SpecServer, sizeof(Server));
+    Server[sizeof(Server) - 1] = '\0';
+    }
+  
 start:
 
-  connect = pbs_connect(server);
+  connect = pbs_connect(Server);
 
   if (connect <= 0) 
     {
@@ -142,13 +157,22 @@ start:
         {
         case PBSE_BADHOST:
 
-          fprintf(stderr,"Unknown Host.\n");
+          if ((Server == NULL) || (Server[0] == '\0'))
+            {
+            fprintf(stderr,"Cannot resolve default server host '%s' - check server_name file.\n",
+              pbs_default());
+            }
+          else
+            {
+            fprintf(stderr,"Cannot resolve specified server host '%s'.\n",
+              Server);
+            }
 
           break;
 
         case PBSE_NOCONNECTS:
 
-          if (thistime==0)
+          if (thistime == 0)
             fprintf(stderr,"Too many open connections.\n");
 
           if (cnt2server_retry != 0)
@@ -158,13 +182,13 @@ start:
 		
         case PBSE_NOSERVER:
 
-          fprintf(stderr,"No default server name.\n");
+          fprintf(stderr,"No default server name - check server_name file.\n");
 
           break;
 		
         case PBSE_SYSTEM:
 
-          if (thistime==0)
+          if (thistime == 0)
             fprintf(stderr,"System call failure.\n");
 
           if (cnt2server_retry != 0)
@@ -174,7 +198,7 @@ start:
 		
         case PBSE_PERM:
 
-          if (thistime==0)
+          if (thistime == 0)
             fprintf(stderr,"No Permission.\n");
 
           if (cnt2server_retry != 0)
@@ -185,7 +209,7 @@ start:
         case PBSE_PROTOCOL:
         default:
 
-          if (thistime==0)
+          if (thistime == 0)
             fprintf(stderr,"Communication failure.\n");
 
           if (cnt2server_retry != 0)
@@ -196,12 +220,48 @@ start:
       }    /* END if (pbs_errno > PBSE_) */ 
     else 
       {
-      if (thistime==0)
-        perror(NULL);
+      if (thistime == 0)
+        {
+        if (errno == ECONNREFUSED)
+          {
+          if ((Server == NULL) || (Server[0] == '\0'))
+            {
+            char *fbserver;
+
+            fbserver = pbs_fbserver();
+
+            if ((fbserver != NULL) && (fbserver[0] != '\0'))
+              {
+              strncpy(Server,fbserver,sizeof(Server));
+ 
+              Server[sizeof(Server) - 1] = '\0';
+
+              if (getenv("PBSDEBUG") != NULL)
+                {
+                fprintf(stderr,"attempting fallback server %s\n",
+                  fbserver);
+                }
+
+              goto start;
+              }
+
+            fprintf(stderr,"Cannot connect to default server host '%s' - check pbs_server daemon.\n",
+              pbs_default());
+            }
+          else
+            {
+            fprintf(stderr,"Cannot connect to specified server host '%s'.\n",
+              Server);
+            }
+          }
+        else
+          {
+          perror(NULL);
+          }
+        }
 
       if (cnt2server_retry != 0)
         goto retry;
-
       }
     }    /* END if (connect <= 0) */
 
@@ -219,14 +279,16 @@ retry:
 
   if (cnt2server_retry > 0) /* negative is infinite */
     {
-    if ((thistime-firsttime) > cnt2server_retry)
+    if ((thistime - firsttime) > cnt2server_retry)
       {
       return(connect);
       }
 
     if (getenv("PBSDEBUG") != NULL)
+      {
       fprintf(stderr,"seconds remaining: %d\n",
-        (int)(cnt2server_retry-(thistime-firsttime)));
+        (int)(cnt2server_retry - (thistime - firsttime)));
+      }
     }
   else
     {
@@ -240,4 +302,5 @@ retry:
   }  /* END cnt2server() */
 
 
+/* END cnt2server.c */
 

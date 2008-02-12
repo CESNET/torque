@@ -1,20 +1,158 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
-2.2.0
+2.3.0
+  e - redesign how torque.spec is built
+  e - added -a to qrun to allow asynchronous job start
+  e - allow qrerun on completed jobs
+  e - allow qdel to delete all jobs
+  e - make qdel -m functionality match the documentation
+  b - prevent runaway hellos being sent to server when mom's node is removed
+      from the server's node list
+  e - local client connections use a unix domain socket, bypassing inet and pbs_iff
+  f - Linux 2.6 cpuset support  (in development)
+  e - new job array submission syntax
+  b - fixed SIGUSR1 / SIGUSR2 to correctly change the log level
+  f - health check script can now be run at job start and end
+  e - tm tasks are now stored in a single .TK file rather than eat lots of inodes
+  f - new "extra_resc" server attribute
+  b - "pbs_version" attr is now correctly read-only
+  e - increase max size of .JB and .SC file names
+  e - new "sched_version" server attribute
+  f - new printserverdb tool
+  e - pbs_server/pbs_mom hostname arg is now -H, -h is help
 
+2.2.1
+  b - fix a bug where dependent jobs get put on hold when the previous job has
+      completed but its state is still available for life of keep_completed
+  b - fixed a bug where pbs_server never delete files from the "jobs" directory
+  b - fixed a bug where compute nodes were being put in an indefinite "down" state
+  e - added job_array_size attribute to pbs_submit documentation 
+  b - correctly parse /proc/pid/stat that contains parens (Meier)
+  b - fix qdel of entire job arrays for non operator/managers
+
+2.2.0
   e - improve RPP logging for corruption issues
   f - dynamic resources
-  b - correct run-time symbol in pam module on RHEL4
-  f - allow manager to set "next job number" vi hidden qmgr attribute next_job_number
-  b - some minor hpux11 build fixes (PACCAR)
-  e - allow pam_pbssimpleauth to be built on OSX and Solaris
-  b - fix bug with log roll and automatic log filenames
   e - use mlockall() in pbs_mom if _POSIX_MEMLOCK
   f - consumable resource "tokens" support (Harte-Hanks)
-  b - networking fixes for HPUX, fixes pbs_iff (PACCAR)
-  e - fix "list_head" symbol clash on Solaris 10
-  f - Linux 2.6 cpuset support
+  e - build process sets default submit filter path to ${libexecdir}/qsub_filter
+      we fall back to /usr/local/sbin/torque_submitfilter to maintain 
+      compatibility
+  e - allow long job names when not using -N
+  f - new MOM $varattr config
+  e - daemons are no longer installed 700
+  e - tighten directory path checks
+  f - new mom configs: $auto_ideal_load and $auto_max_load
+  e - pbs_mom on Darwin (OS X) no longer depends on libkvm  (now works on all
+      versions without need to re-enable /dev/kmem on newer PPC or all x86
+      versions)
+  e - added PBS_SERVER env variable for job scripts
+  e - add --about support to daemons and client commands
+  f - added qsub -t (primitive job array)
+  e - add PBS_RESOURCE_GRES to prolog/epilog environment
+  e - add -h hostname to pbs_mom (NCIFCRF)
+  e - filesec enhancements (StockholmU)
+  e - added ERS and IDS documentation 
+  e - allow export of specific variables into prolog/epilog environment
+  b - change fclose to pclose to close submit filter pipe (ABCC)
+  e - add support for Cray XT size and larger qstat task reporting (ORNL)
+  b - pbs_demux is now built with pbs_mom instead of with clients
+  e - epilogue will only run if job is still valid on exec node
+  e - add qnodes, qnoded, qserverd, and qschedd symlinks
+  e - enable DEFAULTCKPT torque.cfg parameter
+  e - allow compute host and submit host suffix with nodefile_suffix
+  f - add --with-modulefiles=[DIR] support
+  b - be more careful about broken tclx installs
+
+2.1.11
+  b - nqs2pbs is now a generated script
+  b - correct handling of priv job attr
+  b - change font selectors in manpages to bold
+
+2.1.10
+  b - fix buffer overflow in rm_request,
+      fix 2 printf that should be sprintf (Umea University)
+  b - correct updating trusted client list (Yahoo)
+  b - Catch newlines in log messages, split messages text (Eygene Ryabinkin)
+  e - pbs_mom remote reconfig pbs_mom now disabled by default
+      use $remote_reconfig to enable it
+  b - fix pam configure (Adrian Knoth)
+  b - handle /dev/null correctly when job rerun
+
+2.1.9
+  f - new queue attribute disallowed_types, currently recognized types:
+      interactive, batch, rerunable, and nonrerunable
+  e - refine "node note" feature with pbsnodes -N
+  e - bypass pbs_server's uid 0 check on cygwin
+  e - update suse initscripts
+  b - fix mom memory locking
+  b - fix sum buffer length checks in pbs_mom
+  b - fix memory leak in fifo scheduler
+  b - fix nonstandard usage of 'tail' in tpackage
+  b - fix aliasing error with brp_txtlen
+  f - allow manager to set "next job number" via hidden qmgr attribute
+      next_job_number
+
+2.1.8
+  b - stop possible memory corruption with an invalid request type (StockholmU)
+  b - add node name to pbsnodes XML output (NCIFCRF)
+  b - correct Resource_list in qstat XML output (NCIFCRF)
+  b - pam_authuser fixes from uam.es
+  e - allow 'pbsnodes -l' to work with a node spec
+  b - clear exec_host and session_id on job requeue
+  b - fix mom child segfault when a user env var has a '%'
+  b - correct buggy logging in chk_job_request() (StockholmU)
+  e - pbs_mom shouldn't require server_name file unless it is
+      actually going to be read (StockholmU)
+  f - "node notes" with pbsnodes -n (sandia)
+
+2.1.7
+  b - fix bison syntax error in Parser.y
+  b - fix 2.1.4 regression with spool file group owner on freebsd
+  b - don't exit if mlockall sets errno ENOSYS
+  f - qalter -v variable_list
+  f - MOMSLEEPTIME env delays pbs_mom initialization
+  e - minor log message fixups
+  e - enable node-reuse in qsub eval if server resources_available.nodect is set
+  e - pbs_mom and pbs_server can now use PBS_MOM_SERVER_PORT,
+      PBS_BATCH_SERVICE_PORT, and PBS_MANAGER_SERVICE_PORT env vars.
+  e - pbs_server can also use PBS_SCHEDULER_SERVICE_PORT env var.
+  e - add "other" resource to pelog's 5th argument
+
+2.1.6
+  b - freebsd5 build fix
+  b - fix 2.1.4 regression with TM on single-node jobs
+  b - fix 2.1.4 regression with rerunning jobs
+  b - additional spool handling security fixes
+
+2.1.5
+  b - fix 2.1.4 regression with -o/dev/null
+
+2.1.4
+  b - fix cput job status
+  b - Fix "Spool Job Race condition"
+
+2.1.3
+  
+  b - correct run-time symbol in pam module on RHEL4
+  b - some minor hpux11 build fixes (PACCAR)
+  b - fix bug with log roll and automatic log filenames
   b - compile error with size_fs() on digitalunix
+  e - pbs_server will now print build details with --about
+  e - new freebsd5 mom arch for Freebsd 5.x and 6.x (trasz)
+  f - backported new queue attribute "max_user_queuable"
+  e - optimize acl_group_sloppy
+  e - fix "list_head" symbol clash on Solaris 10
+  e - allow pam_pbssimpleauth to be built on OSX and Solaris
+  b - networking fixes for HPUX, fixes pbs_iff (PACCAR)
+  e - allow long job names when not using -N
+  c - using depend=syncwith crashed pbs_server
+  c - races with down nodes and purging jobs crashed pbs_server
+  b - staged out files will retain proper permission bits
+  f - may now specify umask to use while creating stderr and stdout spools
+      e.g. qsub -W umask=22
+  b - correct some fast startup behaviour
+  e - queue attribute max_queuable accounts for C jobs
 
 2.1.2
 
@@ -26,12 +164,13 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   f - new pam_pbssimpleauth PAM module, requires --with-pam=DIR
   e - add logging for node state adjustment
   f - correctly track node state and allocation based for suspended jobs
-  e - entries can always be deleted from manager ACL, even if ACL contains host(s) 
-      that no longer exist
+  e - entries can always be deleted from manager ACL, 
+      even if ACL contains host(s) that no longer exist
   e - more informative error message when modifying manager ACL
   f - all queue create, set, and unset operations now set a queue mtime
   f - added support for log rolling to libtorque
-  f - pbs_server and pbs_mom have two new attributes log_file_max_size, log_file_roll_depth
+  f - pbs_server and pbs_mom have two new attributes 
+      log_file_max_size, log_file_roll_depth
   e - support installing client libs and cmds on unsupported OSes (like cygwin)
   b - fix subnode allocation with pbs_sched
   b - fix node allocation with suspend-resume
@@ -644,11 +783,6 @@ Patches incorporated prior to patch 2:
   NCSA MOM Pin
 
     pin PBS MOM into memory to keep it from getting swapped
-    (NOTE:  Linux conditionals must be added - NYI)
-
-  Buffalo -- Sep 2002 (???)
-
-    ???
 
   ANL RPP Tuning -- Sep 2000 (J Navarro)
 
@@ -662,7 +796,7 @@ Patches incorporated prior to patch 2:
 
     processes are killed with SIGTERM followed by SIGKILL
 
-  PNNL SSS Patch -- Jun 2002 (???)
+  PNNL SSS Patch -- Jun 2002 (Skousen)
 
     improves server-mom communication and server-scheduler
 

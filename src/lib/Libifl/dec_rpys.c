@@ -98,10 +98,12 @@
 #include "dis.h"
 #include "batch_request.h"
 
-int decode_DIS_replySvr(sock, reply)
-	int		    sock;
-	struct batch_reply *reply;
-{
+int decode_DIS_replySvr(
+
+  int                 sock,   /* I */
+  struct batch_reply *reply)  /* I (modified) */
+
+  {
 	int		      ct;
 	int		      i;
 	struct brp_select    *psel;
@@ -200,7 +202,7 @@ int decode_DIS_replySvr(sock, reply)
 		/* text reply */
 
 		reply->brp_un.brp_txt.brp_str = disrcs(sock,
-				(size_t *)&reply->brp_un.brp_txt.brp_txtlen,
+				&reply->brp_un.brp_txt.brp_txtlen,
 				&rc);
 		break;
 

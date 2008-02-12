@@ -80,6 +80,7 @@
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <rpc/rpc.h>
 #include <netinet/in.h>
 #include <stdio.h>
 #include <errno.h>
@@ -94,6 +95,13 @@
 #include <fcntl.h>
 #include <sys/time.h>
 
+
+#ifdef __APPLE__
+/* this is a hack for the missing bindresvport declaration on OS X 
+   the function works fine but its use will generate a compiler warning 
+   if -Wall is used with gcc */
+int bindresvport(int sd, struct sockaddr_in *sin);
+#endif
 
 /*
 ** wait for connect to complete.  We use non-blocking sockets,
@@ -146,6 +154,8 @@ static int await_connect(
 
 
 
+#define TORQUE_MAXCONNECTTIMEOUT  5
+
 /*
  * client_to_svr - connect to a server
  *
@@ -155,41 +165,44 @@ static int await_connect(
  *		 PBS_NET_RC_FATAL (-1) if fatal error, just quit, or
  *		 PBS_NET_RC_RETRY (-2) if temp error, should retry
  *
- * Note, the server's host address and port are was chosen as parameters
+ * NOTE: the server's host address and port were chosen as parameters
  * rather than their names to possibly save extra look-ups.  It seems likely
  * that the caller "might" make several calls to the same host or different
- * hosts with the same port.  Let the caller keep the addresses arround
+ * hosts with the same port.  Let the caller keep the addresses around
  * rather than look it up each time.
+ *
+ * NOTE:  will wait up to TORQUE_MAXCONNECTTIMEOUT seconds for transient network failures
  */
+
+/* NOTE:  create new connection on reserved port to validate root/trusted authority */
 
 int client_to_svr(
 
-  pbs_net_t     hostaddr,	/* Internet addr  of host */
-  unsigned int  port,		/* port to which to connect */
-  int           local_port)	/* BOOLEAN:  not 0 if use local reserved port */
+  pbs_net_t     hostaddr,	/* I - internet addr of host */
+  unsigned int  port,		/* I - port to which to connect */
+  int           local_port,	/* I - BOOLEAN:  not 0 to use local reserved port */
+  char         *EMsg)           /* O (optional,minsize=1024) */
 
   {
-#ifdef ENABLE_IPV6
-  struct sockaddr_in6 local;
-  struct sockaddr_in6 remote;
-#else
+  const char id[] = "client_to_svr";
+
   struct sockaddr_in local;
   struct sockaddr_in remote;
-#endif
   int                sock;
   unsigned short     tryport;
   int                flags;
-  int               one = 1;
-  
-#ifdef ENABLE_IPV6
-  local.sin6_family = AF_INET6;
-  local.sin6_addr.s6_addr32[0] = 0;
-  local.sin6_port = 0;
-#else
-  local.sin_family = AF_INET;
+  int                one = 1;
+
+  int                trycount;
+ 
+  if (EMsg != NULL)
+    EMsg[0] = '\0';
+
+  errno = 0;
+ 
+  local.sin_family      = AF_INET;
   local.sin_addr.s_addr = 0;
-  local.sin_port = 0;
-#endif
+  local.sin_port        = 0;
 
   tryport = IPPORT_RESERVED - 1;
 
@@ -197,34 +210,41 @@ retry:  /* retry goto added (rentec) */
 
   /* get socket */
 
-#ifdef ENABLE_IPV6
-  sock = socket(AF_INET6,SOCK_STREAM,0);
-#else
   sock = socket(AF_INET,SOCK_STREAM,0);
-#endif
 
   if (sock < 0) 
     {
+    if (EMsg != NULL)
+      sprintf(EMsg,"cannot create socket in %s - errno: %d %s",
+        id,
+        errno,
+        strerror(errno));
+
     return(PBS_NET_RC_FATAL);
     } 
 
   if (sock >= PBS_NET_MAX_CONNECTIONS) 
     {
+    if (EMsg != NULL)
+      sprintf(EMsg,"PBS_NET_MAX_CONNECTIONS exceeded in %s",
+        id);
+
     close(sock);		/* too many connections */
 
     return(PBS_NET_RC_RETRY);
     }
 
 #ifndef NOPRIVPORTS
-
   flags = fcntl(sock,F_GETFL);
   flags |= O_NONBLOCK;
-  fcntl(sock,F_SETFL,flags);
 
+  fcntl(sock,F_SETFL,flags);
 #endif /* !NOPRIVPORTS */
 
   /* If local privilege port requested, bind to one */
   /* must be root privileged to do this	*/
+
+  trycount = 0;
 
   if (local_port != FALSE) 
     {
@@ -239,23 +259,23 @@ retry:  /* retry goto added (rentec) */
 
 #ifndef NOPRIVPORTS
 
-#if defined(HAVE_BINDRESVPORT) && !defined(ENABLE_IPV6) || defined(HAVE_BINDRESVPORT_SA)
+#ifdef HAVE_BINDRESVPORT
     /*
      * bindresvport seems to cause connect() failures in some odd corner case when
      * talking to a local daemon.  So we'll only try this once and fallback to
-     * the slow loop around bind() if connect() failes with EADDRINUSE
+     * the slow loop around bind() if connect() fails with EADDRINUSE
      * or EADDRNOTAVAIL.
      * http://www.supercluster.org/pipermail/torqueusers/2006-June/003740.html
      */
 
     if (tryport == (IPPORT_RESERVED - 1))
       {
-#if defined(HAVE_BINDRESVPORT_SA) && defined(ENABLE_IPV6)
-      if (bindresvport_sa(sock,&local) < 0)
-#else
       if (bindresvport(sock,&local) < 0)
-#endif
         {
+        if (EMsg != NULL)
+          sprintf(EMsg,"cannot bind to reserved port in %s",
+            id);
+
         close(sock);
 
         return(PBS_NET_RC_FATAL);
@@ -263,61 +283,62 @@ retry:  /* retry goto added (rentec) */
       }
     else
       {
+#endif /* HAVE_BINDRESVPORT */
 
-#endif
+      local.sin_port = htons(tryport);
 
-#ifdef ENABLE_IPV6
-    local.sin6_port = htons(tryport);
-#else
-    local.sin_port = htons(tryport);
-#endif
-
-    while (bind(sock,(struct sockaddr *)&local,sizeof(local)) < 0) 
-      {
+      while (bind(sock,(struct sockaddr *)&local,sizeof(local)) < 0) 
+        {
 #ifdef NDEBUG2
-      fprintf(stderr,"INFO:  cannot bind to port %d, errno: %d - %s\n",
-        tryport,
-        errno,
-        strerror(errno));
+        fprintf(stderr,"INFO:  cannot bind to port %d, errno: %d - %s\n",
+          tryport,
+          errno,
+          strerror(errno));
 #endif /* NDEBUG2 */
 
-      if ((errno != EADDRINUSE) && (errno != EADDRNOTAVAIL)) 
-        {
-        close(sock);
+        if ((errno != EADDRINUSE) && (errno != EADDRNOTAVAIL)) 
+          {
+          if (EMsg != NULL)
+            sprintf(EMsg,"cannot bind to port %d in %s - errno: %d %s",
+              tryport,
+              id,
+              errno,
+              strerror(errno));
 
-        return(PBS_NET_RC_FATAL);
-        } 
+          close(sock);
+
+          return(PBS_NET_RC_FATAL);
+          } 
+
+        trycount++;
    
-      if (--tryport < (unsigned short)(IPPORT_RESERVED / 2)) 
-        {
-        close(sock);
+        if (--tryport < (unsigned short)(IPPORT_RESERVED / 2)) 
+          {
+          if (EMsg != NULL)
+            sprintf(EMsg,"cannot bind to port %d in %s - too many retries",
+              tryport,
+              id);
 
-        return(PBS_NET_RC_RETRY);
-        }
+          close(sock);
 
-#ifdef ENABLE_IPV6
-      local.sin6_port = htons(tryport);
-#else
-      local.sin_port = htons(tryport);
-#endif
-      }  /* END while (bind() < 0) */
-#if defined(HAVE_BINDRESVPORT) && !defined(ENABLE_IPV6) || defined(HAVE_BINDRESVPORT_SA)
-      } /* END if (tryport == (IPPORT_RESERVED - 1)) else */
-#endif /* HAVE_BINDRESVPORT */
-#endif /* !NOPRIVPORTS */
-    }    /* END if (local_port != FALSE) */
+          return(PBS_NET_RC_RETRY);
+          }
+
+        local.sin_port = htons(tryport);
+        }  /* END while (bind() < 0) */
+#ifdef HAVE_BINDRESVPORT
+      }    /* END if (tryport == (IPPORT_RESERVED - 1)) else */
+#endif     /* HAVE_BINDRESVPORT */
+#endif     /* !NOPRIVPORTS */
+    }      /* END if (local_port != FALSE) */
+
+  /* bind successful!!! */
 			
   /* connect to specified server host and port	*/
 
-#ifdef ENABLE_IPV6
-  remote.sin6_addr.s6_addr32[0] = htonl(hostaddr);
-  remote.sin6_port = htons((unsigned short)port);
-  remote.sin6_family = AF_INET6;
-#else
   remote.sin_addr.s_addr = htonl(hostaddr);
   remote.sin_port = htons((unsigned short)port);
   remote.sin_family = AF_INET;
-#endif
 
   if (connect(sock,(struct sockaddr *)&remote,sizeof(remote)) >= 0)
     {
@@ -351,7 +372,7 @@ retry:  /* retry goto added (rentec) */
 
         goto retry;
         }
-#endif
+#endif /* NOPRIVPORTS */
 
       /* fall through to next case */
 
@@ -359,9 +380,9 @@ retry:  /* retry goto added (rentec) */
     case ETIMEDOUT:
     case EINPROGRESS:   
 
-      if (await_connect(5,sock) == 0)
+      if (await_connect(TORQUE_MAXCONNECTTIMEOUT,sock) == 0)
         {
-        /* socket not ready for writing after 5 second timeout */
+        /* socket not ready for writing after TORQUE_MAXCONNECTTIMEOUT second timeout */
         /* no network failures detected */
 
         break;
@@ -370,6 +391,11 @@ retry:  /* retry goto added (rentec) */
       /* fall through to next case */
 
     case ECONNREFUSED:
+
+      if (EMsg != NULL)
+        sprintf(EMsg,"cannot bind to port %d in %s - connection refused",
+          tryport,
+          id);
 
       close(sock);
 
@@ -381,6 +407,13 @@ retry:  /* retry goto added (rentec) */
 
     default:
 
+      if (EMsg != NULL)
+        sprintf(EMsg,"cannot bind to port %d in %s - errno:%d %s",
+          tryport,
+          id,
+          errno,
+          strerror(errno));
+
       close(sock);
 
       return(PBS_NET_RC_FATAL);
@@ -388,7 +421,7 @@ retry:  /* retry goto added (rentec) */
       /*NOTREACHED*/
 
       break;
-    }  /* END switch(errno) */
+    }  /* END switch (errno) */
 
   /* SUCCESS */
 			

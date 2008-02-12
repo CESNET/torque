@@ -107,6 +107,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <grp.h>
 
 #ifdef sun
 #include <sys/stream.h>
@@ -130,7 +131,13 @@
 #include "log.h"
 #include "port_forwarding.h"
 
+/* DefaultFilterPath is used to fall back on in order to maintain backwards compatibility. 
+   the new preferred path for the submit filter is ${libexecdir}/qsub_filter */
+
+/* NOTE:  submitfilter specified using SUBMITFILTER in $TORQUEHOME/torque.cfg */
+
 static char *DefaultFilterPath = "/usr/local/sbin/torque_submitfilter";
+
 static char *DefaultXauthPath = XAUTH_PATH;
 
 #define SUBMIT_FILTER_ADMIN_REJECT_CODE -1 
@@ -144,71 +151,120 @@ char PBS_InitDir[256];
 char PBS_RootDir[256];
 
 char xauth_path[256];
+char default_ckpt[256];
 
-int interactivechild=0;
-int x11child=0;
+int validate_path = 1;
+int interactivechild = 0;
+int x11child = 0;
 
 int do_dir(char *);
 int process_opts(int,char **,int);
 
+
+
 /* adapted from openssh */
-static char *
-x11_get_proto(void)
-{       
-        char line[512];
-        char proto[512], data[512], screen[512];
-        char *authstring;
-        FILE *f;
-        int got_data = 0;
-        char *display, *p;
-        struct stat st;
 
-        proto[0] = data[0] = screen[0] = '\0';
+static char *x11_get_proto(
 
-        if ((display = getenv("DISPLAY")) == NULL)
-          {
-          fprintf(stderr,"qsub: DISPLAY not set\n");
-          return (NULL);
-          }
+  char *EMsg)  /* O (optional,minsize=1024) */
 
-        if (stat(xauth_path,&st))
-          {
-          perror("qsub: xauth: ");
-          return (NULL);
-          }
+  {       
+  char line[512];
+  char proto[512], data[512], screen[512];
+  char *authstring;
+  FILE *f;
+  int  got_data = 0;
+  char *display, *p;
+  struct stat st;
 
-        /* Try to get Xauthority information for the display. */
-        if (strncmp(display, "localhost:", 10) == 0)
-                /*
-                 * Handle FamilyLocal case where $DISPLAY does
-                 * not match an authorization entry.  For this we
-                 * just try "xauth list unix:displaynum.screennum".
-                 * XXX: "localhost" match to determine FamilyLocal
-                 *      is not perfect.
-                 */
-                snprintf(line, sizeof line, "%s list unix:%s 2>/dev/null",
-                    xauth_path,display+10);
-        else    
-                snprintf(line, sizeof line, "%s list %.200s 2>/dev/null",
-                    xauth_path,display);
+  proto[0]  = '\0';
+  data[0]   = '\0';
+  screen[0] = '\0';
 
-	p = strchr(display,':');
-        if (p)
-          p = strchr(p,'.');
-        if (p)
-          strncpy(screen,p+1,512);
-        else
-          strcpy(screen,"0");
+  if (EMsg != NULL)
+    EMsg[0] = '\0';
 
-        if (getenv("PBSDEBUG") != NULL)
-          fprintf(stderr,"x11_get_proto: %s\n", line);
+  if ((display = getenv("DISPLAY")) == NULL)
+    {
+    fprintf(stderr,"qsub: DISPLAY not set\n");
 
-        f = popen(line, "r");
-        if (f && fgets(line, sizeof(line), f) &&
-            sscanf(line, "%*s %511s %511s", proto, data) == 2)
-                got_data = 1;
-        if (f)  
-                pclose(f);
+    return(NULL);
+    }
+
+  if (stat(xauth_path,&st))
+    {
+    perror("qsub: xauth: ");
+
+    return(NULL);
+    }
+
+  /* Try to get Xauthority information for the display. */
+
+  if (strncmp(display,"localhost:",10) == 0)
+    {
+    /*
+     * Handle FamilyLocal case where $DISPLAY does
+     * not match an authorization entry.  For this we
+     * just try "xauth list unix:displaynum.screennum".
+     * XXX: "localhost" match to determine FamilyLocal
+     *      is not perfect.
+     */
+
+    snprintf(line,sizeof(line),"%s list unix:%s 2>/dev/null",
+      xauth_path,
+      display + 10);
+    }
+  else    
+    {
+    snprintf(line,sizeof(line),"%s list %.200s 2>/dev/null",
+      xauth_path,
+      display);
+    }
+
+  p = strchr(display,':');
+
+  if (p != NULL)
+    p = strchr(p,'.');
+
+  if (p != NULL)
+    strncpy(screen,p + 1,sizeof(screen));
+  else
+    strcpy(screen,"0");
+
+  if (getenv("PBSDEBUG") != NULL)
+    fprintf(stderr,"x11_get_proto: %s\n", 
+      line);
+
+  f = popen(line,"r");
+
+  if (f == NULL)
+    {
+    fprintf(stderr,"execution of '%s' failed, errno=%d\n",
+      line,
+      errno);
+    }
+  else if (fgets(line,sizeof(line),f) == 0)
+    {
+    fprintf(stderr,"cannot read data from '%s', errno=%d\n",
+      line,
+      errno);
+    }
+  else if (sscanf(line,"%*s %511s %511s",
+             proto,
+             data) != 2)
+    {
+    fprintf(stderr,"cannot parse output from '%s'\n",
+      line);
+    }
+  else
+    {
+    /* SUCCESS */
+
+    got_data = 1;
+    }
+
+  if (f != NULL)  
+    pclose(f);
 
 #if 0 /* we aren't inspecting the returned xauth data yet */
         /*
@@ -234,15 +290,22 @@ x11_get_proto(void)
         }
 #endif
 
-    if (!got_data)
-      return(NULL);
+  if (!got_data)
+    {
+    /* FAILURE */
 
-    authstring = malloc(strlen(proto) + strlen(data) + strlen(screen) +4);
-    sprintf(authstring,"%s:%s:%s",proto, data, screen);
+    return(NULL);
+    }
 
-    return(authstring);
+  authstring = malloc(strlen(proto) + strlen(data) + strlen(screen) + 4);
 
-}
+  sprintf(authstring,"%s:%s:%s",
+    proto, 
+    data, 
+    screen);
+
+  return(authstring);
+  }  /* END x11_get_proto() */
 
 
 
@@ -355,7 +418,7 @@ int istext(
 
   /* read first characters to ensure this is ASCII text */
 
-  for(i = 0; i < MMAX_VERIFY_BYTES; i++)
+  for (i = 0;i < MMAX_VERIFY_BYTES;i++)
     {
     c = fgetc(fd);
 
@@ -368,7 +431,7 @@ int istext(
 
       return(0);
       }
-    }  /* END for(i) */
+    }  /* END for (i) */
 
   if (IsText != NULL)
     *IsText = TRUE;
@@ -381,24 +444,25 @@ int istext(
 
 
 
+/* return 3, 4, 5, 6, -1 on FAILURE, 0 on success */
 
 int get_script(
 
-  int    ArgC,  /* I */
-  char **ArgV,  /* I */
-  FILE  *file,
-  char  *script,
-  char  *prefix)
+  int    ArgC,    /* I */
+  char **ArgV,    /* I */
+  FILE  *file,    /* I */
+  char  *script,  /* O (minsize=X) */
+  char  *prefix)  /* I */
 
   {
-  char s[MAX_LINE_LEN + 1];
+  char  s[MAX_LINE_LEN + 1];
   char *sopt;
-  int exec = FALSE;
+  int   exec = FALSE;
   char *cont;
-  char tmp_name[]="/tmp/qsub.XXXXXX";
+  char  tmp_name[] = "/tmp/qsub.XXXXXX";
   FILE *TMP_FILE;
   char *in;
-  int tmpfd;
+  int   tmpfd;
 
   int   index;
 
@@ -406,15 +470,14 @@ int get_script(
 
   char cfilter[MAXPATHLEN + 1024];
 
-  char tmp_name2[]="/tmp/qsub.XXXXXX";
-  char tmp_name3[]="/tmp/qsub.XXXXXX";
+  char tmp_name2[] = "/tmp/qsub.XXXXXX";
 
-  struct stat sfilter;
-  FILE       *filesaved;
+  struct stat  sfilter;
+  FILE        *filesaved;
+  FILE        *filter_pipe;
+  int          rc;
 
-  int         rc;
-
-  /*  If the submitfilter exists, run it.                               */
+  /* if the submitfilter exists, run it.                               */
 
   /* check that the file is text */
 
@@ -428,48 +491,13 @@ int get_script(
 
   if (stat(PBS_Filter,&sfilter) != -1) 
     {
-    /* Create a copy of the script to run through the submit filter. */
+    /* run the copy through the submit filter. */
 
     if ((tmpfd = mkstemp(tmp_name2)) < 0) 
       {
       fprintf(stderr,
-        "qsub: could not create filter i/p %s\n",
-        tmp_name2);
-
-      return(4);
-      }
-
-    if ((TMP_FILE = fdopen(tmpfd,"w+")) == NULL) 
-      {
-      fprintf(stderr, "qsub: could not create filter i/p %s\n", 
-        tmp_name);
-
-      return(4);
-      }
-
-    while ((in = fgets(s,MAX_LINE_LEN,file)) != NULL) 
-      {
-      if (fputs(in,TMP_FILE) < 0) 
-        {
-        fprintf(stderr,"qsub: error writing filter i/p, %s\n",
-          tmp_name);
-
-        fclose(TMP_FILE);
-        unlink(tmp_name2);
-
-        return(3);
-        }
-      }
-
-    fclose(TMP_FILE);
-
-    /* run the copy through the submit filter. */
-
-    if ((tmpfd = mkstemp(tmp_name3)) < 0) 
-      {
-      fprintf(stderr,
         "qsub: could not create filter o/p %s\n",
-        tmp_name3);
+        tmp_name2);
 
       return(4);
       }
@@ -488,23 +516,24 @@ int get_script(
         }
       }    /* END for (index) */
  
-    strcat(cfilter," <");
-    strcat(cfilter,tmp_name2);
     strcat(cfilter," >");
-    strcat(cfilter,tmp_name3);
+    strcat(cfilter,tmp_name2);
+    filter_pipe = popen(cfilter,"w");
 
-    rc = system(cfilter);
-
-    if (rc == -1)
+    while ((in = fgets(s,MAX_LINE_LEN,file)) != NULL)
       {
-      fprintf( stderr, "qsub: failed to execute submit filter, %s\n",
-        tmp_name3);
+      if (fputs(in,filter_pipe) < 0)
+        {
+        fprintf(stderr,"qsub: error writing to filter stdin\n");
 
-      unlink(tmp_name2);
-      unlink(tmp_name3);
+        fclose(filter_pipe);
+        unlink(tmp_name2);
 
-      return(3);
+        return(3);
+        }
       }
+
+    rc = pclose(filter_pipe);
 
     if (WEXITSTATUS(rc) == (unsigned char)SUBMIT_FILTER_ADMIN_REJECT_CODE)
       {
@@ -512,7 +541,6 @@ int get_script(
       fprintf(stderr,"qsub: There may be a more detailed explanation prior to this notice.\n");
 
       unlink(tmp_name2);
-      unlink(tmp_name3);
 
       return(3);
       }
@@ -522,14 +550,11 @@ int get_script(
       fprintf(stderr,"qsub: submit filter returned an error code, aborting job submission.\n");
 
       unlink(tmp_name2);
-      unlink(tmp_name3);
 
       return(3);
       }
 
     /* get rid of the i/p copy. */
-
-    unlink(tmp_name2);
 
     /* preserve the original pointer. */
 
@@ -537,12 +562,12 @@ int get_script(
 
     /* open the filtered script. */
 
-    if ((file = fopen(tmp_name3,"r")) == NULL) 
+    if ((file = fopen(tmp_name2,"r")) == NULL) 
       {
       fprintf(stderr,"qsub: could not open filter o/p %s\n",
-        tmp_name3);
+        tmp_name2);
 
-      unlink(tmp_name3);
+      unlink(tmp_name2);
 
       file = filesaved;
 
@@ -552,12 +577,12 @@ int get_script(
     /* Get rid of the filtered o/p; data remains accessible until    */
     /* file is closed.                                               */
 
-    unlink(tmp_name3);
+    unlink(tmp_name2);
 
     /* Complete redirection.                                         */
 
     fclose(filesaved);
-    }
+    }  /* END if (stat(PBS_Filter,&sfilter) != -1) */
 
   /* END WRAPPER */
 
@@ -573,6 +598,8 @@ int get_script(
     {
     fprintf(stderr, "qsub: could not create copy of script %s\n", 
       tmp_name);
+
+    unlink(tmp_name);
 
     return(4);
     }
@@ -601,10 +628,12 @@ int get_script(
 
         if (fputs(in,TMP_FILE) < 0) 
           {
-          fprintf(stderr, "qsub: error writing copy of script, %s\n", 
+          fprintf(stderr,"qsub: error writing copy of script, %s\n", 
             tmp_name);
 
           fclose(TMP_FILE);
+
+          unlink(tmp_name);
 
           return(3);
           }
@@ -616,6 +645,8 @@ int get_script(
           fprintf(stderr,"qsub: unexpected end-of-file or read error in script\n");
 
           fclose(TMP_FILE);
+
+          unlink(tmp_name);
 
           return(6);
           }
@@ -633,10 +664,12 @@ int get_script(
 
     if (fputs(in,TMP_FILE) < 0) 
       {
-      fprintf(stderr, "qsub: error writing copy of script, %s\n", 
+      fprintf(stderr,"qsub: error writing copy of script, %s\n", 
         tmp_name);
 
       fclose(TMP_FILE);
+
+      unlink(tmp_name);
 
       return(3);
       }
@@ -646,7 +679,7 @@ int get_script(
 
   if (ferror(file)) 
     {
-    fprintf(stderr, "qsub: error reading script file\n");
+    fprintf(stderr,"qsub: error reading script file\n");
 
     return(5);
     } 
@@ -821,7 +854,10 @@ char path_out[MAXPATHLEN + 1];
 char destination[PBS_MAXDEST];
 static char server_out[PBS_MAXSERVERNAME + PBS_MAXPORTNUM + 2];
 char server_host[PBS_MAXHOSTNAME + 1];
-long cnt2server_retry=-100;
+char qsub_host[PBS_MAXHOSTNAME + 1];
+char  owner_uid[1024 + 1];
+
+long cnt2server_retry = -100;
 
 /* state booleans for protecting already-set options */
 int a_opt = FALSE;
@@ -853,6 +889,7 @@ int Stagein_opt   = FALSE;
 int Stageout_opt  = FALSE;
 int Grouplist_opt = FALSE;
 int Forwardx11_opt = FALSE;
+int Umask_opt = FALSE;
 char *v_value = NULL;
 
 
@@ -962,7 +999,7 @@ int set_job_env(
   char *job_env;
   char *s, *c, *env, l;
   unsigned   len;
-  int   rc;
+  int   rc = 0;
 
   int   eindex;
 
@@ -978,7 +1015,7 @@ int set_job_env(
 
   /* Calculate how big to make the variable string. */
 
-  len = PBS_MAXHOSTNAME + MAXPATHLEN;
+  len = PBS_MAXHOSTNAME*2 + MAXPATHLEN;
 
   if (v_opt) 
     {
@@ -1018,6 +1055,7 @@ int set_job_env(
   }
 
   len += strlen("PBS_O_WORKDIR=") + 1;
+  len += strlen("PBS_SERVER=") + 1;
 
   len++; /* Terminating '0' */
 
@@ -1087,14 +1125,32 @@ int set_job_env(
     strcat(job_env,c);
     }
 
+  if (qsub_host[0] != '\0')
+    {
+    strcat(job_env,",PBS_O_HOST=");
+    strcat(job_env,qsub_host);
+    }
+
   if ((server_host[0] != '\0') || 
      ((rc = gethostname(server_host,PBS_MAXHOSTNAME + 1)) == 0))
     {
-    if ((rc = get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME)) == 0) 
+    if ((rc = get_fullhostname(server_host,server_host,PBS_MAXHOSTNAME,NULL)) == 0) 
       {
-      strcat(job_env,",PBS_O_HOST=");
+      strcat(job_env,",PBS_SERVER=");
       strcat(job_env,server_host);
+      
+      if (qsub_host[0] == '\0')
+        {
+	strcat(job_env,",PBS_O_HOST=");
+        strcat(job_env,server_host);
+	}
       }
+    }
+
+  if (owner_uid[0] != '\0')
+    {
+    strcat(job_env,",PBS_O_UID=");
+    strcat(job_env,owner_uid);
     }
 
   if (rc != 0) 
@@ -1316,7 +1372,7 @@ state4:         /* goto label - Value specified */
 
 final:
 
-  if (V_opt) 
+  if (V_opt != 0) 
     {      
     /* Send every environment variable with the job. */
 
@@ -1393,11 +1449,7 @@ char *interactive_port(int *sock)
   {
   torque_socklen_t namelen;
   static char portstring[8];
-#ifdef ENABLE_IPV6
-  struct sockaddr_in6 myaddr;
-#else
-  struct sockaddr_in  myaddr;
-#endif
+  struct sockaddr_in myaddr;
   unsigned short port;
 
   if ((isatty(0) == 0) || (isatty(1) == 0)) 
@@ -1416,15 +1468,9 @@ char *interactive_port(int *sock)
     }
 
   namelen = sizeof(myaddr);
-#ifdef ENABLE_IPV6
-  myaddr.sin6_family = AF_INET6;
-  myaddr.sin6_addr.s6_addr32[0] = INADDR_ANY;
-  myaddr.sin6_port = 0;
-#else
   myaddr.sin_family = AF_INET;
   myaddr.sin_addr.s_addr = INADDR_ANY;
   myaddr.sin_port = 0;
-#endif
 
   if (bind(*sock,(struct sockaddr *)&myaddr,namelen) < 0) 
     {
@@ -1442,11 +1488,7 @@ char *interactive_port(int *sock)
     exit(1);
     }
 
-#ifdef ENABLE_IPV6
-  port = ntohs(myaddr.sin6_port);
-#else
   port = ntohs(myaddr.sin_port);
-#endif
 
   sprintf(portstring,"%u", 
     (unsigned int)port);
@@ -1459,7 +1501,9 @@ char *interactive_port(int *sock)
     }
     
   return(portstring);
-  }
+  }  /* END interactive_port() */
+
+
 
 
 
@@ -1532,14 +1576,14 @@ void stopme(
 
 int reader(
 
-  int s,	/* reading socket */
-  int d)        /* writing socket */
+  int s,	/* I - reading socket */
+  int d)        /* I - writing socket */
 
   {
-  char buf[4096];
-  int  c;
+  char  buf[4096];
+  int   c;
   char *p;
-  int  wc;
+  int   wc;
 
   /* read from the socket, and write to d */
 
@@ -1561,12 +1605,10 @@ int reader(
             {
             continue;
             } 
-          else 
-            {
-            perror("qsub: write error");
 
-            return(-1);
-            }
+          perror("qsub: write error");
+
+          return(-1);
           }
 
          c -= wc;
@@ -1895,7 +1937,7 @@ void catchchild(
   /*NOTREACHED*/
 
   return;
-  }
+  }  /* END catchchild() */
 
 
 
@@ -1909,6 +1951,7 @@ void no_suspend(
 
   fflush(stdout);
   }
+
 
 
 
@@ -1954,6 +1997,7 @@ void bailout()
 
 
 
+
 void toolong(
 
   int sig)
@@ -1967,6 +2011,7 @@ void toolong(
 
   exit(0);
   }
+
 
 
 
@@ -2000,7 +2045,15 @@ void catchint(
       exit(0);
       } 
 
-    printf("yes or no please\n");
+    if (printf("yes or no please\n") < 0)
+      {
+      /* terminal probably went away */
+      bailout();
+
+      /*NOTREACHED*/
+
+      exit(0);
+      } 
 
     while ((c != '\n') && (c != EOF))
       c = getchar();
@@ -2015,7 +2068,13 @@ void catchint(
   }  /* END catchint() */
 
 
-void x11handler(int inter_sock)
+
+
+
+void x11handler(
+
+  int inter_sock)
+
   {
   struct pfwdsock *socks;
   int n;
@@ -2044,10 +2103,13 @@ void x11handler(int inter_sock)
     return;
   }
 
-  port_forwarder(socks,x11_connect_display,display,0);
+  port_forwarder(socks,x11_connect_display,display,0,NULL);
 
   exit(EXIT_FAILURE);
-}
+  }
+
+
+
 
 
 /*
@@ -2066,11 +2128,7 @@ void interactive()
   char *pc;
   fd_set selset;
   struct sigaction act;
-#ifdef ENABLE_IPV6
-  struct sockaddr_in6 from;
-#else
-  struct sockaddr_in  from;
-#endif
+  struct sockaddr_in from;
   torque_socklen_t fromlen;
   struct timeval timeout;
   struct winsize wsz;
@@ -2313,11 +2371,14 @@ void interactive()
 
 
 
+/* NOTE:  return 0 on success */
+/* NOTE:  only run submitfilter if pass < 10 */
+
 int process_opts(
 
-  int    argc,
-  char **argv,
-  int    pass)
+  int    argc,  /* I */
+  char **argv,  /* I */
+  int    pass)  /* I */
 
   {
   int i;
@@ -2331,10 +2392,16 @@ int process_opts(
   char *pc;
   char *pdepend;
 
-  FILE *fP=NULL;
-  char tmp_name[]="/tmp/qsub.XXXXXX";
-  char tmp_name2[]="/tmp/qsub.XXXXXX";
+  FILE *fP = NULL;
+
+  char tmp_name[] = "/tmp/qsub.XXXXXX";
+  char tmp_name2[] = "/tmp/qsub.XXXXXX";
+
   char cline[4096];
+
+  char  flag;  /* submitfilter flag character */
+  char *vptr;  /* submitfilter flag value */
+
   char tmpResources[4096]="";
   char *cP;
 
@@ -2379,6 +2446,12 @@ int process_opts(
           {
           fprintf(stderr,"version: %s\n",
             PACKAGE_VERSION);
+
+          exit(0);
+          }
+        else if ((optarg != NULL) && !strcmp(optarg,"about"))
+          {
+          TShowAbout();
 
           exit(0);
           }
@@ -2570,7 +2643,7 @@ int process_opts(
             snprintf(PBS_InitDir,sizeof(PBS_InitDir),"%s/%s",
               mypwd,
               optarg);
-            }
+            }  /* END if (optarg[0] != '/') */
           else
             {
             if (strlen(optarg) >= sizeof(PBS_InitDir))
@@ -2583,17 +2656,22 @@ int process_opts(
 
             strncpy(PBS_InitDir,optarg,sizeof(PBS_InitDir));
             } /* end optarg[1] != '/' */
-          
-          if (chdir(PBS_InitDir) == -1)
-            {
-            fprintf(stderr,"qsub: cannot chdir to '%s' errno: %d (%s)\n",
-              optarg,
-              errno,
-              strerror(errno));
+        
+          if (validate_path != 0)
+            { 
+            /* validate local existence of '-d' working directory */
+    
+            if (chdir(PBS_InitDir) == -1)
+              {
+              fprintf(stderr,"qsub: cannot chdir to '%s' errno: %d (%s)\n",
+                optarg,
+                errno,
+                strerror(errno));
 
-            errflg++;
+              errflg++;
+              }
             }
-          }
+          }    /* END if (optarg != NULL) */
         else
           {
           fprintf(stderr,"qsub: illegal -d value\n");
@@ -2723,11 +2801,14 @@ int process_opts(
         if (Interact_opt == 1) 
           {
           char tmpLine[4096];
+
           /* Queue interactive resources to temp file. */
 
           strcpy(tmpLine,tmpResources);
 
-          sprintf(tmpResources,"%s#PBS -l %s\n",tmpLine,optarg);
+          sprintf(tmpResources,"%s#PBS -l %s\n",
+            tmpLine,
+            optarg);
           } 
         else 
           {
@@ -2739,7 +2820,50 @@ int process_opts(
 
             errflg++;
             }
-          }
+  
+          if (strstr(optarg,"walltime") != NULL)
+            {
+            struct attrl *attr;
+            char   *ptr;
+
+            /* if walltime range specified, break into minwclimit and walltime resources */
+
+            for (attr = attrib;attr != NULL;attr = attr->next)
+              {
+              if (!strcmp(attr->name,"walltime"))
+                {
+                if ((ptr = strchr(attr->value,'-')))
+                  {
+                  char tmpLine[1024];
+
+                  *ptr = '\0'; 
+
+                  ptr++;
+
+                  /* set minwclimit to min walltime range value */
+
+                  snprintf(tmpLine,sizeof(tmpLine),"minwclimit=%s",
+                    attr->value);
+
+                  if (set_resources(&attrib,tmpLine,(pass == 0)) != 0)
+                    {
+                    fprintf(stderr,"qsub: illegal -l value\n");
+
+                    errflg++;
+                    }
+
+                  /* set walltime to max walltime range value */
+
+                  strcpy(tmpLine,ptr);
+
+                  strcpy(attr->value,tmpLine);
+                  }
+
+                break;
+                }
+              }  /* END for (attr) */
+            }
+          }      /* END else (Interact_opt == 1) */
 
 /* END ORNL WRAPPER */
 
@@ -2781,7 +2905,7 @@ int process_opts(
 
               pc++;
               }
-            }
+            }    /* END if (strcmp(optarg,"n") != 0) */
 
           set_attr(&attrib,ATTR_m,optarg);
           }
@@ -2814,7 +2938,10 @@ int process_opts(
           {
           N_opt = passet;
 
-          if (check_job_name(optarg,1) == 0) 
+          /* NOTE:  did enforce alpha start previously - relax this constraint
+                    allowing numeric job names (CRI - 6/26/07) */
+
+          if (check_job_name(optarg,0) == 0) 
             {
             set_attr(&attrib,ATTR_N,optarg);
             } 
@@ -2961,24 +3088,18 @@ int process_opts(
 
         break;
 
+#if !defined(PBS_NO_POSIX_VIOLATION)
       case 't':
 
         if_cmd_line(t_opt)
           {
           t_opt = passet;
-          i = atoi(optarg);
-          if (i <= 0)
-            {
-            fprintf(stderr, "qsub: illegal -t value\n");
-
-            errflg++;
-
-            break;
-            }
+          /* validate before sending request to server? */
           set_attr(&attrib,ATTR_t,optarg);
           }
 
         break;
+#endif
 
       case 'u':
 
@@ -3133,14 +3254,6 @@ int process_opts(
               {
               t_opt = passet;
 
-              if (atoi(valuewd) <= 0)
-                {
-                fprintf(stderr, "qsub: illegal -t value\n");
-
-                errflg++;
-
-                break;
-                }
               set_attr(&attrib,ATTR_t,valuewd);
               }
             } 
@@ -3184,6 +3297,11 @@ int process_opts(
               set_attr(&attrib,ATTR_inter,interactive_port(&inter_sock));
               }
             } 
+          else if (!strcmp(keyword,ATTR_umask))
+            {
+            Umask_opt = passet;
+            set_attr(&attrib,ATTR_umask,valuewd);
+            }
           else 
             {
             /* generic job attribute specified */
@@ -3203,6 +3321,7 @@ int process_opts(
 
         break;
 
+#if !defined(PBS_NO_POSIX_VIOLATION)
       case 'X':
 
         if_cmd_line(Forwardx11_opt) 
@@ -3218,7 +3337,7 @@ int process_opts(
           }
 
         break;
-
+#endif
       case 'z':
  
         if_cmd_line(z_opt) 
@@ -3237,8 +3356,12 @@ int process_opts(
 
 /* ORNL WRAPPER */
 
-  if (Interact_opt == 1) 
+  if ((pass < 10) && (Interact_opt == 1) )
     {
+    int original_optind = optind;
+
+    int rc = 0;
+
     /* Evaluate resources for interactive submission here. */
 
     if ((tmpfd = mkstemp(tmp_name)) < 1)
@@ -3256,6 +3379,8 @@ int process_opts(
       {
       fprintf(stderr, "qsub: could not create tmp job file %s\n",
         tmp_name);
+
+      unlink(tmp_name);
       
       errflg++;
 
@@ -3266,6 +3391,10 @@ int process_opts(
       {
       fprintf(stderr, "qsub: unable to write to tmp job file %s\n",
         tmp_name);
+
+      fclose(fP);
+
+      unlink(tmp_name);
 
       errflg++;
 
@@ -3310,10 +3439,33 @@ int process_opts(
       strcat(cline," >");
       strcat(cline,tmp_name2);
 
-      if (system(cline) == -1)
+      rc = system(cline);
+
+      if (rc == -1)
         {
-        fprintf( stderr, "qsub: error writing filter o/p, %s\n",
+        fprintf(stderr,"qsub: error writing filter o/p, %s\n",
           tmp_name2);
+
+        exit(1);
+        }
+
+      if (WEXITSTATUS(rc) == (unsigned char)SUBMIT_FILTER_ADMIN_REJECT_CODE)
+        {
+        fprintf(stderr,"qsub: Your job has been administratively rejected by the queueing system.\n");
+        fprintf(stderr,"qsub: There may be a more detailed explanation prior to this notice.\n");
+
+        unlink(tmp_name2);
+        unlink(tmp_name);
+
+        exit(1);
+        }
+
+      if (WEXITSTATUS(rc))
+        {
+        fprintf(stderr,"qsub: submit filter returned an error code, aborting job submission.\n");
+
+        unlink(tmp_name2);
+        unlink(tmp_name);
 
         exit(1);
         }
@@ -3322,10 +3474,11 @@ int process_opts(
 
       unlink(tmp_name2);
       unlink(tmp_name);
-      }
+      }  /* END if (stat(PBS_Filter,&sfilter) != -1) */
     else
       {
       fP = fopen(tmp_name,"r+");
+
       unlink(tmp_name);
       }
 
@@ -3344,19 +3497,97 @@ int process_opts(
           }
         }
 
-      if (set_resources(&attrib,cline + 8,(pass == 0))) 
+      /* NOTE:  allow for job attributes other than '-l' */
+
+      /* FORMAT:  '#PBS -<FLAG> <VAL>' */
+
+      if (strncasecmp(cline,"#pbs -",strlen("#pbs -")))
         {
-        fprintf(stderr,"qsub: illegal -l value\n");
-          errflg++;
+        /* invalid line specified */
+
+        continue;
         }
-      }
+
+      /* NOTE:  a better design would be to process the submitfilter outside of process_opts(),
+                add valid args to ArgC/ArgV, and call process_opts() once. (NYI) */
+
+      /* NOTE:  can we utilize 'process_opts' to process submit filter lines? (NYI) */
+
+      flag = cline[strlen("#pbs -")];
+
+      vptr = cline + strlen("#pbs -x ");
+
+      switch (flag)
+        {
+        case 'l':
+
+          if (set_resources(&attrib,vptr,(pass == 0)))
+            {
+            fprintf(stderr,"qsub: illegal -l value\n");
+              errflg++;
+            }
+
+          break;
+
+        default:
+
+          {
+          char FlagString[3];
+
+          char *tmpArgV[4];
+
+          int   aindex;
+
+          FlagString[0] = '-';
+          FlagString[1] = flag;
+          FlagString[2] = '\0';
+
+#ifdef linux
+          aindex = 1;  /* prime getopt's starting point */
+          tmpArgV[0] = "";
+#else
+          aindex = 1;  /* prime getopt's starting point */
+          tmpArgV[0] = "";
+#endif
+
+          tmpArgV[aindex] = FlagString;
+          tmpArgV[aindex + 1] = vptr;
+          tmpArgV[aindex + 2] = NULL;
+
+          tmpArgV[3] = NULL;
+
+/*
+          fprintf(stderr,"PLINE: '%s' '%s'  '%s'\n",
+            tmpArgV[0],
+            tmpArgV[1],
+            cline);
+*/
+
+          /* set pass to 10 to allow submit filter to override user-specified values and
+             to prevent recursive calling of submit filter processing */
+
+          if (process_opts(aindex + 2,tmpArgV,10) != 0)
+            {
+            fprintf(stderr,"submitfilter line '%s' ignored\n",
+              cline);
+            }
+          }
+
+          break;
+        }  /* END switch (cptr[0]) */
+      }    /* END while (fgets(cline,sizeof(cline),fP) != NULL) */
+
+    /* restore optind */
+
+    optind = original_optind;
 
     fclose(fP);
-    }
+    }    /* END if (Interact_opt == 1) */
 
 /* END ORNL WRAPPER */
 
 err:
+
   if (!errflg && pass) 
     {
     errflg = (optind != argc);
@@ -3389,7 +3620,7 @@ void set_opt_defaults()
 
   {
   if (c_opt == FALSE)
-    set_attr(&attrib,ATTR_c,CHECKPOINT_UNSPECIFIED);
+    set_attr(&attrib,ATTR_c,default_ckpt);
 
   if (h_opt == FALSE)
     set_attr(&attrib,ATTR_h,NO_HOLD);
@@ -3496,6 +3727,10 @@ char *get_param(
 
   /* NOTE:  does not support comments */
 
+  /* if (strcasestr() == NULL) */
+
+  /* NOTE: currently case-sensitive (FIXME) */
+
   if ((param_val = strstr(config_buf,param)) == NULL)
     {
     return(NULL);
@@ -3530,13 +3765,12 @@ int main(
   int errflg;                         /* option error */
   static char script[MAXPATHLEN + 1] = ""; /* name of script file */
   char script_tmp[MAXPATHLEN + 1] = "";    /* name of script file copy */
-  char  basename[16];			/* base name of script for job name*/
   char *bnp;
   FILE *f;                            /* FILE pointer to the script */
   char *q_n_out;                      /* queue part of destination */
   char *s_n_out;                      /* server part of destination */
-                                        /* server:port to send request to */
-  int connect;                        /* return from pbs_connect */
+                                      /* server:port to send request to */
+  int   connect;                      /* return from pbs_connect */
   char *errmsg;                       /* return from pbs_geterrmsg */
   struct stat statbuf;
   struct sigaction act;
@@ -3544,7 +3778,7 @@ int main(
   char config_buf[MAX_LINE_LEN];      /* Buffer holds config file */
   char *param_val;                    /* value of parameter returned from config */
 
-  char *submit_args_str;              /* buffer to hold args */
+  char *submit_args_str = NULL;       /* buffer to hold args */
   int   argi, argslen = 0;
 
   if ((param_val = getenv("PBS_CLIENTRETRY")) != NULL)
@@ -3552,31 +3786,62 @@ int main(
     cnt2server_retry = atoi(param_val);
     }
 
-  errflg = process_opts(argc,argv,0); /* get cmd-line options */
+  /* set the submit_args */
 
-  if (errflg || ((optind + 1) < argc)) 
+  for (argi = 1;argi < argc;argi++)
     {
-    static char usage[] =
-"usage: qsub [-a date_time] [-A account_string] [-b secs]\n\
-[-c { c[=<INTERVAL>] | s | n }] [-C directive_prefix] [-d path] [-D path]\n\
-[-e path] [-h] [-I] [-j oe] [-k {oe}] [-l resource_list] [-m {abe}]\n\
-[-M user_list] [-N jobname] [-o path] [-p priority] [-q queue] [-r y|n]\n\
-[-S path] [-t number_to_submit] [-u user_list] [-X] [-W otherattributes=value...]\n\
-[-v variable_list] [-V ] [-z] [script]\n";
+    argslen += strlen(argv[argi]) + 1;
+    }
 
-    fprintf(stderr,usage);
+  if (argslen > 0)
+    {
+    submit_args_str = malloc(sizeof(char) * argslen);
 
-    exit(2);
+    if (submit_args_str == NULL)
+      {
+      fprintf(stderr,"qsub: out of memory\n");
+  
+      exit(2);
+      }
+
+    *submit_args_str = '\0';
+
+    for (argi = 1;argi < argc;argi++)
+      {
+      strcat(submit_args_str,argv[argi]);
+
+      if (argi != optind - 1)
+        {
+        strcat(submit_args_str," ");
+        }
+      }
     }
 
   /* check TORQUE config settings */
+  
+  strncpy(PBS_Filter,SUBMIT_FILTER_PATH,255);
 
-  strcpy(PBS_Filter,DefaultFilterPath);
-  strcpy(xauth_path,DefaultXauthPath);
+  /* check to see if PBS_Filter exists.  If not then fall back to the default hard-coded file */
+
+  if (stat(PBS_Filter,&statbuf) == -1)
+    {
+    strncpy(PBS_Filter,DefaultFilterPath,255);
+    }
+
+  strncpy(xauth_path,DefaultXauthPath,255);
+  strncpy(default_ckpt,CHECKPOINT_UNSPECIFIED,sizeof(default_ckpt));
+
+  validate_path = 1;  /* boolean - by default verify '-d' working dir locally */
+
   server_host[0] = '\0';
+  qsub_host[0] = '\0';
+  owner_uid[0] = '\0';
 
   if (getenv("PBSDEBUG") != NULL)
-    fprintf(stderr,"xauth_path=%s\n",xauth_path);
+    {
+    fprintf(stderr,"xauth_path=%s\n",
+      xauth_path);
+    }
 
   if (load_config(config_buf,sizeof(config_buf)) == 0)
     {
@@ -3597,6 +3862,17 @@ int main(
       server_host[sizeof(server_host) - 1] = '\0';
       }
 
+    if ((param_val = get_param("QSUBHOST",config_buf)) != NULL)
+      {
+      strncpy(qsub_host,param_val,sizeof(qsub_host));
+      qsub_host[sizeof(qsub_host) - 1] = '\0';
+      }
+
+    if ((param_val = get_param("QSUBSENDUID",config_buf)) != NULL)
+      {
+      sprintf(owner_uid,"%d",getuid());
+      }
+
     if ((param_val = get_param("XAUTHPATH",config_buf)) != NULL)
       {
       strncpy(xauth_path,param_val,sizeof(xauth_path));
@@ -3608,44 +3884,67 @@ int main(
       if (cnt2server_retry == -100)
         cnt2server_retry = atoi(param_val);
       }
+
+    if ((param_val = get_param("VALIDATEGROUP",config_buf)) != NULL)
+      {
+      if (getgrgid(getgid()) == NULL)
+        {
+        fprintf(stderr,"qsub: cannot validate submit group.\n");
+
+        exit(1);
+        }
+      }
+
+    if ((param_val = get_param("DEFAULTCKPT",config_buf)) != NULL)
+      {
+      strncpy(default_ckpt,param_val,sizeof(default_ckpt));
+      }
+
+    if ((param_val = get_param("VALIDATEPATH",config_buf)) != NULL)
+      {
+      if (!strcasecmp(param_val,"false"))
+        validate_path = 0;
+      }
+    }    /* END if (load_config(config_buf,sizeof(config_buf)) == 0) */
+
+  /* NOTE:  load config before processing opts since config may modify how opts are handled */
+
+  errflg = process_opts(argc,argv,0); /* get cmd-line options */
+
+  if (errflg || ((optind + 1) < argc))
+    {
+    static char usage[] =
+"usage: qsub [-a date_time] [-A account_string] [-b secs]\n\
+[-c { c[=<INTERVAL>] | s | n }] [-C directive_prefix] [-d path] [-D path]\n\
+[-e path] [-h] [-I] [-j oe] [-k {oe}] [-l resource_list] [-m n|{abe}]\n\
+[-M user_list] [-N jobname] [-o path] [-p priority] [-q queue] [-r y|n]\n\
+[-S path] [-t number_to_submit] [-u user_list] [-X] [-W otherattributes=value...]\n\
+[-v variable_list] [-V ] [-z] [script]\n";
+
+    fprintf(stderr,usage);
+
+    exit(2);
+    }
+
+  /* check to see if PBS_Filter exists.  If not then fall back to the old hard-coded file */
+
+  if (stat(PBS_Filter,&statbuf) == -1)
+    {
+    strncpy(PBS_Filter,DefaultFilterPath,255);
     }
 
   if (optind < argc) 
     strcpy(script,argv[optind]);
 
-  /* set the submit_args */
-  for (argi = 1; argi < optind; argi++)
+  /* store the saved args string in "submit_args" attribute */
+
+  if (submit_args_str != NULL)
     {
-    argslen += strlen(argv[argi]) + 1;
-    }
-
-  if (argslen > 0)
-    {
-    submit_args_str = malloc(sizeof(char) * argslen);
-
-    if (submit_args_str == NULL)
-      {
-      fprintf(stderr,"qsub: out of memory\n");
-  
-      exit(2);
-      }
-
-    *submit_args_str = '\0';
-
-    for (argi = 1;argi < optind;argi++)
-      {
-      strcat(submit_args_str,argv[argi]);
-
-      if (argi != optind - 1)
-        {
-        strcat(submit_args_str," ");
-        }
-      }
-
     set_attr(&attrib,ATTR_submit_args,submit_args_str);
 
     free(submit_args_str);
     }
+
   /* end setting submit_args */
 
   if (Forwardx11_opt)
@@ -3653,18 +3952,20 @@ int main(
     char *x11authstr;
 
     /* get the DISPLAY's auth proto, data, and screen number */
-    if ((x11authstr = x11_get_proto()) != NULL)
-      {
 
+    if ((x11authstr = x11_get_proto(NULL)) != NULL)
+      {
       /* stuff this info into the job */
+
       set_attr(&attrib,ATTR_forwardx11,x11authstr);
 
       if (getenv("PBSDEBUG") != NULL)
-        fprintf(stderr,"x11auth string: %s\n",x11authstr);
+        fprintf(stderr,"x11auth string: %s\n",
+          x11authstr);
       }
     else
       {
-      fprintf(stderr,"qsub: Failed to get xauth data.\n");
+      fprintf(stderr,"qsub: Failed to get xauth data (check $DISPLAY variable)\n");
 
       exit(1);
       }
@@ -3672,7 +3973,7 @@ int main(
 
   /* if script is empty, get standard input */
 
-  if ((strcmp(script,"") == 0) || (strcmp(script,"-") == 0) ) 
+  if (!strcmp(script,"") || !strcmp(script,"-")) 
     {
     if (!N_opt) 
       set_attr(&attrib,ATTR_N,"STDIN");
@@ -3683,26 +3984,31 @@ int main(
             argc,
             argv,
             stdin, 
-            script_tmp, 
+            script_tmp,    /* O */
             set_dir_prefix(dir_prefix,C_opt))) > 0) 
         {
         unlink(script_tmp);
 
         exit(1);
         } 
-      else if (errflg < 0) 
+
+      if (errflg < 0) 
         {
+        unlink(script_tmp);
+
         exit(1);
         }
       }
-    } 
+    }    /* END if (!strcmp(script,"") || !strcmp(script,"-")) */ 
   else 
     {  
     /* non-empty script, read it for directives */
 
     if (stat(script,&statbuf) < 0) 
       {
-      perror("qsub: script file:");
+      fprintf(stderr,"qsub: script file '%s' cannot be loaded - %s\n",
+        script,
+        strerror(errno));
 
       exit(1);
       }
@@ -3718,18 +4024,14 @@ int main(
       {
       if (!N_opt) 
         {
-        if ((bnp = strrchr(script, (int)'/')))
+        if ((bnp = strrchr(script,(int)'/')))
           bnp++;
         else
           bnp = script;
 
-        strncpy(basename, bnp, 15);
-
-        basename[15] = '\0';
-
-        if (check_job_name(basename,0) == 0) 
+        if (check_job_name(bnp,0) == 0) 
           {
-          set_attr(&attrib,ATTR_N,basename);
+          set_attr(&attrib,ATTR_N,bnp);
           } 
         else 
           {
@@ -3743,7 +4045,7 @@ int main(
              argc,
              argv,
              f,
-             script_tmp,
+             script_tmp, /* O */
              set_dir_prefix(dir_prefix,C_opt))) > 0) 
         {
         unlink(script_tmp);
@@ -3753,15 +4055,30 @@ int main(
 
       if (errflg < 0) 
         {
+        unlink(script_tmp);
+
         exit(1);
         }
-      } 
+      }    /* END if ((f = fopen(script,"r")) != NULL) */ 
     else 
       {
       perror("qsub: opening script file:");
 
+      unlink(script_tmp);
+
       exit(8);
       }
+    }    /* END else (!strcmp(script,"") || !strcmp(script,"-")) */
+
+  /* interactive job can not be job array */
+
+  if (Interact_opt && t_opt)
+    {
+    fprintf(stderr,"qsub: interactive job can not be job array.\n");
+
+    unlink(script_tmp);
+
+    exit(2);
     }
 
   set_opt_defaults();		/* set option default values */
@@ -3782,7 +4099,7 @@ int main(
     strcpy(server_out,s_n_out);
     }
 
-  /* Connect to the server */
+  /* connect to the server */
 
   if (cnt2server_retry != -100)
     cnt2server_conf(cnt2server_retry); /* set number of seconds to retry */
@@ -3812,6 +4129,8 @@ int main(
     {
     fprintf(stderr, "qsub: cannot send environment with the job\n");
 
+    unlink(script_tmp);
+
     exit(3);
     }
 
@@ -3824,6 +4143,8 @@ int main(
   if (sigaction(SIGTSTP,&act,(struct sigaction *)0) < 0) 
     {
     perror("unable to catch signals");
+
+    unlink(script_tmp);
 
     exit(1);
     }

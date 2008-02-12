@@ -146,22 +146,28 @@
 
 #include        "mcom.h"
 
-#ifdef _POSIX_MEMLOCK
+#ifdef _POSIX_MEMLOCK 
 #include <sys/mman.h>
 #endif /* _POSIX_MEMLOCK */
 
 #define CHECK_POLL_TIME     45
 #define DEFAULT_SERVER_STAT_UPDATES 45
 
+#define MAX_RETRY_TIME_IN_SECS  3600
+#define STARTING_RETRY_INTERVAL_IN_SECS  2
+
 #define PMAX_PORT           32000
 
 /* Global Data Items */
 
+char           *program_name;
+int             MOMIsLocked = 0;
+int             MOMIsPLocked = 0;
 int             ServerStatUpdateInterval = DEFAULT_SERVER_STAT_UPDATES;
 int             CheckPollTime            = CHECK_POLL_TIME;
 
 double		cputfactor = 1.00;
-unsigned int	default_server_port;
+unsigned int	default_server_port = 0;
 int		exiting_tasks = 0;
 float		ideal_load_val = -1.0;
 int		internal_state = 0;
@@ -169,9 +175,11 @@ int             ignwalltime = 0;        /* by default, enable mom based walltime
 int		lockfds = -1;
 time_t		loopcnt;		/* used for MD5 calc */
 float		max_load_val = -1.0;
+int		hostname_specified = 0;
 char		mom_host[PBS_MAXHOSTNAME + 1];
 char		pbs_servername[PBS_MAXSERVER][PBS_MAXSERVERNAME + 1];
 u_long		MOMServerAddrs[PBS_MAXSERVER];
+char            TMOMRejectConn[1024];   /* most recent rejected connection */
 char		mom_short_name[PBS_MAXHOSTNAME + 1];
 int		num_var_env;
 char	       *path_epilog;
@@ -188,30 +196,37 @@ char	       *path_spool;
 char	       *path_undeliv;
 char	       *path_aux;
 char	       *path_server_name;
-char	       *path_resources;
 char           *path_home = PBS_SERVER_HOME;
 char           *mom_home;
 extern char    *msg_daemonname;          /* for logs     */
 extern int	pbs_errno;
 gid_t		pbsgroup;
-unsigned int	pbs_mom_port;
-unsigned int	pbs_rm_port;
+unsigned int	pbs_mom_port = 0;
+unsigned int	pbs_rm_port = 0;
 tlist_head	mom_polljobs;	/* jobs that must have resource limits polled */
 tlist_head	svr_newjobs;	/* jobs being sent to MOM */
 tlist_head	svr_alljobs;	/* all jobs under MOM's control */
-int		termin_child = 0;
+tlist_head	mom_varattrs;	/* variable attributes */
+int		termin_child = 0;  /* boolean - one or more children need to be terminated this iteration */
 time_t		time_now = 0;
-time_t		polltime = 0;
+time_t		last_poll_time = 0;
 extern tlist_head svr_requests;
 extern struct var_table vtable;	/* see start_exec.c */
 #if MOM_CHECKPOINT == 1
-char	       *path_checkpoint = (char *)0;
+char	       *path_checkpoint = NULL;
 static resource_def *rdcput;
 #endif	/* MOM_CHECKPOINT */
 double		wallfactor = 1.00;
 long		log_file_max_size = 0;
 long		log_file_roll_depth = 1;
+
 time_t		last_log_check;
+char           *nodefile_suffix = NULL;    /* suffix to append to each host listed in job host file */
+char           *submithost_suffix = NULL;  /* suffix to append to submithost for interactive jobs */
+char           *TNoSpoolDirList[TMAX_NSDCOUNT];
+
+char           *AllocParCmd = NULL;  /* (alloc) */
+
 
 /* externs */
 
@@ -230,7 +245,7 @@ char            xauth_path[MAXPATHLEN];
 
 time_t          LastServerUpdateTime = 0;  /* NOTE: all servers updated together */
 
-time_t          MOMStartTime              = 0;
+time_t          MOMStartTime         = 0;
 time_t          MOMLastSendToServerTime[PBS_MAXSERVER];
 time_t          MOMLastRecvFromServerTime[PBS_MAXSERVER];
 char            MOMLastRecvFromServerCmd[PBS_MAXSERVER][MMAX_LINE];
@@ -239,6 +254,7 @@ int             MOMPrologFailureCount;
 int             MOMRecvHelloCount[PBS_MAXSERVER];
 int             MOMRecvClusterAddrsCount[PBS_MAXSERVER];
 int             MOMSendHelloCount[PBS_MAXSERVER];
+int             MOMSendHelloTryCount[PBS_MAXSERVER];
 time_t          MOMSendHelloTime[PBS_MAXSERVER];
 char            MOMSendStatFailure[PBS_MAXSERVER][MMAX_LINE];
 
@@ -247,7 +263,10 @@ char            MOMUNameMissing[64];
 
 int             MOMConfigDownOnError      = 0;
 int             MOMConfigRestart          = 0;
-long            system_ncpus=0;
+int             MOMConfigRReconfig        = 0;
+long            system_ncpus = 0;
+char           *auto_ideal_load = NULL;
+char           *auto_max_load   = NULL;
 
 #define TMAX_JE  64
 
@@ -293,6 +312,7 @@ static unsigned long setrcpcmd(char *);
 static unsigned long setpbsclient(char *);
 static unsigned long configversion(char *);
 static unsigned long cputmult(char *);
+static unsigned long setallocparcmd(char *);
 static unsigned long setidealload(char *);
 static unsigned long setignwalltime(char *);
 static unsigned long setlogevent(char *);
@@ -315,41 +335,61 @@ static unsigned long setcheckpolltime(char *);
 static unsigned long settmpdir(char *);
 static unsigned long setlogfilemaxsize(char *);
 static unsigned long setlogfilerolldepth(char *);
+static unsigned long setlogfilesuffix(char *);
+static unsigned long setlogdirectory(char *);
+static unsigned long setvarattr(char *);
+static unsigned long setautoidealload(char *);
+static unsigned long setautomaxload(char *);
+static unsigned long setnodefilesuffix(char *);
+static unsigned long setnospooldirlist(char *);
+static unsigned long setmomhost(char *);
+static unsigned long setrreconfig(char *);
+
 
 static struct specials {
   char            *name;
   u_long          (*handler)();
   } special[] = {
-    { "xauthpath",    setxauthpath },
-    { "rcpcmd",       setrcpcmd },
-    { "rcp_cmd",      setrcpcmd },
-    { "pbsclient",    setpbsclient },
-    { "configversion",configversion },
-    { "cputmult",     cputmult },
-    { "ideal_load",   setidealload },
-    { "ignwalltime",  setignwalltime },
-    { "logevent",     setlogevent },
-    { "loglevel",     setloglevel },
-    { "max_load",     setmaxload },
-    { "enablemomrestart",   setenablemomrestart },
-    { "prologalarm",  prologalarm },
-    { "restricted",   restricted },
-    { "jobstartblocktime", jobstartblocktime },
-    { "usecp",        usecp },
-    { "wallmult",     wallmult },
-    { "clienthost",   setpbsserver },  /* deprecated - use pbsserver */
-    { "pbsserver",    setpbsserver },
-    { "node_check_script", setnodecheckscript },
+    { "alloc_par_cmd",       setallocparcmd },
+    { "auto_ideal_load",     setautoidealload },
+    { "auto_max_load",       setautomaxload },
+    { "xauthpath",           setxauthpath },
+    { "rcpcmd",              setrcpcmd },
+    { "rcp_cmd",             setrcpcmd },
+    { "pbsclient",           setpbsclient },
+    { "configversion",       configversion },
+    { "cputmult",            cputmult },
+    { "ideal_load",          setidealload },
+    { "ignwalltime",         setignwalltime },
+    { "logevent",            setlogevent },
+    { "loglevel",            setloglevel },
+    { "max_load",            setmaxload },
+    { "enablemomrestart",    setenablemomrestart },
+    { "prologalarm",         prologalarm },
+    { "restricted",          restricted },
+    { "jobstartblocktime",   jobstartblocktime },
+    { "usecp",               usecp },
+    { "wallmult",            wallmult },
+    { "clienthost",          setpbsserver },  /* deprecated - use pbsserver */
+    { "pbsserver",           setpbsserver },
+    { "node_check_script",   setnodecheckscript },
     { "node_check_interval", setnodecheckinterval },
-    { "timeout",      settimeout },
-    { "checkpoint_script", setcheckpointscript },
-    { "down_on_error", setdownonerror },
-    { "status_update_time", setstatusupdatetime },
-    { "check_poll_time", setcheckpolltime },
-    { "tmpdir",       settmpdir },
-    { "log_file_max_size", setlogfilemaxsize},
-    { "log_file_roll_depth", setlogfilerolldepth},
-    { NULL,           NULL } };
+    { "timeout",             settimeout },
+    { "checkpoint_script",   setcheckpointscript },
+    { "down_on_error",       setdownonerror },
+    { "status_update_time",  setstatusupdatetime },
+    { "check_poll_time",     setcheckpolltime },
+    { "tmpdir",              settmpdir },
+    { "log_directory",       setlogdirectory },
+    { "log_file_max_size",   setlogfilemaxsize },
+    { "log_file_roll_depth", setlogfilerolldepth },
+    { "log_file_suffix",     setlogfilesuffix },
+    { "varattr",             setvarattr },
+    { "nodefile_suffix",     setnodefilesuffix },
+    { "nospool_dir_list",    setnospooldirlist },
+    { "mom_host",            setmomhost },
+    { "remote_reconfig",     setrreconfig},
+    { NULL,                  NULL } };
 
 
 static char *arch(struct rm_attribute *);
@@ -360,6 +400,7 @@ static char *reqmsg(struct rm_attribute *);
 static char *reqgres(struct rm_attribute *);
 static char *reqstate(struct rm_attribute *);
 static char *getjoblist(struct rm_attribute *);
+static char *reqvarattr(struct rm_attribute *);
 /* static char *nullproc(struct rm_attribute *); */
 
 
@@ -372,10 +413,12 @@ struct config common_config[] = {
   { "gres",      {reqgres} },
   { "state",     {reqstate} },
   { "jobs",      {getjoblist} },
+  { "varattr",   {reqvarattr} },
   { NULL,        {NULL} } };
 
 int                     LOGLEVEL = 0;  /* valid values (0 - 10) */
 int                     DEBUGMODE = 0;
+int                     DOBACKGROUND = 1;
 char                    CHECKPOINT_SCRIPT[1024];
 long                    TJobStartBlockTime = 5; /* seconds to wait for job to launch before backgrounding */
 long                    TJobStartTimeout = 300; /* seconds to wait for job to launch before purging */
@@ -411,6 +454,8 @@ static	char		config_file[_POSIX_PATH_MAX] = "config";
 char                    PBSNodeMsgBuf[1024];
 char                    PBSNodeCheckPath[1024];
 int                     PBSNodeCheckInterval;
+int                     PBSNodeCheckProlog=0;
+int                     PBSNodeCheckEpilog=0;
 static char            *MOMExePath = NULL;
 static time_t           MOMExeTime = 0;
 
@@ -475,7 +520,7 @@ const char *PJobSubState[] = {
   "ABORT",     /* job is being aborted by server  */
   "SUBSTATE55",
   "SUBSTATE56",
-  "SUBSTATE57",
+  "PREOBIT",   /* preobit job status */
   "OBIT",      /* (MOM) job obit notice sent */
   "COMPLETED",
   "RERUN",     /* job is rerun, recover output stage */
@@ -627,7 +672,7 @@ char *nullproc(
 
 static char *arch(
 
-  struct rm_attribute *attrib)
+  struct rm_attribute *attrib)  /* I */
 
   {
   char *id = "arch";
@@ -763,13 +808,13 @@ static char *reqmsg(
 
 static char *getjoblist(
 
-  struct rm_attribute *attrib)
+  struct rm_attribute *attrib) /* I */
 
   {
-  static char *list=NULL;
-  static int listlen=0;
+  static char *list = NULL;
+  static int listlen = 0;
   job *pjob;
-  int firstjob=1;
+  int firstjob = 1;
 
   if (list == NULL)
     {
@@ -778,33 +823,203 @@ static char *getjoblist(
     listlen = BUFSIZ;
     }
 
-  *list='\0'; /* reset the list */
+  *list = '\0'; /* reset the list */
 
   if ((pjob = (job *)GET_NEXT(svr_alljobs)) == NULL)
     {
-    return(NULL);
+    /* no jobs - return space character */
+
+    return(" ");
     }
-  else
+
+  for (;pjob != NULL;pjob = (job *)GET_NEXT(pjob->ji_alljobs))
     {
-    for (;pjob != NULL;pjob = (job *)GET_NEXT(pjob->ji_alljobs))
+    if (!firstjob)
+      strcat(list," ");
+
+    strcat(list,pjob->ji_qs.ji_jobid);
+
+    if ((int)strlen(list) >= listlen)
       {
-      if (!firstjob)
-        strcat(list," ");
-
-      strcat(list,pjob->ji_qs.ji_jobid);
-
-      if ((int)strlen(list) >= listlen)
-        {
-        listlen += BUFSIZ;
-        list=realloc(list,listlen);
-        }
-
-      firstjob = 0;
+      listlen += BUFSIZ;
+      list = realloc(list,listlen);
       }
+
+    firstjob = 0;
+    }
+
+  if (list[0] == '\0')
+    {
+    /* no jobs - return space character */
+
+    strcat(list," ");
     }
 
   return(list);
-  }
+  }  /* END getjoblist() */
+
+
+
+
+#define TMAX_VARBUF   65536
+
+static char *reqvarattr(
+  
+  struct rm_attribute *attrib)  /* I */
+  
+  {           
+  static char id[] = "reqvarattr";
+  static char    *list = NULL,*child_spot;
+  static int      listlen = 0;
+  struct varattr *pva;
+  int             fd, len, child_len;
+  FILE           *child;
+
+  char           *ptr;
+  char           *ptr2;
+
+  char            tmpBuf[TMAX_VARBUF + 1];
+
+  if (list == NULL)
+    {
+    list = calloc(BUFSIZ + 1024,sizeof(char));
+
+    listlen = BUFSIZ;
+    }
+    
+  *list = '\0'; /* reset the list */
+
+  if ((pva = (struct varattr *)GET_NEXT(mom_varattrs)) == NULL)
+    {
+    return(" ");
+    }
+
+  for (;pva != NULL;pva = (struct varattr *)GET_NEXT(pva->va_link))
+    {
+    /* loop for each $varattr parameter */
+
+    if ((pva->va_lasttime == 0) || (time_now >= (pva->va_ttl + pva->va_lasttime)))
+      {
+      if ((pva->va_ttl == -1) && (pva->va_lasttime != 0))
+        {
+        if (pva->va_value[0] != '\0')
+          {
+          if (*list != '\0')
+            strcat(list,"+");
+     
+          strcat(list,pva->va_value);
+          }
+     
+        if ((int)strlen(list) >= listlen)
+          {
+          listlen += BUFSIZ;
+          list = realloc(list,listlen);
+          }
+
+        continue;  /* ttl of -1 is only run once */
+        }
+      
+      /* TTL is satisfied, reload value */
+    
+      pva->va_lasttime = time_now;
+
+      if (pva->va_value == NULL)
+        pva->va_value = calloc(TMAX_VARBUF,sizeof(char));
+
+      /* execute script and get a new value */
+
+      if ((child = popen(pva->va_cmd,"r")) == NULL) 
+        {
+        sprintf(pva->va_value,"error: %d %s",
+          errno,
+          strerror(errno));
+        }
+      else
+        {
+        fd = fileno(child);
+
+        child_spot = tmpBuf;
+        child_len  = 0;
+        child_spot[0] = '\0';
+
+retryread:
+        while ((len = read(fd,child_spot,TMAX_VARBUF - child_len)) > 0)
+          {
+          child_len  += len;
+          child_spot += len;
+
+          if (child_len >= TMAX_VARBUF - 1)
+            break;
+          }  /* END while ((len = read() > 0) */
+
+        if (len == -1)
+          {
+          /* FAILURE - cannot read var script output */
+
+          if (errno == EINTR)
+            goto retryread;
+
+          log_err(errno,id,"pipe read");
+
+          sprintf(pva->va_value,"? %d",
+            RM_ERR_SYSTEM);
+
+          pclose(child);
+
+          continue;
+          }
+
+        /* SUCCESS */
+
+        pclose(child);
+
+        tmpBuf[child_len] = '\0';
+
+        /* migrate attr/val values into var value field */
+
+        ptr = strtok(tmpBuf," \t\n;");
+
+        ptr2 = pva->va_value;
+
+        ptr2[0] = '\0';
+
+        /* NOTE:  no bounds checking (NYI) */
+
+        /* OUTPUT FORMAT:  <VAR>=<VAL>[+<VAR>=<VAL>]... */
+
+        while (ptr != NULL)
+          {
+          if (ptr2[0] != '\0')
+            strcat(ptr2,"+");
+
+          strcat(ptr2,ptr);
+
+          ptr = strtok(NULL," \t\n;");
+          }  /* END while (ptr != NULL) */
+        }    /* END else ((child = popen(pva->va_cmd,"r")) == NULL) */
+      }      /* END if ((pva->va_lasttime == 0) || ...) */
+                     
+    if (pva->va_value[0] != '\0')
+      {
+      if (*list != '\0')
+        strcat(list,"+");
+
+      strcat(list,pva->va_value);
+      }
+
+    if ((int)strlen(list) >= listlen)
+      {
+      listlen += BUFSIZ;
+      list = realloc(list,listlen);
+      }
+    }    /* END for () */
+
+  if (list[0] == '\0')
+    strcat(list," ");
+
+  return(list);
+  }  /* END reqvarattr() */
+
 
 
 
@@ -899,7 +1114,7 @@ static char *reqgres(
       cp->c_name,
       cp->c_u.c_value);
 
-    strncat(GResBuf,tmpLine,1024);
+    strncat(GResBuf,tmpLine,(sizeof(GResBuf) - strlen(GResBuf) - 1));
     }  /* END for (cp) */
 
   return(GResBuf);
@@ -1025,8 +1240,8 @@ char *loadave(
 
 struct config *rm_search(
 
-  struct config	*where,
-  char          *what)
+  struct config	*where,  /* I */
+  char          *what)   /* I */
 
   {
   struct config	*cp;
@@ -1057,8 +1272,8 @@ struct config *rm_search(
 
 char *dependent(
 
-  char	              *res,
-  struct rm_attribute *attr)
+  char	              *res,  /* I */
+  struct rm_attribute *attr) /* I */
 
   {
   struct config	       *ap;
@@ -1346,6 +1561,8 @@ u_long addclient(
 
 
 
+
+
 static u_long setpbsclient(
 
   char *value)  /* I */
@@ -1364,6 +1581,8 @@ static u_long setpbsclient(
 
   if (rc != 0)
     {
+    /* FAILURE */
+
     return(1);
     }
 
@@ -1390,7 +1609,7 @@ static u_long setpbsserver(
 
   if ((value == NULL) || (*value == '\0'))
     {
-    /* FAILURE */
+    /* FAILURE - nothing specified */
 
     return(1);
     }
@@ -1401,7 +1620,7 @@ static u_long setpbsserver(
 
   if ((portstr = strchr(tmpname,':')) != NULL)
     {
-    *portstr='\0';
+    *portstr = '\0';
     }
 
   if ((host = gethostbyname(tmpname)) == NULL) 
@@ -1414,6 +1633,7 @@ static u_long setpbsserver(
     log_err(-1,id,log_buffer);
 
     ipaddr = 0;
+
     /* don't return because we still want to add the hostname to
      * pbs_servername[] and attempt a gethostbyname() later */
     }
@@ -1436,9 +1656,13 @@ static u_long setpbsserver(
       log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
 
       if (MOMServerAddrs[index])
+        {
+        /* SUCCESS */
+        
         return(1);
-      else
-        break;
+        }
+
+      break;
       }
 
     if (ipaddr && (MOMServerAddrs[index] == ipaddr))
@@ -1452,6 +1676,8 @@ static u_long setpbsserver(
          (ipaddr & 0x000000ff));
 
       log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
+
+      /* SUCCESS */
 
       return(1);
       }
@@ -1482,6 +1708,8 @@ static u_long setpbsserver(
 
   if (ipaddr != 0)
     tinsert(ipaddr,&okclients);
+
+  /* SUCCESS */
 
   return(1);
   }  /* END setpbsserver() */
@@ -1532,13 +1760,15 @@ static u_long setxauthpath(
   }
 
 
+
+
 static u_long setrcpcmd(
 
-  char *Value)
+  char *Value)  /* I */
 
   {
-  static  char    id[] = "rcpcmd";
-  static  char *ptr;
+  static char  id[] = "rcpcmd";
+  static char *ptr;
 
   log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,Value);
 
@@ -1546,24 +1776,29 @@ static u_long setrcpcmd(
     {
     log_err(-1,id,"tmpdir must be a full path");
 
+    /* FAILURE */
+
     return(0);
     }
 
   strncpy(rcp_path,Value,sizeof(rcp_path));
   strcpy(rcp_args,"");
 
-  if ((ptr=strchr(rcp_path,' ')) != NULL)
+  if ((ptr = strchr(rcp_path,' ')) != NULL)
     {
-    *ptr='\0';
+    *ptr = '\0';
 
-    if (*(ptr+1) != '\0')
+    if (*(ptr + 1) != '\0')
       {
-      strncpy(rcp_args,ptr+1,sizeof(rcp_args));
+      strncpy(rcp_args,ptr + 1,sizeof(rcp_args));
       }
     }
 
+  /* SUCCESS */
+
   return(1);
-  }
+  }  /* END setrcpcmd() */
+
 
 
 
@@ -1816,7 +2051,7 @@ static u_long usecp(
   char *value)  /* I */
 
   {
-  char *pnxt;
+  char        *pnxt;
   static int   cphosts_max = 0;
 
   static char *id = "usecp";
@@ -2124,10 +2359,6 @@ static unsigned long setidealload(
 
   strcat(newstr,value);
 
-  add_static(newstr,"config",0);
-
-  nconfig++;
-
   return(1);
   }  /* END setidealload() */
 
@@ -2158,17 +2389,79 @@ static unsigned long setignwalltime(
 
   strcat(newstr,value);
 
-  add_static(newstr,"config",0);
-
-  nconfig++;
-
   /* SUCCESS */
 
   return(1);
   }  /* END setidealload() */
 
 
+static unsigned long setautoidealload(
 
+  char *value)
+
+  {
+  log_record(
+    PBSEVENT_SYSTEM, 
+    PBS_EVENTCLASS_SERVER,
+    "auto_ideal_load",
+    value);
+
+  auto_ideal_load=strdup(value);
+
+/*
+  add_static(auto_ideal_load,"config",0);
+
+  nconfig++;
+*/
+
+  return(1);
+  }  /* END setautoidealload() */
+
+
+
+
+
+static unsigned long setallocparcmd(
+
+  char *value)  /* I */
+
+  {
+  log_record(
+    PBSEVENT_SYSTEM,
+    PBS_EVENTCLASS_SERVER,
+    "allocparcmd",
+    value);
+
+  AllocParCmd = strdup(value);
+
+  return(1);
+  }  /* END setallocparcmd() */
+
+
+
+
+
+static unsigned long setautomaxload(
+
+  char *value)
+
+  {
+  log_record(
+    PBSEVENT_SYSTEM, 
+    PBS_EVENTCLASS_SERVER,
+    "auto_max_load",
+    value);
+
+  auto_max_load=strdup(value);
+
+/*
+  add_static(auto_ideal_load,"config",0);
+
+  nconfig++;
+*/
+
+  return(1);
+  }  /* END setautomaxload() */
 
 
 static unsigned long setnodecheckscript(
@@ -2199,10 +2492,6 @@ static unsigned long setnodecheckscript(
 
   strcat(newstr,value);
 
-  add_static(newstr,"config",0);
-
-  nconfig++;
-
   /* SUCCESS */
 
   return(1);
@@ -2227,11 +2516,13 @@ static unsigned long setnodecheckinterval(
 
   PBSNodeCheckInterval = (int)strtol(value,NULL,10);
 
+  if (strstr(value,"jobstart"))
+    PBSNodeCheckProlog = 1;
+
+  if (strstr(value,"jobend"))
+    PBSNodeCheckEpilog = 1;
+
   strcat(newstr,value);
-
-  add_static(newstr,"config",0);
-
-  nconfig++;
 
   return(1);
   }  /* END setnodecheckinterval() */
@@ -2258,10 +2549,6 @@ static unsigned long settimeout(
   snprintf(newstr,sizeof(newstr),"%s %s",
     "timeout",
     value);
-
-  add_static(newstr,"config",0);
-
-  nconfig++;
 
   return(1);
   }  /* END settimeout() */
@@ -2293,10 +2580,6 @@ static unsigned long setmaxload(
     ideal_load_val = val;
 
   strcat(newstr,value);
-
-  add_static(newstr,"config",0);
-
-  nconfig++;
 
   return(1);
   }  /* END max_load() */
@@ -2332,15 +2615,19 @@ static unsigned long setcheckpointscript(
 
 
 
+
+
 static unsigned long setlogfilemaxsize(
 
   char *value)  /* I */
+
   {
-  log_file_max_size = strtol(value, NULL, 10);
+  log_file_max_size = strtol(value,NULL,10);
 
   if (log_file_max_size < 0)
      {
      log_file_max_size = 0;
+
      return(0);
      }
 
@@ -2348,43 +2635,323 @@ static unsigned long setlogfilemaxsize(
   }
 
 
+
+
 static unsigned long setlogfilerolldepth(
 
   char *value)  /* I */
-   {
-   log_file_roll_depth = strtol(value, NULL, 10);
-   if (log_file_roll_depth < 1)
-      {
-      log_file_roll_depth = 1;
-      return 0;
-      }
-   return 1;
-   }
+
+  {
+  log_file_roll_depth = strtol(value,NULL,10);
+
+  if (log_file_roll_depth < 1)
+    {
+    log_file_roll_depth = 1;
+
+    return(0);
+    }
+
+  return(1);
+  }
+
+
+
+static unsigned long setlogdirectory(
+
+  char *value)  /* I */
+
+  {
+  path_log = strdup(value);
+
+  return(1);
+  }
+
+
+
+
+static unsigned long setlogfilesuffix(
+
+  char *value)  /* I */
+
+  {
+  log_init(value,NULL);
+
+  return(1);
+  }
+
+
+
+
+
+static u_long setvarattr(
+
+  char *value)  /* I */
+
+  {
+  static char *id = "setvarattr";
+  struct varattr *pva;
+  char           *ptr;
+
+  pva = calloc(1,sizeof(struct varattr));
+
+  if (pva == NULL)
+    {
+    /* FAILURE */
+
+    log_err(errno,id,"no memory");
+
+    return(0);
+    }
+
+  CLEAR_LINK(pva->va_link);
+
+  /* FORMAT:  <NAME> <TTL> <PATH> */
+
+  pva->va_name = strdup(value);
+
+  /* step forward to get the ttl value */
+
+  ptr = pva->va_name;
+
+  while (!isspace(*ptr))
+    ptr++;
+
+  if (*ptr == '\0')
+    {
+    /* FAILURE - cannot locate ttl or path */
+
+    free(pva->va_name);
+    free(pva);
+
+    return(0);
+    }
+
+  *ptr = '\0';
+
+  /* skip white space */
+
+  ptr++;
+
+  while (isspace(*ptr))
+    ptr++;
+
+  /* extract TTL */
+
+  pva->va_ttl = strtol(ptr,NULL,10);
+  
+  /* step forward to end of TTL */
+
+  while (!isspace(*ptr))
+    ptr++;
+  
+  if (*ptr == '\0')
+    {
+    free(pva->va_name);
+    free(pva);
+
+    return(0);
+    }
+
+  /* skip white space */
+
+  while (isspace(*ptr))
+    ptr++;
+
+  if (*ptr == '\0')
+    {
+    free(pva->va_name);
+    free(pva);
+
+    return(0);
+    }
+
+  /* preserve command and args */
+
+  pva->va_cmd = ptr;
+
+  append_link(&mom_varattrs,&pva->va_link,pva);
+
+  /* SUCCESS */
+
+  return(1); 
+  }  /* END setvarattr() */
+
+
+
+
+
+static unsigned long setnodefilesuffix(
+
+  char *value)  /* I */
+
+  {
+  char *ptr;
+
+  ptr = strtok(value,",");
+
+  nodefile_suffix = strdup(ptr);
+
+  ptr = strtok(NULL,",");
+
+  if (ptr != NULL)
+    submithost_suffix = strdup(ptr);
+
+  /* SUCCESS */
+
+  return(1);
+  }  /* END setnodexfilesuffix() */
+
+
+
+
+static unsigned long setmomhost(
+
+  char *value)  /* I */
+
+  {
+  hostname_specified = 1;
+
+  strncpy(mom_host,value,PBS_MAXHOSTNAME);       /* remember name */
+
+  /* SUCCESS */
+
+  return(1);
+  }  /* END setmomhost() */
+
+
+static u_long setrreconfig(
+
+  char *Value)  /* I */
+
+  {
+  static char   id[] = "setrreconfig";
+  int           enable = -1;
+
+  log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,Value);
+
+  if (Value == NULL)
+    {
+    /* FAILURE */
+
+    return(0);
+    }
+  
+  /* accept various forms of "true", "yes", and "1" */
+  switch (Value[0])
+    {
+    case 't':
+    case 'T':
+    case 'y': 
+    case 'Y':
+    case '1':
+
+      enable = 1;
+  
+      break;
+    
+    case 'f':
+    case 'F':
+    case 'n':
+    case 'N':
+    case '0':
+      
+      enable = 0;
+
+      break;
+
+    } 
+
+  if (enable != -1) 
+    {
+    MOMConfigRReconfig=enable;
+    }
+
+  return(1);
+  }  /* END setrreconfig() */
+  
+
+static unsigned long setnospooldirlist(
+
+  char *value)  /* I */
+
+  {
+  char *TokPtr;
+  char *ptr;
+
+  int   index = 0;
+
+  char  tmpLine[1024];
+
+  ptr = strtok_r(value," \t\n:,",&TokPtr);
+
+  while (ptr != NULL)
+    {
+    TNoSpoolDirList[index] = strdup(ptr);
+
+    snprintf(tmpLine,sizeof(tmpLine),"added NoSpoolDir[%d] '%s'",
+      index,
+      ptr);
+
+    log_record(
+      PBSEVENT_SYSTEM,
+      PBS_EVENTCLASS_SERVER,
+      "setnospooldirlist",
+      tmpLine);
+
+    index++;
+
+    if (index >= TMAX_NSDCOUNT)
+      break;
+
+    ptr = strtok_r(NULL," \t\n:,",&TokPtr);
+    }  /* END while (ptr != NULL) */
+
+  /* SUCCESS */
+
+  return(1);
+  }  /* END setnospooldirlist() */
+
+
+
+
+
 
 
 void check_log()
-   {
-   last_log_check = time_now;
-   if (log_file_max_size <= 0)
-      return;
 
-   if (log_size() >= log_file_max_size)
-      {
-      log_event(
-         PBSEVENT_SYSTEM | PBSEVENT_FORCE,
-         PBS_EVENTCLASS_SERVER,
-         msg_daemonname,
-         "Rolling log file");
+  {
+  last_log_check = time_now;
 
-      log_roll(log_file_roll_depth);
-      }
-   }
+  if (log_file_max_size <= 0)
+    {
+    return;
+    }
+
+  if (log_size() >= log_file_max_size)
+    {
+    log_event(
+      PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+      PBS_EVENTCLASS_SERVER,
+      msg_daemonname,
+      "Rolling log file");
+
+    log_roll(log_file_roll_depth);
+    }
+
+  return;
+  }  /* END check_log() */
+
+
+
+
 
 /*
 **	Open and read the config file.  Save information in a linked
 **	list.  After reading the file, create an array, copy the list
 **	elements to the array and free the list.
 */
+
+/* NOTE:  add new mom config parameters to 'special[]' */
 
 int read_config(
 
@@ -2404,6 +2971,15 @@ int read_config(
 
   int                    linenum;
   int                    i;
+
+  int                    IgnConfig = 0;
+
+  int                    rc;
+
+  int n, list_len;
+  char *server_list_ptr;
+  char *tp;
+
 
   if (LOGLEVEL >= 3)
     {
@@ -2427,6 +3003,8 @@ int read_config(
   if (file == NULL)
     file = config_file;
 
+  rc = 0;
+
   if (file[0] == '\0')
     {
     log_record(
@@ -2435,17 +3013,19 @@ int read_config(
       id,
       "ALERT:  no config file specified");
 
-    return(0);	/* no config file */
+    IgnConfig = 1;  /* no config file */
     }
 
-  if (stat(file,&sb) == -1) 
+  if ((IgnConfig == 0) && (stat(file,&sb) == -1))
     {
+    IgnConfig = 1;
+
     sprintf(log_buffer,"fstat: %s", 
       file);
 
     log_err(errno,id,log_buffer);
 
-    if (config_file_specified)
+    if (config_file_specified != 0)
       {
       /* file specified and not there, return failure */
 
@@ -2455,193 +3035,201 @@ int read_config(
         id,
         "ALERT:  cannot open config file - no file");
 
-      return(1); 
+      rc = 1; 
       }
-
-    /* "config" file not located, return success */
-
-    if (LOGLEVEL >= 3)
+    else
       {
-      sprintf(log_buffer,"cannot open file '%s'",
-        file);
+      /* "config" file not located, return success */
 
-      log_record(
-        PBSEVENT_SYSTEM,
-        PBS_EVENTCLASS_SERVER,
-        id,
-        log_buffer);
+      if (LOGLEVEL >= 3)
+        {
+        sprintf(log_buffer,"cannot open file '%s'",
+          file);
+
+        log_record(
+          PBSEVENT_SYSTEM,
+          PBS_EVENTCLASS_SERVER,
+          id,
+          log_buffer);
+        }
+
+      rc = 0; 
       }
+    }  /* END if ((IgnConfig == 0) && (stat(file,&sb) == -1)) */
 
-    return(0); 
-    }
-
+  if (IgnConfig == 0)
+    {
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 
-  if (chk_file_sec(file,0,0,S_IWGRP|S_IWOTH,1))
-    {
-    /* not authorized to access specified file, return failure */
-
-    log_record(
-      PBSEVENT_SYSTEM,
-      PBS_EVENTCLASS_SERVER,
-      id,
-      "ALERT:  cannot open config file - permissions");
-
-    return(1);
-    }
-
-#endif	/* NO_SECURITY_CHECK */
-
-  if ((conf = fopen(file,"r")) == NULL) 
-    {
-    sprintf(log_buffer,"fopen: %s",
-      file);
-
-    log_err(errno,id,log_buffer);
-
-    return(1);
-    }
-
-  nconfig = 0;
-  linenum = 0;
-
-  while (fgets(line,sizeof(line),conf)) 
-    {
-    linenum++;
-
-    if (line[0] == '#')	/* comment */
-      continue;
-
-    if ((ptr = strchr(line,'#')) != NULL)
+    if (chk_file_sec(file,0,0,S_IWGRP|S_IWOTH,1,NULL))
       {
-      /* allow inline comments */
-
-      *ptr = '\0';
-      }
- 
-    str = skipwhite(line);	/* pass over initial whitespace */
-
-    if (*str == '\0')
-      continue;
-
-    if (LOGLEVEL >= 6)
-      {
-      sprintf(log_buffer,"processing config line '%.64s'",
-        str);
+      /* not authorized to access specified file, return failure */
 
       log_record(
         PBSEVENT_SYSTEM,
         PBS_EVENTCLASS_SERVER,
         id,
-        log_buffer);
+        "ALERT:  cannot open config file - permissions");
+
+      IgnConfig = 1;
+
+      rc = 1;
       }
+#endif  /* NO_SECURITY_CHECK */
+    }    /* END if (ignConfig == 0) */
 
-    if (*str == '$') 
-      {	
-      /* special command */
+  if (IgnConfig == 0)
+    {   
+    if ((conf = fopen(file,"r")) == NULL) 
+      {
+      sprintf(log_buffer,"fopen: %s",
+        file);
 
-      str = tokcpy(++str,name); /* resource name */
+      log_err(errno,id,log_buffer);
 
-      for (i = 0;special[i].name;i++) 
+      IgnConfig = 1;
+
+      rc = 1;
+      }
+    }    /* END if (IgnConfig == 0) */
+
+  if (IgnConfig == 0)
+    {
+    nconfig = 0;
+    linenum = 0;
+
+    while (fgets(line,sizeof(line),conf)) 
+      {
+      linenum++;
+
+      if (line[0] == '#')	/* comment */
+        continue;
+
+      if ((ptr = strchr(line,'#')) != NULL)
         {
-        if (strcasecmp(name,special[i].name) == 0)
-          break;
-        }  /* END for (i) */
+        /* allow inline comments */
 
-      if (special[i].name == NULL) 
+        *ptr = '\0';
+        }
+ 
+      str = skipwhite(line);	/* pass over initial whitespace */
+
+      if (*str == '\0')
+        continue;
+
+      if (LOGLEVEL >= 6)
         {
-	/* didn't find it */
+        sprintf(log_buffer,"processing config line '%.64s'",
+          str);
 
-        sprintf(log_buffer,"special command name %s not found (ignoring line)",
-          name);
+        log_record(
+          PBSEVENT_SYSTEM,
+          PBS_EVENTCLASS_SERVER,
+          id,
+          log_buffer);
+        }
 
-        log_err(-1,id,log_buffer);
+      if (*str == '$') 
+        {	
+        /* special command */
+
+        str = tokcpy(++str,name); /* resource name */
+
+        for (i = 0;special[i].name;i++) 
+          {
+          if (strcasecmp(name,special[i].name) == 0)
+            break;
+          }  /* END for (i) */
+
+        if (special[i].name == NULL) 
+          {
+          /* didn't find it */
+
+          sprintf(log_buffer,"special command name %s not found (ignoring line)",
+            name);
+
+          log_err(-1,id,log_buffer);
+
+          continue;
+          }
+
+        str = skipwhite(str);		/* command param */
+
+        rmnl(str);
+
+        if (special[i].handler(str) == 0) 
+          {
+          sprintf(log_buffer,"%s[%d] special command %s failed with %s",
+            file,
+            linenum,
+            name,
+            str);
+
+          log_err(-1,id,log_buffer);
+          }
 
         continue;
         }
 
-      str = skipwhite(str);		/* command param */
+      add_static(str,file,linenum);
 
-      rmnl(str);
+      nconfig++;
+      }  /* END while (fgets()) */
+		
+    /*
+    **	Create a new array.
+    */
 
-      if (special[i].handler(str) == 0) 
+    if (config_array != NULL) 
+      {
+      for (ap = config_array;ap->c_name != NULL;ap++) 
         {
-        sprintf(log_buffer,"%s[%d] special command %s failed with %s",
-          file,
-          linenum,
-          name,
-          str);
-
-        log_err(-1,id,log_buffer);
+        free(ap->c_name);
+        free(ap->c_u.c_value);
         }
 
-      continue;
+      free(config_array);
       }
 
-    add_static(str,file,linenum);
+    config_array = (struct config *)calloc(nconfig + 1,sizeof(struct config));
 
-    nconfig++;
-    }  /* END while (fgets()) */
-		
-  /*
-  **	Create a new array.
-  */
+    memcheck((char *)config_array);
 
-  if (config_array != NULL) 
-    {
-    for (ap = config_array;ap->c_name != NULL;ap++) 
+    /*
+    **	Copy in the new information saved from the file.
+    */
+
+    for (i = 0,ap = config_array;i < nconfig;i++,ap++) 
       {
-      free(ap->c_name);
-      free(ap->c_u.c_value);
+      *ap = config_list->c;
+      cp = config_list->c_link;
+
+      free(config_list);	/* don't free name and value strings */
+      config_list = cp;	/* they carry over from the list */
       }
 
-    free(config_array);
-    }
+    ap->c_name = NULL;		/* one extra */
 
-  config_array = (struct config *)calloc(nconfig + 1,sizeof(struct config));
-
-  memcheck((char *)config_array);
-
-  /*
-  **	Copy in the new information saved from the file.
-  */
-
-  for (i = 0,ap = config_array;i < nconfig;i++,ap++) 
-    {
-    *ap = config_list->c;
-    cp = config_list->c_link;
-
-    free(config_list);	/* don't free name and value strings */
-    config_list = cp;	/* they carry over from the list */
-    }
-
-  ap->c_name = NULL;		/* one extra */
-
-  fclose(conf);
+    fclose(conf);
+    }  /* END if (IgnConfig == 0) */
 
   if (pbs_servername[0][0] == '\0')
     {
-    FILE *server_file;
-    /* no $pbsserver parameters in config, use server_name as last-resort */
+    /* No server names in torque/mom_priv/config.  Get names from torque/server_name. */
 
-    if ((server_file = fopen(path_server_name,"r")) != NULL)
+    server_list_ptr = pbs_get_server_list();
+    list_len = csv_length(server_list_ptr);
+    for (n=0; n<list_len; n++)
       {
-      char tmpLine[PBS_MAXSERVERNAME + 1];
-      char *pn;
-      
-      if (fgets(tmpLine,sizeof(tmpLine),server_file) != NULL)
+        tp = csv_nth(server_list_ptr, n);
+        if (tp)
         {
-        if ((pn = strchr(tmpLine,'\n')))
-          *pn = '\0';
-
-        setpbsserver(tmpLine);
+          setpbsserver(tp);
         }
-      
-      fclose(server_file);
       }
     }
 
-  return(0);
+  return(rc);
   }  /* END read_config() */
 
 
@@ -3060,6 +3648,19 @@ static void process_hup()
   return;
   }  /* END process_hup() */
 
+long 
+power (register int x, register int n)
+{
+    register long p;
+
+    for (p = 1; n > 0; --n)
+    {
+        p = p * x;
+    }
+    return (p);
+}
+
+/* End power() */
 
 
 
@@ -3286,12 +3887,14 @@ int init_server_stream(
 
 
 
-/*
- **   is_update_stat
- **   This should update the PBS server with the status information
- **   that the resource manager should need.  This should allow for
- **   less trouble on the part of the resource manager.  It can get
- **   this information from the server rather than going to each mom.
+/**
+ *    is_update_stat
+ *
+ *    This should update the PBS server with the status information
+ *    that the resource manager should need.  This should allow for
+ *    less trouble on the part of the resource manager.  It can get
+ *    this information from the server rather than going to each mom.
+ *
  */
 
 void is_update_stat(
@@ -3320,6 +3923,7 @@ void is_update_stat(
     "size",
     "state",
     "jobs",
+    "varattr",
     NULL };
 
   char   cp[1024];
@@ -3335,7 +3939,6 @@ void is_update_stat(
   int    (*flush_io)A_((int));
 
   char  *ptr;
-
 
   close_io = (void(*) A_((int)))rpp_close;
   flush_io = rpp_flush;
@@ -3356,7 +3959,6 @@ void is_update_stat(
       continue;
 
     time(&MOMLastSendToServerTime[ServerIndex]);
-  
   
     ret = diswsi(SStream[ServerIndex],IS_PROTOCOL);
   
@@ -3408,9 +4010,7 @@ void is_update_stat(
 
       continue;
       }
-  
-    } /* END for each server */
-
+    }    /* END for (ServerIndex) */
 
   for (i = 0;stats[i] != NULL;i++) 
     {
@@ -3638,8 +4238,8 @@ void is_update_stat(
 
         continue;
         }
-      } /* END for each server */
-    }    /* END for (i) */
+      }   /* END for each server */
+    }     /* END for (i) */
 
   if (LOGLEVEL >= 8)
     log_record(PBSEVENT_SYSTEM,0,id,"clearing alarm in is_update_stat");
@@ -3648,7 +4248,6 @@ void is_update_stat(
 
   for (ServerIndex = 0;ServerIndex < PBS_MAXSERVER;ServerIndex++)
     {
-
     if (SStream[ServerIndex] == -1)
       continue;
   
@@ -3677,17 +4276,17 @@ void is_update_stat(
     /* It would be redundant to send state since it is already in status */
   
     ReportMomState[ServerIndex] = 0;
-  
     }
 
+  return;
   }  /* END is_update_stat() */
 
 
 
 
 /*
-**	Process a request for the resource monitor.  The i/o
-**	will take place using DIS over a tcp fd or an rpp stream.
+** Process a request for the resource monitor.  The i/o
+** will take place using DIS over a tcp fd or an rpp stream.
 */
 
 int rm_request(
@@ -3706,21 +4305,20 @@ int rm_request(
   char		*curr, *value, *cp, *body;
   struct	config		*ap;
   struct	rm_attribute	*attr;
-#ifdef ENABLE_IPV6
-  struct	sockaddr_in6	*addr;
-#else
   struct	sockaddr_in	*addr;
-#endif
   unsigned long	ipadd;
   u_short	port;
-  void		(*close_io)	A_((int));
-  int		(*flush_io)	A_((int));
-  extern struct	connection	svr_conn[];
+  void		(*close_io) A_((int));
+  int		(*flush_io) A_((int));
+  extern struct	connection svr_conn[];
+
+  int   NotTrusted = 0;
 
   char *BPtr;
   int   BSpace;
 
   errno = 0;
+  log_buffer[0] = '\0';
 
   if (tcp) 
     {
@@ -3733,13 +4331,8 @@ int rm_request(
   else 
     {
     addr = rpp_getaddr(iochan);
-#ifdef ENABLE_IPV6
-    ipadd = ntohl(addr->sin6_addr.s6_addr32[0]);
-    port = ntohs((unsigned short)addr->sin6_port);
-#else
     ipadd = ntohl(addr->sin_addr.s_addr);
     port = ntohs((unsigned short)addr->sin_port);
-#endif
 
     close_io = (void(*) A_((int)) )rpp_close;
     flush_io = rpp_flush;
@@ -3760,6 +4353,8 @@ int rm_request(
       {
       sprintf(log_buffer,"bad attempt to connect - unauthorized (port: %d)",
         port);
+
+      NotTrusted = 1;
 
       goto bad;
       }
@@ -3920,7 +4515,7 @@ int rm_request(
 
             if ( (*curr == '=') && ((*curr)+1 != '\0' ))
               {
-              setstatusupdatetime(curr+1);
+              setstatusupdatetime(curr + 1);
               }
 
             sprintf(output,"status_update_time=%d",
@@ -3930,9 +4525,9 @@ int rm_request(
             {
             /* set or report check_poll_time */
 
-            if ( (*curr == '=') && ((*curr)+1 != '\0' ))
+            if ( (*curr == '=') && ((*curr) + 1 != '\0' ))
               {
-              setcheckpolltime(curr+1);
+              setcheckpolltime(curr + 1);
               }
 
             sprintf(output,"check_poll_time=%d",
@@ -3966,9 +4561,9 @@ int rm_request(
             {
             /* set or report down_on_error */
 
-            if ( (*curr == '=') && ((*curr)+1 != '\0' ))
+            if ( (*curr == '=') && ((*curr) + 1 != '\0' ))
               {
-              setdownonerror(curr+1);
+              setdownonerror(curr + 1);
               }
 
             sprintf(output,"down_on_error=%d",
@@ -3978,9 +4573,9 @@ int rm_request(
             {
             /* set or report enablemomrestart */
 
-            if ( (*curr == '=') && ((*curr)+1 != '\0' ))
+            if ( (*curr == '=') && ((*curr) + 1 != '\0' ))
               {
-              setenablemomrestart(curr+1);
+              setenablemomrestart(curr + 1);
               }
 
             sprintf(output,"enablemomrestart=%d",
@@ -3990,9 +4585,9 @@ int rm_request(
             {
             /* set or report rcp_path and rcp_args */
 
-            if ( (*curr == '=') && ((*curr)+1 != '\0' ))
+            if ((*curr == '=') && ((*curr) + 1 != '\0'))
               {
-              setrcpcmd(curr+1);
+              setrcpcmd(curr + 1);
               }
 
             sprintf(output,"rcpcmd=%s %s",
@@ -4027,6 +4622,8 @@ int rm_request(
 
             job *pjob;
 
+            struct varattr *pva;
+
             time(&Now);
 
             ptr = name + strlen("diag");
@@ -4038,10 +4635,11 @@ int rm_request(
             BPtr = output;
             BSpace = sizeof(output);
 
-            sprintf(tmpLine,"\nHost: %s/%s   Version: %s\n",
+            sprintf(tmpLine,"\nHost: %s/%s   Version: %s   PID: %ld\n",
               mom_short_name,
               mom_host,
-              PACKAGE_VERSION);
+              PACKAGE_VERSION,
+              (long)getpid());
 
             MUStrNCat(&BPtr,&BSpace,tmpLine);
 
@@ -4100,6 +4698,12 @@ int rm_request(
                 MUStrNCat(&BPtr,&BSpace,tmpLine);
                 }
 
+              if (TMOMRejectConn[0] != '\0')
+                {
+                MUSNPrintF(&BPtr,&BSpace,"  WARNING:  invalid attempt to connect from server %s\n",
+                  TMOMRejectConn);
+                }
+
               if (MOMLastRecvFromServerTime[sindex] > 0)
                 {
                 sprintf(tmpLine,"  Last Msg From Server:   %ld seconds (%s)\n",
@@ -4134,18 +4738,40 @@ int rm_request(
               MUStrNCat(&BPtr,&BSpace,tmpLine);
               }
 
-            if (verbositylevel >= 2)
-              {
-              sprintf(tmpLine,"PID:                    %ld\n",
-                (long)getpid());
-
-              MUStrNCat(&BPtr,&BSpace,tmpLine);
-              }
-
             sprintf(tmpLine,"HomeDirectory:          %s\n",
               (mom_home != NULL) ? mom_home : "N/A");
 
             MUStrNCat(&BPtr,&BSpace,tmpLine);
+
+#ifdef HAVE_SYS_STATVFS_H
+            {
+            #include <sys/statvfs.h>
+
+            struct statvfs VFSStat;
+
+            if (statvfs(path_spool,&VFSStat) < 0)
+              {
+              MUSNPrintF(&BPtr,&BSpace,"ALERT:  cannot stat stdout/stderr spool directory '%s' (errno=%d)\n",
+                path_spool,
+                errno);
+              }
+            else
+              {
+              if (VFSStat.f_bavail > 0)
+                {
+                if (verbositylevel >= 1)
+                  MUSNPrintF(&BPtr,&BSpace,"stdout/stderr spool directory: '%s' (%d blocks available)\n",
+                    path_spool,
+                    VFSStat.f_bavail);
+                }
+              else
+                {
+                MUSNPrintF(&BPtr,&BSpace,"ALERT:  stdout/stderr spool directory '%s' is full\n",
+                  path_spool);
+                }
+              }
+            }    /* END BLOCK */
+#endif /* HAVE_SYS_STATVFS_H */
 
             if (MOMConfigVersion[0] != '\0')
               {
@@ -4155,6 +4781,15 @@ int rm_request(
               MUStrNCat(&BPtr,&BSpace,tmpLine);
               }
 
+            if (verbositylevel >= 3)
+              {
+#if SYSLOG
+              MUStrNCat(&BPtr,&BSpace,"NOTE:  syslog enabled\n");
+#else /* SYSLOG */
+              MUStrNCat(&BPtr,&BSpace,"NOTE:  syslog not enabled (use 'configure --enable-syslog' to enable)\n");
+#endif /* SYSLOG */
+              }  
+ 
             sprintf(tmpLine,"MOM active:             %ld seconds\n",
               (long)Now - MOMStartTime);
 
@@ -4201,7 +4836,7 @@ int rm_request(
               MUStrNCat(&BPtr,&BSpace,tmpLine);
               }
 
-            sprintf(tmpLine,"LOGLEVEL:               %d (use SIGUSR1/SIGUSR2 to adjust)\n",
+            sprintf(tmpLine,"LogLevel:               %d (use SIGUSR1/SIGUSR2 to adjust)\n",
               LOGLEVEL);
 
             MUStrNCat(&BPtr,&BSpace,tmpLine);
@@ -4217,7 +4852,23 @@ int rm_request(
                 );
 
               MUStrNCat(&BPtr,&BSpace,tmpLine);
-              }
+
+              if ((MOMIsLocked == 1) || (MOMIsPLocked == 1) || (verbositylevel >= 4))
+                {
+                sprintf(tmpLine,"MemLocked:              %s",
+                  (MOMIsLocked == 0) ? "FALSE" : "TRUE");
+
+                if (MOMIsLocked == 1)
+                  strcat(tmpLine,"  (mlock)");
+ 
+                if (MOMIsPLocked == 1)
+                  strcat(tmpLine,"  (plocked)");
+
+                strcat(tmpLine,"\n");
+
+                MUStrNCat(&BPtr,&BSpace,tmpLine);
+                }
+              }    /* END if (verbositylevel >= 1) */
 
             if ((verbositylevel >= 1) && (pbs_tcp_timeout > 0))
               {
@@ -4231,14 +4882,31 @@ int rm_request(
               {
               struct stat s;
 
-              if (stat(path_prolog,&s) == -1)
-                {
-                MUStrNCat(&BPtr,&BSpace,"NOTE:  no prolog configured\n");
-                }
-              else
-                {
-                MUStrNCat(&BPtr,&BSpace,"NOTE:  prolog enabled\n");
+              int prologfound = 0;
 
+              if (stat(path_prolog,&s) != -1)
+                {
+                MUSNPrintF(&BPtr,&BSpace,"Prolog:                 %s (enabled)\n",
+                  path_prolog);
+
+                prologfound = 1;
+                }
+              else if (verbositylevel >= 2)
+                {
+                MUSNPrintF(&BPtr,&BSpace,"Prolog:                 %s (disabled)\n",
+                  path_prolog);
+                }
+
+              if (stat(path_prologp,&s) != -1)
+                {
+                MUSNPrintF(&BPtr,&BSpace,"Parallel Prolog:        %s (enabled)\n",
+                  path_prologp);
+
+                prologfound = 1;
+                }
+
+              if (prologfound == 1)
+                {
                 sprintf(tmpLine,"Prolog Alarm Time:      %d seconds\n",
                   pe_alarm_time);
 
@@ -4277,8 +4945,9 @@ int rm_request(
               {
               tmpLine[0] = '\0';
 
-              MUSNPrintF(&BPtr,&BSpace,"Configured to use %s %s\n",
-                rcp_path, rcp_args );
+              MUSNPrintF(&BPtr,&BSpace,"Copy Command:           %s %s\n",
+                rcp_path, 
+                rcp_args );
               }
 
             /* joblist */
@@ -4353,6 +5022,25 @@ int rm_request(
               }
 #endif
                 
+            if ((pva = (struct varattr *)GET_NEXT(mom_varattrs)) != NULL)
+              {
+              MUStrNCat(&BPtr,&BSpace,"Varattrs:\n");
+
+              while (pva != NULL)
+                {
+                sprintf(tmpLine,"  name=%s  ttl=%d  last=%s  cmd=%s  value=%s\n\n",
+                  pva->va_name,
+                  pva->va_ttl,
+                  ctime(&pva->va_lasttime),
+                  pva->va_cmd,
+                  (pva->va_value != NULL) ? pva->va_value : "NULL");
+
+                MUStrNCat(&BPtr,&BSpace,tmpLine);
+
+                pva = (struct varattr *)GET_NEXT(pva->va_link);
+                }
+              }
+
             MUStrNCat(&BPtr,&BSpace,"\ndiagnostics complete\n");
 
             log_record(PBSEVENT_SYSTEM,0,id,"internal diagnostics complete");
@@ -4424,6 +5112,14 @@ int rm_request(
       {
       char *ptr;
 
+      if (MOMConfigRReconfig == FALSE)
+        {
+        log_err(-1,id,
+         "remote reconfiguration disabled, ignoring request");
+
+        goto bad;
+        }
+
       if (restrictrm) 
         {
         log_err(-1,id,"restricted configure attempt");
@@ -4462,7 +5158,7 @@ int rm_request(
 
           if ((fp = fopen(config_file,"w+")) == NULL)
             {
-            printf(log_buffer,"cannot open config file %s",
+            sprintf(log_buffer,"cannot open config file %s",
               config_file);
 
             goto bad;
@@ -4472,7 +5168,7 @@ int rm_request(
             {
             fclose(fp);
 
-            printf(log_buffer,"cannot write config file %s",
+            sprintf(log_buffer,"cannot write config file %s",
               config_file);
 
             goto bad;
@@ -4584,6 +5280,14 @@ bad:
     (ipadd & 0x0000ff00) >> 8,
     (ipadd & 0x000000ff));
 
+  sprintf(TMOMRejectConn,"%ld.%ld.%ld.%ld:%d  %s",
+    (ipadd & 0xff000000) >> 24,
+    (ipadd & 0x00ff0000) >> 16,
+    (ipadd & 0x0000ff00) >> 8,
+    (ipadd & 0x000000ff),
+    port,
+    (NotTrusted == 1) ? "(server not authorized)" : "(request corrupt)");
+
   strcat(log_buffer,output);
 
   log_err(errno,id,log_buffer);
@@ -4692,6 +5396,8 @@ void do_rpp(
           time(&MOMLastRecvFromServerTime[sindex]);
 
           strcpy(MOMLastRecvFromServerCmd[sindex],PBSServerCmds[tmpI]);
+          
+          MOMSendHelloTryCount[sindex] = 0;
           }
         }
       }  /* END BLOCK */
@@ -4964,6 +5670,21 @@ void tcp_request(
   }  /* END tcp_request() */
 
 
+char *find_signal_name( int sig )
+  {
+  struct sig_tbl *psigt;
+  extern struct sig_tbl sig_tbl[];
+
+  for (psigt = sig_tbl; psigt->sig_name != NULL; psigt++)
+    {
+    if (psigt->sig_val == sig)
+      {
+      return(psigt->sig_name);
+      }
+    }
+  return("unknown signal");
+  }
+
 
 
 
@@ -4975,22 +5696,33 @@ void tcp_request(
 int kill_job(
 
   job *pjob,  /* I */
-  int  sig)   /* I */
+  int  sig,   /* I */
+  char *killer_id_name, /* I - process name of calling routine */
+  char *why_killed_reason) /* I - reason for killing */
 
   {
   task	*ptask;
   int	ct = 0;
 
-  const char *id = "kill_job";
+  char *id = "kill_job";
+
+  sprintf(log_buffer,"%s: sending signal %d, \"%s\" to job %s, reason: %s",
+    killer_id_name,
+    sig, find_signal_name(sig),
+    pjob->ji_qs.ji_jobid,
+    why_killed_reason);
 
   if (LOGLEVEL >= 2)
     {
+
     log_record(
-      PBSEVENT_JOB, 
+      PBSEVENT_JOB,
       PBS_EVENTCLASS_JOB,
-      pjob->ji_qs.ji_jobid, 
-      (char *)id);
+      id, 
+      log_buffer);
     }
+
+  DBPRT(("%s\n",log_buffer));
 
   /* NOTE:  should change be made to only execute precancel epilog if job is active? (NYI) */
 
@@ -5042,77 +5774,6 @@ int kill_job(
 
   return(ct);
   }  /* END kill_job() */
-
-
-
-
-
-/*
- * finish_loop - the finish of MOM's main loop
- *	Actually the heart of the loop
- */
-
-static void finish_loop(
-
-  time_t waittime)  /* I (in seconds) */
-
-  {
-  static char id[] = "finish_loop";
-
-  time_t tmpTime;
-  time_t time_now;
-  
-  /* check for any extra rpp messages */
-
-  rpp_request(42);
-
-  if (termin_child)
-    scan_for_terminated();
-
-  /* if -p, must poll tasks inside jobs to look for completion */
-
-  if (recover == 2)
-    scan_non_child_tasks();
-
-  if (exiting_tasks)
-    scan_for_exiting();	
-
-  TMOMScanForStarting();
-
-  /* unblock signals */
-
-  if (sigprocmask(SIG_UNBLOCK,&allsigs,NULL) == -1)
-    log_err(errno,id,"sigprocmask(UNBLOCK)");
-
-  time_now = time((time_t *)0);
-
-  tmpTime = MIN(waittime,time_now - (LastServerUpdateTime + ServerStatUpdateInterval));
-
-  tmpTime = MIN(tmpTime,time_now - (polltime + CheckPollTime));
-
-  tmpTime = MAX(1,tmpTime);
-
-  /* wait for a request to process */
-
-  if (wait_request(tmpTime,NULL) != 0)
-    {
-    if (errno == EBADF)
-      {
-      init_network(pbs_mom_port,process_request);
-
-      init_network(pbs_rm_port,tcp_request);
-      }
-
-    log_err(-1,msg_daemonname,"wait_request failed");
-    }
-
-  /* block signals while we do things */
-
-  if (sigprocmask(SIG_BLOCK,&allsigs,NULL) == -1)
-    log_err(errno,id,"sigprocmask(BLOCK)");
-
-  return;
-  }  /* END finish_loop() */
 
 
 
@@ -5237,7 +5898,8 @@ unsigned long gettime(
     }
 
   return((unsigned long)pres->rs_value.at_val.at_long);
-  }
+  }  /* END getttime() */
+
 
 
 
@@ -5284,6 +5946,8 @@ int job_over_limit(
 
   if (pjob->ji_nodekill != TM_ERROR_NODE) 
     {
+    /* one of the sister nodes reports a fatal error */
+
     hnodent *pnode = &pjob->ji_hosts[pjob->ji_nodekill];
 
     if (pnode->hn_sister != 0)
@@ -5292,7 +5956,7 @@ int job_over_limit(
         {
         case SISTER_KILLDONE:
 
-          sprintf(log_buffer,"node %d (%s) requested job die, '%s' (code %d)",
+          sprintf(log_buffer,"node %d (%s) requested job terminate, '%s' (%d)",
             pjob->ji_nodekill,
             pnode->hn_host,
             "killdone",
@@ -5302,7 +5966,7 @@ int job_over_limit(
 
         case SISTER_BADPOLL:
 
-          sprintf(log_buffer,"node %d (%s) requested job die, '%s' (code %d)",
+          sprintf(log_buffer,"node %d (%s) requested job terminate, '%s' (code %d)",
             pjob->ji_nodekill,
             pnode->hn_host,
             "badpoll",
@@ -5313,7 +5977,7 @@ int job_over_limit(
         case SISTER_EOF:
         default:
 
-          sprintf(log_buffer,"node %d (%s) requested job die, '%s' (code %d) - internal or network failure attempting to communicate with sister MOM's",
+          sprintf(log_buffer,"node %d (%s) requested job terminate, '%s' (code %d) - internal or network failure attempting to communicate with sister MOM's",
             pjob->ji_nodekill,
             pnode->hn_host,
             "EOF",
@@ -5325,7 +5989,7 @@ int job_over_limit(
       /* FAILURE */
 
       return(1);
-      }
+      }  /* END if (pnode->hn_sister != 0) */
     }    /* END if (pjob->ji_nodekill != TM_ERROR_NODE) */
 
   attr = &pjob->ji_wattr[JOB_ATR_resource];
@@ -5404,22 +6068,32 @@ void usage(
   fprintf(stderr,"Usage: %s\n",
     prog);
 
-  fprintf(stderr,"  -a <INT>  \\\\ ALARM TIME\n");
-  fprintf(stderr,"  -c <PATH> \\\\ CONFIG FILE\n");
-  fprintf(stderr,"  -C <PATH> \\\\ CHECKPOINT DIR\n");
-  fprintf(stderr,"  -d <PATH> \\\\ HOME DIR\n");
-  fprintf(stderr,"  -C <PATH> \\\\ CHECKPOINT DIR\n");
-  fprintf(stderr,"  -L <PATH> \\\\ LOGFILE\n");
-  fprintf(stderr,"  -M <INT>  \\\\ MOM PORT\n");
-  fprintf(stderr,"  -p        \\\\ recover jobs\n");
-  fprintf(stderr,"  -r        \\\\ recover jobs (2)\n");
-  fprintf(stderr,"  -R <INT>  \\\\ RM PORT\n");
-  fprintf(stderr,"  -S <INT>  \\\\ SERVER PORT\n");
-  fprintf(stderr,"  -x        \\\\ DO NOT USE PRIVILEGED PORTS\n");
-  fprintf(stderr,"  -v        \\\\ VERSION\n");
+  fprintf(stderr,"  -a <INT>  \\\\ Alarm Time\n");
+  fprintf(stderr,"  -c <PATH> \\\\ Config File\n");
+  fprintf(stderr,"  -C <PATH> \\\\ Checkpoint Dir\n");
+  fprintf(stderr,"  -d <PATH> \\\\ Home Dir\n");
+  fprintf(stderr,"  -C <PATH> \\\\ Checkpoint Dir\n");
+  fprintf(stderr,"  -D        \\\\ DEBUG - do not background\n");
+  fprintf(stderr,"  -h        \\\\ Print Usage\n");
+  fprintf(stderr,"  -H <HOST> \\\\ Hostname\n");
+  fprintf(stderr,"  -l        \\\\ MOM Log Dir Path\n");
+  fprintf(stderr,"  -L <PATH> \\\\ Logfile\n");
+  fprintf(stderr,"  -M <INT>  \\\\ MOM Port\n");
+  fprintf(stderr,"  -p        \\\\ Recover Jobs\n");
+  fprintf(stderr,"  -r        \\\\ Recover Jobs (2)\n");
+  fprintf(stderr,"  -R <INT>  \\\\ RM Port\n");
+  fprintf(stderr,"  -s        \\\\ Logfile Suffix\n");
+  fprintf(stderr,"  -S <INT>  \\\\ Server Port\n");
+  fprintf(stderr,"  -v        \\\\ Version\n");
+  fprintf(stderr,"  -x        \\\\ Do Not Use Privileged Ports\n");
+  fprintf(stderr,"  --about   \\\\ Print Build Information\n");
+  fprintf(stderr,"  --help    \\\\ Print Usage\n");
+  fprintf(stderr,"  --version \\\\ Version\n");
 
-  exit(1);
   }  /* END usage() */
+
+
+
 
 
 /*
@@ -5443,22 +6117,31 @@ char *MOMFindMyExe(
   link = calloc(MAXPATHLEN+1,sizeof(char));
 
   if (link == NULL)
-    return NULL;
+    {
+    return(NULL);
+    }
 
   /* Linux has a handy symlink, so try that first */
 
   if (readlink("/proc/self/exe",link,MAXPATHLEN) > 0)
+    {
     if (link[0] != '\0' && link[0] != '[')
-      return link;
+      {
+      return(link);
+      }
+    }
 
   /* if argv0 has a /, then it should exist relative to $PWD */
 
   for (p = argv0; *p; p++)
+    {
     if (*p == '/')
       {
       has_slash = 1;
+
       break;
       }
+    }
 
   if (has_slash)
     {
@@ -5473,7 +6156,8 @@ char *MOMFindMyExe(
       if (getcwd(link,MAXPATHLEN) == NULL)
         {
         free(link);
-        return NULL;
+
+        return(NULL);
         }
       
       strcat(link,"/");
@@ -5483,20 +6167,23 @@ char *MOMFindMyExe(
     if (realpath(link,resolvedpath) == NULL)
       {
       free(link);
-      return NULL;
+
+      return(NULL);
       }
     
     strcpy(link,resolvedpath);
 
     if (access(link,X_OK) == 0)
-      return link;
+      {
+      return(link);
+      }
 
-    return NULL;
+    return(NULL);
     }
 
   /* argv0 doesn't have a /, so search $PATH */
 
-  path = getenv ("PATH");
+  path = getenv("PATH");
 
   if (path != NULL)
     {
@@ -5505,9 +6192,11 @@ char *MOMFindMyExe(
       char *q;
       size_t p_len;
 
-      for (q = p; *q; q++)
+      for (q = p;*q;q++)
+        {
         if (*q == ':')
           break;
+        }
 
       p_len = q - p;
       p_next = (*q == '\0' ? q : q + 1);
@@ -5521,7 +6210,8 @@ char *MOMFindMyExe(
         if (getcwd(link,MAXPATHLEN) == NULL)
           {
           free(link);
-          return NULL;
+
+          return(NULL);
           }
         
         strcat(link, "/");
@@ -5536,31 +6226,47 @@ char *MOMFindMyExe(
         }
 
       if (access(link,X_OK) == 0)
-        return link;
-      } /* END for (p = path; *p; p = p_next) */
+        {
+        return(link);
+        }
+      }  /* END for (p = path; *p; p = p_next) */
     }
 
-  return NULL;
-  } /* END MOMFindMyExe() */
+  return(NULL);
+  }  /* END MOMFindMyExe() */
+
+
+
+
 
 /*
  * MOMGetFileMtime - return the mtime of a file
  */
 
-time_t MOMGetFileMtime(const char *fpath)
+time_t MOMGetFileMtime(
+
+  const char *fpath)
+
   {
    struct stat sbuf;
    int ret;
    
    if ((fpath == NULL) || (*fpath == '\0'))
-     return 0;
+     {
+     return(0);
+     }
 
-   ret = stat(fpath, &sbuf);
+   ret = stat(fpath,&sbuf);
+
    if (ret == 0)
-     return sbuf.st_mtime;
+     {
+     return(sbuf.st_mtime);
+     }
 
-  return 0;
+  return(0);
   }  /* END MOMGetFileMtime */
+
+
 
 
 /*
@@ -5574,8 +6280,10 @@ void MOMCheckRestart(void)
   time_t newmtime;
 
   if ((MOMConfigRestart <= 0) || (MOMExeTime <= 0))
+    {
     return;
-  
+    }
+
   newmtime = MOMGetFileMtime(MOMExePath);
 
   if ((newmtime > 0) && (newmtime != MOMExeTime))
@@ -5603,99 +6311,62 @@ void MOMCheckRestart(void)
     }
   }  /* END MOMCheckRestart() */
 
-int MOMInitialize(void)
-
-  {
-  int sindex;
-
-  MOMConfigVersion[0] = '\0';
-
-  for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
-    {
-    SStream[sindex] = -1;
- 
-    ReportMomState[sindex] = 1;
-    }  /* END for (sindex) */
- 
-  /* SUCCESS */
-
-  return(0);
-  }  /* END MOMInitialize() */
-
 
 
 
 /*
- * main - the main program of MOM
+ * initialize_globals
  */
 
-int main(
-
-  int   argc,    /* I */
-  char *argv[])  /* I */
+void initialize_globals(void)
 
   {
-  static	char id[] = "mom_main";
-
-  int	 	errflg, c;
-  FILE		*dummyfile;
-  task		*ptask;
-  char		*ptr;
-  int		tryport;
-  int		rppfd;			/* fd for rm and im comm */
-  int		privfd = 0;			/* fd for sending job info */
-  double	myla;
-  struct sigaction act;
-  job		*pjob;
-  extern time_t	wait_time;
-  extern char	*optarg;
-  extern int	optind;
-
-  int           sindex;  /* server index */
-  int           TotalClusterAddrsCount;
-
-#if MOM_CHECKPOINT == 1
-  resource	*prscput;
-#endif /* MOM_CHECKPOINT */
-
-#ifdef _POSIX_MEMLOCK
-  int           mlockall_return;
-  int           MOMISLOCKED = 0;
-#endif /* _POSIX_MEMLOCK */
+  int sindex;
+  char		*ptr;                   /* local tmp variable */
 
   strcpy(pbs_current_user,"pbs_mom");
   msg_daemonname = pbs_current_user;
 
   time(&MOMStartTime);
 
+  CLEAR_HEAD(svr_newjobs);
+  CLEAR_HEAD(svr_alljobs);
+  CLEAR_HEAD(mom_polljobs);
+  CLEAR_HEAD(svr_requests);
+  CLEAR_HEAD(mom_varattrs);
+
+
   if (getenv("PBSMOMHOME") != NULL)
     {
     path_home = getenv("PBSMOMHOME");
     }
 
-  /* must be started with real and effective uid of 0 */
+  MOMConfigVersion[0] = '\0';
 
-  if ((getuid() != 0) || (geteuid() != 0)) 
+  for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {
-    /* FAILURE */
+    SStream[sindex] = -1;
 
-    fprintf(stderr, "%s: must be run as root\n", 
-      argv[0]);
-
-    return(1);
-    }
-
-  MOMInitialize();
+    MOMLastRecvFromServerTime[sindex] = 0;
+ 
+    ReportMomState[sindex] = 1;
+    }  /* END for (sindex) */
 
   pbsgroup = getgid();
   loopcnt = time(NULL);
 
-  MOMExePath = MOMFindMyExe(argv[0]);
+  MOMExePath = MOMFindMyExe(program_name);
   MOMExeTime = MOMGetFileMtime(MOMExePath);
 
   strcpy(xauth_path,XAUTH_PATH);
   strcpy(rcp_path,RCP_PATH);
   strcpy(rcp_args,RCP_ARGS);
+#ifdef DEFAULT_MOMLOGDIR
+  path_log = strdup(DEFAULT_MOMLOGDIR);
+#endif
+#ifdef DEFAULT_MOMLOGSUFFIX
+  log_init(DEFAULT_MOMLOGSUFFIX,NULL);
+#endif
 
   /* PATH is restored before a restart */
   if (getenv("PATH") != NULL)
@@ -5703,23 +6374,227 @@ int main(
     orig_path = strdup(getenv("PATH"));
     }
 
-  /* Get our default service port */
+  /* get default service port */
 
-  pbs_mom_port = get_svrport(PBS_MOM_SERVICE_NAME,"tcp",
-    PBS_MOM_SERVICE_PORT);
+  ptr = getenv("PBS_MOM_SERVICE_PORT");
 
-  default_server_port = get_svrport(PBS_BATCH_SERVICE_NAME,"tcp",
-    PBS_BATCH_SERVICE_PORT_DIS);
+  if (ptr != NULL)
+    {
+    pbs_mom_port = (int)strtol(ptr,NULL,10);
+    }
 
-  pbs_rm_port = get_svrport(PBS_MANAGER_SERVICE_NAME,"tcp", 
-    PBS_MANAGER_SERVICE_PORT);
+  if (pbs_mom_port <= 0)
+     {
+     pbs_mom_port = get_svrport(
+       PBS_MOM_SERVICE_NAME,
+       "tcp",
+       PBS_MOM_SERVICE_PORT);
+     }
+
+  ptr = getenv("PBS_BATCH_SERVICE_PORT");
+
+  if (ptr != NULL)
+    {
+    default_server_port = (int)strtol(ptr,NULL,10);
+    }
+
+  if (default_server_port <= 0)
+    {
+    default_server_port = get_svrport(
+      PBS_BATCH_SERVICE_NAME,
+      "tcp",
+      PBS_BATCH_SERVICE_PORT_DIS);
+    }
+
+  ptr = getenv("PBS_MANAGER_SERVICE_PORT");
+
+  if (ptr != NULL)
+    {
+    pbs_rm_port = (int)strtol(ptr,NULL,10);
+    }
+
+  if (pbs_rm_port <= 0)
+    {
+    pbs_rm_port = get_svrport(
+      PBS_MANAGER_SERVICE_NAME,
+      "tcp", 
+      PBS_MANAGER_SERVICE_PORT);
+    }
+  }  /* END initialize_globals() */
+
+
+
+/*
+ * stop_me = signal handler for SIGTERM
+ */
+
+static void stop_me(
+
+  int sig)  /* I */
+
+  {
+  const char *dowhat;
+
+  /* just exit, leaving jobs running */
+
+  mom_run_state = MOM_RUN_STATE_EXIT;
+
+  dowhat = "leaving jobs running, just exiting";
+
+  sprintf(log_buffer,"caught signal %d: %s", 
+    sig, 
+    dowhat);
+
+  log_record(
+    PBSEVENT_SYSTEM | PBSEVENT_FORCE, 
+    PBS_EVENTCLASS_SERVER,
+    msg_daemonname, 
+    log_buffer);
+
+  return;
+  }  /* END void stop_me() */
+
+
+
+
+/*
+ * PBSAdjustLogLevel
+ */
+
+static void PBSAdjustLogLevel(
+
+  int sig)  /* I */
+
+  {
+  if (sig == SIGUSR1)
+    {
+    /* increase log level */
+  
+    LOGLEVEL = MIN(LOGLEVEL + 1,10);
+    }
+  else if (sig == SIGUSR2)
+    {
+    /* increase log level */
+
+    LOGLEVEL = MAX(LOGLEVEL - 1,0);
+    }
+
+  sprintf(log_buffer,"received signal %d: adjusting loglevel to %d",
+    sig,
+    LOGLEVEL);
+
+  log_record(
+    PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+    PBS_EVENTCLASS_SERVER,
+    msg_daemonname,
+    log_buffer);
+
+  return;
+  }  /* END PBSAdjustLogLevel() */
+
+
+
+
+
+/*
+ * mk_dirs - make the directory names used by MOM 
+ */
+
+static char *mk_dirs(
+
+  char *base)  /* I */
+
+  {
+  char *pn;
+  int   ltop = strlen(path_home);
+
+  pn = malloc(ltop + strlen(base) + 2);
+
+  if (pn == NULL)
+    {
+    /* cannot allocate memory */
+
+    exit(2);
+    }
+
+  strcpy(pn,path_home);
+
+  if (*(path_home + ltop - 1) != '/')
+    strcat(pn,"/");
+
+  strcat(pn,base);
+
+  return(pn);
+  }  /* END mk_dirs() */
+
+
+
+
+
+
+/*
+ * parse_command_line
+ */
+
+void parse_command_line( 
+
+  int   argc,    /* I */
+  char *argv[])  /* I */
+
+  {
+  extern char	*optarg;
+  extern int	optind;
+  int           errflg;
+  int           c;
+  char		*ptr;                   /* local tmp variable */
 
   errflg = 0;
 
-  while ((c = getopt(argc,argv,"a:c:C:d:L:M:prR:S:vx")) != -1) 
+  while ((c = getopt(argc,argv,"a:c:C:d:DhH:l:L:M:prR:s:S:vx-:")) != -1) 
     {
     switch (c) 
       {
+      case '-':
+
+        if (optarg == NULL)
+          break;
+
+        if (!strcmp(optarg,"about"))
+          {
+          printf("package:     %s\n",PACKAGE_STRING);
+          printf("sourcedir:   %s\n",PBS_SOURCE_DIR);
+          printf("configure:   %s\n",PBS_CONFIG_ARGS);
+          printf("buildcflags: %s\n",PBS_CFLAGS);
+          printf("buildhost:   %s\n",PBS_BUILD_HOST);
+          printf("builddate:   %s\n",PBS_BUILD_DATE);
+          printf("builddir:    %s\n",PBS_BUILD_DIR);
+          printf("builduser:   %s\n",PBS_BUILD_USER);
+          printf("installdir:  %s\n",PBS_INSTALL_DIR);
+          printf("serverhome:  %s\n",PBS_SERVER_HOME);
+          printf("version:     %s\n",PACKAGE_VERSION);
+
+          exit(0);
+          }
+        else if (!strcmp(optarg,"version"))
+          {
+          printf("version: %s\n",
+            PACKAGE_VERSION);
+
+          exit(0);
+          }
+        else if (!strcmp(optarg,"help"))
+          {
+          usage(argv[0]);
+
+          exit(0);
+          }
+        else
+          {
+          errflg = 1;
+          }
+
+        break;
+
       case 'a':
 
         alarm_time = (int)strtol(optarg,&ptr,10);
@@ -5739,6 +6614,22 @@ int main(
         config_file_specified = 1;
 
         strcpy(config_file,optarg);	/* remember name */
+
+        break;
+
+      case 'h':
+
+        usage(argv[0]);		/* exits */
+
+        exit (0);
+
+        break;
+
+      case 'H':	/* multihomed host */
+
+        hostname_specified = 1;
+
+        strncpy(mom_host,optarg,PBS_MAXHOSTNAME);	/* remember name */
 
         break;
 
@@ -5769,6 +6660,18 @@ int main(
       case 'd': /* directory */
 
         path_home = optarg;
+
+        break;
+
+      case 'D':  /* debug */
+ 
+        DOBACKGROUND = 0;
+
+        break;
+
+      case 'l':
+
+        path_log = strdup(optarg);
 
         break;
 
@@ -5824,6 +6727,12 @@ int main(
 
         break;
 
+      case 's':
+
+        log_init(optarg,NULL);
+
+        break;
+
       case 'S':
 
         default_server_port = (unsigned int)atoi(optarg);
@@ -5841,7 +6750,9 @@ int main(
       case 'v':
 
         fprintf(stderr,"version: %s\n",
-          "N/A");
+          PACKAGE_VERSION);
+
+        exit(0);
 
         break;
 
@@ -5858,11 +6769,44 @@ int main(
  
         break;
       }  /* END switch(c) */
-    }    /* END while ((c = getopt(argc,argv,"d:c:M:S:R:L:a:xC:pr")) != -1) */
+    }    /* END while ((c = getopt(argc,argv,"a:c:C:d:Dh:L:M:prR:S:vx-:")) != -1) */
 
   if ((errflg > 0) || (optind != argc))
     {
     usage(argv[0]);		/* exits */
+
+    exit(1);
+    }
+}
+
+
+
+/*
+ * setup_program_environment
+ */
+
+int setup_program_environment()
+{
+  static char   id[] = "setup_program_environment";
+  int	 	c;
+  int       hostc=1;
+  FILE		*dummyfile;
+  int		tryport;
+  int		rppfd;			/* fd for rm and im comm */
+  int		privfd = 0;		/* fd for sending job info */
+  struct sigaction act;
+  char		*ptr;                   /* local tmp variable */
+
+
+  /* must be started with real and effective uid of 0 */
+
+  if ((getuid() != 0) || (geteuid() != 0)) 
+    {
+    /* FAILURE */
+
+    fprintf(stderr, "must be run as root\n");
+
+    return(1);
     }
 
   /* The following is code to reduce security risks                */
@@ -5878,6 +6822,8 @@ int main(
   if (getenv("PBSDEBUG") != NULL)
     {
     DEBUGMODE = 1;
+
+    DOBACKGROUND = 0;
     }
 
   /* modify program environment */
@@ -5921,7 +6867,7 @@ int main(
   setrlimit(RLIMIT_FSIZE, &rlimit);
   setrlimit(RLIMIT_DATA,  &rlimit);
 #ifdef	RLIMIT_RSS
-  setrlimit(RLIMIT_RSS  , &rlimit);
+  setrlimit(RLIMIT_RSS,   &rlimit);
 #endif	/* RLIMIT_RSS */
 #ifdef	RLIMIT_VMEM
   setrlimit(RLIMIT_VMEM, &rlimit);
@@ -5945,13 +6891,18 @@ int main(
   path_epiloguserp = mk_dirs("mom_priv/epilogue.user.parallel");
   path_prologuserp = mk_dirs("mom_priv/prologue.user.parallel");
   path_epilogpdel  = mk_dirs("mom_priv/epilogue.precancel");
-  path_resources   = mk_dirs(PBS_RESOURCES);
 
-  path_log         = mk_dirs("mom_logs");
+#ifndef DEFAULT_MOMLOGDIR
+  if (path_log == NULL)
+    path_log       = mk_dirs("mom_logs");
+#endif
+
   path_spool       = mk_dirs("spool/");
   path_undeliv     = mk_dirs("undelivered/");
   path_aux         = mk_dirs("aux/");
   path_server_name = mk_dirs("server_name");
+
+  init_resc_defs();
 
 #if MOM_CHECKPOINT == 1
 
@@ -5964,12 +6915,10 @@ int main(
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 
-  c = chk_file_sec(path_checkpoint, 1, 0, S_IWGRP|S_IWOTH, 1);
+  c = chk_file_sec(path_checkpoint,1,0,S_IWGRP|S_IWOTH,1,NULL);
 
 #endif  /* not DEBUG and not NO_SECURITY_CHECK */
 #endif	/* MOM_CHECKPOINT */
-
-  init_resc_defs(path_resources);
 
   /* change working directory to mom_priv */
 
@@ -5987,11 +6936,11 @@ int main(
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 
-  c |= chk_file_sec(path_jobs,        1, 0, S_IWGRP|S_IWOTH, 1);
-  c |= chk_file_sec(path_aux,         1, 0, S_IWGRP|S_IWOTH, 1);
-  c |= chk_file_sec(path_spool,       1, 1, S_IWOTH,         0);
-  c |= chk_file_sec(PBS_ENVIRON,      0, 0, S_IWGRP|S_IWOTH, 0);
-  c |= chk_file_sec(path_server_name, 0, 0, S_IWGRP|S_IWOTH, 0);
+  c |= chk_file_sec(path_jobs,    1, 0, S_IWGRP|S_IWOTH, 1,NULL);
+  c |= chk_file_sec(path_aux,     1, 0, S_IWGRP|S_IWOTH, 1,NULL);
+  c |= chk_file_sec(path_spool,   1, 1, S_IWOTH,         0,NULL);
+  c |= chk_file_sec(path_undeliv, 1, 1, S_IWOTH,         0,NULL);
+  c |= chk_file_sec(PBS_ENVIRON,  0, 0, S_IWGRP|S_IWOTH, 0,NULL);
 
   if (c)
     {
@@ -5999,6 +6948,13 @@ int main(
     }
 
 #endif  /* not DEBUG and not NO_SECURITY_CHECK */
+
+  if (hostname_specified == 0) 
+    {
+    hostc = gethostname(mom_host,PBS_MAXHOSTNAME);
+    }
+
+  log_init(NULL,mom_host);
 
   /* open log file while std in,out,err still open, forces to fd 4 */
 
@@ -6017,7 +6973,9 @@ int main(
 
   if (lockfds < 0) 
     {
-    strcpy(log_buffer,"pbs_mom: Unable to open lock file\n");
+    sprintf(log_buffer,"pbs_mom: unable to open lock file - errno=%d '%s'\n",
+      errno,
+      strerror(errno));
     
     fprintf(stderr,log_buffer);
 
@@ -6076,11 +7034,11 @@ int main(
 
   mom_lock(lockfds,F_UNLCK);	/* unlock so child can relock */
 
-  if (DEBUGMODE == 0)
+  if (DOBACKGROUND == 1) 
     {
     if (fork() > 0)
       {
-      return (0);	/* parent goes away */
+      exit(0);	/* parent goes away */
       }
 
     if (setsid() == -1) 
@@ -6102,7 +7060,7 @@ int main(
 
     dummyfile = fopen("/dev/null","w");
     assert((dummyfile != 0) && (fileno(dummyfile) == 2));
-    }  /* END if (DEBUGMODE == 0) */
+    }  /* END if (DOBACKGROUND == 1) */
 
   mom_lock(lockfds,F_WRLCK);	/* lock out other MOMs */
 	
@@ -6139,7 +7097,8 @@ int main(
   sprintf(log_buffer,"%ld\n",
     (long)getpid());
 
-  if (write(lockfds,log_buffer,strlen(log_buffer) + 1) != (ssize_t)(strlen(log_buffer) + 1))
+  if (write(lockfds,log_buffer,strlen(log_buffer) + 1) != 
+      (ssize_t)(strlen(log_buffer) + 1))
     {
     log_err(errno,msg_daemonname,"failed to write to lockfile");
 
@@ -6147,8 +7106,19 @@ int main(
     }
 
 #if (PLOCK_DAEMONS & 4)
-  plock(PROCLOCK);	/* lock daemon into memory */
-#endif
+  /* lock daemon into memory */
+
+  /* NOTE:  should reduce maximum stack limit using ulimit() before calling plock */
+
+  if (plock(PROCLOCK) == -1)
+    {
+    log_err(errno,msg_daemonname,"failed to lock mom into memory with plock");
+    }
+  else
+    {
+    MOMIsPLocked = 1;
+    }
+#endif /* PLOCK_DAEMONS */
 	
   sigemptyset(&allsigs);
   act.sa_mask = allsigs;
@@ -6178,7 +7148,7 @@ int main(
   **	We want to abort system calls
   **	and call a function.
   */
-#ifdef	SA_INTERRUPT
+#ifdef SA_INTERRUPT
   act.sa_flags |= SA_INTERRUPT;	/* don't restart system calls */
 #endif
 
@@ -6279,16 +7249,12 @@ int main(
 
   /* initialize variables */
 
-  CLEAR_HEAD(svr_newjobs);
-  CLEAR_HEAD(svr_alljobs);
-  CLEAR_HEAD(mom_polljobs);
-  CLEAR_HEAD(svr_requests);
 
-  if ((c = gethostname(mom_host,PBS_MAXHOSTNAME)) == 0) 
+  if ((hostname_specified != 0) || (hostc == 0)) 
     {
     strcpy(mom_short_name,mom_host);
 
-    c = get_fullhostname(mom_host,mom_host,PBS_MAXHOSTNAME);
+    c = get_fullhostname(mom_host,mom_host,PBS_MAXHOSTNAME,NULL);
 
     if (c != 0)
       {
@@ -6361,7 +7327,7 @@ int main(
   if (read_config(NULL)) 
     {
     fprintf(stderr,"%s: cannot load config file '%s'\n",
-      argv[0], 
+      program_name, 
       config_file);
 
     exit(1);
@@ -6369,10 +7335,10 @@ int main(
 
   initialize();		/* init RM code */
 
-  add_conn(rppfd,Primary,(pbs_net_t)0,0,rpp_request);
-  add_conn(privfd,Primary,(pbs_net_t)0,0,rpp_request);
+  add_conn(rppfd,Primary,(pbs_net_t)0,0,PBS_SOCK_INET,rpp_request);
+  add_conn(privfd,Primary,(pbs_net_t)0,0,PBS_SOCK_INET,rpp_request);
 
-  /* initialize machine dependent polling routines */
+  /* initialize machine-dependent polling routines */
 
   if ((c = mom_open_poll()) != PBSE_NONE) 
     {
@@ -6380,10 +7346,47 @@ int main(
 
     return(3);
     }
-		
+
+  if (mom_get_sample() != PBSE_NONE)
+    {
+    log_err(c,msg_daemonname,"mom_get_sample failed after mom_open_poll");
+
+    return(3);
+    }
+
   /* recover & abort jobs which were under MOM's control */
 
+  log_record(
+    PBSEVENT_DEBUG, 
+    PBS_EVENTCLASS_SERVER,
+    msg_daemonname, 
+    "before init_abort_jobs");
+
   init_abort_jobs(recover);
+
+#ifdef _POSIX_MEMLOCK
+  /* call mlockall() only 1 time, since it seems to leak mem */
+
+  if (MOMIsLocked == 0)
+    {
+    int mlockall_return;
+
+    /* make sure pbs_mom stays in RAM and doesn't get paged out */
+
+    mlockall_return = mlockall(MCL_CURRENT|MCL_FUTURE);
+
+    /* exit iff mlock failed, but ignore function not implemented error */
+
+    if ((mlockall_return == -1) && (errno != ENOSYS))
+      {
+      perror("pbs_mom:mom_main.c:mlockall()");
+
+      exit(1);
+      }
+
+    MOMIsLocked = 1;
+    }
+#endif /* _POSIX_MEMLOCK */
 
   /* record the fact that we are up and running */
 
@@ -6406,597 +7409,27 @@ int main(
     PBS_EVENTCLASS_SERVER,
     id,
     log_buffer);
-  
-  /*
-   * Now at last, we are ready to do some work, the following
-   * section constitutes the "main" loop of MOM
-   */
-
-  mom_run_state = MOM_RUN_STATE_RUNNING;
-
-  for (;mom_run_state == MOM_RUN_STATE_RUNNING;finish_loop(wait_time)) 
-    {
-    if (call_hup)
-      {
-      process_hup();
-      }
-
-    end_proc();
-
-    time_now = time(NULL);
-
-#if IBM_SP2==2
-    query_adp();
-#endif	/*IBM_SP2 */
-
-    /* check if loadave means we should be "busy" */
-
-    if (max_load_val > 0.0) 
-      {
-      get_la(&myla);
-
-      /* check if need to update busy state */
-
-      check_busy(myla);
-      }
-
-    /* should we check the log file ?*/
-    if (time_now - last_log_check >= PBS_LOG_CHECK_RATE)
-       {
-       check_log();
-       }
-
-    /* are we connected to any server? */
-
-    /* loop through all entries in ServerName[] array (NYI) */
-
-    TotalClusterAddrsCount = 0;
-
-    for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
-      {
-      if (pbs_servername[sindex][0] == '\0')
-        break;
-
-      if (MOMServerAddrs[sindex] == 0)
-        {
-        /* server is defined, but we don't have an IP */
-        setpbsserver(pbs_servername[sindex]);
-        }
-
-      if (MOMServerAddrs[sindex] == 0)
-        {
-        /* hrm, something wrong, skip this server */
-        continue;
-        }
-
-      if (SStream[sindex] == -1)
-        {
-        MOMRecvClusterAddrsCount[sindex] = 0;
-
-        /* we're either just starting up, or the server has gone away.
-         * Either way, let's be sure to say hello */
-
-        if (init_server_stream(sindex) != DIS_SUCCESS)
-          {
-          continue;                                                                        
-          }
-        }
-
-      if (MOMRecvClusterAddrsCount[sindex] == 0)
-        {
-        if ((time_now - MOMLastSendToServerTime[sindex]) < 10)
-          {
-          /* message recently sent, do not resend */
-
-          continue;
-          }
-
-        MOMLastSendToServerTime[sindex]=time_now;
-
-        if (is_compose(SStream[sindex],IS_HELLO) == -1)
-          {
-          sprintf(log_buffer,"error composing hello to server %s", 
-            pbs_servername[sindex]);
-
-          log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
-
-          rpp_close(SStream[sindex]);
-
-          SStream[sindex] = -1;
-
-          continue;
-          }
-
-        if (rpp_flush(SStream[sindex]) == -1)
-          {
-          rpp_close(SStream[sindex]);
-
-          SStream[sindex] = -1;
-
-          continue;
-          }
-
-        MOMSendHelloCount[sindex]++;
-
-        sprintf(log_buffer,"hello sent to server %s", 
-          pbs_servername[sindex]);
-
-        log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
  
-        if (MOMSendHelloTime[sindex] == time_now)
-          {
-          sprintf(log_buffer,"ERROR:  sending hello to server %s too rapidly... blocking for one second",
-            pbs_servername[sindex]);
+  ptr = getenv("MOMSLEEPTIME");
 
-          log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
-
-          sleep(1);
-          }
-
-        MOMSendHelloTime[sindex] = time_now;
-        }  /* END if (SStream[sindex] == -1) */
-
-      TotalClusterAddrsCount += MOMRecvClusterAddrsCount[sindex];
-      }    /* END for (sindex) */
-
-    /* Don't do any other processing until we've re-established
-     * contact with server */
-
-    if (TotalClusterAddrsCount < 1)
-      {
-      /* Don't do any other processing until we've re-established
-       * contact with at least one server */
-
-      /* sleep to prevent too many messages sent to server under certain failure conditions */
-
-      sleep(1);
-
-      continue;
-      }
-
-    /*
-     *  Update the server on the status of this mom.
-     */
-
-    if (time_now > (LastServerUpdateTime + ServerStatUpdateInterval))
-      {
-      check_state((LastServerUpdateTime == 0));
-
-      is_update_stat(0);
-
-      LastServerUpdateTime = time_now;
-      }
-
-    /* if needed, update server with my state change */
-    /* can be changed in check_busy(), query_adp(), and is_update_stat() */
-
-    for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
-      {
-      if (ReportMomState[sindex] != 0)
-        state_to_server(sindex,0);
-      }
-
-    if (time_now < (polltime + CheckPollTime))
-      {
-      continue;
-      }
-
-    polltime = time_now;
-
-    /* are there any jobs? */
-
-    if ((pjob = (job *)GET_NEXT(svr_alljobs)) == NULL)
-      {
-      MOMCheckRestart();
-
-      continue;
-      }
-
-    /* there are jobs so update status */
-
-    if (mom_get_sample() != PBSE_NONE)
-      continue;
-
-    for (;pjob != NULL;pjob = (job *)GET_NEXT(pjob->ji_alljobs)) 
-      {
-      if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
-        continue;
-
-      if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
-        continue;
-
-      /* update information for my tasks */
-
-      mom_set_use(pjob);
-      rpp_io();
-
-      /* has all job processes vanished undetected ?       */
-      /* double check by sig0 to session pid for each task */
-
-      if (pjob->ji_flags & MOM_NO_PROC) 
-        {
-        pjob->ji_flags &= ~MOM_NO_PROC;
-
-        ptask = (task *)GET_NEXT(pjob->ji_tasks);
-
-        while (ptask != NULL) 
-          {
-#ifdef _CRAY
-          if (pjob->ji_globid == NULL)
-            break;
-
-          c = atoi(pjob->ji_globid);
-
-          if ((kill((pid_t)c,0) == -1) && (errno == ESRCH)) 
-            {
-#else	/* not cray */
-          if ((kill(ptask->ti_qs.ti_sid,0) == -1) && (errno == ESRCH)) 
-            {
-#endif	/* not cray */
-
-            if (LOGLEVEL >= 3)
-              {
-              LOG_EVENT(
-                PBSEVENT_JOB, 
-                PBS_EVENTCLASS_JOB, 
-                pjob->ji_qs.ji_jobid, 
-                "no active process found");
-              }
-
-            ptask->ti_qs.ti_exitstat = 0;
-
-            ptask->ti_qs.ti_status = TI_STATE_EXITED;
-
-            pjob->ji_qs.ji_un.ji_momt.ji_exitstat = 0;
-
-            if (LOGLEVEL >= 6)
-              {
-              log_record(
-                PBSEVENT_ERROR,
-                PBS_EVENTCLASS_JOB,
-                pjob->ji_qs.ji_jobid,
-                "saving task (main loop)");
-              }
-
-            task_save(ptask);
-
-            exiting_tasks = 1;
-            }  /* END if ((kill == -1) && ...) */
-
-          ptask = (task *)GET_NEXT(ptask->ti_jobtask);
-          }    /* END while (ptask != NULL) */
-        }      /* END if (pjob->ji_flags & MOM_NO_PROC) */
-
-#if MOM_CHECKPOINT == 1
-
-      /* see if need to checkpoint any job */
-
-      if (pjob->ji_chkpttime == 0)
-        continue;
-
-      prscput = find_resc_entry(
-        &pjob->ji_wattr[(int)JOB_ATR_resc_used],
-        rdcput);
-
-      if (pjob->ji_chkptnext>prscput->rs_value.at_val.at_long)
-        continue;
-
-      pjob->ji_chkptnext = 
-        prscput->rs_value.at_val.at_long +
-        pjob->ji_chkpttime;
-
-      if ((c = start_checkpoint(pjob,0,0)) == PBSE_NONE)
-        continue;
-
-      if (c == PBSE_NOSUP)
-        continue;
-
-      /* getting here means something bad happened */
-
-      sprintf(log_buffer,"Checkpoint failed, error %d",
-        c);
-
-      message_job(pjob,StdErr,log_buffer);
-
-      log_record(
-        PBSEVENT_JOB, 
-        PBS_EVENTCLASS_JOB,
-        pjob->ji_qs.ji_jobid, 
-        log_buffer);
-#endif	/* MOM_CHECKPOINT */
-      }  /* END for (pjob) */
-
-    /* check on over limit condition for polled jobs */
-
-    for (pjob = (job *)GET_NEXT(mom_polljobs);pjob;
-         pjob = (job *)GET_NEXT(pjob->ji_jobque)) 
-      {
-      if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
-        continue;
-
-      /*
-      ** Send message to get info from other MOM's
-      ** if I am Mother Superior for the job and
-      ** it is not being killed.
-      */
-
-      if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) &&
-          (pjob->ji_nodekill == TM_ERROR_NODE)) 
-        {
-        /*
-        ** If can't send poll to everybody, the
-        ** time has come to die.
-        */
-
-        if (send_sisters(pjob,IM_POLL_JOB) != pjob->ji_numnodes - 1)
-          {
-          sprintf(log_buffer,"cannot contact all sisters");
-
-          log_record(PBSEVENT_JOB | PBSEVENT_FORCE,
-            PBS_EVENTCLASS_JOB,
-            pjob->ji_qs.ji_jobid,
-            log_buffer);
-          }
-        }
-
-      c = pjob->ji_qs.ji_svrflags;
-
-      if (c & JOB_SVFLG_OVERLMT2) 
-        {
-        kill_job(pjob,SIGKILL);
-
-        continue;
-        }
-
-      if (c & JOB_SVFLG_OVERLMT1) 
-        {
-        kill_job(pjob,SIGTERM);
-
-        pjob->ji_qs.ji_svrflags |= JOB_SVFLG_OVERLMT2;
-
-        continue;
-        }
-
-      log_buffer[0] = '\0';
-
-      if (job_over_limit(pjob) != 0) 
-        {
-        log_record(PBSEVENT_JOB | PBSEVENT_FORCE,
-          PBS_EVENTCLASS_JOB,
-          pjob->ji_qs.ji_jobid,
-          log_buffer);
-
-        if (c & JOB_SVFLG_HERE) 
-          {
-          char *kill_msg;
-
-          kill_msg = malloc(80 + strlen(log_buffer));
-
-          sprintf(kill_msg,"=>> PBS: job killed: %s\n",
-            log_buffer);
-
-          message_job(pjob,StdErr,kill_msg);
-
-          free(kill_msg);
-          }
-
-        kill_job(pjob,SIGTERM);
-
-        pjob->ji_qs.ji_svrflags |= JOB_SVFLG_OVERLMT1;
-        }
-      }    /* END for (pjob) */
-
-#ifdef _POSIX_MEMLOCK
-    /* call mlockall() only 1 time, since it seems to leak mem */
-
-    if (MOMISLOCKED == 0)
-      {
-      /* make sure pbs_mom stays in RAM and doesn't get paged out */
-
-      mlockall_return = mlockall(MCL_CURRENT | MCL_FUTURE);
-
-      if (mlockall_return == -1)
-        {
-        perror("pbs_mom:mom_main.c:mlockall():");
-
-        exit(1);
-        }
-
-      MOMISLOCKED = 1;
-      }
-#endif /* _POSIX_MEMLOCK */
-    }  /* END for (;mom_run_state == MOM_RUN_STATE_RUNNING;) */
- 
-  /* have exited main loop */
-
-  if (mom_run_state == MOM_RUN_STATE_KILLALL) 
+  if (ptr != NULL)
     {
-    /* kill any running jobs */
+    long tmpL;
 
-    pjob = (job *)GET_NEXT(svr_alljobs);
+    tmpL = strtol(ptr,NULL,10);
 
-    while (pjob != NULL) 
-      {
-      if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING) 
-        {
-        kill_job(pjob,SIGKILL);
+    srand(getpid());
 
-        pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
-
-        job_save(pjob,SAVEJOB_QUICK);
-        }
-      else
-        {
-        term_job(pjob);
-        }
-
-      pjob = (job *)GET_NEXT(pjob->ji_alljobs);
-      }  /* END while (pjob != NULL) */
-
-    if (termin_child)
-      scan_for_terminated();
-
-    if (exiting_tasks)
-      scan_for_exiting();
-    }  /* END if (mom_run_state == MOM_RUN_STATE_KILLALL) */
-
-  /* shutdown mom */
-
-  mom_close_poll();
-
-  rpp_shutdown();
-
-  net_close(-1);		/* close all network connections */
- 
-  if (mom_run_state == MOM_RUN_STATE_RESTART)
-    {
-    sprintf(log_buffer,"Will be restarting: %s",MOMExePath);
-
-    log_record(
-      PBSEVENT_SYSTEM | PBSEVENT_FORCE, 
-      PBS_EVENTCLASS_SERVER,
-      msg_daemonname, 
-      log_buffer);
-    }
-
-    
-  log_record(
-    PBSEVENT_SYSTEM | PBSEVENT_FORCE, 
-    PBS_EVENTCLASS_SERVER,
-    msg_daemonname, 
-    "Is down");
-
-  log_close(1);
-
-  if (mom_run_state == MOM_RUN_STATE_RESTART)
-    {
-    char *envstr;
-
-    envstr = malloc(
-        (strlen("PATH") + strlen(orig_path) + 2) * sizeof(char));
-
-    strcpy(envstr,"PATH=");
-
-    strcat(envstr,orig_path);
-
-    putenv(envstr);
-
-    DBPRT(("Re-execing myself now...\n"));
-
-    execvp(MOMExePath,argv);
-
-    sprintf(log_buffer,"Execing myself failed: %s (%d)",strerror(errno),errno);
-
-    log_err(errno,id,log_buffer);
-    }
-
+    sleep(tmpL % (rand() + 1));
+    }  /* END if (ptr != NULL) */
   return(0);
-  }  /* END main() */
-
-
-
-
-/*
- * mk_dirs - make the directory names used by MOM 
- */
-
-static char *mk_dirs(
-
-  char *base)  /* I */
-
-  {
-  char *pn;
-  int   ltop = strlen(path_home);
-
-  pn = malloc(ltop + strlen(base) + 2);
-
-  if (pn == NULL)
-    {
-    /* cannot allocate memory */
-
-    exit(2);
-    }
-
-  strcpy(pn,path_home);
-
-  if (*(path_home + ltop - 1) != '/')
-    strcat(pn,"/");
-
-  strcat(pn,base);
-
-  return(pn);
-  }  /* END mk_dirs() */
-
+ }
 
 
 
 /*
- * stop_me = signal handler for SIGTERM
+ * TMOMJobGetStartInfo
  */
-
-void stop_me(
-
-  int sig)  /* I */
-
-  {
-  const char *dowhat;
-
-  /* just exit, leaving jobs running */
-
-  mom_run_state = MOM_RUN_STATE_EXIT;
-
-  dowhat = "leaving jobs running, just exiting";
-
-  sprintf(log_buffer,"caught signal %d: %s", 
-    sig, 
-    dowhat);
-
-  log_record(
-    PBSEVENT_SYSTEM | PBSEVENT_FORCE, 
-    PBS_EVENTCLASS_SERVER,
-    msg_daemonname, 
-    log_buffer);
-
-  return;
-  }  /* END void stop_me() */
-
-
-
-
-void PBSAdjustLogLevel(
-
-  int sig)  /* I */
-
-  {
-  if (sig == SIGUSR1)
-    {
-    /* increase log level */
-  
-    LOGLEVEL = MIN(LOGLEVEL + 1,10);
-    }
-  else if (sig == SIGUSR2)
-    {
-    /* increase log level */
-
-    LOGLEVEL = MAX(LOGLEVEL - 1,0);
-    }
-
-  sprintf(log_buffer,"received signal %d: adjusting loglevel to %d",
-    sig,
-    LOGLEVEL);
-
-  log_record(
-    PBSEVENT_SYSTEM | PBSEVENT_FORCE,
-    PBS_EVENTCLASS_SERVER,
-    msg_daemonname,
-    log_buffer);
-
-  return;
-  }  /* END PBSAdjustLogLevel() */
-
-
-
-
 /* if pjob is NULL, return empty slot, otherwise return slot containing job */
 
 int TMOMJobGetStartInfo(
@@ -7022,7 +7455,9 @@ int TMOMJobGetStartInfo(
 
 
 
-
+/*
+ * TMOMScanForStarting
+ */
 
 int TMOMScanForStarting(void)
 
@@ -7034,6 +7469,22 @@ int TMOMScanForStarting(void)
   int  RC;
   int  SC;
 
+#ifdef MSIC
+  list_link *tmpL;
+#endif
+
+  const char *id = "TMOMScanForStarting";
+
+#ifdef MSIC
+  /* NOTE:  solaris system is choking on GET_NEXT - isolate */
+
+  tmpL = GET_NEXT(svr_alljobs);
+
+  tmpL = svr_alljobs.ll_next->ll_struct;
+
+  pjob = (job *)tmpL;
+#endif /* MSIC */
+   
   pjob = (job *)GET_NEXT(svr_alljobs);
                                                                                 
   while (pjob != NULL)
@@ -7044,6 +7495,18 @@ int TMOMScanForStarting(void)
       {
       pjobexec_t *TJE;
 
+      if (LOGLEVEL >= 2)
+        {
+        snprintf(log_buffer,1024,"checking job start in %s - examining pipe from child",
+          id);
+
+        log_record(
+          PBSEVENT_JOB | PBSEVENT_FORCE,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          log_buffer);
+        }
+ 
       if (TMOMJobGetStartInfo(pjob,&TJE) == FAILURE)
         {
         sprintf(log_buffer,"job %s start data lost, server will retry",
@@ -7132,7 +7595,7 @@ int TMOMScanForStarting(void)
             }
           }
         }    /* END else (TMomCheckJobChild() == FAILURE) */
-      }      /* END if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN) */
+      }      /* END if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_STARTING) */
 
     pjob = nextjob;
     }        /* END while (pjob != NULL) */
@@ -7140,5 +7603,654 @@ int TMOMScanForStarting(void)
   return(SUCCESS);
   }  /* END TMOMScanForStarting() */
 
+
+
+/*
+ * examine_all_polled_jobs
+ *
+ * check on over limit condition for polled jobs
+ */
+
+void examine_all_polled_jobs()
+  {
+  static char id[] = "examine_all_polled_jobs";
+  job         *pjob;
+  int         c;
+
+
+  for (pjob = (job *)GET_NEXT(mom_polljobs);pjob;
+       pjob = (job *)GET_NEXT(pjob->ji_jobque)) 
+    {
+    if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
+      continue;
+
+    /*
+    ** Send message to get info from other MOM's
+    ** if I am Mother Superior for the job and
+    ** it is not being killed.
+    */
+
+    if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) &&
+        (pjob->ji_nodekill == TM_ERROR_NODE)) 
+      {
+      /*
+      ** If can't send poll to everybody, the
+      ** time has come to die.
+      */
+
+      if (send_sisters(pjob,IM_POLL_JOB) != pjob->ji_numnodes - 1)
+        {
+        sprintf(log_buffer,"cannot contact all sisters");
+
+        log_record(PBSEVENT_JOB | PBSEVENT_FORCE,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          log_buffer);
+        }
+      }
+
+    c = pjob->ji_qs.ji_svrflags;
+
+    if (c & JOB_SVFLG_OVERLMT2) 
+      {
+      kill_job(pjob,SIGKILL,id,"job is over-limit-2");
+
+      continue;
+      }
+
+    if (c & JOB_SVFLG_OVERLMT1) 
+      {
+      kill_job(pjob,SIGTERM,id,"job is over-limit-1");
+
+      pjob->ji_qs.ji_svrflags |= JOB_SVFLG_OVERLMT2;
+
+      continue;
+      }
+
+    log_buffer[0] = '\0';
+
+    if (job_over_limit(pjob) != 0) 
+      {
+      log_record(
+        PBSEVENT_JOB | PBSEVENT_FORCE,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+
+      if (c & JOB_SVFLG_HERE) 
+        {
+        char *kill_msg;
+
+        kill_msg = malloc(80 + strlen(log_buffer));
+
+        sprintf(kill_msg,"=>> PBS: job killed: %s\n",
+          log_buffer);
+
+        message_job(pjob,StdErr,kill_msg);
+
+        free(kill_msg);
+        }
+
+      kill_job(pjob,SIGTERM,id,"job is over-limit-0");
+
+      pjob->ji_qs.ji_svrflags |= JOB_SVFLG_OVERLMT1;
+      }
+    }    /* END for (pjob) */
+  }
+
+
+
+/*
+ * examine_all_running_jobs
+ */
+
+void examine_all_running_jobs()
+  {
+  job         *pjob;
+#ifdef _CRAY
+  int         c;
+#endif
+  task         *ptask;
+#if MOM_CHECKPOINT == 1
+  resource	*prscput;
+  extern int start_checkpoint();
+#endif /* MOM_CHECKPOINT */
+
+    for (pjob = (job *)GET_NEXT(svr_alljobs);
+         pjob != NULL;
+         pjob = (job *)GET_NEXT(pjob->ji_alljobs)) 
+      {
+      if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
+        continue;
+
+      if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
+        continue;
+
+      /* update information for my tasks */
+
+      mom_set_use(pjob);
+
+      rpp_io();  /* FIXME: this call seems oddly placed... is this needed? */
+
+      /* has all job processes vanished undetected ?       */
+      /* double check by sig0 to session pid for each task */
+
+      if (pjob->ji_flags & MOM_NO_PROC) 
+        {
+        pjob->ji_flags &= ~MOM_NO_PROC;
+
+        for (ptask = (task *)GET_NEXT(pjob->ji_tasks);
+             ptask != NULL;
+             ptask = (task *)GET_NEXT(ptask->ti_jobtask))
+          {
+#ifdef _CRAY
+          if (pjob->ji_globid == NULL)
+            break;
+
+          c = atoi(pjob->ji_globid);
+
+          if ((kill((pid_t)c,0) == -1) && (errno == ESRCH)) 
+#else	/* not cray */
+          if ((kill(ptask->ti_qs.ti_sid,0) == -1) && (errno == ESRCH)) 
+#endif	/* not cray */
+            {
+
+            if (LOGLEVEL >= 3)
+              {
+              LOG_EVENT(
+                PBSEVENT_JOB, 
+                PBS_EVENTCLASS_JOB, 
+                pjob->ji_qs.ji_jobid, 
+                "no active process found");
+              }
+
+            ptask->ti_qs.ti_exitstat = 0;
+            ptask->ti_qs.ti_status = TI_STATE_EXITED;
+            pjob->ji_qs.ji_un.ji_momt.ji_exitstat = 0;
+
+            if (LOGLEVEL >= 6)
+              {
+              log_record(
+                PBSEVENT_ERROR,
+                PBS_EVENTCLASS_JOB,
+                pjob->ji_qs.ji_jobid,
+                "saving task (main loop)");
+              }
+
+            task_save(ptask);
+
+            exiting_tasks = 1;
+            }  /* END if ((kill == -1) && ...) */
+
+          }    /* END while (ptask != NULL) */
+        }      /* END if (pjob->ji_flags & MOM_NO_PROC) */
+
+#if MOM_CHECKPOINT == 1
+
+      /* see if need to checkpoint any job */
+
+      if (pjob->ji_chkpttime == 0)
+        continue;
+
+      prscput = find_resc_entry(
+        &pjob->ji_wattr[(int)JOB_ATR_resc_used],
+        rdcput);
+
+      /* FIXME: check prscput == NULL? */
+
+      if (pjob->ji_chkptnext>prscput->rs_value.at_val.at_long)
+        continue;
+
+      pjob->ji_chkptnext = 
+        prscput->rs_value.at_val.at_long +
+        pjob->ji_chkpttime;
+
+      if ((c = start_checkpoint(pjob,0,0)) == PBSE_NONE)
+        continue;
+
+      if (c == PBSE_NOSUP)
+        continue;
+
+      /* getting here means something bad happened */
+
+      sprintf(log_buffer,"Checkpoint failed, error %d",
+        c);
+
+      message_job(pjob,StdErr,log_buffer);
+
+      log_record(
+        PBSEVENT_JOB, 
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid, 
+        log_buffer);
+#endif	/* MOM_CHECKPOINT */
+      }  /* END for (pjob) */
+  }
+
+
+
+/*
+ * kill_all_running_jobs
+ */
+
+void kill_all_running_jobs()
+{
+  job		*pjob;
+
+  for (pjob = (job *)GET_NEXT(svr_alljobs);
+       pjob != NULL;
+       pjob = (job *)GET_NEXT(pjob->ji_alljobs))
+    {
+    if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING) 
+      {
+      kill_job(pjob,SIGKILL,"kill_all_running_jobs","mom is terminating with kill jobs flag");
+
+      pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+
+      job_save(pjob,SAVEJOB_QUICK);
+      }
+    else
+      {
+      term_job(pjob);
+      }
+    }
+
+    if (termin_child != 0)
+      scan_for_terminated();
+
+    if (exiting_tasks)
+      scan_for_exiting();
+}
+
+
+
+int check_server_connections()
+  {
+  static char id[] = "check_server_connections";
+  long          retry_interval;
+  int           sindex;  /* server index */
+  int           TotalClusterAddrsCount;
+
+  TotalClusterAddrsCount = 0;
+    for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
+      {
+      if (pbs_servername[sindex][0] == '\0')
+        break;
+
+      if (MOMServerAddrs[sindex] == 0)
+        {
+        /* server is defined, but we don't have an IP */
+
+        setpbsserver(pbs_servername[sindex]);
+        }
+
+      if (MOMServerAddrs[sindex] == 0)
+        {
+        /* hrm, something wrong, skip this server */
+        continue;
+        }
+
+      if ((SStream[sindex] != -1) && 
+          (time_now >= (MOMLastSendToServerTime[sindex] + (ServerStatUpdateInterval*2))))
+        {
+        sprintf(log_buffer,"connection to server %s timeout", 
+          pbs_servername[sindex]);
+
+        log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+
+        rpp_close(SStream[sindex]);
+
+        SStream[sindex] = -1;
+        }
+
+      if (SStream[sindex] == -1)
+        {
+        MOMRecvClusterAddrsCount[sindex] = 0;
+
+        /* we're either just starting up, or the server has gone away.
+         * Either way, let's be sure to say hello */
+         
+        /* If the server has gone away and we are trying to re-establish
+         * communication with it, we need to slow down the rate of retries
+         * so we do not flood the server with Hello requests. We may have
+         * been removed from the servers list of nodes */
+
+        if (MOMSendHelloTryCount[sindex] > 0)
+          {
+          /* hello previously sent */
+
+          if (MOMSendHelloTryCount[sindex] < 20)
+            {
+            retry_interval = power(STARTING_RETRY_INTERVAL_IN_SECS,
+              MOMSendHelloTryCount[sindex]);
+
+            if (retry_interval > MAX_RETRY_TIME_IN_SECS)
+              {
+              retry_interval = MAX_RETRY_TIME_IN_SECS;
+              }
+            }
+          else
+            {
+            retry_interval = MAX_RETRY_TIME_IN_SECS;
+            }
+            
+          if (MOMSendHelloTime[sindex] + retry_interval > time_now)
+            {
+            /* failed in recent attempt to connect to this server - do not
+               yet re-attempt */
+
+            continue;
+            }
+            
+          sprintf(log_buffer,"Retrying hello to server %s",
+            pbs_servername[sindex]);
+
+          log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+          }
+
+        if (init_server_stream(sindex) != DIS_SUCCESS)
+          {
+          /* attempt to restore connection to pbs_server failed */
+
+          continue;                                                                        
+          }
+
+        MOMLastSendToServerTime[sindex] = time_now;
+
+        if (is_compose(SStream[sindex],IS_HELLO) == -1)
+          {
+          sprintf(log_buffer,"error composing hello to server %s", 
+            pbs_servername[sindex]);
+
+          log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+
+          rpp_close(SStream[sindex]);
+
+          SStream[sindex] = -1;
+
+          continue;
+          }
+
+        if (rpp_flush(SStream[sindex]) == -1)
+          {
+          rpp_close(SStream[sindex]);
+
+          SStream[sindex] = -1;
+
+          continue;
+          }
+
+        MOMSendHelloCount[sindex]++;
+        MOMSendHelloTryCount[sindex]++;
+
+        sprintf(log_buffer,"hello sent to server %s", 
+          pbs_servername[sindex]);
+
+        log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+ 
+        if (MOMSendHelloTime[sindex] == time_now)
+          {
+          sprintf(log_buffer,"ERROR:  sending hello to server %s too rapidly... blocking for one second",
+            pbs_servername[sindex]);
+
+          log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+
+          sleep(1);
+          }
+
+        MOMSendHelloTime[sindex] = time_now;
+        }  /* END if (SStream[sindex] == -1) */
+
+      TotalClusterAddrsCount += MOMRecvClusterAddrsCount[sindex];
+      }    /* END for (sindex) */
+    return(TotalClusterAddrsCount);
+  }
+
+/*
+ * main_loop
+ */
+
+void main_loop()
+{
+  static char   id[] = "main_loop";
+  extern time_t	wait_time;
+  double        myla;
+  job		   *pjob;
+  time_t tmpTime;
+  time_t time_now;
+  int           sindex;  /* server index */
+
+  mom_run_state = MOM_RUN_STATE_RUNNING;  /* mom_run_state is altered by stop_me() or MOMCheckRestart() */
+  while (mom_run_state == MOM_RUN_STATE_RUNNING)
+    {
+    if (call_hup)
+      {
+      process_hup();  /* Do a restart of resmom */
+      }
+
+    end_proc();  /* Call machine dependent code periodically */
+
+    time_now = time(NULL);
+
+#if IBM_SP2==2
+    query_adp();  /* Machine dependent code for aix, should be moved to aix::end_proc ??? */
+#endif	/*IBM_SP2 */
+
+    /* check if loadave means we should be "busy" */
+
+    if (max_load_val > 0.0) 
+      {
+      get_la(&myla);  /* Machine dependent load average computation (for linux read contents of /proc/loadavg) */
+
+      /* check if need to update busy state */
+
+      check_busy(myla);
+      }
+
+    /* should we check the log file ?*/
+
+    if (time_now >= (last_log_check + PBS_LOG_CHECK_RATE))
+       {
+       check_log();  /* Possibly do a log_roll */
+       }
+
+    if (check_server_connections() == 0)  /* Are we connected to any server? */
+      {
+      /* Don't do any other processing until we've re-established
+       * contact with at least one server */
+
+      sleep(1);  /* sleep to prevent too many messages sent to server under certain failure conditions */
+      }
+    else
+      {
+      if (time_now >= (LastServerUpdateTime + ServerStatUpdateInterval))
+        {
+        /* Update the server on the status of this mom. */
+
+        if (PBSNodeCheckInterval > 0)
+          check_state((LastServerUpdateTime == 0));
+
+        is_update_stat(0);
+
+        LastServerUpdateTime = time_now;
+        }
+
+      /* if needed, update server with my state change */
+      /* can be changed in check_busy(), query_adp(), and is_update_stat() */
+
+      for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
+        {
+        if (ReportMomState[sindex] != 0)
+          state_to_server(sindex,0);
+        }
+
+      if (time_now >= (last_poll_time + CheckPollTime))
+        {
+        last_poll_time = time_now;
+
+        if (GET_NEXT(svr_alljobs))
+          {
+          /* There are jobs, update process status from the OS */
+
+          if (mom_get_sample() == PBSE_NONE)
+            {
+            /* no errors in getting process status information */
+
+            examine_all_running_jobs();
+
+            examine_all_polled_jobs();
+            }
+          }
+        }
+      }
+
+
+    /* check for any extra rpp messages */
+
+    rpp_request(42);
+
+    if (termin_child != 0)
+      scan_for_terminated();
+
+    /* if -p, must poll tasks inside jobs to look for completion */
+
+    if (recover == 2)
+      scan_non_child_tasks();
+
+    if (exiting_tasks)
+      scan_for_exiting();	
+
+    TMOMScanForStarting();
+
+    /* unblock signals */
+
+    if (sigprocmask(SIG_UNBLOCK,&allsigs,NULL) == -1)
+      log_err(errno,id,"sigprocmask(UNBLOCK)");
+
+    time_now = time((time_t *)0);
+    tmpTime = MIN(wait_time,time_now - (LastServerUpdateTime + ServerStatUpdateInterval));
+    tmpTime = MIN(tmpTime,time_now - (last_poll_time + CheckPollTime));
+    tmpTime = MAX(1,tmpTime);
+
+    if (LastServerUpdateTime == 0)
+      tmpTime = 1;
+
+    /* wait_request does a select and then calls the connection's cn_func for sockets with data */
+
+    if (wait_request(tmpTime,NULL) != 0)
+      {
+      if (errno == EBADF)
+        {
+        init_network(pbs_mom_port,process_request);
+
+        init_network(pbs_rm_port,tcp_request);
+        }
+
+      log_err(-1,msg_daemonname,"wait_request failed");
+      }
+
+    /* block signals while we do things */
+
+    if (sigprocmask(SIG_BLOCK,&allsigs,NULL) == -1)
+      log_err(errno,id,"sigprocmask(BLOCK)");
+
+
+    if ((pjob = (job *)GET_NEXT(svr_alljobs)) == NULL)
+      {
+      MOMCheckRestart();  /* There are no jobs, see if the server needs to be restarted. */
+      }
+
+    }      /* END for (;mom_run_state == MOM_RUN_STATE_RUNNING;) */
+  }
+
+
+
+/*
+ * restart_mom
+ */
+
+void restart_mom( int argc, char *argv[] )
+{
+  static	char id[] = "restart_mom";
+  char *envstr;
+
+  envstr = malloc(
+        (strlen("PATH") + strlen(orig_path) + 2) * sizeof(char));
+
+  strcpy(envstr,"PATH=");
+  strcat(envstr,orig_path);
+  putenv(envstr);
+  DBPRT(("Re-execing myself now...\n"));
+  execvp(MOMExePath,argv);
+  sprintf(log_buffer,"Execing myself failed: %s (%d)",strerror(errno),errno);
+  log_err(errno,id,log_buffer);
+}
+
+
+
+
+
+
+/*
+ * main - the main program of MOM
+ */
+
+int main(
+
+  int   argc,    /* I */
+  char *argv[])  /* I */
+
+  {
+  int       rc;
+
+  program_name = argv[0];
+
+  initialize_globals();
+
+  parse_command_line(argc,argv);  /* Calls exit on command line error */
+
+  if ((rc = setup_program_environment()) != 0)
+    {
+    return(rc);
+    }
+
+  main_loop();
+
+  if (mom_run_state == MOM_RUN_STATE_KILLALL) 
+    {
+    kill_all_running_jobs();
+    }
+
+  /* shutdown mom */
+
+  mom_close_poll();
+  rpp_shutdown();
+  net_close(-1);		/* close all network connections */
+
+  if (mom_run_state == MOM_RUN_STATE_RESTART)
+    {
+    sprintf(log_buffer,"Will be restarting: %s",
+      MOMExePath);
+
+    log_record(PBSEVENT_SYSTEM | PBSEVENT_FORCE, PBS_EVENTCLASS_SERVER,
+      msg_daemonname, 
+      log_buffer);
+    }
+
+  log_record(PBSEVENT_SYSTEM | PBSEVENT_FORCE, PBS_EVENTCLASS_SERVER,
+    msg_daemonname, 
+    "Is down");
+
+  log_close(1);
+ 
+  if (mom_run_state == MOM_RUN_STATE_RESTART)
+    {
+    restart_mom(argc,argv);
+    }
+
+  return(0);
+  }  /* END main() */
+
 /* END mom_main.c */
+
 

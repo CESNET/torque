@@ -89,6 +89,10 @@
 
 #ifndef JOB_H
 #define JOB_H 1
+
+/* anything including job.h also needs array.h so lets just include it this way*/
+#include "array.h"
+
 /*
  * Dependent Job Structures
  *
@@ -102,12 +106,12 @@
  */
 
 struct depend {
-	list_link dp_link;	/* link to next dependency, if any       */
-	short	  dp_type;	/* type of dependency (all) 	         */
-	short	  dp_numexp;	/* num jobs expected (on or syncct only) */
-	short	  dp_numreg;	/* num jobs registered (syncct only)     */
-	short	  dp_released;	/* This job released to run (syncwith)   */
-	tlist_head dp_jobs;	/* list of related jobs  (all)           */
+  list_link dp_link;	/* link to next dependency, if any       */
+  short	  dp_type;	/* type of dependency (all) 	         */
+  short	  dp_numexp;	/* num jobs expected (on or syncct only) */
+  short	  dp_numreg;	/* num jobs registered (syncct only)     */
+  short	  dp_released;	/* This job released to run (syncwith)   */
+  tlist_head dp_jobs;	/* list of related jobs  (all)           */
 };
 
 /*
@@ -204,64 +208,69 @@ struct grpcache {
 /* sync w/XXX */
 
 enum job_atr {
-	JOB_ATR_jobname,	/* this set appears first as they show */
-	JOB_ATR_job_owner,	/* in a basic job status display       */
-	JOB_ATR_resc_used,
-	JOB_ATR_state,
-	JOB_ATR_in_queue,
-	JOB_ATR_at_server,
+  JOB_ATR_jobname,	/* this set appears first as they show */
+  JOB_ATR_job_owner,	/* in a basic job status display       */
+  JOB_ATR_resc_used,
+  JOB_ATR_state,
+  JOB_ATR_in_queue,
+  JOB_ATR_at_server,    /* (5) */
 
-	JOB_ATR_account,	/* the bulk of the attributes are in   */
-	JOB_ATR_chkpnt,		/* alphabetic order for no good reason */
-	JOB_ATR_ctime,
-	JOB_ATR_depend,
-	JOB_ATR_errpath,
-	JOB_ATR_exec_host,
-	JOB_ATR_exectime,
-	JOB_ATR_grouplst,
-	JOB_ATR_hold,
-	JOB_ATR_interactive,
-	JOB_ATR_join,
-	JOB_ATR_keep,
-	JOB_ATR_mailpnts,
-	JOB_ATR_mailuser,
-	JOB_ATR_mtime,
-	JOB_ATR_outpath,
-	JOB_ATR_priority,
-	JOB_ATR_qtime,
-	JOB_ATR_rerunable,
-	JOB_ATR_resource,
-	JOB_ATR_session_id,
-	JOB_ATR_shell,
-	JOB_ATR_stagein,
-	JOB_ATR_stageout,
-	JOB_ATR_substate,
-	JOB_ATR_userlst,
-	JOB_ATR_variables,
-				/* this set contains private attributes,  */
-				/* as such not sent to clients (status)   */
+  JOB_ATR_account,	/* the bulk of the attributes are in   */
+  JOB_ATR_chkpnt,	/* alphabetic order for no good reason */
+  JOB_ATR_ctime,
+  JOB_ATR_depend,
+  JOB_ATR_errpath,
+  JOB_ATR_exec_host,
+  JOB_ATR_exectime,
+  JOB_ATR_grouplst,
+  JOB_ATR_hold,
+  JOB_ATR_interactive,
+  JOB_ATR_join,
+  JOB_ATR_keep,
+  JOB_ATR_mailpnts,
+  JOB_ATR_mailuser,
+  JOB_ATR_mtime,         /* (20) */
+  JOB_ATR_outpath,
+  JOB_ATR_priority,
+  JOB_ATR_qtime,
+  JOB_ATR_rerunable,
+  JOB_ATR_resource,
+  JOB_ATR_session_id,
+  JOB_ATR_shell,
+  JOB_ATR_stagein,
+  JOB_ATR_stageout,
+  JOB_ATR_substate,
+  JOB_ATR_userlst,
+  JOB_ATR_variables,    /* (32) */
+			/* this set contains private attributes,  */
+			/* as such not sent to clients (status)   */
 
-	JOB_ATR_euser,		/* execution user name for MOM		  */
-	JOB_ATR_egroup,		/* execution group name for MOM		  */
-	JOB_ATR_hashname,	/* job name hashed into 14 characters	  */
-	JOB_ATR_hopcount,
-	JOB_ATR_qrank,
-	JOB_ATR_queuetype,
-	JOB_ATR_sched_hint,     /* 39 */
-	JOB_ATR_security,	
-	JOB_ATR_Comment,
-	JOB_ATR_Cookie,
-	JOB_ATR_altid,		/* alternate job id, for irix6 = array id */
-	JOB_ATR_etime,		/* time job became eligible to run	  */
-	JOB_ATR_exitstat,	/* exit status of job			  */
-	JOB_ATR_forwardx11,
-	JOB_ATR_submit_args,
-	JOB_ATR_job_array_size,
+  JOB_ATR_euser,	/* execution user name for MOM		  */
+  JOB_ATR_egroup,	/* execution group name for MOM		  */
+  JOB_ATR_hashname,	/* job name hashed into 14 characters	  */
+  JOB_ATR_hopcount,
+  JOB_ATR_qrank,
+  JOB_ATR_queuetype,
+  JOB_ATR_sched_hint,   /* 39 */
+  JOB_ATR_security,	
+  JOB_ATR_Comment,
+  JOB_ATR_Cookie,
+  JOB_ATR_altid,	/* alternate job id, for irix6 = array id */
+  JOB_ATR_etime,	/* time job became eligible to run	  */
+  JOB_ATR_exitstat,	/* exit status of job			  */
+  JOB_ATR_forwardx11,
+  JOB_ATR_submit_args,
+  JOB_ATR_job_array_size,
+  JOB_ATR_job_array_id,
+  JOB_ATR_job_array_request,
+  JOB_ATR_umask,
+  JOB_ATR_start_time,  /* time when job was first started */
+  JOB_ATR_start_count, /* number of times the job has been started */
 #include "site_job_attr_enum.h"
 
-	JOB_ATR_UNKN,		/* the special "unknown" type		  */
-	JOB_ATR_LAST		/* This MUST be LAST	*/
-};
+  JOB_ATR_UNKN,		/* the special "unknown" type		  */
+  JOB_ATR_LAST		/* This MUST be LAST	*/
+  };
 
 /*
  * The "definitions" for the job attributes are in the following array,
@@ -279,7 +288,7 @@ extern attribute_def job_attr_def[];
 */
 typedef	struct	hnodent {
 	int		hn_node;	/* host (node) identifier (index) */
-	char	       *hn_host;	/* hostname of node */
+	char	*hn_host;	/* hostname of node */
 	int		hn_stream;	/* stream to MOM on node */
 	int		hn_sister;	/* save error for KILL_JOB event */
 	tlist_head	hn_events;	/* pointer to list of events */
@@ -374,6 +383,10 @@ typedef struct {
   int       mjspipe[2];     /* MOM to job starter for ack */
   int       downfds;
   } pjobexec_t;
+  
+  
+  
+  
 
 
 
@@ -395,7 +408,7 @@ struct job {
 	time_t		ji_chkptnext;	/* next checkpoint time */
 	time_t		ji_sampletim;	/* last usage sample time, irix only */
 	pid_t		ji_momsubt;	/* pid of mom subtask   */
-	void	      (*ji_mompost)();	/* ptr to post processing func  */
+	int	      (*ji_mompost)();	/* ptr to post processing func  */
 	struct batch_request *ji_preq;	/* hold request until finish_exec */
 	int		ji_numnodes;	/* number of nodes (at least 1) */
 	int		ji_numvnod;	/* number of virtual nodes */
@@ -417,6 +430,9 @@ struct job {
 	int		ji_lastdest;	/* last destin tried by route */
 	int		ji_retryok;	/* ok to retry, some reject was temp */
 	tlist_head	ji_rejectdest;	/* list of rejected destinations */
+	list_link	ji_arrayjobs;	/* links to all jobs in same array */
+	job_array	*ji_arraystruct;/* pointer to job_array for this array */
+        int		ji_isparent;    /* set to TRUE if this is a "parent job"*/
 #endif					/* END SERVER ONLY */
 
 	/*
@@ -426,6 +442,7 @@ struct job {
 	 */
 
 	struct jobfix {
+	    int     qs_version;		/* quick save version */
 	    int	    ji_state;		/* internal copy of state */
 	    int	    ji_substate;	/* job sub-state */
 	    int	    ji_svrflags;	/* server flags */
@@ -471,6 +488,7 @@ struct job {
 
 typedef struct job job;
 
+
 #ifdef	PBS_MOM
 /*
 **	Tasks are sessions belonging to a job, running on one of the
@@ -498,15 +516,17 @@ typedef struct	task {
 	} ti_qs;
 } task;
 
+
+
 /*
 **	Events need to be linked to either a task or another event
 **	waiting at another MOM.  This is the information needed so
 **	we can forward the event to another MOM.
 */
-typedef struct	fwdevent {
-	tm_node_id	fe_node;	/* where does notification go */
-	tm_event_t	fe_event;	/* event number */
-	tm_task_id	fe_taskid;	/* which task id */
+typedef struct fwdevent {
+  tm_node_id fe_node;	/* where does notification go */
+  tm_event_t fe_event;	/* event number */
+  tm_task_id fe_taskid;	/* which task id */
 } fwdevent;
 
 /*
@@ -573,16 +593,19 @@ typedef struct	infoent {
 
 #define IM_MAX          12
 
-eventent	*event_alloc	A_((	int		command,
-					hnodent		*pnode,
-					tm_event_t	event,
-					tm_task_id	taskid));
+eventent *event_alloc A_((
+  int		command,
+  hnodent	*pnode,
+  tm_event_t	event,
+  tm_task_id	taskid));
 
-task		*pbs_task_create	A_((	job		*pjob,
-					tm_task_id	taskid));
+task *pbs_task_create A_((	
+  job *pjob,
+  tm_task_id	taskid));
 
-task		*task_find	A_((	job		*pjob,
-					tm_task_id	taskid));
+task *task_find A_((
+  job *pjob,
+  tm_task_id	taskid));
 
 #endif	/* MOM */
 
@@ -621,15 +644,15 @@ task		*task_find	A_((	job		*pjob,
 #define MAIL_NORMAL 0
 #define MAIL_FORCE  1
 
-#define JOB_FILE_COPY      ".JC"	/* tmp copy while updating */
-#define JOB_FILE_SUFFIX    ".JB"	/* job control file */
-#define JOB_SCRIPT_SUFFIX  ".SC"	/* job script file  */
-#define JOB_STDOUT_SUFFIX  ".OU"	/* job standard out */
-#define JOB_STDERR_SUFFIX  ".ER"	/* job standard error */
-#define JOB_CKPT_SUFFIX    ".CK"	/* job checkpoint file */
-#define JOB_TASKDIR_SUFFIX ".TK"	/* job task directory */
-#define JOB_BAD_SUFFIX	   ".BD"	/* save bad job file */
-
+#define JOB_FILE_COPY       ".JC"	/* tmp copy while updating */
+#define JOB_FILE_SUFFIX     ".JB"	/* job control file */
+#define JOB_SCRIPT_SUFFIX   ".SC"	/* job script file  */
+#define JOB_STDOUT_SUFFIX   ".OU"	/* job standard out */
+#define JOB_STDERR_SUFFIX   ".ER"	/* job standard error */
+#define JOB_CKPT_SUFFIX     ".CK"	/* job checkpoint file */
+#define JOB_TASKDIR_SUFFIX  ".TK"	/* job task directory */
+#define JOB_BAD_SUFFIX	    ".BD"	/* save bad job file */
+#define JOB_FILE_TMP_SUFFIX ".TA"	/* temporary job array parent file suffix */
 /*
  * Job states are defined by POSIX as:
  */
@@ -681,6 +704,7 @@ task		*task_find	A_((	job		*pjob,
 #define JOB_SUBSTATE_STAGEDEL	52	/* job deleteing staged out files  */
 #define JOB_SUBSTATE_EXITED	53	/* job exit processing completed   */
 #define JOB_SUBSTATE_ABORT      54	/* job is being aborted by server  */
+#define JOB_SUBSTATE_PREOBIT    57	/* (MOM) preobit jobstat sent */
 #define JOB_SUBSTATE_OBIT       58	/* (MOM) job obit notice sent */
 #define JOB_SUBSTATE_COMPLETE   59	/* job is complete */
 
@@ -702,6 +726,9 @@ task		*task_find	A_((	job		*pjob,
 #define HOLD_u 1
 #define HOLD_o 2
 #define HOLD_s 4
+/* jobs in a job array are held until the whole array is ready for now this is 
+ * a system hold, but it may be a special hold in the future */
+#define HOLD_a HOLD_s  
 
 /* Special Job Exit Values,  Set by the job starter (child of MOM)   */
 /* see server/req_jobobit() & mom/start_exec.c			     */
@@ -728,14 +755,15 @@ extern int   init_chkmom A_((job *));
 extern void  issue_track A_((job *));
 extern int   job_abt A_((job **,char *));
 extern job  *job_alloc();
+extern job  *job_clone A_((job *,int));
 extern void  job_free A_((job *));
 extern void  job_purge A_((job *));
 extern job  *job_recov A_((char *));
 extern int   job_save A_((job *,int));
 extern int   modify_job_attr A_((job *,svrattrl *,int,int *));
 extern char *prefix_std_file A_((job *,int));
-extern int   set_jobexid A_((job *,attribute *));
-extern int   site_check_user_map A_((job *,char *));
+extern int   set_jobexid A_((job *,attribute *,char *));
+extern int   site_check_user_map A_((job *,char *,char *));
 extern void  svr_dequejob A_((job *));
 extern int   svr_enquejob A_((job *));
 extern void  svr_evaljobstate A_((job *,int *,int *,int));
@@ -759,6 +787,7 @@ extern int   site_acl_check A_((job *,pbs_queue *));
 #endif	/* QUEUE_H */
 
 #ifdef WORK_TASK_H
+extern void  job_clone_wt A_((struct work_task *));
 extern int   issue_signal A_((job *,char *,void(*)(struct work_task *),void *));
 extern void   on_job_exit A_((struct work_task *));
 #endif	/* WORK_TASK_H */

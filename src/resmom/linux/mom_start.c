@@ -112,6 +112,7 @@ extern int	 termin_child;
 
 extern int       LOGLEVEL;
 
+extern char     *AllocParCmd;
 
 
 /* Private variables */
@@ -120,6 +121,9 @@ extern int       LOGLEVEL;
  * set_job - set up a new job session
  * 	Set session id and whatever else is required on this machine
  *	to create a new job.
+ *
+ * NOTE:  This routine is run as root after fork for both parallel and serial jobs
+ * NOTE:  This routine is called by TMOMFinalizeChild()
  *
  *      Return: session/job id or if error:
  *		-1 - if setsid() fails
@@ -132,10 +136,79 @@ int set_job(
   struct startjob_rtn *sjr)   /* I (modified) */
 
   {
+  char id[] = "set_job";
+
+  char *PPtr;
+  char *CPtr;
+
+  int   rc;
+
+#ifdef __XTTEST
+  char  tmpLine[1024];
+#endif /* __ XTTEST */
+
   sjr->sj_session = setsid();
 
+#ifdef __XTTEST
+  PPtr = get_job_envvar(pjob,"BATCH_PARTITION_ID");
+  CPtr = get_job_envvar(pjob,"BATCH_ALLOC_COOKIE");
+
+  sprintf(tmpLine,"echo \"P:'%s' C:'%s'\" >> /tmp/dog",
+    (PPtr != NULL) ? PPtr : "NULL",
+    (CPtr != NULL) ? CPtr : "NULL");
+
+  rc = system(tmpLine);
+
+  if (WEXITSTATUS(rc) != 0)
+    {
+    snprintf(log_buffer,1024,"cannot create alloc partition");
+
+    return(-2);
+    }
+
+#endif /* __ XTTEST */
+ 
+  /* NOTE:  only activate partition create script for XT4+ environments */
+
+  if (((PPtr = get_job_envvar(pjob,"BATCH_PARTITION_ID")) != NULL) &&
+      ((CPtr = get_job_envvar(pjob,"BATCH_ALLOC_COOKIE")) != NULL) &&
+       !strcmp(CPtr,"0"))
+    {
+    char  tmpLine[1024];
+    
+    if (AllocParCmd == NULL)
+      AllocParCmd = strdup("/opt/moab/default/tools/partition.create.xt4.pl");
+
+    snprintf(tmpLine,sizeof(tmpLine),"%s --confirm -p %s -j %s -a %ld",
+      AllocParCmd,
+      PPtr,
+      pjob->ji_qs.ji_jobid,
+      (long)sjr->sj_session);
+
+    log_err(
+      -1,
+      id,
+      tmpLine);
+
+    rc = system(tmpLine); 
+
+    if (WEXITSTATUS(rc) != 0)
+      {
+      snprintf(log_buffer,1024,"cannot create alloc partition");
+
+      sjr->sj_session = -3;
+
+      log_err(
+        -1,
+        id,
+        log_buffer);
+
+      return(sjr->sj_session);
+      }
+    }    /* END if (((PPtr = get_job_envvar(pjob,"BATCH_PARTITION_ID")) != NULL) && ...) */
+
   return(sjr->sj_session);
-  }
+  }  /* END set_job() */
 
 
 
@@ -222,7 +295,7 @@ char *set_shell(
     }
 
   return(shell);
-  }
+  }  /* END set_shell() */
 
 
 
@@ -233,7 +306,13 @@ char *set_shell(
  * scan_for_terminated - scan the list of running jobs for one whose
  *	session id matches that of a terminated child pid.  Mark that
  *	job as Exiting.
+ *
+ * NOTE: called by finish_loop() by main pbs_mom thread
+ *
  */
+
+#define TMAX_TJCACHESIZE 128
+
 
 void scan_for_terminated()
 
@@ -244,6 +323,14 @@ void scan_for_terminated()
   job	*pjob;
   task	*ptask = NULL;
   int	statloc;
+
+  static job *TJCache[TMAX_TJCACHESIZE];
+
+  int tjcindex;
+
+#ifdef CACHEOBITFAILURES
+  int TJCIndex = 0;
+#endif
 
   /* update the latest intelligence about the running jobs;         */
   /* must be done before we reap the zombies, else we lose the info */
@@ -261,6 +348,40 @@ void scan_for_terminated()
       pjob = (job *)GET_NEXT(pjob->ji_alljobs);
       }
     }
+
+#ifdef CACHEOBITFAILURES
+  /* process cached obit failures */
+
+  for (TJCIndex = 0;TJCIndex < TMAX_TJCACHESIZE;TJCIndex++)
+    {
+    if (TJCache[TJCIndex] == NULL)
+      break;
+
+    if (TJCache[TJCIndex] == (job *)1)
+      continue;
+
+    /* attempt to send obit again */
+
+    if (pjob->ji_mompost(pjob,exiteval) != 0)
+      {
+      /* attempt failed again */
+
+      termin_child = 1;
+
+      continue;
+      }
+
+    /* success */
+
+    pjob->ji_mompost = NULL;
+
+    /* clear mom sub-task */
+
+    pjob->ji_momsubt = 0;
+
+    job_save(pjob,SAVEJOB_QUICK);
+    }  /* END for (TJIndex) */
+#endif /* CACHEOBITFAILURES */
 
   /* Now figure out which task(s) have terminated (are zombies) */
 
@@ -325,18 +446,48 @@ void scan_for_terminated()
 
     if (pid == pjob->ji_momsubt) 
       {
-      if (pjob->ji_mompost) 
+      /* PID matches job mom subtask */
+
+      log_record(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        id,
+        "checking job post-processing routine");
+
+      if (pjob->ji_mompost != NULL) 
         {
-        pjob->ji_mompost(pjob,exiteval);
-        pjob->ji_mompost = 0;
+        if (pjob->ji_mompost(pjob,exiteval) == 0)
+          {
+          /* success */
+
+          pjob->ji_mompost = NULL;
+          }
+        else
+          {
+          for (tjcindex = 0;tjcindex < TMAX_TJCACHESIZE;tjcindex++)
+            {
+            if ((TJCache[tjcindex] == NULL) || (TJCache[tjcindex] == (job *)1))
+              {
+              TJCache[tjcindex] = pjob;
+
+              break;
+              }
+            }    /* END for (tjcindex) */
+
+          continue;
+          }
         }
+
+      /* clear mom sub-task */
 
       pjob->ji_momsubt = 0;
 
       job_save(pjob,SAVEJOB_QUICK);
 
       continue;
-      }
+      }  /* END if (pid == pjob->ji_momsubt) */
+
+    /* what happens if mom PID is reaped before subtask? */
 
     if (LOGLEVEL >= 2)
       {
@@ -353,6 +504,8 @@ void scan_for_terminated()
         log_buffer);
       }
 
+    /* where is job purged?  How do we keep job from progressing in state until the obit is sent? */
+
     kill_task(ptask,SIGKILL,0);
 
     ptask->ti_qs.ti_exitstat = exiteval;
@@ -360,7 +513,7 @@ void scan_for_terminated()
 
     task_save(ptask);
 
-    sprintf(log_buffer,"%s: job %s task %d terminated, sid %d",
+    sprintf(log_buffer,"%s: job %s task %d terminated, sid=%d",
       id,
       pjob->ji_qs.ji_jobid,
       ptask->ti_qs.ti_task,

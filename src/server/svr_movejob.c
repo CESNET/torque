@@ -763,7 +763,14 @@ int send_job(
   /* put together the job script file name */
 
   strcpy(script_name,path_jobs);
-  strcat(script_name,jobp->ji_qs.ji_fileprefix);
+  if (jobp->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET)
+    {
+    strcat(script_name, jobp->ji_arraystruct->ai_qs.fileprefix);
+    }
+  else
+    {
+    strcat(script_name,jobp->ji_qs.ji_fileprefix);
+    }
   strcat(script_name,JOB_SCRIPT_SUFFIX);
 
   /* save the job id for when after we purge the job */
@@ -1148,6 +1155,7 @@ static int should_retry_route(
     case PBSE_INTERNAL:
     case PBSE_EXPIRED:
     case PBSE_MAXQUED:
+    case PBSE_MAXUSERQUED:
     case PBSE_QUNOENB:
     case PBSE_NOCONNECTS:
 

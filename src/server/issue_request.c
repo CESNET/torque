@@ -119,6 +119,8 @@ extern unsigned int pbs_mom_port;
 extern unsigned int pbs_server_port_dis;
 extern struct  connection svr_conn[];
 
+extern int       LOGLEVEL;
+
 int issue_to_svr A_((char *,struct batch_request *,void (*f)(struct work_task *)));
 
 /*
@@ -133,14 +135,35 @@ int issue_to_svr A_((char *,struct batch_request *,void (*f)(struct work_task *)
 
 int relay_to_mom(
 
-  pbs_net_t	        momaddr,	/* address of mom */
-  struct batch_request *request,	/* the request to send */
-  void                (*func) A_((struct work_task *)))
+  pbs_net_t	         momaddr,	/* address of mom */
+  struct batch_request  *request,	/* the request to send */
+  void                 (*func) A_((struct work_task *)))
 
   {
-  int	conn;	/* a client style connection handle */
+  extern char *PAddrToString(pbs_net_t *);
 
-  conn = svr_connect(momaddr,pbs_mom_port,process_Dreply,ToServerDIS);
+  char *id = "relay_to_mom";
+
+  int	conn;	/* a client style connection handle */
+  int   rc;
+
+  if (LOGLEVEL >= 7)
+    {
+    sprintf(log_buffer,"momaddr=%s",
+      PAddrToString(&momaddr));
+
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+    }
+
+  conn = svr_connect(
+    momaddr,
+    pbs_mom_port,
+    process_Dreply,
+    ToServerDIS);
 
   if (conn < 0) 
     {
@@ -155,7 +178,9 @@ int relay_to_mom(
 
   request->rq_orgconn = request->rq_conn;	/* save client socket */
 
-  return(issue_Drequest(conn,request,func,NULL));
+  rc = issue_Drequest(conn,request,func,NULL);
+
+  return(rc);
   }  /* END relay_to_mom() */
 
 
@@ -176,18 +201,19 @@ static void reissue_to_svr(
   /* if not timed-out, retry send to remote server */
 
   if (((time_now - preq->rq_time) > PBS_NET_RETRY_LIMIT) ||
-       (issue_to_svr(preq->rq_host,preq,(void(*)(struct work_task *))pwt->wt_parm2) == -1)) 
+       (issue_to_svr(preq->rq_host,preq,pwt->wt_parmfunc) == -1)) 
     {
     /* either timed-out or got hard error, tell post-function  */
 
     pwt->wt_aux = -1;	/* seen as error by post function  */
     pwt->wt_event = -1;	/* seen as connection by post func */
 
-    ((void (*)())pwt->wt_parm2)(pwt);
+    ((void (*)())pwt->wt_parmfunc)(pwt);
     }
 
   return;
-  }
+  }  /* END resissue_to_svr() */
+
 	
 
 /*
@@ -204,9 +230,9 @@ static void reissue_to_svr(
 
 int issue_to_svr(
 
-  char                 *servern,
-  struct batch_request *preq,
-  void (*replyfunc)     A_((struct work_task *)))
+  char                 *servern,                  /* I */
+  struct batch_request *preq,                     /* I */
+  void (*replyfunc)     A_((struct work_task *))) /* I */
 
   {
   int	  do_retry = 0;
@@ -257,7 +283,7 @@ int issue_to_svr(
       reissue_to_svr, 
       (void *)preq);
 
-    pwt->wt_parm2 = (void *)replyfunc;
+    pwt->wt_parmfunc = replyfunc;
 
     return(0);
     } 
@@ -618,7 +644,7 @@ void process_Dreply(
 
   /* read and decode the reply */
 
-  if ((rc = DIS_reply_read(sock, &request->rq_reply)) != 0) 
+  if ((rc = DIS_reply_read(sock,&request->rq_reply)) != 0) 
     {
     close_conn(sock);
 
@@ -631,7 +657,7 @@ void process_Dreply(
   dispatch_task(ptask);
 
   return;
-  }
+  }  /* END process_Dreply() */
 
 /* END issue_request.c */
 

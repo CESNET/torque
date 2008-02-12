@@ -112,6 +112,10 @@ extern int set_null A_((attribute *patr, attribute *new, enum batch_op op));
 extern int token_chk A_((attribute *pattr, void *pobject, int actmode));
 extern int set_tokens A_((struct attribute *attr, struct attribute *new, enum batch_op op));
 
+extern int extra_resc_chk A_((attribute *pattr, void *pobject, int actmode));
+extern void free_extraresc A_((attribute *attr));
+
+/* DIAGTODO: write diag_attr_def.c */
 
 /*
  * The entries for each attribute are (see attribute.h):
@@ -147,7 +151,6 @@ attribute_def svr_attr_def[] = {
     },
 
 /* SRV_ATR_scheduling */
-
     {	ATTR_scheduling,
 	decode_b,
 	encode_b,
@@ -160,7 +163,7 @@ attribute_def svr_attr_def[] = {
 	PARENT_TYPE_SERVER,
     },
 
-/* SRV_ATR_MAX_running */
+/* SRV_ATR_max_running */
     {	ATTR_maxrun,		/* "max_running" */
 	decode_l,
 	encode_l,
@@ -239,7 +242,7 @@ attribute_def svr_attr_def[] = {
     },
 
 /* SRV_ATR_acl_hosts */
-    {	ATTR_aclhost,		/* "acl_host_list" */
+    {	ATTR_aclhost,		/* "acl_hosts" */
 	decode_arst,
 	encode_arst,
 	set_hostacl,
@@ -458,43 +461,44 @@ attribute_def svr_attr_def[] = {
 	ATR_TYPE_LONG,
 	PARENT_TYPE_SERVER
     },
+
 /* SRV_ATR_ping_rate */
-    {  ATTR_pingrate,          /* "node_ping_rate" */
-       decode_l,
-       encode_l,
-       set_l,
-       comp_l,
-       free_null,
-       NULL_FUNC,
-       NO_USER_SET,
-       ATR_TYPE_LONG,
-       PARENT_TYPE_SERVER
+    {  	ATTR_pingrate,          /* "node_ping_rate" */
+       	decode_l,
+       	encode_l,
+       	set_l,
+       	comp_l,
+       	free_null,
+       	NULL_FUNC,
+       	NO_USER_SET,
+       	ATR_TYPE_LONG,
+       	PARENT_TYPE_SERVER
     },
 
 /* SRV_ATR_check_rate */
-    {  ATTR_ndchkrate,         /* "node_check_rate" */
-       decode_l,
-       encode_l,
-       set_l,
-       comp_l,
-       free_noop,  /* disable unset */
-       NULL_FUNC,
-       NO_USER_SET,
-       ATR_TYPE_LONG,
-       PARENT_TYPE_SERVER
+    {  	ATTR_ndchkrate,         /* "node_check_rate" */
+       	decode_l,
+       	encode_l,
+       	set_l,
+       	comp_l,
+       	free_noop,  /* disable unset */
+       	NULL_FUNC,
+       	NO_USER_SET,
+       	ATR_TYPE_LONG,
+       	PARENT_TYPE_SERVER
     },
 
 /* SRV_ATR_tcp_timeout */
-    {  ATTR_tcptimeout,         /* "tcp_timeout" */
-       decode_l,
-       encode_l,
-       set_l,
-       comp_l,
-       free_noop,  /* disable unset */
-       NULL_FUNC,
-       NO_USER_SET,
-       ATR_TYPE_LONG,
-       PARENT_TYPE_SERVER
+    {  	ATTR_tcptimeout,         /* "tcp_timeout" */
+       	decode_l,
+       	encode_l,
+       	set_l,
+       	comp_l,
+       	free_noop,  /* disable unset */
+       	NULL_FUNC,
+       	NO_USER_SET,
+       	ATR_TYPE_LONG,
+       	PARENT_TYPE_SERVER
     },
 
 /* SRV_ATR_Comment */
@@ -509,6 +513,7 @@ attribute_def svr_attr_def[] = {
 	ATR_TYPE_STR,
 	PARENT_TYPE_SERVER
     },
+
 /* SRV_ATR_DefNode */
     {	ATTR_defnode,		/* "default_node" */
 	decode_str,
@@ -521,6 +526,7 @@ attribute_def svr_attr_def[] = {
 	ATR_TYPE_STR,
 	PARENT_TYPE_SERVER
     },
+
 /* SRV_ATR_NodePack */
     {	ATTR_nodepack,		/* "node_pack" */
 	decode_b,
@@ -532,6 +538,19 @@ attribute_def svr_attr_def[] = {
 	MGR_ONLY_SET,
 	ATR_TYPE_LONG,
 	PARENT_TYPE_SERVER
+    },
+
+/* SRV_ATR_NodeSuffix */
+    {   ATTR_nodesuffix,        /* "node_suffix" */
+        decode_str,
+        encode_str,
+        set_str,
+        comp_str,
+        free_str,
+        NULL_FUNC,
+        MGR_ONLY_SET,
+        ATR_TYPE_STR,
+        PARENT_TYPE_SERVER
     },
 
 /* SRV_ATR_JobStatRate */
@@ -586,6 +605,19 @@ attribute_def svr_attr_def[] = {
         PARENT_TYPE_SERVER
     },
 
+/* SRV_ATR_DisableServerIdCheck */
+    {   ATTR_disableserveridcheck,       /* "disable_server_id_check" */
+        decode_b,
+        encode_b,
+        set_b,
+        comp_b,
+        free_null,
+        NULL_FUNC,
+        MGR_ONLY_SET,
+        ATR_TYPE_LONG,
+        PARENT_TYPE_SERVER
+    },
+
 /* SRV_ATR_JobNanny */
     {   ATTR_jobnanny,		/* "job_nanny" */
         decode_b,
@@ -625,7 +657,7 @@ attribute_def svr_attr_def[] = {
         PARENT_TYPE_SERVER
     },
 
-/* SRV_ATR_MomJobSync */
+/* SRV_ATR_MomJobSync */ 
     {	ATTR_momjobsync,	/* "mom_job_sync" */
 	decode_b,
 	encode_b,
@@ -678,30 +710,30 @@ attribute_def svr_attr_def[] = {
     },
 
 /* SRV_ATR_AclLogic */
-    {  ATTR_acllogic,          /* "acl_logic_or" */
-       decode_b,
-       encode_b,
-       set_b,
-       comp_b,
-       free_null,
-       NULL_FUNC,
-       NO_USER_SET,
-       ATR_TYPE_LONG,
-       PARENT_TYPE_SERVER
-     }, 
+    {  	ATTR_acllogic,          /* "acl_logic_or" */
+       	decode_b,
+       	encode_b,
+       	set_b,
+       	comp_b,
+       	free_null,
+       	NULL_FUNC,
+       	NO_USER_SET,
+       	ATR_TYPE_LONG,
+       	PARENT_TYPE_SERVER
+    }, 
 
 /* SRV_ATR_AclGroupSloppy */
-    {  ATTR_aclgrpslpy,          /* "acl_group_sloppy" */
-       decode_b,
-       encode_b,
-       set_b,
-       comp_b,
-       free_null,
-       NULL_FUNC,
-       NO_USER_SET,
-       ATR_TYPE_LONG,
-       PARENT_TYPE_SERVER
-     }, 
+    {  	ATTR_aclgrpslpy,          /* "acl_group_sloppy" */
+       	decode_b,
+       	encode_b,
+       	set_b,
+       	comp_b,
+       	free_null,
+       	NULL_FUNC,
+       	NO_USER_SET,
+       	ATR_TYPE_LONG,
+       	PARENT_TYPE_SERVER
+    }, 
 
 /* SRV_ATR_KeepCompleted */
     {   ATTR_keepcompleted,     /* "keep_completed" */
@@ -741,6 +773,20 @@ attribute_def svr_attr_def[] = {
         ATR_TYPE_LONG,
         PARENT_TYPE_SERVER
     },
+
+/* SRV_ATR_AllowProxyUser */
+    {   ATTR_allowproxyuser,     /* "allow_proxy_user" */
+        decode_b,
+        encode_b,
+        set_b,
+        comp_b,
+        free_null,
+        NULL_FUNC,
+        NO_USER_SET,
+        ATR_TYPE_LONG,
+        PARENT_TYPE_SERVER
+    },
+
 /* SRV_ATR_AutoNodeNP */
     {   ATTR_autonodenp,          /* "auto_node_np" */
         decode_b,
@@ -753,8 +799,9 @@ attribute_def svr_attr_def[] = {
         ATR_TYPE_LONG,
         PARENT_TYPE_SERVER
     },
+
 /* SRV_ATR_LogFileMaxSize */
-    {   ATTR_logfilemaxsize,
+    {   ATTR_logfilemaxsize,      /* "log_file_max_size" */
         decode_l,
         encode_l,
         set_l,
@@ -765,8 +812,9 @@ attribute_def svr_attr_def[] = {
         ATR_TYPE_LONG,
         PARENT_TYPE_SERVER
     },
+
 /* SRV_ATR_LogFileRollDepth */
-    {   ATTR_logfilerolldepth,
+    {   ATTR_logfilerolldepth,    /* "log_file_roll_depth" */
         decode_l,
         encode_l,
         set_l,
@@ -777,6 +825,7 @@ attribute_def svr_attr_def[] = {
         ATR_TYPE_LONG,
         PARENT_TYPE_SERVER
     },
+
 /* SVR_ATR_NextJobNumber */
     {	ATTR_nextjobnum,
 	decode_l,
@@ -789,8 +838,9 @@ attribute_def svr_attr_def[] = {
 	ATR_TYPE_LONG,
 	PARENT_TYPE_SERVER
     },
-/* SVR_ATR_tokens */
-    { ATTR_tokens,
+
+/* SRV_ATR_tokens */
+    { 	ATTR_tokens,
 	decode_arst,
 	encode_arst,
 	set_tokens,
@@ -802,10 +852,31 @@ attribute_def svr_attr_def[] = {
 	PARENT_TYPE_SERVER
     },
 
-	
+/* SRV_ATR_NetCounter */
+    {	ATTR_netcounter,		/* "net_counter" */
+	decode_null,
+	encode_str,
+	set_null,
+	comp_str,
+	free_null,
+	NULL_FUNC,
+	READ_ONLY,
+	ATR_TYPE_STR,
+	PARENT_TYPE_SERVER
+    },
 
-/* site supplied server attribute definitions if any, see site_svr_attr_*.h  */
-#include "site_svr_attr_def.h"
+/* SRV_ATR_ExtraResc */
+    {   ATTR_extraresc,		/* "extra_resc" */
+        decode_arst,
+        encode_arst,
+        set_arst,
+        comp_arst,
+        free_extraresc,
+        extra_resc_chk,
+        NO_USER_SET,
+        ATR_TYPE_ARST,
+        PARENT_TYPE_SERVER
+    },
 
 /* SRV_ATR_ServerName */
     {   ATTR_servername,     /* "server_name" */
@@ -815,9 +886,27 @@ attribute_def svr_attr_def[] = {
         comp_str,
         free_str,
         servername_chk,
-        NO_USER_SET,
+        MGR_ONLY_SET,
         ATR_TYPE_STR,
         PARENT_TYPE_SERVER
-    }
+    },
+
+/* SRV_ATR_SchedVersion */
+    {   ATTR_schedversion,     /* "sched_version" */
+        decode_str,
+        encode_str,
+        set_str,
+        comp_str,
+        free_str,
+        NULL_FUNC,
+        MGR_ONLY_SET,
+        ATR_TYPE_STR,
+        PARENT_TYPE_SERVER
+    },
+
+
+/* site supplied server attribute definitions if any, see site_svr_attr_*.h  */
+#include "site_svr_attr_def.h"
+
 
 };

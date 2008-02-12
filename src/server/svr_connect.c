@@ -104,6 +104,7 @@
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <time.h>
 #include <stdio.h>
 #include "libpbs.h"
 #include "log.h"
@@ -124,8 +125,8 @@ extern struct connection svr_conn[];
 extern pbs_net_t	 pbs_server_addr;
 extern int               LOGLEVEL;
 
-extern int addr_ok(pbs_net_t);
-extern void bad_node_warning(pbs_net_t);
+extern int     addr_ok(pbs_net_t);
+extern void    bad_node_warning(pbs_net_t);
 extern ssize_t read_blocking_socket(int,void *,ssize_t);
 
 
@@ -133,20 +134,28 @@ extern ssize_t read_blocking_socket(int,void *,ssize_t);
 int svr_connect(
 
   pbs_net_t      hostaddr,		/* host order */
-  unsigned int   port,			/* host order */
+  unsigned int   port,			/* I */
   void	         (*func) A_((int)),
   enum conn_type cntype)
 
   {
+  extern char *PAddrToString(pbs_net_t *);
+
+  char         EMsg[1024];
+
   static char *id = "svr_connect";
 
   int handle;
   int sock;
 
+  time_t STime;
+  time_t ETime;
+
   if (LOGLEVEL >= 4)
     {
-    sprintf(log_buffer,"attempting connect to %s port %d",
+    sprintf(log_buffer,"attempting connect to %s %s port %d",
       (hostaddr == pbs_server_addr) ? "server" : "host",
+      ((int)hostaddr != 0) ? PAddrToString(&hostaddr) : "localhost",
       port);
 
    log_event(
@@ -163,29 +172,85 @@ int svr_connect(
     return(PBS_LOCAL_CONNECTION); /* special value for local */
     }
 
+  time(&STime);
+
   /* obtain the connection to the other server */
 
   if (!addr_ok(hostaddr)) 
     {
+    if (LOGLEVEL >= 4)
+      {
+      sprintf(log_buffer,"cannot connect to %s port %d - target is down",
+        (hostaddr == pbs_server_addr) ? "server" : "host",
+        port);
+
+      log_event(
+        PBSEVENT_ADMIN,
+        PBS_EVENTCLASS_SERVER,
+        id,
+        log_buffer);
+      }
+
     pbs_errno = EHOSTDOWN;
 
     return(PBS_NET_RC_RETRY);
     }
 
-  sock = client_to_svr(hostaddr,port,1);
+  /* establish UDP socket connection to specified host */
+
+  sock = client_to_svr(hostaddr,port,1,EMsg);
+
+  time(&ETime);
+
+  if (LOGLEVEL >= 2)
+    {
+    if (ETime > STime)
+      {
+
+      }
+    }
 
   if (sock < 0) 
     {
+    if (LOGLEVEL >= 4)
+      {
+      sprintf(log_buffer,"cannot connect to %s port %d - cannot establish connection (%s) - time=%ld seconds",
+        (hostaddr == pbs_server_addr) ? "server" : "host",
+        port,
+        EMsg,
+        (long)(ETime - STime));
+
+      log_event(
+        PBSEVENT_ADMIN,
+        PBS_EVENTCLASS_SERVER,
+        id,
+        log_buffer);
+      }
+
     bad_node_warning(hostaddr);
 
     pbs_errno = errno;
 
     return(sock);  /* PBS_NET_RC_RETRY or PBS_NET_RC_FATAL */
+    }  /* END if (sock < 0) */
+
+  if ((LOGLEVEL >= 2) && (ETime > STime))
+    {
+    sprintf(log_buffer,"successful connect to %s port %d - time=%ld seconds",
+      (hostaddr == pbs_server_addr) ? "server" : "host",
+      port,
+      (long)(ETime - STime));
+
+    log_event(
+      PBSEVENT_ADMIN,
+      PBS_EVENTCLASS_SERVER,
+      id,
+      log_buffer);
     }
 
   /* add the connection to the server connection table and select list */
 
-  if (func) 
+  if (func != NULL) 
     {
     if (cntype == ToServerASN)
       {
@@ -195,7 +260,7 @@ int svr_connect(
       {
       /* connect attempt to XXX? */
 
-      add_conn(sock,ToServerDIS,hostaddr,port,func);
+      add_conn(sock,ToServerDIS,hostaddr,port,PBS_SOCK_INET,func);
       }
     }
 
@@ -207,6 +272,19 @@ int svr_connect(
 
   if (handle == -1) 
     {
+    if (LOGLEVEL >= 4)
+      {
+      sprintf(log_buffer,"cannot connect to %s port %d - cannot get handle",
+        (hostaddr == pbs_server_addr) ? "server" : "host",
+        port);
+
+     log_event(
+        PBSEVENT_ADMIN,
+        PBS_EVENTCLASS_SERVER,
+        id,
+        log_buffer);
+      }
+
     close_conn(sock);
 
     return(PBS_NET_RC_RETRY);
@@ -283,29 +361,39 @@ void svr_disconnect(
  *		  -1 if error, error number set in pbs_errno.
  */
 
-int socket_to_handle(sock)
-	int sock;	/* opened socket */
-{
-	int	i;
+int socket_to_handle(
 
-	for (i=0; i<PBS_NET_MAX_CONNECTIONS; i++) {
-		if (connection[i].ch_inuse == 0) {
+  int sock)  /* opened socket */
 
-			connection[i].ch_stream = 0;
-			connection[i].ch_inuse = 1;
-			connection[i].ch_errno = 0;
-			connection[i].ch_socket= sock;
-			connection[i].ch_errtxt = 0;
+  {
+  char *id = "socket_to_handle";
 
-			/* save handle for later close */
+  int i;
 
-			svr_conn[sock].cn_handle = i;
-			return (i);
-		}
-	}
-	pbs_errno = PBSE_NOCONNECTS;
-	return (-1);
-}
+  for (i = 0;i < PBS_NET_MAX_CONNECTIONS;i++) 
+    {
+    if (connection[i].ch_inuse != 0) 
+      continue;
+
+    connection[i].ch_stream = 0;
+    connection[i].ch_inuse  = 1;
+    connection[i].ch_errno  = 0;
+    connection[i].ch_socket = sock;
+    connection[i].ch_errtxt = 0;
+
+    /* SUCCESS - save handle for later close */
+
+    svr_conn[sock].cn_handle = i;
+
+    return(i);
+    }  /* END for (i) */
+
+  log_err(-1,id,"internal socket table full");
+
+  pbs_errno = PBSE_NOCONNECTS;
+
+  return(-1);
+  }  /* END socket_to_handle() */
 
 
 

@@ -116,9 +116,9 @@ extern char pbs_current_user[PBS_MAXUSER]; /* for libpbs.a */
 
 int main(
 
-  int     argc,
-  char   *argv[],
-  char   *envp[])
+  int     argc,   /* I */
+  char   *argv[], /* I */
+  char   *envp[]) /* I */
 
   {
   int		 auth_type = PBS_credentialtype_none;
@@ -132,20 +132,18 @@ int main(
   struct passwd *pwent;
   int            servport = -1;
   int 		 sock;
-#ifdef ENABLE_IPV6
-  struct sockaddr_in6 sockname;
-#else
-  struct sockaddr_in  sockname;
-#endif
+  struct sockaddr_in sockname;
 
   torque_socklen_t socknamelen;
 
   int		 testmode = 0;
   int		 rc;
   struct batch_reply   *reply;
-  char *parse_servername A_((char *, short *));
+  char *parse_servername A_((char *,short *));
   extern int   optind;
   extern char *optarg;
+
+  char  EMsg[1024];
 
   char *ptr;
 
@@ -216,15 +214,17 @@ int main(
 
 #if SYSLOG
      syslog(LOG_ERR|LOG_DAEMON,"not setuid 0, likely misconfigured");
-#endif
+#endif  /* SYSLOG */
 
-    }  /* END if (!testmode && (myeuid != 0)) */
-#endif
+    }   /* END if (!testmode && (myeuid != 0)) */
+#endif  /* __CYGWIN__ */
 
   /* first, make sure we have a valid server (host), and ports */
 
   if ((hostaddr = get_hostaddr(argv[optind])) == (pbs_net_t)0) 
     {
+    /* FAILURE */
+
     fprintf(stderr,"pbs_iff: unknown host %s\n", 
       argv[optind]);
 
@@ -233,6 +233,8 @@ int main(
 
   if ((servport = atoi(argv[++optind])) <= 0)
     {
+    /* FAILURE */
+
     return(1);
     }
 
@@ -240,7 +242,7 @@ int main(
 
   for (i = 0;i < 10;i++) 
     {
-    sock = client_to_svr(hostaddr,(unsigned int)servport,1);
+    sock = client_to_svr(hostaddr,(unsigned int)servport,1,EMsg);
 
     if (sock != PBS_NET_RC_RETRY)
       break;
@@ -252,12 +254,13 @@ int main(
     {
     /* FAILURE */
 
-    fprintf(stderr,"pbs_iff: cannot connect to %s:%d - %s, errno=%d (%s)\n",
+    fprintf(stderr,"pbs_iff: cannot connect to %s:%d - %s, errno=%d (%s) %s\n",
       argv[optind - 1],
       servport,
       (sock == PBS_NET_RC_FATAL) ? "fatal error" : "timeout",
       errno,
-      strerror(errno));
+      strerror(errno),
+      EMsg);
 
     return(4);
     }
@@ -327,11 +330,7 @@ int main(
     return(3);
     }
 
-#ifdef ENABLE_IPV6
-  parentport = ntohs(sockname.sin6_port);
-#else
   parentport = ntohs(sockname.sin_port);
-#endif
 
   /* send authentication information */
 

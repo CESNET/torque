@@ -26,20 +26,27 @@
  * pass to the function pointer, and it will do the rest. The caller probably
  * should fork first since this function is an infinite loop and never returns */
 
-int port_forwarder(struct pfwdsock *socks,int(*connfunc)(char *,int),char *phost,int pport)
+/* __attribute__((noreturn)) - how do I do this portably? */
+
+void port_forwarder(
+
+  struct pfwdsock *socks,
+  int (*connfunc)(char *,int,char *),
+  char            *phost,
+  int              pport,
+  char            *EMsg)  /* O */
+
   {
   fd_set rfdset, wfdset, efdset;
   int rc, maxsock=0;
-  struct sockaddr_storage from;
+  struct sockaddr_in from;
   torque_socklen_t fromlen;
   int n,n2,sock;
-
 
   fromlen = sizeof(from);
 
   while (1)
     {
-
     FD_ZERO(&rfdset);
     FD_ZERO(&wfdset);
     FD_ZERO(&efdset);
@@ -64,70 +71,83 @@ int port_forwarder(struct pfwdsock *socks,int(*connfunc)(char *,int),char *phost
 
       maxsock = (socks+n)->sock > maxsock ? (socks+n)->sock : maxsock;
       }
+
     maxsock++;
 
     rc = select(maxsock,&rfdset,&wfdset,&efdset,NULL);
-    if (rc == -1 && errno == EINTR)
+
+    if ((rc == -1) && (errno == EINTR))
       continue;
+
     if (rc < 0)
       {
       perror("port forwarding select()");
+
       exit(EXIT_FAILURE);
       }
     
-    for (n = 0; n < NUM_SOCKS; n++)
+    for (n = 0;n < NUM_SOCKS;n++)
       {
-      if (!(socks+n)->active)
+      if (!(socks + n)->active)
         continue;
 
       if (FD_ISSET((socks+n)->sock, &rfdset))
         {
         if ((socks+n)->listening)
           {
-          int newsock=0, peersock=0;
-          if ((sock = accept((socks+n)->sock,(struct sockaddr *)&from,&fromlen)) < 0)
+          int newsock = 0,peersock = 0;
+
+          if ((sock = accept((socks + n)->sock,(struct sockaddr *)&from,&fromlen)) < 0)
             {
-            if ((errno==EAGAIN)||(errno==EWOULDBLOCK)||(errno==EINTR)||(errno==ECONNABORTED))
+            if ((errno == EAGAIN)||(errno == EWOULDBLOCK)||(errno == EINTR)||(errno == ECONNABORTED))
               continue;
             
             close((socks+n)->sock);
-            (socks+n)->active=0;
+
+            (socks+n)->active = 0;
             
             continue;
             }
           
-          newsock=peersock=0;
+          newsock = peersock = 0;
+
           for (n2 = 0; n2 < NUM_SOCKS; n2++)
             {
-            if ((socks+n2)->active || ((socks+n2)->peer != 0 && (socks+((socks+n2)->peer))->active))
+            if ((socks+n2)->active || (((socks+n2)->peer != 0) && (socks+((socks+n2)->peer))->active))
               continue;
-            if (newsock==0)
-              newsock=n2;
-            else if (peersock==0)
-              peersock=n2;
+
+            if (newsock == 0)
+              newsock = n2;
+            else if (peersock == 0)
+              peersock = n2;
             else
               break;
             }
-          (socks+newsock)->sock     =(socks+peersock)->remotesock=sock;
-          (socks+newsock)->listening=(socks+peersock)->listening =0;
-          (socks+newsock)->active   =(socks+peersock)->active    =1;
-          (socks+newsock)->peer     =(socks+peersock)->sock      =connfunc(phost,pport);
-          (socks+newsock)->bufwritten   =(socks+peersock)->bufwritten      =0;
-          (socks+newsock)->bufavail =(socks+peersock)->bufavail  =0;
-          (socks+newsock)->buff[0]  =(socks+peersock)->buff[0]   = '\0';
-          (socks+newsock)->peer=peersock;                                                   
-          (socks+peersock)->peer=newsock;
 
+          (socks+newsock)->sock      = (socks+peersock)->remotesock = sock;
+          (socks+newsock)->listening = (socks+peersock)->listening = 0;
+          (socks+newsock)->active    = (socks+peersock)->active    = 1;
+          (socks+newsock)->peer      = (socks+peersock)->sock      = connfunc(phost,pport,EMsg);
+          (socks+newsock)->bufwritten =(socks+peersock)->bufwritten = 0;
+          (socks+newsock)->bufavail  = (socks+peersock)->bufavail  = 0;
+          (socks+newsock)->buff[0]   = (socks+peersock)->buff[0]   = '\0';
+          (socks+newsock)->peer      = peersock;                                                   
+          (socks+peersock)->peer     = newsock;
           }
         else
           {
           /* non-listening socket to be read */
-          rc=read((socks+n)->sock,(socks+n)->buff + (socks+n)->bufavail,BUF_SIZE - (socks+n)->bufavail);
-          if (rc<1)
+
+          rc = read(
+            (socks + n)->sock,
+            (socks + n)->buff + (socks + n)->bufavail,
+            BUF_SIZE - (socks+n)->bufavail);
+
+          if (rc < 1)
             {
-            shutdown ((socks+n)->sock, SHUT_RDWR);
-            close ((socks+n)->sock);
-            (socks+n)->active=0;
+            shutdown((socks+n)->sock,SHUT_RDWR);
+            close((socks+n)->sock);
+            (socks+n)->active = 0;
             }
           else
             {
@@ -144,15 +164,18 @@ int port_forwarder(struct pfwdsock *socks,int(*connfunc)(char *,int),char *phost
 
       if (FD_ISSET((socks+n)->sock, &wfdset))
         {
-        int peer=(socks+n)->peer;
-        rc=write((socks+n)->sock,
-                 (socks+peer)->buff + (socks+peer)->bufwritten,
-                 (socks+peer)->bufavail - (socks+peer)->bufwritten);
+        int peer = (socks+n)->peer;
+
+        rc = write(
+          (socks+n)->sock,
+          (socks+peer)->buff + (socks+peer)->bufwritten,
+          (socks+peer)->bufavail - (socks+peer)->bufwritten);
+
         if (rc < 1)
           {
-          shutdown ((socks+n)->sock, SHUT_RDWR);
-          close ((socks+n)->sock);
-          (socks+n)->active=0;
+          shutdown((socks+n)->sock, SHUT_RDWR);
+          close((socks+n)->sock);
+          (socks+n)->active = 0;
           }
         else
           {
@@ -163,38 +186,50 @@ int port_forwarder(struct pfwdsock *socks,int(*connfunc)(char *,int),char *phost
       } /* END foreach fd */
 
     for (n2=0; n2<=1;n2++)
-    for (n = 0; n < NUM_SOCKS; n++)
       {
-      int peer;
-
-      if (!(socks+n)->active || (socks+n)->listening)
-        continue;
-
-      peer=(socks+n)->peer;
-
-      if ((socks+n)->bufwritten == (socks+n)->bufavail)
+      for (n = 0; n < NUM_SOCKS; n++)
         {
-        (socks+n)->bufwritten = (socks+n)->bufavail = 0;
-        }
+        int peer;
 
-      if (!(socks+peer)->active && (socks+peer)->bufwritten == (socks+peer)->bufavail)
-        {
-        shutdown ((socks+n)->sock, SHUT_RDWR);
-        close ((socks+n)->sock);
-        (socks+n)->active=0;
+        if (!(socks+n)->active || (socks+n)->listening)
+          continue;
+
+        peer = (socks+n)->peer;
+
+        if ((socks+n)->bufwritten == (socks+n)->bufavail)
+          {
+          (socks+n)->bufwritten = (socks+n)->bufavail = 0;
+          }
+
+        if (!(socks+peer)->active && ((socks+peer)->bufwritten == (socks+peer)->bufavail))
+          {
+          shutdown((socks+n)->sock,SHUT_RDWR);
+          close((socks+n)->sock);
+
+          (socks+n)->active=0;
+          }
         }
       }
-   } /* END while(1) */
-}
+    }   /* END while(1) */
+  }     /* END port_forwarder() */
+
+
+
+
+
 
 /* disable nagle on a socket */
-void    
-set_nodelay(int fd)
-{       
-        int opt;
-        torque_socklen_t optlen;
+
+void set_nodelay(
+
+  int fd)
+
+  {       
+  int opt;
+  torque_socklen_t optlen;
         
-        optlen = sizeof opt;
+  optlen = sizeof(opt);
+
         if (getsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, &optlen) == -1) {
                 fprintf(stderr,"getsockopt TCP_NODELAY: %.100s", strerror(errno));
                 return;
@@ -204,16 +239,25 @@ set_nodelay(int fd)
                 return;
         }
         opt = 1;
-        if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof opt) == -1)
-                fprintf(stderr,"setsockopt TCP_NODELAY: %.100s", strerror(errno)); 
-}                           
+
+  if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof opt) == -1)
+    fprintf(stderr,"setsockopt TCP_NODELAY: %.100s", strerror(errno)); 
+
+  return;
+  }                           
+
+
+
 
 /* return a socket to the specified X11 unix socket */
-int
-connect_local_xsocket(u_int dnr)
-{       
-        int sock;
-        struct sockaddr_un addr;
+
+int connect_local_xsocket(
+
+  u_int dnr)
+
+  {       
+  int sock;
+  struct sockaddr_un addr;
 
         if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) < 0)
           {
@@ -227,29 +271,45 @@ connect_local_xsocket(u_int dnr)
                 return sock;
         close(sock);
         fprintf(stderr,"connect %.100s: %.100s", addr.sun_path, strerror(errno));
-        return -1;
-}
 
-int
-x11_connect_display(char *display,int alsounused)
-{       
+  return(-1);
+  }
+
+
+
+
+
+int x11_connect_display(
+
+  char *display,
+  int   alsounused,
+  char *EMsg)        /* O */
+
+  { 
 #ifndef HAVE_GETADDRINFO
   /* this was added for cygwin which doesn't seem to have a working
    * getaddrinfo() yet.
    * this will have to be figured out later */
-  return -1;
+
+  if (EMsg != NULL)
+    EMsg[0] = '\0';
+
+  return(-1);
 #else
 
-        int display_number, sock = 0;
-        char buf[1024], *cp;
-        struct addrinfo hints, *ai, *aitop;
-        char strport[NI_MAXSERV];
-        int gaierr;
+  int display_number, sock = 0;
+  char buf[1024], *cp;
+  struct addrinfo hints, *ai, *aitop;
+  char strport[NI_MAXSERV];
+  int gaierr;
 
-        /*
-         * Now we decode the value of the DISPLAY variable and make a
-         * connection to the real X server.
-         */
+  if (EMsg != NULL)
+    EMsg[0] = '\0';
+
+  /*
+   * Now we decode the value of the DISPLAY variable and make a
+   * connection to the real X server.
+  */
         
         /*
          * Check if it is a unix domain socket.  Unix domain displays are in
