@@ -621,7 +621,7 @@ void add_conn(
   svr_conn[sock].cn_lasttime = time((time_t *)0);
   svr_conn[sock].cn_func     = func;
   svr_conn[sock].cn_oncl     = 0;
-  svr_conn[sock].cn_socktype = addr.sa_family;
+  svr_conn[sock].cn_socktype = addr.ss_family;
 
 #ifndef NOPRIVPORTS
   if (IS_INET(addr) && GET_PORT(&addr) < IPPORT_RESERVED)
