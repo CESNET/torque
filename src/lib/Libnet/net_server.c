@@ -104,6 +104,7 @@
 
 
 #include "portability.h"
+#include "portability6.h"
 #include "server_limits.h"
 #include "net_connect.h"
 #include "log.h"
@@ -136,7 +137,7 @@ static fd_set	readset;
 static void	(*read_func[2]) A_((int));
 static enum     conn_type settype[2];		/* temp kludge */
 
-pbs_net_t pbs_server_addr;
+struct sockaddr_storage pbs_server_addr;
 
 /* Private function within this file */
 
@@ -226,14 +227,17 @@ int *netcounter_get()
 int init_network(
 
   unsigned int port,
-  void         (*readfunc)())
+  void         (*readfunc)(),
+  sa_family_t af_family
+  )
 
   {
-  int		 i;
-  static int	 initialized = 0;
-  int 		 sock;
-  struct sockaddr_in socname;
-  enum conn_type   type;
+  int                 i;
+  static int          initialized = 0;
+  int                 sock;
+  struct sockaddr_storage socname;
+  int                 addrlen;
+  enum conn_type      type;
 #ifdef ENABLE_UNIX_SOCKETS
   struct sockaddr_un unsocname;
   int unixsocket;
@@ -264,13 +268,9 @@ int init_network(
 
   read_func[initialized++] = readfunc;
 
-  sock = socket(AF_INET,SOCK_STREAM,0);
-
-  if (sock < 0) 
-    {
-
-    return(-1);
-    }
+  if ((sock = socket(af_family, SOCK_STREAM, 0)) < 0) {
+      return(-1);
+  }
 
   if (FD_SETSIZE < PBS_NET_MAX_CONNECTIONS)
     max_connection = FD_SETSIZE;
@@ -279,40 +279,66 @@ int init_network(
 
   setsockopt(sock,SOL_SOCKET,SO_REUSEADDR,(char *)&i,sizeof(i));
 
-  /* name that socket "in three notes" */
+    /* bind to all addresses and dynamically assigned port */
+#if TORQUE_WANT_IPV6
+        struct addrinfo hints, *res = NULL;
+        int error;
 
-  socname.sin_port= htons((unsigned short)port);
-  socname.sin_addr.s_addr = INADDR_ANY;
-  socname.sin_family = AF_INET;
+        memset (&hints, 0, sizeof(hints));
+        hints.ai_family = af_family;
+        hints.ai_socktype = SOCK_STREAM;
+        hints.ai_flags = AI_PASSIVE;
 
-  if (bind(sock,(struct sockaddr *)&socname,sizeof(socname)) < 0) 
-    {
+        if ((error = getaddrinfo(NULL, "0", &hints, &res))) {
+            return(-1);
+        }
+
+        memcpy (&socname, res->ai_addr, res->ai_addrlen);
+        addrlen = res->ai_addrlen;
+        freeaddrinfo (res);
+
+#ifdef IPV6_V6ONLY
+        /* in case of AF_INET6, disable v4-mapped addresses */
+        if (AF_INET6 == af_family) {
+            int flg = 0;
+            if (setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY,
+                            &flg, sizeof (flg)) < 0) {
+                log_err(-1, "init_network",
+                            "Failed to disable IPv4 mapped addresses");
+            }
+        }
+#endif /* IPV6_V6ONLY */
+
+#else /* !TORQUE_WANT_IPV6 */
+  addrlen = sizeof(struct sockaddr_in);
+  memset(&socname, 0, addrlen);
+  ((struct sockaddr_in*)&socname)->sin_port= htons((unsigned short)port);
+  ((struct sockaddr_in*)&socname)->sin_addr.s_addr = INADDR_ANY;
+  ((struct sockaddr_in*)&socname)->sin_family = AF_INET;
+#endif
+
+  /* Bind-Listen Combo */
+  if (bind(sock, (struct sockaddr *)&socname, addrlen) < 0) {
     close(sock);
-
     return(-1);
-    }
-	
+  }
+
   /* record socket in connection structure and select set */
+  add_conn(sock, type, socname, accept_conn);
 
-  add_conn(sock,type,(pbs_net_t)0,0,PBS_SOCK_INET,accept_conn);
-	
   /* start listening for connections */
-
-  if (listen(sock,512) < 0) 
-    {
-
+  if (listen(sock, 512) < 0) {
     return(-1);
-    }
-
+  }
 
 #ifdef ENABLE_UNIX_SOCKETS
   /* setup unix domain socket */
 
   unixsocket=socket(AF_UNIX,SOCK_STREAM,0);
   if (unixsocket < 0) 
-    {
-    return(-1);
-    }
+	{
+	  return(-1);
+	}
 
   unsocname.sun_family=AF_UNIX;
   strncpy(unsocname.sun_path,TSOCK_PATH,107);  /* sun_path is defined to be 108 bytes */
@@ -320,29 +346,28 @@ int init_network(
   unlink(TSOCK_PATH);  /* don't care if this fails */
 
   if (bind(unixsocket,
-            (struct sockaddr *)&unsocname,
-            strlen(unsocname.sun_path) + sizeof(unsocname.sun_family)) < 0) 
-    {
-    close(unixsocket);
+				  (struct sockaddr *)&unsocname,
+				  strlen(unsocname.sun_path) + sizeof(unsocname.sun_family)) < 0) 
+	{
+	  close(unixsocket);
 
-    return(-1);
-    }
+	  return(-1);
+	}
 
   if (chmod(TSOCK_PATH,S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH) != 0)
-    {
-    close(unixsocket);
+	{
+	  close(unixsocket);
 
-    return(-1);
-    }
+	  return(-1);
+	}
 
   add_conn(unixsocket,type,(pbs_net_t)0,0,PBS_SOCK_UNIX,accept_conn);
   if (listen(unixsocket,512) < 0) 
-    {
+	{
 
-    return(-1);
-    }
+	  return(-1);
+	}
 #endif /* END ENABLE_UNIX_SOCKETS */
-
 
   /* allocate a minute's worth of counter structs */
 
