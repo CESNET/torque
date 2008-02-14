@@ -39,11 +39,16 @@ void port_forwarder(
   {
   fd_set rfdset, wfdset, efdset;
   int rc, maxsock=0;
-  struct sockaddr_in from;
+  struct sockaddr_storage from;
   torque_socklen_t fromlen;
   int n,n2,sock;
 
-  fromlen = sizeof(from);
+  /* large enough to contain {in,in6} */
+#ifdef TORQUE_WANT_IPV6
+  fromlen = sizeof(struct sockaddr_in6);
+#else
+  fromlen = sizeof(struct sockaddr_in);
+#endif
 
   while (1)
     {
@@ -86,7 +91,7 @@ void port_forwarder(
       exit(EXIT_FAILURE);
       }
     
-    for (n = 0;n < NUM_SOCKS;n++)
+    for (n = 0; n < NUM_SOCKS; n++)
       {
       if (!(socks + n)->active)
         continue;
