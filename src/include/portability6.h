@@ -30,6 +30,9 @@
 #endif
 #endif
 
+/* beware of side effects when using this! it evaluates (a) two times! */
+#define IS_INET(a) (PBS_SOCK_INET == (a).sa_family || PBS_SOCK_INET6 == (a).sa_family)
+
 #else
 #undef TORQUE_WANT_IPV6
 
@@ -37,6 +40,8 @@
 #define SET_PORT(a,port) (((struct sockaddr_in*)(a))->sin_port = port)
 #define SINLEN(a) (sizeof(struct sockaddr_in))
 #define SOCK_L(a) (ntohl(((struct sockaddr_in*)&a)->sin_addr.s_addr))
+
+#define IS_INET(a) (PBS_SOCK_INET == (a).sa_family)
 #endif
 
 #ifndef HAVE_GETADDRINFO

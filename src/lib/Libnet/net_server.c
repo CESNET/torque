@@ -397,7 +397,7 @@ int wait_request(
   long   *SState)     /* I (optional) */
 
   {
-  extern char *PAddrToString(pbs_net_t *);
+  extern char *PAddrToString(struct sockaddr_storage *);
 
   int i;
   int n;
@@ -552,7 +552,7 @@ static void accept_conn(
 
   {
   int newsock;
-  struct sockaddr_in from;
+  struct sockaddr_storage from;
   struct sockaddr_un unixfrom;
 
   torque_socklen_t fromsize;
@@ -561,17 +561,16 @@ static void accept_conn(
 
   svr_conn[sd].cn_lasttime = time((time_t *)0);
 
-
-  if (svr_conn[sd].cn_socktype == PBS_SOCK_INET)
-    {
-    fromsize = sizeof(from);
-    newsock = accept(sd,(struct sockaddr *)&from,&fromsize);
-    }
-  else
-    {
-    fromsize = sizeof(unixfrom);
-    newsock = accept(sd,(struct sockaddr *)&unixfrom,&fromsize);
-    }
+  if (PBS_SOCK_INET == svr_conn[sd].cn_socktype) {
+      fromsize = sizeof(struct sockaddr_in);
+      newsock = accept(sd,(struct sockaddr *)&from,&fromsize);
+  } else if (PBS_SOCK_INET6 == svr_conn[sd].cn_socktype) {
+      fromsize = sizeof(struct sockaddr_in6);
+      newsock = accept(sd,(struct sockaddr *)&from,&fromsize);
+  } else {
+      fromsize = sizeof(unixfrom);
+      newsock = accept(sd,(struct sockaddr *)&unixfrom,&fromsize);
+  }
 
   if (newsock == -1) 
     {
@@ -591,9 +590,7 @@ static void accept_conn(
   add_conn(
     newsock, 
     FromClientDIS, 
-    (pbs_net_t)ntohl(from.sin_addr.s_addr),
-    (unsigned int)ntohs(from.sin_port),
-    svr_conn[sd].cn_socktype,
+    from,
     read_func[(int)svr_conn[sd].cn_active]);
 
   return;
@@ -611,9 +608,7 @@ void add_conn(
 
   int            sock,	   /* socket associated with connection */
   enum conn_type type,	   /* type of connection */
-  pbs_net_t      addr,	   /* IP address of connected host */
-  unsigned int   port,	   /* port number (host order) on connected host */
-  unsigned int   socktype, /* inet or unix */
+  struct sockaddr_storage addr,	   /* IP address of connected host */
   void (*func) A_((int)))  /* function to invoke on data rdy to read */
 
   {
@@ -623,14 +618,13 @@ void add_conn(
 
   svr_conn[sock].cn_active   = type;
   svr_conn[sock].cn_addr     = addr;
-  svr_conn[sock].cn_port     = (unsigned short)port;
   svr_conn[sock].cn_lasttime = time((time_t *)0);
   svr_conn[sock].cn_func     = func;
   svr_conn[sock].cn_oncl     = 0;
-  svr_conn[sock].cn_socktype = socktype;
+  svr_conn[sock].cn_socktype = addr.sa_family;
 
 #ifndef NOPRIVPORTS
-  if (socktype == PBS_SOCK_INET && port < IPPORT_RESERVED)
+  if (IS_INET(addr) && GET_PORT(&addr) < IPPORT_RESERVED)
     svr_conn[sock].cn_authen = PBS_NET_CONN_FROM_PRIVIL;
   else
     svr_conn[sock].cn_authen = 0;
@@ -674,7 +668,7 @@ void close_conn(
 
   FD_CLR(sd,&readset);
 
-  svr_conn[sd].cn_addr = 0;
+  /* svr_conn[sd].cn_addr = 0; */
   svr_conn[sd].cn_handle = -1;
   svr_conn[sd].cn_active = Idle;
   svr_conn[sd].cn_func = (void (*)())0;
@@ -726,12 +720,13 @@ void net_close(
  *	This is in host order.
  */
 
-pbs_net_t get_connectaddr(
+/* FIXME: do we return the struct or a pointer to it? */
+struct sockaddr_storage * get_connectaddr(
 
   int sock)  /* I */
 
   {
-  return(svr_conn[sock].cn_addr);
+  return(&svr_conn[sock].cn_addr);
   }
 
 
