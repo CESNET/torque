@@ -873,6 +873,43 @@ void net_set_type(
   return;
   }  /* END net_set_type() */
 
+/*
+** Checks if two given IP addresses are the same
+** Returns 1 on successful match, 0 otherwise
+*/
+int compare_ip(
+  struct sockaddr_storage *lhs,
+  struct sockaddr_storage *rhs)
+
+  {
+  /* Early exit, can't compare the two */
+  if (lhs->ss_family != rhs->ss_family)
+    return(0);
+
+  switch (lhs->ss_family)
+    {
+    case AF_INET:
+
+        if (((struct sockaddr_in*)lhs)->sin_addr.s_addr
+                    == ((struct sockaddr_in*)rhs)->sin_addr.s_addr)
+          {
+            return(1);
+          }
+        break;
+#ifdef TORQUE_WANT_IPV6
+    case AF_INET6:
+        if (IN6_ARE_ADDR_EQUAL(
+                        ((struct sockaddr_in6*)lhs)->sin6_addr,
+                        ((struct sockaddr_in6*)rhs)->sin6_addr))
+          {
+            return(1);
+          }
+        break;
+#endif
+    }
+
+  return(0);
+  }
 
 /* END net_server.c */
 
