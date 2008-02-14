@@ -735,23 +735,21 @@ struct sockaddr_storage * get_connectaddr(
 
 int find_conn(
 
-  pbs_net_t addr)  /* I */
+  struct sockaddr_storage* addr)  /* I */
 
-  {
-  int index;
+{
+    int index;
 
-  /* NOTE:  there may be multiple connections per addr (not handled) */
+    /* NOTE:  there may be multiple connections per addr (not handled) */
 
-  for (index = 0;index < PBS_NET_MAX_CONNECTIONS;index++)
-    {
-    if (addr == svr_conn[index].cn_addr)
-      {
-      return(index);
-      }
+    for (index = 0;index < PBS_NET_MAX_CONNECTIONS;index++) {
+        if (compare_ip(addr, &svr_conn[index].cn_addr)) {
+            return(index);
+        }
     }    /* END for (index) */
 
-  return(-1);
-  }  /* END find_conn() */
+    return(-1);
+}  /* END find_conn() */
 
 
 
