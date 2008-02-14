@@ -87,6 +87,7 @@
 #include <netdb.h>
 #include <string.h>
 #include "portability.h"
+#include "portability6.h"
 #include "server_limits.h"
 #include "net_connect.h"
 #include "mcom.h"
@@ -178,16 +179,17 @@ static int await_connect(
 
 int client_to_svr(
 
-  pbs_net_t     hostaddr,	/* I - internet addr of host */
-  unsigned int  port,		/* I - port to which to connect */
-  int           local_port,	/* I - BOOLEAN:  not 0 to use local reserved port */
-  char         *EMsg)           /* O (optional,minsize=1024) */
+  struct sockaddr_storage* hostaddr,     /* I - internet addr/port of host */
+  sa_family_t         af_family,    /* I - PF_{INET,INET6} - socket family */
+  int                 local_port,   /* I - BOOLEAN:  not 0 if use local reserved port */
+  char               *EMsg)         /* O (optional,minsize=1024) */
 
   {
   const char id[] = "client_to_svr";
 
-  struct sockaddr_in local;
-  struct sockaddr_in remote;
+  struct sockaddr_storage local;
+  struct sockaddr_storage remote;
+  int                addrlen;
   int                sock;
   unsigned short     tryport;
   int                flags;
@@ -200,9 +202,17 @@ int client_to_svr(
 
   errno = 0;
  
-  local.sin_family      = AF_INET;
-  local.sin_addr.s_addr = 0;
-  local.sin_port        = 0;
+  switch (af_family)
+    {
+    case AF_INET: addrlen = sizeof(struct sockaddr_in); break;
+#ifdef TORQUE_WANT_IPV6
+    case AF_INET6: addrlen = sizeof(struct sockaddr_in6); break;
+#endif
+    default: sprintf(EMsg, "%s: Adress family not supported\n", id);
+    }
+
+  memset(&local, 0, addrlen);
+  local.sa_family      = af_family;
 
   tryport = IPPORT_RESERVED - 1;
 
@@ -210,7 +220,7 @@ retry:  /* retry goto added (rentec) */
 
   /* get socket */
 
-  sock = socket(AF_INET,SOCK_STREAM,0);
+  sock = socket(af_family, SOCK_STREAM, 0);
 
   if (sock < 0) 
     {
@@ -259,6 +269,7 @@ retry:  /* retry goto added (rentec) */
 
 #ifndef NOPRIVPORTS
 
+#if 0
 #ifdef HAVE_BINDRESVPORT
     /*
      * bindresvport seems to cause connect() failures in some odd corner case when
@@ -284,10 +295,18 @@ retry:  /* retry goto added (rentec) */
     else
       {
 #endif /* HAVE_BINDRESVPORT */
+#endif
 
-      local.sin_port = htons(tryport);
+      switch (af_family)
+        {
+        case AF_INET: ((struct sockaddr_in*)&local)->sin_port = htons(tryport); break;
+#ifdef TORQUE_WANT_IPV6
+        case AF_INET6: ((struct sockaddr_in6*)&local)->sin6_port = htons(tryport); break;
+#endif
+        default: sprintf(EMsg, "%s: Adress family not supported\n", id);
+        }
 
-      while (bind(sock,(struct sockaddr *)&local,sizeof(local)) < 0) 
+      while (bind(sock,(struct sockaddr *)&local,addrlen) < 0)
         {
 #ifdef NDEBUG2
         fprintf(stderr,"INFO:  cannot bind to port %d, errno: %d - %s\n",
@@ -324,11 +343,20 @@ retry:  /* retry goto added (rentec) */
           return(PBS_NET_RC_RETRY);
           }
 
-        local.sin_port = htons(tryport);
+        switch (af_family)
+          {
+          case AF_INET: ((struct sockaddr_in*)&local)->sin_port = htons(tryport); break;
+#ifdef TORQUE_WANT_IPV6
+          case AF_INET6: ((struct sockaddr_in6*)&local)->sin6_port = htons(tryport); break;
+#endif
+          default: sprintf(EMsg, "%s: Adress family not supported\n", id);
+          }
         }  /* END while (bind() < 0) */
+#if 0
 #ifdef HAVE_BINDRESVPORT
       }    /* END if (tryport == (IPPORT_RESERVED - 1)) else */
 #endif     /* HAVE_BINDRESVPORT */
+#endif
 #endif     /* !NOPRIVPORTS */
     }      /* END if (local_port != FALSE) */
 
@@ -336,9 +364,7 @@ retry:  /* retry goto added (rentec) */
 			
   /* connect to specified server host and port	*/
 
-  remote.sin_addr.s_addr = htonl(hostaddr);
-  remote.sin_port = htons((unsigned short)port);
-  remote.sin_family = AF_INET;
+  remote = *hostaddr;
 
   if (connect(sock,(struct sockaddr *)&remote,sizeof(remote)) >= 0)
     {
