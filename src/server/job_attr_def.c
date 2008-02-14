@@ -717,19 +717,6 @@ attribute_def job_attr_def[] = {
 	PARENT_TYPE_JOB
     },
     
-/* JOB_ATR_job_array_size */
-    {	ATTR_array_size,
-	decode_l,
-	encode_l,
-	set_l,
-	comp_l,
-	free_null,
-	NULL_FUNC,
-	ATR_DFLAG_SvRD | READ_ONLY,
-	ATR_TYPE_LONG,
-	PARENT_TYPE_JOB
-    },
-  
 /* JOB_ATR_job_array_id */
     {	ATTR_array_id,
 	decode_l,
@@ -792,6 +779,32 @@ attribute_def job_attr_def[] = {
 	NULL_FUNC,
 	READ_ONLY | ATR_DFLAG_SSET,
 	ATR_TYPE_LONG,
+	PARENT_TYPE_JOB
+    },
+
+/* JOB_ATR_chkptdir */
+    {	ATTR_chkptdir,		/* "checkpoint_dir" */
+	decode_str,
+	encode_str,
+	set_str,
+	comp_str,
+	free_str,
+	NULL_FUNC,
+	READ_WRITE | ATR_DFLAG_MOM,
+	ATR_TYPE_STR,
+	PARENT_TYPE_JOB
+    },
+
+/* JOB_ATR_chkptname */
+    {	ATTR_chkptname,		/* "checkpoint_name" */
+	decode_str,
+	encode_str,
+	set_str,
+	comp_str,
+	free_str,
+	NULL_FUNC,
+	READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_ALTRUN,
+	ATR_TYPE_STR,
 	PARENT_TYPE_JOB
     },
 

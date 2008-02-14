@@ -158,6 +158,7 @@ extern	unsigned int	pbs_rm_port;
 extern	u_long		localaddr;
 extern  char            *nodefile_suffix;
 extern  char            *submithost_suffix;
+extern  char             DEFAULT_UMASK[];
 
 extern int LOGLEVEL;
 extern long TJobStartBlockTime;
@@ -167,8 +168,10 @@ int              mom_reader_go;		/* see catchinter() & mom_writer() */
 struct var_table vtable;		/* for building up job's environ */
 
 extern char             tmpdir_basename[];  /* for TMPDIR */
+extern char             checkpoint_run_exe_name[];
 
-/* Local Varibles */ 
+
+/* Local Variables */ 
 
 static int	 script_in;	/* script file, will be stdin	  */
 static pid_t	 writerpid;	/* writer side of interactive job */
@@ -392,13 +395,78 @@ struct passwd *check_pwd(
   }  /* END check_pwd() */
 
 
+/* BLCR version of restart */
+
+void blcr_restart_job(
+  job  *pjob,  /* I */
+  char *file)  /* I */
+  {
+  char	*id = "blcr_restart_job";
+  int   pid;
+  char  sid[20];
+  char  *arg[20];
+  extern  char    restart_script_name[1024];
+  task *ptask;
+  char  buf[1024];
+  char  **ap;
+
+#define SET_ARG(x) (((x) == NULL) || (*(x) == 0))?"-":(x)
+
+  /* if a restart script is defined launch it */
+
+  if (restart_script_name[0] == '\0')
+    {
+    log_err(-1,id,"No restart script defined");
+    }
+  else
+    {
+    /* BLCR is not for parallel jobs, there can only be one task in the job. */
+    ptask = (task *) GET_NEXT(pjob->ji_tasks);
+    if (ptask != NULL)
+      {
+ 
+      /* launch the script and return success */
+
+      pid = fork();
+      if (pid == 0)
+        {
+        /* child: execv the script */
+
+        sprintf(sid,"%ld",
+          ptask->ti_job->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long);
+
+        arg[0] = restart_script_name;
+        arg[1] = sid;
+        arg[2] = SET_ARG(ptask->ti_job->ji_qs.ji_jobid);
+        arg[3] = SET_ARG(ptask->ti_job->ji_wattr[(int)JOB_ATR_euser].at_val.at_str);
+        arg[4] = SET_ARG(ptask->ti_job->ji_wattr[(int)JOB_ATR_chkptdir].at_val.at_str);
+        arg[5] = SET_ARG(ptask->ti_job->ji_wattr[(int)JOB_ATR_chkptname].at_val.at_str);
+        arg[6] = NULL;
+ 
+       strcpy(buf, "restart args:");
+        for (ap = arg; *ap; ap++)
+          {
+          strcat(buf, " ");
+          strcat(buf, *ap);
+          }
+        log_err(-1,id,buf);
+ 
+        execv(arg[0],arg);
+
+        }  /* END if (pid == 0) */
+      }
+    }
+  }
 
 
+
+
+/* start each task based on task checkpoint records located job-specific checkpoint directory */
 
 int mom_restart_job(
 
-  job  *pjob,
-  char *path)
+  job  *pjob,  /* I */
+  char *path)  /* I */
 
   {
   static char	id[] = "mom_restart_job";
@@ -443,7 +511,7 @@ int mom_restart_job(
       goto fail;
       }
 
-    if ((ptask = task_find(pjob, taskid)) == NULL) 
+    if ((ptask = task_find(pjob,taskid)) == NULL) 
       {
       sprintf(log_buffer, "%s: task %d not found",
         pjob->ji_qs.ji_jobid, 
@@ -1317,6 +1385,7 @@ int TMomFinalizeJob1(
 #if MOM_CHECKPOINT == 1
   char	   		buf[MAXPATHLEN + 2];
   struct stat		sb;
+  int                   rc; /* return code */
 #endif /* MOM_CHECKPOINT */
 
 
@@ -1439,17 +1508,6 @@ int TMomFinalizeJob1(
 
 #endif	/* IBM SP */
 
-  /*
-   * if certain resource limits require that the job usage be
-   * polled or it is a multinode job, we link the job to mom_polljobs.
-   *
-   * NOTE: we overload the job field ji_jobque for this as it
-   * is not used otherwise by MOM
-   */
-
-  if ((pjob->ji_numnodes > 1) || (mom_do_poll(pjob) != 0))
-    append_link(&mom_polljobs,&pjob->ji_jobque,pjob);
-
 #if MOM_CHECKPOINT == 1
 
   /* Is the job to be periodically checkpointed */
@@ -1468,13 +1526,22 @@ int TMomFinalizeJob1(
 
   /* If job has been checkpointed, restart from the checkpoint image */
 
-  strcpy(buf,path_checkpoint);
-  strcat(buf,pjob->ji_qs.ji_fileprefix);
-  strcat(buf,JOB_CKPT_SUFFIX);
+  if (pjob->ji_wattr[(int)JOB_ATR_chkptdir].at_flags & ATR_VFLAG_SET)
+    {
+    /* The job has a checkpoint directory specified, use it. */
+    strcpy(buf,pjob->ji_wattr[(int)JOB_ATR_chkptdir].at_val.at_str);
+    }
+  else
+    {
+    /* Otherwise, use the default job checkpoint directory /var/spool/torque/checkpoint/42.host.domain.CK */
+    strcpy(buf,path_checkpoint);
+    strcat(buf,pjob->ji_qs.ji_fileprefix);
+    strcat(buf,JOB_CKPT_SUFFIX);
+    }
 
   if (((pjob->ji_qs.ji_svrflags & JOB_SVFLG_CHKPT) || 
        (pjob->ji_qs.ji_svrflags & JOB_SVFLG_ChkptMig)) &&
-       (stat(buf,&sb) == 0)) 
+       (stat(buf,&sb) == 0)) /* stat(buf) tests if the checkpoint directory exists */
     {
     /* Checkpointed - restart from checkpoint file */
 
@@ -1502,7 +1569,25 @@ int TMomFinalizeJob1(
       return(FAILURE);
       }
 
-    if ((i = mom_restart_job(pjob,buf)) > 0) 
+    /* For right now, we assume BLCR checkpoint if job has name of checkpoint
+     * file.  This file name would have been set at the point where the
+     * checkpoint was taken, in the machine dependent checkpoint code.
+     *
+     * Note: There is a little discrepancy in that the checkpoint work is
+     * done at the machine dependent level and the restart is here at a
+     * global level.  We hope to correct this soon.
+     *
+     * The idea is that BLCR itself is architecture independent and so
+     * it is okay to invoke it from the main level.
+     */
+
+    if (pjob->ji_wattr[(int)JOB_ATR_chkptname].at_flags & ATR_VFLAG_SET)
+      {
+        blcr_restart_job(pjob,buf);
+        pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
+        rc = SUCCESS; /* Probably not always true :) */
+      }
+    else if ((i = mom_restart_job(pjob,buf)) > 0) /* Iterate over files in checkpoint dir, restarting all files found. */
       {
       sprintf(log_buffer,"Restarted %d tasks",
         i);
@@ -1533,8 +1618,9 @@ int TMomFinalizeJob1(
         {
         pjob->ji_qs.ji_substate = JOB_SUBSTATE_SUSPEND;
         }
-      } 
-    else 
+      }
+
+    if (rc == FAILURE) 
       {
       /* FAILURE */
 	
@@ -1593,6 +1679,17 @@ int TMomFinalizeJob1(
     }  /* END (((pjob->ji_qs.ji_svrflags & JOB_SVFLG_CHKPT) || ...) */
 
 #endif	/* MOM_CHECKPOINT */
+
+  /*
+   * if certain resource limits require that the job usage be
+   * polled or it is a multinode job, we link the job to mom_polljobs.
+   *
+   * NOTE: we overload the job field ji_jobque for this as it
+   * is not used otherwise by MOM
+   */
+
+  if ((pjob->ji_numnodes > 1) || (mom_do_poll(pjob) != 0))
+    append_link(&mom_polljobs,&pjob->ji_jobque,pjob);
 
   pattri = &pjob->ji_wattr[(int)JOB_ATR_interactive];
 
@@ -1901,7 +1998,40 @@ int TMomFinalizeJob2(
   }  /* END TMomFinalizeJob2() */
 
 
+int determine_umask(
+)
+  {
+  static char           *id = "determine_umask";
+  int UMaskVal = 0077;
+  mode_t oldmask = 0;
+  
+  if (DEFAULT_UMASK[0] != '\0')
+    {	
 
+   if (!strcasecmp(DEFAULT_UMASK,"userdefault"))
+      {
+      /* apply user default */
+
+      /* do we inherit umask when we do setuid() */
+      /* yes, but we return its value anyway so caller does not */
+      /* have to worry about it */
+
+      oldmask = umask(0000);
+      umask(oldmask);
+      UMaskVal = oldmask;
+      }
+    else
+      {
+      UMaskVal = (int)strtol(DEFAULT_UMASK,NULL,0);
+      }
+    }
+    if (LOGLEVEL >= 7)
+      {
+      sprintf(log_buffer,"returned umask value = %o", UMaskVal);
+      log_err(-1,id,log_buffer);
+      }
+    return UMaskVal;
+  }
 
 
 /* child portion of job launch executed as user - called by TMomFinalize2() */
@@ -1915,7 +2045,7 @@ int TMomFinalizeChild(
   {
   static char           *id = "TMomFinalizeChild";
 
-  char                  *arg[3];
+  char                  *arg[4];
   char                   buf[MAXPATHLEN + 2];
   pid_t                  cpid;
   int                    i, j, vnodenum;
@@ -2105,22 +2235,24 @@ int TMomFinalizeChild(
 
   bld_env_variables(&vtable,"PBS_VNODENUM",buf);
 
-
-
 #ifdef PENABLE_LINUX26_CPUSETS
 
-      sprintf(log_buffer,"about to create cpuset for job %s.\n", 
-        pjob->ji_qs.ji_jobid);
+  sprintf(log_buffer,"about to create cpuset for job %s.\n", 
+    pjob->ji_qs.ji_jobid);
 
-      log_err(-1,id,log_buffer);
-    if (create_jobset(pjob) != 0)
-      {
-      sprintf(log_buffer,"Could not create cpuset for job %s.\n", 
-        pjob->ji_qs.ji_jobid);
+  log_err(-1,id,log_buffer);
 
-      log_err(-1,id,log_buffer);
-      starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_RETRY,&sjr);
-      }
+  if (create_jobset(pjob) != 0)
+    {
+    /* FAILURE */
+
+    sprintf(log_buffer,"Could not create cpuset for job %s.\n", 
+      pjob->ji_qs.ji_jobid);
+
+    log_err(-1,id,log_buffer);
+
+    starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_RETRY,&sjr);
+    }
 #endif /* END PENABLE_LINUX26_CPUSETS */
 
 #ifdef ENABLE_CPA
@@ -2155,8 +2287,8 @@ int TMomFinalizeChild(
 
   if (LOGLEVEL >= 10)
     log_err(-1,id,"system vars set");
-	
-  umask(077);
+
+  umask(determine_umask());
 
   if (TJE->is_interactive == TRUE) 
     {
@@ -2664,8 +2796,9 @@ int TMomFinalizeChild(
      SIGKILLs herself with interactive jobs -garrick */
 
 #ifdef PENABLE_LINUX26_CPUSETS
-      /* Move this mom process into the cpuset so the job will start in it. */
-      move_to_jobset(getpid(),pjob);
+  /* Move this mom process into the cpuset so the job will start in it. */
+
+  move_to_jobset(getpid(),pjob);
 #endif  /* (PENABLE_LINUX26_CPUSETS) */
 
   if (site_job_setup(pjob) != 0) 
@@ -2949,7 +3082,19 @@ int TMomFinalizeChild(
       sigaction(SIGINT,&act,(struct sigaction *)0);
       }
 
-    execve(shell,arg,vtable.v_envp);
+    if (mom_does_chkpnt())
+      {
+      /* Launch job executable with cr_run command so that cr_checkpoint command will work. */
+      arg[3] = arg[2];
+      arg[2] = arg[1];
+      arg[1] = malloc(strlen(shell)+1);
+      strcpy(arg[1], shell);
+      execve(checkpoint_run_exe_name, arg, vtable.v_envp);
+      }
+    else
+      {
+      execve(shell, arg, vtable.v_envp);
+      }
     }
   else if (cpid == 0)
     {	
@@ -3721,7 +3866,15 @@ int start_process(
         {
         strcpy(nodeidbuf,vtable.v_envp[j]+strlen("PBS_VNODENUM="));
 
+        /* FIXME: temp debugging info */
+
+        sprintf(log_buffer,"about to move to taskset for job %s/%s.\n",
+          pjob->ji_qs.ji_jobid,nodeidbuf);
+
+        log_err(-1,id,log_buffer);
+
         /* Move this mom process into the cpuset so the job will start in it. */
+
         move_to_taskset(getpid(),pjob,nodeidbuf);
         }
       }

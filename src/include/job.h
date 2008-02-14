@@ -260,12 +260,13 @@ enum job_atr {
   JOB_ATR_exitstat,	/* exit status of job			  */
   JOB_ATR_forwardx11,
   JOB_ATR_submit_args,
-  JOB_ATR_job_array_size,
   JOB_ATR_job_array_id,
   JOB_ATR_job_array_request,
   JOB_ATR_umask,
   JOB_ATR_start_time,  /* time when job was first started */
   JOB_ATR_start_count, /* number of times the job has been started */
+  JOB_ATR_chkptdir,    /* directory where job checkpoint file is stored */
+  JOB_ATR_chkptname,   /* name of checkpoint file */
 #include "site_job_attr_enum.h"
 
   JOB_ATR_UNKN,		/* the special "unknown" type		  */
