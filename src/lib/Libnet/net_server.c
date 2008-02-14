@@ -765,69 +765,93 @@ int get_connecthost(
   char *namebuf,  /* O (minsize=size) */
   int   size)     /* I */
 
-  {
-  struct hostent *phe;
-  struct in_addr  addr;
-  int             namesize = 0;
+{
+    struct sockaddr_storage addr;
 
-  static struct in_addr  serveraddr;
-  static char           *server_name = NULL;
+    static struct sockaddr_storage serveraddr;
 
-  if ((server_name == NULL) && (pbs_server_addr != 0))
-    {
-    /* cache local server addr info */
+    static char server_name[NI_MAXHOST];
 
-    serveraddr.s_addr = htonl(pbs_server_addr);
+#ifdef TORQUE_WANT_IPV6
+    int                 addrlen, error = 0;
+#else
+    struct hostent      *phe;
+    int namesize = 0;
+#endif
 
-    if ((phe = gethostbyaddr(
-            (char *)&serveraddr,
-            sizeof(struct in_addr),
-            AF_INET)) == NULL)
-      {
-      server_name = strdup(inet_ntoa(serveraddr));
-      }
-    else
-      {
-      server_name = strdup(phe->h_name);
-      }
+    /* Assume that if the ss_family field is populated, the structure holds
+     * valid data */
+    if ((server_name == '\0') && (pbs_server_addr.ss_family != 0)) {
+        /* cache local server addr info */
+
+        serveraddr = pbs_server_addr;
+
+#ifdef TORQUE_WANT_IPV6
+        addrlen = SINLEN(serveraddr);
+        error = getnameinfo((struct sockaddr *)serveraddr, addrlen,
+                    server_name, NI_MAXHOST,
+                    NULL, 0, 0);
+        if (error) {
+            log_err(-1, "get_connecthost", gai_strerror());
+            return(-1);
+        }
+#else
+        if (NULL == (phe = gethostbyaddr(
+                            &((struct sockaddr_in*)&serveraddr)->sin_addr,
+                            sizeof(struct in_addr),
+                            AF_INET))) {
+            strncpy(server_name, inet_ntoa(((struct sockaddr_in*)&serveraddr)->sin_addr), NI_MAXHOST);
+        } else {
+            strncpy(server_name, phe->h_name, NI_MAXHOST);
+        }
+#endif
     }
 
-  size--;
-  addr.s_addr = htonl(svr_conn[sock].cn_addr);
-
-  if ((server_name != NULL) && (addr.s_addr == serveraddr.s_addr))
-    {
-    /* lookup request is for local server */
-
-    strcpy(namebuf,server_name);
+    if ((server_name != '\0') && compare_ip(&addr, &serveraddr)) {
+        /* lookup request is for local server, use cached name */
+        strncpy(namebuf, server_name, size);
     }
-  else if ((phe = gethostbyaddr(
-        (char *)&addr,
-        sizeof(struct in_addr), 
-        AF_INET)) == NULL) 
-    {
-    strcpy(namebuf,inet_ntoa(addr));
-    }
-  else 
-    {
-    namesize = strlen(phe->h_name);
+#ifdef TORQUE_WANT_IPV6
+    else {
+        addr = svr_conn[sock].cn_addr;
 
-    strncpy(namebuf,phe->h_name,size);
-
-    *(namebuf + size) = '\0';
+        error = getnameinfo((struct sockaddr *)addr, addrlen,
+                    namebuf, size,
+                    NULL, 0, 0);
+        if (error) {
+            log_err(-1, "get_connecthost", gai_strerror());
+        }
     }
 
-  if (namesize > size)
-    {
-    /* FAILURE - buffer too small */
+    if (EAI_OVERFLOW == error) {
+        /* FAILURE - buffer too small (conform to historic return code) */
+        return(-1);
+    }
+#else /* !TORQUE_WANT_IPV6 */
+    else if ((phe = gethostbyaddr(
+                        &((struct sockaddr_in*)&addr)->sin_addr,
+                        sizeof(struct in_addr),
+                        AF_INET)) == NULL) {
+        strncpy(namebuf, inet_ntoa(((struct sockaddr_in*)&addr)->sin_addr), size);
+    }
+    else {
+        namesize = strlen(phe->h_name);
 
-    return(-1);
+        strncpy(namebuf,phe->h_name,size);
+
+        *(namebuf + size) = '\0';
     }
 
-  /* SUCCESS */
+    if (namesize > size) {
+        /* FAILURE - buffer too small */
+        return(-1);
+    }
+#endif
 
-  return(0);
-  }  /* END get_connecthost() */
+    /* SUCCESS */
+
+    return(0);
+}  /* END get_connecthost() */
 
 
 
