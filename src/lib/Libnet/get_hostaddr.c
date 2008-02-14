@@ -87,10 +87,11 @@
 #include <arpa/inet.h>
 #endif
 
-#include "portability.h"
 #include "server_limits.h"
 #include "net_connect.h"
 #include "pbs_error.h"
+#include "portability6.h"
+
 
 #if !defined(H_ERRNO_DECLARED)
 extern int h_errno;
@@ -103,55 +104,87 @@ extern int h_errno;
  *
  * get_hostaddr - get internal internet address of a host
  *
- *	Returns a pbs_net_t (unsigned long) containing the network
- *	address in host byte order.  A Null value is returned on
- *	an error.
+ *	Returns a string containing the network address in host byte order.  A Null
+ *	value is returned on an error.
  */
 
 
 char *PAddrToString(
 
-  pbs_net_t *Addr)
+  struct sockaddr_storage *Addr)
 
-  {
-  static char tmpLine[1024];
+{
+	static char tmpLine[NI_MAXHOST];
+#ifdef TORQUE_WANT_IPV6
+	int addrlen;
+#endif
 
-  sprintf(tmpLine,"%lu",
-    *(unsigned long *)Addr);
+	if (NULL != Addr) {
 
-  return(tmpLine);
-  }
+#ifdef TORQUE_WANT_IPV6
+		addrlen = SINLEN(Addr);
+		if (getnameinfo((struct sockaddr *)Addr, addrlen, tmpLine, NI_MAXHOST,
+					NULL, 0, NI_NUMERICHOST)) {
+			return(NULL);
+		}
+#else
+		sprintf(tmpLine, "%lu", *(unsigned long *)ntohl(((struct sockaddr_in *)Addr)->sin_addr.s_addr));
+#endif
+	}
+
+	return(tmpLine);
+}
 
 
 
 
 
-pbs_net_t get_hostaddr(
+int get_hostaddr(
 
-  char *hostname) /* I */
+  char *hostname,                /* I */
+  struct sockaddr_storage *ret)  /* O */
 
-  {
-  static struct in_addr  hostaddr;
-  struct hostent        *hp;
+{
+#ifdef TORQUE_WANT_IPV6
+	struct addrinfo       *addr, hints;
+	int                    error;
+#else
+	struct hostent        *hp;
+#endif
 
-  extern int pbs_errno;
+	extern int pbs_errno;
 
-  hp = gethostbyname(hostname);
+#ifdef TORQUE_WANT_IPV6
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_socktype = SOCK_STREAM;
 
-  if (hp == NULL) 
-    {
-    if (h_errno == TRY_AGAIN)
-      pbs_errno = PBS_NET_RC_RETRY;
-    else
-      pbs_errno = PBS_NET_RC_FATAL;
+	error = getaddrinfo(hostname, NULL, &hints, addr);
 
-    return((pbs_net_t)0);
-    }
-	
-  memcpy((void *)&hostaddr,(void *)hp->h_addr_list[0],hp->h_length);
+	if (0 == error) {
+		memcpy(&ret, res->ai_addr, res->ai_addrlen);
+	}
+	else {
+		pbs_errno = (EAI_AGAIN == error) ? PBS_NET_RC_RETRY : PBS_NET_RC_FATAL;
+		freeaddrinfo(res);
+		return(error);
+	}
+#else
+	hp = gethostbyname(hostname);
 
-  return((pbs_net_t)ntohl(hostaddr.s_addr));
-  }  /* END get_hostaddr() */
+	if (hp == NULL) {
+		if (h_errno == TRY_AGAIN)
+			pbs_errno = PBS_NET_RC_RETRY;
+		else
+			pbs_errno = PBS_NET_RC_FATAL;
+
+		return(h_errno);
+	}
+
+	memcpy(&((struct sockaddr_in*)ret)->sin_addr, hp->h_addr, hp->h_length);
+#endif
+
+	return 0;
+}  /* END get_hostaddr() */
 
 /* END get_hostaddr.c */
 

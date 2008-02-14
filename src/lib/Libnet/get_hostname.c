@@ -87,6 +87,9 @@
 #include <ctype.h>
 #include <stdio.h>
 #include <errno.h>
+
+#include "portability.h"
+
 /*
  * get_fullhostname - get the fully qualified name of a host
  *
@@ -99,114 +102,155 @@
 
 int get_fullhostname(
 
-  char *shortname,  /* I */
-  char *namebuf,    /* O */
-  int   bufsize,    /* I */
-  char *EMsg)       /* O (optional,minsize=1024) */
+	char *shortname,  /* I */
+	char *namebuf,    /* O */
+	int   bufsize,    /* I */
+	char *EMsg)       /* O (optional,minsize=1024) */
 
-  {
-  char *pbkslh = NULL;
-  char *pcolon = NULL;
+{
+	char *pbkslh = NULL;
+	char *pcolon = NULL;
+#ifdef TORQUE_WANT_IPV6
+	struct addrinfo hints, *res;
+    int error;
+#else
+	struct hostent *phe;
+	struct in_addr  ina;
 
-  struct hostent *phe;
-  struct in_addr  ina;
+	int   index;
+#endif
 
-  int   index;
 
-  if ((shortname == NULL) || (shortname[0] == '\0'))
-    {
-    /* FAILURE */
+	if ((NULL == shortname) || ('\0' == shortname[0])) {
+		/* FAILURE */
 
-    if (EMsg != NULL)
-      strcpy(EMsg,"host name not specified");
+		if (EMsg != NULL)
+			strcpy(EMsg,"host name not specified");
 
-    return(-1);
-    }
+		return(-1);
+	}
 
-  if ((pcolon = strchr(shortname,':')) != NULL) 
-    {
-    *pcolon = '\0';
+	if ((pcolon = strchr(shortname,':')) != NULL) {
+		*pcolon = '\0';
 
-    if (*(pcolon - 1) == '\\')
-      {
-      pbkslh = pcolon - 1;
+		if ('\\' == *(pcolon - 1)) {
+			pbkslh = pcolon - 1;
+			*pbkslh = '\0';
+		}
+	}
 
-      *pbkslh = '\0'; 
-      }
-    }
+#ifdef TORQUE_WANT_IPV6 /* IPv6/4 enabled version, works correct for BOTH versions */
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_CANONNAME;
 
-  phe = gethostbyname(shortname);
+	error = getaddrinfo(shortname, NULL, &hints, &res);
 
-  if (pcolon != NULL) 
-    {
-    *pcolon = ':';	/* replace the colon */
+	if (NULL != pcolon) {
+		*pcolon = ':';	/* restore the colon */
 
-    if (pbkslh)
-      *pbkslh = '\\';
-    }
+		if (pbkslh)
+			*pbkslh = '\\';
+	}
 
-  if (phe == NULL)
-    {
-    /* FAILURE - cannot gethostbyname() */
+	if (0 == error) {
+		if (strlen(res->ai_canonname) > (size_t)bufsize) {
+			/* FAILURE - name too long */
+			if (NULL != EMsg) {
+				snprintf(EMsg, 1024,
+							"hostname (%.32s...) is too long (> %d chars)",
+							res->ai_canonname, bufsize);
+			}
 
-    if (EMsg != NULL)
-      snprintf(EMsg,1024,"gethostbyname(%s) failed, h_errno=%d",
-        shortname,
-        h_errno);
+			return(-1);
+		}
+		strncpy(namebuf, res->ai_canonname, bufsize);
 
-    return(-1);
-    }
+		namebuf[bufsize - 1] = '\0';	/* ensure null terminated */
 
-  memcpy((char *)&ina,*phe->h_addr_list,phe->h_length);
+		/* lowercase the name */
+		for (char *p = namebuf; *p != '\0'; ++p)
+			*p = tolower(*p);
 
-  phe = gethostbyaddr((char *)&ina,phe->h_length,phe->h_addrtype);
+		/* free resources */
+		freeaddrinfo(res);
+	}
+	else {
+		/* on error, return the error string of getaddrinfo */
+		snprintf(EMsg, 1024, gai_strerror(error));
 
-  if (phe == NULL)
-    {
-    if (h_errno == HOST_NOT_FOUND)
-      {
-      fprintf(stderr,"Unable to lookup host '%s' by address (check /etc/hosts or DNS reverse name lookup)\n", 
-        shortname); 
-      }
+		return(-1);
+	}
 
-    if (EMsg != NULL)
-      snprintf(EMsg,1024,"gethostbyname(%s) failed, h_errno=%d",
-        shortname,
-        h_errno);
-	
-    /* FAILURE - cannot get host by address */
- 
-    return(-1);
-    }
+#else  /* IPv4 enabled version */
 
-  if ((size_t)bufsize < strlen(phe->h_name))
-    {
-    /* FAILURE - name too long */
+	phe = gethostbyname(shortname);
 
-    if (EMsg != NULL)
-      snprintf(EMsg,1024,"hostname (%.32s...) is too long (> %d chars)",
-        phe->h_name,
-        bufsize);
+	if (pcolon != NULL) {
+		*pcolon = ':';	/* replace the colon */
 
-    return(-1);
-    }
+		if (pbkslh)
+			*pbkslh = '\\';
+	}
 
-  strncpy(namebuf,phe->h_name,bufsize);
+	if (NULL == phe) {
+		/* FAILURE - cannot gethostbyname() */
 
-  namebuf[bufsize - 1] = '\0';	/* ensure null terminated */
+		if (EMsg != NULL)
+			snprintf(EMsg, 1024, "gethostbyname(%s) failed, h_errno=%d", 
+						shortname, h_errno);
 
-  for (index = 0;index < bufsize;index++)
-    {
-    if (namebuf[index] == '\0')
-      break;
+		return(-1);
+	}
 
-    namebuf[index] = tolower(namebuf[index]);
-    }  /* END for (index) */
+	memcpy((char *)&ina,*phe->h_addr_list,phe->h_length);
 
-  /* SUCCESS */
+	phe = gethostbyaddr((char *)&ina,phe->h_length,phe->h_addrtype);
 
-  return(0);
-  }  /* END get_fullhostname() */
+	if (NULL == phe) {
+		if (HOST_NOT_FOUND == h_errno) {
+			fprintf(stderr,
+					"Unable to lookup host '%s' by address (check /etc/hosts or DNS reverse name lookup)\n",
+					shortname); 
+		}
+
+		if (EMsg != NULL)
+			snprintf(EMsg,1024,"gethostbyname(%s) failed, h_errno=%d",
+						shortname, h_errno);
+
+		/* FAILURE - cannot get host by address */
+
+		return(-1);
+	}
+
+	if ((size_t)bufsize < strlen(phe->h_name)) {
+	/* FAILURE - name too long */
+
+	if (EMsg != NULL)
+		snprintf(EMsg,1024,"hostname (%.32s...) is too long (> %d chars)",
+					phe->h_name,
+					bufsize);
+
+		return(-1);
+	}
+
+	strncpy(namebuf,phe->h_name,bufsize);
+
+	namebuf[bufsize - 1] = '\0';	/* ensure null terminated */
+
+	for (index = 0;index < bufsize;index++) {
+		if (namebuf[index] == '\0')
+			break;
+
+		namebuf[index] = tolower(namebuf[index]);
+	}  /* END for (index) */
+#endif
+
+	/* SUCCESS */
+
+	return(0);
+}  /* END get_fullhostname() */
 
 /* END get_hostname.c */
 
