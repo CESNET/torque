@@ -246,12 +246,73 @@ int openrm(
 
 #else /* RPP */
 
-  if ((stream = socket(AF_INET,SOCK_STREAM,0)) != -1) 
-    {
-    int	tryport = IPPORT_RESERVED;
-    struct	sockaddr_in	addr;
-    struct	hostent		*hp;
+	in_port_t tryport = IPPORT_RESERVED; /* in_port_t == uint16_t */
 
+#ifdef TORQUE_WANT_IPV6
+
+	struct addrinfo       hints, *addri, *addrj;
+	int error;
+	char tmpport[5];
+
+	assert(NI_MAXSERV <= 9999); /* so that strlen(tryport) < 5 */
+
+	snprintf(tmpport, 5, "%hd", tryport); /* for getaddrinfo */
+
+	memset(&hints, 0, sizeof(struct addrinfo));
+	hints.ai_family = AF_UNSPEC; /* Accept both IPv4 and IPv6 */
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = 0;
+	hints.ai_flags = AI_PASSIVE | AI_NUMERICSERV; /* For wildcard address */
+
+	if (0 == (error = getaddrinfo(NULL, tryport, &hints, &addri))) {
+
+		for (addrj = addri; NULL != addrj; addrj = addrj->ai_next) {
+			if (-1 != (stream = socket(addri->ai_family, addri->ai_socktype, 0)))
+			  break;
+		}
+
+		while (--tryport > 0) {
+			switch (addrj->ai_family) {
+				case AF_INET: ((struct sockaddr_in *)addrj->ai_addr)->sin_port = htnos(tryport); break;
+				case AF_INET6: ((struct sockaddr_in6 *)addrj->ai_addr)->sin6_port = htons(tryport); break;
+				default: DBPTR(("openrm: af_family %d not suppported\n", addrj->ai_family));
+			}
+
+			if (-1 != bind(stream, addrj->ai_addr, addrj->ai_addrlen))
+				break;
+
+			if ((errno != EADDRINUSE) && (errno != EADDRNOTAVAIL))
+				break;
+		} /* END WHILE(--tryport > 0) */
+
+	}
+	else {
+		DBPTR(("%s\n", gai_strerror(error)));
+		pbs_errno = error;
+		return(-1);
+	}
+	freeaddrinfo(addri);
+
+	hints.ai_flags = 0;
+	if (0 == (error = getaddrinfo(host, NULL, &hints, &addri))) {
+		if (-1 == connect(stream, addri->ai_addr, addri->ai_addrlen)) {
+			pbs_errno = errno;
+			close(stream);
+			return(-1);
+		}
+	}
+	else {
+		DBPTR(("%s\n", gai_strerror(error)));
+		pbs_errno = error;
+		return(-1);
+	}
+
+#else /* !TORQUE_WANT_IPV6 case */
+  struct sockaddr_in6 addr;
+
+  if ((stream = socket(AF_INET,SOCK_STREAM,0)) != -1)
+  {
+    struct hostent      *hp;
     if ((hp = gethostbyname(host)) == NULL) 
       {
       DBPRT(("host %s not found\n", 
@@ -294,6 +355,7 @@ int openrm(
       }
     }    /* END if ((stream = socket(AF_INET,SOCK_STREAM,0)) != -1) */
 
+#endif /* TORQUE_WANT_IPV6 */
 #endif /* RPP */
 
   pbs_errno = errno;
