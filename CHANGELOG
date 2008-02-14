@@ -20,6 +20,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - new "sched_version" server attribute
   f - new printserverdb tool
   e - pbs_server/pbs_mom hostname arg is now -H, -h is help
+  e - added $umask to pbs_mom config, used for generated output files.
 
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has
@@ -64,6 +65,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   f - add --with-modulefiles=[DIR] support
   b - be more careful about broken tclx installs
 
+2.1.11
+  b - nqs2pbs is now a generated script
+  b - correct handling of priv job attr
+  b - change font selectors in manpages to bold
 
 2.1.10
   b - fix buffer overflow in rm_request,

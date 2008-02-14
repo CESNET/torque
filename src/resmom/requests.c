@@ -91,6 +91,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <dirent.h>
+#include <time.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include "dis.h"
@@ -1779,6 +1780,7 @@ void req_signaljob(
   struct batch_request *preq) /* I */
 
   {
+  char           id[]= "req_signaljob";
   job            *pjob;
   int             sig;
   char           *sname;
@@ -1881,12 +1883,12 @@ void req_signaljob(
     {
     /* if job is suspended, resume, and then kill - allow job to clean up on sigterm */
 
-    kill_job(pjob,SIGCONT);
+    kill_job(pjob,SIGCONT,id,"job is suspended, resume and kill");
 
     sleep(1);
     }
 
-  if ((kill_job(pjob,sig) == 0) && (sig == 0)) 
+  if ((kill_job(pjob,sig,id,"job was suspended, now killing") == 0) && (sig == 0)) 
     {
     /* SIGNUL and no procs found, force job to exiting */
     /* force issue of (another) job obit */
@@ -3436,11 +3438,9 @@ int mom_checkpoint_job(
   int  abort) /* I */
 
   {
-  static char	id[] = "mom_checkpoint_job";
   int		hasold = 0;
   int		sesid = -1;
   int		ckerr;
-  int		i;
   struct stat	statbuf;
   char		path[MAXPATHLEN + 1];
   char		oldp[MAXPATHLEN + 1];
@@ -3719,11 +3719,33 @@ int start_checkpoint(
   int       rc;
   int       sock = -1;
   attribute tmph;
+  char      name_buffer[1024];
 
   if (mom_does_chkpnt() == 0) 	/* no checkpoint, reject request */
     {
     return(PBSE_NOSUP);
     }
+
+    /* Build the name of the checkpoint file before forking to the child */
+
+    sprintf(name_buffer, "ckpt.%s.%d",
+      pjob->ji_qs.ji_jobid,
+      (int)time(0) );
+    decode_str(&pjob->ji_wattr[(int)JOB_ATR_chkptname],NULL,NULL,name_buffer);
+    pjob->ji_wattr[(int)JOB_ATR_chkptname].at_flags =
+      ATR_VFLAG_SET | ATR_VFLAG_MODIFY | ATR_VFLAG_SEND;
+
+
+    if (!(pjob->ji_wattr[(int)JOB_ATR_chkptdir].at_flags & ATR_VFLAG_SET))
+    {
+    /* No dir specified, use the default job checkpoint directory /var/spool/torque/checkpoint/42.host.domain.CK */
+
+    strcpy(name_buffer,path_checkpoint);
+    strcat(name_buffer,pjob->ji_qs.ji_fileprefix);
+    strcat(name_buffer,JOB_CKPT_SUFFIX);
+    decode_str(&pjob->ji_wattr[(int)JOB_ATR_chkptdir],NULL,NULL,name_buffer);
+    }
+
 
   /* now set up as child of MOM */
 
@@ -3737,7 +3759,7 @@ int start_checkpoint(
     /* parent, record pid in job for when child terminates */
 
     pjob->ji_momsubt = pid;
-    pjob->ji_mompost = post_chkpt;
+    pjob->ji_mompost = (int (*)())post_chkpt;
 
     if (preq)
       free_br(preq);
