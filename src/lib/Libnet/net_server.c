@@ -239,7 +239,6 @@ int init_network(
   int                 addrlen;
   enum conn_type      type;
 #ifdef ENABLE_UNIX_SOCKETS
-  struct sockaddr_un unsocname;
   int unixsocket;
 #endif
 
@@ -340,14 +339,16 @@ int init_network(
 	  return(-1);
 	}
 
-  unsocname.sun_family=AF_UNIX;
-  strncpy(unsocname.sun_path,TSOCK_PATH,107);  /* sun_path is defined to be 108 bytes */
+  memset(&socname, 0, sizeof(struct sockaddr_storage));
+
+  socname.ss_family = AF_UNIX;
+  strncpy(((struct sockaddr_un*)&socname)->sun_path,TSOCK_PATH,107);  /* sun_path is defined to be 108 bytes */
 
   unlink(TSOCK_PATH);  /* don't care if this fails */
 
   if (bind(unixsocket,
-				  (struct sockaddr *)&unsocname,
-				  strlen(unsocname.sun_path) + sizeof(unsocname.sun_family)) < 0) 
+				  (struct sockaddr *)&socname,
+				  strlen(((struct sockaddr_un*)&socname)->sun_path) + sizeof(socname.ss_family)) < 0) 
 	{
 	  close(unixsocket);
 
@@ -361,7 +362,7 @@ int init_network(
 	  return(-1);
 	}
 
-  add_conn(unixsocket,type,(pbs_net_t)0,0,PBS_SOCK_UNIX,accept_conn);
+  add_conn(unixsocket,type,socname,accept_conn);
   if (listen(unixsocket,512) < 0) 
 	{
 
@@ -553,7 +554,6 @@ static void accept_conn(
   {
   int newsock;
   struct sockaddr_storage from;
-  struct sockaddr_un unixfrom;
 
   torque_socklen_t fromsize;
 	
@@ -561,16 +561,13 @@ static void accept_conn(
 
   svr_conn[sd].cn_lasttime = time((time_t *)0);
 
-  if (PBS_SOCK_INET == svr_conn[sd].cn_socktype) {
-      fromsize = sizeof(struct sockaddr_in);
-      newsock = accept(sd,(struct sockaddr *)&from,&fromsize);
-  } else if (PBS_SOCK_INET6 == svr_conn[sd].cn_socktype) {
-      fromsize = sizeof(struct sockaddr_in6);
-      newsock = accept(sd,(struct sockaddr *)&from,&fromsize);
-  } else {
-      fromsize = sizeof(unixfrom);
-      newsock = accept(sd,(struct sockaddr *)&unixfrom,&fromsize);
+  switch (svr_conn[sd].cn_addr.ss_family) {
+      case PBS_SOCK_INET: fromsize = sizeof(struct sockaddr_in); break;
+      case PBS_SOCK_INET6: fromsize = sizeof(struct sockaddr_in6); break;
+      default: fromsize = sizeof(from);
   }
+
+  newsock = accept(sd,(struct sockaddr *)&from,&fromsize);
 
   if (newsock == -1) 
     {
@@ -621,7 +618,6 @@ void add_conn(
   svr_conn[sock].cn_lasttime = time((time_t *)0);
   svr_conn[sock].cn_func     = func;
   svr_conn[sock].cn_oncl     = 0;
-  svr_conn[sock].cn_socktype = addr.ss_family;
 
 #ifndef NOPRIVPORTS
   if (IS_INET(addr) && GET_PORT(&addr) < IPPORT_RESERVED)
