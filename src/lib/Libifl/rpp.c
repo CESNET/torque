@@ -1040,7 +1040,14 @@ static void rpp_send_out()
       netaddr(&sp->addr),
       (char *)&pp->data[pp->len+RPP_PKT_CRC]))
 
-    len = sizeof(struct sockaddr_in);
+     switch (sp->addr.ss_family)
+       {
+         case AF_INET: len = sizeof(struct sockaddr_in); break;
+#ifdef TORQUE_WANT_IPV6
+         case AF_INET6: len = sizeof(struct sockaddr_in6); break;
+#endif
+         default: DBPRT((DBTO, "protocol not supported in rpp_send_out\n")) ;
+       }
 
     if (sendto(
          sp->fd,
