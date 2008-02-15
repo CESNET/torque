@@ -2794,7 +2794,7 @@ int rpp_open(
 **	Return the network address for a stream.
 */
 
-struct	sockaddr_in *rpp_getaddr(
+struct	sockaddr_storage *rpp_getaddr(
 
   int index)
 
