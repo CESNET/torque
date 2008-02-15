@@ -889,8 +889,32 @@ static void rpp_form_pkt(
 	return;
 }
 
+/*
+** Checks if two given sockaddr[_storage] contain the same port
+** Returns 1 on successful match, 0 otherwise
+*/
+static int rpp_compare_port(
+  struct sockaddr_storage *lhs,
+  struct sockaddr_storage *rhs)
 
+  {
+  /* Early exit, can't compare the two */
+  if (lhs->ss_family != rhs->ss_family)
+    return(0);
 
+  switch (lhs->ss_family)
+    {
+    case AF_INET:
+        if (((struct sockaddr_in*)lhs)->sin_port == ((struct sockaddr_in*)rhs)->sin_port)
+          return(0);
+#ifdef TORQUE_WANT_IPV6
+    case AF_INET6:
+        if (((struct sockaddr_in6*)lhs)->sin6_port == ((struct sockaddr_in6*)rhs)->sin6_port)
+          return(0);
+#endif
+    default: return(1);
+    }
+  }
 
 /*
 **	Check to make sure an incoming packet goes with one of the
