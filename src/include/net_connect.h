@@ -77,13 +77,18 @@
 * without reference to its choice of law rules.
 */
 
+#include <netinet/in.h>
+#include "portability.h"
+#include "portability6.h"
+
 /* 
  * Other Include Files Required 
  *	<sys/types.h>
  */
+#ifndef PBS_NET_H
 #define PBS_NET_H
 #ifndef PBS_NET_TYPE
-typedef unsigned long pbs_net_t;        /* for holding host addresses */
+typedef struct sockaddr_storage* pbs_net_t; /* for holding host addresses */
 #define PBS_NET_TYPE
 #endif
 
@@ -94,6 +99,7 @@ typedef unsigned long pbs_net_t;        /* for holding host addresses */
 
 #define PBS_SOCK_UNIX 	   1
 #define PBS_SOCK_INET 	   2
+#define PBS_SOCK_INET6     10
 
 /*
 **	Protocol numbers and versions for PBS communications.
@@ -172,28 +178,29 @@ enum conn_type {
 
 /* functions available in libnet.a */
 
-void add_conn A_((int,enum conn_type,pbs_net_t,unsigned int,unsigned int,void (*func) A_((int))));
-int  find_conn A_((pbs_net_t));
-int  client_to_svr A_((pbs_net_t,unsigned int,int,char *));
+void add_conn A_((int,enum conn_type,struct sockaddr_storage,void (*func) A_((int))));
+int  find_conn A_((struct sockaddr_storage *));
+int  client_to_svr A_((struct sockaddr_storage*,sa_family_t,int,char *));
 void close_conn A_((int));
-pbs_net_t get_connectaddr A_((int));
+struct sockaddr_storage * get_connectaddr A_((int));
 int  get_connecthost A_((int sock,char *,int));
-pbs_net_t get_hostaddr A_((char *));
+int  get_hostaddr A_((char *, struct sockaddr_storage*));
 int  get_fullhostname A_((char *,char *,int,char *));
 unsigned int  get_svrport A_((char *,char *,unsigned int));
-int  init_network A_((unsigned int,void (*readfunc)()));
+int  init_network A_((unsigned int,void (*readfunc)(),sa_family_t af_family));
 void net_close A_((int));
 int  wait_request(time_t waittime,long *);
 void net_add_close_func A_((int,void(*)()));
 void net_set_type A_((enum conn_type,enum conn_type));
+int compare_ip A_((struct sockaddr_storage *, struct sockaddr_storage *));
+char	*		netaddr		(struct sockaddr_storage *);
 
 
 struct connection {
-  pbs_net_t	cn_addr;	/* internet address of client */
+  struct sockaddr_storage cn_addr;	/* internet address of client */
+  size_t cn_addrlen; /* length of cn_addr */
   int		cn_handle;	/* handle for API, see svr_connect() */
-  unsigned int	cn_port;	/* internet port number of client */
   unsigned short cn_authen;	/* authentication flags */
-  unsigned short cn_socktype;	/* authentication flags */
   enum conn_type cn_active;     /* idle or type if active */
   time_t	cn_lasttime;    /* time last active */
   void		(*cn_func) A_((int)); /* read function when data rdy */
@@ -206,3 +213,4 @@ struct netcounter {
 };
 
 int *netcounter_get();
+#endif
