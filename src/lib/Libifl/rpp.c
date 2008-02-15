@@ -112,6 +112,8 @@
 #endif
 
 #include	"rpp.h"
+#include    "net_connect.h" /* for compare_ip */
+#include    "portability6.h"
 
 #if !defined(H_ERRNO_DECLARED)
 extern int h_errno;
@@ -340,12 +342,16 @@ struct stream {
   int state;		/* state of this end of the */
 			/* connection; RPP_OPEN, etc */
 
-  struct sockaddr_in addr;	/* address of the other end; */
-				/* port/family/IPadrs */
+  struct sockaddr_storage addr; /* address of the other end */
+                                /* could be IPv4 OR IPv6; */
 
-  struct in_addr *addr_array;	/* array of alternate network */
+  struct sockaddr_storage *addr_array;	/* array of alternate network */
 				/* addresses for other end */
 				/* of the connection */
+
+  int num_alt_addrs; /* number of elements in addr_array */
+
+  size_t addrlen; /* indicates the length of struct sockaddr_storage addr */
 
   int fd;		/* must be in rpp_fd_array */
 
@@ -444,6 +450,8 @@ int		rpp_dbprt = 0;			/* controls debug printing */
 **	for the returned stream.
 */
 int		rpp_fd = -1;
+/* IPv6 version */
+int     rpp_fd6 = -1;
 
 /*
 **	A dynamic array of socket descriptors bound to a network address.
