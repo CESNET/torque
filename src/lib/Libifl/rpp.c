@@ -923,14 +923,14 @@ static int rpp_compare_port(
 
 static struct stream *rpp_check_pkt(
 
-  int                 index,
-  struct sockaddr_in *addrp)
+  int                      index,
+  struct sockaddr_storage *addrp)
 
   {
   DOID("check_pkt")
 
   struct stream  *sp;
-  struct in_addr *addrs;
+  struct sockaddr_storage *addrs;
   int             i;
 
   if ((index < 0) || (index >= stream_num)) 
@@ -951,37 +951,35 @@ static struct stream *rpp_check_pkt(
     return(NULL);
     }
 
-  if ((addrp->sin_family == 0) || (addrp->sin_family >= AF_MAX))
+  if ((addrp->ss_family==0) || (addrp->ss_family >= AF_MAX))
     {
     /*
      * Some systems have a buggy recvfrom() that doesn't set
-     * sin_family for UDP sockets.  This was directly observed
+     * ss_family for UDP sockets.  This was directly observed
      * on Sandia's Tru64 system -garrick
      */
 
-    DBPRT((DBTO,"%s: buggy recvfrom(), fixing bogus sin_family value: %d\n",
+    DBPRT((DBTO,"%s: buggy recvfrom(), fixing bogus ss_family value: %d\n",
       id,
-      addrp->sin_family));
+      addrp->ss_family))
 
-    addrp->sin_family = sp->addr.sin_family;
+    addrp->ss_family = sp->addr.ss_family;
     }
 
-  if (addrp->sin_port != sp->addr.sin_port)
+  if (addrp->ss_family != sp->addr.ss_family)
     goto bad;
 
-  if (addrp->sin_family != sp->addr.sin_family)
+  if (rpp_compare_port(addrp, &sp->addr))
     goto bad;
 
-  if (addrp->sin_addr.s_addr == sp->addr.sin_addr.s_addr)
-    {
-    return(sp);
-    }
+  if (compare_ip(addrp, &sp->addr))
+      return(sp);
 
   if ((addrs = sp->addr_array) != NULL) 
     {
-    for (i = 0;addrs[i].s_addr;i++) 
+    for (i = 0; i < sp->num_alt_addrs; ++i)
       {
-      if (addrs[i].s_addr == addrp->sin_addr.s_addr)
+      if (compare_ip(addrs, addrp))
         {
         return(sp);
         }
