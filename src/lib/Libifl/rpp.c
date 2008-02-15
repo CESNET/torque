@@ -1388,7 +1388,7 @@ static int rpp_send_ack(
         RPP_PKT_HEAD, 
         0, 
         (struct sockaddr *)&sp->addr,
-        sizeof(struct sockaddr_in)) == -1) 
+        sp->addrlen) == -1) 
     {
     DBPRT((DBTO,"%s: ACK error %d\n", 
       id, 
@@ -1564,8 +1564,10 @@ static int rpp_recv_pkt(
   torque_socklen_t  flen;
 
   int		len;
-  struct sockaddr_in  addr;
+  struct sockaddr_storage addr;
+#if 0
   struct hostent     *hp;
+#endif
   int                 i, streamid;
   struct send_packet *spp, *sprev;
   struct recv_packet *rpp, *rprev;
@@ -1580,7 +1582,7 @@ static int rpp_recv_pkt(
 
   assert(data != NULL);
 
-  flen = sizeof(struct sockaddr_in);
+  flen = sizeof(struct sockaddr_storage);
 
   /*
   **	Loop so we can avoid failing on EINTR.  Thanks to
@@ -1980,8 +1982,11 @@ static int rpp_recv_pkt(
 		sp->fd = fd;
 		sp->retry = RPPRetry;
 		memcpy(&sp->addr, &addr, sizeof(addr));
+        rpp_alist2(&addr, sp);
+#if 0
 		if ((hp = rpp_get_cname(&addr)) != NULL)
 			rpp_alist(hp, sp);
+#endif
 		sp->stream_id = streamid;
 		sp->open_key = sequence;
 		open_key = MAX(open_key, sequence);
