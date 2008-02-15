@@ -77,6 +77,8 @@
 * without reference to its choice of law rules.
 */
 
+#include "portability6.h"
+
 int			rpp_open	(char *,unsigned int,char *);
 int			rpp_bind	(unsigned int);
 int			rpp_poll	(void);
@@ -84,7 +86,7 @@ int			rpp_io		(void);
 int			rpp_read	(int, void *, int);
 int			rpp_write	(int, void *, int);
 int			rpp_close	(int);
-struct	sockaddr_in*	rpp_getaddr	(int);
+struct	sockaddr_storage*	rpp_getaddr	(int);
 int			rpp_flush	(int);
 void			rpp_shutdown	(void);
 void			rpp_terminate	(void);
@@ -94,7 +96,6 @@ int			rpp_skip	(int, int);
 int			rpp_eom		(int);
 int			rpp_getc	(int);
 int			rpp_putc	(int, int);
-char	*		netaddr		(struct sockaddr_in *);
 unsigned long		crc		(unsigned char *, unsigned long);
 
 
