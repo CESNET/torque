@@ -2581,9 +2581,13 @@ int rpp_open(
   {
   DOID("rpp_open")
 
-  int             i, stream;
-  struct hostent *hp;
+  int             i, stream, error;
   struct stream  *sp;
+#ifdef TORQUE_WANT_IPV6
+  struct addrinfo hints, *addri, *addrp;
+#else
+  struct hostent *hp;
+#endif
 
   DBPRT((DBTO, "%s: entered %s:%d\n", 
     id, 
@@ -2603,6 +2607,26 @@ int rpp_open(
     return(-1);
     }
 
+#ifdef TORQUE_WANT_IPV6
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = AF_UNSPEC;
+  hints.ai_socktype = SOCK_DGRAM;
+
+  /* addri will only be used later on */
+  if (error = getaddrinfo(name, NULL, &hints, &addri))
+    {
+    DBPRT((DBTO, "%s: getaddrinfo failed: %s\n", id, gai_strerror(error))
+
+    if (NULL != EMsg)
+      {
+      /* Above assumption states that EMsg is at least 1024 Bytes long */
+      snprintf(EMsg, 1024, "%s\n", gai_strerror(error));
+      }
+
+    return(-1);
+    }
+
+#else
   /*
   ** First, we look up the IP address for this name.
   */
@@ -2626,7 +2650,7 @@ int rpp_open(
 
     return(-1);
     }
-
+#endif
   /*
   **	Look for previously existant stream to the given
   **	host.  If one is found in an open state, just
@@ -2640,14 +2664,29 @@ int rpp_open(
     if (sp->state <= RPP_FREE)
       continue;
 
-    if (memcmp(&sp->addr.sin_addr,hp->h_addr,hp->h_length))
+#ifdef TORQUE_WANT_IPV6
+    for (addrp = addri; NULL != addrp && error; addrp = addrp->ai_next)
+      {
+      /* This also tests for sa_family */
+      if (compare_ip(sp->addr, addrp->addr))
+        {
+        error = 1;
+        continue;
+        }
+      }
+
+    if (GET_PORT(&sp->addr) != htons((unsigned short)port))
+      continue;
+#else
+    if (memcmp(&((struct sockaddr_in*)&sp->addr)->sin_addr,hp->h_addr,hp->h_length))
       continue;
 
-    if (sp->addr.sin_port != htons((unsigned short)port))
+    if (((struct sockaddr_in*)&sp->addr)->sin_port != htons((unsigned short)port))
       continue;
 
-    if (sp->addr.sin_family != hp->h_addrtype)
+    if (((struct sockaddr_in*)&sp->addr)->sin_family != hp->h_addrtype)
       continue;
+#endif
 
     if (sp->state > RPP_CLOSE_PEND) 
       {
@@ -2698,31 +2737,28 @@ int rpp_open(
   ** can send out on the preferred interface.
   */
 
-  memcpy(&sp->addr.sin_addr, hp->h_addr, hp->h_length);
-  sp->addr.sin_port = htons((unsigned short)port);
-  sp->addr.sin_family = hp->h_addrtype;
+#ifdef TORQUE_WANT_IPV6
+  sp->addr = addrp->ai_addr;
+  sp->addrlen = addrp->ai_addrlen;
+  /* Activate the right[tm] fd */
+  sp->fd = (AF_INET == sp->addr.sa_family) ? rpp_fd : rpp_fd6;
+#else
+  memcpy(&((struct sockaddr_in*)&sp->addr)->sin_addr, hp->h_addr, hp->h_length);
+  ((struct sockaddr_in*)&sp->addr)->sin_port = htons((unsigned short)port);
+  ((struct sockaddr_in*)&sp->addr)->sin_family = hp->h_addrtype;
+  sp->addrlen = sizeof(struct sockaddr_in);
   sp->fd = rpp_fd;
+#endif
   sp->retry = RPPRetry;
 
-  if (hp->h_addr_list[1] == NULL) 
+  if ((error = rpp_alist2(&sp->addr, sp)))
     {
-    if ((hp = rpp_get_cname(&sp->addr)) == NULL) 
+    if (NULL != EMsg)
       {
-      errno = ENOENT;
-
-      if (EMsg != NULL)
-        {
-        sprintf(EMsg,"cannot lookup cname for host '%s'",
-          name);
-        }
-  
-      /* FAILURE */
-  
-      return(-1);
+      sprintf(EMsg, "rpp_open: Could not add adress to stream (errorcode: %d)\n", error);
       }
+    return(-1);
     }
-
-  rpp_alist(hp,sp);
 
   sp->stream_id = stream;	/* use my streamid for HELLO1 */
   sp->state = RPP_OPEN_WAIT;
