@@ -810,33 +810,6 @@ next_seq(seq)
 	return 0;
 }
 
-/*
-**	Put a human readable representation of a network addres into
-**	a staticly allocated string.
-*/
-char *
-netaddr(ap)
-    struct sockaddr_in *ap;
-{
-	static	char	out[80];
-	u_long		ipadd;
-
-	if (ap == NULL)
-		return "unknown";
-
-	ipadd = ntohl(ap->sin_addr.s_addr);
-
-	sprintf(out, "%ld.%ld.%ld.%ld:%d",
-		(ipadd & 0xff000000) >> 24,
-		(ipadd & 0x00ff0000) >> 16,
-		(ipadd & 0x0000ff00) >> 8,
-		(ipadd & 0x000000ff),
-		ntohs(ap->sin_port));
-	return out;
-}
-
-
-
 
 /*
 **	Create a packet of the given type, fill in the sequence and
