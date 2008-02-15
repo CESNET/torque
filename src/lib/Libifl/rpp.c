@@ -1169,14 +1169,98 @@ static int rpp_create_sp()
   }  /* END rpp_create_sp() */
 
 
+/*
+** Does the work of rpp_get_cname and rpp_alist in a protocol
+** independent way.
+** Returns 0 on success, a positive error code otherwise
+*/
+
+static int rpp_alist2(
+
+  struct sockaddr_storage *addr,
+  struct stream           *sp)
+
+  {
+  if (NULL == sp)
+    return(EINVAL);
+
+#ifdef TORQUE_WANT_IPV6
+  int addrlen, addrcount, error, i;
+  static hostname[NI_MAXHOST];
+  struct addrinfo hints, *addri, *addrip;
+
+  switch (addr->ss_family)
+    {
+    case AF_INET: addrlen = sizeof(sockaddr_in); break;
+    case AF_INET6: addrlen = sizeof(sockaddr_in6); break;
+    default: DBPTR((DBTO, "protocol not supported in rpp_alist2\n"))
+    }
+
+  if (error = gethostinfo((struct sockaddr*)addr, addrlen,
+                      hostname, NI_MAXHOST,
+                      NULL, 0, 0))
+    {
+    DBPTR((DBTO, "\s\n", gai_strerror(error)))
+    return(error);
+    }
+
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = AF_UNSPEC; /* TODO: should this be of the type in addr? */
+  hints.ai_socktype = SOCK_STREAM;
+
+  if (error = getaddrinfo(hostname, NULL, &hints, &addrip))
+    {
+    DBPTR((DBTO, "\s\n", gai_strerror(error)))
+    return(error);
+    }
+
+  for (addrcount = 1, addri = addrip;
+              NULL != addri->ai_next;
+              addri = addri->ai_next, ++addrcount) ;
+
+  if (1 == addrcount)
+    return 0;
+
+  if (sp->addr_array = calloc(addrcount, sizeof(struct sockaddr_storage)))
+    {
+    for (i = 1, addri = addrip;
+              NULL != addri->ai_next;
+              addri = addri->ai_next)
+      {
+      if (compare_ip(addri->ai_addr, sp->addr))
+        {
+          if (sp->addr_array = realloc(sp->addr_array,
+                          (addrcount--)*sizeof(struct sockaddr_storage)))
+            continue;
+          else
+            /* sp->addr_array still contains addresses inserted before this */
+            return ENOMEM;
+        }
+
+      memcpy(&sp->addr_array[i++], addri->ai_addr, addri->ai_addrlen);
+      }
+
+    sp->num_alt_addrs = i - 1;
+    }
+  else
+    {
+    return(errno);
+    }
+#else /* ! TORQUE_WANT_IPV6 case */
 
 
+#endif
+
+
+  return(0);
+  }
 
 /*
 **	Look up the "canonical" name for the host by
 **	calling gethostbyaddr with an IP address.
 */
 
+#if 0
 static struct hostent *rpp_get_cname(
 
   struct sockaddr_in *addr)
@@ -1260,7 +1344,7 @@ static void rpp_alist(
 
   return;
   }
-
+#endif
 
 
 
