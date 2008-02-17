@@ -62,7 +62,8 @@ am__installdirs = "$(DESTDIR)$(sbindir)"
 sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(sbin_PROGRAMS)
 am_pbs_server_OBJECTS = accounting.$(OBJEXT) array_func.$(OBJEXT) \
-	attr_recov.$(OBJEXT) dis_read.$(OBJEXT) geteusernam.$(OBJEXT) \
+	array_upgrade.$(OBJEXT) attr_recov.$(OBJEXT) \
+	dis_read.$(OBJEXT) geteusernam.$(OBJEXT) \
 	issue_request.$(OBJEXT) job_attr_def.$(OBJEXT) \
 	job_func.$(OBJEXT) job_recov.$(OBJEXT) job_route.$(OBJEXT) \
 	node_attr_def.$(OBJEXT) node_func.$(OBJEXT) \
@@ -373,7 +374,8 @@ PBS_LIBS = ../lib/Libattr/libattr.a \
 
 pbs_server_LDADD = $(PBS_LIBS) $(servergsslib)
 AM_CFLAGS = -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\" -DPBS_ENVIRON=\"$(PBS_ENVIRON)\"
-pbs_server_SOURCES = accounting.c array_func.c attr_recov.c dis_read.c geteusernam.c \
+pbs_server_SOURCES = accounting.c array_func.c array_upgrade.c attr_recov.c \
+		     dis_read.c geteusernam.c \
 		     issue_request.c job_attr_def.c job_func.c job_recov.c \
 		     job_route.c node_attr_def.c node_func.c \
 		     node_manager.c pbsd_init.c pbsd_main.c \
@@ -463,6 +465,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/accounting.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/array_func.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/array_upgrade.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/attr_recov.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/dis_read.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/geteusernam.Po@am__quote@
