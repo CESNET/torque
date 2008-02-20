@@ -120,7 +120,8 @@ struct pbsnode {
   struct prop	        *nd_last;
   struct prop           *nd_f_st;       /* first and last status */
   struct prop           *nd_l_st;
-  u_long		*nd_addrs;	/* IP addresses of host */
+  struct sockaddr_storage **nd_addrs;	/* IP addresses of host */
+  int nd_ip_cnt;
   struct array_strings	*nd_prop;	/* array of properities */
   struct array_strings  *nd_status;
   char           *nd_note;  /* note set by administrator */
@@ -145,6 +146,15 @@ typedef struct tree_t {
   struct tree_t  *left;
   struct tree_t  *right;
   } tree;
+
+#ifdef TORQUE_WANT_IPV6
+struct list_t {
+  struct sockaddr_storage *key;
+  struct pbsnode          *content;
+  struct list_t           *prev;
+  struct list_t           *next;
+}
+#endif
 
 /* NOTE:  should remove all node references and replace with 'tree' objects (NYI) */
 
@@ -227,13 +237,17 @@ extern struct pbsnode	**pbsndlist;		/* array of ptr to nodes  */
 extern int		  svr_totnodes;		/* number of nodes (hosts) */
 extern int		  svr_tsnodes;		/* number of timeshared nodes */
 extern int		  svr_clnodes;		/* number of cluster nodes */
+#ifdef TORQUE_WANT_IPV6
+extern struct list_t	 *ipaddrs;
+#else
 extern struct tree_t	 *ipaddrs;
+#endif
 extern struct tree_t	 *streams;
 
 extern int update_nodes_file A_((void));
 
-extern void bad_node_warning(pbs_net_t);
-extern int addr_ok(pbs_net_t);
+extern void bad_node_warning(struct sockaddr_storage *);
+extern int addr_ok(struct sockaddr_storage *);
 
 #ifdef BATCH_REQUEST_H
 extern	void	initialize_pbssubn A_((struct pbsnode *,struct pbssubn *,struct prop *));

@@ -91,6 +91,7 @@
  *	"attributes.h"
  *	"credential.h"
  *	"BATCH-types.h"   - for protocol definition of request numbers
+ *	<sys/socket.h>    - for struct sockaddr_storage
  *
  * First we define the reply structure as it is contained within the
  * request structure.
@@ -99,6 +100,7 @@
 #include "libpbs.h"
 #include "attribute.h"
 #include "credential.h"
+#include "portability6.h"
 
 #ifndef BATCH_REQUEST_H
 #define BATCH_REQUEST_H 1
@@ -359,7 +361,7 @@ extern void  req_delfile A_((struct batch_request *req));
 #endif
 
 #ifdef SERVER_LIMITS_H
-extern int   relay_to_mom A_((pbs_net_t, struct batch_request *, void (*)()));
+extern int   relay_to_mom A_((struct sockaddr_storage*, struct batch_request *, void (*)()));
 #endif 	/* SERVER_LIMITS_H */
 
 /* PBS Batch Request Decode/Encode routines */

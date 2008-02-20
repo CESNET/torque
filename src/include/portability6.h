@@ -10,12 +10,12 @@
 #define TORQUE_WANT_IPV6 1
 /* GET_PORT accepts a struct sockaddr_storage* and returns the port in it */
 #define GET_PORT(a) \
-  ((*a).sa_family == AF_INET) ?\
+  ((*a).ss_family == AF_INET) ?\
   (((struct sockaddr_in*)(a))->sin_port) :\
   (((struct sockaddr_in6*)(a))->sin6_port)
 /* SET_PORT accepts a struct sockaddr_storage* and sets the port in it */
 #define SET_PORT(a,port) \
-  ((*a).sa_family == AF_INET) ?\
+  ((*a).ss_family == AF_INET) ?\
   (((struct sockaddr_in*)(a))->sin_port = port ) :\
   (((struct sockaddr_in6*)(a))->sin6_port = port )
 

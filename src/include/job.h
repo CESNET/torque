@@ -458,7 +458,7 @@ struct job {
 	    int	    ji_un_type;		/* type of ji_un union */
 	    union {	/* depends on type of queue currently in */
 		struct {	/* if in execution queue .. */
-	     	    pbs_net_t ji_momaddr;  /* host addr of Server */
+	     	struct sockaddr_storage ji_momaddr;  /* host addr of Server */
 		    int	      ji_exitstat; /* job exit status from MOM */
 		} ji_exect;
 		struct {
@@ -466,12 +466,12 @@ struct job {
 		    time_t  ji_rteretry;	      /* route retry time */
 		} ji_routet;
 		struct {
-                    pbs_net_t  ji_fromaddr;     /* host job coming from   */
+            struct sockaddr_storage ji_fromaddr; /* host job coming from   */
 		    int	       ji_fromsock;	/* socket job coming over */
 		    int	       ji_scriptsz;	/* script size */
 		} ji_newt;
 		struct {
-	     	    pbs_net_t ji_svraddr;  /* host addr of Server */
+	     	struct sockaddr_storage ji_svraddr;  /* host addr of Server */
 		    int	      ji_exitstat; /* job exit status from MOM */
 		    uid_t     ji_exuid;	   /* execution uid */
 		    gid_t     ji_exgid;	   /* execution gid */
