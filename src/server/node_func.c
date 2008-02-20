@@ -170,6 +170,8 @@ extern attribute_def  node_attr_def[];   /* node attributes defs */
 #include "work_task.h"
 
 extern void ping_nodes(struct work_task *);
+extern char *netaddr(struct sockaddr_storage *);
+extern int compare_ip(struct sockaddr_storage *, struct sockaddr_storage *);
 
 
 
