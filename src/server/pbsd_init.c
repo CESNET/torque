@@ -1366,16 +1366,17 @@ static int pbsd_init_job(
   /* reset based on hostname                           */
  
   if ((pjob->ji_qs.ji_un_type == JOB_UNION_TYPE_EXEC) &&
-      (pjob->ji_qs.ji_un.ji_exect.ji_momaddr != 0)) 
+      (pjob->ji_qs.ji_un.ji_exect.ji_momaddr.ss_family != AF_UNSPEC)) 
     {
     if (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_flags & ATR_VFLAG_SET) 
       { 
-      pjob->ji_qs.ji_un.ji_exect.ji_momaddr = get_hostaddr(
-        parse_servername(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,&d));
+       get_hostaddr(
+        parse_servername(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,&d),
+        &pjob->ji_qs.ji_un.ji_exect.ji_momaddr);
       } 
     else 
       {
-      pjob->ji_qs.ji_un.ji_exect.ji_momaddr = 0;
+      pjob->ji_qs.ji_un.ji_exect.ji_momaddr.ss_family = AF_UNSPEC;
       }
     }
 
