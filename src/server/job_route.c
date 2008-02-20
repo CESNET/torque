@@ -88,6 +88,7 @@
 
 #include <sys/types.h>
 #include <sys/param.h>
+#include <sys/socket.h>
 #include "pbs_ifl.h"
 #include <errno.h>
 #include <string.h>

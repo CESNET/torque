@@ -351,7 +351,7 @@ int conn_qsub(
   char *EMsg)      /* O (optional,minsize=1024) */
 
   {
-  pbs_net_t hostaddr;
+  struct sockaddr_storage hostaddr;
   int s;
 
   int flags;
@@ -359,7 +359,7 @@ int conn_qsub(
   if (EMsg != NULL)
     EMsg[0] = '\0';
 
-  if ((hostaddr = get_hostaddr(hostname)) == (pbs_net_t)0)
+  if (get_hostaddr(hostname, &hostaddr))
     {
 #if !defined(H_ERRNO_DECLARED)
     extern int h_errno;
@@ -377,7 +377,7 @@ int conn_qsub(
     return(-1);
     }
 
-  s = client_to_svr(hostaddr,(unsigned int)port,0,EMsg);
+  s = client_to_svr(&hostaddr,(unsigned int)port,0,EMsg);
 
   /* NOTE:  client_to_svr() can return 0 for SUCCESS */
 
