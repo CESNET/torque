@@ -92,6 +92,9 @@
 
 /* anything including job.h also needs array.h so lets just include it this way*/
 #include "array.h"
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include "portability6.h"
 
 /*
  * Dependent Job Structures
