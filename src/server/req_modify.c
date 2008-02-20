@@ -89,6 +89,7 @@
 
 #include <stdio.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include "libpbs.h"
 #include <signal.h>
 #include "server_limits.h"
@@ -314,7 +315,7 @@ void req_modifyjob(
 /*  if (sendmom) */
     {
     if ((rc = relay_to_mom(
-           pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+           &pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
            preq, 
            post_modify_req)))
       {

@@ -89,6 +89,7 @@
 
 #include <stdio.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include "libpbs.h"
 #include "server_limits.h"
 #include "list_link.h"
@@ -202,7 +203,7 @@ void req_holdjob(
 	     
 		/* have MOM attempt checkpointing */
 
-		if ((rc = relay_to_mom(pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+		if ((rc = relay_to_mom(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
 				       preq, post_hold)) != 0) {
 			*hold_val = old_hold;	/* reset to the old value */
 			req_reject(rc, 0, preq,NULL,NULL);

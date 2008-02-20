@@ -149,7 +149,7 @@ extern int    svr_totnodes;
 
 /* Local Private Functions */
 
-static int    get_port A_((char *,unsigned int *,pbs_net_t *));
+static int    get_port A_((char *,unsigned int *,struct sockaddr_storage *));
 static time_t next_task A_(());
 static int    start_hot_jobs();
 static void   lock_out A_((int,int));
@@ -179,12 +179,12 @@ char	       *path_nodenote_new;
 extern char    *msg_daemonname;
 extern int	pbs_errno;
 char	       *pbs_o_host = "PBS_O_HOST";
-pbs_net_t	pbs_mom_addr;
+struct sockaddr_storage	pbs_mom_addr;
 unsigned int	pbs_mom_port = 0;
 unsigned int	pbs_rm_port;
-pbs_net_t	pbs_scheduler_addr;
+struct sockaddr_storage	pbs_scheduler_addr;
 unsigned int	pbs_scheduler_port;
-extern pbs_net_t pbs_server_addr;
+extern struct sockaddr_storage pbs_server_addr;
 unsigned int	pbs_server_port_dis;
 int		queue_rank = 0;
 struct server	server;		/* the server structure */
@@ -458,12 +458,13 @@ int main(
   job	*pjob;
   pbs_queue *pque;
   char	*servicename = NULL;
-  pbs_net_t def_pbs_server_addr;
+  struct sockaddr_storage def_pbs_server_addr;
   pid_t	 sid;
   long  *state;
   time_t waittime;
   time_t last_jobstat_time;
   int    when;
+  struct sockaddr_storage tmp_addr; /* used for initialization, holds INADDR_ANY */
 
   void ping_nodes A_((struct work_task *));
   void check_nodes A_((struct work_task *));
@@ -593,9 +594,9 @@ int main(
 
   strcpy(server_name,server_host);	/* by default server = host */
 
-  pbs_server_addr    = get_hostaddr(server_host);
-  pbs_mom_addr 	     = pbs_server_addr;   /* assume on same host */
-  pbs_scheduler_addr = pbs_server_addr;   /* assume on same host */
+  get_hostaddr(server_host, &pbs_server_addr);
+  memcpy(&pbs_mom_addr, &pbs_server_addr, sizeof(struct sockaddr_storage));   /* assume on same host */
+  memcpy(&pbs_scheduler_addr, &pbs_server_addr, sizeof(struct sockaddr_storage));   /* assume on same host */
 
   /* parse the parameters from the command line */
 
@@ -731,15 +732,15 @@ int main(
 
         strcpy(server_name,server_host);
 
-        def_pbs_server_addr = pbs_server_addr;
+        memcpy(&def_pbs_server_addr, &pbs_server_addr, sizeof(struct sockaddr_storage));
 
-        pbs_server_addr = get_hostaddr(server_host);
+        get_hostaddr(server_host, &pbs_server_addr);
 
-        if (pbs_mom_addr == def_pbs_server_addr)
-          pbs_mom_addr = pbs_server_addr;
+        if (compare_ip(&pbs_mom_addr, &def_pbs_server_addr))
+          memcpy(&pbs_mom_addr, &pbs_server_addr, sizeof(struct sockaddr_storage));
 
-        if (pbs_scheduler_addr == def_pbs_server_addr)
-          pbs_scheduler_addr = pbs_server_addr;
+        if (compare_ip(&pbs_scheduler_addr, &def_pbs_server_addr))
+          memcpy(&pbs_scheduler_addr, &pbs_server_addr, sizeof(struct sockaddr_storage));
 
         if ((servicename != NULL) && (strlen(servicename) > 0))
           {
@@ -1030,7 +1031,17 @@ int main(
     msg_daemonname, 
     log_buffer);
 
-  if (init_network(pbs_server_port_dis,process_request) != 0) 
+#ifdef TORQUE_WANT_IPV6
+  if (0 != init_network(pbs_server_port_dis, process_request, AF_INET6)) {
+      perror("pbs_server: network6");
+
+      log_err(-1, msg_daemonname, "init_network with IPv6 failed dis");
+
+      exit(3);
+  }
+#endif
+
+  if (init_network(pbs_server_port_dis,process_request,AF_INET) != 0) 
     {
     perror("pbs_server: network");
 
@@ -1102,6 +1113,7 @@ int main(
   plock(PROCLOCK);
 #endif
 
+  /* FIXME: this only is for the ipv4 case. rpp_bind only returns the IPv4 fd, even if it creates the IPv6 one, too */
   if ((rppfd = rpp_bind(pbs_server_port_dis)) == -1) 
     {
     log_err(errno,msg_daemonname,"rpp_bind");
@@ -1140,8 +1152,13 @@ int main(
       "creating rpp and private interfaces");
     }
 
-  add_conn(rppfd,Primary,(pbs_net_t)0,0,PBS_SOCK_INET,rpp_request);
-  add_conn(privfd,Primary,(pbs_net_t)0,0,PBS_SOCK_INET,rpp_request);
+  /* FIXME: this isn't right, but it makes the compiler happy */
+  memset(&tmp_addr, 0, sizeof(struct sockaddr_storage));
+  tmp_addr.ss_family = AF_INET;
+  ((struct sockaddr_in*)&tmp_addr)->sin_addr.s_addr = INADDR_ANY;
+
+  add_conn(rppfd,Primary,tmp_addr,rpp_request);
+  add_conn(privfd,Primary,tmp_addr,rpp_request);
 
   /* record the fact that we are up and running */
 
@@ -1423,7 +1440,7 @@ static int get_port(
 
   char	       *arg,	/* "host", "port", ":port", or "host:port" */
   unsigned int *port,	/* RETURN: new port iff one given 	   */
-  pbs_net_t    *addr)	/* RETURN: daemon's address iff host given */
+  struct sockaddr_storage    *addr)	/* RETURN: daemon's address iff host given */
 
   {
   char *name;
@@ -1448,10 +1465,13 @@ static int get_port(
       return(-1);
       }
 
-    *addr = get_hostaddr(name);
+    if (get_hostaddr(name, addr))
+      return(-1);
     }
 
-  if ((*port <= 0) || (*addr == 0))
+  /* FIXME: zero compare *
+  if ((*port <= 0) || (*addr == 0)) */
+  if ((*port <= 0))
     {
     /* FAILURE */
 

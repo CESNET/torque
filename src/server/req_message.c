@@ -85,6 +85,7 @@
 
 #include <stdio.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include "libpbs.h"
 #include <signal.h>
 #include "server_limits.h"
@@ -134,7 +135,7 @@ void req_messagejob(preq)
 	
 	/* pass the request on to MOM */
 
-	if ((rc = relay_to_mom(pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+	if ((rc = relay_to_mom(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
 			      preq, post_message_req)))
 		req_reject(rc, 0, preq,NULL,NULL);	/* unable to get to MOM */
 

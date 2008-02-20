@@ -114,7 +114,7 @@
 extern unsigned int   pbs_mom_port;
 extern char *path_spool;
 extern int   server_init_type;
-extern pbs_net_t pbs_server_addr;
+extern struct sockaddr_storage pbs_server_addr;
 extern char *msg_init_abt;
 extern char *msg_job_end;
 extern char *msg_job_end_sig;
@@ -590,14 +590,15 @@ int mom_comm(
     {
     /* need to make connection, called from pbsd_init() */
 
-    if (pjob->ji_qs.ji_un.ji_exect.ji_momaddr == 0) 
+    if (pjob->ji_qs.ji_un.ji_exect.ji_momaddr.ss_family == AF_UNSPEC) 
       {
-      pjob->ji_qs.ji_un.ji_exect.ji_momaddr = get_hostaddr(
-        parse_servername(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,&dummy));
+      get_hostaddr(
+        parse_servername(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,&dummy),
+		&pjob->ji_qs.ji_un.ji_exect.ji_momaddr);
       }
 
     pjob->ji_momhandle = svr_connect( 
-      pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+      &pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
       pbs_mom_port, 
       process_Dreply, 
       ToServerDIS);
@@ -1230,7 +1231,7 @@ void on_job_rerun(
 
       if (ptask->wt_type != WORK_Deferred_Reply) 
         {
-        if (pjob->ji_qs.ji_un.ji_exect.ji_momaddr == pbs_server_addr)
+        if (compare_ip(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr, &pbs_server_addr))
           {
           /* files don`t need to be moved, go to next step */
  
@@ -1636,12 +1637,14 @@ void req_jobobit(
   struct work_task *ptask;
   svrattrl	 *patlist;
   unsigned int    dummy;
+  struct sockaddr_storage tmp_addr;
 
   pjob = find_job(preq->rq_ind.rq_jobobit.rq_jid);
 
+  get_hostaddr(parse_servername(preq->rq_host, &dummy), &tmp_addr);
+
   if ((pjob == NULL) ||
-      (pjob->ji_qs.ji_un.ji_exect.ji_momaddr != get_hostaddr(
-              parse_servername(preq->rq_host,&dummy)))) 
+      compare_ip(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr, &tmp_addr)) 
     {
     /* not found or from wrong node */
 

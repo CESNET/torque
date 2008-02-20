@@ -154,7 +154,7 @@ void req_authenuser(
 
   for (s = 0;s < PBS_NET_MAX_CONNECTIONS;++s) 
     {
-    if (preq->rq_ind.rq_authen.rq_port != svr_conn[s].cn_port) 
+    if (preq->rq_ind.rq_authen.rq_port != GET_PORT(&svr_conn[s].cn_addr)) 
       {
       continue;
       }

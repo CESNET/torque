@@ -780,7 +780,7 @@ void req_quejob(
 
   pj->ji_qs.ji_un_type = JOB_UNION_TYPE_NEW;
   pj->ji_qs.ji_un.ji_newt.ji_fromsock = sock;
-  pj->ji_qs.ji_un.ji_newt.ji_fromaddr = get_connectaddr(sock);
+  memcpy(&pj->ji_qs.ji_un.ji_newt.ji_fromaddr, get_connectaddr(sock), sizeof(struct sockaddr_storage));
   pj->ji_qs.ji_un.ji_newt.ji_scriptsz = 0;
 
   /* acknowledge the request with the job id */
@@ -1476,7 +1476,7 @@ static job *locate_new_job(
     {
     if ((pj->ji_qs.ji_un.ji_newt.ji_fromsock == -1) ||
        ((pj->ji_qs.ji_un.ji_newt.ji_fromsock == sock) &&
-        (pj->ji_qs.ji_un.ji_newt.ji_fromaddr == get_connectaddr(sock)))) 
+        (compare_ip(&pj->ji_qs.ji_un.ji_newt.ji_fromaddr, get_connectaddr(sock))))) 
       {
       if ((jobid != NULL) && (*jobid != '\0')) 
         {
