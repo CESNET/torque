@@ -97,8 +97,8 @@
 #include "log.h"
 #include "pbs_error.h"
 #include "credential.h"
+#include "net_connect.h" /* includes <sys/socket.h> needed for batch_request.h */
 #include "batch_request.h"
-#include "net_connect.h"
 
 
 

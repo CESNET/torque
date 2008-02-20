@@ -97,10 +97,10 @@
 #include "list_link.h"
 #include "attribute.h"
 #include "credential.h"
-#include "batch_request.h"
 #include "log.h"
 #include "work_task.h"
 #include "net_connect.h"
+#include "batch_request.h" /* needs <sys/socket.h> included by net_connect.h */
 #include "svrfunc.h"
 
 
@@ -135,12 +135,12 @@ int issue_to_svr A_((char *,struct batch_request *,void (*f)(struct work_task *)
 
 int relay_to_mom(
 
-  pbs_net_t	         momaddr,	/* address of mom */
+  struct sockaddr_storage *momaddr,	/* address of mom */
   struct batch_request  *request,	/* the request to send */
   void                 (*func) A_((struct work_task *)))
 
   {
-  extern char *PAddrToString(pbs_net_t *);
+  extern char *PAddrToString(struct sockaddr_storage *);
 
   char *id = "relay_to_mom";
 
@@ -150,7 +150,7 @@ int relay_to_mom(
   if (LOGLEVEL >= 7)
     {
     sprintf(log_buffer,"momaddr=%s",
-      PAddrToString(&momaddr));
+      PAddrToString(momaddr));
 
     log_record(
       PBSEVENT_SCHED,
@@ -237,7 +237,7 @@ int issue_to_svr(
   {
   int	  do_retry = 0;
   int	  handle;
-  pbs_net_t svraddr;
+  struct sockaddr_storage svraddr;
   char	 *svrname;
   unsigned int  port = pbs_server_port_dis;
   struct work_task *pwt;
@@ -248,10 +248,10 @@ int issue_to_svr(
   preq->rq_perm = ATR_DFLAG_MGRD | ATR_DFLAG_MGWR | ATR_DFLAG_SvWR;
 
   svrname = parse_servername(servern,&port);
-  svraddr = get_hostaddr(svrname);
 
-  if (svraddr == (pbs_net_t)0) 
+  if (get_hostaddr(svrname, &svraddr))
     {
+	  /* pbs_errno gets set by get_hostaddr */
     if (pbs_errno == PBS_NET_RC_RETRY)
       {
       /* Non fatal error - retry */
@@ -261,7 +261,7 @@ int issue_to_svr(
     }
   else 
     {
-    handle = svr_connect(svraddr,port,process_Dreply,ToServerDIS);
+    handle = svr_connect(&svraddr,port,process_Dreply,ToServerDIS);
 
     if (handle >= 0)
       {
