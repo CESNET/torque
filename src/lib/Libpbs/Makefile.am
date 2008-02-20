@@ -77,8 +77,10 @@ libtorque_la_SOURCES = ../Libdis/dis.c ../Libdis/discui_.c ../Libdis/discul_.c \
 		    ../Liblog/pbs_log.c ../Liblog/pbs_messages.c \
                     ../Liblog/setup_env.c \
 		    ../Libnet/get_hostaddr.c ../Libnet/get_hostname.c \
+			../Libnet/netaddr.c \
 		    ../Libnet/md5.c ../Libnet/net_client.c \
                     ../Libnet/net_server.c ../Libnet/net_set_clse.c \
-		    ../Libnet/rm.c ../Libnet/port_forwarding.c
+		    ../Libnet/rm.c ../Libnet/port_forwarding.c \
+		    ../Libnet/fake_getaddrinfo.c
 
 
