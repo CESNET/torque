@@ -161,7 +161,7 @@ static void free_rescrq A_((struct rq_rescq *));
 /* END private prototypes */
 
 #ifndef PBS_MOM
-extern struct pbsnode *PGetNodeFromAddr(pbs_net_t);
+extern struct pbsnode *PGetNodeFromAddr(struct sockaddr_storage *);
 #endif
 
 /* request processing prototypes */
@@ -287,6 +287,7 @@ void process_request(
 
   int                   rc;
   struct batch_request *request;
+  struct sockaddr_storage *req_addr;
 
   time_now = time(NULL);
 
@@ -303,7 +304,7 @@ void process_request(
   if (svr_conn[sfds].cn_active == FromClientDIS) 
     {
 #ifdef ENABLE_UNIX_SOCKETS
-    if ((svr_conn[sfds].cn_socktype & PBS_SOCK_UNIX) &&
+    if ((svr_conn[sfds].cn_addr.ss_family == PBS_SOCK_UNIX) &&
         (svr_conn[sfds].cn_authen != PBS_NET_CONN_AUTHENTICATED))
       {
       get_creds(sfds,conn_credent[sfds].username,conn_credent[sfds].hostname);
@@ -374,18 +375,19 @@ void process_request(
     return;
     }
 
+  req_addr = get_connectaddr(sfds);
   if (get_connecthost(sfds,request->rq_host,PBS_MAXHOSTNAME) != 0) 
     {
     char tmpLine[1024];
 
-    sprintf(log_buffer,"%s: %lu",
+    sprintf(log_buffer,"%s: %s",
       msg_reqbadhost,
-      get_connectaddr(sfds));
+      netaddr(req_addr));
 
     LOG_EVENT(PBSEVENT_DEBUG,PBS_EVENTCLASS_REQUEST,"",log_buffer);
 
-    snprintf(tmpLine,sizeof(tmpLine),"cannot determine hostname for connection from %lu",
-      get_connectaddr(sfds));
+    snprintf(tmpLine,sizeof(tmpLine),"cannot determine hostname for connection from %s",
+      netaddr(req_addr));
 
     req_reject(PBSE_BADHOST,0,request,NULL,tmpLine);
 
@@ -406,7 +408,7 @@ void process_request(
 
 #ifndef PBS_MOM
 
-if (svr_conn[sfds].cn_socktype & PBS_SOCK_UNIX)
+if (svr_conn[sfds].cn_addr.ss_family == PBS_SOCK_UNIX)
   {
   strcpy(request->rq_host,server_name);
   }
@@ -482,12 +484,12 @@ if (svr_conn[sfds].cn_socktype & PBS_SOCK_UNIX)
       {
       req_connect(request);
 
-      if (svr_conn[sfds].cn_socktype == PBS_SOCK_INET)
+      if (IS_INET(svr_conn[sfds].cn_addr))
         return;
 
       }
 
-    if (svr_conn[sfds].cn_socktype & PBS_SOCK_UNIX)
+    if (svr_conn[sfds].cn_addr.ss_family == PBS_SOCK_UNIX)
       {
       conn_credent[sfds].timestamp = time_now;
       svr_conn[sfds].cn_authen = PBS_NET_CONN_AUTHENTICATED;

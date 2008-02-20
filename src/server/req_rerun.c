@@ -84,6 +84,7 @@
 
 #include <stdio.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 #include "libpbs.h"
 #include <signal.h>
 #include "server_limits.h"

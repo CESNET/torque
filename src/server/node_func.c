@@ -191,10 +191,10 @@ struct pbsnode *PGetNodeFromAddr(
 
     for (aindex = 0;aindex < 10;aindex++)
       {
-      if (pbsndlist[nindex]->nd_addrs[aindex] == 0)
+      if (pbsndlist[nindex]->nd_addrs[aindex]->ss_family == AF_UNSPEC)
         break;
 
-      if (pbsndlist[nindex]->nd_addrs[aindex] == addr)
+      if (compare_ip(pbsndlist[nindex]->nd_addrs[aindex], addr))
         {
         return(pbsndlist[nindex]);
         }

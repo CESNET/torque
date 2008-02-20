@@ -115,10 +115,10 @@
 
 /* External Functions Called: */
 
-extern int                   send_job A_((job *,pbs_net_t,int,int,void (*x)(),struct batch_request *));
+extern int                   send_job A_((job *,struct sockaddr_storage *,int,int,void (*x)(),struct batch_request *));
 extern void                  set_resc_assigned A_((job *, enum batch_op));
 extern struct batch_request *cpy_stage A_((struct batch_request *,job *,enum job_atr,int));
-void                         stream_eof A_((int,u_long,int));
+void                         stream_eof A_((int,struct sockaddr_storage *,int));
 extern int                   job_set_wait(attribute *,void *,int);
 extern void                  stat_mom_job A_((job *));
 
@@ -138,7 +138,7 @@ static int  assign_hosts A_((job *,char *,int,char *,char *));
 
 /* Global Data Items: */
 
-extern pbs_net_t pbs_mom_addr;
+extern struct sockaddr_storage pbs_mom_addr;
 extern int	 pbs_mom_port;
 extern struct server server;
 extern char  server_host[PBS_MAXHOSTNAME + 1];
@@ -429,7 +429,7 @@ static int svr_stagein(
   strcpy(momreq->rq_extra, pjob->ji_qs.ji_jobid);
 
   rc = relay_to_mom(
-    pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+    &pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
     momreq, 
     post_stagein);
 
@@ -772,7 +772,7 @@ static int svr_strtjob2(
   struct batch_request *preq)  /* I (modified - report status) */
 
   {
-  extern char *PAddrToString(pbs_net_t *);
+  extern char *PAddrToString(struct sockaddr_storage *);
 
   int old_state;
   int old_subst;
@@ -800,7 +800,7 @@ static int svr_strtjob2(
 
   if (send_job(
         pjob,
-        pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+        &pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
         pbs_mom_port, 
         MOVE_TYPE_Exec, 
         post_sendmom,
@@ -988,7 +988,7 @@ static void post_sendmom(
 
       /* NOTE: if r == 10, connection to mom timed out.  Mark node down */
 
-      stream_eof(-1,jobp->ji_qs.ji_un.ji_exect.ji_momaddr,0);
+      stream_eof(0,&jobp->ji_qs.ji_un.ji_exect.ji_momaddr,0);
 
       /* send failed, requeue the job */
 
@@ -1303,7 +1303,7 @@ static int assign_hosts(
   unsigned int	 dummy;
   char		*list = NULL;
   char		*hosttoalloc = NULL;
-  pbs_net_t	 momaddr = 0;
+  struct sockaddr_storage momaddr;
   resource	*pres;
   int		 rc = 0;
   extern char 	*mom_host;
@@ -1364,7 +1364,8 @@ static int assign_hosts(
     else 
       {
       hosttoalloc = mom_host;
-      momaddr = pbs_mom_addr;
+      /* TODO add error checking */
+      memcpy(&momaddr, &pbs_mom_addr, sizeof(struct sockaddr_storage));
       }
     } 
   else if ((server.sv_attr[(int)SRV_ATR_DefNode].at_flags & ATR_VFLAG_SET) && 
@@ -1427,7 +1428,8 @@ static int assign_hosts(
       {
       /* leave exec_host alone and reuse old IP address */
 
-      momaddr = pjob->ji_qs.ji_un.ji_exect.ji_momaddr;
+      /* TODO add error checking */
+      memcpy(&momaddr, &pjob->ji_qs.ji_un.ji_exect.ji_momaddr, sizeof(struct sockaddr_storage));
 		
       hosttoalloc = pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str;
       }
@@ -1437,11 +1439,12 @@ static int assign_hosts(
       parse_servername(hosttoalloc,&dummy),
       PBS_MAXROUTEDEST);
 
-    if (momaddr == 0) 
+    /* Assumes that if ss_family is not specified, we need a new addr */
+    if (momaddr.ss_family == 0) 
       {
-      momaddr = get_hostaddr(pjob->ji_qs.ji_destin);
+      get_hostaddr(pjob->ji_qs.ji_destin, &momaddr);
  
-      if (momaddr == 0) 
+      if (momaddr.ss_family == 0) 
         {
         free_nodes(pjob);
 
@@ -1461,7 +1464,8 @@ static int assign_hosts(
         }
       }
 
-    pjob->ji_qs.ji_un.ji_exect.ji_momaddr = momaddr;
+    /* TODO error checking */
+    memcpy(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr, &momaddr, sizeof(struct sockaddr_storage));
     }  /* END if (rc == 0) */
 
   if (list != NULL)
