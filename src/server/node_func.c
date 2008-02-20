@@ -774,13 +774,10 @@ static void initialize_pbsnode(
     {
     if (LOGLEVEL >= 6)
       {
-      sprintf(log_buffer,"node '%s' allows trust for ipaddr %ld.%ld.%ld.%ld\n",
+      sprintf(log_buffer,"node '%s' allows trust for ipaddr %s\n",
         pnode->nd_name,
-        (pul[i] & 0xff000000) >> 24,
-        (pul[i] & 0x00ff0000) >> 16,
-        (pul[i] & 0x0000ff00) >> 8,
-        (pul[i] & 0x000000ff));
-                                                                                               
+        netaddr(pul[i]));
+
       log_record(
         PBSEVENT_SCHED,
         PBS_EVENTCLASS_REQUEST,
@@ -788,7 +785,9 @@ static void initialize_pbsnode(
         log_buffer);
       }
 
-    tinsert(pul[i],pnode,&ipaddrs);
+    /* FIXME: this is TOTALLY broken with IP adresses != u_long
+	 * tinsert(pul[i],pnode,&ipaddrs); */
+	tinsert(i, pnode, &ipaddrs);
     }  /* END for (i) */
 
   return;
@@ -834,7 +833,7 @@ void effective_node_delete(
   {
   struct pbssubn  *psubn;
   struct pbssubn  *pnxt;
-  u_long          *up;
+  struct sockaddr_storage *up;
 
   psubn = pnode->nd_psn;
 
@@ -856,11 +855,15 @@ void effective_node_delete(
 
   if (pnode->nd_addrs != NULL)
     {
-    for (up = pnode->nd_addrs;*up != 0;up++) 
+    for (up = pnode->nd_addrs[0];up != NULL;up++) 
       {
       /* del node's IP addresses from tree  */
 
-      tdelete(*up,&ipaddrs);
+#ifdef TORQUE_WANT_IPV6
+      ldelete(*up, &ipaddrs);
+#else
+      tdelete(SOCK_L(*up),&ipaddrs);
+#endif
       }
 
     if (pnode->nd_addrs != NULL) 
@@ -1347,7 +1350,15 @@ static struct pbssubn *create_subnode(
 
 
 
-
+/* will only be called from the ipv4 branch of create_pbs_node */
+void convert_pul_to_pul6(u_long *pul, struct sockaddr_storage **pul6)
+{
+    int cnt = 0;
+    for (; 0 != pul[cnt]; ++cnt) {
+        pul6[cnt]->ss_family = AF_INET;
+        ((struct sockaddr_in*)pul6[cnt])->sin_addr.s_addr = pul[cnt];
+    }
+}
 
 /*
  * create_pbs_node - create pbs node structure, i.e. add a node
@@ -1361,11 +1372,106 @@ int create_pbs_node(
   int      *bad)
 
   {
+#ifdef TORQUE_WANT_IPV6
+    struct pbsnode *pnode = NULL;
+    struct pbsnode **tmpndlist;
+
+    /* BEGIN Memory Allocation */
+    for (iht=0; iht<svr_totnodes; iht++) {
+        if (pbsndmast[iht]->nd_state & INUSE_DELETED) {
+            /*available, use*/
+
+            pnode = pbsndmast[iht];
+
+            break;
+        }
+    }
+    if (iht == svr_totnodes) {
+        /* no unused entry, make an entry */
+        if (NULL == (pnode = calloc(1, sizeof(struct pbsnode)))) {
+            return(PBSE_SYSTEM);
+        }
+
+        pnode->nd_state = INUSE_DELETED;
+
+        /* expand pbsndmast array exactly svr_totnodes long*/
+
+        tmpndlist = (struct pbsnode **)realloc(
+                    pbsndmast,
+                    sizeof(struct pbsnode *) * (svr_totnodes + 1));
+
+        if (NULL == tmpndlist) {
+            free(pnode);
+
+            return(PBSE_SYSTEM);
+        }
+
+        /*add in the new entry etc*/
+
+        pbsndmast = tmpndlist;
+        pbsndmast[svr_totnodes++] = pnode;
+
+        tmpndlist = (struct pbsnode **)realloc(
+                    pbsndlist, 
+                    sizeof(struct pbsnode *) * (svr_totnodes + 1));
+
+        if (tmpndlist == NULL) {
+            free(pnode);
+
+            return(PBSE_SYSTEM);
+        }
+
+        memcpy(tmpndlist, 
+                    pbsndmast, 
+                    svr_totnodes * sizeof(struct pbsnode *));
+
+        pbsndlist = tmpndlist;
+    }
+    /* END Memory Allocation */
+
+    if ((rc = process_host_name_part6(objname, &pnode)) != 0) {
+        log_err(-1,"process_host_name_part",log_buffer);
+
+        return(rc);
+    }
+
+    if (find_nodebyname(pnode->nd_name)) {
+        free(pnode);
+        return(PBSE_NODEEXIST);
+    }
+
+    if (create_subnode(pnode) == NULL) {
+        pnode->nd_state = INUSE_DELETED;
+
+        return (PBSE_SYSTEM);
+    }
+
+    rc = mgr_set_node_attr(
+                pnode,
+                node_attr_def,
+                ND_ATR_LAST,
+                plist,
+                perms,
+                bad,
+                (void *)pnode,
+                ATR_ACTION_ALTER);
+
+    if (rc != 0) {
+        effective_node_delete(pnode);
+
+        return(rc);
+    }
+
+    recompute_ntype_cnts();
+
+#else
   struct pbsnode  *pnode = NULL;
   struct pbsnode **tmpndlist;
   int              ntype;	/* node type; time-shared, not */
   char            *pname;	/* node name w/o any :ts       */
   u_long          *pul;		/* 0 terminated host adrs array*/
+  struct sockaddr_storage **pul6; /* array of host adrs */
+  int             pul6_cnt;
   int              rc;
   int              iht;
 
@@ -1453,7 +1559,15 @@ int create_pbs_node(
     pbsndlist = tmpndlist;
     }
 
-  initialize_pbsnode(pnode,pname,pul,ntype);
+  for (pul6_cnt=0; 0 != pul[pul6_cnt]; ++pul6_cnt) ;
+  if (NULL == (pul6 = calloc(pul6_cnt, sizeof(struct sockaddr_storage)))) {
+      return(PBSE_SYSTEM);
+  }
+
+  pnode->nd_ip_cnt = pul6_cnt;
+  convert_pul_to_pul6(pul, pul6);
+
+  initialize_pbsnode(pnode,pname,pul6,ntype);
 
   /* create and initialize the first subnode to go with the parent node */
 
@@ -1485,7 +1599,7 @@ int create_pbs_node(
     }
 
   recompute_ntype_cnts();
-
+#endif
   return(PBSE_NONE);	    /*create completely successful*/
   }
 
