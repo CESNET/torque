@@ -212,9 +212,75 @@ static void funcs_dis() /* The equivalent of DIS_tcp_funcs() */
 **      Modified by Tom Proett <proett@nas.nasa.gov> for PBS.
 */
 
+#ifdef TORQUE_WANT_IPV6
+struct list_t *ipaddrs = NULL;
+#else
 tree *ipaddrs = NULL;	/* tree of ip addrs */
+#endif
 tree *streams = NULL;	/* tree of stream numbers */
 
+
+#ifdef TORQUE_WANT_IPV6
+
+struct list_t *lfind(
+            const struct sockaddr_storage *key, /* I - IP to find a pbsnode to */
+            struct list_t                 *head) /* I - list head */
+{
+    struct list_t *node = head;
+
+    for (; node != NULL && 0 == compare_ip(key, node->key); node = node->next) ;
+
+    return node;
+}
+
+struct pbsnode *lfind_addr(
+            const struct sockaddr_storage *key)
+{
+    struct list_t *node = lfind(key, &ipaddrs);
+    return (NULL == node) ? NULL : node->content;
+}
+
+void linsert(
+            struct sockaddr_storage *key,
+            struct pbsnode          *nodep,
+            struct list_t           *head)
+{
+    struct list_t *node = head;
+    struct list_t *prev = NULL;
+
+    for (; node != NULL && 0 == compare_ip(key, node->key); prev = node, node = node->next) ;
+
+    /* insert */
+    if (NULL == node) {
+        node = malloc(sizeof(list_t));
+
+        if (NULL != node) {
+            if (NULL != prev)
+              prev->next = node;
+            node->key = key;
+            node->content = nodep;
+            node->next = NULL;
+            node->prev = prev;
+        }
+    }
+}
+
+int ldelete(
+            const struct sockaddr_storage *key,
+            const struct list_t           *head)
+{
+    struct list_t *node = lfind(key, head);
+
+    if (NULL == node) return;
+
+    /* kill node from list */
+    node->prev->next = node->next;
+    node->next->prev = node->prev;
+
+    free(node);
+}
+
+#endif
 
 
 /* find value in tree, return NULL if not found */
@@ -1313,12 +1379,15 @@ done:
 void stream_eof(
 
   int	 stream,  /* I (optional) */
-  u_long addr,  /* I (optional) */
+  struct sockaddr_storage *addr,    /* I (optional) */
   int	 ret)     /* I (ignored) */
 
   {
   static char     id[] = "stream_eof";
   struct pbsnode *np;
+#ifndef TORQUE_WANT_IPV6
+  u_long ipaddr;
+#endif
 
   rpp_close(stream);
 
@@ -1331,9 +1400,15 @@ void stream_eof(
     np = tfind((u_long)stream,&streams);
     }
 
-  if ((np == NULL) && (addr != 0))
+  if ((np == NULL) && (addr != NULL))
     {
-    np = tfind((u_long)addr,&ipaddrs);
+#ifdef TORQUE_WANT_IPV6
+    np = lfind(addr,&ipaddrs);
+#else
+    ipaddr = ntohl(((struct sockaddr_in*)addr)->sin_addr.s_addr);
+
+    np = tfind(ipaddr,&ipaddrs);
+#endif
     }
 
   if (np == NULL)
@@ -1387,7 +1462,7 @@ void ping_nodes(
   {
   static  char	        *id = "ping_nodes";
   struct  pbsnode	*np;
-  struct  sockaddr_in	*addr;
+  struct  sockaddr_storage	*addr;
   int                    i, ret, com;
   extern  int            pbs_rm_port;
 
@@ -1549,7 +1624,7 @@ int add_cluster_addrs(
   {
   char id[] = "add_cluster_addrs";
 
-  int i,j,ret;
+  int i,j,k,ret;
   struct pbsnode *np;
 
   /* should we cache this response and send it as a single string? */
@@ -1571,23 +1646,34 @@ int add_cluster_addrs(
       }
   
     for (j = 0;np->nd_addrs[j];j++)
-      {   
-      u_long ipaddr = np->nd_addrs[j];                                                             
+      {
+      struct sockaddr_storage *ipaddr = np->nd_addrs[j];
 
       if (LOGLEVEL >= 8)
         {
-        sprintf(log_buffer,"adding node[%d] interface[%d] %ld.%ld.%ld.%ld to hello response",
+        sprintf(log_buffer,"adding node[%d] interface[%d] %s to hello response",
           i,
           j,
-          (ipaddr & 0xff000000) >> 24,
-          (ipaddr & 0x00ff0000) >> 16,
-          (ipaddr & 0x0000ff00) >> 8,
-          (ipaddr & 0x000000ff));
+          netaddr(ipaddr));
 
         log_event(PBSEVENT_ADMIN,PBS_EVENTCLASS_SERVER,id,log_buffer);
         }
 
-      ret = diswul(stream,ipaddr);
+      ret = -1;
+
+      /* Assumes DIS_SUCCESS == 0 ! */
+      switch (ipaddr->ss_family) {
+          case AF_INET: 
+              ret = diswui(stream, TORQUE_PROTO_IPV4);
+              ret += diswul(stream,((struct sockaddr_in*)ipaddr)->sin_addr.s_addr); break;
+          case AF_INET6: 
+              ret = diswui(stream, TORQUE_PROTO_IPV6);
+              for (k=0; k < 4; ++k) {
+                  ret += diswul(stream, ((struct sockaddr_in6*)ipaddr)->sin6_addr.s6_addr[k]);
+              }
+              break;
+          default: return(-1);
+      }
 
       if (ret != DIS_SUCCESS)
         {
@@ -1707,7 +1793,7 @@ void is_request(
   int		i;
 
   unsigned long	ipaddr;
-  struct	sockaddr_in *addr;
+  struct	sockaddr_storage *addr;
   struct	pbsnode	*node;
   struct pbssubn *sp;
 
@@ -1759,9 +1845,13 @@ void is_request(
   if ((node = tfind((u_long)stream,&streams)) != NULL)
     goto found;
 
-  ipaddr = ntohl(addr->sin_addr.s_addr);
+#ifdef TORQUE_WANT_IPV6
+  if (NULL != (node = lfind(addr, &ipaddrs)))
+#else
+  ipaddr = ntohl(((struct sockaddr_in*)addr)->sin_addr.s_addr);
 
   if ((node = tfind(ipaddr,&ipaddrs)) != NULL) 
+#endif
     {
     if (node->nd_stream >= 0) 
       {
