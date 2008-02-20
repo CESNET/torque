@@ -122,24 +122,24 @@ extern int		 errno;
 extern int		 pbs_errno;
 extern unsigned int	 pbs_server_port_dis;
 extern struct connection svr_conn[];
-extern pbs_net_t	 pbs_server_addr;
+extern struct sockaddr_storage	 pbs_server_addr;
 extern int               LOGLEVEL;
 
-extern int     addr_ok(pbs_net_t);
-extern void    bad_node_warning(pbs_net_t);
+extern int     addr_ok(struct sockaddr_storage *);
+extern void    bad_node_warning(struct sockaddr_storage *);
 extern ssize_t read_blocking_socket(int,void *,ssize_t);
 
 
 
 int svr_connect(
 
-  pbs_net_t      hostaddr,		/* host order */
+  struct sockaddr_storage *hostaddr,		/* host order */
   unsigned int   port,			/* I */
   void	         (*func) A_((int)),
   enum conn_type cntype)
 
   {
-  extern char *PAddrToString(pbs_net_t *);
+  extern char *PAddrToString(struct sockaddr_storage *);
 
   char         EMsg[1024];
 
@@ -154,8 +154,8 @@ int svr_connect(
   if (LOGLEVEL >= 4)
     {
     sprintf(log_buffer,"attempting connect to %s %s port %d",
-      (hostaddr == pbs_server_addr) ? "server" : "host",
-      ((int)hostaddr != 0) ? PAddrToString(&hostaddr) : "localhost",
+      compare_ip(hostaddr, &pbs_server_addr) ? "server" : "host",
+      (hostaddr != NULL) ? PAddrToString(hostaddr) : "localhost",
       port);
 
    log_event(
@@ -167,7 +167,7 @@ int svr_connect(
 
   /* First, determine if the request is to another server or ourselves */
 
-  if ((hostaddr == pbs_server_addr) && (port == pbs_server_port_dis))
+  if (compare_ip(hostaddr, &pbs_server_addr) && (port == pbs_server_port_dis))
     {
     return(PBS_LOCAL_CONNECTION); /* special value for local */
     }
@@ -181,7 +181,7 @@ int svr_connect(
     if (LOGLEVEL >= 4)
       {
       sprintf(log_buffer,"cannot connect to %s port %d - target is down",
-        (hostaddr == pbs_server_addr) ? "server" : "host",
+        compare_ip(hostaddr, &pbs_server_addr) ? "server" : "host",
         port);
 
       log_event(
@@ -214,8 +214,8 @@ int svr_connect(
     {
     if (LOGLEVEL >= 4)
       {
-      sprintf(log_buffer,"cannot connect to %s port %d - cannot establish connection (%s) - time=%ld seconds",
-        (hostaddr == pbs_server_addr) ? "server" : "host",
+      sprintf(log_buffer,"cannot connect to %s port %d - cannot establish connection (%s)",
+        compare_ip(hostaddr, &pbs_server_addr) ? "server" : "host",
         port,
         EMsg,
         (long)(ETime - STime));
@@ -260,7 +260,7 @@ int svr_connect(
       {
       /* connect attempt to XXX? */
 
-      add_conn(sock,ToServerDIS,hostaddr,port,PBS_SOCK_INET,func);
+      add_conn(sock,ToServerDIS,*hostaddr,func);
       }
     }
 
@@ -275,7 +275,7 @@ int svr_connect(
     if (LOGLEVEL >= 4)
       {
       sprintf(log_buffer,"cannot connect to %s port %d - cannot get handle",
-        (hostaddr == pbs_server_addr) ? "server" : "host",
+        compare_ip(hostaddr, &pbs_server_addr) ? "server" : "host",
         port);
 
      log_event(

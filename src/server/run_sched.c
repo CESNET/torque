@@ -93,7 +93,7 @@
 
 /* Global Data */
 
-extern pbs_net_t pbs_scheduler_addr;
+extern struct sockaddr_storage pbs_scheduler_addr;
 extern unsigned int pbs_scheduler_port;
 extern char      server_name[];
 extern struct connection svr_conn[];
@@ -162,13 +162,13 @@ static int contact_sched(
         }
 #endif
 
-  sock = client_to_svr(pbs_scheduler_addr,pbs_scheduler_port,1,EMsg);
+  sock = client_to_svr(&pbs_scheduler_addr,pbs_scheduler_port,1,EMsg);
 
   if (sock < 0) 
     {
     /* FAILURE */
 
-    bad_node_warning(pbs_scheduler_addr);
+    bad_node_warning(&pbs_scheduler_addr);
 
     sprintf(tmpLine,"%s - port %d %s",
       msg_sched_nocall,
@@ -184,8 +184,6 @@ static int contact_sched(
     sock, 
     FromClientDIS, 
     pbs_scheduler_addr, 
-    pbs_scheduler_port, 
-    PBS_SOCK_INET,
     process_request);
 
   svr_conn[sock].cn_authen = PBS_NET_CONN_FROM_PRIVIL;
