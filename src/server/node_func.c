@@ -177,7 +177,7 @@ extern void ping_nodes(struct work_task *);
 
 struct pbsnode *PGetNodeFromAddr(
 
-  pbs_net_t addr)  /* I */
+  struct sockaddr_storage * addr)  /* I */
 
   {
   int nindex;
@@ -209,7 +209,7 @@ struct pbsnode *PGetNodeFromAddr(
 
 void bad_node_warning(
 		
-  pbs_net_t addr)  /* I */
+  struct sockaddr_storage * addr)  /* I */
 
   {
   int i;
@@ -294,7 +294,7 @@ void bad_node_warning(
 
 int addr_ok(
 
-  pbs_net_t addr)  /* I */
+  struct sockaddr_storage * addr)  /* I */
 
   {
   int i;
@@ -738,7 +738,7 @@ static void initialize_pbsnode(
 
   struct pbsnode *pnode,
   char           *pname, /* node name */
-  u_long         *pul,	 /* host byte order array */
+  struct sockaddr_storage **pul,	 /* host byte order array */
 			 /* ipaddrs for this node */
   int             ntype) /* time-shared or cluster */
 
