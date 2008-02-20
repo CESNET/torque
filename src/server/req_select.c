@@ -86,6 +86,7 @@
 #define STAT_CNTL 1
 
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <stdlib.h>
 #include "libpbs.h"
 #include <string.h>

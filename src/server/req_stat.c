@@ -87,6 +87,7 @@
 #define STAT_CNTL 1
 
 #include <sys/types.h>
+#include <sys/socket.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include "libpbs.h"
@@ -126,7 +127,7 @@ extern int             LOGLEVEL;
 
 int status_job A_((job *,struct batch_request *,svrattrl *,tlist_head *,int *));
 int status_attrib A_((svrattrl *,attribute_def *,attribute *,int,int,tlist_head *,int *,int));
-extern int   svr_connect A_((pbs_net_t,unsigned int,void (*)(int), enum conn_type));
+extern int   svr_connect A_((struct sockaddr_storage *,unsigned int,void (*)(int), enum conn_type));
 extern int status_nodeattrib(svrattrl *,attribute_def *,struct pbsnode *,int,int,tlist_head *,int*);
 extern int hasprop(struct pbsnode *,struct prop *);
 
@@ -564,7 +565,7 @@ int stat_to_mom(
   /* get connection to MOM */
 
   cntl->sc_conn = svr_connect( 
-    pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+    &pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
     pbs_mom_port, 
     process_Dreply, 
     ToServerDIS);

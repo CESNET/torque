@@ -217,8 +217,7 @@ int svr_connect(
       sprintf(log_buffer,"cannot connect to %s port %d - cannot establish connection (%s)",
         compare_ip(hostaddr, &pbs_server_addr) ? "server" : "host",
         port,
-        EMsg,
-        (long)(ETime - STime));
+        EMsg);
 
       log_event(
         PBSEVENT_ADMIN,
@@ -237,7 +236,7 @@ int svr_connect(
   if ((LOGLEVEL >= 2) && (ETime > STime))
     {
     sprintf(log_buffer,"successful connect to %s port %d - time=%ld seconds",
-      (hostaddr == pbs_server_addr) ? "server" : "host",
+      compare_ip(hostaddr, &pbs_server_addr) ? "server" : "host",
       port,
       (long)(ETime - STime));
 

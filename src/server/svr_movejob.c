@@ -124,7 +124,8 @@
 extern void stat_mom_job A_((job *));
 extern void remove_stagein(job *);
 extern int  job_route A_((job *));
-extern struct pbsnode *PGetNodeFromAddr(pbs_net_t);
+extern struct pbsnode *PGetNodeFromAddr(struct sockaddr_storage *);
+extern char *PAddrToString(struct sockaddr_storage *);
 
 
 
@@ -154,7 +155,7 @@ extern char     *msg_err_malloc;
 extern int	comp_resc_gt, comp_resc_eq, comp_resc_lt;
 extern int	pbs_errno;
 extern char    *pbs_o_host;
-extern pbs_net_t pbs_server_addr;
+extern struct sockaddr_storage pbs_server_addr;
 extern unsigned int pbs_server_port_dis;
 extern time_t	pbs_tcp_timeout;
 extern int	resc_access_perm;
@@ -182,7 +183,7 @@ int svr_movejob(
   struct batch_request	*req)
 
   {
-  pbs_net_t destaddr;
+  struct sockaddr_storage destaddr;
   int	local;
   unsigned int port;
   char	*toserver;
@@ -210,9 +211,10 @@ int svr_movejob(
     {
     /* check to see if the part after '@' is this server */
 
-    destaddr = get_hostaddr(parse_servername(++toserver, &port));
+    /* TODO error checking */
+    get_hostaddr(parse_servername(++toserver, &port), &destaddr);
 
-    if (destaddr != pbs_server_addr) 
+    if (! compare_ip(&destaddr, &pbs_server_addr))
       {
       local = 0;
       }
@@ -550,7 +552,7 @@ static void post_movejob(
 int send_job(
 
   job       *jobp,
-  pbs_net_t  hostaddr,	/* host address, host byte order */
+  struct sockaddr_storage *hostaddr,	/* host address, host byte order */
   int	     port,	/* service port, host byte order */
   int	     move_type,	/* move, route, or execute */
   void	   (*post_func) A_((struct work_task *)),  /* after move */
@@ -812,8 +814,8 @@ int send_job(
 
     if ((con = svr_connect(hostaddr,port,0,cntype)) == PBS_NET_RC_FATAL) 
       {
-      sprintf(log_buffer,"send_job failed to %lx port %d",
-        hostaddr, 
+      sprintf(log_buffer,"send_job failed to %s port %d",
+        netaddr(hostaddr),
         port);
 
       log_err(pbs_errno,id,log_buffer);
@@ -895,7 +897,7 @@ int send_job(
 
       if ((move_type == MOVE_TYPE_Exec) &&
           (jobp->ji_qs.ji_svrflags & JOB_SVFLG_HASRUN) &&
-          (hostaddr != pbs_server_addr)) 
+          (! compare_ip(hostaddr, &pbs_server_addr))) 
         {
         /* send files created on prior run */
 
@@ -1072,7 +1074,7 @@ int net_move(
   {
   void		*data;
   char		*destination = jobp->ji_qs.ji_destin;
-  pbs_net_t	 hostaddr;
+  struct sockaddr_storage hostaddr;
   char		*hostname;
   int		 move_type;
   unsigned int	 port = pbs_server_port_dis;
@@ -1095,7 +1097,7 @@ int net_move(
   toserver++;		/* point to server name */
 
   hostname = parse_servername(toserver,&port);
-  hostaddr = get_hostaddr(hostname);
+  get_hostaddr(hostname, &hostaddr);
 
   if (req) 
     {
@@ -1120,7 +1122,7 @@ int net_move(
 
   return(send_job(
     jobp, 
-    hostaddr, 
+    &hostaddr, 
     port, 
     move_type, 
     post_func, 

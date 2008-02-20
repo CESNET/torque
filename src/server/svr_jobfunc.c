@@ -395,7 +395,7 @@ int svr_enquejob(
     if (pjob->ji_qs.ji_un_type != JOB_UNION_TYPE_EXEC) 
       {
       pjob->ji_qs.ji_un_type = JOB_UNION_TYPE_EXEC;
-      pjob->ji_qs.ji_un.ji_exect.ji_momaddr = 0;
+      memset(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr, 0, sizeof(struct sockaddr_storage));
       pjob->ji_qs.ji_un.ji_exect.ji_exitstat = 0;
       }
 
