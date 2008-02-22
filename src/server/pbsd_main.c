@@ -1050,7 +1050,7 @@ int main(
     exit(3);
     }
 
-  if (init_network(0,process_request) != 0) 
+  if (init_network(0,process_request,AF_UNIX) != 0) 
     {
     perror("pbs_server: unix domain socket");
 

@@ -189,7 +189,7 @@ int client_to_svr(
 
   struct sockaddr_storage local;
   struct sockaddr_storage remote;
-  int                addrlen;
+  int                addrlen=0;
   int                sock;
   unsigned short     tryport;
   int                flags;

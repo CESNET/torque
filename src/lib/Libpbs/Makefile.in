@@ -100,8 +100,9 @@ am_libtorque_la_OBJECTS = dis.lo discui_.lo discul_.lo disi10d_.lo \
 	parse_equal.lo parse_jobid.lo parse_stage.lo prepare_path.lo \
 	prt_job_err.lo set_attr.lo set_resource.lo chk_file_sec.lo \
 	log_event.lo pbs_log.lo pbs_messages.lo setup_env.lo \
-	get_hostaddr.lo get_hostname.lo md5.lo net_client.lo \
-	net_server.lo net_set_clse.lo rm.lo port_forwarding.lo
+	get_hostaddr.lo get_hostname.lo netaddr.lo md5.lo \
+	net_client.lo net_server.lo net_set_clse.lo rm.lo \
+	port_forwarding.lo fake_getaddrinfo.lo
 libtorque_la_OBJECTS = $(am_libtorque_la_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/src/include
 depcomp = $(SHELL) $(top_srcdir)/buildutils/depcomp
@@ -440,9 +441,11 @@ libtorque_la_SOURCES = ../Libdis/dis.c ../Libdis/discui_.c ../Libdis/discul_.c \
 		    ../Liblog/pbs_log.c ../Liblog/pbs_messages.c \
                     ../Liblog/setup_env.c \
 		    ../Libnet/get_hostaddr.c ../Libnet/get_hostname.c \
+			../Libnet/netaddr.c \
 		    ../Libnet/md5.c ../Libnet/net_client.c \
                     ../Libnet/net_server.c ../Libnet/net_set_clse.c \
-		    ../Libnet/rm.c ../Libnet/port_forwarding.c
+		    ../Libnet/rm.c ../Libnet/port_forwarding.c \
+		    ../Libnet/fake_getaddrinfo.c
 
 all: all-am
 
@@ -606,6 +609,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/enc_attropl.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/enc_reply.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/enc_svrattrl.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/fake_getaddrinfo.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_hostaddr.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_hostname.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_server.Plo@am__quote@
@@ -617,6 +621,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/net_client.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/net_server.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/net_set_clse.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/netaddr.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/nonblock.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/parse_at.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/parse_depend.Plo@am__quote@
@@ -1677,6 +1682,13 @@ get_hostname.lo: ../Libnet/get_hostname.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile --tag=CC $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o get_hostname.lo `test -f '../Libnet/get_hostname.c' || echo '$(srcdir)/'`../Libnet/get_hostname.c
 
+netaddr.lo: ../Libnet/netaddr.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile --tag=CC $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT netaddr.lo -MD -MP -MF "$(DEPDIR)/netaddr.Tpo" -c -o netaddr.lo `test -f '../Libnet/netaddr.c' || echo '$(srcdir)/'`../Libnet/netaddr.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/netaddr.Tpo" "$(DEPDIR)/netaddr.Plo"; else rm -f "$(DEPDIR)/netaddr.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../Libnet/netaddr.c' object='netaddr.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile --tag=CC $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o netaddr.lo `test -f '../Libnet/netaddr.c' || echo '$(srcdir)/'`../Libnet/netaddr.c
+
 md5.lo: ../Libnet/md5.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile --tag=CC $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT md5.lo -MD -MP -MF "$(DEPDIR)/md5.Tpo" -c -o md5.lo `test -f '../Libnet/md5.c' || echo '$(srcdir)/'`../Libnet/md5.c; \
 @am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/md5.Tpo" "$(DEPDIR)/md5.Plo"; else rm -f "$(DEPDIR)/md5.Tpo"; exit 1; fi
@@ -1718,6 +1730,13 @@ port_forwarding.lo: ../Libnet/port_forwarding.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../Libnet/port_forwarding.c' object='port_forwarding.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile --tag=CC $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o port_forwarding.lo `test -f '../Libnet/port_forwarding.c' || echo '$(srcdir)/'`../Libnet/port_forwarding.c
+
+fake_getaddrinfo.lo: ../Libnet/fake_getaddrinfo.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --mode=compile --tag=CC $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT fake_getaddrinfo.lo -MD -MP -MF "$(DEPDIR)/fake_getaddrinfo.Tpo" -c -o fake_getaddrinfo.lo `test -f '../Libnet/fake_getaddrinfo.c' || echo '$(srcdir)/'`../Libnet/fake_getaddrinfo.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/fake_getaddrinfo.Tpo" "$(DEPDIR)/fake_getaddrinfo.Plo"; else rm -f "$(DEPDIR)/fake_getaddrinfo.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../Libnet/fake_getaddrinfo.c' object='fake_getaddrinfo.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --mode=compile --tag=CC $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o fake_getaddrinfo.lo `test -f '../Libnet/fake_getaddrinfo.c' || echo '$(srcdir)/'`../Libnet/fake_getaddrinfo.c
 
 mostlyclean-libtool:
 	-rm -f *.lo

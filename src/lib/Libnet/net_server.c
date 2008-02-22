@@ -348,8 +348,8 @@ if (port == 0) {
   unlink(TSOCK_PATH);  /* don't care if this fails */
 
   if (bind(unixsocket,
-           (struct sockaddr *)&unsocname,
-           sizeof(unsocname)) < 0) 
+           (struct sockaddr *)&socname,
+           sizeof(socname)) < 0) 
     {
     close(unixsocket);
 
@@ -561,8 +561,10 @@ static void accept_conn(
 
   torque_socklen_t fromsize;
 	
+/*
   from.sin_addr.s_addr=0;
   from.sin_port=0;
+*/
 
   /* update lasttime of main socket */
 
@@ -810,12 +812,18 @@ int get_connecthost(
 #endif
     }
 
-    size--;
-    addr = svr_conn[sock].cn_addr;
+  addr = svr_conn[sock].cn_addr;
 
-    if ((server_name != '\0') && compare_ip(&addr, &serveraddr)) {
-        /* lookup request is for local server, use cached name */
-        strncpy(namebuf, server_name, size);
+  if ((server_name != '\0') && (svr_conn[sock].cn_addr.ss_family & PBS_SOCK_UNIX))
+    {
+    /* lookup request is for local server */
+
+    strncpy(namebuf, server_name, size);
+    }
+  else if ((server_name != '\0') && compare_ip(&addr, &serveraddr)) 
+    {
+    /* lookup request is for local server, use cached name */
+    strncpy(namebuf, server_name, size);
     }
 #ifdef TORQUE_WANT_IPV6
     else {
@@ -834,24 +842,12 @@ int get_connecthost(
     }
 #else /* !TORQUE_WANT_IPV6 */
 
-  if ((server_name != NULL) && (svr_conn[sock].cn_socktype & PBS_SOCK_UNIX))
-    {
-    /* lookup request is for local server */
-
-    strcpy(namebuf,server_name);
-    }
-  else if ((server_name != NULL) && (addr.s_addr == serveraddr.s_addr))
-    {
-    /* lookup request is for local server */
-
-    strcpy(namebuf,server_name);
-    }
   else if ((phe = gethostbyaddr(
-        (char *)&addr,
+        (char *)(((struct sockaddr_in*)&addr)->sin_addr.s_addr),
         sizeof(struct in_addr),
         AF_INET)) == NULL)
     {
-    strcpy(namebuf,inet_ntoa(addr));
+    strcpy(namebuf,inet_ntoa(((struct sockaddr_in*)&addr)->sin_addr));
     }
   else
     {

@@ -1017,7 +1017,7 @@ static void rpp_send_out()
   struct	send_packet	*pp;
   struct	stream		*sp;
   time_t			curr;
-  torque_socklen_t              len;
+  torque_socklen_t              len=0;
 
   curr = time(NULL);
 
