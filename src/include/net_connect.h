@@ -191,7 +191,6 @@ int  init_network A_((unsigned int,void (*readfunc)(),sa_family_t af_family));
 void net_close A_((int));
 int  wait_request(time_t waittime,long *);
 void net_add_close_func A_((int,void(*)()));
-void net_set_type A_((enum conn_type,enum conn_type));
 int compare_ip A_((struct sockaddr_storage *, struct sockaddr_storage *));
 char	*		netaddr		(struct sockaddr_storage *);
 

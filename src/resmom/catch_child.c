@@ -158,7 +158,7 @@ extern void job_nodes A_((job *));
 extern int task_recov A_((job *));
 extern void is_update_stat(int);
 extern void check_state(int);
-
+extern int mom_open_socket_to_jobs_server A_(( job *, char *, void (*) A_((int))));
 
 
 /* END external prototypes */
@@ -331,20 +331,13 @@ void scan_for_exiting()
 
   {
   char         *id = "scan_for_exiting";
-
-  static char noconnect[] =
-    "no contact with server at hostaddr %x, port %d, jobid %s errno %d";
-
   int		found_one = 0;
   job		*nxjob;
   job		*pjob;
   task		*ptask;
   obitent	*pobit;
   int		sock;
-  int		sock3;
-  char		*svrport;
   char		*cookie;
-  unsigned int	port;
   u_long	gettime		A_((resource *));
   u_long	getsize		A_((resource *));
   task         *task_find	A_((job	*,tm_task_id));
@@ -736,29 +729,10 @@ void scan_for_exiting()
      * +  Send the Job Obit Request (notice).
      */
 
-    svrport = strchr(pjob->ji_wattr[(int)JOB_ATR_at_server].at_val.at_str,(int)':');
-
-    if (svrport)
-      port = atoi(svrport + 1); 
-    else
-      port = default_server_port;
-
-    sock = client_to_svr(pjob->ji_qs.ji_un.ji_momt.ji_svraddr,port,1,NULL);
+    sock = mom_open_socket_to_jobs_server(pjob,id,preobit_reply);
 
     if (sock < 0) 
       {
-      sprintf(log_buffer,noconnect,
-        pjob->ji_qs.ji_un.ji_momt.ji_svraddr,
-        port,
-        pjob->ji_qs.ji_jobid, 
-        errno);
-
-      LOG_EVENT(
-        PBSEVENT_DEBUG,
-        PBS_EVENTCLASS_REQUEST,
-        "scan_for_exiting", 
-        log_buffer);
-
       if ((errno == EINPROGRESS) || (errno == ETIMEDOUT) || (errno == EINTR))
         {
         sprintf(log_buffer,"connect to server unsuccessful after 5 seconds - will retry");
@@ -771,29 +745,6 @@ void scan_for_exiting()
 
       return;
       }  /* END if (sock < 0) */
-
-    if (sock < 3) 
-      {
-      /* needs to be 3 or above for epilogue */
-
-      sock3 = fcntl(sock,F_DUPFD,3);
- 
-      close(sock);
-      } 
-    else
-      {
-      sock3 = sock;
-      }
-			
-    pjob->ji_momhandle = sock3;
-
-    add_conn(
-      sock3, 
-      ToServerDIS,
-      pjob->ji_qs.ji_un.ji_momt.ji_svraddr,
-      port, 
-      PBS_SOCK_INET, 
-      preobit_reply);
 
     if (LOGLEVEL >= 2)
       {
@@ -820,16 +771,16 @@ void scan_for_exiting()
 
     /* send the pre-obit job stat request */
 
-    DIS_tcp_setup(sock3);
+    DIS_tcp_setup(sock);
 
-    if (encode_DIS_ReqHdr(sock3,PBS_BATCH_StatusJob,pbs_current_user) ||
-        encode_DIS_Status(sock3,pjob->ji_qs.ji_jobid,NULL) ||
-        encode_DIS_ReqExtend(sock3,NULL))
+    if (encode_DIS_ReqHdr(sock,PBS_BATCH_StatusJob,pbs_current_user) ||
+        encode_DIS_Status(sock,pjob->ji_qs.ji_jobid,NULL) ||
+        encode_DIS_ReqExtend(sock,NULL))
       { 
       return;
       }
 
-    DIS_tcp_wflush(sock3);
+    DIS_tcp_wflush(sock);
 
     if (found_one++ >= ObitsAllowed)
       {
@@ -865,11 +816,7 @@ int post_epilogue(
   char id[] = "post_epilogue";
 
   int sock;
-  char *svrport;
-  int port;
   struct batch_request *preq;
-  static char noconnect[] =
-    "cannot send obit to server at hostaddr=%x:%d, jobid=%s errno=%d";
 
   if (LOGLEVEL >= 2)
     {
@@ -882,14 +829,7 @@ int post_epilogue(
 
   /* open new connection */
 
-  svrport = strchr(pjob->ji_wattr[(int)JOB_ATR_at_server].at_val.at_str,(int)':');
-
-  if (svrport)
-    port = atoi(svrport + 1);
-  else
-    port = default_server_port;
-
-  sock = client_to_svr(pjob->ji_qs.ji_un.ji_momt.ji_svraddr,port,1,NULL);
+  sock = mom_open_socket_to_jobs_server(pjob,id,obit_reply);
 
   if (sock < 0)
     {
@@ -903,7 +843,7 @@ int post_epilogue(
 
       for (retrycount = 0;retrycount < 2;retrycount++)
         {
-        sock = client_to_svr(pjob->ji_qs.ji_un.ji_momt.ji_svraddr,port,1,NULL);
+        sock = mom_open_socket_to_jobs_server(pjob,id,obit_reply);
 
         if (sock >= 0) 
           break;
@@ -912,34 +852,15 @@ int post_epilogue(
 
     if (sock < 0)
       {
-      sprintf(log_buffer,noconnect,
-        pjob->ji_qs.ji_un.ji_momt.ji_svraddr,
-        port,
-        pjob->ji_qs.ji_jobid,
-        errno);
-
-      LOG_EVENT(
-        PBSEVENT_DEBUG,
-        PBS_EVENTCLASS_REQUEST,
-        id,
-        log_buffer);
-
-      /* We are trying to send obit, but failed - where is this retried? */
+      /* We are trying to send obit, but failed - where is this retried?
+       * Answer: I think that the main_loop should examine jobs and try
+       * every so often to send the obit.  This would work for recovered
+       * jobs also.
+       */
 
       return(1);
       }
     }
-
-  pjob->ji_momhandle = sock;
-
-  add_conn(
-    sock, 
-    ToServerDIS,
-    pjob->ji_qs.ji_un.ji_momt.ji_svraddr,
-    port, 
-    PBS_SOCK_INET,
-    obit_reply);
-
 
   /* send the job obiturary notice to the server */
 
@@ -1003,7 +924,9 @@ int post_epilogue(
 
   /* SUCCESS */
 
-  /* Who closes sock and unsets pjob->ji_momhandle? */
+  /* Who closes sock and unsets pjob->ji_momhandle?
+   * Answer: This gets done in the message reply handler, obit_reply.
+   */
 
   log_record(
     PBSEVENT_DEBUG, 
@@ -1018,7 +941,17 @@ int post_epilogue(
 
 
 
-/* Garrick, what does this routine do, and in what context?  What is the correct response if an EOF is detected? */
+/*
+ * preobit_reply
+ *
+ * This function is a message handler that is hooked to a server connection.
+ * The connection is established in scan_for_exiting where all jobs
+ * are examined.  A socket connection to the server is opened, an obit
+ * message is sent to the server, and then at some later time, the server
+ * sends back a reply and we end up here.
+ *
+ * What is the correct response if an EOF is detected?
+ */
 
 static void preobit_reply(
 
@@ -1336,12 +1269,17 @@ static void preobit_reply(
 
 
 
-/* is sock associated with a peer MOM or with pbs_server? */
-
 /*
- * obit_reply - read and process the reply from the server acknowledging
- *	the job obiturary notice.
+ * obit_reply
+ *
+ * This function is a message handler that is hooked to a server connection.
+ * The connection is established in post_epilogue.
+ * A socket connection to the server is opened, a job obiturary notice
+ * message is sent to the server, and then at some later time, the server
+ * sends back a reply and we end up here.
+ *
  */
+
 
 static void obit_reply(
 

@@ -1050,7 +1050,14 @@ int main(
     exit(3);
     }
 
-  net_set_type(Secondary,FromClientDIS);	/* "there" */
+  if (init_network(0,process_request) != 0) 
+    {
+    perror("pbs_server: unix domain socket");
+
+    log_err(-1,msg_daemonname,"init_network failed unix domain socket");
+
+    exit(3);
+    }
 
   if (TDoBackground == 1)
     {
