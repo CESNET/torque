@@ -151,6 +151,9 @@ int svr_recov(
     return(-1);
     }
 
+  /* Save the sv_jobidnumber field in case it is set by the attribute. */
+  i = server.sv_qs.sv_jobidnumber;
+
   /* read in server structure */
 
   i = read(sdb,(char *)&server.sv_qs,sizeof(struct server_qs));
@@ -183,6 +186,11 @@ int svr_recov(
 
     return(-1);
     }
+
+  /* Restore the current job number and make it visible in qmgr print server commnad. */
+  server.sv_qs.sv_jobidnumber = i;
+  server.sv_attr[(int)SRV_ATR_NextJobNum].at_val.at_long = i;
+  server.sv_attr[(int)SRV_ATR_NextJobNum].at_flags |= ATR_VFLAG_SET|ATR_VFLAG_MODIFY;
 
   close(sdb);
 	
