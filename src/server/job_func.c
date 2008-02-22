@@ -136,6 +136,7 @@
 #include "pbsgss.h"
 #endif
 #include "portability.h"
+#include "array.h"
 
 
 #ifndef TRUE
@@ -143,14 +144,11 @@
 #define FALSE 0
 #endif
 
-int conn_qsub(char *,long,char *);
-void job_purge(job *);
+int conn_qsub A_((char *,long,char *));
+void job_purge A_((job *));
 
 /* External functions */
 
-extern int array_save(job_array *);
-extern job_array *get_array(char *id);
-extern int delete_array_struct(job_array *pa);
 
 /* Local Private Functions */
 
@@ -922,7 +920,7 @@ void job_purge(
        clean that up too */
     if ( GET_NEXT(pjob->ji_arraystruct->array_alljobs) == pjob->ji_arraystruct->array_alljobs.ll_struct)
       {
-      delete_array_struct(pjob->ji_arraystruct);
+      array_delete(pjob->ji_arraystruct);
       }
     }
     

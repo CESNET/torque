@@ -135,7 +135,6 @@ static int	max_connection = PBS_NET_MAX_CONNECTIONS;
 static int	num_connections = 0;
 static fd_set	readset;
 static void	(*read_func[2]) A_((int));
-static enum     conn_type settype[2];		/* temp kludge */
 
 pbs_net_t pbs_server_addr;
 
@@ -258,13 +257,13 @@ int init_network(
     return(-1);	/* too many main connections */
     }
 
-  net_set_type(type,FromClientDIS);
-
   /* save the routine which should do the reading on connections	*/
   /* accepted from the parent socket				*/
 
   read_func[initialized++] = readfunc;
 
+if (port != 0)
+{
   sock = socket(AF_INET,SOCK_STREAM,0);
 
   if (sock < 0) 
@@ -304,9 +303,10 @@ int init_network(
 
     return(-1);
     }
-
+} /* if port != 0 */
 
 #ifdef ENABLE_UNIX_SOCKETS
+if (port == 0) {
   /* setup unix domain socket */
 
   unixsocket=socket(AF_UNIX,SOCK_STREAM,0);
@@ -322,7 +322,7 @@ int init_network(
 
   if (bind(unixsocket,
             (struct sockaddr *)&unsocname,
-            strlen(unsocname.sun_path) + sizeof(unsocname.sun_family)) < 0) 
+            sizeof(unsocname)) < 0) 
     {
     close(unixsocket);
 
@@ -342,9 +342,11 @@ int init_network(
 
     return(-1);
     }
+} /* if port == 0 */
 #endif /* END ENABLE_UNIX_SOCKETS */
 
 
+if (port != 0) {
   /* allocate a minute's worth of counter structs */
 
   for (i = 0;i < 60;i++)
@@ -352,6 +354,7 @@ int init_network(
     nc_list[i].time = 0;
     nc_list[i].counter = 0;
     }
+}
 
   return (0);
   }  /* END init_network() */
@@ -480,7 +483,7 @@ int wait_request(
 
     cp = &svr_conn[i];
 
-    if ((cp->cn_active != FromClientASN) && (cp->cn_active != FromClientDIS))
+    if (cp->cn_active != FromClientDIS)
       continue;
 
     if ((now - cp->cn_lasttime) <= PBS_NET_MAXCONNECTIDLE)
@@ -532,6 +535,9 @@ static void accept_conn(
 
   torque_socklen_t fromsize;
 	
+  from.sin_addr.s_addr=0;
+  from.sin_port=0;
+
   /* update lasttime of main socket */
 
   svr_conn[sd].cn_lasttime = time((time_t *)0);
@@ -779,7 +785,13 @@ int get_connecthost(
   size--;
   addr.s_addr = htonl(svr_conn[sock].cn_addr);
 
-  if ((server_name != NULL) && (addr.s_addr == serveraddr.s_addr))
+  if ((server_name != NULL) && (svr_conn[sock].cn_socktype & PBS_SOCK_UNIX))
+    {
+    /* lookup request is for local server */
+
+    strcpy(namebuf,server_name);
+    }
+  else if ((server_name != NULL) && (addr.s_addr == serveraddr.s_addr))
     {
     /* lookup request is for local server */
 
@@ -815,23 +827,6 @@ int get_connecthost(
 
 
 
-
-
-/*
- * net_set_type() - a temp kludge for supporting two protocols during
- *	the conversion from ASN.1 to PBS DIS
- */
-
-void net_set_type(
-
-  enum conn_type which,
-  enum conn_type type)
-
-  {
-  settype[(int)which] = type;
-
-  return;
-  }  /* END net_set_type() */
 
 
 /* END net_server.c */

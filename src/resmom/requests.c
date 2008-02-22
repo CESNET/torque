@@ -182,6 +182,7 @@ extern char PBSNodeMsgBuf[1024];
 extern int  LOGLEVEL;
 
 extern int im_compose A_((int,char *,char *,int,tm_event_t,tm_task_id));
+extern int mom_open_socket_to_jobs_server A_(( job *, char *, void (*) A_((int))));
 #ifdef GSSAPI
 /* used when server forwards creds to us */
 extern        char          *path_creds;
@@ -191,7 +192,6 @@ gss_cred_id_t server_creds;
 char *service_name = NULL;
 time_t lastcredstime = 0;
 #endif
-
 
 /* prototypes */
 
@@ -2398,10 +2398,8 @@ void req_rerunjob(
   static char   *id = "req_rerunjob";
 
   job		*pjob;
-  unsigned int	 port;
+  int        sock;
   int		 rc;
-  int		 sock;
-  char		*svrport;
 
   pjob = find_job(preq->rq_ind.rq_rerun);
 
@@ -2436,27 +2434,16 @@ void req_rerunjob(
     return;
     }
 
-  /* Child process ...  for each standard file generate and */
-  /* send a Job Files request(s).				  */
+  /* Child process ...  for each standard file generate and send a Job Files request(s).
+   * No message handler function is needed because return_file blocks and waits for reply.
+   * This is acceptable because we are a child process, not pbs_mom.
+   */
 
-  svrport = strchr(pjob->ji_wattr[(int)JOB_ATR_at_server].at_val.at_str,(int)':');
-
-  if (svrport)
-    port = atoi(svrport + 1);
-  else
-    port = default_server_port;
-
-  sock = client_to_svr(pjob->ji_qs.ji_un.ji_momt.ji_svraddr,port,1,NULL);
+  sock = mom_open_socket_to_jobs_server(pjob,id,NULL);
 
   if (sock < 0) 
     {
     /* FAILURE */
-
-    LOG_EVENT(
-      PBSEVENT_ERROR,
-      PBS_EVENTCLASS_REQUEST,
-      id, 
-      "no contact with the server");
 
     req_reject(PBSE_NOSERVER,0,preq,NULL,NULL);
 
