@@ -337,7 +337,7 @@ char *msg_bad_array_req = "Bad Job Array Request";
 /*
  * The following table connects error numbers with text
  * to be returned to the client.  Each is guaranteed to be pure text.
- * There are no printf formatting strings imbedded.
+ * There are no printf formatting strings embedded.
  */
 
 struct pbs_err_to_txt pbs_err_to_txt[] = {
