@@ -107,7 +107,7 @@
 /* Private Functions Local to this file */
 
 static int get_hold A_((tlist_head *, char **));
-static void post_hold A_((struct work_task *));
+static void process_hold_reply A_((struct work_task *));
 
 /* Global Data Items: */
 
@@ -165,9 +165,9 @@ void req_holdjob(
   int		 newstate;
   int		 newsub;
   long		 old_hold;
-  job		*pjob;
-  char		*pset;
-  int		 rc;
+  job    *pjob;
+  char    *pset;
+  int     rc;
 
   pjob = chk_job_request(preq->rq_ind.rq_hold.rq_orig.rq_objname,preq);
 
@@ -178,44 +178,48 @@ void req_holdjob(
 
   /* cannot do anything until we decode the holds to be set */
 
-	if ( (rc=get_hold(&preq->rq_ind.rq_hold.rq_orig.rq_attr, &pset)) != 0) {
-		req_reject(rc,0,preq,NULL,NULL);
-		return;
-	}
-			
-	/* if other than HOLD_u is being set, must have privil */
+  if ( (rc=get_hold(&preq->rq_ind.rq_hold.rq_orig.rq_attr, &pset)) != 0)
+    {
+    req_reject(rc,0,preq,NULL,NULL);
+    return;
+    }
+      
+  /* if other than HOLD_u is being set, must have privil */
 
-	if ((rc = chk_hold_priv(temphold.at_val.at_long, preq->rq_perm)) != 0) {
-			req_reject(rc,0,preq,NULL,NULL);
-			return;
-	}
+  if ((rc = chk_hold_priv(temphold.at_val.at_long, preq->rq_perm)) != 0)
+    {
+      req_reject(rc,0,preq,NULL,NULL);
+      return;
+    }
 
-	hold_val = &pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long;
-	old_hold = *hold_val;
-	*hold_val |= temphold.at_val.at_long;
-	pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
-	(void)sprintf(log_buffer, msg_jobholdset, pset, preq->rq_user,
-		      preq->rq_host);
+  hold_val = &pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long;
+  old_hold = *hold_val;
+  *hold_val |= temphold.at_val.at_long;
+  pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
+  sprintf(log_buffer, msg_jobholdset, pset, preq->rq_user,
+          preq->rq_host);
 
-	if ( (pjob->ji_qs.ji_state == JOB_STATE_RUNNING) &&
-	     (pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_val.at_str) &&
-	     (*pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_val.at_str != 'n') ) {
-	     
-		/* have MOM attempt checkpointing */
+  if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING)
+    {
+       
+    /* have MOM attempt checkpointing */
 
-		if ((rc = relay_to_mom(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
-				       preq, post_hold)) != 0) {
-			*hold_val = old_hold;	/* reset to the old value */
-			req_reject(rc, 0, preq,NULL,NULL);
-		} else {
-			pjob->ji_qs.ji_substate = JOB_SUBSTATE_RERUN;
-			pjob->ji_qs.ji_svrflags |=
-					JOB_SVFLG_HASRUN | JOB_SVFLG_CHKPT;
-			job_save(pjob, SAVEJOB_QUICK);
-			LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
-				  pjob->ji_qs.ji_jobid, log_buffer);
-		}
-	} 
+    if ((rc = relay_to_mom(pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+               preq, post_hold)) != 0)
+      {
+      *hold_val = old_hold;  /* reset to the old value */
+      req_reject(rc, 0, preq,NULL,NULL);
+      } 
+    else
+      {
+      pjob->ji_qs.ji_substate = JOB_SUBSTATE_RERUN;
+      pjob->ji_qs.ji_svrflags |=
+          JOB_SVFLG_HASRUN | JOB_SVFLG_CHKPT;
+      job_save(pjob, SAVEJOB_QUICK);
+      LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid, log_buffer);
+      }
+    } 
   else 
     {
     /* everything went well, may need to update the job state */
@@ -230,7 +234,7 @@ void req_holdjob(
       {
       /* indicate attributes changed     */
 
-      pjob->ji_modified = 1;	 
+      pjob->ji_modified = 1;   
 
       svr_evaljobstate(pjob,&newstate,&newsub,0);
 
@@ -239,8 +243,6 @@ void req_holdjob(
 
     reply_ack(preq);
     }
-
-  return;
   }  /* END req_holdjob() */
 
 
@@ -249,7 +251,7 @@ void req_holdjob(
 /*
  * req_releasejob - service the Release Job Request 
  *
- *	This request clears one or more holds on a job.
+ *  This request clears one or more holds on a job.
  *	As a result, the job might change state.
  */
 
@@ -383,62 +385,61 @@ static int get_hold(
 
 
 /*
- * post_hold - A round hold in the ground in which a post is placed :-)
+ * process_hold_reply
  *	called when a hold request was sent to MOM and the answer
  *	is received.  Completes the hold request for running jobs.
  */
 
-static void post_hold(
+static void process_hold_reply(
 
   struct work_task *pwt)
-
   {
-  int		      code;
   job		     *pjob;
   struct batch_request *preq;
+  int		 newstate;
+  int		 newsub;
 
   svr_disconnect(pwt->wt_event);	/* close connection to MOM */
 
   preq = pwt->wt_parm1;
+  preq->rq_conn = preq->rq_orgconn;  /* restore client socket */
 
-  code = preq->rq_reply.brp_code;
+  if ((pjob = find_job(preq->rq_ind.rq_hold.rq_orig.rq_objname)) == (job *)0)
+    {
+    LOG_EVENT(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB,
+        preq->rq_ind.rq_hold.rq_orig.rq_objname,
+        msg_postmomnojob);
+    req_reject(PBSE_UNKJOBID, 0, preq,NULL,msg_postmomnojob);
+    }
+  else if (preq->rq_reply.brp_code != 0)
+    {
+    pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;  /* reset it */
+    sprintf(log_buffer, msg_mombadhold, preq->rq_reply.brp_code);
+    LOG_EVENT(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid, log_buffer);
+    req_reject(preq->rq_reply.brp_code, 0, preq,NULL,log_buffer);
+    }
+  else
+    {
+    /* record that MOM has a checkpoint file */
 
-  preq->rq_conn = preq->rq_orgconn;	/* restore client socket */
+    /* Stupid PBS_CHKPT_MIGRATE is defined as zero therefore this code will never fire.
+     * And if these flags are not set, start_exec will not try to run the job from
+     * the checkpoint image file.
+     */
 
-	if ((pjob = find_job(preq->rq_ind.rq_hold.rq_orig.rq_objname)) == (job *)0) {
-		LOG_EVENT(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB,
-			  preq->rq_ind.rq_hold.rq_orig.rq_objname,
-			  msg_postmomnojob);
-		req_reject(PBSE_UNKJOBID, 0, preq,NULL,NULL);
-		return;
-	}
-	if (code != 0) {
-	    pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;	/* reset it */
-	    if (code != PBSE_NOSUP) {
-		(void)sprintf(log_buffer, msg_mombadhold, code);
-		LOG_EVENT(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB,
-			  pjob->ji_qs.ji_jobid, log_buffer);
-		req_reject(code, 0, preq,NULL,NULL);
-		return;
-	    }
-	} else if (code == 0) {
+    pjob->ji_qs.ji_svrflags |= JOB_SVFLG_CHKPT;
+    if (preq->rq_reply.brp_auxcode)  /* chkpt can be moved */
+      {
+      pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_CHKPT;
+      pjob->ji_qs.ji_svrflags |=  JOB_SVFLG_HASRUN | JOB_SVFLG_ChkptMig;
+      }
 
-		/* record that MOM has a checkpoint file */
+    pjob->ji_modified = 1;    /* indicate attributes changed     */
+    svr_evaljobstate(pjob,&newstate,&newsub,0);
+    svr_setjobstate(pjob,newstate,newsub); /* saves job */
 
-		if (preq->rq_reply.brp_auxcode)	/* chkpt can be moved */
-		    pjob->ji_qs.ji_svrflags =
-				(pjob->ji_qs.ji_svrflags & ~JOB_SVFLG_CHKPT) |
-				JOB_SVFLG_HASRUN | JOB_SVFLG_ChkptMig;
-
-		pjob->ji_modified = 1;	  /* indicate attributes changed     */
-		job_save(pjob, SAVEJOB_QUICK);
-
-		/* note in accounting file */
-
-		account_record(PBS_ACCT_CHKPNT, pjob, (char *)0);
-	}
-
-  reply_ack(preq);
-
-  return;
+    account_record(PBS_ACCT_CHKPNT, pjob, (char *)0);  /* note in accounting file */
+    reply_ack(preq);
+    }
   }

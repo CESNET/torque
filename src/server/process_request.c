@@ -394,15 +394,18 @@ void process_request(
     return;
     }
 
-  sprintf(
-    log_buffer,
-    msg_request,
-    reqtype_to_txt(request->rq_type),
-    request->rq_user,
-    request->rq_host,
-    sfds);
+  if (LOGLEVEL >= 1)
+    {
+    sprintf(
+      log_buffer,
+      msg_request,
+      reqtype_to_txt(request->rq_type),
+      request->rq_user,
+      request->rq_host,
+      sfds);
 
-  LOG_EVENT(PBSEVENT_DEBUG2,PBS_EVENTCLASS_REQUEST,"",log_buffer);
+    LOG_EVENT(PBSEVENT_DEBUG2,PBS_EVENTCLASS_REQUEST,"",log_buffer);
+    }
 
   /* is the request from a host acceptable to the server */
 
@@ -1082,10 +1085,10 @@ void free_br(
       break;
 
     /* CRI RT #255 reports a memory leak at this point, but I can't
-     * reproduce it, so I'm just leaving this here for now 
+     * reproduce it, so I'm just leaving this here for now */
     case PBS_BATCH_MvJobFile:
       log_err(-1,"free_br","BUG: NOT freeing from PBS_BATCH_MvJobFile");
-      break; */
+      break; 
     case PBS_BATCH_jobscript:
 
       if (preq->rq_ind.rq_jobfile.rq_data)
