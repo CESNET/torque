@@ -2341,7 +2341,7 @@ int extra_resc_chk(
   /* the new resource is at pattr->at_val.at_str */
   ptask=set_task(WORK_Immed,0,on_extra_resc,NULL);
 
-  return (ptask != NULL);
+  return (ptask == NULL);
 }
 
 /*

@@ -398,7 +398,7 @@ static struct specials {
     { "nospool_dir_list",    setnospooldirlist },
     { "mom_host",            setmomhost },
     { "remote_reconfig",     setrreconfig },
-    { "job_umask",           setumask },
+    { "job_output_file_umask",           setumask },
     { "preexec",             setpreexec },
     { NULL,                  NULL } };
 
@@ -8022,7 +8022,7 @@ void examine_all_running_jobs()
 
       if (pjob->ji_chkpttime != 0)  /* ji_chkpttime gets set in start_exec */
         {
-        int c;
+        int rc;
 
         prscput = find_resc_entry(
           &pjob->ji_wattr[(int)JOB_ATR_resc_used],
@@ -8035,9 +8035,9 @@ void examine_all_running_jobs()
             prscput->rs_value.at_val.at_long +
             pjob->ji_chkpttime;
 
-          if ((c = start_checkpoint(pjob,0,0)) != PBSE_NONE)
+          if ((rc = start_checkpoint(pjob,0,0)) != PBSE_NONE)
             {
-            sprintf(log_buffer,"Checkpoint failed, error %d", c);
+            sprintf(log_buffer,"Checkpoint failed, error %d", rc);
 
             message_job(pjob,StdErr,log_buffer);
 
