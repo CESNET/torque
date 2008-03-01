@@ -6,6 +6,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       from the server's node list
   b - fix qdel of entire job arrays for non operator/managers
   b - fix problem where job array .AR files are not saved to disk
+  b - fixed problem with tracking job memory usage on OS X
 
 2.2.1
   b - fixed a bug where pbs_server never delete files from the "jobs" directory
