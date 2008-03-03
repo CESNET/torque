@@ -21,6 +21,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - added --enable-nochildsignal to allow pbs_server to use inline checking
       for SIGCHLD instead of using the signal handler.
   b - fix qdel of entire job arrays for non operator/managers
+  e - change qsub so '-v var=' will look in environment for value. If value
+      is not found set it to "".
 
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has

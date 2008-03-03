@@ -1282,6 +1282,16 @@ state2:         /* goto label : Variable name */
         break;
 
       case '=':
+        /* if we just have the '=' and no value after it then we look in
+         the environment same as if the '=' was not there */
+        if ((c[1] == ',') || (c[1] == '\0'))
+          {
+          *c = '\0';
+          c++;
+          goto state3;
+
+          /*NOTREACHED*/
+          }
 
         goto state4;
 
@@ -1309,7 +1319,7 @@ state3:         /* No value - get it from qsub environment */
 
     if (env == NULL) 
       {
-      return(FALSE);
+      env = "";
       }
 
     if (strlen(job_env) + 2 + strlen(s) + 2*strlen(env) >= len)
