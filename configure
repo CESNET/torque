@@ -1030,9 +1030,9 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-maintainer-mode  enable make rules and dependencies not useful
 			  (and sometimes confusing) to the casual installer
-  --enable-autorun          turn on the AUTORUN_JOBS flag
-  --enable-quickcommit          turn on the QUICKCOMMIT flag
-  --enable-nochildsignal          turn on the NO_SIGCHLD flag
+  --enable-autorun        turn on the AUTORUN_JOBS flag
+  --enable-quickcommit    turn on the QUICKCOMMIT flag
+  --enable-nochildsignal  turn on the NO_SIGCHLD flag
   --enable-debug          turn on the DEBUG flag
   --disable-server        do not include server and scheduler
   --disable-mom           do not include the mom daemon
