@@ -1619,7 +1619,7 @@ void check_children(
   )
 
   {
-  if (LOGLEVEL >= 5)
+  if (LOGLEVEL >= 7)
     {
     log_record(
       PBSEVENT_SYSTEM | PBSEVENT_FORCE,
