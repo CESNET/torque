@@ -7254,8 +7254,12 @@ int main(
     return(3);
     }
 
+#ifdef BSD4ON6
   if ((strncmp(PBS_MACH,"freebsd",sizeof("freebsd")) != 0) 
       && ((mom_get_sample()) != PBSE_NONE))
+#else
+  if (mom_get_sample() != PBSE_NONE)
+#endif
     {
     log_err(c,msg_daemonname,"mom_get_sample failed after mom_open_poll");
 
