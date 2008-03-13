@@ -1538,7 +1538,7 @@ static time_t next_task()
 
   if (svr_delay_entry) 
     {
-    if (LOGLEVEL >= 5)
+    if (LOGLEVEL >= 7)
       {
       log_record(
         PBSEVENT_SCHED,
@@ -1555,7 +1555,7 @@ static time_t next_task()
 
       if (ptask->wt_type == WORK_Deferred_Cmp)
         {
-        if (LOGLEVEL >= 5)
+        if (LOGLEVEL >= 7)
           {
           sprintf(log_buffer,
             "DISPATCH Task WORK_Deferred_Cmp type %d, wt_event %ld, wt_aux %d",
@@ -1579,7 +1579,7 @@ static time_t next_task()
 
   while ((ptask = (struct work_task *)GET_NEXT(task_list_immed)) != NULL)
     {
-    if (LOGLEVEL >= 5)
+    if (LOGLEVEL >= 7)
       {
       sprintf(log_buffer,
         "DISPATCH Task #1 type %d, wt_event %ld, wt_aux %d",
@@ -1606,7 +1606,7 @@ static time_t next_task()
       } 
     else 
       {
-      if (LOGLEVEL >= 5)
+      if (LOGLEVEL >= 7)
         {
         sprintf(log_buffer,
           "DISPATCH Task #2 type %d, wt_event %ld, wt_aux %d",
