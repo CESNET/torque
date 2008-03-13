@@ -544,8 +544,7 @@ if (svr_conn[sfds].cn_addr.ss_family == PBS_SOCK_UNIX)
   {
   extern tree *okclients;
   
-  extern int  MOMLastRecvFromServerTime;
-  extern char MOMLastRecvFromServerCmd[];
+  extern void mom_server_update_receive_time_by_ip(u_long ipaddr,const char *cmd);
 
   /* check connecting host against allowed list of ok clients */
 
@@ -594,8 +593,7 @@ if (svr_conn[sfds].cn_addr.ss_family == PBS_SOCK_UNIX)
       log_buffer);
     }
 
-  MOMLastRecvFromServerTime = time_now;
-  strcpy(MOMLastRecvFromServerCmd,reqtype_to_txt(request->rq_type));
+  mom_server_update_receive_time_by_ip(svr_conn[sfds].cn_addr,reqtype_to_txt(request->rq_type));
   }    /* END BLOCK */
 		
   request->rq_fromsvr = 1;

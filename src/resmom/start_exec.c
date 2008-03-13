@@ -488,12 +488,14 @@ int blcr_restart_job(
         arg[5] = SET_ARG(ptask->ti_job->ji_wattr[(int)JOB_ATR_chkptname].at_val.at_str);
         arg[6] = NULL;
  
-       strcpy(buf, "restart args:");
-        for (ap = arg; *ap; ap++)
+        strcpy(buf,"restart args:");
+
+        for (ap = arg;*ap;ap++)
           {
-          strcat(buf, " ");
-          strcat(buf, *ap);
+          strcat(buf," ");
+          strcat(buf,*ap);
           }
+
         log_err(-1,id,buf);
 
         log_close(0);
@@ -506,12 +508,14 @@ int blcr_restart_job(
 
         net_close(-1);
  
-        fdreopen("/dev/null", O_RDONLY, 0);
-        fdreopen("/dev/null", O_WRONLY, 1);
-        fdreopen("/dev/null", O_WRONLY, 2);
+        fdreopen("/dev/null",O_RDONLY,0);
+        fdreopen("/dev/null",O_WRONLY,1);
+        fdreopen("/dev/null",O_WRONLY,2);
 
         /* set us up with a new session */
+
         pid = setsid();
+
         if (pid < 0)
           {
           perror("setsid");
@@ -834,8 +838,13 @@ static int open_pty(
 	
     fchmod(pts,0620);
 
-    fchown(pts,pjob->ji_qs.ji_un.ji_momt.ji_exuid,
-      pjob->ji_qs.ji_un.ji_momt.ji_exgid);
+    if (fchown(pts,pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+      pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1)
+      {
+      close(pts);
+      log_err(errno,"open_pty","cannot change slave's owner");
+      return -1;
+      }
 
 #ifdef SETCONTROLLINGTTY
 
@@ -998,14 +1007,14 @@ static int open_std_out_err(
   if (file_out != 1) 
     {
     close(1);
-    dup(file_out);
+    if (dup(file_out) == -1) {}
     close(file_out);
     }
 
   if (file_err != 2) 
     {
     close(2);
-    dup(file_err);
+    if (dup(file_err) == -1) {}
     close(file_err);
     }
 
@@ -2036,10 +2045,10 @@ int TMomFinalizeJob2(
   strcat(buf,pjob->ji_qs.ji_fileprefix);
   strcat(buf,JOB_SCRIPT_SUFFIX);
 
-  chown(
+  if (chown(
     buf, 
     pjob->ji_qs.ji_un.ji_momt.ji_exuid,
-    pjob->ji_qs.ji_un.ji_momt.ji_exgid);
+    pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1) {}
 
 #if SHELL_USE_ARGV == 0
 #if SHELL_INVOKE == 1
@@ -2720,7 +2729,7 @@ int TMomFinalizeChild(
         /* change pty back to available after job is done */
 
         chmod(TJE->ptc_name,0666);
-        chown(TJE->ptc_name,0,0);
+        if (chown(TJE->ptc_name,0,0) == -1) {}
 
         exit(0);
         }
@@ -2734,7 +2743,7 @@ int TMomFinalizeChild(
       /* change pty back to available */
 
       chmod(TJE->ptc_name,0666);
-      chown(TJE->ptc_name,0,0);
+      if (chown(TJE->ptc_name,0,0) == -1) {}
 
       starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_RETRY,&sjr);
       }
@@ -2796,7 +2805,7 @@ int TMomFinalizeChild(
     if (script_in != 0) 
       {
       close(0);
-      dup(script_in);
+      if (dup(script_in) == -1) {}
       close(script_in);
       }
 
@@ -2940,7 +2949,7 @@ int TMomFinalizeChild(
 
     sprintf(log_buffer,"PBS: site specific job setup failed\n");
 
-    write(2,log_buffer,strlen(log_buffer));
+    if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
     fsync(2);
 
@@ -2962,7 +2971,7 @@ int TMomFinalizeChild(
       {
       /* report error to user via stderr file */
 
-      write(2,log_buffer,strlen(log_buffer));
+      if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
       fsync(2);
       }
@@ -3010,7 +3019,7 @@ int TMomFinalizeChild(
         idir,
         strerror(errno));
 
-      write(2,log_buffer,strlen(log_buffer));
+      if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
       fsync(2);
 
@@ -3049,7 +3058,7 @@ int TMomFinalizeChild(
       pjob->ji_qs.ji_un.ji_momt.ji_exuid,
       strerror(errno));
 
-    write(2,log_buffer,strlen(log_buffer));
+    if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
     fsync(2);
 
@@ -3076,7 +3085,7 @@ int TMomFinalizeChild(
         idir,
         strerror(errno));
 
-      write(2,log_buffer,strlen(log_buffer));
+      if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
       fsync(2);
 
@@ -3099,7 +3108,7 @@ int TMomFinalizeChild(
         pwdp->pw_dir,
         strerror(errno));
 
-      write(2,log_buffer,strlen(log_buffer));
+      if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
       fsync(2);
 
@@ -3137,7 +3146,7 @@ int TMomFinalizeChild(
       {
       sprintf(log_buffer,"PBS: X11 forwarding init failed\n");
 
-      write(2,log_buffer,strlen(log_buffer));
+      if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
       fsync(2);
       }
@@ -3181,6 +3190,8 @@ int TMomFinalizeChild(
     aindex = 0;
 
     arg[aindex] = malloc(strlen(shellname) + 2);
+
+    /* specifying '-' indicates this is a 'login' shell */
 
     strcpy(arg[aindex],"-");
 
@@ -3234,10 +3245,11 @@ int TMomFinalizeChild(
       {
       /* Launch job executable with cr_run command so that cr_checkpoint command will work. */
 
-      arg[3] = arg[2];  /* shuffle up the existing args */
+      arg[3] = arg[2];                     /* shuffle up the existing args */
       arg[2] = arg[1];
-      arg[1] = malloc(strlen(shell)+1);  /* replace first arg with shell name */
-      strcpy(arg[1], shell);
+      arg[1] = malloc(strlen(shell) + 1);  /* replace first arg with shell name */
+
+      strcpy(arg[1],shell);
 
       execve(checkpoint_run_exe_name,arg,vtable.v_envp);
       }
@@ -3302,7 +3314,7 @@ int TMomFinalizeChild(
   sprintf(log_buffer,"PBS: exec of shell '%.256s' failed\n",
     shell);
 
-  write(2,log_buffer,strlen(log_buffer));
+  if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
   fsync(2);
 
@@ -3413,7 +3425,7 @@ int TMomFinalizeJob3(
 
   /* send back as an acknowledgement that MOM got it */
 
-  write(TJE->mjspipe[1],&sjr,sizeof(sjr));
+  if (write(TJE->mjspipe[1],&sjr,sizeof(sjr)) == -1) {}
 
   close(TJE->mjspipe[1]);
 
@@ -3719,7 +3731,7 @@ int start_process(
         {
         gotsuccess = 1;
 
-        write(parent_write,&sjr,sizeof(sjr));
+        if (write(parent_write,&sjr,sizeof(sjr)) == -1) {}
 
         continue;
         }
@@ -3752,7 +3764,7 @@ int start_process(
       return(-1);
       }
 
-    write(parent_write,&sjr,sizeof(sjr));
+    if (write(parent_write,&sjr,sizeof(sjr)) == -1) {}
 
     close(parent_write);
 
@@ -4087,11 +4099,11 @@ int start_process(
     /* never send cookie - PW mpiexec patch */
 
     /*	
-    write(1,pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str,
-      strlen(pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str));
+    if (write(1,pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str,
+      strlen(pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str)) == -1) {}
 
-    write(2,pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str,
-      strlen(pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str));
+    if (write(2,pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str,
+      strlen(pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str)) == -1) {}
     */
     } 
   else if ((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags&ATR_VFLAG_SET) &&
@@ -4185,7 +4197,7 @@ int start_process(
       strcpy(log_buffer,"PBS: unable to set task session\n");
       }
 
-    write(2,log_buffer,strlen(log_buffer));
+    if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
     fsync(2);
 
@@ -4203,7 +4215,7 @@ int start_process(
     if (log_buffer[0] != '\0')
       {
       /* report error to user via stderr file */
-      write(2,log_buffer,strlen(log_buffer));
+      if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
       fsync(2);
       }
@@ -4211,7 +4223,7 @@ int start_process(
     sprintf(log_buffer,"PBS: unable to set limits, err=%d\n",
       i);
 
-    write(2,log_buffer,strlen(log_buffer));
+    if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
     fsync(2);
 
@@ -4236,7 +4248,7 @@ int start_process(
         idir,
         strerror(errno));
 
-      write(2,log_buffer,strlen(log_buffer));
+      if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
       fsync(2);
 
@@ -4259,7 +4271,7 @@ int start_process(
       pjob->ji_qs.ji_un.ji_momt.ji_exuid,
       strerror(errno));
 
-    write(2,log_buffer,strlen(log_buffer));
+    if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
     fsync(2);
 
@@ -4284,7 +4296,7 @@ int start_process(
         idir,
         strerror(errno));
 
-      write(2,log_buffer,strlen(log_buffer));
+      if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
       fsync(2);
 
@@ -4303,7 +4315,7 @@ int start_process(
         pjob->ji_grpcache->gc_homedir,
         strerror(errno));
 
-      write(2,log_buffer,strlen(log_buffer));
+      if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
       fsync(2);
 
@@ -4342,7 +4354,7 @@ int start_process(
     argv[0],
     strerror(errno));
 
-  write(2,log_buffer,strlen(log_buffer));
+  if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
   fsync(2);
 
@@ -5082,7 +5094,7 @@ static void starter_return(
 
   sjrtn->sj_code = code;
   
-  write(upfds,(char *)sjrtn,sizeof(*sjrtn));
+  if (write(upfds,(char *)sjrtn,sizeof(*sjrtn)) == -1) {}
 
   if (code < 0)
     close(upfds);

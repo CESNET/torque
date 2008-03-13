@@ -146,15 +146,13 @@
 
 #include        "mcom.h"
 
+
 #ifdef _POSIX_MEMLOCK 
 #include <sys/mman.h>
 #endif /* _POSIX_MEMLOCK */
 
 #define CHECK_POLL_TIME     45
 #define DEFAULT_SERVER_STAT_UPDATES 45
-
-#define MAX_RETRY_TIME_IN_SECS  3600
-#define STARTING_RETRY_INTERVAL_IN_SECS  2
 
 #define PMAX_PORT           32000
 
@@ -166,6 +164,7 @@ int             MOMIsPLocked = 0;
 int             ServerStatUpdateInterval = DEFAULT_SERVER_STAT_UPDATES;
 int             CheckPollTime            = CHECK_POLL_TIME;
 
+int         verbositylevel = 0;
 double		cputfactor = 1.00;
 unsigned int	default_server_port = 0;
 int		exiting_tasks = 0;
@@ -177,8 +176,6 @@ time_t		loopcnt;		/* used for MD5 calc */
 float		max_load_val = -1.0;
 int		hostname_specified = 0;
 char		mom_host[PBS_MAXHOSTNAME + 1];
-char		pbs_servername[PBS_MAXSERVER][PBS_MAXSERVERNAME + 1];
-u_long		MOMServerAddrs[PBS_MAXSERVER];
 char            TMOMRejectConn[1024];   /* most recent rejected connection */
 char		mom_short_name[PBS_MAXHOSTNAME + 1];
 int		num_var_env;
@@ -230,10 +227,6 @@ char           *AllocParCmd = NULL;  /* (alloc) */
 
 /* externs */
 
-extern int      SStream[];   /* connection to pbs_server... */
-extern int      SIndex;
-extern char     ReportMomState[];
-
 extern unsigned int pe_alarm_time;
 extern time_t   pbs_tcp_timeout;
 
@@ -246,17 +239,8 @@ char            xauth_path[MAXPATHLEN];
 time_t          LastServerUpdateTime = 0;  /* NOTE: all servers updated together */
 
 time_t          MOMStartTime         = 0;
-time_t          MOMLastSendToServerTime[PBS_MAXSERVER];
-time_t          MOMLastRecvFromServerTime[PBS_MAXSERVER];
-char            MOMLastRecvFromServerCmd[PBS_MAXSERVER][MMAX_LINE];
 int             MOMPrologTimeoutCount;
 int             MOMPrologFailureCount;
-int             MOMRecvHelloCount[PBS_MAXSERVER];
-int             MOMRecvClusterAddrsCount[PBS_MAXSERVER];
-int             MOMSendHelloCount[PBS_MAXSERVER];
-int             MOMSendHelloTryCount[PBS_MAXSERVER];
-time_t          MOMSendHelloTime[PBS_MAXSERVER];
-char            MOMSendStatFailure[PBS_MAXSERVER][MMAX_LINE];
 
 char            MOMConfigVersion[64];
 char            MOMUNameMissing[64];            
@@ -276,7 +260,14 @@ pjobexec_t      TMOMStartInfo[TMAX_JE];
 /* prototypes */
 
 extern void     add_resc_def(char *,char *);
-
+extern void     mom_server_all_diag(char **BPtr, int *BSpace);
+extern void     mom_server_update_receive_time(int stream, const char *command_name);
+extern void     mom_server_all_init(void);
+extern void     mom_server_all_update_stat(void);
+extern int      mom_server_all_check_connection(void);
+extern int      mom_server_all_send_state(void);
+extern int      mom_server_add(char *name);
+extern int      mom_server_count;
 
 #define PMOMTCPTIMEOUT 60  /* duration in seconds mom TCP requests will block */
 
@@ -413,15 +404,15 @@ static char *reqvarattr(struct rm_attribute *);
 
 
 struct config common_config[] = {
-  { "arch",      {arch} },
-  { "opsys",     {opsys} },
-  { "uname",     {requname} },
-  { "validuser", {validuser} },
-  { "message",   {reqmsg} },
-  { "gres",      {reqgres} },
-  { "state",     {reqstate} },
-  { "jobs",      {getjoblist} },
-  { "varattr",   {reqvarattr} },
+  { "arch",      {arch} },             /* machine architecture  */
+  { "opsys",     {opsys} },            /* operating system      */
+  { "uname",     {requname} },         /* user name     ???     */
+  { "validuser", {validuser} },        /* valid user    ???     */
+  { "message",   {reqmsg} },           /* message       ???     */
+  { "gres",      {reqgres} },          /* ???                   */
+  { "state",     {reqstate} },         /* state of pbs_mom      */
+  { "jobs",      {getjoblist} },       /* job list this pbs_mom */
+  { "varattr",   {reqvarattr} },       /* ???                   */
   { NULL,        {NULL} } };
 
 int                     LOGLEVEL = 0;  /* valid values (0 - 10) */
@@ -571,7 +562,6 @@ extern void scan_for_terminated();
 extern int TMomCheckJobChild(pjobexec_t *,int,int *,int *);
 extern int TMomFinalizeJob3(pjobexec_t *,int,int,int *);
 extern void exec_bail(job *,int);
-extern int is_compose(int,int);
 extern void check_state(int);
 extern void tinsert(const u_long,tree **);
 extern void DIS_tcp_funcs();
@@ -587,7 +577,6 @@ int         TMOMScanForStarting(void);
 /* Local private functions */
 
 static char *mk_dirs A_((char *));
-void is_update_stat(int);
 void check_log A_((void));
 
 int MUSNPrintF(
@@ -1614,118 +1603,16 @@ static u_long setpbsserver(
   
   {
   static char	  id[] = "setpbsserver";
-  int index;
-  struct hostent *host;
-  struct in_addr  saddr;
-  u_long	  ipaddr;
-  char            tmpname[PBS_MAXSERVERNAME + 1]; 
-  char           *portstr;
 
   if ((value == NULL) || (*value == '\0'))
     {
-    /* FAILURE - nothing specified */
-
-    return(1);
+    return(1);    /* FAILURE - nothing specified */
     }
 
   log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,value);
 
-  strncpy(tmpname,value,PBS_MAXSERVERNAME);
 
-  if ((portstr = strchr(tmpname,':')) != NULL)
-    {
-    *portstr = '\0';
-    }
-
-  if ((host = gethostbyname(tmpname)) == NULL) 
-    {
-    sprintf(log_buffer,"server host %s not found", 
-      tmpname);
-
-    log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
-
-    log_err(-1,id,log_buffer);
-
-    ipaddr = 0;
-
-    /* don't return because we still want to add the hostname to
-     * pbs_servername[] and attempt a gethostbyname() later */
-    }
-  else
-    {
-    memcpy(&saddr,host->h_addr,host->h_length);
-
-    ipaddr = ntohl(saddr.s_addr);
-    }
-
-  for (index = 0;index < PBS_MAXSERVER;index++)
-    {
-    if (!strcmp(pbs_servername[index],value))
-      {
-      /* IGNORE DUPLICATE SERVERNAME REQUEST */
-
-      sprintf(log_buffer,"server host %s already added", 
-        value);
-
-      log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
-
-      if (MOMServerAddrs[index])
-        {
-        /* SUCCESS */
-        
-        return(1);
-        }
-
-      break;
-      }
-
-    if (ipaddr && (MOMServerAddrs[index] == ipaddr))
-      {
-      /* IGNORE DUPLICATE IPADDR REQUEST */
-
-       sprintf(log_buffer,"server ip %ld.%ld.%ld.%ld already added", 
-         (ipaddr & 0xff000000) >> 24,
-         (ipaddr & 0x00ff0000) >> 16,
-         (ipaddr & 0x0000ff00) >> 8,
-         (ipaddr & 0x000000ff));
-
-      log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
-
-      /* SUCCESS */
-
-      return(1);
-      }
-
-    if (pbs_servername[index][0] == '\0')
-      break;
-    }  /* END for (index) */
-
-  if (index >= PBS_MAXSERVER)
-    {
-    /* buffer is full */
-
-    sprintf(log_buffer,"server table overflow (max=%d) - server host %s not added", 
-      PBS_MAXSERVER,
-      tmpname);
-
-    log_err(-1,id,log_buffer);
-
-    return(0); /* FAILURE */
-    }
-
-  strncpy(pbs_servername[index],value,PBS_MAXSERVERNAME);
-
-  sprintf(log_buffer,"server %s added", pbs_servername[index]);
-  log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
-
-  MOMServerAddrs[index] = ipaddr;
-
-  if (ipaddr != 0)
-    tinsert(ipaddr,&okclients);
-
-  /* SUCCESS */
-
-  return(1);
+  return(mom_server_add(value));
   }  /* END setpbsserver() */
 
 
@@ -3336,7 +3223,7 @@ int read_config(
     fclose(conf);
     }  /* END if (IgnConfig == 0) */
 
-  if (pbs_servername[0][0] == '\0')
+  if (mom_server_count == 0)
     {
     /* No server names in torque/mom_priv/config.  Get names from torque/server_name. */
 
@@ -3771,19 +3658,6 @@ static void process_hup()
   return;
   }  /* END process_hup() */
 
-long 
-power (register int x, register int n)
-{
-    register long p;
-
-    for (p = 1; n > 0; --n)
-    {
-        p = p * x;
-    }
-    return (p);
-}
-
-/* End power() */
 
 
 
@@ -3915,494 +3789,6 @@ int bad_restrict(
   return(1);
   }  /* END bad_restrict() */
 
-
-
-
-/* init_server_stream() - open a connection to pbs_server */
-
-int init_server_stream(
-
-  int ServerIndex)  /* I */
-
-  {
-  static char id[] = "init_server_stream";
-
-  static int PassCount = 0;
-  int port = default_server_port;
-  char *portstr;
-
-  if ((portstr=strchr(pbs_servername[ServerIndex],':')) != NULL)
-    {
-    *(portstr)='\0';
-
-    if (*(portstr+1) != '\0')
-      port=atoi(portstr+1);
-
-    if (port == 0)
-      port = default_server_port;
-
-    }
-
-  if (LOGLEVEL >= 5)
-    {
-    sprintf(log_buffer,"%s: trying to open RPP conn to %s port %d",
-      id,
-      pbs_servername[ServerIndex],
-      port);
-
-    log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
-    }
-
-  if ((SStream[ServerIndex] = rpp_open(
-         pbs_servername[ServerIndex],
-         port,
-         MOMSendStatFailure[ServerIndex])) < 0)
-    {
-    /* FAILURE */
-
-    if ((PassCount == 0) || (LOGLEVEL >= 6))
-      {
-      if (errno == ENOENT)
-        {
-        sprintf(log_buffer,"%s: cannot open rpp connection, errno=%d, %s (check /etc/hosts file?)",
-          id,
-          errno,
-          MOMSendStatFailure[ServerIndex]);
-        }
-      else
-        {
-        sprintf(log_buffer,"%s: cannot open rpp connection, errno=%d, %s",
-          id,
-          errno,
-          MOMSendStatFailure[ServerIndex]);
-        }
-
-      log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
-      }
-
-    PassCount = 1;
-
-    SStream[ServerIndex] = -1;
-
-    if (portstr != NULL)
-      *portstr=':';
-
-    return(DIS_EOF);
-    }
-
-  if (LOGLEVEL >= 3)
-    {
-    sprintf(log_buffer,"%s: added connection to %s port %d",
-      id,
-      pbs_servername[ServerIndex],
-      port);
-
-    log_record(PBSEVENT_SYSTEM,0,id,log_buffer);                                         
-    }
-
-  if (portstr != NULL)
-    *portstr=':';
-
-  return(DIS_SUCCESS);
-  }  /* END init_server_stream() */
-
-
-
-
-
-/**
- *    is_update_stat
- *
- *    This should update the PBS server with the status information
- *    that the resource manager should need.  This should allow for
- *    less trouble on the part of the resource manager.  It can get
- *    this information from the server rather than going to each mom.
- *
- */
-
-void is_update_stat(
-
-  int ServerIndex) /* I: unused */
-
-  {
-  static char id[] = "is_update_stat";
-
-  static char *stats[] = {
-    "arch", 
-    "opsys",
-    "uname", 
-    "sessions", 
-    "nsessions", 
-    "nusers",
-    "idletime", 
-    "totmem", 
-    "availmem", 
-    "physmem", 
-    "ncpus", 
-    "loadave",
-    "message",
-    "gres",
-    "netload",
-    "size",
-    "state",
-    "jobs",
-    "varattr",
-    NULL };
-
-  char   cp[1024];
-  char   name[100];
-  char   buff[32768];
-  char  *curr, *value;
-  struct config  *ap;
-  struct rm_attribute *attr;
-  int    restrictrm = 0;
-  int    i;
-  int    ret;
-  void   (*close_io)A_((int));
-  int    (*flush_io)A_((int));
-
-  char  *ptr;
-
-  close_io = (void(*) A_((int)))rpp_close;
-  flush_io = rpp_flush;
-
-  DIS_rpp_reset();
-
-  if (LOGLEVEL >= 6)
-    {
-    log_record(PBSEVENT_SYSTEM,0,id,"composing status update for server");
-    }
-
-  for (ServerIndex = 0;ServerIndex < PBS_MAXSERVER;ServerIndex++)
-    {
-    if (SStream[ServerIndex] == -1)
-      continue;
-  
-    if (MOMRecvClusterAddrsCount[ServerIndex] == 0)
-      continue;
-
-    time(&MOMLastSendToServerTime[ServerIndex]);
-  
-    ret = diswsi(SStream[ServerIndex],IS_PROTOCOL);
-  
-    if (ret != DIS_SUCCESS)
-      {
-      sprintf(log_buffer,
-        "cannot specify protocol to %s",
-        pbs_servername[ServerIndex]);
-  
-      log_err(ret,id,log_buffer);
-  
-      close_io(SStream[ServerIndex]);
-
-      SStream[ServerIndex] = -1;
-
-      continue;
-      }
-  
-    ret = diswsi(SStream[ServerIndex],IS_PROTOCOL_VER);
-  
-    if (ret != DIS_SUCCESS)
-      {
-      sprintf(log_buffer,
-        "cannot specify protocol version to %s",
-        pbs_servername[ServerIndex]);
-  
-      log_err(ret,id,log_buffer);
-  
-      close_io(SStream[ServerIndex]);
-
-      SStream[ServerIndex] = -1;
-
-      continue;
-      }
-  
-    ret = diswsi(SStream[ServerIndex],IS_STATUS);
-  
-    if (ret != DIS_SUCCESS)
-      {
-      sprintf(log_buffer,
-        "cannot specify command type to %s",
-        pbs_servername[ServerIndex]);
-  
-      log_err(ret,id,log_buffer);
-  
-      close_io(SStream[ServerIndex]);
-
-      SStream[ServerIndex] = -1;
-
-      continue;
-      }
-    }    /* END for (ServerIndex) */
-
-  for (i = 0;stats[i] != NULL;i++) 
-    {
-    /* FORMAT:  <ATTR> <VAL> */
-
-    strcpy(cp,stats[i]);
-
-    curr = skipwhite(cp);
-    curr = tokcpy(curr,name);
-
-    buff[0] = '\0';
-
-    if (LOGLEVEL >= 8)
-      log_record(PBSEVENT_SYSTEM,0,id,"clearing alarm in is_update_stat");
-
-    alarm(0);
-
-    if (strlen(name) == 0) 
-      {             
-      /* no name */
-
-      sprintf(buff,"%s=? %d",
-        cp, 
-        RM_ERR_UNKNOWN);
-      }
-    else 
-      {
-      ap = rm_search(config_array,name);
-
-      if (!strcmp(name,"size"))
-        {
-        if (ap == NULL)
-          continue;
-
-        /* only report size if specified in mom config */
-
-        attr = momgetattr(ap->c_u.c_value);
-
-        if (attr == NULL)
-          continue;
-        }
-      else if (!strcmp(name,"arch"))
-        {
-        if (ap == NULL)
-          continue;
-
-        /* only report arch if specified in mom config */
-
-        if (ap->c_u.c_value == NULL)
-          continue;
-
-        attr = NULL;
-        }
-      else
-        {
-        attr = momgetattr(curr);
-        }
- 
-      if (LOGLEVEL >= 7)
-        log_record(PBSEVENT_SYSTEM,0,id,"setting alarm in is_update_stat");
-
-      alarm(alarm_time);
-
-      if ((!strcmp(name,"arch") || !strcmp(name,"opsys")) && (ap != NULL))
-        {
-        /* report value */
-
-        snprintf(buff,sizeof(buff),"%s=%s",
-          name,
-          ap->c_u.c_value);
-        }
-      else if ((ap != NULL) && 
-               !restrictrm && 
-                strcmp(name,"size"))
-        {    
-        /* static */
-
-        ptr = conf_res(ap->c_u.c_value,attr);
-
-        if ((ptr != NULL) && (ptr[0] != '\0'))
-          {
-          /* all static attributes are optional */
-
-          continue;
-          }
-
-        snprintf(buff,sizeof(buff),"%s=%s",
-          cp,
-          ptr);
-        }
-      else 
-        {      
-        /* check dependent code */
-
-        log_buffer[0] = '\0';
-
-        value = dependent(name,attr);
-
-        if (value != NULL)
-          {
-          if (value[0] == '\0')
-            {
-            /* value not set (attribute optional) */
-
-            continue;
-            }
-        
-          if (!strcmp(cp,"gres") && (strstr(value,":!") != NULL))
-            {
-            /* value contains executable call-out, must process */
-
-            /* FORMAT:  <XNAME1>:[!]<XVAL1>[+<XNAME2>:[!]<XVAL2>]... */
-
-            char *ptr;
-            char *tail;
-
-            char  gname[64];
-
-            char  src[1024];
-            char  result[1024];
-
-            strncpy(src,value,sizeof(src));
-            result[0] = '\0';
-
-            ptr = strtok(src,"+");
-
-            while (ptr != NULL)
-              {
-              if ((tail = strchr(ptr,':')) == NULL)
-                {
-                /* cannot parse value */
-
-                ptr = strtok(NULL,"+");
-
-                continue;
-                }  
-
-              strncpy(gname,ptr,tail - ptr);
-              gname[tail - ptr] = '\0';
-
-              ptr = conf_res(tail + 1,attr);
-
-              if ((ptr == NULL) || (ptr[0] == '\0'))
-                {
-                /* all static attributes are optional */
-
-                ptr = strtok(NULL,"+");
-
-                continue;
-                }
-
-              if (result[0] != '\0')
-                strcat(result,"+");
-
-              if ((ptr != NULL) && (strncmp(ptr,gname,strlen(gname))))
-                {
-                strcat(result,gname);
-                strcat(result,":");
-                }
-
-              strcat(result,ptr);
-
-              ptr = strtok(NULL,"+");
-              }  /* END while (ptr != NULL) */
-
-            if (result[0] != '\0')
-              {
-              sprintf(buff,"%s=%s",
-                cp,
-                result);
-              }
-            }
-          else
-            {
-            sprintf(buff,"%s=%s",
-              cp,
-              value);
-            }
-          }  /* END if (value != NULL) */
-        else 
-          {  
-          /* value not set (attribute required) */
-
-          sprintf(buff,"%s=? %d",
-            cp,
-            rm_errno);
-          }
-        }
-      }      /* END else (strlen(name) == 0) */
-
-    if (buff[0] == '\0')
-      continue;
-
-    if (LOGLEVEL >= 7)
-      {
-      sprintf(log_buffer,"%s: sending to server \"%s\"",
-        id,
-        buff);
-
-      log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
-      }
-
-    for (ServerIndex = 0;ServerIndex < PBS_MAXSERVER;ServerIndex++)
-      {
-      if (SStream[ServerIndex] == -1)
-        continue;
-  
-      if (MOMRecvClusterAddrsCount[ServerIndex] == 0)
-        continue;
-
-      ret = diswst(SStream[ServerIndex], 
-        buff);
-
-      if (ret != DIS_SUCCESS) 
-        {
-        sprintf(log_buffer,"write string failed %s to %s",
-          dis_emsg[ret],
-          pbs_servername[ServerIndex]);
-  
-        log_err(ret,id,log_buffer);
-  
-        close_io(SStream[ServerIndex]);
-  
-        SStream[ServerIndex] = -1;
-
-        continue;
-        }
-      }   /* END for each server */
-    }     /* END for (i) */
-
-  if (LOGLEVEL >= 8)
-    log_record(PBSEVENT_SYSTEM,0,id,"clearing alarm in is_update_stat");
-
-  alarm(0);
-
-  for (ServerIndex = 0;ServerIndex < PBS_MAXSERVER;ServerIndex++)
-    {
-    if (SStream[ServerIndex] == -1)
-      continue;
-  
-    if (MOMRecvClusterAddrsCount[ServerIndex] == 0)
-      continue;
-
-    if (flush_io(SStream[ServerIndex]) == -1) 
-      {
-      log_err(errno,id,"flush");
-  
-      close_io(SStream[ServerIndex]);
-
-      SStream[ServerIndex] = -1;
-
-      continue;
-      }
-
-    if (LOGLEVEL >= 3)
-      {
-      sprintf(log_buffer,"status update successfully sent to %s",
-        pbs_servername[ServerIndex]);
-  
-      log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
-      }
-
-    /* It would be redundant to send state since it is already in status */
-  
-    ReportMomState[ServerIndex] = 0;
-    }
-
-  return;
-  }  /* END is_update_stat() */
 
 
 
@@ -4735,9 +4121,7 @@ int rm_request(
             char tmpLine[1024];
 
             int rc;
-            int sindex;
 
-            int verbositylevel = 0;
 
             time_t Now;
 
@@ -4766,100 +4150,7 @@ int rm_request(
 
             MUStrNCat(&BPtr,&BSpace,tmpLine);
 
-            for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
-              {
-              if (pbs_servername[sindex][0] == '\0')
-                break;
-
-              sprintf(tmpLine,"Server[%d]: %s (%ld.%ld.%ld.%ld)\n",
-                sindex,
-                pbs_servername[sindex],  
-                (MOMServerAddrs[sindex] & 0xff000000) >> 24,
-                (MOMServerAddrs[sindex] & 0x00ff0000) >> 16,
-                (MOMServerAddrs[sindex] & 0x0000ff00) >> 8,
-                (MOMServerAddrs[sindex] & 0x000000ff));
-
-              MUStrNCat(&BPtr,&BSpace,tmpLine);
-
-              if ((MOMRecvHelloCount[sindex] > 0) || 
-                  (MOMRecvClusterAddrsCount[sindex] > 0))
-                {
-                if (verbositylevel >= 1)
-                  {
-                  sprintf(tmpLine,"  Init Msgs Received:     %d hellos/%d cluster-addrs\n",
-                    MOMRecvHelloCount[sindex],
-                    MOMRecvClusterAddrsCount[sindex]);
-
-                  MUStrNCat(&BPtr,&BSpace,tmpLine);
-
-                  sprintf(tmpLine,"  Init Msgs Sent:         %d hellos\n",
-                    MOMSendHelloCount[sindex]);
-
-                  MUStrNCat(&BPtr,&BSpace,tmpLine);
-                  }
-                }
-              else
-                {
-                sprintf(tmpLine,"  WARNING:  no hello/cluster-addrs messages received from server\n");
-
-                MUStrNCat(&BPtr,&BSpace,tmpLine);
-
-                sprintf(tmpLine,"  Init Msgs Sent:         %d hellos\n",
-                  MOMSendHelloCount[sindex]);
-
-                MUStrNCat(&BPtr,&BSpace,tmpLine);
-                }
-
-              if (MOMSendStatFailure[sindex][0] != '\0')
-                {
-                sprintf(tmpLine,"  WARNING:  could not open connection to server, %s%s\n",
-                  MOMSendStatFailure[sindex],
-                  (strstr(MOMSendStatFailure[sindex],"cname") != NULL) ?
-                    " (check name resolution - /etc/hosts?)" :
-                    "");
-
-                MUStrNCat(&BPtr,&BSpace,tmpLine);
-                }
-
-              if (TMOMRejectConn[0] != '\0')
-                {
-                MUSNPrintF(&BPtr,&BSpace,"  WARNING:  invalid attempt to connect from server %s\n",
-                  TMOMRejectConn);
-                }
-
-              if (MOMLastRecvFromServerTime[sindex] > 0)
-                {
-                sprintf(tmpLine,"  Last Msg From Server:   %ld seconds (%s)\n",
-                  (long)Now - MOMLastRecvFromServerTime[sindex],
-                  (MOMLastRecvFromServerCmd[sindex][0] != '\0') ?
-                    MOMLastRecvFromServerCmd[sindex] : "N/A");
-                }
-              else
-                {
-                sprintf(tmpLine,"  WARNING:  no messages received from server\n");
-                }
-
-              MUStrNCat(&BPtr,&BSpace,tmpLine);
-
-              if (MOMLastSendToServerTime[sindex] > 0)
-                {
-                sprintf(tmpLine,"  Last Msg To Server:     %ld seconds\n",
-                  (long)Now - MOMLastSendToServerTime[sindex]);
-                }
-              else
-                {
-                sprintf(tmpLine,"  WARNING:  no messages sent to server\n");
-                }
-
-              MUStrNCat(&BPtr,&BSpace,tmpLine);
-              }  /* END for (sindex) */
-
-            if (pbs_servername[0][0] == '\0')
-              {
-              sprintf(tmpLine,"WARNING:  server not specified (set $pbsserver)\n");
-
-              MUStrNCat(&BPtr,&BSpace,tmpLine);
-              }
+            mom_server_all_diag(&BPtr,&BSpace);
 
             sprintf(tmpLine,"HomeDirectory:          %s\n",
               (mom_home != NULL) ? mom_home : "N/A");
@@ -4980,13 +4271,11 @@ int rm_request(
 
             if (verbositylevel >= 1)
               {
-              sprintf(tmpLine,"Communication Model:    %s\n",
 #if RPP
-                "RPP"
+              sprintf(tmpLine,"Communication Model:    %s\n", "RPP");
 #else  /* RPP */
-                "TCP"
+              sprintf(tmpLine,"Communication Model:    %s\n", "TCP");
 #endif /* RPP */
-                );
 
               MUStrNCat(&BPtr,&BSpace,tmpLine);
 
@@ -5513,7 +4802,6 @@ void do_rpp(
 
       {
       int tmpI;
-      int sindex;
 
       if (LOGLEVEL >= 3)
         {
@@ -5526,19 +4814,8 @@ void do_rpp(
 
       is_request(stream,version,&tmpI);
 
-      for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
-        {
-        if (SStream[sindex] == stream)
-          {
-          time(&MOMLastRecvFromServerTime[sindex]);
-
-          strcpy(MOMLastRecvFromServerCmd[sindex],PBSServerCmds[tmpI]);
-          
-          MOMSendHelloTryCount[sindex] = 0;
-          }
-        }
-      }  /* END BLOCK */
-
+      mom_server_update_receive_time(stream, PBSServerCmds[tmpI]);
+      }
       break;
 
     default:
@@ -5805,100 +5082,6 @@ void tcp_request(
 
   return;
   }  /* END tcp_request() */
-
-
-/*
- * The job needs to originate a message to the server.
- * So we are opening a communication socket to the
- * server associated with the job.
- *
- * Most messages from the mom to the server are replies
- * to a message originated from the server and use
- * the socket stream established by the server.
- * So this routine is rarely called.  It is mostly
- * used for job obits.
- *
- * The server address is saved two ways, as an
- * string attribute in the job and also as a long.
- * The long value must somehow get set by the
- * server as it does not appear to be set anywhere here.
- * The string address is an IP address or host name with an
- * optional port number, i.e. format "xx.xx.xx.xx[:xxx]".
- * All we do here is extract the port number from the
- * string if it is present.
- *
- * What are the implications of the job server address
- * being hard-coded for a job with regards to high
- * availability?  If the original server fails, will
- * the job be able to send the obit's to the alternate
- * server?
- *
- */
-
-int mom_open_socket_to_jobs_server( job * pjob, char *caller_id, void (*message_handler) A_((int)) )
-  {
-  char *svrport;
-  char error_buffer[1024];
-  int sock;
-  int sock3;
-  int port;
-
-  /* See if the server address string has a ':' implying a port number. */
-
-  svrport = strchr(pjob->ji_wattr[(int)JOB_ATR_at_server].at_val.at_str,(int)':');
-  if (svrport)
-    port = atoi(svrport + 1);  /* Yes, use the specified server port number. */
-  else
-    port = default_server_port;  /* No, use the global default server port. */
-
-  sock = client_to_svr(
-    pjob->ji_qs.ji_un.ji_momt.ji_svraddr, /* MAGIC: This is set nowhere explicitly! */
-    port,
-    1,  /* use local socket */
-    error_buffer);
-
-  if (sock < 0)
-    {
-    /* error_buffer is filled in by the library with a message describing the failure */
-
-    log_err(errno,caller_id,error_buffer);
-    }
-  else
-    {
-    /* The epilogue code needs the socket number at 3 or above. */
-
-    if (sock < 3)
-      {
-      sock3 = fcntl(sock,F_DUPFD,3);
-      close(sock);
-      sock = sock3;
-      }
-
-    /*
-     * ji_momhandle is used to match reply messages to their job.
-     * Why not use the job number to find the job when we recieve a reply message?
-     */
-
-    pjob->ji_momhandle = sock;
-
-
-    /* Associate a message handler with the connection */
-
-    if (message_handler)
-      {
-      add_conn(
-        sock, 
-        ToServerDIS,
-        pjob->ji_qs.ji_un.ji_momt.ji_svraddr,
-        port, 
-        PBS_SOCK_INET, 
-        message_handler);
-      }
-    }
-
-  return(sock);
-  }
-
 
 
 
@@ -6553,7 +5736,6 @@ void MOMCheckRestart(void)
 void initialize_globals(void)
 
   {
-  int sindex;
   char		*ptr;                   /* local tmp variable */
 
   strcpy(pbs_current_user,"pbs_mom");
@@ -6575,14 +5757,7 @@ void initialize_globals(void)
 
   MOMConfigVersion[0] = '\0';
 
-  for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
-    {
-    SStream[sindex] = -1;
-
-    MOMLastRecvFromServerTime[sindex] = 0;
- 
-    ReportMomState[sindex] = 1;
-    }  /* END for (sindex) */
+  mom_server_all_init();
 
   pbsgroup = getgid();
   loopcnt = time(NULL);
@@ -8087,148 +7262,6 @@ void kill_all_running_jobs()
 
 
 
-int check_server_connections()
-  {
-  static char id[] = "check_server_connections";
-  long          retry_interval;
-  int           sindex;  /* server index */
-  int           TotalClusterAddrsCount;
-
-  TotalClusterAddrsCount = 0;
-    for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
-      {
-      if (pbs_servername[sindex][0] == '\0')
-        break;
-
-      if (MOMServerAddrs[sindex] == 0)
-        {
-        /* server is defined, but we don't have an IP */
-
-        setpbsserver(pbs_servername[sindex]);
-        }
-
-      if (MOMServerAddrs[sindex] == 0)
-        {
-        /* hrm, something wrong, skip this server */
-        continue;
-        }
-
-      if ((SStream[sindex] != -1) && 
-          (time_now >= (MOMLastSendToServerTime[sindex] + (ServerStatUpdateInterval*2))))
-        {
-        sprintf(log_buffer,"connection to server %s timeout", 
-          pbs_servername[sindex]);
-
-        log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
-
-        rpp_close(SStream[sindex]);
-
-        SStream[sindex] = -1;
-        }
-
-      if (SStream[sindex] == -1)
-        {
-        MOMRecvClusterAddrsCount[sindex] = 0;
-
-        /* we're either just starting up, or the server has gone away.
-         * Either way, let's be sure to say hello */
-         
-        /* If the server has gone away and we are trying to re-establish
-         * communication with it, we need to slow down the rate of retries
-         * so we do not flood the server with Hello requests. We may have
-         * been removed from the servers list of nodes */
-
-        if (MOMSendHelloTryCount[sindex] > 0)
-          {
-          /* hello previously sent */
-
-          if (MOMSendHelloTryCount[sindex] < 20)
-            {
-            retry_interval = power(STARTING_RETRY_INTERVAL_IN_SECS,
-              MOMSendHelloTryCount[sindex]);
-
-            if (retry_interval > MAX_RETRY_TIME_IN_SECS)
-              {
-              retry_interval = MAX_RETRY_TIME_IN_SECS;
-              }
-            }
-          else
-            {
-            retry_interval = MAX_RETRY_TIME_IN_SECS;
-            }
-            
-          if (MOMSendHelloTime[sindex] + retry_interval > time_now)
-            {
-            /* failed in recent attempt to connect to this server - do not
-               yet re-attempt */
-
-            continue;
-            }
-            
-          sprintf(log_buffer,"Retrying hello to server %s",
-            pbs_servername[sindex]);
-
-          log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
-          }
-
-        if (init_server_stream(sindex) != DIS_SUCCESS)
-          {
-          /* attempt to restore connection to pbs_server failed */
-
-          continue;                                                                        
-          }
-
-        MOMLastSendToServerTime[sindex] = time_now;
-
-        if (is_compose(SStream[sindex],IS_HELLO) == -1)
-          {
-          sprintf(log_buffer,"error composing hello to server %s", 
-            pbs_servername[sindex]);
-
-          log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
-
-          rpp_close(SStream[sindex]);
-
-          SStream[sindex] = -1;
-
-          continue;
-          }
-
-        if (rpp_flush(SStream[sindex]) == -1)
-          {
-          rpp_close(SStream[sindex]);
-
-          SStream[sindex] = -1;
-
-          continue;
-          }
-
-        MOMSendHelloCount[sindex]++;
-        MOMSendHelloTryCount[sindex]++;
-
-        sprintf(log_buffer,"hello sent to server %s", 
-          pbs_servername[sindex]);
-
-        log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
- 
-        if (MOMSendHelloTime[sindex] == time_now)
-          {
-          sprintf(log_buffer,"ERROR:  sending hello to server %s too rapidly... blocking for one second",
-            pbs_servername[sindex]);
-
-          log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
-
-          sleep(1);
-          }
-
-        MOMSendHelloTime[sindex] = time_now;
-        }  /* END if (SStream[sindex] == -1) */
-
-      TotalClusterAddrsCount += MOMRecvClusterAddrsCount[sindex];
-      }    /* END for (sindex) */
-    return(TotalClusterAddrsCount);
-  }
-
 /*
  * main_loop
  */
@@ -8241,7 +7274,6 @@ void main_loop()
   job		   *pjob;
   time_t tmpTime;
   time_t time_now;
-  int           sindex;  /* server index */
 
   mom_run_state = MOM_RUN_STATE_RUNNING;  /* mom_run_state is altered by stop_me() or MOMCheckRestart() */
   while (mom_run_state == MOM_RUN_STATE_RUNNING)
@@ -8275,7 +7307,8 @@ void main_loop()
        check_log();  /* Possibly do a log_roll */
        }
 
-    if (check_server_connections() == 0)  /* Are we connected to any server? */
+#if 0
+    if (mom_server_all_check_connection() == 0)  /* Are we connected to any server? */
       {
       /* Don't do any other processing until we've re-established
        * contact with at least one server */
@@ -8283,6 +7316,9 @@ void main_loop()
       sleep(1);  /* sleep to prevent too many messages sent to server under certain failure conditions */
       }
     else
+#else
+    mom_server_all_check_connection();
+#endif
       {
       if (time_now >= (LastServerUpdateTime + ServerStatUpdateInterval))
         {
@@ -8291,7 +7327,7 @@ void main_loop()
         if (PBSNodeCheckInterval > 0)
           check_state((LastServerUpdateTime == 0));
 
-        is_update_stat(0);
+        mom_server_all_update_stat();
 
         LastServerUpdateTime = time_now;
         }
@@ -8299,11 +7335,7 @@ void main_loop()
       /* if needed, update server with my state change */
       /* can be changed in check_busy(), query_adp(), and is_update_stat() */
 
-      for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
-        {
-        if (ReportMomState[sindex] != 0)
-          state_to_server(sindex,0);
-        }
+      mom_server_all_send_state();
 
       if (time_now >= (last_poll_time + CheckPollTime))
         {
