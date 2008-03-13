@@ -204,7 +204,7 @@ void dispatch_task(
   delete_link(&ptask->wt_linkall);
   delete_link(&ptask->wt_linkobj);
 
-  if (LOGLEVEL >= 5)
+  if (LOGLEVEL >= 7)
     {
     sprintf(log_buffer,"handling work task type %d, wt_event %ld, wt_aux %d",
       ptask->wt_type, ptask->wt_event, ptask->wt_aux);
@@ -247,7 +247,7 @@ void delete_task(ptask)
   static char id[] = "delete_task";
 	delete_link(&ptask->wt_linkobj);
 	delete_link(&ptask->wt_linkall);
-  if (LOGLEVEL >= 5)
+  if (LOGLEVEL >= 7)
     {
     sprintf(log_buffer,"DELETING work task type %d, wt_event %ld, wt_aux %d",
       ptask->wt_type, ptask->wt_event, ptask->wt_aux);

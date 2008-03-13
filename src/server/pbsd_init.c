@@ -1523,7 +1523,7 @@ static void catch_child(
     if (((pid = waitpid(-1,&statloc,WNOHANG)) == -1) &&
         (errno != EINTR)) 
       {
-      if ((LOGLEVEL >= 5) && (errno != ECHILD))
+      if ((LOGLEVEL >= 7) && (errno != ECHILD))
         {
 #ifdef NO_SIGCHLD
         log_err(errno,"catch_child","waitpid failed");
@@ -1539,7 +1539,7 @@ static void catch_child(
       return;
       }
 
-    if (LOGLEVEL >= 5)
+    if (LOGLEVEL >= 7)
       {
 #ifdef NO_SIGCHLD
       sprintf(log_buffer,"caught SIGCHLD for pid %d",
@@ -1570,7 +1570,7 @@ static void catch_child(
         svr_delay_entry++;	/* see next_task() */
         found = TRUE;
 
-        if (LOGLEVEL >= 5)
+        if (LOGLEVEL >= 7)
           {
 #ifdef NO_SIGCHLD
           sprintf(log_buffer,"work task found for pid %d",
@@ -1591,7 +1591,7 @@ static void catch_child(
       ptask = (struct work_task *)GET_NEXT(ptask->wt_linkall);
       }
       
-    if ((found == FALSE) && (LOGLEVEL >= 5))
+    if ((found == FALSE) && (LOGLEVEL >= 7))
       {
 #ifdef NO_SIGCHLD
       sprintf(log_buffer,"no work task found for pid %d",

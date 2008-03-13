@@ -1574,7 +1574,7 @@ static void wait_for_send(
   struct work_task *ptask)
 
   {
-  if (LOGLEVEL >= 5)
+  if (LOGLEVEL >= 7)
     {
     log_event(
       PBSEVENT_ERROR|PBSEVENT_JOB,
@@ -1646,7 +1646,7 @@ void req_jobobit(
   svrattrl	 *patlist;
   unsigned int    dummy;
   
-  if (LOGLEVEL >= 5)
+  if (LOGLEVEL >= 7)
     {
     log_event(
       PBSEVENT_ERROR|PBSEVENT_JOB,
@@ -1698,7 +1698,7 @@ void req_jobobit(
       {
       /* already in exit processing, ignore this request */
 
-      if (LOGLEVEL >= 5)
+      if (LOGLEVEL >= 7)
         {
         log_event(
           PBSEVENT_ERROR|PBSEVENT_JOB,
@@ -1748,7 +1748,7 @@ void req_jobobit(
 
     if (ptask == NULL) 
       {
-      if (LOGLEVEL >= 5)
+      if (LOGLEVEL >= 7)
         {
         log_event(
           PBSEVENT_ERROR|PBSEVENT_JOB,
@@ -1760,7 +1760,7 @@ void req_jobobit(
       }
     else
       {
-      if (LOGLEVEL >= 5)
+      if (LOGLEVEL >= 7)
         {
         log_event(
           PBSEVENT_ERROR|PBSEVENT_JOB,
