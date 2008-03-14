@@ -587,8 +587,9 @@ static int tcp_puts(
   size_t      ct)  /* I */
 
   {
+#ifndef NDEBUG
   char *id = "tcp_puts";
-
+#endif
   struct tcpdisbuf *tp;
 
   tp = &tcparray[fd]->writebuf;

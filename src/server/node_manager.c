@@ -2130,7 +2130,9 @@ void write_node_state()
  */
 int write_node_note()
   {
+#ifndef NDEBUG
   static char id[] = "write_node_note";
+#endif
   struct pbsnode *np;
   int	i;
   FILE	*nin;
