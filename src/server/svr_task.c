@@ -92,6 +92,8 @@
 
 #include "portability.h"
 #include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <sys/param.h>
 #include <sys/types.h>
@@ -99,6 +101,7 @@
 #include "server_limits.h"
 #include "list_link.h"
 #include "work_task.h"
+#include "log.h"
 
 
 /* Global Data Items: */
@@ -108,6 +111,7 @@ extern tlist_head task_list_timed;
 extern tlist_head task_list_event;
 
 
+extern int LOGLEVEL;
 
 
 /*
@@ -196,12 +200,34 @@ void dispatch_task(
   struct work_task *ptask)
 
   {
+  static char id[] = "dispatch_task";
   delete_link(&ptask->wt_linkall);
   delete_link(&ptask->wt_linkobj);
 
+  if (LOGLEVEL >= 7)
+    {
+    sprintf(log_buffer,"handling work task type %d, wt_event %ld, wt_aux %d",
+      ptask->wt_type, ptask->wt_event, ptask->wt_aux);
+
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+      
+      if (ptask->wt_func == NULL)
+      {
+      log_record(
+        PBSEVENT_SCHED,
+        PBS_EVENTCLASS_REQUEST,
+        id,
+        "FUNCTION is NULL");
+      }
+    }
+
   if (ptask->wt_func != NULL)
     ptask->wt_func(ptask);		/* dispatch process function */
-
+  
   free(ptask);
 
   return;
@@ -218,7 +244,20 @@ void dispatch_task(
 void delete_task(ptask)
 	struct work_task *ptask;
 {
+  static char id[] = "delete_task";
 	delete_link(&ptask->wt_linkobj);
 	delete_link(&ptask->wt_linkall);
+  if (LOGLEVEL >= 7)
+    {
+    sprintf(log_buffer,"DELETING work task type %d, wt_event %ld, wt_aux %d",
+      ptask->wt_type, ptask->wt_event, ptask->wt_aux);
+
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+      
+    }
 	(void)free(ptask);
 }

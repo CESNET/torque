@@ -114,6 +114,7 @@ char   *datestr;
 	time_t	   clock;
 	int	   i;
 	struct tm *ptm;
+  struct tm  tmpPtm;
 	char      *pc;
 	struct tm  tm;
 	int	   year = 0;
@@ -139,7 +140,7 @@ char   *datestr;
 
 	buf[2] = '\0';
 	clock = time((time_t *)0);
-	ptm   = localtime(&clock);
+	ptm   = localtime_r(&clock,&tmpPtm);
 	tm.tm_year = ptm->tm_year;	/* default year to current */
 	tm.tm_mon  = ptm->tm_mon;	/* default month to current */
 	tm.tm_mday = ptm->tm_mday;	/* default day to current */

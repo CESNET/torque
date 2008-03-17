@@ -104,6 +104,8 @@ extern char *pbs_o_host;
 extern char  server_host[];
 extern char *msg_orighost;	/* error message: no PBS_O_HOST */
 
+extern int   LOGLEVEL;
+
 /*
  * site_check_u - site_check_user_map()
  *
@@ -187,6 +189,17 @@ int site_check_user_map(
       }
 
     /* host is fine, must validate proxy via ruserok() */
+    sprintf (log_buffer,
+        "Setting HostAllowed for originating host %s - server host",
+        orighost);
+    if (LOGLEVEL >= 7)
+      {
+      log_event(
+        PBSEVENT_ERROR|PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+      }
 
     HostAllowed = 1;
     }
@@ -214,10 +227,33 @@ int site_check_user_map(
       }
 
     /* host is fine, must validate proxy via ruserok() */
+    sprintf (log_buffer,
+        "Setting HostAllowed for originating host %s - AllowNodeSubmit is set",
+        orighost);
+    if (LOGLEVEL >= 7)
+      {
+      log_event(
+        PBSEVENT_ERROR|PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+      }
 
     HostAllowed = 1;
     }
 
+  if (server.sv_attr[(int)SRV_ATR_SubmitHosts].at_flags & ATR_VFLAG_SET)
+    {
+      sprintf (log_buffer, "Submit hosts is ALLOWED");
+    if (LOGLEVEL >= 7)
+      {
+      log_event(
+        PBSEVENT_ERROR|PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+      }
+    }
   if ((HostAllowed == 0) &&
       (server.sv_attr[(int)SRV_ATR_SubmitHosts].at_flags & ATR_VFLAG_SET))
     {
@@ -230,6 +266,15 @@ int site_check_user_map(
     for (hostnum = 0;hostnum < submithosts->as_usedptr;hostnum++)
       {
       testhost = submithosts->as_string[hostnum];
+      if (LOGLEVEL >= 7)
+        {
+        sprintf (log_buffer, "Checking submit host [%d] - %s", hostnum, testhost);
+        log_event(
+          PBSEVENT_ERROR|PBSEVENT_JOB,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          log_buffer);
+        }
 
       if (!strcasecmp(testhost,orighost))
         {
@@ -237,6 +282,16 @@ int site_check_user_map(
 
         if (dptr != NULL)
           *dptr = '.';
+        if (LOGLEVEL >= 7)
+          {
+          sprintf (log_buffer, "Found submit host %s (%d %d)", testhost,
+            ProxyRequested, ProxyAllowed);
+          log_event(
+            PBSEVENT_ERROR|PBSEVENT_JOB,
+            PBS_EVENTCLASS_JOB,
+            pjob->ji_qs.ji_jobid,
+            log_buffer);
+          }
 
         if ((ProxyRequested == 0) || (ProxyAllowed == 1))
           {
@@ -258,11 +313,23 @@ int site_check_user_map(
   rc = ruserok(orighost,0,owner,luser);
 
   if (EMsg != NULL)
+    {
     snprintf(EMsg,1024,"ruserok failed validating %s/%s from %s",
       owner,
       luser,
       orighost);
 
+    if (LOGLEVEL >= 7)
+      {
+      sprintf (log_buffer, "Failed submit host %s (%d %d %d)", orighost,
+        ProxyRequested, ProxyAllowed, rc);
+      log_event(
+        PBSEVENT_ERROR|PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+      }
+    }
 #ifdef sun
   /* broken Sun ruserok() sets process so it appears to be owned */
   /* by the luser, change it back for cosmetic reasons           */

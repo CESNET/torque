@@ -3,6 +3,20 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 2.3.1
   b - fixed memory leak in free_br for PBS_BATCH_MvJobFile case
   e - torque can now compile on Linux and OS X with NDEBUG defined 
+  f - when using qsub it is now possible to specify both -k and -o/-e
+      (before -o/-e did not behave as expected if -k was also used)
+  e - changed pbs_server to have "-l" option. Specifies a host/port that event
+      messages will be sent to. Event messages are the same as what the
+      scheduler currently receives.
+  e - added --enable-autorun to allow qsub jobs to automatically try to run
+      if there are any nodes available.
+  e - added --enable-quickcommit to allow qsub to combine the ready to commit
+      and commit phases into 1 network transmission.
+  e - added --enable-nochildsignal to allow pbs_server to use inline checking
+      for SIGCHLD instead of using the signal handler.
+  e - change qsub so '-v var=' will look in environment for value. If value
+      is not found set it to "".
+  b - fix qdel of entire job arrays for non operator/managers
 
 2.3.0
   e - redesign how torque.spec is built

@@ -1680,6 +1680,15 @@ mom_server_valid_message_source(int stream)
   addr = rpp_getaddr(stream);
   port = ntohs((unsigned short)addr->sin_port);
   ipaddr = ntohl(addr->sin_addr.s_addr);
+/**
+ * Request is coming from another server (i.e., pbs_server) over a DIS rpp 
+ * stream (process 'hello' and 'cluster_addrs' request).
+ *
+ * @see is_compose() - peer - generate message to send to pbs_server.
+ * @see process_request() - peer - handle jobstart, jobcancel, etc messages.
+ *
+ * Read the stream to get a Inter-Server request.
+ */
 
   if ((pms = mom_server_find_by_ip(ipaddr)))
     {

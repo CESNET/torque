@@ -129,6 +129,9 @@ extern void start_exec A_((job *));
 extern int  svr_authorize_jobreq A_((struct batch_request *,job *));
 extern int  svr_chkque A_((job *,pbs_queue *,char *,int,char *));
 extern int  job_route A_((job *));
+#ifdef AUTORUN_JOBS
+extern int node_avail_complex(char *,int *,int *,int *,int*);
+#endif
 
 /* Global Data Items: */
 
@@ -1272,10 +1275,29 @@ void req_commit(
   {
   job	  *pj;
 
+#ifndef PBS_MOM	/* SERVER only */
   int	   newstate;
   int	   newsub;
   pbs_queue *pque;
   int	   rc;
+#ifdef AUTORUN_JOBS
+  struct batch_request *preq_run = '\0';
+  attribute *pattr;
+  int nodes_avail = -1;
+  int dummy;
+  char *spec = NULL;
+  char *rq_destin = NULL;
+#endif /* AUTORUN_JOBS */
+
+#ifdef QUICKCOMMIT
+  int  OrigState;
+  int  OrigSState;
+  char OrigSChar;
+  long OrigFlags;
+  
+  char namebuf[MAXPATHLEN+1];
+#endif /* QUICKCOMMIT */
+#endif /* SERVER only */
 
   pj = locate_new_job(preq->rq_conn,preq->rq_ind.rq_commit);
 
@@ -1294,6 +1316,43 @@ void req_commit(
 
     return;
     }
+
+#ifndef PBS_MOM
+#ifdef QUICKCOMMIT
+  if (pj->ji_qs.ji_substate != JOB_SUBSTATE_TRANSIN)
+    {
+    log_err(errno,"req_commit","cannot commit job in unexpected state");
+
+    req_reject(PBSE_IVALREQ,0,preq,NULL,NULL);
+
+    /* FAILURE */
+
+    return;
+    }
+    
+  OrigState  = pj->ji_qs.ji_state;
+  OrigSState = pj->ji_qs.ji_substate;
+  OrigSChar  = pj->ji_wattr[(int)JOB_ATR_state].at_val.at_char;
+  OrigFlags  = pj->ji_wattr[(int)JOB_ATR_state].at_flags;
+ 
+  pj->ji_qs.ji_state    = JOB_STATE_TRANSIT;
+  pj->ji_qs.ji_substate = JOB_SUBSTATE_TRANSICM;
+  pj->ji_wattr[(int)JOB_ATR_state].at_val.at_char = 'T';
+  pj->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_VFLAG_SET;
+    
+  if (pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET)
+    {
+    pj->ji_isparent = TRUE;
+
+    strcpy(namebuf,path_jobs);
+    strcat(namebuf,pj->ji_qs.ji_fileprefix);
+    strcat(namebuf, JOB_FILE_SUFFIX);
+    unlink(namebuf);
+
+    }
+
+#endif /* QUICKCOMMIT */
+#endif /* SERVER only */
 
   if (pj->ji_qs.ji_substate != JOB_SUBSTATE_TRANSICM) 
     {
@@ -1415,6 +1474,33 @@ void req_commit(
       return;
       }
     }
+#ifdef AUTORUN_JOBS
+  /* If we are auto running jobs with start_count = 0 then the
+   * branch_request needs re creation since reply_jobid will free
+   * the passed in one
+  */
+  pattr = &pj->ji_wattr[(int)JOB_ATR_start_count];
+
+  spec = PBS_DEFAULT_NODE;
+  node_avail_complex(spec, &nodes_avail, &dummy, &dummy, &dummy);
+
+  if ((pattr->at_val.at_long == 0) && (nodes_avail > 0))
+    {
+    /* Create a new batch request and fill it in */
+    preq_run = alloc_br(PBS_BATCH_AsyrunJob);
+    preq_run->rq_perm = preq->rq_perm | ATR_DFLAG_OPWR;
+    preq_run->rq_ind.rq_run.rq_resch = 0;
+    preq_run->rq_ind.rq_run.rq_destin = rq_destin;
+    preq_run->rq_fromsvr = preq->rq_fromsvr;
+    preq_run->rq_extsz = preq->rq_extsz;
+    preq_run->rq_noreply = TRUE; /* set for no replies */
+    memcpy(preq_run->rq_user, preq->rq_user, PBS_MAXUSER+1);
+    memcpy(preq_run->rq_host, preq->rq_host, PBS_MAXHOSTNAME+1);
+    memcpy(preq_run->rq_ind.rq_run.rq_jid, preq->rq_ind.rq_rdytocommit,
+       PBS_MAXSVRJOBID+1);
+
+   }
+#endif
 
   /* need to format message first, before request goes away */
 
@@ -1440,6 +1526,31 @@ void req_commit(
 
     issue_track(pj);
     }
+
+#ifndef PBS_MOM
+#ifdef AUTORUN_JOBS
+  /* If we are auto running jobs with start_count = 0 then the
+   * branch_request was re created. Now we run the job if any nodes
+   * are available
+  */
+  
+  if ((pattr->at_val.at_long == 0) && (nodes_avail > 0))
+    {
+    if (LOGLEVEL >= 7)
+      {
+      sprintf(log_buffer,"Trying to AUTORUN job %s",
+        pj->ji_qs.ji_jobid);
+      log_record(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        (pj != NULL) ? pj->ji_qs.ji_jobid : "NULL",
+        log_buffer);
+      }
+        
+    req_runjob(preq_run);    
+    }
+#endif	/* AUTORUN_JOBS */
+#endif	/* PBS_MOM */
 
   return;
   }  /* END req_commit() */

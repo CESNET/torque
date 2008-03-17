@@ -6,6 +6,9 @@
 /* 1234 = LIL_ENDIAN, 4321 = BIGENDIAN */
 #undef BYTEORDER
 
+/* turns on the compilation of AUTORUN_JOBS code */
+#undef AUTORUN_JOBS
+
 /* turns on the compilation of DEBUG code */
 #undef DEBUG
 
@@ -313,6 +316,9 @@
 /* Define to disable privileged ports */
 #undef NOPRIVPORTS
 
+/* turns on the compilation of NO_SIGCHLD code */
+#undef NO_SIGCHLD
+
 /* directly use homedirs instead of $TORQUEHOME/spool */
 #undef NO_SPOOL_OUTPUT
 
@@ -385,6 +391,9 @@
 
 /* Define to the path of the qstat init file */
 #undef QSTATRC_PATH
+
+/* turns on the compilation of QUICKCOMMIT code */
+#undef QUICKCOMMIT
 
 /* Define to enable RPP resource queries */
 #undef RPP

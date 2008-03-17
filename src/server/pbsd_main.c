@@ -135,11 +135,15 @@ extern int  update_nodes_file A_((void));
 extern void tcp_settimeout(long);
 extern void poll_job_task(struct work_task *);
 extern int  schedule_jobs(void);
+extern int  notify_listeners(void);
 extern void queue_route A_((pbs_queue *));
 extern void svr_shutdown(int);
 extern void acct_close(void);
 extern int  svr_startjob A_((job *,struct batch_request *,char *,char *)); 
 extern int RPPConfigure(int,int);
+#ifdef NO_SIGCHLD
+extern void check_children ();
+#endif
 
 
 /* external data items */
@@ -157,7 +161,7 @@ static int   try_lock_out A_((int,int));
 
 /* Global Data Items */
 
-int             high_availability_mode = FALSE;
+int           high_availability_mode = FALSE;
 char	       *acct_file = NULL;
 char	       *log_file  = NULL;
 char	       *path_home = PBS_SERVER_HOME;
@@ -186,6 +190,7 @@ pbs_net_t	pbs_scheduler_addr;
 unsigned int	pbs_scheduler_port;
 extern pbs_net_t pbs_server_addr;
 unsigned int	pbs_server_port_dis;
+listener_connection listener_conns[MAXLISTENERS];
 int		queue_rank = 0;
 struct server	server;		/* the server structure */
 char	        server_host[PBS_MAXHOSTNAME + 1];	/* host_name */
@@ -393,7 +398,42 @@ void rpp_request(
   return;
   }  /* END rpp_request() */
 
+void clear_listeners(
+  )  /* I */
+  
+  {
+  int	 i;
+  
+  for (i = 0;i < MAXLISTENERS; i++)
+    {
+    listener_conns[i].address = 0;
+    listener_conns[i].port = 0;
+    listener_conns[i].sock = -1;
+    }
 
+  return;
+  }  /* END clear_listeners */
+
+
+int add_listener(
+  pbs_net_t l_addr,  /* I */
+  unsigned int l_port)  /* I */
+  
+  {
+  int	 i;
+  
+  for (i = 0;i < MAXLISTENERS; i++)
+    {
+    if (listener_conns[i].address == 0)
+      {
+      listener_conns[i].address = l_addr;
+      listener_conns[i].port = l_port;
+      listener_conns[i].sock = -1;
+      return (0);
+      }
+    }
+  return (-1);
+  }  /* END add_listener */
 
 
 int PBSShowUsage(
@@ -412,6 +452,7 @@ int PBSShowUsage(
   fprintf(stderr,"  -h        \\\\ Print Usage\n");
   fprintf(stderr,"  -H <HOST> \\\\ Daemon Hostname\n");
   fprintf(stderr,"  -L <PATH> \\\\ Logfile\n");
+  fprintf(stderr,"  -l <PORT> \\\\ Listener Port\n");
   fprintf(stderr,"  -M <PORT> \\\\ MOM Port\n");
   fprintf(stderr,"  -p <PORT> \\\\ Server Port\n");
   fprintf(stderr,"  -R <PORT> \\\\ RM Port\n");
@@ -464,6 +505,8 @@ int main(
   time_t waittime;
   time_t last_jobstat_time;
   int    when;
+  pbs_net_t listener_addr;
+  unsigned int listener_port;
 
   void ping_nodes A_((struct work_task *));
   void check_nodes A_((struct work_task *));
@@ -597,9 +640,11 @@ int main(
   pbs_mom_addr 	     = pbs_server_addr;   /* assume on same host */
   pbs_scheduler_addr = pbs_server_addr;   /* assume on same host */
 
+  clear_listeners();  /* make sure listeners is cleared */
+
   /* parse the parameters from the command line */
 
-  while ((c = getopt(argc,argv,"A:a:d:DfhH:L:M:p:R:S:t:v-:")) != -1) 
+  while ((c = getopt(argc,argv,"A:a:d:DfhH:L:l:M:p:R:S:t:v-:")) != -1) 
     {
     switch (c) 
       {
@@ -622,17 +667,17 @@ int main(
 
         if (!strcmp(optarg,"about"))
           {
-	  printf("package:     %s\n",PACKAGE_STRING);
-	  printf("sourcedir:   %s\n",PBS_SOURCE_DIR);
-	  printf("configure:   %s\n",PBS_CONFIG_ARGS);
-	  printf("buildcflags: %s\n",PBS_CFLAGS);
-	  printf("buildhost:   %s\n",PBS_BUILD_HOST);
-	  printf("builddate:   %s\n",PBS_BUILD_DATE);
-	  printf("builddir:    %s\n",PBS_BUILD_DIR);
-	  printf("builduser:   %s\n",PBS_BUILD_USER);
-	  printf("installdir:  %s\n",PBS_INSTALL_DIR);
-	  printf("serverhome:  %s\n",PBS_SERVER_HOME);
-	  printf("version:     %s\n",PACKAGE_VERSION);
+          printf("package:     %s\n",PACKAGE_STRING);
+          printf("sourcedir:   %s\n",PBS_SOURCE_DIR);
+          printf("configure:   %s\n",PBS_CONFIG_ARGS);
+          printf("buildcflags: %s\n",PBS_CFLAGS);
+          printf("buildhost:   %s\n",PBS_BUILD_HOST);
+          printf("builddate:   %s\n",PBS_BUILD_DATE);
+          printf("builddir:    %s\n",PBS_BUILD_DIR);
+          printf("builduser:   %s\n",PBS_BUILD_USER);
+          printf("installdir:  %s\n",PBS_INSTALL_DIR);
+          printf("serverhome:  %s\n",PBS_SERVER_HOME);
+      	  printf("version:     %s\n",PACKAGE_VERSION);
 
           exit(0);
           }
@@ -771,6 +816,30 @@ int main(
 
         break;
 
+      case 'l':
+
+        if (get_port(
+              optarg, 
+              &listener_port,
+              &listener_addr)) 
+          {
+          fprintf(stderr,"%s: bad -l %s\n", 
+            argv[0],
+            optarg);
+
+          exit(1);
+          }
+          if (add_listener(listener_addr, listener_port) < 0)
+          {
+          fprintf(stderr,"%s: failed to add listener %s\n", 
+            argv[0],
+            optarg);
+
+          exit(1);
+          }
+
+        break;
+        
       case 'p':
 
         servicename = optarg;
@@ -1160,6 +1229,13 @@ int main(
     msg_daemonname, 
     log_buffer);
 
+#ifdef NO_SIGCHLD
+   log_record(
+     PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+     PBS_EVENTCLASS_SERVER,
+     msg_daemonname,
+     "Server NOT using signal handler for SIGCHLD");
+#endif
   /* do not check nodes immediately as they will initially be marked 
      down unless they have already reported in */
 
@@ -1224,6 +1300,7 @@ int main(
           server.sv_attr[(int)SRV_ATR_schedule_iteration].at_val.at_long;
 
         schedule_jobs();
+        notify_listeners();
         }
       } 
     else if (*state == SV_STATE_HOT) 
@@ -1259,6 +1336,15 @@ int main(
 
       pque = (pbs_queue *)GET_NEXT(pque->qu_link);
       }
+#ifdef NO_SIGCHLD
+    /* if we have any jobs, check if any child jobs have completed */ 
+
+   if (server.sv_qs.sv_numjobs > 0)
+     {
+     check_children();
+     }
+#endif
+
 
     /* touch the rpp streams that need to send */
 
@@ -1420,7 +1506,7 @@ void check_log(
 
 
 /*
- * get_port - parse host:port for -M and -S option
+ * get_port - parse host:port for -M and -S and -l option
  *	Returns into *port and *addr if and only if that part is specified
  *	Both port and addr are returned in HOST byte order.
  *	Function return: 0=ok, -1=error
@@ -1485,6 +1571,7 @@ static int get_port(
 static time_t next_task()
 
   {
+  static char id[] = "next_task";
   time_t	     delay;
   struct work_task  *nxt;
   struct work_task  *ptask;
@@ -1494,6 +1581,15 @@ static time_t next_task()
 
   if (svr_delay_entry) 
     {
+    if (LOGLEVEL >= 7)
+      {
+      log_record(
+        PBSEVENT_SCHED,
+        PBS_EVENTCLASS_REQUEST,
+        id,
+        "CHECKING svr_delay_entry");
+      }
+
     ptask = (struct work_task *)GET_NEXT(task_list_event);
 
     while (ptask != NULL) 
@@ -1501,7 +1597,22 @@ static time_t next_task()
       nxt = (struct work_task *)GET_NEXT(ptask->wt_linkall);
 
       if (ptask->wt_type == WORK_Deferred_Cmp)
+        {
+        if (LOGLEVEL >= 7)
+          {
+          sprintf(log_buffer,
+            "DISPATCH Task WORK_Deferred_Cmp type %d, wt_event %ld, wt_aux %d",
+            ptask->wt_type, ptask->wt_event, ptask->wt_aux);
+
+          log_record(
+            PBSEVENT_SCHED,
+            PBS_EVENTCLASS_REQUEST,
+            id,
+            log_buffer);
+            
+          }
         dispatch_task(ptask);
+        }
 
       ptask = nxt;
       }
@@ -1510,7 +1621,22 @@ static time_t next_task()
     }
 
   while ((ptask = (struct work_task *)GET_NEXT(task_list_immed)) != NULL)
+    {
+    if (LOGLEVEL >= 7)
+      {
+      sprintf(log_buffer,
+        "DISPATCH Task #1 type %d, wt_event %ld, wt_aux %d",
+        ptask->wt_type, ptask->wt_event, ptask->wt_aux);
+
+      log_record(
+        PBSEVENT_SCHED,
+        PBS_EVENTCLASS_REQUEST,
+        id,
+        log_buffer);
+        
+      }
     dispatch_task(ptask);
+    }
 
   while ((ptask = (struct work_task *)GET_NEXT(task_list_timed)) != NULL) 
     {
@@ -1523,6 +1649,18 @@ static time_t next_task()
       } 
     else 
       {
+      if (LOGLEVEL >= 7)
+        {
+        sprintf(log_buffer,
+          "DISPATCH Task #2 type %d, wt_event %ld, wt_aux %d",
+          ptask->wt_type, ptask->wt_event, ptask->wt_aux);
+
+        log_record(
+          PBSEVENT_SCHED,
+          PBS_EVENTCLASS_REQUEST,
+          id,
+          log_buffer);         
+        }
       dispatch_task(ptask);	/* will delete link */
       }
     }

@@ -496,7 +496,9 @@ if (svr_conn[sfds].cn_socktype & PBS_SOCK_UNIX)
       svr_conn[sfds].cn_authen = PBS_NET_CONN_AUTHENTICATED;
       }
 
-    if (svr_conn[sfds].cn_authen != PBS_NET_CONN_AUTHENTICATED)
+    if (ENABLE_TRUSTED_AUTH == TRUE)
+      rc = 0;  /* bypass the authentication of the user--trust the client completely */
+    else if (svr_conn[sfds].cn_authen != PBS_NET_CONN_AUTHENTICATED)
       rc = PBSE_BADCRED;
     else
       rc = authenticate_user(request, &conn_credent[sfds]);
@@ -969,6 +971,9 @@ struct batch_request *alloc_br(
   req->rq_orgconn = -1;		/* indicate not connected */
   req->rq_time = time_now;
   req->rq_reply.brp_choice = BATCH_REPLY_CHOICE_NULL;
+#ifdef AUTORUN_JOBS
+  req->rq_noreply = FALSE;
+#endif
 
   append_link(&svr_requests, &req->rq_link, req);
 

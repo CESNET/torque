@@ -323,6 +323,7 @@ int acct_open(
   FILE *newacct;
   time_t now;
   struct tm *ptm;
+  struct tm tmpPtm;
 
   if (filename == NULL) 
     {
@@ -330,7 +331,7 @@ int acct_open(
 
     now = time(0);
 
-    ptm = localtime(&now);
+    ptm = localtime_r(&now,&tmpPtm);
 
     sprintf(filen,"%s%04d%02d%02d",
       path_acct,
@@ -418,6 +419,7 @@ void account_record(
 
   {
   struct tm *ptm;
+  struct tm tmpPtm;
 
   if (acct_opened == 0)
     {
@@ -426,7 +428,7 @@ void account_record(
     return;
     }
 
-  ptm = localtime(&time_now);
+  ptm = localtime_r(&time_now,&tmpPtm);
 
   /* Do we need to switch files */
 

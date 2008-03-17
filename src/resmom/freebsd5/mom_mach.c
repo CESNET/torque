@@ -103,6 +103,7 @@
 #include	<limits.h>
 #include	<stdio.h>
 #include	<stdlib.h>
+#include    <unistd.h>
 #include	<ctype.h>
 #include	<dirent.h>
 #include	<string.h>
@@ -128,6 +129,7 @@
 #include	<sys/vmmeter.h>
 #include	<ufs/ufs/quota.h>
 #include	<vm/vm_map.h>
+#include    <signal.h>
 
 
 #include	"portability.h"
@@ -1033,7 +1035,6 @@ getprocs()
 {
 	static	unsigned	int	lastproc = 0;
 
-
 	if (lastproc == reqnum)	/* don't need new proc table */
 		return 1;
 
@@ -1793,6 +1794,7 @@ get_la(rv)
 		log_err(-1, id, nokernel);
 		return (rm_errno = RM_ERR_SYSTEM);
 	}
+
 	if (kvm_getloadavg(kd, rv, 1) != 1) {
 		log_err(errno, id, "kvm_getloadavg");
 		return (rm_errno = RM_ERR_SYSTEM);
@@ -1977,10 +1979,10 @@ struct	rm_attribute	*attrib;
 		sprintf(ret_string, "%u", qi.dqb_curinodes);
 		break;
 	case timedata:
-		sprintf(ret_string, "%lu", gracetime(qi.dqb_btime));
+		sprintf(ret_string, "%lu", (long unsigned)gracetime(qi.dqb_btime));
 		break;
 	case timefile:
-		sprintf(ret_string, "%lu", gracetime(qi.dqb_itime));
+		sprintf(ret_string, "%lu", (long unsigned)gracetime(qi.dqb_itime));
 		break;
 	}
 
