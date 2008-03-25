@@ -17,6 +17,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - change qsub so '-v var=' will look in environment for value. If value
       is not found set it to "".
   b - fix qdel of entire job arrays for non operator/managers
+  b - fix so we continue to process exiting jobs for other servers
 
 2.3.0
   e - redesign how torque.spec is built
