@@ -23,6 +23,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix qdel of entire job arrays for non operator/managers
   e - change qsub so '-v var=' will look in environment for value. If value
       is not found set it to "".
+  b - fix so we continue to process exiting jobs for other servers
 
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has
