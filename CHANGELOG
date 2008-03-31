@@ -1,6 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.1
+  b - fixed a bug where TORQUE would ignore the "pbs_asyrunjob" API extension string when starting jobs in asynchronous mode
   b - fixed memory leak in free_br for PBS_BATCH_MvJobFile case
   e - torque can now compile on Linux and OS X with NDEBUG defined 
   f - when using qsub it is now possible to specify both -k and -o/-e
