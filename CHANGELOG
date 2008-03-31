@@ -1,6 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.0
+  b - fixed a bug where TORQUE would ignore the "pbs_asyrunjob" API extension string when starting jobs in asynchronous mode
   f - when using qsub it is now possible to specify both -k and -o/-e (before -o/-e did not as expected if -k was also used)
   e - redesign how torque.spec is built
   e - added -a to qrun to allow asynchronous job start
