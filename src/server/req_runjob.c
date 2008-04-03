@@ -1162,7 +1162,7 @@ static job *chk_job_torun(
     /* job has been checkpointed or files already staged in */
     /* in this case, exec_host must be already set          */
 
-    if (prun->rq_destin != 0) 
+    if (prun->rq_destin != NULL) 
       {
       /* specified destination must match exec_host */
 
@@ -1203,9 +1203,12 @@ static job *chk_job_torun(
     /* job has not run before or need not run there again */
     /* reserve nodes and set new exec_host */
 
-    if (prun->rq_destin == 0) 
+    if ((prun->rq_destin == NULL) || (prun->rq_destin[0] == '\0'))
       {
-      rc = assign_hosts(pjob,NULL,1,FailHost,EMsg);  /* inside chk_job_torun() */
+      /* it is possible for the scheduler to pass a hostlist using the rq_extend field--we should use it as the given list
+       * as an alternative to rq_destin */
+
+      rc = assign_hosts(pjob,preq->rq_extend,1,FailHost,EMsg);  /* inside chk_job_torun() */
       } 
     else 
       {
