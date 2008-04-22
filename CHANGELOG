@@ -20,6 +20,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       is not found set it to "".
   b - fix qdel of entire job arrays for non operator/managers
   b - fix so we continue to process exiting jobs for other servers
+  e - added source_login_batch and source_login_interactive to mom config.  This
+      allows us to bypass the sourcing of /etc/profile, etc. type files.
 
 2.3.0
   e - redesign how torque.spec is built
