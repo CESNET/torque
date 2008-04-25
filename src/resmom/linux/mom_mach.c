@@ -2024,6 +2024,21 @@ int kill_task(
   sesid = ptask->ti_qs.ti_sid;
   mompid = getpid();
 
+  if (LOGLEVEL >= 5)
+    {
+    sprintf(log_buffer,"%s: sending signal %d to task %d, session %d",
+      id, 
+      sig,
+      ptask->ti_qs.ti_task,
+      sesid);
+
+    log_record(
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      ptask->ti_job->ji_qs.ji_jobid,
+      log_buffer);
+    }
+
   if (sesid <= 1)
     {
     if (LOGLEVEL >= 3)
@@ -2041,21 +2056,6 @@ int kill_task(
     /* FAILURE */
 
     return(0);
-    }
-
-  if (LOGLEVEL >= 5)
-    {
-    sprintf(log_buffer,"%s: sending signal %d to task %d, session %d",
-      id, 
-      sig,
-      ptask->ti_qs.ti_task,
-      sesid);
-
-    log_record(
-      PBSEVENT_JOB,
-      PBS_EVENTCLASS_JOB,
-      ptask->ti_job->ji_qs.ji_jobid,
-      log_buffer);
     }
 
   /* pdir is global */
@@ -2120,6 +2120,17 @@ int kill_task(
            * herself. 
            */
 
+           if (LOGLEVEL >= 3)
+             {
+             sprintf(log_buffer,"%s: not killing process %d. Avoid sending signal because child task still has MOM's session id", id, ps->pid);
+
+             log_record(
+               PBSEVENT_JOB,
+               PBS_EVENTCLASS_JOB,
+               ptask->ti_job->ji_qs.ji_jobid,
+               log_buffer);
+             }
+
           continue;
           }  /* END if (ps->pid == mompid) */
 
@@ -2131,7 +2142,18 @@ int kill_task(
            req.tv_nsec = 250000000;  /* .25 seconds */
  
            /* give the process some time to quit gracefully first (up to 5 seconds) */
- 
+           sprintf(log_buffer,"%s: killing pid %d task %d gracefully with sig %d",
+             id, 
+             ps->pid, 
+             ptask->ti_qs.ti_task, 
+             SIGTERM);
+  
+           log_record(
+             PBSEVENT_JOB,
+             PBS_EVENTCLASS_JOB,
+             ptask->ti_job->ji_qs.ji_jobid,
+             log_buffer);
+
            if (pg == 0)
              kill(ps->pid,SIGTERM);
            else
@@ -2151,18 +2173,6 @@ int kill_task(
            {
            i = 20;
            }
-
-        sprintf(log_buffer,"%s: killing pid %d task %d with sig %d",
-          id, 
-          ps->pid, 
-          ptask->ti_qs.ti_task, 
-          sig);
-
-        log_record(
-          PBSEVENT_JOB,
-          PBS_EVENTCLASS_JOB,
-          ptask->ti_job->ji_qs.ji_jobid,
-          log_buffer);
 
         if (i >= 20)
           {
@@ -2195,6 +2205,18 @@ int kill_task(
             else
               { 
               /* kill process hard */
+
+              sprintf(log_buffer,"%s: killing pid %d task %d with sig %d",
+                id, 
+                ps->pid, 
+                ptask->ti_qs.ti_task, 
+                sig);
+
+              log_record(
+                PBSEVENT_JOB,
+                PBS_EVENTCLASS_JOB,
+                ptask->ti_job->ji_qs.ji_jobid,
+                log_buffer);
 
               if (pg == 0)
                 kill(ps->pid,sig);
