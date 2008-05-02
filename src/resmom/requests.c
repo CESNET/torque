@@ -143,7 +143,6 @@ extern int		exiting_tasks;
 extern tlist_head	svr_alljobs;
 extern char		mom_host[];
 extern char            *msg_err_unlink;
-extern char            *path_checkpoint;
 extern char            *path_spool;
 extern char            *path_undeliv;
 extern attribute_def	job_attr_def[];
@@ -745,28 +744,98 @@ static int told_to_cp(
   const char *id = "told_to_cp";
 
   static char newp[MAXPATHLEN + 1];
+  char linkpath[MAXPATHLEN + 1];
+  int max_links;
   extern struct cphosts *pcphosts;
 
-  for (nh = 0;nh < cphosts_num;nh++) 
+  for (max_links = 16;max_links > 0;max_links--) 
     {
-    if (wchost_match(host,(pcphosts + nh)->cph_hosts)) 
+    for (nh = 0;nh < cphosts_num;nh++) 
       {
-      i = strlen((pcphosts + nh)->cph_from);
-
-      if (strncmp((pcphosts + nh)->cph_from,oldpath,i) == 0) 
+      if (wchost_match(host,pcphosts[nh].cph_hosts)) 
         {
-        strcpy(newp,(pcphosts + nh)->cph_to);
+        i = strlen(pcphosts[nh].cph_from);
 
-        strcat(newp,oldpath + i);
-       
-        *newpath = newp;
-
-        /* success */
-
-        return(1);
+        if (strncmp(pcphosts[nh].cph_from,oldpath,i) == 0) 
+        {
+          int nchars, link_size;
+          nchars = snprintf(newp, sizeof(newp), "%s%s",
+            pcphosts[nh].cph_to, oldpath + i);
+          if (nchars >= (int)sizeof(newp))
+            {
+            snprintf(log_buffer,sizeof(log_buffer),
+              "too long string when transforming path '%s' to '%s%s'\n",
+              oldpath, pcphosts[nh].cph_to, oldpath + i);
+            log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER,
+              (char *)id, log_buffer);
+            return(0);
+            }
+          link_size = readlink((const char *)newp,
+            linkpath, sizeof(linkpath) - 1);
+          if (link_size == -1)
+            {
+            /*
+             * Catching only too many symbolic links, bad buffer
+             * location and insufficient kernel memory cases.
+             */
+            if (errno == ELOOP || errno == EFAULT || errno == ENOMEM)
+              {
+              snprintf(log_buffer,sizeof(log_buffer),
+                "translation of symbolic link '%s' failed: %s\n",
+                newp, strerror(errno));
+              log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER,
+                (char *)id, log_buffer);
+              return(0);
+              }
+            /*
+             * We're done.  All other errors (if any)  will be
+             * reported in the respective routines.
+             *
+             * At least ENOENT and EINVAL are good error codes:
+             * they correspond to non-existent object or to
+             * object that is not a symbolic link.
+             */
+            else
+              {
+              *newpath = newp;
+              /* success */
+              return(1);
+              }
+            }
+          else
+            {
+            linkpath[link_size] = '\0';
+              {
+              snprintf(log_buffer,sizeof(log_buffer),
+                "translated symbolic link '%s:%s' to '%s:%s'; "
+                "restarting $usecp search\n",
+                host, newp, host, linkpath);
+              log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER,
+                (char *)id, log_buffer);
+              }
+            oldpath = linkpath;
+            }
+            break;
+          }
         }
-      }
-    }    /* END for (nh) */
+
+      if (LOGLEVEL >= 5)
+        {
+        sprintf(log_buffer,"host '%s' and path '%s' does not match usecp[%d]  (host '%s' path '%s')\n",
+          host,
+          oldpath,
+          nh,
+          (pcphosts + nh)->cph_hosts,
+          (pcphosts + nh)->cph_from);
+
+        log_record(
+          PBSEVENT_SYSTEM,
+          PBS_EVENTCLASS_SERVER,
+          (char *)id,
+          log_buffer);
+        }
+      }    /* END for (nh) */
+    }      /* END for (max_links) */
 
    /* failure */
 
@@ -777,11 +846,7 @@ static int told_to_cp(
       oldpath,
       nh);
 
-    log_record(
-      PBSEVENT_SYSTEM,
-      PBS_EVENTCLASS_SERVER,
-      (char *)id,
-      log_buffer);
+    log_err(-1,(char *)id,log_buffer);
     }
 
   return(0);
@@ -942,15 +1007,56 @@ void req_holdjob(
   struct batch_request *preq)
 
   {
-#if MOM_CHECKPOINT == 1
+  int  rc;
+  job *pjob;
+  svrattrl *pal;
+  attribute tmph;
 
+  /* If checkpoint supported, do it and terminate the job */
+  /* otherwise, return PBSE_NOSUP				*/
+
+  if ((pjob = find_job(preq->rq_ind.rq_hold.rq_orig.rq_objname)) == NULL)
+    {
+    rc = PBSE_UNKJOBID;
+    } 
+  else 
+    {
+    /* propagate servers hold state to job */
+
+    clear_attr(&tmph,&job_attr_def[(int)JOB_ATR_hold]);
+    if ((pal = (svrattrl *)GET_NEXT(preq->rq_ind.rq_hold.rq_orig.rq_attr)) != NULL) 
+      {
+      job_attr_def[(int)JOB_ATR_hold].at_decode(
+        &tmph,
+        pal->al_name,
+        NULL,
+        pal->al_value);
+      }
+
+    if ((rc = start_checkpoint(pjob,1,preq)) != PBSE_NONE)
+      req_reject(rc,0,preq,mom_host,"cannot checkpoint job");    /* unable to start checkpoint */
+    }
+  }
+
+
+
+
+/*
+ * req_checkpointjob - checkpoint and continue job
+ */
+
+void req_checkpointjob(
+
+  struct batch_request *preq)
+
+  {
   int  rc;
   job *pjob;
 
   /* If checkpoint supported, do it and terminate the job */
   /* otherwise, return PBSE_NOSUP				*/
 
-  pjob = find_job(preq->rq_ind.rq_hold.rq_orig.rq_objname);
+  pjob = find_job(preq->rq_ind.rq_manager.rq_objname);
 
   if (pjob == NULL) 
     {
@@ -958,27 +1064,19 @@ void req_holdjob(
     } 
   else 
     {
-    if ((rc = start_checkpoint(pjob,1,preq)) != PBSE_NONE)
-      req_reject(rc,0,preq,mom_host,"cannot checkpoint job");    /* unable to start chkpt */
+    if ((rc = start_checkpoint(pjob,0,preq)) != PBSE_NONE)
+      req_reject(rc,0,preq,mom_host,"cannot checkpoint job");    /* unable to start checkpoint */
     }
 
   /* note, normally the reply to the server is in start_checkpoint() */
-
-#else	/* MOM_CHECKPOINT */
-
-  req_reject(PBSE_NOSUP,0,preq,mom_host,"checkpointing not supported");
-
-#endif	/* MOM_CHECKPOINT */
-
-  return;
   }
 
 
 
 
 /*
- *	Write text into a job's output file,
- *	Return a PBS error code.
+ *  Write text into a job's output file,
+ *  Return a PBS error code.
  */
 
 int message_job(
@@ -1110,8 +1208,6 @@ void req_messagejob(
     {
     req_reject(ret,0,preq,mom_host,"cannot add message to job output/error buffer");
     }
-
-  return;
   }  /* END req_messagejob() */
 
 
@@ -1479,8 +1575,9 @@ int sigalltasks_sisters(
   int  signum)
 
   {
+#ifndef NDEBUG
   char      id[] = "sigalltasks_sisters";
-
+#endif
   char     *cookie;
   eventent *ep;
   int i;
@@ -2436,7 +2533,7 @@ void req_rerunjob(
 
   if (((rc = return_file(pjob,StdOut,sock)) != 0) ||
       ((rc = return_file(pjob,StdErr,sock)) != 0) ||
-      ((rc = return_file(pjob,Chkpt,sock)) != 0)) 
+      ((rc = return_file(pjob,Checkpoint,sock)) != 0)) 
     {
     /* FAILURE - cannot report file to server */
 
@@ -2973,13 +3070,12 @@ void req_cpyfile(
           }
 #endif	/* NO_SPOOL_OUTPUT */
         }  /* END if (pair->fp_flag == STDJOBFILE) */
-#if MOM_CHECKPOINT == 1
       else if (pair->fp_flag == JOBCKPFILE) 
         {
+        extern char     *path_checkpoint;
         strcpy(localname,path_checkpoint);
         strcat(localname,pair->fp_local);  /* from location */
         }
-#endif	/* MOM_CHECKPOINT */
       else
         {
         /* user-supplied stage-out file */
@@ -3378,407 +3474,6 @@ void req_delfile(
 
 
 
-
-
-#if MOM_CHECKPOINT == 1
-/*
- * Checkpoint the job.
- *
- *	If abort is TRUE, kill it too.  Return a PBS error code.
- */
-
-int mom_checkpoint_job(
-
-  job *pjob,  /* I */
-  int  abort) /* I */
-
-  {
-/*  int		hasold = 0; */
-  int		sesid = -1;
-  int		ckerr;
-/*  struct stat	statbuf; */
-  char		path[MAXPATHLEN + 1];
-/*  char		oldp[MAXPATHLEN + 1]; */
-  char		file[MAXPATHLEN + 1]; 
-  char         *name;
-  int		filelen;
-  task         *ptask;
-  extern char   task_fmt[];
-
-  assert(pjob != NULL);
-
-  strcpy(path,path_checkpoint);
-  strcat(path,pjob->ji_qs.ji_fileprefix);
-  strcat(path,JOB_CKPT_SUFFIX);
-
-#if 0
-  /* Don't mess with existing checkpoints. */
-  if (stat(path,&statbuf) == 0) 
-    {
-    strcpy(oldp,path);   /* file already exists, rename it */
-
-    strcat(oldp,".old");
-
-    if (rename(path,oldp) < 0)
-      {
-      return(errno);
-      }
-
-    hasold = 1;
-    }
-#endif
-
-  mkdir(path,0755);
-
-  filelen = strlen(path);
-
-  strcpy(file,path);
-
-  name = &file[filelen];
-
-#ifdef _CRAY
-
-  /*
-   * if job is suspended and if <abort> is set, resume job first,
-   * this is so job will be "Q"ueued and then back into "R"unning
-   * when restarted.
-   */
-
-  if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) && abort) 
-    {
-    for (ptask = (task *)GET_NEXT(pjob->ji_tasks); 
-         ptask != NULL; 
-         ptask = (task *)GET_NEXT(ptask->ti_jobtask)) 
-      {
-      sesid = ptask->ti_qs.ti_sid;
-
-      if (ptask->ti_qs.ti_status != TI_STATE_RUNNING)
-        continue;
-
-      /* What to do if some resume work and others don't? */
-
-      if ((ckerr = resume(C_JOB,sesid)) == 0) 
-        {
-        post_resume(pjob, ckerr);
-        } 
-      else 
-        {
-        sprintf(log_buffer,"chkpnt failed: errno=%d sid=%d",
-          errno, 
-          sesid);
-
-        LOG_EVENT(
-          PBSEVENT_JOB, 
-          PBS_EVENTCLASS_JOB,
-          pjob->ji_qs.ji_jobid, 
-          log_buffer);
-
-        return(errno);
-        }
-      }
-    }
-#endif	/* _CRAY */
-
-  for (ptask = (task *)GET_NEXT(pjob->ji_tasks);
-       ptask != NULL;
-       ptask = (task *)GET_NEXT(ptask->ti_jobtask)) 
-    {
-    sesid = ptask->ti_qs.ti_sid;
-
-    if (ptask->ti_qs.ti_status != TI_STATE_RUNNING)
-      continue;
-
-    sprintf(name,task_fmt, 
-      ptask->ti_qs.ti_task);
-
-    if (mach_checkpoint(ptask,file,abort) == -1)
-      goto fail;
-    }
-
-  /* Checkpoint successful */
-
-  pjob->ji_qs.ji_svrflags |= JOB_SVFLG_CHKPT;
-
-  job_save(pjob,SAVEJOB_FULL);  /* to save resources_used so far */
-
-  sprintf(log_buffer,"checkpointed to %s", 
-    path);
-
-  log_record(
-    PBSEVENT_JOB, 
-    PBS_EVENTCLASS_JOB,
-    pjob->ji_qs.ji_jobid, 
-    log_buffer);
-
-#if 0
-  if (hasold) 
-    remtree(oldp);
-#endif
-
-  return(PBSE_NONE);
-
-fail:
-
-  /* A checkpoint has failed.  Log and return error. */
-
-  ckerr = errno;
-
-  sprintf(log_buffer,"chkpnt failed:errno=%d sid=%d", 
-    errno, 
-    sesid);
-
-  LOG_EVENT(
-    PBSEVENT_JOB, 
-    PBS_EVENTCLASS_JOB,
-    pjob->ji_qs.ji_jobid,
-    log_buffer);
-
-  /*
-  ** See if any checkpoints worked and abort is set.
-  ** If so, we need to restart these tasks so the whole job is
-  ** still running.  This has to wait until we reap the
-  ** aborted task(s).
-  */
-
-  if (abort)
-    {
-    return(PBSE_CKPSHORT);
-    }
-
-  /* Clean up files */
-#if 0
-  remtree(path);
-
-  if (hasold) 
-    {
-    if (rename(oldp,path) == -1)
-      pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_CHKPT;
-    }
-#endif
-
-  if (ckerr == EAGAIN)
-    {
-    return(PBSE_CKPBSY);
-    }
-
-  return(ckerr);
-  }
-
-
-
-
-
-/* 
- * post_chkpt - post processor for start_checkpoint()
- *
- *	Called from scan_for_terminated() when found in ji_mompost;
- *	This sets the "has checkpoint image" bit in the job.
- */
-
-void post_chkpt(
-
-  job *pjob,
-  int  ev)
-
-  {
-  char           path[MAXPATHLEN + 1];
-  DIR		*dir;
-  struct dirent	*pdir;
-  extern char	*path_checkpoint;
-  tm_task_id	tid;
-  task		*ptask;
-  int		abort = pjob->ji_flags & MOM_CHKPT_ACTIVE;
-
-  exiting_tasks = 1;	/* make sure we call scan_for_exiting() */
-
-  pjob->ji_flags &= ~MOM_CHKPT_ACTIVE;
-
-  if (ev == 0) 
-    {
-    pjob->ji_qs.ji_svrflags |= JOB_SVFLG_CHKPT;
-
-    return;
-    }
-
-  /*
-  ** If we get here, an error happened.  Only try to recover
-  ** if we had abort set.
-  */
-
-  if (abort == 0)
-    {
-    return;
-    }
-
-  /*
-  ** Set a flag for scan_for_exiting() to be able to
-  ** deal with a failed checkpoint rather than doing
-  ** the usual processing.
-  */
-
-  pjob->ji_flags |= MOM_CHKPT_POST;
-
-  /*
-  ** Set the TI_FLAGS_CHKPT flag for each task that
-  ** was checkpointed and aborted.
-  */
-
-  strcpy(path,path_checkpoint);
-  strcat(path,pjob->ji_qs.ji_fileprefix);
-  strcat(path,JOB_CKPT_SUFFIX);
-
-  dir = opendir(path);
-
-  if (dir == NULL)
-    {
-    return;
-    }
-
-  while ((pdir = readdir(dir)) != NULL) 
-    {
-    if (pdir->d_name[0] == '.')
-      continue;
-
-    tid = atoi(pdir->d_name);
-
-    if (tid == 0)
-      continue;
-
-    ptask = task_find(pjob,tid);
-
-    if (ptask == NULL)
-      continue;
-
-    ptask->ti_flags |= TI_FLAGS_CHKPT;
-    }
-
-  closedir(dir);
-
-  return;
-  }
-
-
-
-
-
-
-/*
- * start_checkpoint - start a checkpoint going
- *
- *	checkpoint done from a child because it takes a while 
- */
-
-int start_checkpoint(
-
-  job *pjob,
-  int  abort,
-  struct batch_request *preq)	/* may be null */
-
-  {
-/*  static char id[] = "start_checkpoint"; */
-  svrattrl *pal;
-/*  pid_t     pid; */
-  int       rc;
-  attribute tmph;
-  char      name_buffer[1024];
-
-  if (mom_does_chkpnt() == 0) 	/* no checkpoint, reject request */
-    {
-    return(PBSE_NOSUP);
-    }
-
-    /* Build the name of the checkpoint file before forking to the child */
-
-  sprintf(name_buffer, "ckpt.%s.%d",
-    pjob->ji_qs.ji_jobid,
-    (int)time(0) );
-  decode_str(&pjob->ji_wattr[(int)JOB_ATR_chkptname],NULL,NULL,name_buffer);
-  pjob->ji_wattr[(int)JOB_ATR_chkptname].at_flags =
-    ATR_VFLAG_SET | ATR_VFLAG_MODIFY | ATR_VFLAG_SEND;
-
-
-  if (!(pjob->ji_wattr[(int)JOB_ATR_chkptdir].at_flags & ATR_VFLAG_SET))
-    {
-    /* No dir specified, use the default job checkpoint directory /var/spool/torque/checkpoint/42.host.domain.CK */
-
-    strcpy(name_buffer,path_checkpoint);
-    strcat(name_buffer,pjob->ji_qs.ji_fileprefix);
-    strcat(name_buffer,JOB_CKPT_SUFFIX);
-    decode_str(&pjob->ji_wattr[(int)JOB_ATR_chkptdir],NULL,NULL,name_buffer);
-    }
-
-#if 0
-  /* now set up as child of MOM */
-
-  pid = fork_me((preq == NULL) ? -1 : preq->rq_conn);
-
-  if (pid > 0) 
-    {
-    /* parent, record pid in job for when child terminates */
-
-    pjob->ji_momsubt = pid;
-    pjob->ji_mompost = (int (*)())post_chkpt;
-
-    if (preq)
-      free_br(preq);
-
-    /* If we are going to have tasks dieing, set a flag. */
-
-    if (abort)
-      pjob->ji_flags |= MOM_CHKPT_ACTIVE;
-    } 
-  else if (pid < 0) 
-    {
-    /* error on fork */
-
-    log_err(errno,id,"cannot fork child process for checkpoint");
-    return(PBSE_SYSTEM);	
-    } 
-  else
-#endif
-    {
-    /* child - does the checkpoint */
-
-    int hok = 1;
-
-    clear_attr(&tmph,&job_attr_def[(int)JOB_ATR_hold]);
-
-    if (preq != NULL) 
-      {
-      pal = (svrattrl *)GET_NEXT(preq->rq_ind.rq_hold.rq_orig.rq_attr);
-
-      if (pal != NULL) 
-        {
-        hok = job_attr_def[(int)JOB_ATR_hold].at_decode(
-          &tmph,
-          pal->al_name,
-          NULL,
-          pal->al_value);
-        }
-      }
-
-    rc = mom_checkpoint_job(pjob,abort);
-
-    if (preq != NULL) 
-      {
-      /* rc may be 0, req_reject is used to pass auxcode */
-
-      req_reject(rc,PBS_CHKPT_MIGRATE,preq,NULL,NULL);
-      }
-
-    if ((rc == 0) && (hok == 0))
-      rc = site_mom_postchk(pjob,(int)tmph.at_val.at_long);
-#if 0
-    exit(rc);	/* zero exit tells main chkpnt ok */
-#else
-  return(PBSE_NONE);		/* parent return */
-#endif
-    }
-
-  return(PBSE_NONE);		/* parent return */
-  }  /* END start_checkpoint() */
-
-#endif	/* MOM_CHECKPOINT */
 
 
 /* END requests.c */

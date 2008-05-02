@@ -1,6 +1,18 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
+2.4.0
+  e - added -q to qalter to allow quicker response to modify requests
+
+2.3.1
+  b - fixed a bug where torque would fail to start up if there was no LF in nodes file
+  b - fixed memory leak in free_br for PBS_BATCH_MvJobFile case
+  e - torque can now compile on Linux and OS X with NDEBUG defined
+  b - fix so we continue to process exiting jobs for other servers
+  e - added source_login_batch and source_login_interactive to mom config.  This
+      allows us to bypass the sourcing of /etc/profile, etc. type files.
+
 2.3.0
+  b - fixed a bug where TORQUE would ignore the "pbs_asyrunjob" API extension string when starting jobs in asynchronous mode
   e - redesign how torque.spec is built
   e - added -a to qrun to allow asynchronous job start
   e - allow qrerun on completed jobs

@@ -103,9 +103,11 @@
 #include "log.h"
 #include "acct.h"
 #include "svrfunc.h"
+#include "csv.h"
 
 /* Private Functions Local to this file */
 
+static void process_checkpoint_reply A_((struct work_task *));
 static void process_hold_reply A_((struct work_task *));
 
 /* Global Data Items: */
@@ -167,6 +169,7 @@ void req_holdjob(
   char    *pset;
   int     rc;
   attribute temphold;
+  attribute *pattr;
  
   pjob = chk_job_request(preq->rq_ind.rq_hold.rq_orig.rq_objname,preq);
 
@@ -199,7 +202,12 @@ void req_holdjob(
   sprintf(log_buffer, msg_jobholdset, pset, preq->rq_user,
           preq->rq_host);
 
-  if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING)
+  pattr = &pjob->ji_wattr[(int)JOB_ATR_checkpoint];
+  if ((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) &&
+      ((pattr->at_flags & ATR_VFLAG_SET) &&
+       ((csv_find_string(pattr->at_val.at_str, "s") != NULL) ||
+        (csv_find_string(pattr->at_val.at_str, "c") != NULL) ||
+        (csv_find_string(pattr->at_val.at_str, "enabled") != NULL))))
     {
        
     /* have MOM attempt checkpointing */
@@ -214,7 +222,7 @@ void req_holdjob(
       {
       pjob->ji_qs.ji_substate = JOB_SUBSTATE_RERUN;
       pjob->ji_qs.ji_svrflags |=
-          JOB_SVFLG_HASRUN | JOB_SVFLG_CHKPT;
+          JOB_SVFLG_HASRUN | JOB_SVFLG_CHECKPOINT_FILE;
       job_save(pjob, SAVEJOB_QUICK);
       LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
           pjob->ji_qs.ji_jobid, log_buffer);
@@ -240,6 +248,64 @@ void req_holdjob(
 
       svr_setjobstate(pjob,newstate,newsub);
       }
+
+    reply_ack(preq);
+    }
+  }  /* END req_holdjob() */
+
+
+
+
+/*
+ * req_checkpointjob - service the Checkpoint Job Request
+ *
+ */
+
+void req_checkpointjob(
+
+  struct batch_request *preq)
+
+  {
+  job    *pjob;
+  int     rc;
+  attribute *pattr;
+ 
+  if ((pjob = chk_job_request(preq->rq_ind.rq_manager.rq_objname,preq)) == NULL)
+    {
+    return;
+    }
+
+  pattr = &pjob->ji_wattr[(int)JOB_ATR_checkpoint];
+  if ((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) &&
+      ((pattr->at_flags & ATR_VFLAG_SET) &&
+       ((csv_find_string(pattr->at_val.at_str, "s") != NULL) ||
+        (csv_find_string(pattr->at_val.at_str, "c") != NULL) ||
+        (csv_find_string(pattr->at_val.at_str, "enabled") != NULL))))
+    {
+    /* have MOM attempt checkpointing */
+
+    if ((rc = relay_to_mom(pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+               preq, process_checkpoint_reply)) != 0)
+      {
+      req_reject(rc, 0, preq,NULL,NULL);
+      } 
+    else
+      {
+      pjob->ji_qs.ji_svrflags |= JOB_SVFLG_CHECKPOINT_FILE;
+      job_save(pjob, SAVEJOB_QUICK);
+      LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid, log_buffer);
+      }
+    } 
+  else 
+    {
+    /* everything went well, may need to update the job state */
+
+    LOG_EVENT(
+      PBSEVENT_JOB, 
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid, 
+      log_buffer);
 
     reply_ack(preq);
     }
@@ -426,21 +492,55 @@ static void process_hold_reply(
     {
     /* record that MOM has a checkpoint file */
 
-    /* Stupid PBS_CHKPT_MIGRATE is defined as zero therefore this code will never fire.
+    /* PBS_CHECKPOINT_MIGRATEABLE is defined as zero therefore this code will never fire.
      * And if these flags are not set, start_exec will not try to run the job from
      * the checkpoint image file.
      */
 
-    pjob->ji_qs.ji_svrflags |= JOB_SVFLG_CHKPT;
-    if (preq->rq_reply.brp_auxcode)  /* chkpt can be moved */
+    pjob->ji_qs.ji_svrflags |= JOB_SVFLG_CHECKPOINT_FILE;
+    if (preq->rq_reply.brp_auxcode)  /* checkpoint can be moved */
       {
-      pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_CHKPT;
-      pjob->ji_qs.ji_svrflags |=  JOB_SVFLG_HASRUN | JOB_SVFLG_ChkptMig;
+      pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_CHECKPOINT_FILE;
+      pjob->ji_qs.ji_svrflags |=  JOB_SVFLG_HASRUN | JOB_SVFLG_CHECKPOINT_MIGRATEABLE;
       }
 
     pjob->ji_modified = 1;    /* indicate attributes changed     */
     svr_evaljobstate(pjob,&newstate,&newsub,0);
     svr_setjobstate(pjob,newstate,newsub); /* saves job */
+
+    account_record(PBS_ACCT_CHKPNT, pjob, (char *)0);  /* note in accounting file */
+    reply_ack(preq);
+    }
+  }
+
+/*
+ * process_checkpoint_reply
+ *	called when a checkpoint request was sent to MOM and the answer
+ *	is received.  Completes the checkpoint request for running jobs.
+ */
+
+static void process_checkpoint_reply(
+
+  struct work_task *pwt)
+  {
+  job		     *pjob;
+  struct batch_request *preq;
+
+  svr_disconnect(pwt->wt_event);	/* close connection to MOM */
+
+  preq = pwt->wt_parm1;
+  preq->rq_conn = preq->rq_orgconn;  /* restore client socket */
+
+  if ((pjob = find_job(preq->rq_ind.rq_manager.rq_objname)) == (job *)0)
+    {
+    LOG_EVENT(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB,
+        preq->rq_ind.rq_manager.rq_objname,
+        msg_postmomnojob);
+    req_reject(PBSE_UNKJOBID, 0, preq,NULL,msg_postmomnojob);
+    }
+  else
+    {
+    /* record that MOM has a checkpoint file */
 
     account_record(PBS_ACCT_CHKPNT, pjob, (char *)0);  /* note in accounting file */
     reply_ack(preq);

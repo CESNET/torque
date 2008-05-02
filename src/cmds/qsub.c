@@ -108,6 +108,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <grp.h>
+#include <csv.h>
 
 #ifdef sun
 #include <sys/stream.h>
@@ -160,6 +161,8 @@ int x11child = 0;
 int do_dir(char *);
 int process_opts(int,char **,int);
 
+
+char *checkpoint_strings = "n,c,s,u,none,shutdown,periodic,enabled,interval,depth,dir";
 
 
 /* adapted from openssh */
@@ -2410,6 +2413,8 @@ int process_opts(
   struct stat sfilter;
 
   int tmpfd;
+  int nitems;
+  char search_string[256];
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
 #define GETOPT_ARGS "a:A:b:c:C:d:D:e:hIj:k:l:m:M:N:o:p:q:r:S:t:u:v:VW:Xz-:"
@@ -2540,8 +2545,11 @@ int process_opts(
 
           pc = optarg;
 
-          /* FORMAT:  -c { n | s | c | c=X } */
-
+          /* OLD FORMAT:  -c { n | s | c | c=X }
+           * New format: -c [ { <old format items> | <new items> } ',' ]
+           * new items: none | shutdown | checkpoint | name=xyz | dir=xyz | interval=X
+           */ 
+#if 0
           if (strlen(optarg) == 1) 
             {
             if ((*pc != 'n') && (*pc != 's') && (*pc != 'c')) 
@@ -2584,7 +2592,29 @@ int process_opts(
               break;
               }
             }
-
+#else
+          nitems = csv_length(optarg);
+          for (i=0; i<nitems; i++)
+            {
+            if ((ptr = csv_nth(optarg,i)) != NULL)
+              {
+              strcpy(search_string,ptr);
+              ptr = strchr(search_string,'=');
+              if (ptr)
+                *ptr = 0;
+              else
+                ptr = &search_string[strlen(search_string)];
+              while (ptr > search_string && *(ptr-1) == ' ')
+                *--ptr = 0;
+              if (csv_find_string(checkpoint_strings,search_string) == NULL)
+                {
+                fprintf(stderr,"qsub: illegal -c value \"%s\"\n", ptr);
+                errflg++;
+                goto err;
+                }
+              }
+            }
+#endif
           set_attr(&attrib,ATTR_c,optarg);
           }  /* END if_cmd_line() */
 
@@ -3915,7 +3945,9 @@ int main(
     {
     static char usage[] =
 "usage: qsub [-a date_time] [-A account_string] [-b secs]\n\
-[-c { c[=<INTERVAL>] | s | n }] [-C directive_prefix] [-d path] [-D path]\n\
+[-c [ none | { enabled | periodic | shutdown |\n\
+      depth=<int> | dir=<path> | interval=<minutes>}... ]\n\
+[-C directive_prefix] [-d path] [-D path]\n\
 [-e path] [-h] [-I] [-j oe] [-k {oe}] [-l resource_list] [-m n|{abe}]\n\
 [-M user_list] [-N jobname] [-o path] [-p priority] [-q queue] [-r y|n]\n\
 [-S path] [-t number_to_submit] [-u user_list] [-X] [-W otherattributes=value...]\n\

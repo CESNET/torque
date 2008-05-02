@@ -172,6 +172,7 @@ void req_rdytocommit(struct batch_request *preq);
 void req_commit(struct batch_request *preq);
 void req_deletejob(struct batch_request *preq);
 void req_holdjob(struct batch_request *preq);
+void req_checkpointjob(struct batch_request *preq);
 void req_messagejob(struct batch_request *preq);
 void req_modifyjob(struct batch_request *preq);
 #ifndef PBS_MOM
@@ -712,6 +713,12 @@ void dispatch_request(
 
       break;
 
+    case PBS_BATCH_CheckpointJob: 
+
+      req_checkpointjob(request);
+
+      break;
+
 #ifndef PBS_MOM
 
     case PBS_BATCH_LocateJob: 
@@ -734,6 +741,7 @@ void dispatch_request(
 
       break;
 
+    case PBS_BATCH_AsyModifyJob:
     case PBS_BATCH_ModifyJob:
 
       req_modifyjob(request);
@@ -971,7 +979,8 @@ struct batch_request *alloc_br(
   req->rq_orgconn = -1;		/* indicate not connected */
   req->rq_time = time_now;
   req->rq_reply.brp_choice = BATCH_REPLY_CHOICE_NULL;
-
+  req->rq_noreply = FALSE;  /* indicate reply is needed */
+  
   append_link(&svr_requests, &req->rq_link, req);
 
   return(req);
@@ -1082,11 +1091,7 @@ void free_br(
 
       break;
 
-    /* CRI RT #255 reports a memory leak at this point, but I can't
-     * reproduce it, so I'm just leaving this here for now */
     case PBS_BATCH_MvJobFile:
-      log_err(-1,"free_br","BUG: NOT freeing from PBS_BATCH_MvJobFile");
-      break; 
     case PBS_BATCH_jobscript:
 
       if (preq->rq_ind.rq_jobfile.rq_data)
@@ -1100,6 +1105,12 @@ void free_br(
 
       break;
 
+    case PBS_BATCH_CheckpointJob:
+
+      freebr_manage(&preq->rq_ind.rq_manager);
+
+      break;
+
     case PBS_BATCH_MessJob:
 
       if (preq->rq_ind.rq_message.rq_text)
@@ -1108,6 +1119,7 @@ void free_br(
       break;
 
     case PBS_BATCH_ModifyJob:
+    case PBS_BATCH_AsyModifyJob:
 
       freebr_manage(&preq->rq_ind.rq_modify);
 

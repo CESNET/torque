@@ -817,7 +817,7 @@ int mom_over_limit(pjob)
 					num, value);
 				return (TRUE);
 			}
-		} else if (strcmp(pname, "walltime") == 0) {
+		} else if (ignwalltime == 0 && strcmp(pname, "walltime") == 0) {
 			if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
 				continue;
 			retval = gettime(pres, &value);
@@ -828,8 +828,7 @@ int mom_over_limit(pjob)
 				sprintf(log_buffer,
 					"walltime %lu exceeded limit %lu",
 					num, value);
-				if (ignwalltime == 0)
-					return (TRUE);
+				return (TRUE);
 			}
 		}
 	}
@@ -965,13 +964,12 @@ int mom_close_poll()
 }
 
 /*
- * mom_does_chkpnt - return 1 if mom supports checkpoint
- *			    0 if not
+ * mom_does_checkpoint
  */
 
-int mom_does_chkpnt()
+int mom_does_checkpoint()
 {
-	return (0);
+	return(CST_NONE);
 }
 
 /*

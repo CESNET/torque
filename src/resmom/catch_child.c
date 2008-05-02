@@ -159,6 +159,12 @@ extern int task_recov A_((job *));
 extern void mom_server_all_update_stat(void);
 extern void check_state(int);
 extern int mom_open_socket_to_jobs_server A_(( job *, char *, void (*) A_((int))));
+extern void checkpoint_partial(job *pjob);
+extern void mom_checkpoint_recover(job *pjob);
+extern void clear_down_mom_servers();
+extern int is_mom_server_down(pbs_net_t);
+extern void set_mom_server_down(pbs_net_t);
+extern int no_mom_servers_down();
 
 
 /* END external prototypes */
@@ -207,121 +213,6 @@ hnodent	*get_node(
 
   return(NULL);
   }  /* END get_node() */
-
-
-
-
-
-#if	MOM_CHECKPOINT == 1
-/*
-**	Restart each task which has exited and has TI_FLAGS_CHKPT turned on.
-**	If all tasks have been restarted, turn off MOM_CHKPT_POST.
-*/
-
-void chkpt_partial(
-
-  job *pjob)
-
-  {
-  static char	id[] = "chkpt_partial";
-  int		i;
-  char		namebuf[MAXPATHLEN];
-  char		*filnam;
-  task		*ptask;
-  int		texit = 0;
-  extern	char	task_fmt[];
-  extern	char	*path_checkpoint;
-
-  assert(pjob != NULL);
-
-  strcpy(namebuf,path_checkpoint);
-  strcat(namebuf,pjob->ji_qs.ji_fileprefix);
-  strcat(namebuf,JOB_CKPT_SUFFIX);
-
-  i = strlen(namebuf);
-
-  filnam = &namebuf[i];
-
-  for (ptask = (task *)GET_NEXT(pjob->ji_tasks);
-       ptask != NULL;
-       ptask = (task *)GET_NEXT(ptask->ti_jobtask)) 
-    {
-    /*
-    ** See if the task was marked as one of those that did
-    ** actually checkpoint.
-    */
-
-    if ((ptask->ti_flags & TI_FLAGS_CHKPT) == 0)
-      continue;
-
-    texit++;
-
-    /*
-    ** Now see if it was reaped.  We don't want to
-    ** fool with it until we see it die.
-    */
-
-    if (ptask->ti_qs.ti_status != TI_STATE_EXITED)
-      continue;
-
-    texit--;
-
-    sprintf(filnam,task_fmt, 
-      ptask->ti_qs.ti_task);
-
-    if (mach_restart(ptask,namebuf) == -1)
-      goto fail;
-
-    ptask->ti_qs.ti_status = TI_STATE_RUNNING;
-    ptask->ti_flags &= ~TI_FLAGS_CHKPT;
-
-    task_save(ptask);
-    }
-
-  if (texit == 0) 
-    {
-    char        oldname[MAXPATHLEN];
-    struct stat	statbuf;
-
-    /*
-    ** All tasks should now be running.
-    ** Turn off MOM_CHKPT_POST flag so job is back to where
-    ** it was before the bad checkpoint attempt.
-    */
-
-    pjob->ji_flags &= ~MOM_CHKPT_POST;
-
-    /*
-    ** Get rid of incomplete checkpoint directory and
-    ** move old chkpt dir back to regular if it exists.
-    */
-
-    *filnam = '\0';
-
-    remtree(namebuf);
-
-    strcpy(oldname,namebuf);
-
-    strcat(oldname,".old");
-
-    if (stat(oldname,&statbuf) == 0) 
-      {
-      if (rename(oldname,namebuf) == -1)
-        pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_CHKPT;
-      }
-    }
-
-  return;
-
-fail:
-  pjob->ji_flags &= ~MOM_CHKPT_POST;
-
-  kill_job(pjob,SIGKILL,id,"failed to restart");
-
-  return;
-  }  /* END chkpt_partial() */
-
-#endif	/* MOM_CHECKPOINT */
 
 
 
@@ -385,12 +276,22 @@ void scan_for_exiting()
       ForceObit = 1;
       }
     }
+    
+  clear_down_mom_servers();
 
   for (pjob = (job *)GET_NEXT(svr_alljobs);pjob != NULL;pjob = nxjob) 
     {
     nxjob = (job *)GET_NEXT(pjob->ji_alljobs);
 
-#if MOM_CHECKPOINT == 1
+    /* 
+     * Bypass job if it is for a server that we know is down
+     */
+    
+    if (is_mom_server_down(pjob->ji_qs.ji_un.ji_momt.ji_svraddr))
+      {
+      continue;
+      }
+
 
     /*
     ** If a checkpoint with aborts is active,
@@ -398,24 +299,23 @@ void scan_for_exiting()
     ** until we know that the whole thing worked.
     */
 
-    if (pjob->ji_flags & MOM_CHKPT_ACTIVE) 
+    if (pjob->ji_flags & MOM_CHECKPOINT_ACTIVE) 
       {
       continue;
       }
 
     /*
     ** If the job has had an error doing a checkpoint with
-    ** abort, the MOM_CHKPT_POST flag will be on.
+    ** abort, the MOM_CHECKPOINT_POST flag will be on.
     */
 
-    if (pjob->ji_flags & MOM_CHKPT_POST) 
+    if (pjob->ji_flags & MOM_CHECKPOINT_POST) 
       {
-      chkpt_partial(pjob);
+      checkpoint_partial(pjob);
 
       continue;
       }
  
-#endif	/* MOM_CHECKPOINT */
 
     if (!(pjob->ji_wattr[(int)JOB_ATR_Cookie].at_flags & ATR_VFLAG_SET))
       continue;
@@ -739,11 +639,15 @@ void scan_for_exiting()
         }
 
       /*
-       * return (break out of loop), leave exiting_tasks set
+       * continue through the jobs loop since we can have jobs for multiple
+       * servers.  Keep track that this server is down so we don't try to
+       * process any more jobs for it. We will leave it's exiting_tasks set
        * so Mom will retry Obit when server is available
        */
 
-      return;
+      set_mom_server_down(pjob->ji_qs.ji_un.ji_momt.ji_svraddr);
+
+      continue;
       }  /* END if (sock < 0) */
 
     if (LOGLEVEL >= 2)
@@ -790,7 +694,7 @@ void scan_for_exiting()
       }
     }  /* END for (pjob) */
 
-  if (pjob == NULL) 
+  if ((pjob == NULL) && (no_mom_servers_down()))
     {
     /* search finished */
 
@@ -1170,7 +1074,7 @@ static void preobit_reply(
 
       unlink(std_file_name(pjob,StdOut,&x));
       unlink(std_file_name(pjob,StdErr,&x));
-      unlink(std_file_name(pjob,Chkpt,&x));
+      unlink(std_file_name(pjob,Checkpoint,&x));
       }
 
     mom_deljob(pjob);
@@ -1363,7 +1267,7 @@ static void obit_reply(
 
             unlink(std_file_name(pjob,StdOut,&x));
             unlink(std_file_name(pjob,StdErr,&x));
-            unlink(std_file_name(pjob,Chkpt,&x));
+            unlink(std_file_name(pjob,Checkpoint,&x));
             }
 
           mom_deljob(pjob);
@@ -1488,12 +1392,6 @@ void init_abort_jobs(
   char		*job_suffix = JOB_FILE_SUFFIX;
   int            job_suf_len = strlen(job_suffix);
   char		*psuffix;
-#if	MOM_CHECKPOINT == 1
-  char           path[MAXPATHLEN + 1];
-  char           oldp[MAXPATHLEN + 1];
-/*  struct stat    statbuf; */
-  extern char   *path_checkpoint;
-#endif
 
   if (LOGLEVEL >= 6)
     {
@@ -1574,35 +1472,8 @@ void init_abort_jobs(
         log_buffer);
       }
 
-#if MOM_CHECKPOINT == 1
-    /*
-    ** Check to see if a checkpoint.old dir exists.
-    ** If so, remove the regular checkpoint dir
-    ** and rename the old to the regular name.
-    */
 
-    strcpy(path,path_checkpoint);
-    strcat(path,pj->ji_qs.ji_fileprefix);
-    strcat(path,JOB_CKPT_SUFFIX);
-    strcpy(oldp,path);
-    strcat(oldp,".old");
-
-#if 0
-    /*
-     * This is if 0'ed.
-     * If the directory exists it is fine.
-     * Checkpoint names have a time suffix and can occupy
-     * the same directory space.
-     */
-    if (stat(oldp,&statbuf) == 0) 
-      {
-      remtree(path);
-
-      if (rename(oldp,path) == -1)
-        remtree(oldp);
-      }
-#endif
-#endif  /* END MOM_CHECKPOINT == 1 */
+    mom_checkpoint_recover(pj);
 
     /*
      * make sure we trust connections from sisters in case we get an
@@ -1707,13 +1578,13 @@ void init_abort_jobs(
         }
 
       /* set exit status to:
-       *   JOB_EXEC_INITABT - init abort and no chkpt
-       *   JOB_EXEC_INITRST - init and chkpt, no mig
-       *   JOB_EXEC_INITRMG - init and chkpt, migrate
+       *   JOB_EXEC_INITABT - init abort and no checkpoint
+       *   JOB_EXEC_INITRST - init and checkpoint, no mig
+       *   JOB_EXEC_INITRMG - init and checkpoint, migrate
        * to indicate recovery abort
        */
 
-      if (pj->ji_qs.ji_svrflags & (JOB_SVFLG_CHKPT|JOB_SVFLG_ChkptMig)) 
+      if (pj->ji_qs.ji_svrflags & (JOB_SVFLG_CHECKPOINT_FILE|JOB_SVFLG_CHECKPOINT_MIGRATEABLE)) 
         {
 #if PBS_CHKPT_MIGRATE
       

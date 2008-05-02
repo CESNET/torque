@@ -400,7 +400,9 @@ static unsigned long cput_sum(
   job *pjob)
 
   {
+#ifndef NDEBUG
   static char id[] = "cput_sum";
+#endif
   int         i;
   u_long      cputime;
   int         nps = 0;
@@ -480,7 +482,9 @@ static unsigned long mem_sum(
   job *pjob)  /* I */
 
   {
+#ifndef NDEBUG
   char         *id = "mem_sum";
+#endif
   int           i;
   unsigned long memsize = 0;
 
@@ -527,7 +531,9 @@ static unsigned long resi_sum(
   job *pjob)
 
   {
+#ifndef NDEBUG
   char          *id = "resi_sum";
+#endif
   int		 i;
   unsigned long	 memsize = 0;
 
@@ -658,7 +664,9 @@ int mom_set_limits(pjob, set_mode)
     job			*pjob;
     int			 set_mode;	/* SET_LIMIT_SET or SET_LIMIT_ALTER */
 {
+#ifndef NDEBUG
 	char		*id = "mom_set_limits";
+#endif
 	char		*pname;
 	int		retval;
 	unsigned long	value;	/* place in which to build resource value */
@@ -777,7 +785,9 @@ int mom_do_poll(
   
   job *pjob)
   {
+#ifndef NDEBUG
   char		*id = "mom_do_poll";
+#endif
   char		*pname;
   resource	*pres;
 
@@ -820,7 +830,9 @@ int mom_do_poll(
 int mom_open_poll()
 
   {
+#ifndef NDEBUG
   char *id = "mom_open_poll";
+#endif 
 
   DBPRT(("%s: entered\n", 
     id))
@@ -1032,7 +1044,9 @@ int mom_over_limit(
   job *pjob)
 
   {
+#ifndef NDEBUG
   char		*id = "mom_over_limit";
+#endif
   char		*pname;
   int		retval;
   unsigned long	value, num;
@@ -1114,7 +1128,7 @@ int mom_over_limit(
         return(TRUE);
         }
       } 
-    else if (!strcmp(pname,"walltime")) 
+    else if (ignwalltime == 0 && !strcmp(pname,"walltime")) 
       {
       if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
         continue;
@@ -1132,8 +1146,7 @@ int mom_over_limit(
         sprintf(log_buffer,"walltime %lu exceeded limit %lu",
           num,value);
 
-	if (ignwalltime == 0)
-          return(TRUE);
+        return(TRUE);
         }
       }
     }
@@ -1355,12 +1368,11 @@ int mom_close_poll()
 
 
 /*
- * mom_does_chkpnt - return 1 if mom supports checkpoint
- *			    0 if not
+ * mom_does_checkpoint
  */
-int mom_does_chkpnt()
+int mom_does_checkpoint()
   {
-  return (0);
+  return(CST_NONE);
   }
 
 /*
@@ -1416,7 +1428,9 @@ char	*cput_job(
   pid_t jobid)
 
   {
+#ifndef NDEBUG
   char			*id = "cput_job";
+#endif
   int			i;
   unsigned long		cputime;
   time_value_t   total_time;
@@ -1487,7 +1501,9 @@ char *cput_proc(
   pid_t pid)
 
   {
+#ifndef NDEBUG
   char		*id = "cput_proc";
+#endif
   uint		cputime;
   int           i;
   time_value_t   total_time;
@@ -1597,7 +1613,9 @@ char *mem_job(
   pid_t jobid)
 
   {
+#ifndef NDEBUG
   char *id = "mem_job";
+#endif
   int   i;
   int   memsize, addmem;
   int   found = 0;

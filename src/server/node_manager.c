@@ -2151,7 +2151,9 @@ void write_node_state()
   int   savemask;
 
   if (LOGLEVEL >= 5)
+    {
     DBPRT(("write_node_state: entered\n"))
+    }
 
   /* don't store volatile states like down and unknown */
 
@@ -2220,7 +2222,9 @@ void write_node_state()
  */
 int write_node_note()
   {
+#ifndef NDEBUG
   static char id[] = "write_node_note";
+#endif
   struct pbsnode *np;
   int	i;
   FILE	*nin;

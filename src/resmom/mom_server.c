@@ -261,6 +261,7 @@ char            MOMSendStatFailure[MMAX_LINE];
 
 mom_server     mom_servers[PBS_MAXSERVER];
 int            mom_server_count = 0;
+pbs_net_t      down_svraddrs[PBS_MAXSERVER];
 
 
 extern unsigned int default_server_port;
@@ -495,6 +496,39 @@ mom_server_add(char *value)
     return(0); /* FAILURE */
     }
 
+  /* Leaving this out breaks things but seems bad because if gethostbyname fails,
+   * there is no retry except for the old way reinserting the name over and over again.
+   * And what happens if the server connect via a different interface than the
+   * one that gethostbyname returns?  It really seems better to not deal with
+   * the IP address here but rather do what needs to be done when a connection
+   * is established.  Anyway, this should fix things for now.
+   */
+  {
+  struct hostent *host;
+  struct in_addr  saddr;
+  u_long          ipaddr;
+
+  /* FIXME: must be able to retry failed lookups later */
+
+  if ((host = gethostbyname(pms->pbs_servername)) == NULL) 
+    {
+    sprintf(log_buffer,"host %s not found", 
+      pms->pbs_servername);
+
+    log_err(-1,id,log_buffer);
+
+    }
+  else
+    {
+    memcpy(&saddr,host->h_addr,host->h_length);
+
+    ipaddr = ntohl(saddr.s_addr);
+
+    if (ipaddr != 0)
+      tinsert(ipaddr,&okclients);
+    }
+  }
+
   return(1);      /* SUCCESS */
   }
 
@@ -712,11 +746,24 @@ int is_compose(mom_server *pms,int command)
 
 extern struct config *config_array;
 
+/**
+ * gen_size
+ *
+ * For the size attribute to be returned, it must be
+ * defined in the pbs_mom config file.  The syntax
+ * is unique in that you must ask for the size of
+ * either a file or a file system.
+ *
+ * For example:
+ * size[fs=/]
+ * size[file=/home/user/test.txt]
+ */
 void
 gen_size(char *name,char **BPtr, int *BSpace)
   {
   struct config  *ap;
   struct rm_attribute *attr;
+  char *value;
 
   ap = rm_search(config_array,name);
   if (ap)
@@ -724,11 +771,15 @@ gen_size(char *name,char **BPtr, int *BSpace)
     attr = momgetattr(ap->c_u.c_value);
     if (attr)
       {
-      MUSNPrintF(BPtr,BSpace,"%s=%s",
-        name,
-        attr);
-      (*BPtr)++; /* Need to start the next string after the null */
-      (*BSpace)--;
+      value = dependent(name,attr);
+      if (value && *value)
+        {
+        MUSNPrintF(BPtr,BSpace,"%s=%s",
+          name,
+          value);
+        (*BPtr)++; /* Need to start the next string after the null */
+        (*BSpace)--;
+        }
       }
     }
   }
@@ -2447,6 +2498,90 @@ int mom_open_socket_to_jobs_server( job * pjob, char *caller_id, void (*message_
   return(sock);
   }
 
+/**
+ * clear_down_mom_servers
+ *
+ * Clears the mom_server down address list.
+ * Called from the catch_child code.
+ * @see scan_for_exiting
+ */
+void
+clear_down_mom_servers()
+  {
+  int sindex;
+
+  for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
+    {
+    down_svraddrs[sindex] = 0;
+    }
+
+  return;
+  }
+
+/**
+ * is_mom_server_down
+ *
+ * Checks to see if the server address is in the down list.
+ * Called from the catch_child code.
+ * @see scan_for_exiting
+ */
+int
+is_mom_server_down(pbs_net_t server_address)
+  {
+  int sindex;
+
+  for (sindex = 0; sindex < PBS_MAXSERVER || down_svraddrs[sindex] == 0; sindex++)
+    {
+    if (down_svraddrs[sindex] == server_address)
+      {
+      return (1);
+      }
+    }
+
+  return (0);
+  }
+
+/**
+ * no_mom_servers_down
+ *
+ * Checks to see if the server address down list is empty.
+ * Called from the catch_child code.
+ * @see scan_for_exiting
+ */
+int
+no_mom_servers_down()
+  {
+  if (down_svraddrs[0] == 0)
+    {
+    return (1);
+    }
+
+  return (0);
+  }
+
+/**
+ * set_mom_server_down
+ *
+ * Add this server address to the down list.
+ * Called from the catch_child code.
+ * @see scan_for_exiting
+ */
+void
+set_mom_server_down(pbs_net_t server_address)
+  {
+  int sindex;
+
+  for (sindex = 0; sindex < PBS_MAXSERVER; sindex++)
+    {
+    if (down_svraddrs[sindex] == 0)
+      {
+      down_svraddrs[sindex] = server_address;
+      break;
+      }
+    }
+      
+  return;
+  }
 
 
 
