@@ -173,6 +173,8 @@ extern	unsigned int	pbs_rm_port;
 extern	u_long		localaddr;
 extern  char            *nodefile_suffix;
 extern  char            *submithost_suffix;
+extern  char             DEFAULT_UMASK[];
+extern  char             PRE_EXEC[];
 
 extern int LOGLEVEL;
 extern long TJobStartBlockTime;
@@ -1919,6 +1921,72 @@ int TMomFinalizeJob2(
 
 
 
+int determine_umask(
+
+   int  uid   /* I */
+  )
+
+  {
+  static char           *id = "determine_umask";
+  int UMaskVal = 0077;
+  struct passwd	*pwdp;
+  FILE *fp;
+  char retdata[20];
+  char command[100];
+  
+  if (DEFAULT_UMASK[0] != '\0')
+    {	
+    if (!strcasecmp(DEFAULT_UMASK,"userdefault"))
+      {
+      /* apply user default */
+
+      /* do we inherit umask when we do setuid(), NO */
+      /* we want to try and determine what the users umask is */
+      /* then we return its value so it can be set correctly */
+
+      if ((pwdp = getpwuid(uid)) == NULL)
+        {
+        sprintf(log_buffer,"FAILED to get password structure for uid %d",
+          uid);
+
+        log_err(-1,id,log_buffer);
+        }
+      else
+        {
+        sprintf(command,"/bin/su - %s -c umask", pwdp->pw_name);
+
+        if ((fp = popen(command, "r")) != NULL)
+          {
+            if (fgets(retdata, 20, fp) != NULL)
+            {
+             /* set the umask value from returned data */
+            UMaskVal = strtol(retdata, NULL, 8);
+            }
+          }
+        }
+        
+      }
+    else
+      {
+      UMaskVal = (int)strtol(DEFAULT_UMASK,NULL,0);
+      }
+
+    if (LOGLEVEL >= 7)
+      {
+      sprintf(log_buffer,"Using $job_output_file_umask value of %o", 
+            UMaskVal);
+
+      log_err(-1,id,log_buffer);
+      }
+    }
+
+  return(UMaskVal);
+  }  /* END determine_umask() */
+
+
+
+
+
 /* child portion of job launch executed as user - called by TMomFinalize2() */
 /* will execute run_pelog()
  * issues setuid to pjob->ji_qs.ji_un.ji_momt.ji_exuid */
@@ -2521,8 +2589,8 @@ int TMomFinalizeChild(
 
   if (LOGLEVEL >= 10)
     log_err(-1,id,"system vars set");
-	
-  umask(077);
+
+  umask(determine_umask(pjob->ji_qs.ji_un.ji_momt.ji_exuid));
 
   if (TJE->is_interactive == TRUE) 
     {
