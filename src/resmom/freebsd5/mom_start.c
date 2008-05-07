@@ -110,6 +110,8 @@ extern char	 mom_host[];
 extern tlist_head svr_alljobs;
 extern int	 termin_child;
 
+extern int       LOGLEVEL;
+
 /* Private variables */
 
 /*
@@ -191,14 +193,25 @@ char *set_shell(pjob, pwdp)
  *	task as Exiting.
  */
 
+#define TMAX_TJCACHESIZE 128
+
 void scan_for_terminated()
 {
 	static	char	id[] = "scan_for_terminated";
-	int		exiteval;
+	int		exiteval = 0;
 	pid_t		pid;
 	job		*pjob;
 	task		*ptask = 0;
 	int		statloc;
+
+
+#ifdef CACHEOBITFAILURES
+  static job *TJCache[TMAX_TJCACHESIZE];
+
+  int tjcindex;
+
+  int TJCIndex = 0;
+#endif
 
 	/* update the latest intelligence about the running jobs;         */
 	/* must be done before we reap the zombies, else we lose the info */
@@ -212,6 +225,61 @@ void scan_for_terminated()
 			pjob = (job *)GET_NEXT(pjob->ji_alljobs);
 		}
 	}
+
+#ifdef CACHEOBITFAILURES
+  /* process cached obit failures */
+
+  for (TJCIndex = 0;TJCIndex < TMAX_TJCACHESIZE;TJCIndex++)
+    {
+    if (TJCache[TJCIndex] == NULL)
+      break;
+
+    if (TJCache[TJCIndex] == (job *)1)
+      continue;
+
+    /* attempt to send obit again */
+
+    pjob = TJCache[TJCIndex];
+    
+    if (LOGLEVEL >= 7)
+      {
+      LOG_EVENT(
+        PBSEVENT_DEBUG,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+          "Retrying send of OBIT");
+      }
+    
+    if (pjob->ji_mompost(pjob,exiteval) != 0)
+      {
+      /* attempt failed again */
+
+      termin_child = 1;
+
+      continue;
+      }
+
+    /* success */
+    if (LOGLEVEL >= 7)
+      {
+      LOG_EVENT(
+        PBSEVENT_DEBUG,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+          "OBIT resent successfully");
+       }
+
+    pjob->ji_mompost = NULL;
+
+    /* clear mom sub-task */
+
+    pjob->ji_momsubt = 0;
+
+    job_save(pjob,SAVEJOB_QUICK);
+    TJCache[TJCIndex] = ((job *)1);
+
+    }  /* END for (TJIndex) */
+#endif /* CACHEOBITFAILURES */
 
 	/* Now figure out which task(s) have terminated (are zombies) */
 
@@ -251,11 +319,53 @@ void scan_for_terminated()
 			continue;
 		}
 
-		if (pid == pjob->ji_momsubt) {
-			if (pjob->ji_mompost) {
-				pjob->ji_mompost(pjob, exiteval);
-				pjob->ji_mompost = 0;
-			}
+		if (pid == pjob->ji_momsubt)
+		  {
+      /* PID matches job mom subtask */
+
+      log_record(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        id,
+        "checking job post-processing routine");
+        
+			if (pjob->ji_mompost)
+			  {
+        if (pjob->ji_mompost(pjob,exiteval) == 0)
+          {
+          /* success */
+
+          pjob->ji_mompost = 0;
+          }
+#ifdef CACHEOBITFAILURES
+        else
+          {
+          for (tjcindex = 0;tjcindex < TMAX_TJCACHESIZE;tjcindex++)
+            {
+            if ((TJCache[tjcindex] == NULL) || (TJCache[tjcindex] == (job *)1))
+              {
+              if (LOGLEVEL >= 7)
+                {
+                LOG_EVENT(
+                  PBSEVENT_DEBUG,
+                  PBS_EVENTCLASS_JOB,
+                  pjob->ji_qs.ji_jobid,
+                    "Caching OBIT for resend");
+                }
+              TJCache[tjcindex] = pjob;
+              termin_child = 1;
+
+              break;
+              }
+            }    /* END for (tjcindex) */
+
+          continue;
+          }
+#endif /* CACHEOBITFAILURES */
+			  }
+
+      /* clear mom sub-task */
+
 			pjob->ji_momsubt = 0;
 			(void)job_save(pjob, SAVEJOB_QUICK);
 			continue;
