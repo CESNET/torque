@@ -105,6 +105,7 @@
 #include <syscall.h>
 #include <ctype.h>
 #include <string.h>
+#include <csv.h>
 
 #ifdef Q_6_5_QUOTAON
 /* remap dqblk for SUSE 9.0 */
@@ -173,8 +174,6 @@ extern	struct	pbs_err_to_txt	pbs_err_to_txt[];
 extern	time_t			time_now;
 
 extern  int     LOGLEVEL;
-extern  char    checkpoint_script_name[1024];
-extern  char    restart_script_name[1024];
 extern  char    PBSNodeMsgBuf[1024];
 
 #define TBL_INC 200            /* initial proc table */
@@ -1216,7 +1215,7 @@ int mom_set_limits(
         if (LOGLEVEL >= 2)
           {
           sprintf(log_buffer,"setting cpu time limit to %ld for job %s",
-            reslim.rlim_cur,
+            (long int)reslim.rlim_cur,
             pjob->ji_qs.ji_jobid);
 
           log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
@@ -1258,7 +1257,7 @@ int mom_set_limits(
           if (LOGLEVEL >= 0)
             {
             sprintf(log_buffer,"cannot set file limit to %ld for job %s (value too large)",
-              reslim.rlim_cur,
+              (long int)reslim.rlim_cur,
               pjob->ji_qs.ji_jobid);
 
             log_err(-1,id,log_buffer);
@@ -1274,7 +1273,7 @@ int mom_set_limits(
         if (setrlimit(RLIMIT_FSIZE,&reslim) < 0)
           {
           sprintf(log_buffer,"cannot set file limit to %ld for job %s (setrlimit failed - check default user limits)",
-            reslim.rlim_max,
+            (long int)reslim.rlim_max,
             pjob->ji_qs.ji_jobid);
 
           log_err(errno,id,log_buffer);
@@ -1358,7 +1357,7 @@ int mom_set_limits(
         if (setrlimit(RLIMIT_DATA,&reslim) < 0)
           {
          sprintf(log_buffer,"cannot set data limit to %ld for job %s (setrlimit failed w/errno=%d - check default user limits)",
-            reslim.rlim_max,
+            (long int)reslim.rlim_max,
             pjob->ji_qs.ji_jobid,
             errno);
 
@@ -1368,7 +1367,7 @@ int mom_set_limits(
         if (setrlimit(RLIMIT_RSS,&reslim) < 0)
           {
          sprintf(log_buffer,"cannot set RSS limit to %ld for job %s (setrlimit failed w/errno=%d - check default user limits)",
-            reslim.rlim_max,
+            (long int)reslim.rlim_max,
             pjob->ji_qs.ji_jobid,
             errno);
 
@@ -1381,7 +1380,7 @@ int mom_set_limits(
         if (setrlimit(RLIMIT_STACK,&reslim) < 0)
           {
           sprintf(log_buffer,"cannot set stack limit to %ld for job %s (setrlimit failed w/errno=%d - check default user limits)",
-            reslim.rlim_max,
+            (long int)reslim.rlim_max,
             pjob->ji_qs.ji_jobid,
             errno);
 
@@ -1393,7 +1392,7 @@ int mom_set_limits(
         if (setrlimit(RLIMIT_AS,&reslim) < 0)
           {
           sprintf(log_buffer,"cannot set AS limit to %ld for job %s (setrlimit failed w/errno=%d - check default user limits)",
-            reslim.rlim_max,
+            (long int)reslim.rlim_max,
             pjob->ji_qs.ji_jobid,
             errno);
 
@@ -1818,7 +1817,7 @@ int mom_over_limit(
         return(TRUE);
         }
       } 
-    else if (strcmp(pname,"walltime") == 0) 
+    else if (ignwalltime == 0 && strcmp(pname,"walltime") == 0) 
       {
 
       /* no need to check walltime on sisters, MS will get it */
@@ -1839,10 +1838,7 @@ int mom_over_limit(
           num, 
           value);
 
-        if (ignwalltime == 0)
-          {
-          return(TRUE);
-          }
+        return(TRUE);
         }
       }
     }  /* END for (pres) */
@@ -2043,8 +2039,11 @@ int kill_task(
 
   if (LOGLEVEL >= 5)
     {
-    sprintf(log_buffer,"sending signal %d to task",
-      sig);
+    sprintf(log_buffer,"%s: sending signal %d to task %d, session %d",
+      id, 
+      sig,
+      ptask->ti_qs.ti_task,
+      sesid);
 
     log_record(
       PBSEVENT_JOB,
@@ -2125,7 +2124,7 @@ int kill_task(
            req.tv_sec = 0;
            req.tv_nsec = 250000000;  /* .25 seconds */
  
-           /* give the process some time to quit gracefully first (up to 5 seconds) */
+           /* give the process some time to quit gracefully first (up to .25*20=5 seconds) */
  
            if (pg == 0)
              kill(ps->pid,SIGTERM);
@@ -2191,13 +2190,15 @@ int kill_task(
               { 
               /* kill process hard */
 
+              /* why is this not killing with SIGKILL? */
+
               if (pg == 0)
                 kill(ps->pid,sig);
               else
                 killpg(ps->pid,sig);
               }
-            }
-          }    /* END if (i >= 20) */
+            }    /* END if ((ps = get_proc_stat(ps->pid)) != NULL) */
+          }      /* END if (i >= 20) */
 
         ++ct;
         }  /* END else ((ps->state == 'Z') || (ps->pid == 0)) */
@@ -2255,19 +2256,14 @@ int mom_close_poll()
 
 
 /*
- * mom_does_chkpnt - return 1 if mom supports checkpoint
- *			    0 if not
+ * mom_does_checkpoint
+ *
+ * @returns CST values as described in resmon.h.
  */
 
-int mom_does_chkpnt()
-
+int mom_does_checkpoint()
   {
-  if (checkpoint_script_name[0] != '\0')
-    {
-    return(1);
-    }
-
-  return(0);
+  return(CST_BLCR); /* Use the BLCR checkpointing system. */
   }
 
 /*
@@ -2278,73 +2274,11 @@ int mom_does_chkpnt()
 
 int mach_checkpoint(
 
-  task	*ptask,
-  char	*file,
+  task	*ptask,  /* I */
+  char	*file,  /* I */
   int	 abort)  /* I */
 
   {
-  char	*id = "mach_checkpoint";
-  int   pid;
-  char  sid[20];
-  char  *arg[20];
-  char  buf[1024];
-  char  **ap;
-
-#define SET_ARG(x) (((x) == NULL) || (*(x) == 0))?"-":(x)
-
-  /* if a checkpoint script is defined launch it */
-
-  if (checkpoint_script_name[0] == '\0')
-    {
-    log_err(-1,id,"No checkpoint script defined");
-    }
-  else
-    {
-    /* launch the script and return success */
-
-    pid = fork();
-    if (pid > 0)
-      {
-      /* parent: pid = child's pid */
-
-      /* NO-OP, but may need to waitpid() the child (NYI) */
-
-      return(0);
-      }
-    else if (pid == 0)
-      {
-      /* child: execv the script */
-
-      sprintf(sid,"%ld",
-        ptask->ti_job->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long);
-
-      arg[0] = checkpoint_script_name;
-      arg[1] = sid;
-      arg[2] = SET_ARG(ptask->ti_job->ji_qs.ji_jobid);
-      arg[3] = SET_ARG(ptask->ti_job->ji_wattr[(int)JOB_ATR_euser].at_val.at_str);
-      arg[4] = SET_ARG(ptask->ti_job->ji_wattr[(int)JOB_ATR_chkptdir].at_val.at_str);
-      arg[5] = SET_ARG(ptask->ti_job->ji_wattr[(int)JOB_ATR_chkptname].at_val.at_str);
-      arg[6] = (abort) ? "15" /*abort*/ : "0" /*run/continue*/;
-      arg[7] = NULL;
-
-      strcpy(buf, "checkpoint args:");
-      for (ap = arg; *ap; ap++)
-        {
-        strcat(buf, " ");
-        strcat(buf, *ap);
-        }
-      log_err(-1,id,buf);
-
-      execv(arg[0],arg);
-
-      /* NOTE: The right way to do this is to put the job into some sort
-       *       of waiting state before returning, and the monitor the
-       *       the child to see what it's exit status is.  We are delaying
-       *       the full implementation for now.  NYI
-       */
-      }  /* END if (pid == 0) */
-    }
-
   return(-1);
   }  /* END mach_checkpoint() */
 
@@ -2364,57 +2298,6 @@ long mach_restart(
   char *file)
 
   {
-  char	*id = "mach_restart";
-  int   pid;
-  char  sid[20];
-  char  *arg[20];
-
-
-  /* if a restart script is defined launch it */
-
-  if (restart_script_name[0] == '\0')
-    {
-    log_record(PBSEVENT_DEBUG,0,id,"No restart script defined");
-    }
-  else
-    {
-    /* launch the script and return success */
-
-    pid = fork();
-
-    if (pid > 0)
-      {
-      /* parent: pid = child's pid */
-
-      /* NO-OP, but may need to waitpid() the child (NYI) */
-
-      return(0);
-      }
-
-    if (pid == 0)
-      {
-      /* child: execv the script */
-
-      sprintf(sid,"%ld",
-        ptask->ti_job->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long);
-
-      arg[0] = restart_script_name;
-      arg[1] = sid;
-      arg[2] = ptask->ti_job->ji_qs.ji_jobid;
-      arg[3] = ptask->ti_job->ji_wattr[(int)JOB_ATR_euser].at_val.at_str;
-      arg[4] = NULL;
-
-      execv(arg[0],arg);
-
-      /* NOTE: The right way to do this is to put the job into some sort
-       *       of waiting state before returning, and the monitor the
-       *       the child to see what it's exit status is.  We are delaying
-       *       the full implementation for now.  NYI
-       */
-      }  /* END if (pid == 0) */
-    }
-
-
   return(-1);
   }
 
@@ -3330,14 +3213,11 @@ static char *ncpus(
 
   while (!feof(fp))  
     {
-    if (fscanf(fp,"%s %*[^\n]%*c", 
-      label) != 1)
+    if (fscanf(fp,"%s %*[^\n]%*c", label) == 0)
       {
-      fclose(fp);
-      return(NULL);
+      getc(fp);  /* must do something to get to eof */
       }
-
-    if (strcmp("processor",label) == 0)
+    else if (strcmp("processor",label) == 0)
       procs++;
     }
 

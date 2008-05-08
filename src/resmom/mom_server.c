@@ -261,6 +261,7 @@ char            MOMSendStatFailure[MMAX_LINE];
 
 mom_server     mom_servers[PBS_MAXSERVER];
 int            mom_server_count = 0;
+pbs_net_t      down_svraddrs[PBS_MAXSERVER];
 
 
 extern unsigned int default_server_port;
@@ -495,6 +496,39 @@ mom_server_add(char *value)
     return(0); /* FAILURE */
     }
 
+  /* Leaving this out breaks things but seems bad because if gethostbyname fails,
+   * there is no retry except for the old way reinserting the name over and over again.
+   * And what happens if the server connect via a different interface than the
+   * one that gethostbyname returns?  It really seems better to not deal with
+   * the IP address here but rather do what needs to be done when a connection
+   * is established.  Anyway, this should fix things for now.
+   */
+  {
+  struct hostent *host;
+  struct in_addr  saddr;
+  u_long          ipaddr;
+
+  /* FIXME: must be able to retry failed lookups later */
+
+  if ((host = gethostbyname(pms->pbs_servername)) == NULL) 
+    {
+    sprintf(log_buffer,"host %s not found", 
+      pms->pbs_servername);
+
+    log_err(-1,id,log_buffer);
+
+    }
+  else
+    {
+    memcpy(&saddr,host->h_addr,host->h_length);
+
+    ipaddr = ntohl(saddr.s_addr);
+
+    if (ipaddr != 0)
+      tinsert(ipaddr,&okclients);
+    }
+  }
+
   return(1);      /* SUCCESS */
   }
 
@@ -712,11 +746,24 @@ int is_compose(mom_server *pms,int command)
 
 extern struct config *config_array;
 
+/**
+ * gen_size
+ *
+ * For the size attribute to be returned, it must be
+ * defined in the pbs_mom config file.  The syntax
+ * is unique in that you must ask for the size of
+ * either a file or a file system.
+ *
+ * For example:
+ * size[fs=/]
+ * size[file=/home/user/test.txt]
+ */
 void
 gen_size(char *name,char **BPtr, int *BSpace)
   {
   struct config  *ap;
   struct rm_attribute *attr;
+  char *value;
 
   ap = rm_search(config_array,name);
   if (ap)
@@ -724,11 +771,15 @@ gen_size(char *name,char **BPtr, int *BSpace)
     attr = momgetattr(ap->c_u.c_value);
     if (attr)
       {
-      MUSNPrintF(BPtr,BSpace,"%s=%s",
-        name,
-        attr);
-      (*BPtr)++; /* Need to start the next string after the null */
-      (*BSpace)--;
+      value = dependent(name,attr);
+      if (value && *value)
+        {
+        MUSNPrintF(BPtr,BSpace,"%s=%s",
+          name,
+          value);
+        (*BPtr)++; /* Need to start the next string after the null */
+        (*BSpace)--;
+        }
       }
     }
   }
@@ -1610,17 +1661,28 @@ mom_server_valid_message_source(int stream)
   u_long	ipaddr;
   mom_server *pms;
 
-
+  /* Check for the normal case, where some server has an open,
+   * establish stream connection to the place where this
+   * message came from.
+   */
   if ((pms = mom_server_find_by_stream(stream)))
     return(pms);
 
-  /* We don't have an existing connection, but is this a valid server? */
+  addr = rpp_getaddr(stream);  /* Get pointer to sockaddr_in for message source address */
+  ipaddr = ntohl(addr->sin_addr.s_addr);  /* Extract IP address of source of the message. */
 
-  addr = rpp_getaddr(stream);
-  ipaddr = ntohl(addr->sin_addr.s_addr);
+  /* So the stream number did not match any server but maybe
+   * the server has another stream connection open to the IP address.
+   */
 
   if ((pms = mom_server_find_by_ip(ipaddr)))
     {
+    /* This case can happen when both the pbs_mom and the pbs_server initiate
+     * a communication session with the HELLO protocol on startup.
+     * We then have a stream open from both sides.  In this case, the pbs_mom
+     * defers and closes the existing stream, replacing it with the new one
+     * from the server.
+     */
     if (pms->SStream != -1)
       {
       sprintf(log_buffer,"duplicate connection from %s - closing original connection",
@@ -1645,6 +1707,50 @@ mom_server_valid_message_source(int stream)
     }
   else
     {
+    /* There is no existing stream connection to the server. */
+
+    /* Maybe the right thing to do now is to iterate over all defined
+     * servers. If there are servers defined with no open stream
+     * and a gethostbyname result matches the message source IP address,
+     * then accept the stream and put the stream number into the
+     * server struct.  Then in the future, the normal case above
+     * will match.  This approach doesn't have the mom's madly
+     * attempting to clobber the network with gethostbyname if
+     * the DNS server is dead.  We only do gethostbyname if we
+     * get a message from the pbs_server.
+     */
+#if 1
+    {
+    int sindex;
+
+    for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
+      {
+      pms = &mom_servers[sindex];
+      if (pms->pbs_servername[0] &&
+          pms->SStream != -1)
+        {
+        struct hostent *host;
+        struct in_addr  saddr;
+        u_long          server_ip;
+
+        if ((host = gethostbyname(pms->pbs_servername)) != NULL) 
+          {
+          memcpy(&saddr,host->h_addr,host->h_length);
+
+          server_ip = ntohl(saddr.s_addr);
+
+          if (ipaddr == server_ip)
+            {
+            tinsert(ipaddr,&okclients);
+            pms->SStream = stream;
+            return(pms);
+            }
+          }
+        }
+      }
+    }
+#endif
+
     sprintf(log_buffer,"bad connect from %s - unauthorized server",
       netaddr(addr));
 
@@ -2447,6 +2553,90 @@ int mom_open_socket_to_jobs_server( job * pjob, char *caller_id, void (*message_
   return(sock);
   }
 
+/**
+ * clear_down_mom_servers
+ *
+ * Clears the mom_server down address list.
+ * Called from the catch_child code.
+ * @see scan_for_exiting
+ */
+void
+clear_down_mom_servers()
+  {
+  int sindex;
+
+  for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
+    {
+    down_svraddrs[sindex] = 0;
+    }
+
+  return;
+  }
+
+/**
+ * is_mom_server_down
+ *
+ * Checks to see if the server address is in the down list.
+ * Called from the catch_child code.
+ * @see scan_for_exiting
+ */
+int
+is_mom_server_down(pbs_net_t server_address)
+  {
+  int sindex;
+
+  for (sindex = 0; sindex < PBS_MAXSERVER || down_svraddrs[sindex] == 0; sindex++)
+    {
+    if (down_svraddrs[sindex] == server_address)
+      {
+      return (1);
+      }
+    }
+
+  return (0);
+  }
+
+/**
+ * no_mom_servers_down
+ *
+ * Checks to see if the server address down list is empty.
+ * Called from the catch_child code.
+ * @see scan_for_exiting
+ */
+int
+no_mom_servers_down()
+  {
+  if (down_svraddrs[0] == 0)
+    {
+    return (1);
+    }
+
+  return (0);
+  }
+
+/**
+ * set_mom_server_down
+ *
+ * Add this server address to the down list.
+ * Called from the catch_child code.
+ * @see scan_for_exiting
+ */
+void
+set_mom_server_down(pbs_net_t server_address)
+  {
+  int sindex;
+
+  for (sindex = 0; sindex < PBS_MAXSERVER; sindex++)
+    {
+    if (down_svraddrs[sindex] == 0)
+      {
+      down_svraddrs[sindex] = server_address;
+      break;
+      }
+    }
+      
+  return;
+  }
 
 
 

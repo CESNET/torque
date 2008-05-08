@@ -200,6 +200,8 @@ static const char *PBatchReqType[] = {
   "ResourceQuery",
   "ReserveResource",
   "ReleaseResource", /* 26 */
+  "CheckpointJob",
+  "AsyncModifyJob",
   "NONE",
   "NONE",
   "NONE",
@@ -293,7 +295,7 @@ char *msg_jobnorerun 	= "job is not rerunnable";
 char *msg_routebad	= "Job rejected by all possible destinations";
 char *msg_momreject	= "Execution server rejected request";
 char *msg_nosyncmstr	= "No master found for sync job set";
-char *msg_sched_called 	= "Scheduler sent command %s";
+char *msg_sched_called 	= "Scheduler sent event %s";
 char *msg_sched_nocall  = "Could not contact Scheduler";
 char *msg_stageinfail	= "Stage In of files failed";
 char *msg_rescunav	= "Resource temporarily unavailable";

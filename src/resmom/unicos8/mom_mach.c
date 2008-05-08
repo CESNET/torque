@@ -1690,7 +1690,7 @@ int mom_over_limit(pjob)
 				return (TRUE);
 			}
 		}
-		if (strcmp(pname, "walltime") == 0) {
+		if (ignwalltime == 0 && strcmp(pname, "walltime") == 0) {
 			if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
 				continue;
 			retval = gettime(pres, &value);
@@ -1701,8 +1701,7 @@ int mom_over_limit(pjob)
 				sprintf(log_buffer,
 					"walltime %d exceeded limit %d",
 					num, value);
-				if (ignwalltime == 0)
-					return (TRUE);
+				return (TRUE);
 			}
 		}
 	}
@@ -1956,13 +1955,12 @@ int mom_close_poll()
 }
 
 /*
- * mom_does_chkpnt - return 1 if mom supports checkpoint
- *			    0 if not
+ * mom_does_checkpoint
  */
 
-int mom_does_chkpnt()
+int mom_does_checkpoint()
 {
-	return (1);
+	return (CST_MACH_DEP);
 }
 
 /*
@@ -1981,7 +1979,7 @@ int mach_checkpoint(ptask, path, abort)
 
 	if (abort)
 		flags = CHKPNT_KILL;
-	cprtn = chkpnt( C_SESS, ptask->ti_qs.ti_sid, path, flags );
+	cprtn = checkpoint( C_SESS, ptask->ti_qs.ti_sid, path, flags );
 	return cprtn;
 }
 

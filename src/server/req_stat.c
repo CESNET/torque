@@ -119,7 +119,7 @@ extern attribute_def  node_attr_def[];   /* node attributes defs */
 extern int	       pbs_mom_port;
 extern time_t	       time_now;
 extern char	      *msg_init_norerun;
-extern struct pbsnode *tfind_addr();
+extern struct pbsnode *tfind_addr(const u_long);
 extern int             LOGLEVEL;
 
 /* Extern Functions */
@@ -702,7 +702,13 @@ void stat_mom_job(
 
 
 
-
+/**
+ * poll_job_task
+ *
+ * The invocation of this routine is triggered from
+ * the pbs_server main_loop code.  The check of
+ * SRV_ATR_PollJobs appears to be redundant.
+ */
 void poll_job_task( 
 
   struct work_task *ptask) 

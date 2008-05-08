@@ -143,6 +143,7 @@
 #include	"resmon.h"
 #include        "pbs_nodes.h"
 #include        "dis.h"
+#include        "csv.h"
 
 #include        "mcom.h"
 
@@ -212,10 +213,6 @@ time_t		time_now = 0;
 time_t		last_poll_time = 0;
 extern tlist_head svr_requests;
 extern struct var_table vtable;	/* see start_exec.c */
-#if MOM_CHECKPOINT == 1
-char	       *path_checkpoint = NULL;
-static resource_def *rdcput;
-#endif	/* MOM_CHECKPOINT */
 double		wallfactor = 1.00;
 long		log_file_max_size = 0;
 long		log_file_roll_depth = 1;
@@ -227,6 +224,8 @@ char           *TNoSpoolDirList[TMAX_NSDCOUNT];
 
 char           *AllocParCmd = NULL;  /* (alloc) */
 
+int      src_login_batch = TRUE;
+int      src_login_interactive = TRUE;
 
 /* externs */
 
@@ -271,6 +270,10 @@ extern int      mom_server_all_check_connection(void);
 extern int      mom_server_all_send_state(void);
 extern int      mom_server_add(char *name);
 extern int      mom_server_count;
+extern int      mom_checkpoint_init(void);
+extern void     mom_checkpoint_check_periodic_timer(job *pjob);
+extern void     mom_checkpoint_set_directory_path(char *str);
+
 
 #define PMOMTCPTIMEOUT 60  /* duration in seconds mom TCP requests will block */
 
@@ -324,9 +327,10 @@ static unsigned long setpbsserver(char *);
 static unsigned long setnodecheckscript(char *);
 static unsigned long setnodecheckinterval(char *);
 static unsigned long settimeout(char *);
-static unsigned long set_checkpoint_script(char *);
-static unsigned long set_restart_script(char *);
-static unsigned long set_checkpoint_run_exe_name(char *);
+extern unsigned long mom_checkpoint_set_checkpoint_interval(char *);
+extern unsigned long mom_checkpoint_set_checkpoint_script(char *);
+extern unsigned long mom_checkpoint_set_restart_script(char *);
+extern unsigned long mom_checkpoint_set_checkpoint_run_exe_name(char *);
 static unsigned long setdownonerror(char *);
 static unsigned long setstatusupdatetime(char *);
 static unsigned long setcheckpolltime(char *);
@@ -342,6 +346,8 @@ static unsigned long setnodefilesuffix(char *);
 static unsigned long setnospooldirlist(char *);
 static unsigned long setmomhost(char *);
 static unsigned long setrreconfig(char *);
+static unsigned long setsourceloginbatch(char *);
+static unsigned long setsourcelogininteractive(char *);
 
 
 static struct specials {
@@ -373,9 +379,10 @@ static struct specials {
     { "node_check_script",   setnodecheckscript },
     { "node_check_interval", setnodecheckinterval },
     { "timeout",             settimeout },
-    { "checkpoint_script",   set_checkpoint_script },
-    { "restart_script",      set_restart_script },
-    { "checkpoint_run_exe",  set_checkpoint_run_exe_name },
+    { "checkpoint_interval", mom_checkpoint_set_checkpoint_interval },
+    { "checkpoint_script",   mom_checkpoint_set_checkpoint_script },
+    { "restart_script",      mom_checkpoint_set_restart_script },
+    { "checkpoint_run_exe",  mom_checkpoint_set_checkpoint_run_exe_name },
     { "down_on_error",       setdownonerror },
     { "status_update_time",  setstatusupdatetime },
     { "check_poll_time",     setcheckpolltime },
@@ -391,6 +398,8 @@ static struct specials {
     { "remote_reconfig",     setrreconfig },
     { "job_output_file_umask",           setumask },
     { "preexec",             setpreexec },
+    { "source_login_batch",  setsourceloginbatch },
+    { "source_login_interactive",  setsourcelogininteractive },
     { NULL,                  NULL } };
 
 
@@ -407,15 +416,15 @@ static char *reqvarattr(struct rm_attribute *);
 
 
 struct config common_config[] = {
-  { "arch",      {arch} },             /* machine architecture  */
-  { "opsys",     {opsys} },            /* operating system      */
-  { "uname",     {requname} },         /* user name     ???     */
-  { "validuser", {validuser} },        /* valid user    ???     */
-  { "message",   {reqmsg} },           /* message       ???     */
-  { "gres",      {reqgres} },          /* ???                   */
-  { "state",     {reqstate} },         /* state of pbs_mom      */
-  { "jobs",      {getjoblist} },       /* job list this pbs_mom */
-  { "varattr",   {reqvarattr} },       /* ???                   */
+  { "arch",      {arch} },             /* machine architecture           */
+  { "opsys",     {opsys} },            /* operating system               */
+  { "uname",     {requname} },         /* user name     ???              */
+  { "validuser", {validuser} },        /* valid user    ???              */
+  { "message",   {reqmsg} },           /* message       ???              */
+  { "gres",      {reqgres} },          /* generic resource (licenses...) */
+  { "state",     {reqstate} },         /* state of pbs_mom               */
+  { "jobs",      {getjoblist} },       /* job list this pbs_mom          */
+  { "varattr",   {reqvarattr} },       /* ???                            */
   { NULL,        {NULL} } };
 
 int                     LOGLEVEL = 0;  /* valid values (0 - 10) */
@@ -425,11 +434,6 @@ char                    DEFAULT_UMASK[1024];
 char                    PRE_EXEC[1024];
 long                    TJobStartBlockTime = 5; /* seconds to wait for job to launch before backgrounding */
 long                    TJobStartTimeout = 300; /* seconds to wait for job to launch before purging */
-
-/* BLCR variables */
-char                    checkpoint_script_name[1024];
-char                    restart_script_name[1024];
-char                    checkpoint_run_exe_name[1024];
 
 
 char                   *ret_string;
@@ -579,7 +583,6 @@ int         TMOMScanForStarting(void);
 
 /* Local private functions */
 
-static char *mk_dirs A_((char *));
 void check_log A_((void));
 
 int MUSNPrintF(
@@ -656,6 +659,92 @@ int MUStrNCat(
 
   return(SUCCESS);
   }  /* END MUStrNCat() */
+
+
+
+
+
+char *MUStrTok(
+
+  char  *Line,  /* I (optional) */
+  char  *DList, /* I */
+  char **Ptr)   /* O point to termination character of returned token */
+
+  {
+  static char *Head = NULL;
+
+  int dindex;
+
+  mbool_t ignchar;
+
+  /* NOTE:  no handling if Line is NULL and Ptr is uninitialized */
+
+  if (Ptr == NULL)
+    {
+    /* tokPtr not specified */
+
+    return(NULL);
+    }
+
+  if (Line != NULL)
+    {
+    *Ptr = Line;
+
+    if (Line[0] == '\0')
+      {
+      /* line is empty */
+
+      if (Ptr != NULL)
+        *Ptr = NULL;
+
+      return(NULL);
+      }
+    }
+  else if (*Ptr == NULL)
+    {
+    return(NULL);
+    }
+
+  ignchar = FALSE;
+
+  Head = NULL;
+
+  while (**Ptr != '\0')
+    {
+    for (dindex = 0;DList[dindex] != '\0';dindex++)
+      {
+      if (**Ptr == DList[dindex])
+        {
+        **Ptr = '\0';
+
+        (*Ptr)++;
+
+        if (Head != NULL)
+          {
+          return(Head);
+          }
+        else
+          {
+          ignchar = TRUE;
+
+          break;
+          }
+        }
+      }    /* END for (dindex) */
+
+    if ((ignchar != TRUE) && (**Ptr != '\0'))
+      {
+      if (Head == NULL)
+        Head = *Ptr;
+
+      (*Ptr)++;
+      }
+
+    ignchar = FALSE;
+    }  /* END while (**Ptr != '\0') */
+
+  return(Head);
+  }  /* END MUStrTok() */
 
 
 
@@ -1958,6 +2047,7 @@ static u_long usecp(
   {
   char        *pnxt;
   static int   cphosts_max = 0;
+  struct cphosts   *newp = NULL;
 
   static char *id = "usecp";
 
@@ -1976,15 +2066,26 @@ static u_long usecp(
   if (cphosts_max == 0) 
     {
     pcphosts = malloc(2 * sizeof(struct cphosts));
+    if (pcphosts == NULL) {
+      sprintf(log_buffer,"%s: out of memory while allocating pcphosts",
+        id);
+      log_err(-1,id,log_buffer);
+    }
 
     cphosts_max = 2;
     } 
   else if (cphosts_max == cphosts_num) 
     {
-    pcphosts = realloc(
-      pcphosts,
+    newp = realloc(pcphosts,
       (cphosts_max + 2) * sizeof(struct cphosts));
 
+    if (newp == NULL) {
+      sprintf(log_buffer,"%s: out of memory while reallocating pcphosts",
+        id);
+      log_err(-1,id,log_buffer);
+    }
+
+   pcphosts = newp;
    cphosts_max += 2;
    }
 
@@ -2005,17 +2106,46 @@ static u_long usecp(
   *pnxt++ = '\0';
 
   (pcphosts + cphosts_num)->cph_hosts = strdup(value);
+  if ((pcphosts + cphosts_num)->cph_hosts == NULL)
+    {
+    sprintf(log_buffer,"%s: out of memory in strdup(cph_hosts)", id);
+    log_err(-1,id,log_buffer);
+    return(0);
+    }
 
   value = pnxt;	/* now ptr to path */
 
-  while (!isspace(*pnxt))
+  while (!isspace(*pnxt)) {
+    if (*pnxt == '\0') {
+      sprintf(log_buffer,"invalid '%s' specification %s: "
+        "missing destination path", id, value);
+      log_err(-1,id,log_buffer);
+      free(pcphosts[cphosts_num].cph_hosts);
+      return(0);
+    }
     pnxt++;
+  }
 
   *pnxt++ = '\0';
 
   (pcphosts + cphosts_num)->cph_from = strdup(value);
+  if ((pcphosts + cphosts_num)->cph_from == NULL)
+    {
+    sprintf(log_buffer,"%s: out of memory in strdup(cph_from)", id);
+    log_err(-1,id,log_buffer);
+    free(pcphosts[cphosts_num].cph_hosts);
+    return(0);
+    }
 
   (pcphosts + cphosts_num)->cph_to   = strdup(skipwhite(pnxt));
+  if ((pcphosts + cphosts_num)->cph_to == NULL)
+    {
+    sprintf(log_buffer,"%s: out of memory in strdup(cph_to)", id);
+    log_err(-1,id,log_buffer);
+    free(pcphosts[cphosts_num].cph_hosts);
+    free(pcphosts[cphosts_num].cph_from);
+    return(0);
+    }
 	
   cphosts_num++;
 	
@@ -2107,6 +2237,7 @@ static unsigned long setpreexec(
   char *value)  /* I */
 
   {
+  static char *id = "setpreexec";
   log_record(
     PBSEVENT_SYSTEM,
     PBS_EVENTCLASS_SERVER,
@@ -2115,10 +2246,120 @@ static unsigned long setpreexec(
 
   strncpy(PRE_EXEC,value,sizeof(PRE_EXEC));
 
+#if SHELL_USE_ARGV == 0
+  log_err(0,id,"pbs_mom not configured with enable-shell-user-argv option");
+#endif
+
   return(1);
   }  /* END setpreexec() */
 
 
+static unsigned long setsourceloginbatch(
+
+  char *value)  /* I */
+
+  {
+
+  log_record(
+    PBSEVENT_SYSTEM,
+    PBS_EVENTCLASS_SERVER,
+    "setsourceloginbatch",
+    value);
+
+  if (value[0] != '\0')
+    {
+    /* accept various forms of "true", "yes", and "1" */
+    switch (value[0])
+      {
+      case 't':
+      case 'T':
+      case 'y': 
+      case 'Y':
+      case '1':
+
+        src_login_batch = TRUE;
+
+        break;
+      
+      case 'f':
+      case 'F':
+      case 'n':
+      case 'N':
+      case '0':
+        
+        src_login_batch = FALSE;
+
+        break;
+      
+      default:
+        sprintf (log_buffer, "Unknown value of %s", value);
+
+        log_record(
+          PBSEVENT_SYSTEM,
+          PBS_EVENTCLASS_SERVER,
+          "setsourceloginbatch",
+          log_buffer);
+        break;
+
+      } 
+    }
+
+  return(1);
+  }  /* END setsourceloginbatch() */
+
+
+static unsigned long setsourcelogininteractive(
+
+  char *value)  /* I */
+
+  {
+
+  log_record(
+    PBSEVENT_SYSTEM,
+    PBS_EVENTCLASS_SERVER,
+    "setsourcelogininteractive",
+    value);
+
+  if (value[0] != '\0')
+    {
+    /* accept various forms of "true", "yes", and "1" */
+    switch (value[0])
+      {
+      case 't':
+      case 'T':
+      case 'y': 
+      case 'Y':
+      case '1':
+
+        src_login_interactive = TRUE;
+
+        break;
+      
+      case 'f':
+      case 'F':
+      case 'n':
+      case 'N':
+      case '0':
+        
+        src_login_interactive = FALSE;
+
+        break;
+      
+      default:
+        sprintf (log_buffer, "Unknown value of %s", value);
+
+        log_record(
+          PBSEVENT_SYSTEM,
+          PBS_EVENTCLASS_SERVER,
+          "setsourcelogininteractive",
+          log_buffer);
+        break;
+
+      } 
+    }
+
+  return(1);
+  }  /* END setsourcelogininteractive() */
 
 
 static unsigned long jobstartblocktime(
@@ -2538,93 +2779,6 @@ static unsigned long setmaxload(
 
   return(1);
   }  /* END max_load() */
-
-
-
-
-
-static unsigned long set_checkpoint_script(
-
-  char *value)  /* I */
-
-  {
-  struct stat sbuf;
-
-  log_record(
-    PBSEVENT_SYSTEM,
-    PBS_EVENTCLASS_SERVER,
-    "checkpoint_script",
-    value);
-
-  if ((stat(value,&sbuf) == -1) || !(sbuf.st_mode & S_IXUSR))
-    {
-    /* file does not exist or is not executable */
-
-    return(0);  /* error */
-    }
-
-  strncpy(checkpoint_script_name, value, sizeof(checkpoint_script_name));
-
-  return(1);
-  }  /* END set_checkpoint_script() */
-
-
-
-
-
-static unsigned long set_restart_script(
-
-  char *value)  /* I */
-
-  {
-  struct stat sbuf;
-
-  log_record(
-    PBSEVENT_SYSTEM,
-    PBS_EVENTCLASS_SERVER,
-    "restart_script",
-    value);
-
-  if ((stat(value, &sbuf) == -1) || !(sbuf.st_mode & S_IXUSR))
-    {
-    /* file does not exist or is not executable */
-
-    return(0);  /* error */
-    }
-
-  strncpy(restart_script_name, value, sizeof(restart_script_name));
-
-  return(1);
-  }  /* END set_restart_script() */
-
-
-
-
-
-static unsigned long set_checkpoint_run_exe_name(
-
-  char *value)  /* I */
-
-  {
-  struct stat sbuf;
-
-  log_record(
-    PBSEVENT_SYSTEM,
-    PBS_EVENTCLASS_SERVER,
-    "checkpoint_run_exe",
-    value);
-
-  if ((stat(value, &sbuf) == -1) || !(sbuf.st_mode & S_IXUSR))
-    {
-    /* file does not exist or is not executable */
-
-    return(0);  /* error */
-    }
-
-  strncpy(checkpoint_run_exe_name, value, sizeof(checkpoint_run_exe_name));
-
-  return(1);
-  }  /* END set_checkpoint_run_exe() */
 
 
 
@@ -4886,7 +5040,9 @@ int do_tcp(
   int fd)
 
   {
+#ifndef NDEBUG
   static char id[] = "do_tcp";
+#endif
 
   int ret, proto, version;
   int tm_request A_((int stream, int version));
@@ -5088,7 +5244,10 @@ void tcp_request(
 
 
 
-char *find_signal_name( int sig )
+char *find_signal_name( 
+
+  int sig)
+
   {
   struct sig_tbl *psigt;
   extern struct sig_tbl sig_tbl[];
@@ -5109,12 +5268,14 @@ char *find_signal_name( int sig )
 /*
  *  Kill a job.
  *	Call with the job pointer and a signal number.
+ *
+ * @see XXX() - parent
  */
 
 int kill_job(
 
-  job *pjob,  /* I */
-  int  sig,   /* I */
+  job  *pjob,  /* I */
+  int   sig,   /* I */
   char *killer_id_name, /* I - process name of calling routine */
   char *why_killed_reason) /* I - reason for killing */
 
@@ -5910,7 +6071,7 @@ static void PBSAdjustLogLevel(
  * mk_dirs - make the directory names used by MOM 
  */
 
-static char *mk_dirs(
+char *mk_dirs(
 
   char *base)  /* I */
 
@@ -6044,27 +6205,7 @@ void parse_command_line(
         break;
 
       case 'C':
-
-#if MOM_CHECKPOINT == 1
-
-        if (*(optarg + strlen(optarg)) == '/')
-          {
-          path_checkpoint = optarg;
-          }
-        else
-          {
-          path_checkpoint = malloc(strlen(optarg) + 2);
-
-          strcpy(path_checkpoint,optarg);
-
-          strcat(path_checkpoint,"/");
-          }
-#else
-
-        fprintf(stderr,"Not compiled with CHECKPOINT\n");
-
-#endif  /* MOM_CHECKPOINT */
-
+        mom_checkpoint_set_directory_path(optarg);
         break;
 
       case 'd': /* directory */
@@ -6314,21 +6455,7 @@ int setup_program_environment()
 
   init_resc_defs();
 
-#if MOM_CHECKPOINT == 1
-
-  if (path_checkpoint == NULL)	/* if not -C option */
-    path_checkpoint = mk_dirs("checkpoint/");
-
-  /* locate cput resource definition, needed for checking chkpt time */
-
-  rdcput = find_resc_def(svr_resc_def,"cput",svr_resc_size);
-
-#if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
-
-  c = chk_file_sec(path_checkpoint,1,0,S_IWGRP|S_IWOTH,1,NULL);
-
-#endif  /* not DEBUG and not NO_SECURITY_CHECK */
-#endif	/* MOM_CHECKPOINT */
+  c |= mom_checkpoint_init();
 
   /* change working directory to mom_priv */
 
@@ -7119,28 +7246,25 @@ void examine_all_running_jobs()
   int         c;
 #endif
   task         *ptask;
-#if MOM_CHECKPOINT == 1
-  resource	*prscput;
-  extern int start_checkpoint();
-#endif /* MOM_CHECKPOINT */
 
     for (pjob = (job *)GET_NEXT(svr_alljobs);
          pjob != NULL;
          pjob = (job *)GET_NEXT(pjob->ji_alljobs)) 
       {
       if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
-        continue;
+        continue; /* This job is not running, skip it. */
 
       if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
-        continue;
+        continue; /* We are not the Mother Superior for this job, skip it. */
 
       /* update information for my tasks */
 
-      mom_set_use(pjob);
+      mom_set_use(pjob); /* Machine dependent function to compute and set attributes like cput, vmem, etc. */
 
-      /* has all job processes vanished undetected ?       */
+      /* Have all job processes vanished undetected ?       */
       /* double check by sig0 to session pid for each task */
-
+      /* But why not use the proc_array? */
+      
       if (pjob->ji_flags & MOM_NO_PROC) 
         {
         pjob->ji_flags &= ~MOM_NO_PROC;
@@ -7191,40 +7315,8 @@ void examine_all_running_jobs()
           }    /* END while (ptask != NULL) */
         }      /* END if (pjob->ji_flags & MOM_NO_PROC) */
 
-#if MOM_CHECKPOINT == 1
 
-      /* see if need to checkpoint any job */
-
-      if (pjob->ji_chkpttime != 0)  /* ji_chkpttime gets set in start_exec */
-        {
-        int rc;
-
-        prscput = find_resc_entry(
-          &pjob->ji_wattr[(int)JOB_ATR_resc_used],
-          rdcput);  /* resource definition cput set in startup */
-
-        if (prscput &&
-           (pjob->ji_chkptnext > prscput->rs_value.at_val.at_long))
-          {
-          pjob->ji_chkptnext = 
-            prscput->rs_value.at_val.at_long +
-            pjob->ji_chkpttime;
-
-          if ((rc = start_checkpoint(pjob,0,0)) != PBSE_NONE)
-            {
-            sprintf(log_buffer,"Checkpoint failed, error %d", rc);
-
-            message_job(pjob,StdErr,log_buffer);
-
-            log_record(
-              PBSEVENT_JOB, 
-              PBS_EVENTCLASS_JOB,
-              pjob->ji_qs.ji_jobid, 
-              log_buffer);
-            }
-          }
-        }
-#endif	/* MOM_CHECKPOINT */
+      mom_checkpoint_check_periodic_timer(pjob);
       }  /* END for (pjob) */
   }
 
@@ -7235,8 +7327,9 @@ void examine_all_running_jobs()
  */
 
 void kill_all_running_jobs()
-{
-  job		*pjob;
+
+  {
+  job *pjob;
 
   for (pjob = (job *)GET_NEXT(svr_alljobs);
        pjob != NULL;
@@ -7261,7 +7354,9 @@ void kill_all_running_jobs()
 
     if (exiting_tasks)
       scan_for_exiting();
-}
+
+  return;
+  }
 
 
 

@@ -89,7 +89,7 @@
 
 #define SET_LIMIT_SET   1
 #define SET_LIMIT_ALTER 0
-#define PBS_CHKPT_MIGRATE 0
+#define PBS_CHECKPOINT_MIGRATE 0
 
 
 
@@ -105,7 +105,7 @@ struct startjob_rtn {
 	
 extern int mom_set_limits A_((job *,int));	/* Set job's limits */
 extern int mom_do_poll A_((job *));		/* Should limits be polled? */
-extern int mom_does_chkpnt();                   /* see if mom does chkpnt */
+extern int mom_does_checkpoint();                   /* see if mom does checkpoint */
 extern int mom_open_poll A_(());		/* Initialize poll ability */
 extern int mom_get_sample A_(());		/* Sample kernel poll data */
 extern int mom_over_limit A_((job *));		/* Is polled job over limit? */

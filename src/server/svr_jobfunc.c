@@ -96,7 +96,7 @@
  * Private functions
  *	chk_svr_resc_limit() - check job requirements againt queue/server limits
  *	default_std()	   - make the default name for standard out/error
- *	eval_chkpnt()	   - insure job checkpoint .ge. queues min. time
+ *	eval_checkpoint()	   - insure job checkpoint .ge. queues min. time
  *	set_deflt_resc()   - set unspecified resource_limit to default values
  *	job_wait_over()	   - event handler for job_set_wait()
  */
@@ -133,7 +133,7 @@
 /* Private Functions */
 
 static void default_std A_((job *, int key, char * to));
-static void eval_chkpnt A_((attribute *j, attribute *q));
+static void eval_checkpoint A_((attribute *j, attribute *q));
 
 /* Global Data Items: */
 
@@ -404,9 +404,9 @@ int svr_enquejob(
 
     /* check the job checkpoint against the queue's min */
 
-    eval_chkpnt(
-      &pjob->ji_wattr[(int)JOB_ATR_chkpnt],
-      &pque->qu_attr[(int)QE_ATR_ChkptMim]);
+    eval_checkpoint(
+      &pjob->ji_wattr[(int)JOB_ATR_checkpoint],
+      &pque->qu_attr[(int)QE_ATR_checkpoint_min]);
 		
     /* do anything needed doing regarding job dependencies */
 
@@ -1100,6 +1100,10 @@ int svr_chkque(
 
     if (site_acl_check(pjob,pque))
       {
+      if (EMsg) snprintf(EMsg,1024,
+        "site_acl_check() failed: user %s, queue %s",
+        pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+        pque->qu_qs.qu_name);
       return(PBSE_PERM);
       }
 
@@ -1109,6 +1113,8 @@ int svr_chkque(
          &pjob->ji_wattr[(int)JOB_ATR_resource],
          &svr_resc_def[svr_resc_size - 1]) != 0)
       {
+      if (EMsg) snprintf(EMsg,1024,
+        "detected request for an unknown resource");
       return(PBSE_UNKRESC);
       }
 
@@ -1116,6 +1122,8 @@ int svr_chkque(
 
     if (pjob->ji_wattr[(int)JOB_ATR_UNKN].at_flags & ATR_VFLAG_SET)
       {
+      if (EMsg) snprintf(EMsg,1024,
+        "detected presence of an unknown attribute");
       return(PBSE_NOATTR);
       }
 
@@ -1135,6 +1143,10 @@ int svr_chkque(
           if (strcmp(Q_DT_interactive, 
                 pque->qu_attr[QA_ATR_DisallowedTypes].at_val.at_arst->as_string[i]) == 0)
             {
+            if (EMsg) snprintf(EMsg,1024,
+              "interactive job is not allowed for queue: user %s, queue %s",
+              pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+              pque->qu_qs.qu_name);
             return(PBSE_NOINTERACTIVE);
             }
           }
@@ -1143,6 +1155,10 @@ int svr_chkque(
           if (strcmp(Q_DT_batch, 
                pque->qu_attr[QA_ATR_DisallowedTypes].at_val.at_arst->as_string[i]) == 0)
             {
+            if (EMsg) snprintf(EMsg,1024,
+              "batch job is not allowed for queue: user %s, queue %s",
+              pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+              pque->qu_qs.qu_name);
             return(PBSE_NOBATCH);
             }
           }
@@ -1152,6 +1168,10 @@ int svr_chkque(
             && (pjob->ji_wattr[(int)JOB_ATR_rerunable].at_flags & ATR_VFLAG_SET &&
 	        pjob->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long > 0))
 	  {
+          if (EMsg) snprintf(EMsg,1024,
+            "rerunable job is not allowed for queue: user %s, queue %s",
+            pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+            pque->qu_qs.qu_name);
 	  return(PBSE_NORERUNABLE);
 	  }
 
@@ -1160,6 +1180,10 @@ int svr_chkque(
             && (!(pjob->ji_wattr[(int)JOB_ATR_rerunable].at_flags & ATR_VFLAG_SET) ||
 	        pjob->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long == 0))
 	  {
+          if (EMsg) snprintf(EMsg,1024,
+            "only rerunable jobs are allowed for queue: user %s, queue %s",
+            pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+            pque->qu_qs.qu_name);
 	  return(PBSE_NONONRERUNABLE);
 	  }
         }	
@@ -1248,6 +1272,10 @@ int svr_chkque(
           else
             {
             /* no user acl, fail immediately */
+            if (EMsg) snprintf(EMsg,1024,
+              "group ACL is not satisfied: user %s, queue %s",
+              pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+              pque->qu_qs.qu_name);
 
             return(PBSE_PERM);
             }
@@ -1264,12 +1292,21 @@ int svr_chkque(
 
     if (pque->qu_attr[QA_ATR_Enabled].at_val.at_long == 0)
       {
+      if (EMsg) snprintf(EMsg,1024,
+        "queue is disabled: user %s, queue %s",
+        pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+        pque->qu_qs.qu_name);
       return(PBSE_QUNOENB);
       }
 
     if ((pque->qu_attr[QA_ATR_MaxJobs].at_flags & ATR_VFLAG_SET) &&
         ((pque->qu_numjobs - pque->qu_numcompleted) >= pque->qu_attr[QA_ATR_MaxJobs].at_val.at_long))
       {
+      if (EMsg) snprintf(EMsg,1024,
+        "total number of jobs in queue exceeds the queue limit: "
+        "user %s, queue %s",
+        pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+        pque->qu_qs.qu_name);
       return(PBSE_MAXQUED);
       }
 
@@ -1292,6 +1329,11 @@ int svr_chkque(
 
       if (user_jobs >= pque->qu_attr[QA_ATR_MaxUserJobs].at_val.at_long)
         {
+        if (EMsg) snprintf(EMsg,1024,
+          "total number of current user's jobs exceeds the queue limit: "
+          "user %s, queue %s",
+          pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+          pque->qu_qs.qu_name);
         return(PBSE_MAXUSERQUED);
         }
       }
@@ -1303,6 +1345,11 @@ int svr_chkque(
       {
       if (mtype == MOVE_TYPE_Move)  /* ok if not plain user */
         {
+        if (EMsg) snprintf(EMsg,1024,
+          "queue accepts only routed jobs, no direct submission: "
+          "user %s, queue %s",
+          pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+          pque->qu_qs.qu_name);
         return(PBSE_QACESS);
         }
       }
@@ -1318,6 +1365,11 @@ int svr_chkque(
       {
       if (acl_check(&pque->qu_attr[QA_ATR_AclHost],hostname,ACL_Host) == 0)
         {
+        if (EMsg) snprintf(EMsg,1024,
+          "host ACL rejected the submitting host: "
+          "user %s, queue %s, host %s",
+          pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+          pque->qu_qs.qu_name, hostname);
         return(PBSE_BADHOST);
         }
       }
@@ -1346,6 +1398,11 @@ int svr_chkque(
         else
           {
           /* no group acl, fail immediately */
+          if (EMsg) snprintf(EMsg,1024,
+            "user ACL rejected the submitting user: "
+            "user %s, queue %s",
+            pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+            pque->qu_qs.qu_name);
 
           return(PBSE_PERM);
           }
@@ -1356,6 +1413,11 @@ int svr_chkque(
 
     if (failed_group_acl && failed_user_acl)
       {
+      if (EMsg) snprintf(EMsg,1024,
+        "both user and group ACL rejected the submitting user: "
+        "user %s, queue %s",
+        pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+        pque->qu_qs.qu_name);
       return(PBSE_PERM);
       }
 
@@ -1798,12 +1860,12 @@ void set_statechar(
 
 
 /*
- * eval_chkpnt - if the job's checkpoint attribute is "c=nnnn" and 
+ * eval_checkpoint - if the job's checkpoint attribute is "c=nnnn" and 
  * 	nnnn is less than the queue' minimum checkpoint time, reset
  *	to the queue min time. 
  */
 
-static void eval_chkpnt(
+static void eval_checkpoint(
 
   attribute *jobckp,	/* job's checkpoint attribute */
   attribute *queckp)	/* queue's checkpoint attribute */
@@ -1840,7 +1902,7 @@ static void eval_chkpnt(
     }
 
   return;
-  }  /* END eval_chkpnt() */
+  }  /* END eval_checkpoint() */
 
 
 

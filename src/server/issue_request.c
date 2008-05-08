@@ -448,6 +448,20 @@ int issue_Drequest(
 
       break;
 
+    case PBS_BATCH_CheckpointJob:
+
+      rc = PBSD_mgr_put(
+        conn, 
+        PBS_BATCH_CheckpointJob,
+        MGR_CMD_SET,
+        MGR_OBJ_JOB,
+        request->rq_ind.rq_hold.rq_orig.rq_objname,
+        NULL,
+        NULL);
+
+      break;
+
+
     case PBS_BATCH_MessJob:
 
       rc = PBSD_msg_put(
@@ -460,6 +474,7 @@ int issue_Drequest(
       break;
 
     case PBS_BATCH_ModifyJob:
+    case PBS_BATCH_AsyModifyJob:
 
       attrl_fixlink(&request->rq_ind.rq_modify.rq_attr);
 
@@ -468,7 +483,7 @@ int issue_Drequest(
 
       rc = PBSD_mgr_put(
         conn,
-        PBS_BATCH_ModifyJob,
+        request->rq_type,
         MGR_CMD_SET,
         MGR_OBJ_JOB,
         request->rq_ind.rq_modify.rq_objname,
