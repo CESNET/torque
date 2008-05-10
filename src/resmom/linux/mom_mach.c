@@ -1216,7 +1216,7 @@ int mom_set_limits(
         if (LOGLEVEL >= 2)
           {
           sprintf(log_buffer,"setting cpu time limit to %ld for job %s",
-            reslim.rlim_cur,
+            (long int)reslim.rlim_cur,
             pjob->ji_qs.ji_jobid);
 
           log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
@@ -1258,7 +1258,7 @@ int mom_set_limits(
           if (LOGLEVEL >= 0)
             {
             sprintf(log_buffer,"cannot set file limit to %ld for job %s (value too large)",
-              reslim.rlim_cur,
+              (long int)reslim.rlim_cur,
               pjob->ji_qs.ji_jobid);
 
             log_err(-1,id,log_buffer);
@@ -1274,7 +1274,7 @@ int mom_set_limits(
         if (setrlimit(RLIMIT_FSIZE,&reslim) < 0)
           {
           sprintf(log_buffer,"cannot set file limit to %ld for job %s (setrlimit failed - check default user limits)",
-            reslim.rlim_max,
+            (long int)reslim.rlim_max,
             pjob->ji_qs.ji_jobid);
 
           log_err(errno,id,log_buffer);
@@ -1360,7 +1360,7 @@ int mom_set_limits(
         if (setrlimit(RLIMIT_DATA,&reslim) < 0)
           {
          sprintf(log_buffer,"cannot set data limit to %ld for job %s (setrlimit failed w/errno=%d - check default user limits)",
-            reslim.rlim_max,
+            (long int)reslim.rlim_max,
             pjob->ji_qs.ji_jobid,
             errno);
 
@@ -1370,7 +1370,7 @@ int mom_set_limits(
         if (setrlimit(RLIMIT_RSS,&reslim) < 0)
           {
          sprintf(log_buffer,"cannot set RSS limit to %ld for job %s (setrlimit failed w/errno=%d - check default user limits)",
-            reslim.rlim_max,
+            (long int)reslim.rlim_max,
             pjob->ji_qs.ji_jobid,
             errno);
 
@@ -1383,7 +1383,7 @@ int mom_set_limits(
         if (setrlimit(RLIMIT_STACK,&reslim) < 0)
           {
           sprintf(log_buffer,"cannot set stack limit to %ld for job %s (setrlimit failed w/errno=%d - check default user limits)",
-            reslim.rlim_max,
+            (long int)reslim.rlim_max,
             pjob->ji_qs.ji_jobid,
             errno);
 
@@ -1395,7 +1395,7 @@ int mom_set_limits(
         if (setrlimit(RLIMIT_AS,&reslim) < 0)
           {
           sprintf(log_buffer,"cannot set AS limit to %ld for job %s (setrlimit failed w/errno=%d - check default user limits)",
-            reslim.rlim_max,
+            (long int)reslim.rlim_max,
             pjob->ji_qs.ji_jobid,
             errno);
 

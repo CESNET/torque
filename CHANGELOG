@@ -2,7 +2,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.1
   b - fixed a bug where torque would fail to start if there was no LF in nodes file
-  b - fixed a bug where TORQUE would ignore the "pbs_asyrunjob" API extension string when starting jobs in asynchronous mode
+  b - fixed a bug where TORQUE would ignore the "pbs_asyrunjob" API extension 
+      string when starting jobs in asynchronous mode
   b - fixed memory leak in free_br for PBS_BATCH_MvJobFile case
   e - torque can now compile on Linux and OS X with NDEBUG defined 
   f - when using qsub it is now possible to specify both -k and -o/-e
@@ -22,6 +23,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix so we continue to process exiting jobs for other servers
   e - added source_login_batch and source_login_interactive to mom config.  This
       allows us to bypass the sourcing of /etc/profile, etc. type files.
+  b - fixed pbs_server segmentation fault when job_array submissions are rejected 
+      before ji_arraystruct was initialized
+  e - add some casts to fix some compiler warnings with gcc-4.1 on i386 when
+      -D_FILE_OFFSET_BITS=64 is set
 
 2.3.0
   e - redesign how torque.spec is built
