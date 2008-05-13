@@ -1030,9 +1030,10 @@ Optional Features:
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
   --enable-maintainer-mode  enable make rules and dependencies not useful
 			  (and sometimes confusing) to the casual installer
-  --enable-autorun          turn on the AUTORUN_JOBS flag
-  --enable-quickcommit          turn on the QUICKCOMMIT flag
-  --enable-nochildsignal          turn on the NO_SIGCHLD flag
+  --enable-autorun        turn on the AUTORUN_JOBS flag
+  --enable-quickcommit    turn on the QUICKCOMMIT flag
+  --enable-nochildsignal  turn on the NO_SIGCHLD flag
+  --enable-maxnotdefault  turn on the RESOURCEMAXNOTDEFAULT flag
   --enable-debug          turn on the DEBUG flag
   --disable-server        do not include server and scheduler
   --disable-mom           do not include the mom daemon
@@ -2328,6 +2329,26 @@ if test "x$enable_quickcommit" = "xyes" ; then
 
 cat >>confdefs.h <<\_ACEOF
 #define QUICKCOMMIT 1
+_ACEOF
+
+fi
+
+
+echo "$as_me:$LINENO: checking whether to turn on the RESOURCEMAXNOTDEFAULT flag" >&5
+echo $ECHO_N "checking whether to turn on the RESOURCEMAXNOTDEFAULT flag... $ECHO_C" >&6
+# Check whether --enable-maxnotdefault or --disable-maxnotdefault was given.
+if test "${enable_maxnotdefault+set}" = set; then
+  enableval="$enable_maxnotdefault"
+  enable_maxnotdefault=$enableval
+else
+  enable_maxnotdefault=no
+fi;
+echo "$as_me:$LINENO: result: $enable_maxnotdefault" >&5
+echo "${ECHO_T}$enable_maxnotdefault" >&6
+if test "x$enable_maxnotdefault" = "xyes" ; then
+
+cat >>confdefs.h <<\_ACEOF
+#define RESOURCEMAXNOTDEFAULT 1
 _ACEOF
 
 fi

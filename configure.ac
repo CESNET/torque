@@ -87,6 +87,21 @@ if test "x$enable_autorun" = "xyes" ; then
 fi
 
 
+
+dnl
+dnl  ######################################################################
+dnl  Resource max not default mode?
+dnl
+AC_MSG_CHECKING([whether to turn on the RESOURCEMAXNOTDEFAULT flag])
+AC_ARG_ENABLE(maxnotdefault,
+    [  --enable-maxnotdefault          turn on the RESOURCEMAXNOTDEFAULT flag],
+    enable_maxnotdefault=$enableval, enable_maxnotdefault=no)
+AC_MSG_RESULT($enable_maxnotdefault)
+if test "x$enable_maxnotdefault" = "xyes" ; then
+	AC_DEFINE(RESOURCEMAXNOTDEFAULT, 1, [turns on the compilation of RESOURCEMAXNOTDEFAULT code])
+fi
+
+
 dnl
 dnl  ######################################################################
 dnl  Quick commit mode?
