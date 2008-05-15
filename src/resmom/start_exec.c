@@ -1681,7 +1681,7 @@ int TMomFinalizeJob1(
     if (pipe(TJE->pipe_script) == -1)
       {
       sprintf(log_buffer,
-        "Failed to create shell name pipe");
+        "Failed to create shell name pipe, errno = %d", errno);
 
       LOG_EVENT(
         PBSEVENT_JOB,
