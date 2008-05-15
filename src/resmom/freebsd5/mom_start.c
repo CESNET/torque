@@ -313,11 +313,22 @@ void scan_for_terminated()
 		else 
 			exiteval = 1;
 
-		if (pjob == NULL) {
-			DBPRT(("%s: pid %d not tracked, exit %d\n",
-				id, pid, exiteval))
+		if (pjob == NULL)
+		  {
+      if (LOGLEVEL >= 1)
+        {
+        sprintf(log_buffer,"pid %d not tracked, exitcode=%d",
+          pid,
+          exiteval);
+
+        log_record(
+          PBSEVENT_JOB,
+          PBS_EVENTCLASS_JOB,
+          id,
+          log_buffer);
+        }
 			continue;
-		}
+		  }
 
 		if (pid == pjob->ji_momsubt)
 		  {
@@ -369,21 +380,43 @@ void scan_for_terminated()
 			pjob->ji_momsubt = 0;
 			(void)job_save(pjob, SAVEJOB_QUICK);
 			continue;
-		}
-		DBPRT(("%s: task %d pid %d exit value %d\n", id,
-				ptask->ti_qs.ti_task, pid, exiteval))
+		}  /* END if (pid == pjob->ji_momsubt) */
+		
+    if (LOGLEVEL >= 2)
+      {
+      sprintf(log_buffer,"for job %s, task %d, pid=%d, exitcode=%d",
+        pjob->ji_qs.ji_jobid,
+        ptask->ti_qs.ti_task,
+        pid,
+        exiteval);
+
+      log_record(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        id,
+        log_buffer);
+      }
+
 		kill_task(ptask, SIGKILL,0);
 		ptask->ti_qs.ti_exitstat = exiteval;
 		ptask->ti_qs.ti_status = TI_STATE_EXITED;
 		pjob->ji_qs.ji_un.ji_momt.ji_exitstat = exiteval;
 		task_save(ptask);
-		sprintf(log_buffer, "task %d terminated", ptask->ti_qs.ti_task);
+
+    sprintf(log_buffer,"%s: job %s task %d terminated, sid=%d",
+      id,
+      pjob->ji_qs.ji_jobid,
+      ptask->ti_qs.ti_task,
+      ptask->ti_qs.ti_sid);
+
 		LOG_EVENT(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB,
 			pjob->ji_qs.ji_jobid, log_buffer);
 
 		exiting_tasks = 1;
-	}
-}
+    }  /* END while ((pid = waitpid(-1,&statloc,WNOHANG)) > 0) */
+
+  return;
+}  /* END scan_for_terminated() */
 
 /*
  * creat the master pty, this particular
