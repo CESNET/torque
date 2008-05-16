@@ -933,11 +933,14 @@ int post_epilogue(
 
   if (LOGLEVEL >= 2)
     {
+    sprintf(log_buffer,"preparing obit message for job %s",
+      pjob->ji_qs.ji_jobid);
+
     LOG_EVENT(
       PBSEVENT_DEBUG,
       PBS_EVENTCLASS_REQUEST,
       id,
-      "preparing obit message");
+      log_buffer);
     }
 
   /* open new connection */
@@ -1064,7 +1067,8 @@ int post_epilogue(
     {
     /* FAILURE */
 
-    sprintf(log_buffer,"cannot create obit message");
+    sprintf(log_buffer,"cannot create obit message for job %s",
+	  pjob->ji_qs.ji_jobid);
 
     LOG_EVENT(
       PBSEVENT_DEBUG,
