@@ -472,7 +472,7 @@ void scan_for_terminated()
       log_record(
         PBSEVENT_JOB,
         PBS_EVENTCLASS_JOB,
-        id,
+        pjob->ji_qs.ji_jobid,
         "checking job post-processing routine");
 
       if (pjob->ji_mompost != NULL) 
@@ -508,6 +508,17 @@ void scan_for_terminated()
           continue;
           }
 #endif /* CACHEOBITFAILURES */
+        }
+	    else
+			  {
+        if (LOGLEVEL >= 7)
+          {
+          LOG_EVENT(
+            PBSEVENT_DEBUG,
+            PBS_EVENTCLASS_JOB,
+            pjob->ji_qs.ji_jobid,
+              "No post processing routine for job");
+          }
         }
 
       /* clear mom sub-task */

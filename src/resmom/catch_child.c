@@ -1480,6 +1480,14 @@ static void obit_reply(
         case PBSE_NONE:
 
           /* normal ack, mark job as exited */
+          if (LOGLEVEL >= 7)
+            {
+            log_record(
+              PBSEVENT_ERROR,
+              PBS_EVENTCLASS_JOB,
+              pjob->ji_qs.ji_jobid,
+              "setting job substate to EXITED");
+            }
 
           pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITED;
 
@@ -1491,6 +1499,14 @@ static void obit_reply(
 
           /* have already told the server before recovery */
           /* the server will contact us to continue       */
+          if (LOGLEVEL >= 7)
+            {
+            log_record(
+              PBSEVENT_ERROR,
+              PBS_EVENTCLASS_JOB,
+              pjob->ji_qs.ji_jobid,
+              "setting already exited job substate to EXITED");
+            }
 
           pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITED;
 

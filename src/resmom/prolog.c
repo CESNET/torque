@@ -342,10 +342,11 @@ int run_pelog(
         {
         static char tmpBuf[1024];
 
-        sprintf(log_buffer,"%s script '%s' does not exist (cwd: %s)",
+        sprintf(log_buffer,"%s script '%s' does not exist (cwd: %s) for job %s",
           PPEType[which],
           (pelog != NULL) ? pelog : "NULL",
-          getcwd(tmpBuf,sizeof(tmpBuf)));
+          getcwd(tmpBuf,sizeof(tmpBuf)),
+          pjob->ji_qs.ji_jobid);
 
         log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
         }
@@ -358,9 +359,10 @@ int run_pelog(
 
   if (LOGLEVEL >= 5)
     {
-    sprintf(log_buffer,"running %s script '%s'",
+    sprintf(log_buffer,"running %s script '%s' for job %s",
       PPEType[which],
-      (pelog != NULL) ? pelog : "NULL");
+      (pelog != NULL) ? pelog : "NULL",
+      pjob->ji_qs.ji_jobid);
 
     log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
     }
