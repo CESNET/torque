@@ -362,6 +362,7 @@ void scan_for_exiting()
 
   static int ForceObit    = -1;   /* boolean - if TRUE, ObitsAllowed will be enforced */
   static int ObitsAllowed = 1;
+  int NumSisters = 0;
 
 #ifdef  PENABLE_DYNAMIC_CPUSETS
   char           cQueueName[8];
@@ -488,19 +489,35 @@ void scan_for_exiting()
           pjob->ji_qs.ji_jobid, 
           "job was terminated");
 
-        if (LOGLEVEL >= 3)
+        NumSisters = send_sisters(pjob,IM_KILL_JOB);
+
+        if (NumSisters == 0)
           {
+          /* no sisters contacted - is this SUCCESS or FAILURE? */
+
+          if (LOGLEVEL >= 3)
+            {
+            LOG_EVENT(
+              PBSEVENT_JOB,
+              PBS_EVENTCLASS_JOB,
+              pjob->ji_qs.ji_jobid,
+              "no sisters contacted - setting job substate to EXITING");
+            }
+
+          pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+
+          job_save(pjob,SAVEJOB_QUICK);
+          }
+        else if (LOGLEVEL >= 3)
+          {
+          snprintf(log_buffer,1024,"master task has exited - sent kill job request to %d sisters",
+            NumSisters);
+
           LOG_EVENT(
             PBSEVENT_JOB,
             PBS_EVENTCLASS_JOB,
             pjob->ji_qs.ji_jobid,
-            "master task has exited - sending kill job request to all sisters");
-          }
-
-        if (send_sisters(pjob,IM_KILL_JOB) == 0) 
-          {
-          pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
-          job_save(pjob,SAVEJOB_QUICK);
+            log_buffer);
           }
         }    /* END for (ptask) */
 
@@ -586,8 +603,8 @@ void scan_for_exiting()
       {
       if (LOGLEVEL >= 3)
         {
-        snprintf(log_buffer,1024,"job is in non-exiting substate %d, no obit sent at this time",
-          pjob->ji_qs.ji_substate);
+        snprintf(log_buffer,1024,"job is in non-exiting substate %s, no obit sent at this time",
+          PJobSubState[pjob->ji_qs.ji_substate]);
 
         LOG_EVENT(
           PBSEVENT_JOB,
