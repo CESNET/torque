@@ -5941,7 +5941,9 @@ static void finish_loop(
 
   rpp_request(42);
 
+#ifndef NOSIGCHLDMOM
   if (termin_child != 0)
+#endif
     scan_for_terminated();
 
   /* if -p, must poll tasks inside jobs to look for completion */
@@ -7220,7 +7222,11 @@ int main(
   act.sa_flags |= SA_INTERRUPT;	/* don't restart system calls */
 #endif
 
+#ifdef NOSIGCHLDMOM
+  act.sa_handler = SIG_DFL;
+#else
   act.sa_handler = catch_child;	/* set up to catch death of child */
+#endif
   sigaction(SIGCHLD,&act,NULL);
 
 #ifdef _CRAY
@@ -7956,7 +7962,9 @@ int main(
       pjob = (job *)GET_NEXT(pjob->ji_alljobs);
       }  /* END while (pjob != NULL) */
 
+#ifndef NOSIGCHLDMOM
     if (termin_child != 0)
+#endif
       scan_for_terminated();
 
     if (exiting_tasks)

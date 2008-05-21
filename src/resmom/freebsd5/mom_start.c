@@ -213,7 +213,16 @@ void scan_for_terminated()
   int TJCIndex = 0;
 #endif
 
-	/* update the latest intelligence about the running jobs;         */
+  if (LOGLEVEL >= 7)
+    {
+    log_record(
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      id,
+      "entered");
+    }
+    
+ 	/* update the latest intelligence about the running jobs;         */
 	/* must be done before we reap the zombies, else we lose the info */
 
 	termin_child = 0;
@@ -287,7 +296,21 @@ void scan_for_terminated()
 
 		pjob = (job *)GET_NEXT(svr_alljobs);
 		while (pjob) {
-	    		/*
+
+      if (LOGLEVEL >= 7)
+        {
+        snprintf(log_buffer,1024,"checking job w/subtask pid=%d (child pid=%d)",
+          pjob->ji_momsubt,
+          pid);
+
+        LOG_EVENT(
+          PBSEVENT_DEBUG,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          log_buffer);
+        }
+
+   		/*
 			** see if process was a child doing a special
 			** function for MOM
 			*/
