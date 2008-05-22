@@ -27,6 +27,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix so we continue to process exiting jobs for other servers
   b - reset ji_momhandle in preobit_reply so we cannot have more than one pjob
       for obit_reply to find.
+  b - changed order of searching so we find most recent jobs first. Prevents
+      finding old leftover job when pids rollover.
   
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has

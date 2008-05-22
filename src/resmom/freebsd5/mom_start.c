@@ -228,10 +228,10 @@ void scan_for_terminated()
 	termin_child = 0;
 
 	if (mom_get_sample() == PBSE_NONE) {
-		pjob = (job *)GET_NEXT(svr_alljobs);
+		pjob = (job *)GET_PRIOR(svr_alljobs);
 		while (pjob) {
 			mom_set_use(pjob);
-			pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+			pjob = (job *)GET_PRIOR(pjob->ji_alljobs);
 		}
 	}
 
@@ -294,7 +294,7 @@ void scan_for_terminated()
 
 	while ((pid = waitpid(-1, &statloc, WNOHANG)) > 0) {
 
-		pjob = (job *)GET_NEXT(svr_alljobs);
+		pjob = (job *)GET_PRIOR(svr_alljobs);
 		while (pjob) {
 
       if (LOGLEVEL >= 7)
@@ -327,7 +327,7 @@ void scan_for_terminated()
 			}
 			if (ptask != NULL)
 				break;
-			pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+      pjob = (job *)GET_PRIOR(pjob->ji_alljobs);
 		}
 		if (WIFEXITED(statloc))
 			exiteval = WEXITSTATUS(statloc);
