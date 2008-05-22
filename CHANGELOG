@@ -25,7 +25,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - change qsub so '-v var=' will look in environment for value. If value
       is not found set it to "".
   b - fix so we continue to process exiting jobs for other servers
-
+  b - reset ji_momhandle in preobit_reply so we cannot have more than one pjob
+      for obit_reply to find.
+  
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has
       completed but its state is still available for life of keep_completed
