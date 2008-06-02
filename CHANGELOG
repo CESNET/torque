@@ -23,11 +23,12 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix so we continue to process exiting jobs for other servers
   e - added source_login_batch and source_login_interactive to mom config.  This
       allows us to bypass the sourcing of /etc/profile, etc. type files.
-  b - fixed pbs_server segmentation fault when job_array submissions are rejected 
-      before ji_arraystruct was initialized
+  b - fixed pbs_server segmentation fault when job_array submissions are 
+      rejected before ji_arraystruct was initialized
   e - add some casts to fix some compiler warnings with gcc-4.1 on i386 when
       -D_FILE_OFFSET_BITS=64 is set
   e - added --enable-maxnotdefault to allow not using resources_max as defaults.
+  b - fixed file descriptor leak with Linux cpusets (VPAC)  
 
 2.3.0
   e - redesign how torque.spec is built

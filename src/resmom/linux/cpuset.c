@@ -80,8 +80,11 @@ int cpuset_delete (char *cpusetname)
       {
       /* FIXME: need a more careful mechanism here... including a possibly useless sleep */
       if ((fd=fopen(childpath,"r"))!=NULL)
-        while(fscanf(fd,"%d",&killpids) == 1)
-          kill(killpids,SIGKILL);
+	{
+           while(fscanf(fd,"%d",&killpids) == 1)
+              kill(killpids,SIGKILL);
+	   fclose(fd);
+	}
 
         sleep(1);
       }
@@ -90,6 +93,8 @@ if (!(statbuf.st_mode&S_IFDIR))
   unlink(childpath);
 
     }
+
+  closedir(dir);
 
   return(rmdir(path)==0);
 
@@ -234,7 +239,7 @@ int create_jobset (
 
   if (access(path,F_OK)==0)
     {
-    if (!cpuset_delete(path))
+    if (cpuset_delete(path))
       {
       sprintf (log_buffer, "Could not delete cpuset for job %s.\n", pjob->ji_qs.ji_jobid);
       log_err(-1,id,log_buffer);
