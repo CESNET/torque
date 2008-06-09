@@ -31,7 +31,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fixed file descriptor leak with Linux cpusets (VPAC)  
   b - added new values to TJobAttr so we don't have mismatch with job.h values. Added
       some comments also.
-
+  b - reset ji_momhandle so we cannot have more than one pjob for obit_reply to find.
+  
 2.3.0
   e - redesign how torque.spec is built
   e - added -a to qrun to allow asynchronous job start
