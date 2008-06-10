@@ -332,6 +332,15 @@ void scan_for_terminated()
   int TJCIndex = 0;
 #endif
 
+  if (LOGLEVEL >= 7)
+    {
+    log_record(
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      id,
+      "entered");
+    }
+
   /* update the latest intelligence about the running jobs;         */
   /* must be done before we reap the zombies, else we lose the info */
 
@@ -339,13 +348,13 @@ void scan_for_terminated()
 
   if (mom_get_sample() == PBSE_NONE) 
     {
-    pjob = (job *)GET_NEXT(svr_alljobs);
+    pjob = (job *)GET_PRIOR(svr_alljobs);
 
     while (pjob != NULL) 
       {
       mom_set_use(pjob);
 
-      pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+      pjob = (job *)GET_PRIOR(pjob->ji_alljobs);
       }
     }
 
@@ -408,10 +417,24 @@ void scan_for_terminated()
 
   while ((pid = waitpid(-1,&statloc,WNOHANG)) > 0) 
     {
-    pjob = (job *)GET_NEXT(svr_alljobs);
+    pjob = (job *)GET_PRIOR(svr_alljobs);
 
     while (pjob != NULL) 
       {
+
+      if (LOGLEVEL >= 7)
+        {
+        snprintf(log_buffer,1024,"checking job w/subtask pid=%d (child pid=%d)",
+          pjob->ji_momsubt,
+          pid);
+
+        LOG_EVENT(
+          PBSEVENT_DEBUG,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          log_buffer);
+        }
+
       /*
       ** see if process was a child doing a special
       ** function for MOM
@@ -437,7 +460,7 @@ void scan_for_terminated()
       if (ptask != NULL)
         break;
 
-      pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+      pjob = (job *)GET_PRIOR(pjob->ji_alljobs);
       }  /* END while (pjob != NULL) */
 
     if (pjob == NULL) 
@@ -456,7 +479,7 @@ void scan_for_terminated()
         }
 
       continue;
-      }
+      }  /* END if (pjob == NULL) */
 
     if (WIFEXITED(statloc))
       exiteval = WEXITSTATUS(statloc);
@@ -472,7 +495,7 @@ void scan_for_terminated()
       log_record(
         PBSEVENT_JOB,
         PBS_EVENTCLASS_JOB,
-        id,
+        pjob->ji_qs.ji_jobid,
         "checking job post-processing routine");
 
       if (pjob->ji_mompost != NULL) 
@@ -508,6 +531,17 @@ void scan_for_terminated()
           continue;
           }
 #endif /* CACHEOBITFAILURES */
+        }
+	    else
+			  {
+        if (LOGLEVEL >= 7)
+          {
+          LOG_EVENT(
+            PBSEVENT_DEBUG,
+            PBS_EVENTCLASS_JOB,
+            pjob->ji_qs.ji_jobid,
+              "No post processing routine for job");
+          }
         }
 
       /* clear mom sub-task */
