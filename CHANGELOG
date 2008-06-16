@@ -38,6 +38,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       updates.
   b - handle case where mom replies with an unknown job error to a stat request 
       from the server
+  b - allow qalter to modify HELD jobs if BLCR is not enabled
   
 2.3.0
   e - redesign how torque.spec is built
