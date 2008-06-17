@@ -89,6 +89,7 @@
  *	job_set_wait()	   - set event for when job's wait time ends
  *	get_variable()	   - get value of a single environ variable of a job 
  *	prefix_std_file()  - build the fully prefixed default name for std e/o
+ *	add_std_filename()  - add the default name for std e/o
  *	get_jobowner()	   - get job owner name without @host suffix
  *	set_resc_deflt()   - set unspecified resource_limit to default values
  *	set_statechar()	   - set the job state attribute character value
@@ -1662,6 +1663,42 @@ char *prefix_std_file(
 						/* now add the rest	*/
       default_std(pjob,key,name + strlen(name));
       }
+    }
+
+  return(name);
+  }
+
+
+/*
+ * add_std_filename - add the default file name for the job's
+ *	standard output or error: 
+ *		job_name.[e|o]job_sequence_number
+ */
+
+char *add_std_filename(
+
+  job *pjob,
+  char * path,
+  int  key)
+
+  {
+  int	 len;
+  char	*name = (char *)0;
+
+  len = strlen(path) +
+        strlen(pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str) + 
+        PBS_MAXSEQNUM + 
+        5;
+
+  name = malloc(len);
+    
+  if (name) 
+    {
+    strcpy(name,path);
+    strcat(name,"/");	/* the final /		*/
+
+					/* now add the rest	*/
+    default_std(pjob,key,name + strlen(name));
     }
 
   return(name);
