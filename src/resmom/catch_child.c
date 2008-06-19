@@ -415,7 +415,7 @@ void scan_for_exiting()
   char         *id = "scan_for_exiting";
 
   static char noconnect[] =
-    "no contact with server at hostaddr %x, port %d, jobid %s errno %d";
+    "no contact with server at hostaddr %x, port %d, jobid %s errno %d (%s)";
 
   int		found_one = 0;
   job		*nxjob;
@@ -892,7 +892,8 @@ void scan_for_exiting()
         pjob->ji_qs.ji_un.ji_momt.ji_svraddr,
         port,
         pjob->ji_qs.ji_jobid, 
-        errno);
+        errno,
+        strerror(errno));
 
       LOG_EVENT(
         PBSEVENT_DEBUG,
@@ -1020,7 +1021,7 @@ int post_epilogue(
   int port;
   struct batch_request *preq;
   static char noconnect[] =
-    "cannot send obit to server at hostaddr=%x:%d, jobid=%s errno=%d";
+    "cannot send obit to server at hostaddr=%x:%d, jobid=%s errno=%d (%s)";
 
   if (LOGLEVEL >= 2)
     {
@@ -1070,7 +1071,8 @@ int post_epilogue(
         pjob->ji_qs.ji_un.ji_momt.ji_svraddr,
         port,
         pjob->ji_qs.ji_jobid,
-        errno);
+        errno,
+        strerror(errno));
 
       LOG_EVENT(
         PBSEVENT_DEBUG,

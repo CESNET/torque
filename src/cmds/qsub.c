@@ -1984,9 +1984,10 @@ void bailout()
 
   if (c <= 0) 
     {
-    fprintf(stderr,"qsub: cannot connect to server %s (errno=%d)\n",
+    fprintf(stderr,"qsub: cannot connect to server %s (errno=%d) %s\n",
       pbs_server, 
-      pbs_errno);
+      pbs_errno,
+      pbs_strerror(pbs_errno));
 
     if (getenv("PBSDEBUG") != NULL)
       {
@@ -4118,9 +4119,10 @@ int main(
 
   if (connect <= 0) 
     {
-    fprintf(stderr, "qsub: cannot connect to server %s (errno=%d)\n",
+    fprintf(stderr, "qsub: cannot connect to server %s (errno=%d) %s\n",
       pbs_server, 
-      pbs_errno);
+      pbs_errno,
+      pbs_strerror(pbs_errno));
 
     if (getenv("PBSDEBUG") != NULL)
       {
@@ -4181,8 +4183,9 @@ int main(
       }
     else
       {
-      fprintf(stderr,"qsub: Error (%d) submitting job\n", 
-        pbs_errno);
+      fprintf(stderr,"qsub: Error (%d - %s) submitting job\n", 
+        pbs_errno,
+        pbs_strerror(pbs_errno));
       }
 
     unlink(script_tmp);

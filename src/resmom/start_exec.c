@@ -1508,8 +1508,8 @@ int TMomFinalizeJob1(
 
       exiting_tasks = 1;
 
-      sprintf(log_buffer,"Pre-restart failed %d",
-        errno);
+      sprintf(log_buffer,"Pre-restart failed %d (%s)",
+        errno, pbs_strerror(errno));
 
       LOG_EVENT(
         PBSEVENT_JOB,

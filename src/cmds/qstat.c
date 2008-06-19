@@ -2402,9 +2402,10 @@ job_no_args:
 
         if (connect <= 0) 
           {
-          fprintf(stderr,"qstat: cannot connect to server %s (errno=%d)\n",
+          fprintf(stderr,"qstat: cannot connect to server %s (errno=%d) %s\n",
             pbs_server, 
-            pbs_errno);
+            pbs_errno,
+            pbs_strerror(pbs_errno));
 
           ret = tcl_stat(error,NULL,f_opt);
 
@@ -2483,7 +2484,8 @@ job_no_args:
 que_no_args:
             connect = cnt2server(server_out);
             if ( connect <= 0 ) {
-                fprintf(stderr,"qstat: cannot connect to server %s (errno=%d)\n", pbs_server, pbs_errno);
+                fprintf(stderr,"qstat: cannot connect to server %s (errno=%d) %s\n",
+                  pbs_server, pbs_errno, pbs_strerror(pbs_errno));
 		ret = tcl_stat(error, NULL, f_opt);
                 any_failed = connect;
                 break;
@@ -2495,7 +2497,8 @@ que_no_args:
                     if ( errmsg != NULL ) {
                         fprintf(stderr, "qstat: %s ", errmsg);
                     } else
-                        fprintf(stderr, "qstat: Error (%d) getting status of queue ", pbs_errno);
+                        fprintf(stderr, "qstat: Error (%d - %s) getting status of queue ",
+                          pbs_errno, pbs_strerror(pbs_errno));
                     fprintf(stderr, "%s\n", queue_name_out);
 		    ret = tcl_stat(error, NULL, f_opt);
                     any_failed = pbs_errno;
@@ -2517,8 +2520,8 @@ que_no_args:
 svr_no_args:
             connect = cnt2server(server_out);
             if ( connect <= 0 ) {
-                fprintf(stderr,"qstat: cannot connect to server %s (errno=%d)\n",
-                        pbs_server, pbs_errno);
+                fprintf(stderr,"qstat: cannot connect to server %s (errno=%d) %s\n",
+                        pbs_server, pbs_errno, pbs_strerror(pbs_errno));
 		ret = tcl_stat(error, NULL, f_opt);
                 any_failed = connect;
                 break;
@@ -2530,7 +2533,8 @@ svr_no_args:
                     if ( errmsg != NULL ) {
                         fprintf(stderr, "qstat: %s ", errmsg);
                     } else
-                        fprintf(stderr, "qstat: Error (%d) getting status of server ", pbs_errno);
+                        fprintf(stderr, "qstat: Error (%d - %s) getting status of server ",
+                          pbs_errno, pbs_strerror(pbs_errno));
                     fprintf(stderr, "%s\n", server_out);
 		    ret = tcl_stat(error, NULL, f_opt);
                     any_failed = pbs_errno;

@@ -30,6 +30,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - changed order of searching so we find most recent jobs first. Prevents
       finding old leftover job when pids rollover.
   e - change qdel to accept 'ALL' as well as 'all'
+  e - added string output for errnos, etc.
   
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has

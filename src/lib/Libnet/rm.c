@@ -98,6 +98,7 @@
 #include	<arpa/inet.h>
 
 #include	"pbs_ifl.h"
+#include	"pbs_error.h"
 #include	"net_connect.h"
 #include	"resmon.h"
 #include	"log.h"
@@ -1056,7 +1057,7 @@ int activereq(void)
 			num = select(FD_SETSIZE, &fdset, NULL, NULL, &tv);
 			if (num == -1) {
 				pbs_errno = errno;
-				DBPRT(("%s: select %d\n", id, pbs_errno))
+				DBPRT(("%s: select %d %s\n", id, pbs_errno, pbs_strerror(pbs_errno)))
 				return -1;
 			}
 			if (num == 0) {
@@ -1082,7 +1083,7 @@ int activereq(void)
 	num = select(FD_SETSIZE, &fdset, NULL, NULL, &tv);
 	if (num == -1) {
 		pbs_errno = errno;
-		DBPRT(("%s: select %d\n", id, pbs_errno))
+		DBPRT(("%s: select %d %s\n", id, pbs_errno, pbs_strerror(pbs_errno)))
 		return -1;
 	}
 	else if (num == 0)

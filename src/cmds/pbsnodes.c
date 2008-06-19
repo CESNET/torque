@@ -175,8 +175,9 @@ static int set_note(
       fprintf(stderr,"%s\n", 
         errmsg);
     else
-      fprintf(stderr,"(error %d)\n", 
-        pbs_errno);
+      fprintf(stderr,"(error %d) %s\n", 
+        pbs_errno,
+        pbs_strerror(pbs_errno));
     }
 
   return(rc);
@@ -366,8 +367,9 @@ static int marknode(
       fprintf(stderr,"%s\n", 
         errmsg);
     else
-      fprintf(stderr,"error: %d\n",
-        pbs_errno);
+      fprintf(stderr,"error: %d (%s)\n",
+        pbs_errno,
+        pbs_strerror(pbs_errno));
     }
 
   return(rc);
@@ -597,10 +599,11 @@ int main(
     {
     if (!quiet)
       {
-      fprintf(stderr, "%s: cannot connect to server %s, error=%d\n",
+      fprintf(stderr, "%s: cannot connect to server %s, error=%d (%s)\n",
         argv[0],           
         (specified_server) ? specified_server : pbs_default(), 
-        pbs_errno);
+        pbs_errno,
+        pbs_strerror(pbs_errno));
       }
 
     exit(1);
@@ -660,9 +663,10 @@ int main(
             }
           else
             {
-            fprintf(stderr,"%s: Error %d\n",
+            fprintf(stderr,"%s: Error %d (%s)\n",
               argv[0],
-              pbs_errno);
+              pbs_errno,
+              pbs_strerror(pbs_errno));
             }
           }
 
