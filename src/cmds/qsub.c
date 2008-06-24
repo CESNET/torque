@@ -239,15 +239,17 @@ static char *x11_get_proto(
 
   if (f == NULL)
     {
-    fprintf(stderr,"execution of '%s' failed, errno=%d\n",
+    fprintf(stderr,"execution of '%s' failed, errno=%d (%s)\n",
       line,
-      errno);
+      errno,
+      pbs_strerror(errno));
     }
   else if (fgets(line,sizeof(line),f) == 0)
     {
-    fprintf(stderr,"cannot read data from '%s', errno=%d\n",
+    fprintf(stderr,"cannot read data from '%s', errno=%d (%s)\n",
       line,
-      errno);
+      errno,
+      pbs_strerror(errno));
     }
   else if (sscanf(line,"%*s %511s %511s",
              proto,
@@ -1984,9 +1986,10 @@ void bailout()
 
   if (c <= 0) 
     {
-    fprintf(stderr,"qsub: cannot connect to server %s (errno=%d)\n",
+    fprintf(stderr,"qsub: cannot connect to server %s (errno=%d) %s\n",
       pbs_server, 
-      pbs_errno);
+      pbs_errno,
+      pbs_strerror(pbs_errno));
 
     if (getenv("PBSDEBUG") != NULL)
       {
@@ -4118,9 +4121,10 @@ int main(
 
   if (connect <= 0) 
     {
-    fprintf(stderr, "qsub: cannot connect to server %s (errno=%d)\n",
+    fprintf(stderr, "qsub: cannot connect to server %s (errno=%d) %s\n",
       pbs_server, 
-      pbs_errno);
+      pbs_errno,
+      pbs_strerror(pbs_errno));
 
     if (getenv("PBSDEBUG") != NULL)
       {
@@ -4181,8 +4185,9 @@ int main(
       }
     else
       {
-      fprintf(stderr,"qsub: Error (%d) submitting job\n", 
-        pbs_errno);
+      fprintf(stderr,"qsub: Error (%d - %s) submitting job\n", 
+        pbs_errno,
+        pbs_strerror(pbs_errno));
       }
 
     unlink(script_tmp);

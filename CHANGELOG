@@ -40,6 +40,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       from the server
   b - allow qalter to modify HELD jobs if BLCR is not enabled
   b - change to update errpath/outpath attributes when -e -o are used with qsub
+  e - added string output for errnos, etc.
   
 2.3.0
   e - redesign how torque.spec is built

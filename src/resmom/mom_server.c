@@ -581,18 +581,20 @@ int mom_server_open_stream(mom_server *pms)
       {
       if (errno == ENOENT)
         {
-        sprintf(log_buffer,"%s: cannot open rpp connection to %s, errno=%d, %s (check /etc/hosts file?)",
+        sprintf(log_buffer,"%s: cannot open rpp connection to %s, errno=%d (%s), %s (check /etc/hosts file?)",
           id,
           server_name,
           errno,
+          pbs_strerror(pbs_errno),
           pms->MOMSendStatFailure);
         }
       else
         {
-        sprintf(log_buffer,"%s: cannot open rpp connection to %s, errno=%d, %s",
+        sprintf(log_buffer,"%s: cannot open rpp connection to %s, errno=%d (%s), %s",
           id,
           server_name,
           errno,
+          pbs_strerror(pbs_errno),
           pms->MOMSendStatFailure);
         }
 
