@@ -456,8 +456,8 @@ static int simplecom(
     {
     pbs_errno = errno;
 
-    DBPRT(("simplecom: flush error %d\n", 
-      pbs_errno))
+    DBPRT(("simplecom: flush error %d (%s)\n", 
+      pbs_errno, pbs_strerror(pbs_errno)))
 
     close_dis(stream);
 
@@ -639,8 +639,8 @@ int configrm(
     {
     pbs_errno = errno;
 
-    DBPRT(("configrm: flush error %d\n", 
-      pbs_errno))
+    DBPRT(("configrm: flush error %d (%s)\n", 
+      pbs_errno, pbs_strerror(pbs_errno)))
 
     return(-1);
     }
@@ -827,8 +827,8 @@ char *getreq(
       {
       pbs_errno = errno;
 
-      DBPRT(("getreq: flush error %d\n", 
-        pbs_errno))
+      DBPRT(("getreq: flush error %d (%s)\n", 
+        pbs_errno, pbs_strerror(pbs_errno)))
 
       delrm(stream);
 
@@ -928,8 +928,8 @@ int flushreq()
         {
         pbs_errno = errno;
 
-        DBPRT(("flushreq: flush error %d\n", 
-          pbs_errno))
+        DBPRT(("flushreq: flush error %d (%s)\n", 
+          pbs_errno, pbs_strerror(pbs_errno)))
 
         close_dis(op->stream);
 

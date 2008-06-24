@@ -239,15 +239,17 @@ static char *x11_get_proto(
 
   if (f == NULL)
     {
-    fprintf(stderr,"execution of '%s' failed, errno=%d\n",
+    fprintf(stderr,"execution of '%s' failed, errno=%d (%s)\n",
       line,
-      errno);
+      errno,
+      pbs_strerror(errno));
     }
   else if (fgets(line,sizeof(line),f) == 0)
     {
-    fprintf(stderr,"cannot read data from '%s', errno=%d\n",
+    fprintf(stderr,"cannot read data from '%s', errno=%d (%s)\n",
       line,
-      errno);
+      errno,
+      pbs_strerror(errno));
     }
   else if (sscanf(line,"%*s %511s %511s",
              proto,
