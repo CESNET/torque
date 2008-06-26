@@ -212,14 +212,12 @@ void req_modifyjob(
   /* if job is running, special checks must be made */
 
   /* NOTE:  must determine if job exists down at MOM - this will occur if
-            job is running, job is held and checkpointed */
+            job is running, job is held, or job was held and just barely 
+            released (ie qhold/qrls) */
 
-#ifdef ENABLE_BLCR
-  if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING ||
-     pjob->ji_qs.ji_state == JOB_STATE_HELD)
-#else
-  if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING)
-#endif
+  if ((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) ||
+     ((pjob->ji_qs.ji_state == JOB_STATE_HELD) && (pjob->ji_qs.ji_destin[0] != '\0')) ||
+     ((pjob->ji_qs.ji_state == JOB_STATE_QUEUED) && (pjob->ji_qs.ji_destin[0] != '\0')))
     {
     while (plist != NULL) 
       {
