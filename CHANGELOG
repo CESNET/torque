@@ -73,6 +73,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix qdel of entire job arrays for non operator/managers
   b - fix problem where job array .AR files are not saved to disk
   b - fixed problem with tracking job memory usage on OS X
+  b - fix memory leak in server and mom with MoveJobFile requests
+      (backported from 2.3.1)
 
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has
