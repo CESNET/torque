@@ -19,6 +19,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       for SIGCHLD instead of using the signal handler.
   e - change qsub so '-v var=' will look in environment for value. If value
       is not found set it to "".
+  b - fixed mom_server code's HELLO initiation retry control to reduce occurrence of pbs_server incorrectly marking node as unknown/down
   b - fix qdel of entire job arrays for non operator/managers
   b - fix so we continue to process exiting jobs for other servers
   e - added source_login_batch and source_login_interactive to mom config.  This

@@ -1046,6 +1046,7 @@ mom_server_update_stat(mom_server *pms,char *status_strings)
     {
     sprintf(log_buffer,"server \"%s\" has no active stream",
       pms->pbs_servername);
+
     log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
     return;
     }
