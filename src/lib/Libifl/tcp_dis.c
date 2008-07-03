@@ -767,6 +767,10 @@ void DIS_tcp_setup(
     {
     tcp = tcparray[fd] =
       (struct tcp_chan *)malloc(sizeof(struct tcp_chan));
+    if (tcp == NULL) 
+      {
+      log_err(errno,"DIS_tcp_setup","malloc failure");
+      }
     }
 
   /* initialize read and write buffers */
