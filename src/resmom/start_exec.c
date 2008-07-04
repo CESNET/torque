@@ -4682,9 +4682,9 @@ void start_exec(
 
     MD5Init(&c);
 
-    MD5Update(&c,(caddr_t)&loopcnt,sizeof(loopcnt));
+    MD5Update(&c,(unsigned char *)&loopcnt,sizeof(loopcnt));
 
-    MD5Update(&c,(caddr_t)pjob,sizeof(job));
+    MD5Update(&c,(unsigned char *)pjob,sizeof(job));
 
     MD5Final(&c);
 
@@ -5290,7 +5290,7 @@ char *std_file_name(
 
     /* don't do for checkpoint file names, only StdErr and StdOut */
     
-    if (suffix != JOB_CKPT_SUFFIX)
+    if (strcmp(suffix, JOB_CKPT_SUFFIX) != 0)
       {  
       pt = strstr(jobpath,"$HOME");
 
