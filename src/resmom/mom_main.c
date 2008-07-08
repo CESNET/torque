@@ -1687,7 +1687,7 @@ static u_long setrcpcmd(
 
   if (*Value != '/')
     {
-    log_err(-1,id,"tmpdir must be a full path");
+    log_err(-1,id,"rcpcmd must be a full path");
 
     /* FAILURE */
 
