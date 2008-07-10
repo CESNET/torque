@@ -427,10 +427,11 @@ void log_record(
   char *text)       /* I */
 
   {
+  int tryagain = 2;
   time_t now;
   struct tm *ptm;
   struct tm  tmpPtm;
-  int    rc;
+  int    rc = 0;
   FILE  *savlog;
   char  *start = NULL, *end = NULL;
   size_t nchars;
@@ -469,7 +470,10 @@ void log_record(
     nchars = end - start;
     if (*end == '\r' && *(end + 1) == '\n')
       end++;
-    rc = fprintf(logfile,
+
+    while (tryagain)
+      {
+      rc = fprintf(logfile,
 	  "%02d/%02d/%04d %02d:%02d:%02d;%04x;%10.10s;%s;%s;%s%.*s\n",
           ptm->tm_mon + 1,
           ptm->tm_mday,
@@ -483,6 +487,19 @@ void log_record(
           objname,
           (text == start ? "" : "[continued]"),
           (int)nchars, start);
+      if ((rc == EPIPE) && (tryagain == 2))
+        {
+        /* someone stole my file descriptor and made it a socket; reopen log
+           and leave the file descriptor to the theif; do not close it */
+        log_opened = 0;
+        log_open(NULL, log_directory);
+        tryagain--;
+        }
+      else
+        {
+        tryagain = 0;
+        }
+      }
     if (rc < 0)
       break;
 

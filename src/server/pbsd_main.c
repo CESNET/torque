@@ -978,6 +978,10 @@ int main(
     exit(1);
     }
 
+  i = sysconf(_SC_OPEN_MAX);
+  while (--i < 2)
+    close(i);  /* close any file desc left open by parent */
+
   /* if we are not running with real and effective uid of 0, forget it */
 
   if ((getuid() != 0) || (geteuid() != 0)) 
@@ -987,10 +991,6 @@ int main(
 
     return(1);
     }
-
-  i = sysconf(_SC_OPEN_MAX);
-  while (--i > 2)
-    close(i); /* close any file desc left open by parent */
 
 
   /* make sure no other server is running with this home directory */
