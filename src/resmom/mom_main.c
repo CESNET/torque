@@ -6366,7 +6366,7 @@ int setup_program_environment()
 
 
   c = sysconf(_SC_OPEN_MAX);
-  /* close any inherited extra files, leaving stdin and stderr open*/
+  /* close any inherited extra files, leaving stdin, stdout, and stderr open*/
   while (--c > 2)
     close(c); /* close any file desc left open by parent */
 
