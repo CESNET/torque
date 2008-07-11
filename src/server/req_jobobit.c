@@ -993,18 +993,7 @@ void on_job_exit(
 
           if (issue_Drequest(handle,preq,on_job_exit,0) == 0) 
             {
-            /* FAILURE */
-
-            if (LOGLEVEL >= 2)
-              {
-              log_event(
-                PBSEVENT_JOB,
-                PBS_EVENTCLASS_JOB,
-                pjob->ji_qs.ji_jobid,
-                "cannot issue file delete request for staged files");
-              }
-
-            /* come back when mom replies */
+            /* no error, come back when mom replies */
 
             return;
             } 
