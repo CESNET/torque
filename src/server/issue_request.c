@@ -102,6 +102,7 @@
 #include "work_task.h"
 #include "net_connect.h"
 #include "svrfunc.h"
+#include "pbs_nodes.h"
 
 
 
@@ -118,6 +119,7 @@ extern char	*msg_err_malloc;
 extern unsigned int pbs_mom_port;
 extern unsigned int pbs_server_port_dis;
 extern struct  connection svr_conn[];
+extern struct pbsnode *tfind_addr(); 
 
 int issue_to_svr A_((char *svr, struct batch_request *, void (*func)(struct work_task *)));
 
@@ -139,6 +141,15 @@ int relay_to_mom(
 
   {
   int	conn;	/* a client style connection handle */
+  struct pbsnode *node;
+
+  /* if MOM is down don't try to connect */
+
+  if (((node = tfind_addr(momaddr)) != NULL) &&
+       (node->nd_state & (INUSE_DELETED|INUSE_DOWN)))
+    {
+    return(PBSE_NORELYMOM);
+    }
 
   conn = svr_connect(momaddr,pbs_mom_port,process_Dreply,ToServerDIS);
 
