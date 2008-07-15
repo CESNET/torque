@@ -4,6 +4,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - nqs2pbs is now a generated script
   b - correct handling of priv job attrs
   b - change font selectors in manpages to bold
+  b - on pbs_server startup, don't skip job-exclusive nodes on initial MOM scan
 
 2.1.10
   b - fix buffer overflow in rm_request, 
