@@ -203,6 +203,7 @@ enum TVarElseEnum {
   tveNodeFile,
   tveNumNodes,
   tveTmpDir,
+  tveVerID,
   tveLAST };
 
 static char *variables_else[] = {	/* variables to add, value computed */
@@ -220,6 +221,7 @@ static char *variables_else[] = {	/* variables to add, value computed */
   "PBS_NODEFILE",
   "PBS_NNODES",    /* number of nodes */
   "TMPDIR",
+  "PBS_VERSION",
   NULL };
 
 static int num_var_else = tveLAST;
@@ -1460,6 +1462,13 @@ int InitUserEnv(
 
   if (!usertmpdir && TTmpDirName(pjob,buf))
     bld_env_variables(&vtable,variables_else[tveTmpDir],buf);
+
+  /* PBS_VERSION */
+
+  sprintf(buf,"TORQUE-%s",
+    PACKAGE_VERSION);
+
+  bld_env_variables(&vtable,variables_else[tveVerID],buf);
 
   /* passed-in environment for tasks */
 
