@@ -9,6 +9,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fixed problem with tracking job memory usage on OS X
   b - fix memory leak in server and mom with MoveJobFile requests
       (backported from 2.3.1)
+  b - fix net_server.h build error
 
 2.2.1
   b - fixed a bug where pbs_server never delete files from the "jobs" directory
