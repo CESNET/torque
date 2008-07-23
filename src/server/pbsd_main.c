@@ -544,6 +544,12 @@ int main(
 
   last_jobstat_time = time_now;
 
+  /* close files for security purposes */
+
+  i = sysconf(_SC_OPEN_MAX);
+  while (--i < 2)
+    close(i);  /* close any file desc left open by parent */
+
   /* find out who we are (hostname) */
 
   server_host[0] = '\0';
@@ -977,10 +983,6 @@ int main(
 
     exit(1);
     }
-
-  i = sysconf(_SC_OPEN_MAX);
-  while (--i < 2)
-    close(i);  /* close any file desc left open by parent */
 
   /* if we are not running with real and effective uid of 0, forget it */
 

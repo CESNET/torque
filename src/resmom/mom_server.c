@@ -467,7 +467,6 @@ mom_server_add(char *value)
   static char *id = "mom_server_add";
   mom_server *pms;
 
-
   if ((pms = mom_server_find_by_name(value)))
     {
     /* This server name has already been added. */
@@ -476,7 +475,7 @@ mom_server_add(char *value)
       value);
     log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
     }
-  else if ((pms = mom_server_find_empty_slot()))
+  else if ((pms = mom_server_find_empty_slot()) != NULL)
     {
     /* Fill in the new server instance */
 
@@ -516,7 +515,6 @@ mom_server_add(char *value)
       pms->pbs_servername);
 
     log_err(-1,id,log_buffer);
-
     }
   else
     {
