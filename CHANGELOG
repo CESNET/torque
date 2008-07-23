@@ -11,6 +11,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - added PBS_VERSION environment variable
   e - added --enable-acct-x to allow adding of x attributes to accounting log
   b - fix net_server.h build error
+  b - fixed code that was causing jobs to fail due to "neednodes" errors when
+      Moab/Maui was the scheduler
 
 2.3.1
   b - fixed a bug where torque would fail to start if there was no LF in nodes file
