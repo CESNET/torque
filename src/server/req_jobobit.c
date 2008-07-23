@@ -1645,6 +1645,7 @@ void req_jobobit(
   struct work_task *ptask;
   svrattrl	 *patlist;
   unsigned int    dummy;
+  extern char *PAddrToString(pbs_net_t *);
   
   if (LOGLEVEL >= 7)
     {
@@ -1661,6 +1662,28 @@ void req_jobobit(
       (pjob->ji_qs.ji_un.ji_exect.ji_momaddr != get_hostaddr(
               parse_servername(preq->rq_host,&dummy)))) 
     {
+    if (pjob == NULL)
+      {
+      log_event(
+        PBSEVENT_ERROR|PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        preq->rq_ind.rq_jobobit.rq_jid,
+        "Unable to find specified job");
+      }
+    else
+      {
+      sprintf(log_buffer,"Expected address = %s, obit came from %s (%lu)",
+         PAddrToString(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr),
+         preq->rq_host,
+         get_hostaddr(parse_servername(preq->rq_host,&dummy)));
+
+      log_event(
+        PBSEVENT_ERROR|PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        preq->rq_ind.rq_jobobit.rq_jid,
+        log_buffer);
+      }
+
     /* not found or from wrong node */
 
     if ((server_init_type == RECOV_COLD) ||
