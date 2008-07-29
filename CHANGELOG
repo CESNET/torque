@@ -31,6 +31,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       finding old leftover job when pids rollover.
   e - change qdel to accept 'ALL' as well as 'all'
   e - added string output for errnos, etc.
+  e - apply $job_output_file_umask to running of prologue and epilogue scripts.
   
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has

@@ -123,6 +123,8 @@ static int   run_exit;
 extern int pe_input A_((char *));
 extern int TTmpDirName A_((job *,char *));
 extern void encode_used A_((job *,tlist_head *));
+extern int determine_umask(int);
+
 
 /* END extern prototypes */
 
@@ -813,6 +815,7 @@ int run_pelog(
       }
     }
 
+    umask(determine_umask(pjob->ji_qs.ji_un.ji_momt.ji_exuid));
     execv(pelog,arg);
 
     sprintf(log_buffer,"execv of %s failed: %s\n",
