@@ -992,9 +992,7 @@ struct work_task *ptask)
   strcat(namebuf, pjob->ji_qs.ji_fileprefix);
   strcat(namebuf, ".AR");
   
-  
   /* do the clones in batches of 256 */
- 
 
   num_cloned = 0;
   loop = TRUE;
@@ -1022,7 +1020,6 @@ struct work_task *ptask)
       svr_setjobstate(pjobclone,newstate,newsub);
       pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long = ++queue_rank;
       pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_flags |= ATR_VFLAG_SET;
-    
     
       if ((rc = svr_enquejob(pjobclone))) 
         {
@@ -1056,10 +1053,7 @@ struct work_task *ptask)
       {
       loop = FALSE;
       }
-    
     }
-  
-
   
   if (i < pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long)
     {
@@ -1092,7 +1086,6 @@ struct work_task *ptask)
      
       
       pjob = (job*)GET_NEXT(pjob->ji_arrayjobs);
-        
       }
     }
   } /* end job_clone_tw */

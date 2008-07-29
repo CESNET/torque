@@ -1924,11 +1924,10 @@ int TMomFinalizeJob2(
 
 int determine_umask(
 
-   int  uid   /* I */
-  )
+   int  uid)   /* I */
 
   {
-  static char           *id = "determine_umask";
+  static char *id = "determine_umask";
   int UMaskVal = 0077;
   struct passwd	*pwdp;
   FILE *fp;
@@ -1979,7 +1978,7 @@ int determine_umask(
     if (LOGLEVEL >= 7)
       {
       sprintf(log_buffer,"Using $job_output_file_umask value of %o", 
-            UMaskVal);
+         UMaskVal);
 
       log_err(-1,id,log_buffer);
       }
@@ -5341,7 +5340,7 @@ char *std_file_name(
 
     /* don't do for checkpoint file names, only StdErr and StdOut */
     
-    if (suffix != JOB_CKPT_SUFFIX)
+    if (strcmp(suffix,JOB_CKPT_SUFFIX) != 0)
       {  
       pt = strstr(jobpath,"$HOME");
 

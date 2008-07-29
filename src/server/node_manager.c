@@ -3160,7 +3160,7 @@ static int node_spec(
 
     free(spec);
 
-    sprintf(log_buffer,"job allocation request exceeds available cluster nodes, %d requested, %d available",
+    sprintf(log_buffer,"job allocation request exceeds total configured cluster nodes, %d requested, %d available",
       num,
       svr_clnodes);
 
@@ -3185,7 +3185,8 @@ static int node_spec(
     {
     sprintf(log_buffer,"job allocation debug: %d requested, %d svr_clnodes, %d svr_totnodes",
       num,
-      svr_clnodes, svr_totnodes);
+      svr_clnodes,
+      svr_totnodes);
 
     log_record(
       PBSEVENT_SCHED,
