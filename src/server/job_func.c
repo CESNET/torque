@@ -899,22 +899,23 @@ job *job_clone(
       {
       if (i == JOB_ATR_errpath || i == JOB_ATR_outpath || i == JOB_ATR_jobname)
         {
-	/* modify the errpath adn outpath */
-	slen = strlen(poldjob->ji_wattr[i].at_val.at_str);
-	tmpstr = (char*)malloc(sizeof(char) * (slen + PBS_MAXJOBARRAYLEN + 1));
-	sprintf(tmpstr, "%s-%d", poldjob->ji_wattr[i].at_val.at_str, taskid);
-	clear_attr(&tempattr,&job_attr_def[i]);
-	job_attr_def[i].at_decode(&tempattr,
-	    NULL,
-	    NULL,
-	    tmpstr);
-	job_attr_def[i].at_set(
-	    &pnewjob->ji_wattr[i],
-	    &tempattr,
-	    SET);
+	      /* modify the errpath adn outpath */
+	      slen = strlen(poldjob->ji_wattr[i].at_val.at_str);
+	      tmpstr = (char*)malloc(sizeof(char) * (slen + PBS_MAXJOBARRAYLEN + 1));
+	      sprintf(tmpstr, "%s-%d", poldjob->ji_wattr[i].at_val.at_str, taskid);
+	      clear_attr(&tempattr,&job_attr_def[i]);
+	      job_attr_def[i].at_decode(&tempattr,
+	          NULL,
+	          NULL,
+	          tmpstr);
+	      job_attr_def[i].at_set(
+	          &pnewjob->ji_wattr[i],
+	          &tempattr,
+	          SET);
+
         job_attr_def[i].at_free(&tempattr);
-	free(tmpstr);
-	}
+	      free(tmpstr);
+	      }
       else
         {
         job_attr_def[i].at_set(&(pnewjob->ji_wattr[i]),
@@ -1055,7 +1056,7 @@ struct work_task *ptask)
       }
     }
   
-  if (i < pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long)
+  if (rn != NULL)
     {
     new_task = set_task(WORK_Timed,time_now + 1,job_clone_wt,ptask->wt_parm1);
     }

@@ -632,6 +632,9 @@ static int parse_array_request(char *request, job_array *pa)
        }
      }   
 
+  free (tokens);
+  free (temp_str);
+
   return num_bad_tokens;
 }
 
