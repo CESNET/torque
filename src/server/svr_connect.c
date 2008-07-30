@@ -128,6 +128,7 @@ extern int               LOGLEVEL;
 extern int     addr_ok(pbs_net_t);
 extern void    bad_node_warning(pbs_net_t);
 extern ssize_t read_blocking_socket(int,void *,ssize_t);
+extern int get_num_connections();
 
 
 
@@ -388,7 +389,10 @@ int socket_to_handle(
     return(i);
     }  /* END for (i) */
 
-  log_err(-1,id,"internal socket table full");
+  sprintf(log_buffer,"internal socket table full - num_connections is %d",
+    get_num_connections());
+
+  log_err(-1,id,log_buffer);
 
   pbs_errno = PBSE_NOCONNECTS;
 
