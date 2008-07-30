@@ -129,7 +129,7 @@ int array_save(job_array *pa)
   strcat(namebuf, pa->ai_qs.fileprefix);
   strcat(namebuf, ARRAY_FILE_SUFFIX);
 
-  fds = open(namebuf, O_SYNC|O_TRUNC|O_WRONLY|O_CREAT, 0600);
+  fds = open(namebuf,O_SYNC|O_TRUNC|O_WRONLY|O_CREAT,0600);
   
   if (fds < 0)
     {
@@ -536,7 +536,8 @@ static int array_request_parse_token(char *str, int *start, int *end)
     *idx = '-';
     }
 
-  if (start_l < 0 || start_l >= INT_MAX || end_l < 0 || end_l >= INT_MAX)
+  if (start_l < 0 || start_l >= INT_MAX || end_l < 0 || end_l >= INT_MAX 
+      || start_l > PBS_MAXJOBARRAY)
     {
     *start = -1;
     *end = -1;
