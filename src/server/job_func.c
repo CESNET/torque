@@ -651,6 +651,7 @@ job *job_alloc()
   CLEAR_HEAD(pj->ji_svrtask);
   CLEAR_HEAD(pj->ji_rejectdest);
   CLEAR_LINK(pj->ji_arrayjobs);
+  pj->ji_arraystruct = NULL;
   pj->ji_isparent = FALSE;
 #endif  /* else PBS_MOM */
 
@@ -1239,8 +1240,7 @@ void job_purge(
     }
     
   /* if part of job array then remove from array's job list */ 
-  if (pjob->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET &&
-      pjob->ji_isparent == FALSE)
+  if (pjob->ji_arraystruct != NULL && pjob->ji_isparent == FALSE)
     {
     
     delete_link(&pjob->ji_arrayjobs);
