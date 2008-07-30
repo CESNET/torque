@@ -31,7 +31,6 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       finding old leftover job when pids rollover.
   e - change qdel to accept 'ALL' as well as 'all'
   e - added string output for errnos, etc.
-  e - apply $job_output_file_umask to running of prologue and epilogue scripts.
   b - fixed pbs_server segmentation fault when job_array submissions are rejected 
       before ji_arraystruct was initialized
 
