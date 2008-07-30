@@ -552,10 +552,7 @@ job *job_recov(
           {
           /* couldn't find array struct, it must not have been recovered, 
              treat job as indepentent job?  perhaps we should delete the job
-	     XXX_JOB_ARRAY: should I unset this?*/
-          pj->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long = 1;
-	        pj->ji_wattr[(int)JOB_ATR_job_array_size].at_flags |= ATR_VFLAG_SET;
-	  
+	           XXX_JOB_ARRAY: should I unset this?*/
 	        pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags &= ~ATR_VFLAG_SET;
           }
         else
