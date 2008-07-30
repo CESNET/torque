@@ -739,10 +739,9 @@ int pbsd_init(
        
        if ((type != RECOV_CREATE) && (type != RECOV_COLD))
          {
-	 printf("recovering %s\n", pdirent->d_name);
 	 
-	 /* skip files without the proper suffix */
-	 baselen = strlen(pdirent->d_name) - array_suf_len;
+         /* skip files without the proper suffix */
+         baselen = strlen(pdirent->d_name) - array_suf_len;
 
          psuffix = pdirent->d_name + baselen;
 
@@ -750,23 +749,23 @@ int pbsd_init(
            continue;
 	 
 	 
-	 pa = recover_array_struct(pdirent->d_name);
-	 if (pa == NULL)
-	   {
-	   /* TODO GB */
-	   }
+         pa = recover_array_struct(pdirent->d_name);
+         if (pa == NULL)
+           {
+           /* TODO GB */
+           }
 	
-	 pa->jobs_recovered = 0;
+         pa->jobs_recovered = 0;
 	 
-	 }
+         }
        else
          {
-	 unlink(pdirent->d_name);
-	 }
+         unlink(pdirent->d_name);
+         }
        
        }
-              
      }
+
   closedir(dir);    
   
   /* 9.b,  recover jobs */

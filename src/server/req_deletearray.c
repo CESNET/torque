@@ -61,6 +61,7 @@ void req_deletearray(struct batch_request *preq)
     }
   
   /* check authorization */
+
   get_jobowner(pa->ai_qs.owner,owner);
   if (svr_authorize_req(preq, owner, pa->ai_qs.submit_host) == -1)
     {

@@ -544,8 +544,8 @@ job *job_recov(
       pa = get_array(parent_id);
       if (strcmp(parent_id, pj->ji_qs.ji_jobid) == 0)
         {
-	pj->ji_isparent = TRUE;
-	}
+	      pj->ji_isparent = TRUE;
+	      }
       else
         {
         if (pa == NULL)
@@ -554,18 +554,18 @@ job *job_recov(
              treat job as indepentent job?  perhaps we should delete the job
 	     XXX_JOB_ARRAY: should I unset this?*/
           pj->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long = 1;
-	  pj->ji_wattr[(int)JOB_ATR_job_array_size].at_flags |= ATR_VFLAG_SET;
+	        pj->ji_wattr[(int)JOB_ATR_job_array_size].at_flags |= ATR_VFLAG_SET;
 	  
-	  pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags &= ~ATR_VFLAG_SET;
+	        pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags &= ~ATR_VFLAG_SET;
           }
         else
           {
-	   CLEAR_LINK(pj->ji_arrayjobs);
-	   append_link(&pa->array_alljobs, &pj->ji_arrayjobs, (void*)pj);
-	   pj->ji_arrayjoblist = pa;
-	   pa->jobs_recovered++;
-	  }
-	}
+          CLEAR_LINK(pj->ji_arrayjobs);
+          append_link(&pa->array_alljobs, &pj->ji_arrayjobs, (void*)pj);
+          pj->ji_arraystruct = pa;
+          pa->jobs_recovered++;
+          }
+	      }
     }
 
 #endif
