@@ -875,8 +875,8 @@ int get_connecthost(
 ** Returns 1 on successful match, 0 otherwise
 */
 int compare_ip(
-  struct sockaddr_storage *lhs,
-  struct sockaddr_storage *rhs)
+  const struct sockaddr_storage *lhs,
+  const struct sockaddr_storage *rhs)
 
   {
   /* Early exit, can't compare the two */
