@@ -6325,6 +6325,9 @@ int setup_program_environment()
   int		privfd = 0;		/* fd for sending job info */
   struct sigaction act;
   char		*ptr;                   /* local tmp variable */
+  struct sockaddr_storage nulladdr; /* local all zero address */
+
+  memset(&nulladdr,0,sizeof(struct sockaddr_storage *));
 
 
   /* must be started with real and effective uid of 0 */
@@ -6502,7 +6505,7 @@ int setup_program_environment()
   /* initialize the network interface */
 
   /* TODO AF_INET[4|6] enable? */
-  if (init_network(pbs_mom_port,process_request) != 0) 
+  if (init_network(pbs_mom_port,process_request,PBS_SOCK_INET) != 0)
     {
     c = errno;
 
@@ -6523,7 +6526,7 @@ int setup_program_environment()
     }
 
   /* TODO AF_INET[4|6] enable? */
-  if (init_network(pbs_rm_port,tcp_request) != 0) 
+  if (init_network(pbs_rm_port,tcp_request,PBS_SOCK_INET) != 0)
     {
     c = errno;
 
@@ -6542,6 +6545,51 @@ int setup_program_environment()
 
     return(3);
     }
+
+#ifdef TORQUE_WANT_IPV6
+  if (init_network(pbs_mom_port,process_request,PBS_SOCK_INET6) != 0)
+    {
+    c = errno;
+
+    sprintf(log_buffer,"server port = %u, errno = %d",
+      pbs_mom_port,
+      c);
+
+    if (c == EADDRINUSE)
+      strcat(log_buffer,", already in use");
+
+    log_err(-1,msg_daemonname,log_buffer);
+
+    strcat(log_buffer,"\n");
+
+    fprintf(stderr,log_buffer);
+
+    return(3);
+    }
+
+  /* TODO AF_INET[4|6] enable? */
+  if (init_network(pbs_rm_port,tcp_request,PBS_SOCK_INET6) != 0)
+    {
+    c = errno;
+
+    sprintf(log_buffer,"resource (tcp) port = %u, errno = %d",
+      pbs_rm_port,
+      c);
+
+    if (c == EADDRINUSE)
+      strcat(log_buffer,", already in use");
+
+    log_err(-1,msg_daemonname,log_buffer);
+
+    strcat(log_buffer,"\n");
+
+    fprintf(stderr,log_buffer);
+
+    return(3);
+    }
+#endif
+
+  net_set_type(Secondary,TaskManagerDIS);
 
   /* go into the background and become own session/process group */
 
@@ -6851,8 +6899,8 @@ int setup_program_environment()
   initialize();		/* init RM code */
 
   /* TODO what does (pbs_net_t)0 mean here? */
-  add_conn(rppfd,Primary,0,rpp_request);
-  add_conn(privfd,Primary,0,rpp_request);
+  add_conn(rppfd,Primary,nulladdr,rpp_request);
+  add_conn(privfd,Primary,nulladdr,rpp_request);
 
   /* initialize machine-dependent polling routines */
 
@@ -7473,9 +7521,14 @@ void main_loop()
       {
       if (errno == EBADF)
         {
-        init_network(pbs_mom_port,process_request);
+        init_network(pbs_mom_port,process_request,AF_INET);
 
-        init_network(pbs_rm_port,tcp_request);
+        init_network(pbs_rm_port,tcp_request,AF_INET);
+#ifdef TORQUE_WANT_IPV6
+        init_network(pbs_mom_port,process_request,AF_INET6);
+
+        init_network(pbs_rm_port,tcp_request,AF_INET6);
+#endif
         }
 
       log_err(-1,msg_daemonname,"wait_request failed");

@@ -287,7 +287,7 @@ extern int   alarm_time; /* time before alarm */
 extern int   rm_errno;
 extern time_t  time_now;
 extern int         verbositylevel;
-extern tree            *okclients;  /* accept connections from */
+extern struct list_t *okclients;  /* accept connections from */
 
 extern char *skipwhite(char *str);
 extern char *tokcpy(char *str, char *tok);
@@ -297,7 +297,7 @@ extern char *conf_res(char *resline, struct rm_attribute *attr);
 extern char *dependent(char *res, struct rm_attribute *attr);
 extern int MUStrNCat(char **BPtr, int *BSpace, char *Src);
 extern int MUSNPrintF(char **BPtr, int *BSpace, char *Format, ...);
-extern void tinsert(const u_long,tree **);
+extern void linsert(struct sockaddr_storage *, struct list_t **);
 
 
 void state_to_server A_((int,int));
@@ -1763,6 +1763,59 @@ mom_server_valid_message_source(int stream)
     rpp_close(stream);
     }
     return(NULL);
+//  addr = rpp_getaddr(stream);
+
+  /* We don't have an existing connection, but is this a valid server? */
+
+/*  if (ServerIndex == -1)
+    {
+    port = GET_PORT(addr);
+
+    for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
+      {
+      if (pbs_servername[sindex][0] == '\0')
+        break;
+
+      if (compare_ip(addr,&MOMServerAddrs[sindex]))
+        {
+        ServerIndex = sindex;
+
+        if (SStream[sindex] != -1)
+          {
+          sprintf(log_buffer,"duplicate connection from %s - closing original connection",
+            netaddr(addr));
+
+          log_record(
+            PBSEVENT_ERROR,
+            PBS_EVENTCLASS_SERVER,
+            id,
+            log_buffer);
+
+          rpp_close(SStream[sindex]);
+          }
+
+        SStream[sindex] = stream;
+  
+        break;
+        }
+      }    /* END for (sindex) */
+
+ /*   if (ServerIndex == -1)
+      {
+      sprintf(log_buffer,"bad connect from %s - unauthorized server",
+        netaddr(addr));
+
+      sprintf(TMOMRejectConn,"%s  %s",
+        netaddr(addr),
+        "(server not authorized)");
+
+      log_err(-1,id,log_buffer);
+
+      rpp_close(stream);
+
+      return;
+      }
+    }    /* END if (ServerIndex == -1) */
   }
 
 /**
@@ -1787,10 +1840,14 @@ void is_request(
   int		command = 0;
   int		ret = DIS_SUCCESS;
   mom_server *pms;
-  struct	sockaddr_in *addr = NULL;
-  u_long	ipaddr;
   extern char *PBSServerCmds[];
  
+  short		port;
+  struct	sockaddr_storage *addr = NULL;
+  void		init_addrs();
+
+  int           ServerIndex;
+  int           sindex;
 
   if (cmdp != NULL)
     *cmdp = 0;
@@ -1888,6 +1945,7 @@ void is_request(
     case IS_CLUSTER_ADDRS:
       for (;;) 
         {
+        /* FIXME this is nasty - how do we handle IPv6 over a stream? */
         ipaddr = disrul(stream,&ret);
 
         if (ret != DIS_SUCCESS)
