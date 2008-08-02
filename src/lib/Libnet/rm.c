@@ -195,7 +195,8 @@ char TRMEMsg[1024];  /* global rm error message */
 int openrm(
 
   char         *host,  /* I */
-  unsigned int  port)  /* I (optional,0=DEFAULT) */
+  unsigned int  port,
+  sa_family_t   sa_family)  /* I (optional,0=DEFAULT) */
 
   {
   int                   stream;
@@ -229,7 +230,8 @@ int openrm(
 
     while (--tryport > 0) 
       {
-      if (rpp_bind(tryport) != -1)
+      
+      if (rpp_bind(tryport, sa_family) != -1)
         break;
 
       if ((errno != EADDRINUSE) && (errno != EADDRNOTAVAIL))
