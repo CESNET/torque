@@ -80,7 +80,7 @@
 #include "portability6.h"
 
 int			rpp_open	(char *,unsigned int,char *);
-int			rpp_bind	(unsigned int);
+int			rpp_bind	(unsigned int, sa_family_t);
 int			rpp_poll	(void);
 int			rpp_io		(void);
 int			rpp_read	(int, void *, int);

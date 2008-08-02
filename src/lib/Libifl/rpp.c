@@ -2447,15 +2447,18 @@ int rpp_setsockopt(int rpp_fd)
   }
 
 /*
-**	Create a new socket if needed and bind a local port.
-**	If port is 0, pick a free port number.
-** To faciliate IPv6 connectivity, this function opens two sockets rpp_fd and
-** rpp_fd6
+** Create a new socket if needed and bind a local port.
+** 
+** @param port The port to connect to, pick a free port number if 0
+** @param af_family Either AF_INET6 or AF_INET, determines whether the returned
+**                  socket uses IPv6 or IPv4
+** @return the allocated fd or -1 on error
 */
 
 int rpp_bind(
 
-  uint port)
+  uint port,
+  sa_family_t af_family)
 
   {
   struct sockaddr_storage from;
@@ -2463,23 +2466,12 @@ int rpp_bind(
 
   if (rpp_fd == -1)
     {
-    if ((rpp_fd = socket(PF_INET,SOCK_DGRAM,0)) == -1)
+    if ((rpp_fd = socket(af_family,SOCK_DGRAM,0)) == -1)
       {
-      /* FIXME: we should probably fall down to IPv6 case instead of failure */
       return(-1);
       }
     rpp_setsockopt(rpp_fd);
     } /* END if (rpp_fd == -1) */
-#ifdef TORQUE_WANT_IPV6
-  if (-1 == rpp_fd6)
-    {
-    if (-1 == (rpp_fd6 = socket(PF_INET6, SOCK_DGRAM, 0)))
-      {
-      return(-1);
-      }
-    rpp_setsockopt(rpp_fd6);
-    } /* END if (-1 == rpp_fd6) */
-#endif
 
   if (rpp_fd_array != NULL) 
     {
@@ -2487,12 +2479,6 @@ int rpp_bind(
 
     for (i = 0;i < rpp_fd_num;i++) 
       {
-#ifdef TORQUE_WANT_IPV6
-      if (rpp_fd_array[i] == rpp_fd6)
-        {
-        return(rpp_fd6);
-        }
-#endif
       if (rpp_fd_array[i] == rpp_fd)
         {
         return(rpp_fd);
@@ -2501,39 +2487,43 @@ int rpp_bind(
     }
 
 #ifdef TORQUE_WANT_IPV6
-  memset(&from, '\0', sizeof(struct sockaddr_in6));
-  ((struct sockaddr_in6 *)fromp)->sin6_family = AF_INET6;
-  ((struct sockaddr_in6 *)fromp)->sin6_addr = IN6ADDR_ANY_INIT;
-  ((struct sockaddr_in6 *)fromp)->sin6_port = htons((u_short)port);
-
-  if (-1 == bind(rpp_fd6, (struct sockaddr *)&from, sizeof(struct sockaddr_in6)))
+  if (AF_INET6 == af_family)
     {
-    return(-1);
+    memset(&from, '\0', sizeof(struct sockaddr_in6));
+    ((struct sockaddr_in6 *)fromp)->sin6_family = AF_INET6;
+    ((struct sockaddr_in6 *)fromp)->sin6_addr = IN6ADDR_ANY_INIT;
+    ((struct sockaddr_in6 *)fromp)->sin6_port = htons((u_short)port);
     }
+  else if (AF_INET == af_family)
+    {
 #endif
   memset(&from, '\0', sizeof(struct sockaddr_in));
   ((struct sockaddr_in *)fromp)->sin_family = AF_INET;
   ((struct sockaddr_in *)fromp)->sin_addr.s_addr = htonl(INADDR_ANY);
   ((struct sockaddr_in *)fromp)->sin_port = htons((u_short)port);
+#ifdef TORQUE_WANT_IPV6
+    }
+  else
+    {
+    /* Can't understand family, just return an error */
+    DBPRT((DBTO, "can't use af_family %d\n", af_family));
+    return(-1);
+    }
+#endif
 
-  if (bind(rpp_fd,(struct sockaddr *)&from,sizeof(from)) == -1)
+  if (bind(rpp_fd,(struct sockaddr *)&from,SINLEN(from)) == -1)
     {
     return(-1);
     }
 
 
   DBPRT((DBTO,"bind to port %d\n", 
-    ntohs(from.sin_port)))
+    GET_PORT(fromp)))
 
   if (rpp_fd_array == NULL) 
     {
-#ifdef TORQUE_WANT_IPV6
-    rpp_fd_array = (int *)malloc(2*sizeof(int));
-    rpp_fd_num = 2;
-#else
     rpp_fd_array = (int *)malloc(sizeof(int));
     rpp_fd_num = 1;
-#endif
 
 #if defined(HAVE_ATEXIT)
     atexit(rpp_shutdown);
@@ -2547,19 +2537,15 @@ int rpp_bind(
     }
   else 
     {
-    rpp_fd_num += 2;
+    rpp_fd_num += 1;
 
     rpp_fd_array = (int *)realloc(rpp_fd_array,sizeof(int)*rpp_fd_num);
     }
 
   assert(rpp_fd_array);
 
-#ifdef TORQUE_WANT_IPV6
-  rpp_fd_array[rpp_fd_num-2] = rpp_fd6;
-#endif
   rpp_fd_array[rpp_fd_num-1] = rpp_fd;
 
-  /* FIXME: return what fd? */
   return(rpp_fd);
   }
 
@@ -2597,7 +2583,9 @@ int rpp_open(
   if (EMsg != NULL)
     EMsg[0] = '\0';
 
-  if (rpp_bind(0) == -1)	/* bind if we need to */
+  /* Careful: function execution has side effects on rpp_fd_array and is
+   * implementation defined! */
+  if ((rpp_bind(0, AF_INET) == -1) || (-1 == rpp_bind(0, AF_INET6)))	/* bind if we need to */
     {
     if (EMsg != NULL)
       sprintf(EMsg,"cannot bind rpp socket");
