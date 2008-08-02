@@ -184,6 +184,8 @@ extern int TTmpDirName (job *,char *);
 extern int TMakeTmpDir (job *,char *);
 extern void mom_server_close_stream(int stream);
 
+extern struct list_t *lfind(struct sockaddr_storage *, struct list_t *);
+extern int llist(struct list_t *, char *, int);
 
 
 /* END external functions */

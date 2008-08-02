@@ -445,11 +445,11 @@ int			port_care = TRUE;	/* secure connecting ports */
 uid_t			uid = 0;		/* uid we are running with */
 int			alarm_time = 10;	/* time before alarm */
 
-extern tree            *okclients;		/* accept connections from */
+extern struct list_t   *okclients;		/* accept connections from */
 char                  **maskclient = NULL;	/* wildcard connections */
 int			mask_num = 0;
 int			mask_max = 0;
-u_long			localaddr = 0;
+struct sockaddr_storage localaddr;
 
 char			extra_parm[] = "extra parameter(s)";
 char			no_parm[]    = "required parameter not found";
@@ -567,7 +567,9 @@ extern int TMomCheckJobChild(pjobexec_t *,int,int *,int *);
 extern int TMomFinalizeJob3(pjobexec_t *,int,int,int *);
 extern void exec_bail(job *,int);
 extern void check_state(int);
-extern void tinsert(const u_long,tree **);
+extern void linsert(struct sockaddr_storage *, struct list_t *);
+extern struct list_t *lfind(struct sockaddr_storage *, struct list_t *);
+extern int llist(struct list_t *, char *, int);
 extern void DIS_tcp_funcs();
 
 
@@ -1620,36 +1622,33 @@ void rmnl(
 
 
 
-u_long addclient(
+int addclient(
 
-  char *name)  /* I */
+  char *name,  /* I */
+  struct sockaddr_storage *ip) /* O */
 
-  {
-  static char	  id[] = "addclient";
-  struct hostent *host;
-  struct in_addr  saddr;
-  u_long	  ipaddr;
+{
+    static char	  id[] = "addclient";
+    int error = -1;
+    struct sockaddr_storage ipaddr;
 
-  /* FIXME: must be able to retry failed lookups later */
+    /* FIXME: must be able to retry failed lookups later */
 
-  if ((host = gethostbyname(name)) == NULL) 
-    {
-    sprintf(log_buffer,"host %s not found", 
-      name);
+    error = get_hostaddr(name, &ipaddr);
 
-    log_err(-1,id,log_buffer);
+    if (0 == error) {
+        linsert(&ipaddr, okclients);
 
-    return(0);
+        if (NULL != ip)
+            memcpy(ip, &ipaddr, sizeof(struct sockaddr_storage));
+    } else {
+        sprintf(log_buffer,"host %s not found", name);
+
+        log_err(-1,id,log_buffer);
     }
 
-  memcpy(&saddr,host->h_addr,host->h_length);
-
-  ipaddr = ntohl(saddr.s_addr);
-
-  tinsert(ipaddr,&okclients);
-
-  return(ipaddr);
-  }  /* END addclient() */
+    return(error);
+}  /* END addclient() */
 
 
 
@@ -1659,27 +1658,18 @@ static u_long setpbsclient(
 
   char *value)  /* I */
   
-  {
-  u_long rc;
+{
+    struct sockaddr_storage rc;
 
-  if ((value == NULL) || (value[0] == '\0'))
-    {
-    /* FAILURE */
+    if ((value == NULL) || (value[0] == '\0'))
+      {
+        /* FAILURE */
 
-    return(1);
-    }
+        return(1);
+      }
 
-  rc = addclient(value);
-
-  if (rc != 0)
-    {
-    /* FAILURE */
-
-    return(1);
-    }
-
-  return(0);
-  }  /* END setpbsclient() */
+    return addclient(value, &rc);
+}  /* END setpbsclient() */
 
 
 
@@ -1699,7 +1689,6 @@ static u_long setpbsserver(
     }
 
   log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,value);
-
 
   return(mom_server_add(value));
   }  /* END setpbsserver() */
@@ -3894,25 +3883,35 @@ void log_verbose(
 
 int bad_restrict(
 
-  u_long ipadd)
+  struct sockaddr_storage* addr)
 
   {
+  int	i, len1, len2;
+  char	*cp1, *cp2, hostname[NI_MAXHOST];
+#ifdef TORQUE_WANT_IPV6
+
+#else
   struct hostent *host;
   struct in_addr in;
-  int	i, len1, len2;
-  char	*cp1, *cp2;
+#endif
 
-  in.s_addr = htonl(ipadd);
+#ifdef TORQUE_WANT_IPV6
+  error = getnameinfo(addr, SINLEN(addr), hostname, NI_MAXHOST, NULL, 0, 0);
+  if (error)
+    return(0);
+#else
+  in = ((struct sockaddr_in*)addr)->sin_addr;
+  if (NULL ==
+        (host = gethostbyaddr((void *)&in, sizeof(struct in_addr), AF_INET))) {
+      return(1);
+  } else {
+      /* hostname is garantueed to be bigger than what host can contain, if
+       * not, shoot the socket guys */
+      strcpy(hostname, host->h_name);
+  }
+#endif
 
-  if ((host = gethostbyaddr(
-        (void *)&in,
-        sizeof(struct in_addr), 
-        AF_INET)) == NULL)
-    {
-    return(1);
-    }
-
-  len1 = strlen(host->h_name) - 1;
+  len1 = strlen(hostname) - 1;
 
   for (i = 0;i < mask_num;i++) 
     {
@@ -3921,7 +3920,7 @@ int bad_restrict(
     if (len1 < len2)
       continue;
 
-    cp1 = &host->h_name[len1];
+    cp1 = &hostname[len1];
     cp2 = &maskclient[i][len2];
 
     /* check case insensitve */
@@ -3934,6 +3933,7 @@ int bad_restrict(
       len2--;
       }  /* END while () */
 
+    /* we could use strcasecmp if not for the wildcard parsing here */
     if (((len2 == 0) && (*cp2 == '*')) || (len2 == -1))
       {
       return(0);
@@ -3968,9 +3968,8 @@ int rm_request(
   char		*curr, *value, *cp, *body;
   struct	config		*ap;
   struct	rm_attribute	*attr;
-  struct	sockaddr_in	*addr;
-  unsigned long	ipadd;
-  u_short	port;
+  struct	sockaddr_storage *addr;
+  struct sockaddr_storage ipadd;
   void		(*close_io) A_((int));
   int		(*flush_io) A_((int));
   extern struct	connection svr_conn[];
@@ -3985,8 +3984,7 @@ int rm_request(
 
   if (tcp) 
     {
-    ipadd = svr_conn[iochan].cn_addr;
-    port = svr_conn[iochan].cn_port;
+    memcpy(&ipadd, &svr_conn[iochan].cn_addr, sizeof(struct sockaddr_storage));
 
     close_io = close_conn;
     flush_io = DIS_tcp_wflush;
@@ -3994,8 +3992,7 @@ int rm_request(
   else 
     {
     addr = rpp_getaddr(iochan);
-    ipadd = ntohl(addr->sin_addr.s_addr);
-    port = ntohs((unsigned short)addr->sin_port);
+    memcpy(&ipadd, &addr, sizeof(struct sockaddr_storage));
 
     close_io = (void(*) A_((int)) )rpp_close;
     flush_io = rpp_flush;
@@ -4009,13 +4006,13 @@ int rm_request(
     goto bad;
     }
 
-  if (((port_care != FALSE) && (port >= IPPORT_RESERVED)) ||
-      (tfind(ipadd,&okclients) == NULL)) 
+  if (((port_care != FALSE) && (GET_PORT(&ipadd) >= IPPORT_RESERVED)) ||
+      (lfind(&ipadd,okclients) == NULL)) 
     {
-    if (bad_restrict(ipadd)) 
+    if (bad_restrict(&ipadd)) 
       {
       sprintf(log_buffer,"bad attempt to connect - unauthorized (port: %d)",
-        port);
+        GET_PORT(&ipadd));
 
       NotTrusted = 1;
 
@@ -4515,7 +4512,7 @@ int rm_request(
 
               tmpLine[0] = '\0';
 
-              tlist(okclients,tmpLine,sizeof(tmpLine));
+              llist(okclients,tmpLine,sizeof(tmpLine));
 
               MUSNPrintF(&BPtr,&BSpace,"Trusted Client List:    %s\n",
                 tmpLine);
@@ -4853,19 +4850,10 @@ int rm_request(
 
 bad:
 
-  sprintf(output,"\n\tmessage refused from port %d addr %ld.%ld.%ld.%ld", 
-    port,
-    (ipadd & 0xff000000) >> 24,
-    (ipadd & 0x00ff0000) >> 16,
-    (ipadd & 0x0000ff00) >> 8,
-    (ipadd & 0x000000ff));
+  sprintf(output,"\n\tmessage refused from port %d addr %s",
+    GET_PORT(&ipadd), netaddr(&ipadd));
 
-  sprintf(TMOMRejectConn,"%ld.%ld.%ld.%ld:%d  %s",
-    (ipadd & 0xff000000) >> 24,
-    (ipadd & 0x00ff0000) >> 16,
-    (ipadd & 0x0000ff00) >> 8,
-    (ipadd & 0x000000ff),
-    port,
+  sprintf(TMOMRejectConn,"%s  %s", netaddr(&ipadd),
     (NotTrusted == 1) ? "(server not authorized)" : "(request corrupt)");
 
   strcat(log_buffer,output);
@@ -5181,18 +5169,11 @@ void tcp_request(
   {
   static	char id[] = "tcp_request";
   int		c;
-  long		ipadd;
   char		address[80];
   extern struct	connection	svr_conn[];
 
-  ipadd = svr_conn[fd].cn_addr;
-
-  sprintf(address, "%ld.%ld.%ld.%ld:%d",
-    (ipadd & 0xff000000) >> 24,
-    (ipadd & 0x00ff0000) >> 16,
-    (ipadd & 0x0000ff00) >> 8,
-    (ipadd & 0x000000ff),
-    ntohs(svr_conn[fd].cn_port));
+  /* watch out for buffer overflows... */
+  sprintf(address, "%s", netaddr(&svr_conn[fd].cn_addr));
 
   if (LOGLEVEL >= 6)
     {
@@ -5210,7 +5191,7 @@ void tcp_request(
 
   DIS_tcp_setup(fd);
 
-  if (tfind(ipadd,&okclients) == NULL) 
+  if (lfind(&svr_conn[fd].cn_addr, okclients) == NULL) 
     {
     sprintf(log_buffer,"bad connect from %s", 
       address);
@@ -6520,6 +6501,7 @@ int setup_program_environment()
 
   /* initialize the network interface */
 
+  /* TODO AF_INET[4|6] enable? */
   if (init_network(pbs_mom_port,process_request) != 0) 
     {
     c = errno;
@@ -6540,6 +6522,7 @@ int setup_program_environment()
     return(3);
     }
 
+  /* TODO AF_INET[4|6] enable? */
   if (init_network(pbs_rm_port,tcp_request) != 0) 
     {
     c = errno;
@@ -6847,12 +6830,12 @@ int setup_program_environment()
     exit(1);
     }
 
-  localaddr = addclient("localhost");
+  addclient("localhost", &localaddr);
 
-  addclient(mom_host);
+  addclient(mom_host, NULL);
 
   if (gethostname(ret_string,ret_size) == 0)
-    addclient(ret_string);
+    addclient(ret_string, NULL);
 
   tmpdir_basename[0]='\0';
 
@@ -6867,8 +6850,9 @@ int setup_program_environment()
 
   initialize();		/* init RM code */
 
-  add_conn(rppfd,Primary,(pbs_net_t)0,0,PBS_SOCK_INET,rpp_request);
-  add_conn(privfd,Primary,(pbs_net_t)0,0,PBS_SOCK_INET,rpp_request);
+  /* TODO what does (pbs_net_t)0 mean here? */
+  add_conn(rppfd,Primary,0,rpp_request);
+  add_conn(privfd,Primary,0,rpp_request);
 
   /* initialize machine-dependent polling routines */
 
