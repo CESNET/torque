@@ -147,12 +147,12 @@ typedef struct tree_t {
   struct tree_t  *right;
   } tree;
 
-struct list_t {
+typedef struct list_t {
   struct sockaddr_storage *key;
   struct pbsnode          *content;
   struct list_t           *prev;
   struct list_t           *next;
-}
+} list;
 
 /* NOTE:  should remove all node references and replace with 'tree' objects (NYI) */
 
