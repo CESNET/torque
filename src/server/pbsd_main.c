@@ -450,7 +450,6 @@ void parse_command_line(int argc, char *argv[])
   char   EMsg[1024];
   char	*servicename = NULL;
   struct sockaddr_storage def_pbs_server_addr;
-  struct sockaddr_storage tmp_addr; /* used for initialization, holds INADDR_ANY */
 
   static struct {
     char *it_name;
@@ -755,6 +754,16 @@ void parse_command_line(int argc, char *argv[])
 
           break;
 
+      case '4':
+
+          ip_mode = AF_INET;
+          break;
+
+      case '6':
+
+          ip_mode = AF_INET6;
+          break;
+
       default:
 
         PBSShowUsage("invalid command line arg");
@@ -902,9 +911,6 @@ void main_loop()
   last_jobstat_time = time_now;
   server.sv_started = time(&time_now);	/* time server started */
 
-
-  add_conn(rppfd,Primary,tmp_addr,rpp_request);
-  add_conn(privfd,Primary,tmp_addr,rpp_request);
 
   /* record the fact that we are up and running */
 
@@ -1185,6 +1191,7 @@ int main(
   int	 lockfds;
   int	 rppfd;			/* fd to receive is HELLO's */
   int	 privfd;		/* fd to send is messages */
+  struct sockaddr_storage any_addr; /* will be equivalent to IN[6]_ADDR_ANY */
   uint	 tryport;
   char	 lockfile[MAXPATHLEN + 1];
   char   EMsg[1024];
@@ -1221,9 +1228,9 @@ int main(
 
   strcpy(server_name,server_host);	/* by default server = host */
 
-  pbs_server_addr    = get_hostaddr(server_host);
-  pbs_mom_addr 	     = pbs_server_addr;   /* assume on same host */
-  pbs_scheduler_addr = pbs_server_addr;   /* assume on same host */
+  get_hostaddr(server_host, &pbs_server_addr);
+  memcpy(&pbs_mom_addr, &pbs_server_addr, SINLEN(&pbs_server_addr));   /* assume on same host */
+  memcpy(&pbs_scheduler_addr, &pbs_server_addr, SINLEN(&pbs_scheduler_port));   /* assume on same host */
 
  /* The following port numbers might have been initialized in set_globals_from_environment() above. */
 
@@ -1361,7 +1368,7 @@ int main(
   }
 #endif
 
-  if (init_network(pbs_server_port_dis,process_request) != 0) 
+  if (init_network(pbs_server_port_dis,process_request, AF_INET) != 0) 
     {
     perror("pbs_server: network");
 
@@ -1370,7 +1377,7 @@ int main(
     exit(3);
     }
 
-  if (init_network(0,process_request) != 0) 
+  if (init_network(0,process_request, PF_UNIX) != 0) 
     {
     perror("pbs_server: unix domain socket");
 
@@ -1437,7 +1444,7 @@ int main(
   plock(PROCLOCK);
 #endif
 
-  if ((rppfd = rpp_bind(pbs_server_port_dis)) == -1) 
+  if ((rppfd = rpp_bind(pbs_server_port_dis, AF_INET)) == -1) 
     {
     log_err(errno,msg_daemonname,"rpp_bind");
 
@@ -1452,7 +1459,7 @@ int main(
 
   while (--tryport > 0) 
     {
-    if ((privfd = rpp_bind(tryport)) != -1)
+    if ((privfd = rpp_bind(tryport, AF_INET)) != -1)
       break;
 
     if ((errno != EADDRINUSE) && (errno != EADDRNOTAVAIL))
@@ -1475,8 +1482,51 @@ int main(
       "creating rpp and private interfaces");
     }
 
-  add_conn(rppfd,Primary,(pbs_net_t)0,0,PBS_SOCK_INET,rpp_request);
-  add_conn(privfd,Primary,(pbs_net_t)0,0,PBS_SOCK_INET,rpp_request);
+  add_conn(rppfd,Primary,any_addr,rpp_request);
+  add_conn(privfd,Primary,any_addr,rpp_request);
+
+#ifdef TORQUE_WANT_IPV6
+  if ((rppfd6 = rpp_bind(pbs_server_port_dis, AF_INET6)) == -1) 
+    {
+    log_err(errno,msg_daemonname,"rpp_bind");
+
+    exit(1);
+    }
+
+  rpp_fd6 = -1;		/* force rpp_bind() to get another socket */
+
+  tryport = IPPORT_RESERVED;
+
+  privfd6 = -1;
+
+  while (--tryport > 0) 
+    {
+    if ((privfd6 = rpp_bind(tryport, AF_INET6)) != -1)
+      break;
+
+    if ((errno != EADDRINUSE) && (errno != EADDRNOTAVAIL))
+      break;
+    }
+
+  if (privfd6 == -1) 
+    {
+    log_err(errno,msg_daemonname,"no privileged ports");
+
+    exit(1);
+    }
+
+  if (LOGLEVEL >= 5)
+    {
+    log_event(
+      PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+      PBS_EVENTCLASS_SERVER,
+      msg_daemonname,
+      "creating rpp and private interfaces for IPv6");
+    }
+
+  add_conn(rppfd6,Primary,any_addr,rpp_request);
+  add_conn(privfd6,Primary,any_addr,rpp_request);
+#endif
 
   /*==========*/
   main_loop();

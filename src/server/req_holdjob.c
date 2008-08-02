@@ -212,8 +212,8 @@ void req_holdjob(
        
     /* have MOM attempt checkpointing */
 
-    if ((rc = relay_to_mom(pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
-               preq, post_hold)) != 0)
+    if ((rc = relay_to_mom(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+               preq, process_hold_reply)) != 0)
       {
       *hold_val = old_hold;  /* reset to the old value */
       req_reject(rc, 0, preq,NULL,NULL);
@@ -284,7 +284,7 @@ void req_checkpointjob(
     {
     /* have MOM attempt checkpointing */
 
-    if ((rc = relay_to_mom(pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+    if ((rc = relay_to_mom(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
                preq, process_checkpoint_reply)) != 0)
       {
       req_reject(rc, 0, preq,NULL,NULL);

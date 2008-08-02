@@ -351,7 +351,7 @@ static int shutdown_checkpoint(
     return(PBSE_SYSTEM);
     }
 
-  if (relay_to_mom(pjob->ji_qs.ji_un.ji_exect.ji_momaddr,phold,post_checkpoint) != 0) 
+  if (relay_to_mom(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr,phold,post_checkpoint) != 0) 
     {
     /* FAILURE */
 
