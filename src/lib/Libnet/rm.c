@@ -195,8 +195,7 @@ char TRMEMsg[1024];  /* global rm error message */
 int openrm(
 
   char         *host,  /* I */
-  unsigned int  port,
-  sa_family_t   sa_family)  /* I (optional,0=DEFAULT) */
+  unsigned int  port)
 
   {
   int                   stream;
@@ -230,9 +229,14 @@ int openrm(
 
     while (--tryport > 0) 
       {
-      
-      if (rpp_bind(tryport, sa_family) != -1)
+      /* try IPv4 first, then IPv6 */
+      if ((rpp_bind(tryport, AF_INET) != -1)
+#ifdef TORQUE_WANT_IPV6
+          || (rpp_bind(tryport, AF_INET6) != -1)
+#endif
+            )
         break;
+
 
       if ((errno != EADDRINUSE) && (errno != EADDRNOTAVAIL))
         break;
@@ -310,7 +314,7 @@ int openrm(
 	}
 
 #else /* !TORQUE_WANT_IPV6 case */
-  struct sockaddr_in6 addr;
+  struct sockaddr_in addr;
 
   if ((stream = socket(AF_INET,SOCK_STREAM,0)) != -1)
   {

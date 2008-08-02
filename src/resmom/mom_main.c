@@ -6589,8 +6589,6 @@ int setup_program_environment()
     }
 #endif
 
-  net_set_type(Secondary,TaskManagerDIS);
-
   /* go into the background and become own session/process group */
 
 #ifndef DEBUG
@@ -6851,7 +6849,7 @@ int setup_program_environment()
     exit(1);
     }
 
-  if ((rppfd = rpp_bind(pbs_rm_port)) == -1) 
+  if ((rppfd = rpp_bind(pbs_rm_port, ip_mode)) == -1) 
     {
     log_err(errno,id,"rpp_bind");
 
@@ -6864,7 +6862,7 @@ int setup_program_environment()
 
   while (--tryport > 0) 
     {
-    if ((privfd = rpp_bind(tryport)) != -1)
+    if ((privfd = rpp_bind(tryport, ip_mode)) != -1)
       break;
 
     if ((errno != EADDRINUSE) && (errno != EADDRNOTAVAIL))

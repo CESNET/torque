@@ -353,22 +353,6 @@ int addr_ok(
 
 
 
-/* FIXME: this should all be in a seperate header file */
-
-#if 1
-extern void linsert(const struct sockaddr_storage *key, struct pbsnode *nodep, struct list_t **rootp);
-extern void *ldelete(const struct sockaddr_storage *key, struct list_t **rootp);
-extern void lfree(struct list_t **rootp);
-#else
-extern void tinsert(const u_long key, struct pbsnode *nodep, tree **rootp);
-extern void *tdelete(const u_long key, tree **rootp);
-extern void tfree(tree **rootp);
-#endif
-
-
-
-
-
 /*
  * find_nodebyname() - find a node host by its name
  */
@@ -746,8 +730,8 @@ static void initialize_pbsnode(
 
   struct pbsnode *pnode,
   char           *pname, /* node name */
-  struct sockaddr_storage **pul,	 /* host byte order array */
-			 /* ipaddrs for this node */
+  struct sockaddr_storage **pul,	 /* host byte order array, ipaddrs for this node */
+  int            ip_cnt, /* number of elements in pul */
   int             ntype) /* time-shared or cluster */
 
   {
@@ -760,6 +744,7 @@ static void initialize_pbsnode(
   pnode->nd_name    = pname;
   pnode->nd_stream  = -1;
   pnode->nd_addrs   = pul;       /* list of host byte order */
+  pnode->nd_ip_cnt  = ip_cnt;
   pnode->nd_ntype   = ntype;
   pnode->nd_nsn     = 0;
   pnode->nd_nsnfree = 0;
@@ -778,7 +763,7 @@ static void initialize_pbsnode(
   pnode->nd_nstatus = 0;
   pnode->nd_warnbad = 0;
 
-  for (i = 0;pul[i];i++) 
+  for (i = 0; i < ip_cnt; i++)
     {
     if (LOGLEVEL >= 6)
       {
@@ -793,7 +778,7 @@ static void initialize_pbsnode(
         log_buffer);
       }
 
-    linsert(pul[i], pnode, &ipaddrs);
+    linsertIp(pnode);
     }  /* END for (i) */
 
   return;
@@ -864,25 +849,19 @@ void effective_node_delete(
     for (up = pnode->nd_addrs[0];up != NULL;up++) 
       {
       /* del node's IP addresses from tree  */
-
-#if 1
-      ldelete(up, &ipaddrs);
-#else
-      tdelete(SOCK_L(*up),&ipaddrs);
-#endif
+      ldeleteIp(up);
       }
 
     if (pnode->nd_addrs != NULL) 
-      {	
+      {
       /* remove array of IP addresses */
-
       free(pnode->nd_addrs);
 
       pnode->nd_addrs = NULL;
       }
     }
 
-  tdelete((u_long)pnode->nd_stream,&streams); /*take stream out of tree*/
+  tdeleteStream(pnode->nd_stream);
 
   rpp_close(pnode->nd_stream);
   free(pnode->nd_name);
@@ -1575,7 +1554,7 @@ int create_pbs_node(
   pnode->nd_ip_cnt = pul6_cnt;
   convert_pul_to_pul6(pul, pul6);
 
-  initialize_pbsnode(pnode,pname,pul6,ntype);
+  initialize_pbsnode(pnode,pname,pul6,pul6_cnt,ntype);
 
   /* create and initialize the first subnode to go with the parent node */
 
@@ -1744,13 +1723,8 @@ int setup_nodes(void)
 
   next_resource_tag = time(0);	/* initialize next resource handle */
 
-#if 1
-  lfree(&streams);
-  lfree(&ipaddrs);
-#else
-  tfree(&streams);
-  tfree(&ipaddrs);
-#endif
+  lfree(ipaddrs);
+  tfree(streams);
 
   svr_totnodes = 0;
 

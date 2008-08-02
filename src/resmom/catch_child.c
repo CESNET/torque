@@ -162,8 +162,8 @@ extern int mom_open_socket_to_jobs_server A_(( job *, char *, void (*) A_((int))
 extern void checkpoint_partial(job *pjob);
 extern void mom_checkpoint_recover(job *pjob);
 extern void clear_down_mom_servers();
-extern int is_mom_server_down(pbs_net_t);
-extern void set_mom_server_down(pbs_net_t);
+extern int is_mom_server_down(struct sockaddr_storage *);
+extern void set_mom_server_down(struct sockaddr_storage *);
 extern int no_mom_servers_down();
 
 
@@ -287,7 +287,7 @@ void scan_for_exiting()
      * Bypass job if it is for a server that we know is down
      */
     
-    if (is_mom_server_down(pjob->ji_qs.ji_un.ji_momt.ji_svraddr))
+    if (is_mom_server_down(&pjob->ji_qs.ji_un.ji_momt.ji_svraddr))
       {
       continue;
       }
@@ -645,7 +645,7 @@ void scan_for_exiting()
        * so Mom will retry Obit when server is available
        */
 
-      set_mom_server_down(pjob->ji_qs.ji_un.ji_momt.ji_svraddr);
+      set_mom_server_down(&pjob->ji_qs.ji_un.ji_momt.ji_svraddr);
 
       continue;
       }  /* END if (sock < 0) */
