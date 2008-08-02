@@ -147,14 +147,12 @@ typedef struct tree_t {
   struct tree_t  *right;
   } tree;
 
-#ifdef TORQUE_WANT_IPV6
 struct list_t {
   struct sockaddr_storage *key;
   struct pbsnode          *content;
   struct list_t           *prev;
   struct list_t           *next;
 }
-#endif
 
 /* NOTE:  should remove all node references and replace with 'tree' objects (NYI) */
 
@@ -166,8 +164,10 @@ typedef struct node_t {
   } node;
 */
 
+#if 0
 struct pbsnode *tfind(const u_long,tree **);
 int tlist(tree *,char *,int);
+#endif
 
 
 /*
@@ -237,12 +237,13 @@ extern struct pbsnode	**pbsndlist;		/* array of ptr to nodes  */
 extern int		  svr_totnodes;		/* number of nodes (hosts) */
 extern int		  svr_tsnodes;		/* number of timeshared nodes */
 extern int		  svr_clnodes;		/* number of cluster nodes */
-#ifdef TORQUE_WANT_IPV6
+#if 1
 extern struct list_t	 *ipaddrs;
+extern struct list_t   *streams;
 #else
 extern struct tree_t	 *ipaddrs;
-#endif
 extern struct tree_t	 *streams;
+#endif
 
 extern int update_nodes_file A_((void));
 
