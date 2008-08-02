@@ -212,15 +212,9 @@ static void funcs_dis() /* The equivalent of DIS_tcp_funcs() */
 **      Modified by Tom Proett <proett@nas.nasa.gov> for PBS.
 */
 
-#ifdef TORQUE_WANT_IPV6
 struct list_t *ipaddrs = NULL;
-#else
-tree *ipaddrs = NULL;	/* tree of ip addrs */
-#endif
-tree *streams = NULL;	/* tree of stream numbers */
+struct list_t *streams = NULL;	/* tree of stream numbers */
 
-
-#ifdef TORQUE_WANT_IPV6
 
 struct list_t *lfind(
             const struct sockaddr_storage *key, /* I - IP to find a pbsnode to */
@@ -279,8 +273,6 @@ int ldelete(
 
     free(node);
 }
-
-#endif
 
 
 /* find value in tree, return NULL if not found */
@@ -482,7 +474,6 @@ void tfree(
 
   return;
   }  /* END tfree() */
-
 
 
 

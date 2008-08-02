@@ -355,9 +355,15 @@ int addr_ok(
 
 /* FIXME: this should all be in a seperate header file */
 
+#if 1
+extern void linsert(const struct sockaddr_storage *key, struct pbsnode *nodep, struct list_t **rootp);
+extern void *ldelete(const struct sockaddr_storage *key, struct list_t **rootp);
+extern void lfree(struct list_t **rootp);
+#else
 extern void tinsert(const u_long key, struct pbsnode *nodep, tree **rootp);
 extern void *tdelete(const u_long key, tree **rootp);
 extern void tfree(tree **rootp);
+#endif
 
 
 
@@ -787,9 +793,7 @@ static void initialize_pbsnode(
         log_buffer);
       }
 
-    /* FIXME: this is TOTALLY broken with IP adresses != u_long
-	 * tinsert(pul[i],pnode,&ipaddrs); */
-	tinsert(i, pnode, &ipaddrs);
+    linsert(pul[i], pnode, &ipaddrs);
     }  /* END for (i) */
 
   return;
@@ -861,8 +865,8 @@ void effective_node_delete(
       {
       /* del node's IP addresses from tree  */
 
-#ifdef TORQUE_WANT_IPV6
-      ldelete(*up, &ipaddrs);
+#if 1
+      ldelete(up, &ipaddrs);
 #else
       tdelete(SOCK_L(*up),&ipaddrs);
 #endif
@@ -1740,8 +1744,13 @@ int setup_nodes(void)
 
   next_resource_tag = time(0);	/* initialize next resource handle */
 
+#if 1
+  lfree(&streams);
+  lfree(&ipaddrs);
+#else
   tfree(&streams);
   tfree(&ipaddrs);
+#endif
 
   svr_totnodes = 0;
 
