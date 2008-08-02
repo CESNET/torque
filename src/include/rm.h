@@ -82,7 +82,9 @@
 **	to the resource monitor.
 */
 
-int	openrm		A_((char *,unsigned int));
+#include <sys/socket.h> /* for sa_family_t */
+
+int	openrm		A_((char *,unsigned int, sa_family_t));
 int	closerm		A_((int));
 int	downrm		A_((int));
 int	configrm	A_((int,char *));
