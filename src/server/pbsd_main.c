@@ -282,9 +282,7 @@ void do_rpp(
       {
       struct pbsnode *node;
 
-      extern tree *streams;        /* tree of stream numbers */
-
-      node = tfind((u_long)stream,&streams);
+      node = tfindStream(stream);
 
       sprintf(log_buffer,"corrupt rpp request received on stream %d (node: \"%s\", %s) - invalid protocol - rc=%d (%s)",
         stream,

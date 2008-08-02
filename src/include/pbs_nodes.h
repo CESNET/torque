@@ -140,13 +140,21 @@ struct pbsnode {
   time_t                 nd_lastupdate; /* time of last update. */
   };
 	
+/**
+ * Tree based structure to map stream numbers to pbsnodes
+ * Use list_t for mapping sockaddr_storage to pbsnodes!
+ **/
 typedef struct tree_t {
-  u_long          key;
-  struct pbsnode *nodep;
+  int             key;
+  struct pbsnode *content;
   struct tree_t  *left;
   struct tree_t  *right;
-  } tree;
+} tree;
 
+/**
+ * Doubly linked list for mapping a sockaddr_storage to a pbsnode
+ * Use tree_t for mapping stream numbers to pbsnodes!
+ **/
 typedef struct list_t {
   struct sockaddr_storage *key;
   struct pbsnode          *content;
@@ -154,22 +162,17 @@ typedef struct list_t {
   struct list_t           *next;
 } list;
 
-/* NOTE:  should remove all node references and replace with 'tree' objects (NYI) */
+struct pbsnode *tfindStream(const int Id);
+void tinsertStream(struct pbsnode *node);
+void tdeleteStream(const int Id);
+void tfree(struct tree_t *root);
 
-/*
-typedef struct node_t {
-  u_long         key;
-  struct node_t *left;
-  struct node_t *right;
-  } node;
-*/
+struct pbsnode *lfindIp(const struct sockaddr_storage * addr);
+void linsertIp(struct pbsnode *node);
+void ldeleteIp(struct sockaddr_storage * addr);
+void lfree(struct list_t *root);
 
-#if 0
-struct pbsnode *tfind(const u_long,tree **);
-int tlist(tree *,char *,int);
-#endif
-
-
+ 
 /*
  * The following INUSE_ are used in both subnode.inuse and in node.nd_state
  */
@@ -237,13 +240,8 @@ extern struct pbsnode	**pbsndlist;		/* array of ptr to nodes  */
 extern int		  svr_totnodes;		/* number of nodes (hosts) */
 extern int		  svr_tsnodes;		/* number of timeshared nodes */
 extern int		  svr_clnodes;		/* number of cluster nodes */
-#if 1
 extern struct list_t	 *ipaddrs;
-extern struct list_t   *streams;
-#else
-extern struct tree_t	 *ipaddrs;
 extern struct tree_t	 *streams;
-#endif
 
 extern int update_nodes_file A_((void));
 

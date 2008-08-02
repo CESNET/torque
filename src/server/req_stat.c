@@ -120,10 +120,7 @@ extern attribute_def  node_attr_def[];   /* node attributes defs */
 extern int	       pbs_mom_port;
 extern time_t	       time_now;
 extern char	      *msg_init_norerun;
-#if 0
-extern struct pbsnode *tfind_addr(const u_long);
-#endif
-extern struct pbsnode *lfind_addr(const u_long);
+extern struct pbsnode *lfindIp(const struct sockaddr_storage *);
 extern int             LOGLEVEL;
 
 /* Extern Functions */
@@ -546,11 +543,7 @@ int stat_to_mom(
 
   /* if MOM is down just return stale information */
 
-#ifdef TORQUE_WANT_IPV6
-  if (((node = lfind_addr(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr)) != NULL) &&
-#else
-  if (((node = tfind_addr(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr)) != NULL) &&
-#endif
+  if (((node = lfindIp(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr)) != NULL) &&
        (node->nd_state & (INUSE_DELETED|INUSE_DOWN)))
     {
     if (LOGLEVEL >= 6)
