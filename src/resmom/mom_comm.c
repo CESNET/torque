@@ -142,7 +142,7 @@ extern	tlist_head	mom_polljobs;	/* must have resource limits polled */
 extern	tlist_head	svr_alljobs;	/* all jobs under MOM's control */
 extern	int		termin_child;
 extern	time_t		time_now;
-extern	tree           *okclients;	/* accept connections from */
+extern struct list_t *okclients; /* accept connections from */
 extern  int             port_care;
 extern  char           *path_prologp;
 extern  char           *path_prologuserp;
@@ -881,8 +881,8 @@ hnodent	*find_node(
   int			i;
   vnodent		*vp;
   hnodent		*hp;
-  struct  sockaddr_in   *stream_addr;
-  struct  sockaddr_in   *node_addr;
+  struct  sockaddr_storage   *stream_addr;
+  struct  sockaddr_storage   *node_addr;
 
   for (vp = pjob->ji_vnods,i = 0;i < pjob->ji_numvnod;vp++,i++) 
     {
@@ -952,7 +952,7 @@ hnodent	*find_node(
         sizeof(node_addr->sin_addr)) != 0) 
     {
 */
-  if (stream_addr->sin_addr.s_addr != node_addr->sin_addr.s_addr)
+  if (compare_ip(stream_addr, node_addr))
     {
     char *addr1;
     char *addr2;
@@ -1335,7 +1335,7 @@ void im_eof(
   int                   num;
   job                  *pjob;
   hnodent              *np;
-  struct sockaddr_in   *addr;
+  struct sockaddr_storage   *addr;
 
   addr = rpp_getaddr(stream);
 
@@ -1432,12 +1432,12 @@ int check_ms(
   {
   static char id[] = "check_ms";
 
-  struct sockaddr_in *addr;
+  struct sockaddr_storage *addr;
   hnodent            *np;
 
   addr = rpp_getaddr(stream);
 
-  if ((port_care != 0) && (ntohs(addr->sin_port) >= IPPORT_RESERVED))
+  if ((port_care != 0) && (GET_PORT(addr) >= IPPORT_RESERVED))
     {
     sprintf(log_buffer,"non-privileged connection from %s", 
       netaddr(addr));
@@ -1706,8 +1706,7 @@ void im_request(
   hnodent		*np;
   eventent		*ep = NULL;
   infoent		*ip;
-  struct sockaddr_in	*addr;
-  u_long		ipaddr;
+  struct sockaddr_storage	*addr;
   int			i, j, errcode, nodeidx = 0;
   int			reply;
   int			exitval;
@@ -1748,7 +1747,6 @@ void im_request(
   /* check that machine is known */
 
   addr = rpp_getaddr(stream);
-  ipaddr = ntohl(addr->sin_addr.s_addr);
 
   if (LOGLEVEL >= 3)
     {
@@ -1762,13 +1760,13 @@ void im_request(
       log_buffer);
     }
 
-  if (tfind(ipaddr,&okclients) == NULL) 
+  if (lfind(addr,okclients) == NULL) 
     {
-    char tmpLine[1024];
+    char tmpLine[2048];
 
     tmpLine[0] = '\0';
 
-    tlist(okclients,tmpLine,1024);
+    llist(okclients,tmpLine,1024);
 
     sprintf(log_buffer,"bad connect from %s - unauthorized (okclients: %s)",
       netaddr(addr),
@@ -4176,7 +4174,7 @@ int tm_request(
   hnodent	*phost;
   int		i, event, numele;
   size_t	len;
-  long		ipadd;
+  struct sockaddr_storage ipadd;
   char		**argv, **envp;
   char		*name, *info;
   eventent	*ep;
@@ -4187,12 +4185,12 @@ int tm_request(
   tm_node_id	nodeid;
   tm_task_id	taskid = 0, fromtask;
   attribute	*at;
-  extern	u_long		localaddr;
+  extern	struct sockaddr_storage localaddr;
   extern	struct	connection	svr_conn[];
 
   int start_process A_((task *ptask,char **argv,char **envp));
 
-  if (svr_conn[fd].cn_addr != localaddr) 
+  if (! compare_ip(&svr_conn[fd].cn_addr, &localaddr)) 
     {
     sprintf(log_buffer,"non-local connect");
 
@@ -5302,14 +5300,10 @@ err:
 
   log_err(errno,id,log_buffer);
 
-  ipadd = svr_conn[fd].cn_addr;
+  memcpy(&ipadd, &svr_conn[fd].cn_addr, sizeof(struct sockaddr_storage));
 
-  sprintf(log_buffer,"message refused from port %d addr %ld.%ld.%ld.%ld",
-    svr_conn[fd].cn_port,
-    (ipadd & 0xff000000) >> 24,
-    (ipadd & 0x00ff0000) >> 16,
-    (ipadd & 0x0000ff00) >> 8,
-    (ipadd & 0x000000ff));
+  sprintf(log_buffer,"message refused from port %d addr %s",
+    GET_PORT(&svr_conn[fd].cn_addr), netaddr(&svr_conn[fd].cn_addr));
 
   close_conn(fd);
 
