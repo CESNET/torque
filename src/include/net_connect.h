@@ -212,4 +212,9 @@ struct netcounter {
 };
 
 int *netcounter_get();
+
+/* Which IP Protocol version do we want?
+ * Gets set during commandline parsing
+ */
+sa_family_t ip_mode;
 #endif
