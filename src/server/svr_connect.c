@@ -386,13 +386,23 @@ int socket_to_handle(
 
     svr_conn[sock].cn_handle = i;
 
+    if (i >= (PBS_NET_MAX_CONNECTIONS/2))
+      {
+      sprintf(log_buffer,"internal socket table is half-full at %d (expected num_connections is %d)!",
+        i,
+        get_num_connections());
+
+      log_ext(-1,id,log_buffer,LOG_CRIT);
+      }
+
     return(i);
     }  /* END for (i) */
 
-  sprintf(log_buffer,"internal socket table full - num_connections is %d",
+  sprintf(log_buffer,"internal socket table full (%d) - num_connections is %d",
+    i,
     get_num_connections());
 
-  log_err(-1,id,log_buffer);
+  log_ext(-1,id,log_buffer,LOG_ALERT);
 
   pbs_errno = PBSE_NOCONNECTS;
 

@@ -1540,7 +1540,7 @@ static void obit_reply(
   int sock)  /* I */
 
   {
-  int                    irtn;
+  int      irtn;
   job			*nxjob;
   job			*pjob;
   attribute		*pattr;
@@ -1680,6 +1680,8 @@ static void obit_reply(
 
               break;
             }  /* END switch (preq->rq_reply.brp_code) */
+
+          log_ext(-1,"obit_reply",tmpLine,LOG_ALERT); /* Yahoo */
 
           LOG_EVENT(
             PBSEVENT_ERROR,
