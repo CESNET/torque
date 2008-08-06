@@ -33,6 +33,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - added string output for errnos, etc.
   b - fixed pbs_server segmentation fault when job_array submissions are rejected 
       before ji_arraystruct was initialized
+  b - changed so run_pelog opens correct stdout/stderr when join is used
 
   
 2.2.1
