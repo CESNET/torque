@@ -4592,7 +4592,6 @@ int rm_request(
               MUStrNCat(&BPtr,&BSpace,tmpLine);
               }
 
-#ifdef DIAGNEWJOBS
             if ((pjob = (job *)GET_NEXT(svr_newjobs)) != NULL)
               {
               while (pjob != NULL)
@@ -4605,7 +4604,6 @@ int rm_request(
                 pjob = (job *)GET_NEXT(pjob->ji_alljobs);
                 }
               }
-#endif
                 
             if ((pva = (struct varattr *)GET_NEXT(mom_varattrs)) != NULL)
               {
@@ -4896,12 +4894,12 @@ void do_rpp(
   int stream)  /* I */
 
   {
-  static char		id[] = "do_rpp";
+  static char     id[] = "do_rpp";
 
-  int			ret, proto, version;
-  void im_request	A_((int,int));
-  void is_request	A_((int,int,int *));
-  void im_eof		A_((int,int));
+  int             ret, proto, version;
+  void im_request A_((int,int));
+  void is_request A_((int,int,int *));
+  void im_eof     A_((int,int));
 
   DIS_rpp_reset();
   proto = disrsi(stream,&ret);
@@ -6119,11 +6117,11 @@ void parse_command_line(
   char *argv[])  /* I */
 
   {
-  extern char	*optarg;
-  extern int	optind;
-  int           errflg;
-  int           c;
-  char		*ptr;                   /* local tmp variable */
+  extern char *optarg;
+  extern int   optind;
+  int          errflg;
+  int          c;
+  char        *ptr;                   /* local tmp variable */
 
   errflg = 0;
 
@@ -6354,25 +6352,31 @@ void parse_command_line(
 
     exit(1);
     }
-}
+
+  return;
+  }  /* END parse_command_line() */
 
 
 
-/*
+
+
+
+/**
  * setup_program_environment
  */
 
 int setup_program_environment()
-{
+
+  {
   static char   id[] = "setup_program_environment";
-  int	 	c;
-  int       hostc=1;
-  FILE		*dummyfile;
+  int           c;
+  int           hostc = 1;
+  FILE         *dummyfile;
   int		tryport;
-  int		rppfd;			/* fd for rm and im comm */
-  int		privfd = 0;		/* fd for sending job info */
+  int		rppfd;		/* fd for rm and im comm */
+  int		privfd = 0;	/* fd for sending job info */
   struct sigaction act;
-  char		*ptr;                   /* local tmp variable */
+  char         *ptr;            /* local tmp variable */
 
   /* must be started with real and effective uid of 0 */
 
@@ -6412,7 +6416,6 @@ int setup_program_environment()
   c = getgid();
 
   setgroups(1,(gid_t *)&c);	/* secure suppl. groups */
-
 
 #ifndef DEBUG
 #ifdef _CRAY
@@ -7184,6 +7187,7 @@ int TMOMScanForStarting(void)
  */
 
 void examine_all_polled_jobs()
+
   {
   static char id[] = "examine_all_polled_jobs";
   job         *pjob;
@@ -7268,7 +7272,12 @@ void examine_all_polled_jobs()
       pjob->ji_qs.ji_svrflags |= JOB_SVFLG_OVERLMT1;
       }
     }    /* END for (pjob) */
-  }
+
+  return;
+  }      /* END examine_all_polled_jobs() */
+
+
+
 
 
 
@@ -7277,6 +7286,7 @@ void examine_all_polled_jobs()
  */
 
 void examine_all_running_jobs()
+
   {
   job         *pjob;
 #ifdef _CRAY
@@ -7288,109 +7298,112 @@ void examine_all_running_jobs()
   extern int start_checkpoint();
 #endif /* MOM_CHECKPOINT */
 
-    for (pjob = (job *)GET_NEXT(svr_alljobs);
-         pjob != NULL;
-         pjob = (job *)GET_NEXT(pjob->ji_alljobs)) 
+  for (pjob = (job *)GET_NEXT(svr_alljobs);
+       pjob != NULL;
+       pjob = (job *)GET_NEXT(pjob->ji_alljobs)) 
+    {
+    if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
+      continue;
+
+    if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
+      continue;
+
+    /* update information for my tasks */
+
+    mom_set_use(pjob);
+
+    /* have all job processes vanished undetected?       */
+    /* double check by sig0 to session pid for each task */
+
+    if (pjob->ji_flags & MOM_NO_PROC) 
       {
-      if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
-        continue;
+      pjob->ji_flags &= ~MOM_NO_PROC;
 
-      if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
-        continue;
-
-      /* update information for my tasks */
-
-      mom_set_use(pjob);
-
-      /* has all job processes vanished undetected ?       */
-      /* double check by sig0 to session pid for each task */
-
-      if (pjob->ji_flags & MOM_NO_PROC) 
+      for (ptask = (task *)GET_NEXT(pjob->ji_tasks);
+           ptask != NULL;
+           ptask = (task *)GET_NEXT(ptask->ti_jobtask))
         {
-        pjob->ji_flags &= ~MOM_NO_PROC;
-
-        for (ptask = (task *)GET_NEXT(pjob->ji_tasks);
-             ptask != NULL;
-             ptask = (task *)GET_NEXT(ptask->ti_jobtask))
-          {
 #ifdef _CRAY
-          if (pjob->ji_globid == NULL)
-            break;
+        if (pjob->ji_globid == NULL)
+          break;
 
-          c = atoi(pjob->ji_globid);
+        c = atoi(pjob->ji_globid);
 
-          if ((kill((pid_t)c,0) == -1) && (errno == ESRCH)) 
+        if ((kill((pid_t)c,0) == -1) && (errno == ESRCH)) 
 #else	/* not cray */
-          if ((kill(ptask->ti_qs.ti_sid,0) == -1) && (errno == ESRCH)) 
+        if ((kill(ptask->ti_qs.ti_sid,0) == -1) && (errno == ESRCH)) 
 #endif	/* not cray */
+          {
+          if (LOGLEVEL >= 3)
             {
+            LOG_EVENT(
+              PBSEVENT_JOB, 
+              PBS_EVENTCLASS_JOB, 
+              pjob->ji_qs.ji_jobid, 
+              "no active process found");
+            }
 
-            if (LOGLEVEL >= 3)
-              {
-              LOG_EVENT(
-                PBSEVENT_JOB, 
-                PBS_EVENTCLASS_JOB, 
-                pjob->ji_qs.ji_jobid, 
-                "no active process found");
-              }
+          ptask->ti_qs.ti_exitstat = 0;
+          ptask->ti_qs.ti_status = TI_STATE_EXITED;
+          pjob->ji_qs.ji_un.ji_momt.ji_exitstat = 0;
 
-            ptask->ti_qs.ti_exitstat = 0;
-            ptask->ti_qs.ti_status = TI_STATE_EXITED;
-            pjob->ji_qs.ji_un.ji_momt.ji_exitstat = 0;
+          if (LOGLEVEL >= 6)
+            {
+            log_record(
+              PBSEVENT_ERROR,
+              PBS_EVENTCLASS_JOB,
+              pjob->ji_qs.ji_jobid,
+              "saving task (main loop)");
+            }
 
-            if (LOGLEVEL >= 6)
-              {
-              log_record(
-                PBSEVENT_ERROR,
-                PBS_EVENTCLASS_JOB,
-                pjob->ji_qs.ji_jobid,
-                "saving task (main loop)");
-              }
+          task_save(ptask);
 
-            task_save(ptask);
-
-            exiting_tasks = 1;
-            }  /* END if ((kill == -1) && ...) */
-
-          }    /* END while (ptask != NULL) */
-        }      /* END if (pjob->ji_flags & MOM_NO_PROC) */
+          exiting_tasks = 1;
+          }  /* END if ((kill == -1) && ...) */
+        }    /* END while (ptask != NULL) */
+      }      /* END if (pjob->ji_flags & MOM_NO_PROC) */
 
 #if MOM_CHECKPOINT == 1
 
-      /* see if need to checkpoint any job */
+    /* see if need to checkpoint any job */
 
-      if (pjob->ji_chkpttime != 0)  /* ji_chkpttime gets set in start_exec */
+    if (pjob->ji_chkpttime != 0)  /* ji_chkpttime gets set in start_exec */
+      {
+      int rc;
+
+      prscput = find_resc_entry(
+        &pjob->ji_wattr[(int)JOB_ATR_resc_used],
+        rdcput);  /* resource definition cput set in startup */
+
+      if (prscput &&
+         (pjob->ji_chkptnext > prscput->rs_value.at_val.at_long))
         {
-        int rc;
+        pjob->ji_chkptnext = 
+          prscput->rs_value.at_val.at_long +
+          pjob->ji_chkpttime;
 
-        prscput = find_resc_entry(
-          &pjob->ji_wattr[(int)JOB_ATR_resc_used],
-          rdcput);  /* resource definition cput set in startup */
-
-        if (prscput &&
-           (pjob->ji_chkptnext > prscput->rs_value.at_val.at_long))
+        if ((rc = start_checkpoint(pjob,0,0)) != PBSE_NONE)
           {
-          pjob->ji_chkptnext = 
-            prscput->rs_value.at_val.at_long +
-            pjob->ji_chkpttime;
+          sprintf(log_buffer,"Checkpoint failed, error %d", rc);
 
-          if ((rc = start_checkpoint(pjob,0,0)) != PBSE_NONE)
-            {
-            sprintf(log_buffer,"Checkpoint failed, error %d", rc);
+          message_job(pjob,StdErr,log_buffer);
 
-            message_job(pjob,StdErr,log_buffer);
-
-            log_record(
-              PBSEVENT_JOB, 
-              PBS_EVENTCLASS_JOB,
-              pjob->ji_qs.ji_jobid, 
-              log_buffer);
-            }
+          log_record(
+            PBSEVENT_JOB, 
+            PBS_EVENTCLASS_JOB,
+            pjob->ji_qs.ji_jobid, 
+            log_buffer);
           }
         }
+      }
 #endif	/* MOM_CHECKPOINT */
-      }  /* END for (pjob) */
-  }
+    }   /* END for (pjob) */
+
+  return;
+  }  /* END examine_all_running_jobs() */
+
+
+
 
 
 
@@ -7399,8 +7412,9 @@ void examine_all_running_jobs()
  */
 
 void kill_all_running_jobs()
-{
-  job		*pjob;
+
+  {
+  job *pjob;
 
   for (pjob = (job *)GET_NEXT(svr_alljobs);
        pjob != NULL;
@@ -7418,14 +7432,20 @@ void kill_all_running_jobs()
       {
       term_job(pjob);
       }
-    }
+    }  /* END for (pjob) */
 
-    if (termin_child != 0)
-      scan_for_terminated();
+  if (termin_child != 0)
+    scan_for_terminated();
 
-    if (exiting_tasks)
-      scan_for_exiting();
-}
+  if (exiting_tasks)
+    scan_for_exiting();
+
+  return;
+  }  /* END kill_all_running_jobs() */
+
+
+
+
 
 
 
@@ -7434,7 +7454,8 @@ void kill_all_running_jobs()
  */
 
 void main_loop()
-{
+
+  {
   static char   id[] = "main_loop";
   extern time_t	wait_time;
   double        myla;
@@ -7443,6 +7464,7 @@ void main_loop()
   time_t time_now;
 
   mom_run_state = MOM_RUN_STATE_RUNNING;  /* mom_run_state is altered by stop_me() or MOMCheckRestart() */
+
   while (mom_run_state == MOM_RUN_STATE_RUNNING)
     {
     rpp_io();
@@ -7470,9 +7492,9 @@ void main_loop()
     /* should we check the log file ?*/
 
     if (time_now >= (last_log_check + PBS_LOG_CHECK_RATE))
-       {
-       check_log();  /* Possibly do a log_roll */
-       }
+      {
+      check_log();  /* Possibly do a log_roll */
+      }
 
 #if 0
     if (mom_server_all_check_connection() == 0)  /* Are we connected to any server? */
@@ -7537,9 +7559,6 @@ void main_loop()
 
     TMOMScanForStarting();
 
-
-
-
     rpp_request(42);  /* cycle the rpp messaging system */
 
     /* unblock signals */
@@ -7574,14 +7593,16 @@ void main_loop()
     if (sigprocmask(SIG_BLOCK,&allsigs,NULL) == -1)
       log_err(errno,id,"sigprocmask(BLOCK)");
 
-
     if ((pjob = (job *)GET_NEXT(svr_alljobs)) == NULL)
       {
       MOMCheckRestart();  /* There are no jobs, see if the server needs to be restarted. */
       }
+    }  /* END while (mom_run_state == MOM_RUN_STATE_RUNNING) */
 
-    }      /* END while (mom_run_state == MOM_RUN_STATE_RUNNING) */
-  }
+  return;
+  }    /* END main_loop() */
+
+
 
 
 
@@ -7589,22 +7610,34 @@ void main_loop()
  * restart_mom
  */
 
-void restart_mom( int argc, char *argv[] )
-{
-  static	char id[] = "restart_mom";
-  char *envstr;
+void restart_mom( 
+
+  int   argc, 
+  char *argv[])
+
+  {
+  static char  id[] = "restart_mom";
+  char        *envstr;
 
   envstr = malloc(
-        (strlen("PATH") + strlen(orig_path) + 2) * sizeof(char));
+    (strlen("PATH") + strlen(orig_path) + 2) * sizeof(char));
 
   strcpy(envstr,"PATH=");
   strcat(envstr,orig_path);
   putenv(envstr);
+
   DBPRT(("Re-execing myself now...\n"));
+
   execvp(MOMExePath,argv);
-  sprintf(log_buffer,"Execing myself failed: %s (%d)",strerror(errno),errno);
+
+  sprintf(log_buffer,"Execing myself failed: %s (%d)",
+    strerror(errno),
+    errno);
+
   log_err(errno,id,log_buffer);
-}
+
+  return;
+  }
 
 
 

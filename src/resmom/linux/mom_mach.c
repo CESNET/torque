@@ -1542,8 +1542,8 @@ int mom_set_limits(
  * State whether MOM main loop has to poll this job to determine if some
  * limits are being exceeded.
  *
- *	Sets flag TRUE if polling is necessary, FALSE otherwise.  Actual
- *	polling is done using the mom_over_limit machine-dependent function.
+ * Sets flag TRUE if polling is necessary, FALSE otherwise.  Actual
+ * polling is done using the mom_over_limit machine-dependent function.
  */
 
 int mom_do_poll(
@@ -1635,9 +1635,18 @@ int mom_open_poll()
 
 
 
+
 /*
  * Declare start of polling loop.
  *
+ * NOTE:  populates global 'proc_array[]' variable.
+ * NOTE:  reallocs proc_array[] as needed to accomodate processes.
+ *
+ * @see mom_open_poll() - allocs proc_array table.
+ * @see mom_close_poll() - frees procs_array.
+ * @see setup_program_environment() - parent - called at pbs_mom start
+ * @see main_loop() - parent - called once per iteration
+ * @see mom_set_use() - populate job structure with usage data for local use or to send to mother superior
  */
 
 int mom_get_sample()
@@ -1827,8 +1836,8 @@ int mom_over_limit(
       } 
     else if (strcmp(pname,"walltime") == 0) 
       {
-
       /* no need to check walltime on sisters, MS will get it */
+
       if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
         continue;
 
@@ -1868,17 +1877,21 @@ int mom_over_limit(
  * The first time this is called for a job, set up resource entries for
  * each resource that can be reported for this machine.  Fill in the
  * correct values.  Return an error code.
+ * 
+ * @see im_request() - parent - respond to poll_job request from mother superior
+ * @see examine_all_running_jobs() - parent - update local use on mother superior
+ * @see TMomFinalizeJob1() - parent - update serial job immediately at job start
  */
 
 int mom_set_use(
 
-  job *pjob)
+  job *pjob)  /* I (modified) */
 
   {
-  resource		*pres;
-  attribute		*at;
-  resource_def		*rd;
-  unsigned long		*lp, lnum;
+  resource      *pres;
+  attribute     *at;
+  resource_def  *rd;
+  unsigned long *lp, lnum;
 
   assert(pjob != NULL);
   at = &pjob->ji_wattr[(int)JOB_ATR_resc_used];
@@ -1896,7 +1909,7 @@ int mom_set_use(
 
     assert(rd != NULL);
 
-    pres = add_resource_entry(at, rd);
+    pres = add_resource_entry(at,rd);
     pres->rs_value.at_flags |= ATR_VFLAG_SET;
     pres->rs_value.at_type = ATR_TYPE_LONG;
 
@@ -1974,6 +1987,7 @@ int mom_set_use(
   assert(pres != NULL);
 
   /* NOTE: starting jobs can come through here before stime is recorded */
+
   if (pjob->ji_qs.ji_stime == 0)
     pres->rs_value.at_val.at_long = 0;
   else
@@ -2002,10 +2016,11 @@ int mom_set_use(
 
 
 
+
 /*
- *	Kill a task session.
- *	Call with the task pointer and a signal number.
- *      return number of tasks signalled (0 = failure) 
+ * Kill a task session.
+ * Call with the task pointer and a signal number.
+ *   return number of tasks signalled (0 = failure) 
  */
 
 /* NOTE:  should support killpg() or killpidtree() (NYI) 
@@ -2282,6 +2297,7 @@ int mom_close_poll()
 
   return(PBSE_NONE);
   }  /* END mom_close_poll() */
+
 
 
 

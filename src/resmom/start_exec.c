@@ -1483,6 +1483,8 @@ int InitUserEnv(
  * Used by MOM superior to start the shell process.
  * perform all server level pre-job tasks, collect information
  * create parent-child pipes 
+ *
+ * @see mom_set_use() - child
  */
 
 int TMomFinalizeJob1(
@@ -1509,7 +1511,6 @@ int TMomFinalizeJob1(
   struct stat		sb;
   int                   rc; /* return code */
 #endif /* MOM_CHECKPOINT */
-
 
   *SC = 0;
 
@@ -5526,11 +5527,12 @@ char *std_file_name(
 
 
 
-/*
+/**
  * open_std_file - open/create either standard output or standard error 
-                   for the job.
+ *                 for the job.
+ *
  * NOTE:           called by pbs_mom child - cannot log to mom log file - use
-                   log_err to report to syslog
+ *                 log_err to report to syslog
  *
  * RETURN:         -1 on failure, -2 on timeout, or file descriptor on success
  */
@@ -5544,7 +5546,7 @@ int open_std_file(
 
   {
   int   fds;
-  int   keeping;
+  int   keeping;  /* boolean:  1=TRUE, 0=FALSE */
   char *path;
   int   old_umask = 0;
   struct stat statbuf;
@@ -5606,15 +5608,21 @@ int open_std_file(
       {
       /* lstat failed - should we return failure in all cases? */
 
-      if (errno == EINTR)
-        sprintf(log_buffer,"cannot stat stdout/stderr file '%s' (timeout)",
-          path);
-      else
-        sprintf(log_buffer,"cannot stat stdout/stderr file '%s' - file does not exist, will create",
-          path);
-
       if (LOGLEVEL >= 6)
+        {
+        if (errno == EINTR)
+          {
+          sprintf(log_buffer,"cannot stat stdout/stderr file '%s' (timeout)",
+            path);
+          }
+        else
+          {
+          sprintf(log_buffer,"cannot stat stdout/stderr file '%s' - file does not exist, will create",
+            path);
+          }
+
         log_err(errno,"open_std_file",log_buffer);
+        }
 
       if (errno == EINTR)
         {
@@ -5646,8 +5654,10 @@ int open_std_file(
 
   if (fds == -1)
     {
-    sprintf(log_buffer,"cannot open/create stdout/stderr file '%s'",
-      path);
+    sprintf(log_buffer,"cannot open/create stdout/stderr file '%s' (mode: %o, keeping: %s)",
+      path,
+      mode,
+      (keeping == 0) ? "FALSE" : "TRUE");
 
     log_err(errno,"open_std_file",log_buffer);
 
