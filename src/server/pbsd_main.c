@@ -529,6 +529,12 @@ int main(
 
   last_jobstat_time = time_now;
 
+  /* close files for security purposes */
+
+  i = sysconf(_SC_OPEN_MAX);
+  while (--i < 2)
+    close(i);  /* close any file desc left open by parent */
+
   /* find out who we are (hostname) */
 
   server_host[0] = '\0';
@@ -956,10 +962,6 @@ int main(
 
     return(1);
     }
-
-  i = sysconf(_SC_OPEN_MAX);
-  while (--i > 2)
-    close(i); /* close any file desc left open by parent */
 
 
   /* make sure no other server is running with this home directory */

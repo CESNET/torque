@@ -6583,10 +6583,19 @@ int main(
 
   int           sindex;  /* server index */
   int           TotalClusterAddrsCount;
+  int       tmpFD;
 
 #if MOM_CHECKPOINT == 1
   resource	*prscput;
 #endif /* MOM_CHECKPOINT */
+
+
+  tmpFD = sysconf(_SC_OPEN_MAX);
+
+  /* close any inherited extra files, leaving stdin, stdout, and stderr open */
+
+  while (--tmpFD > 2)
+    close(tmpFD);	/* close any file desc left open by parent */
 
   strcpy(pbs_current_user,"pbs_mom");
   msg_daemonname = pbs_current_user;
@@ -6908,13 +6917,6 @@ int main(
   c = getgid();
 
   setgroups(1,(gid_t *)&c);	/* secure suppl. groups */
-
-  c = sysconf(_SC_OPEN_MAX);
-
-  /* Close any inherited extra files, leaving stdin-err open */
-
-  while (--c > 2)
-    close(c);	/* close any file desc left open by parent */
 
 #ifndef DEBUG
 #ifdef _CRAY

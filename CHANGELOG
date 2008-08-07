@@ -34,6 +34,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fixed pbs_server segmentation fault when job_array submissions are rejected 
       before ji_arraystruct was initialized
   b - changed so run_pelog opens correct stdout/stderr when join is used
+  b - keep pbs_mom, pbs_server, pbs_sched from closing sockets opened by 
+      nss_ldap
 
   
 2.2.1
