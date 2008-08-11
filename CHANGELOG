@@ -36,6 +36,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - changed so run_pelog opens correct stdout/stderr when join is used
   b - keep pbs_mom, pbs_server, pbs_sched from closing sockets opened by 
       nss_ldap
+  b - corrected pbs_server, pbs_mom man pages for SIGUSR1 and SIGUSR2
 
   
 2.2.1
