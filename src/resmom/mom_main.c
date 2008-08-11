@@ -4382,7 +4382,10 @@ int rm_request(
 
             if (verbositylevel >= 1)
               {
-              /* @see CheckPollTime? */
+              sprintf(tmpLine,"Check Poll Time:        %d seconds\n",
+                CheckPollTime);
+ 
+              MUStrNCat(&BPtr,&BSpace,tmpLine);
 
               sprintf(tmpLine,"Server Update Interval: %d seconds\n",
                 ServerStatUpdateInterval);
@@ -5297,7 +5300,6 @@ int kill_job(
 
   if (LOGLEVEL >= 2)
     {
-
     log_record(
       PBSEVENT_JOB,
       PBS_EVENTCLASS_JOB,
@@ -5348,11 +5350,14 @@ int kill_job(
 
   if (LOGLEVEL >= 6)
     {
+    sprintf(log_buffer,"kill_job done (killed %d processes)",
+      ct);
+
     log_record(
       PBSEVENT_JOB,
       PBS_EVENTCLASS_JOB,
       pjob->ji_qs.ji_jobid, 
-      "kill_job done");
+      log_buffer);
     }
 
   return(ct);

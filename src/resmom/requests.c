@@ -1854,7 +1854,7 @@ void req_signaljob(
 
   if (LOGLEVEL >= 3)
     {
-    sprintf(log_buffer,"signalling job with signal %s",
+    sprintf(log_buffer,"signaling job with signal %s",
       sname); 
 
     log_record(
