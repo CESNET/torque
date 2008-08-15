@@ -286,7 +286,8 @@ enum PMOMStateEnum {
   MOM_RUN_STATE_RUNNING, 
   MOM_RUN_STATE_EXIT, 
   MOM_RUN_STATE_KILLALL,
-  MOM_RUN_STATE_RESTART };
+  MOM_RUN_STATE_RESTART,
+  MOM_RUN_STATE_LAST };
 
 static enum PMOMStateEnum mom_run_state;
 
@@ -3768,6 +3769,7 @@ static void catch_abort(
 
 
 
+
 static void catch_hup(
 
   int sig)
@@ -5857,6 +5859,7 @@ time_t MOMGetFileMtime(
 
 
 
+
 /*
  * MOMCheckRestart() - set mom_run_state to restart if appropriate.
  *                     this is called when no jobs are running (below
@@ -7454,7 +7457,7 @@ void kill_all_running_jobs()
 
 
 
-/*
+/**
  * main_loop
  */
 
@@ -7464,9 +7467,9 @@ void main_loop()
   static char   id[] = "main_loop";
   extern time_t	wait_time;
   double        myla;
-  job		   *pjob;
-  time_t tmpTime;
-  time_t time_now;
+  job          *pjob;
+  time_t        tmpTime;
+  time_t        time_now;
 
   mom_run_state = MOM_RUN_STATE_RUNNING;  /* mom_run_state is altered by stop_me() or MOMCheckRestart() */
 
@@ -7549,7 +7552,7 @@ void main_loop()
             }
           }
         }
-      }
+      }  /* END BLOCK */
 
     if (termin_child != 0)  /* termin_child is a flag set by the catch_child signal handler */
       scan_for_terminated();  /* machine dependent (calls mom_get_sample()???) */

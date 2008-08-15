@@ -716,7 +716,7 @@ err:
  * @see exec_bail() - parent - abort parallel job
  *
  * @see start_exec() - peer - opens connections to sisters at parallel job start
- 
+ * 
  * NOTE:  returns number of sister mom's successfully contacted 
  */
 
