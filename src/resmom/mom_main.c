@@ -4915,10 +4915,13 @@ void do_rpp(
       id,
       dis_emsg[ret]))
 
-    sprintf(log_buffer,"cannot get protocol %s",
-      dis_emsg[ret]);
+    if (LOGLEVEL >= 6)
+      {
+      sprintf(log_buffer,"cannot get protocol %s",
+        dis_emsg[ret]);
 
-    log_err(errno,id,log_buffer);
+      log_err(errno,id,log_buffer);
+      }
 
     im_eof(stream,ret);
 
