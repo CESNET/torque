@@ -1,6 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.3
+  b - fixed bug where pbs_mom would sometimes not connect properly with pbs_server
   b - changed so run_pelog opens correct stdout/stderr when join is used
   b - corrected pbs_server man page for SIGUSR1 and SIGUSR2
   f - added new pbs_track command which may be used to launch an external process and a pbs_mom will then
