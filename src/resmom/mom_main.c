@@ -7469,7 +7469,6 @@ void main_loop()
   double        myla;
   job          *pjob;
   time_t        tmpTime;
-  time_t        time_now;
 
   mom_run_state = MOM_RUN_STATE_RUNNING;  /* mom_run_state is altered by stop_me() or MOMCheckRestart() */
 
