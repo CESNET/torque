@@ -37,6 +37,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - keep pbs_mom, pbs_server, pbs_sched from closing sockets opened by 
       nss_ldap
   b - corrected pbs_server, pbs_mom man pages for SIGUSR1 and SIGUSR2
+  b - fixed a bug where if attempt to send job to a pbs_mom failed due to timeout, the job would
+      indefinitely remain the in 'R' state
 
   
 2.2.1
