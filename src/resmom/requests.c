@@ -1984,6 +1984,12 @@ void req_signaljob(
   }  /* END req_signaljob() */
 
 
+/**
+ * Encodes the used resource information (cput, mem, walltime, etc.)
+ * about the given job. (The data is encoded in preparation for
+ * being sent to the pbs_server.)
+ *
+ */
 
 void encode_used(
 
@@ -2112,7 +2118,15 @@ void encode_flagged_attrs(
 
 /*
  * req_stat_job - return the status of one (if id is specified) or all
- *	jobs (if id is the null string).
+ * jobs (if id is the null string).
+ *
+ * This is usually triggered due to a request from the pbs_server to learn
+ * about this (or all) jobs. The server will query the MOM periodically
+ * for this information. It is controlled by the pbs_server attributes
+ * 'job_stat_rate' and 'poll_jobs'.
+ *
+ * This data is different than the occasional status update sent to
+ * the server that tells the server the MOM's general stats (see mom_server_all_update_stat()).
  */
 
 void req_stat_job(

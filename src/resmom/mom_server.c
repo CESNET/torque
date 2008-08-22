@@ -1057,6 +1057,7 @@ void gen_gen(char *name,char **BPtr, int *BSpace)
   char  *ptr;
 
   ap = rm_search(config_array,name);
+
   if (ap)
     {
     ptr = conf_res(ap->c_u.c_value,NULL);
@@ -1095,7 +1096,7 @@ void gen_gen(char *name,char **BPtr, int *BSpace)
       (*BSpace)--;
       }
     } /* else if (ap) */
-  }
+  }  /* END gen_gen() */
 
 typedef void (*gen_func_ptr)(char *,char **, int *);
 
@@ -1132,6 +1133,11 @@ stat_record stats[] = {
 
 /**
  * generate_server_status
+ *
+ * This function loops through all statistic functions (contained
+ * in the stats[] array) and executes them. These functions create
+ * strings which are added to the overall message buffer. Ultimately,
+ * this message buffer is sent to the server.
  *
  */
 
@@ -1263,6 +1269,10 @@ void mom_server_update_stat(
 
 /**
  * mom_server_all_update_stat
+ *
+ * This function sends status updates to all connected servers.
+ * Its frequency in being called is controlled by ServerStatUpdateInterval
+ * on the MOM. This is set by tweaking the config parameter "status_update_time."
  *
  * This is the former is_update_stat.  It has been reworked to
  * first generate the strings and then walk the server list sending

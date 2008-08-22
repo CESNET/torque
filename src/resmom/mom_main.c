@@ -1250,8 +1250,8 @@ char *loadave(
 
 
 /*
-**	Search the array of resources read from the config files.
-*/
+ *	Search the array of resources read from the config files.
+ */
 
 struct config *rm_search(
 

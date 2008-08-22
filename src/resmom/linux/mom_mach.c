@@ -1699,9 +1699,10 @@ int mom_get_sample()
       continue;
       }
 
-    nproc++;
+    /* nproc++; -- we need to increment AFTER assigning this ps to
+       the proc_array--otherwise we could skip it in for loops */
 
-    if (nproc >= max_proc)
+    if ((nproc+1) >= max_proc)
       {
       proc_stat_t *hold;
 
@@ -1723,10 +1724,10 @@ int mom_get_sample()
 
       proc_array = hold;
 
-      memset(&proc_array[nproc],'\0',sizeof(proc_stat_t) * (max_proc >> 1));
-      }  /* END if (++nproc == max_proc) */
+      memset(&proc_array[(nproc+1)],'\0',sizeof(proc_stat_t) * (max_proc >> 1));
+      }  /* END if ((nproc+1) == max_proc) */
 
-    pi = &proc_array[nproc];
+    pi = &proc_array[nproc++];
 
     memcpy(pi,ps,sizeof(proc_stat_t));
     }  /* END while ((dent = readdir(pdir)) != NULL) */
@@ -1978,7 +1979,7 @@ int mom_set_use(
 
   lnum = cput_sum(pjob);
 
-  *lp = MAX(*lp, lnum);
+  *lp = MAX(*lp,lnum);
 
   /* get swap */
 
@@ -1994,7 +1995,7 @@ int mom_set_use(
 
   lnum = (mem_sum(pjob) + 1023) >> pres->rs_value.at_val.at_size.atsv_shift;	/* as KB */
 
-  *lp = MAX(*lp, lnum);
+  *lp = MAX(*lp,lnum);
 
   /* get walltime */
 

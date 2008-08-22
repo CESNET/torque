@@ -420,8 +420,8 @@ struct job {
 	tm_event_t	ji_obit;	/* event for end-of-job */
 	hnodent	       *ji_hosts;	/* ptr to job host management stuff */
 	vnodent	       *ji_vnods;	/* ptr to job vnode management stuff */
-	noderes	       *ji_resources;	/* ptr to array of node resources */
-	tlist_head       ji_tasks;	/* list of task structs */
+	noderes	       *ji_resources;	/* ptr to array of sister node resources (does not include entry for MOM superior node) */
+	tlist_head      ji_tasks;	/* list of task structs */
 	tm_node_id	ji_nodekill;	/* set to nodeid requesting job die */
 	int		ji_flags;	/* mom only flags */
 	char	       *ji_globid;	/* global job id */

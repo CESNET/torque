@@ -2464,7 +2464,7 @@ void im_request(
 
   if (reply == 0) 
     {
-    for (nodeidx = 0;nodeidx<pjob->ji_numnodes;nodeidx++) 
+    for (nodeidx = 0;nodeidx < pjob->ji_numnodes;nodeidx++) 
       {
       np = &pjob->ji_hosts[nodeidx];
     

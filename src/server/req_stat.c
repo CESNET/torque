@@ -504,7 +504,10 @@ nextjob:
 
 /*
  * stat_to_mom - send a Job Status to MOM to obtain latest status.
- *	Used by req_stat_job()/stat_step_2() 
+ * Used by req_stat_job()/stat_step_2().
+ *
+ * Frequency of this call is controlled by the job_stat_rate and poll_jobs
+ * server attributes.
  *
  * Returns PBSE_SYSTEM if out of memory, PBSE_NORELYMOM if the MOM
  * is down, offline, or deleted.  Otherwise returns result of MOM
