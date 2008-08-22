@@ -120,7 +120,7 @@ int main(
 
   /* USAGE: pbs_track [-j <JOBID>] a.out arg1 arg2 ... argN */
 
-#define GETOPT_ARGS "bj:"
+#define GETOPT_ARGS "+bj:"
 
   while ((ArgIndex = getopt(argc,argv,GETOPT_ARGS)) != EOF)
     {
