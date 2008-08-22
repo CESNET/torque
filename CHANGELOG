@@ -3,6 +3,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 2.3.4
   b - fixed a bug where if attempt to send job to a pbs_mom failed due to timeout, the job would
       indefinitely remain the in 'R' state
+  b - fixed a bug where CPU time was not being added up properly in all cases (fix for Linux only) 
+  e - pbs_track now allows passing of - and -- options to the a.out argument
 
 2.3.3
   b - fixed bug where pbs_mom would sometimes not connect properly with pbs_server after network failures
