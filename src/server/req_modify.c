@@ -184,10 +184,11 @@ static void post_modify_req(
   return;
   }  /* END post_modify_req() */
 
-	
 
 
-/*
+
+
+/**
  * req_modifyjob - service the Modify Job Request
  *
  *	This request modifes a job's attributes.
