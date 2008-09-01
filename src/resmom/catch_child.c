@@ -1266,7 +1266,7 @@ static void preobit_reply(
 
       if (jobiscorrupt == 1)
         {
-        /* runepilog = 1; */
+        runepilogue = 1;
         }
 
       break;
