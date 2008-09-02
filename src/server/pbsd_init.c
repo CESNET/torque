@@ -728,42 +728,46 @@ int pbsd_init(
     }
     
   dir = opendir(".");  
+
   while ((pdirent = readdir(dir)) != NULL) 
      {       
-
      if (chk_save_file(pdirent->d_name) == 0) 
        {
        /* if not create or clean recovery, recover arrays */
        
        if ((type != RECOV_CREATE) && (type != RECOV_COLD))
          {
-	 
-	 /* skip files without the proper suffix */
-	 baselen = strlen(pdirent->d_name) - array_suf_len;
+         /* skip files without the proper suffix */
+         baselen = strlen(pdirent->d_name) - array_suf_len;
 
          psuffix = pdirent->d_name + baselen;
 
          if (strcmp(psuffix,ARRAY_FILE_SUFFIX))
            continue;
 	 
-	 
-	 pa = array_recov(pdirent->d_name);
-	 if (pa == NULL)
-	   {
-	   /* TODO GB */
-	   }
+         pa = array_recov(pdirent->d_name);
+
+         if (pa == NULL)
+           {
+           /* TODO GB */
+
+           sprintf(log_buffer,"could not recover job from file %s--skipping",
+             pdirent->d_name);
+
+           log_err(errno,"pbsd_init",log_buffer);
+
+           continue;
+           }
 	
-	 pa->jobs_recovered = 0;
-	 
-	 }
+         pa->jobs_recovered = 0;
+         }
        else
          {
-	 unlink(pdirent->d_name);
-	 }
-       
+         unlink(pdirent->d_name);
+         }
        }
-              
      }
+
   closedir(dir);    
   
   /* 9.b,  recover jobs */
