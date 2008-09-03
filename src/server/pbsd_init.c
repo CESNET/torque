@@ -739,7 +739,6 @@ int pbsd_init(
        
        if ((type != RECOV_CREATE) && (type != RECOV_COLD))
          {
-	 
          /* skip files without the proper suffix */
          baselen = strlen(pdirent->d_name) - array_suf_len;
 
@@ -748,15 +747,14 @@ int pbsd_init(
          if (strcmp(psuffix,ARRAY_FILE_SUFFIX))
            continue;
 	 
-	 
-         pa = recover_array_struct(pdirent->d_name);
+         pa = array_recov(pdirent->d_name);
+
          if (pa == NULL)
            {
            /* TODO GB */
            }
 	
          pa->jobs_recovered = 0;
-	 
          }
        else
          {
@@ -986,7 +984,7 @@ int pbsd_init(
     else if (GET_NEXT(pa->array_alljobs) == pa->array_alljobs.ll_struct)
       {
       job_array *temp = (job_array*)GET_NEXT(pa->all_arrays);
-      delete_array_struct(pa);
+      array_delete(pa);
       pa = temp;
       }
     
