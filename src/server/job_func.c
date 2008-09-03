@@ -133,6 +133,7 @@
 #include "acct.h"
 #include "net_connect.h"
 #include "portability.h"
+#include "array.h"
 
 
 #ifndef TRUE
@@ -156,12 +157,6 @@ void job_purge A_((job *));
 void unload_sp_switch A_((job *pjob));
 #endif			/* IBM SP */
 #endif	/*  PBS_MOM */
-
-#ifndef PBS_MOM
-extern int array_save A_((job_array *));
-extern job_array *get_array A_((char *id));
-extern int array_delete A_((job_array *pa));
-#endif
 
 /* Local Private Functions */
 
