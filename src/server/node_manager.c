@@ -864,6 +864,7 @@ void sync_node_jobs(
               if (issue_Drequest(conn,preq,release_req,0) != 0)
                 {
                 /* release_req will free preq and close connection if successful */
+
                 free_br(preq);
 
                 svr_disconnect(conn);
