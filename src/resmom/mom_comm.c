@@ -5694,7 +5694,7 @@ static int adoptSession(pid_t sid, char *id, int command, char *cookie)
 
     /* next_sample_time = 45; */
 
-    (void)sprintf(log_buffer, "Task adopted. id=%1.30s, sid = %d", id, sid);
+    (void)sprintf(log_buffer, "Task adopted. id=%1.30s, sid = %d", id,sid);
     DBPRT(("%s\n", log_buffer));
     log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
            pjob->ji_qs.ji_jobid, log_buffer);

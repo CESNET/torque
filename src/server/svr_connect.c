@@ -206,7 +206,7 @@ int svr_connect(
     {
     if (ETime > STime)
       {
-
+      /* NYI */
       }
     }
 
