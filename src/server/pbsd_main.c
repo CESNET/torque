@@ -1347,7 +1347,6 @@ int main(
      }
 #endif
 
-
     /* touch the rpp streams that need to send */
 
     rpp_request(42);
