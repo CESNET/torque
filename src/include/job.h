@@ -217,15 +217,15 @@ struct grpcache
 
 enum job_atr
   {
-  JOB_ATR_jobname, /* this set appears first as they show */
+  JOB_ATR_jobname,   /* this set appears first as they show */
   JOB_ATR_job_owner, /* in a basic job status display       */
   JOB_ATR_resc_used,
   JOB_ATR_state,
   JOB_ATR_in_queue,
   JOB_ATR_at_server,    /* (5) */
 
-  JOB_ATR_account, /* the bulk of the attributes are in   */
-  JOB_ATR_chkpnt, /* alphabetic order for no good reason */
+  JOB_ATR_account,   /* the bulk of the attributes are in   */
+  JOB_ATR_chkpnt,    /* alphabetic order for no good reason */
   JOB_ATR_ctime,
   JOB_ATR_depend,
   JOB_ATR_errpath,
@@ -276,6 +276,7 @@ enum job_atr
   JOB_ATR_start_count, /* number of times the job has been started */
   JOB_ATR_chkptdir,    /* directory where job checkpoint file is stored */
   JOB_ATR_chkptname,   /* name of checkpoint file */
+  JOB_ATR_jobtype,     /* opaque job type string */
 #include "site_job_attr_enum.h"
 
   JOB_ATR_UNKN,  /* the special "unknown" type    */

@@ -196,6 +196,18 @@ void req_stat_job(
 
   name = preq->rq_ind.rq_status.rq_id;
 
+  if (preq->rq_extend != NULL)
+    {
+    /* evaluate pbs_job_stat() 'extension' field */
+
+    if (!strncasecmp(preq->rq_extend, "truncated", strlen("truncated")))
+      {
+      /* truncate response by 'max_report' */
+
+      type = tjstTruncatedServer;
+      }
+    }    /* END if (preq->rq_extend != NULL) */
+
   if (isdigit((int)*name))
     {
     /* status a single job */
@@ -207,41 +219,24 @@ void req_stat_job(
       rc = PBSE_UNKJOBID;
       }
     }
-  else if (isalpha((int)*name) && !strcasecmp("truncated", name))
+  else if (isalpha(name[0]))
     {
-    /* status jobs in a queue */
-
-    int tlen = strlen("truncated:");
-
-    if (!strncasecmp(name, "truncated:", tlen))
-      {
-      /* format: truncated:queue */
-
-      name += tlen;
-
-      type = tjstTruncatedQueue;
-      }
-    else
-      {
+    if (type == tjstNONE)
       type = tjstQueue;
-      }
+    else
+      type = tjstTruncatedQueue;
 
     if ((pque = find_queuebyname(name)) == NULL)
       {
       rc = PBSE_UNKQUE;
       }
     }
-  else if (!strcasecmp(name, "truncated"))
-    {
-    /* status all jobs at server */
-
-    type = tjstTruncatedServer;
-    }
   else if ((*name == '\0') || (*name == '@'))
     {
     /* status all jobs at server */
 
-    type = tjstServer;
+    if (type == tjstNONE)
+      type = tjstServer;
     }
   else
     {

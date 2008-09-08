@@ -113,7 +113,7 @@ extern int comp_chkpnt A_((attribute *, attribute *));
  */
 
 /* sync w/ src/include/job.h */
-/* sync w/ src/resmom/request.c TJobAttr constants */
+/* sync w/ src/resmom/request.c TJobAttr[] constants */
 
 attribute_def job_attr_def[] =
   {
@@ -329,6 +329,18 @@ attribute_def job_attr_def[] =
     NULL_FUNC,
     READ_ONLY | ATR_DFLAG_SvRD | ATR_DFLAG_Creat | ATR_DFLAG_SELEQ | ATR_DFLAG_MOM,
     ATR_TYPE_LONG,
+    PARENT_TYPE_JOB
+  },
+  /* JOB_ATR_type */
+  { ATTR_jobtype,   /* "Job_Type" */
+    decode_str,
+    encode_str,
+    set_str,
+    comp_str,
+    free_str,
+    NULL_FUNC,
+    READ_WRITE | ATR_DFLAG_SELEQ | ATR_DFLAG_MOM,
+    ATR_TYPE_STR,
     PARENT_TYPE_JOB
   },
   /* JOB_ATR_join */

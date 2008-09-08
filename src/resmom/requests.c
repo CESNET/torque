@@ -1247,6 +1247,7 @@ const char *TJobAttr[] =
   "start_count",
   "chkptdir",
   "chkptname",
+  "job_type",
   NULL
   };
 
