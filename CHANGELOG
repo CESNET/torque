@@ -1,19 +1,24 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.4
-  b - fixed a bug where if attempt to send job to a pbs_mom failed due to timeout, the job would
-      indefinitely remain the in 'R' state
-  b - fixed a bug where CPU time was not being added up properly in all cases (fix for Linux only) 
+  b - fixed a bug where if attempt to send job to a pbs_mom failed due to 
+      timeout, the job would indefinitely remain the in 'R' state
+  b - fixed a bug where CPU time was not being added up properly in all cases 
+      (fix for Linux only) 
   e - pbs_track now allows passing of - and -- options to the a.out argument
+  b - qsub now properly interprets -W umask=0XXX as octal umask
 
 2.3.3
-  b - fixed bug where pbs_mom would sometimes not connect properly with pbs_server after network failures
+  b - fixed bug where pbs_mom would sometimes not connect properly with 
+      pbs_server after network failures
   b - changed so run_pelog opens correct stdout/stderr when join is used
   b - corrected pbs_server man page for SIGUSR1 and SIGUSR2
-  f - added new pbs_track command which may be used to launch an external process and a pbs_mom will then
-      track the resource usage of that process and attach it to a specified job (experimental) (special thanks
-      to David Singleton and David Houlder from APAC)
-  e - added alternate method for sending cluster addresses to MOM (ALT_CLSTR_ADDR)
+  f - added new pbs_track command which may be used to launch an external 
+      process and a pbs_mom will then track the resource usage of that process 
+      and attach it to a specified job (experimental) (special thanks to David 
+      Singleton and David Houlder from APAC)
+  e - added alternate method for sending cluster addresses to MOM 
+      (ALT_CLSTR_ADDR)
 
 2.3.2
   e - added --disable-posixmemlock to force mom not to use POSIX MEMLOCK.
@@ -27,7 +32,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       Moab/Maui was the scheduler
 
 2.3.1
-  b - fixed a bug where torque would fail to start if there was no LF in nodes file
+  b - fixed a bug where torque would fail to start if there was no LF in nodes 
+      file
   b - fixed a bug where TORQUE would ignore the "pbs_asyrunjob" API extension 
       string when starting jobs in asynchronous mode
   b - fixed memory leak in free_br for PBS_BATCH_MvJobFile case
@@ -45,7 +51,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       for SIGCHLD instead of using the signal handler.
   e - change qsub so '-v var=' will look in environment for value. If value
       is not found set it to "".
-  b - fixed mom_server code's HELLO initiation retry control to reduce occurrence of pbs_server incorrectly marking node as unknown/down
+  b - fixed mom_server code's HELLO initiation retry control to reduce 
+      occurrence of pbs_server incorrectly marking node as unknown/down
   b - fix qdel of entire job arrays for non operator/managers
   b - fix so we continue to process exiting jobs for other servers
   e - added source_login_batch and source_login_interactive to mom config.  This
@@ -56,9 +63,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       -D_FILE_OFFSET_BITS=64 is set
   e - added --enable-maxnotdefault to allow not using resources_max as defaults.
   b - fixed file descriptor leak with Linux cpusets (VPAC)  
-  b - added new values to TJobAttr so we don't have mismatch with job.h values. Added
-      some comments also.
-  b - reset ji_momhandle so we cannot have more than one pjob for obit_reply to find.
+  b - added new values to TJobAttr so we don't have mismatch with job.h values.
+      Added some comments also.
+  b - reset ji_momhandle so we cannot have more than one pjob for obit_reply 
+      to find.
   e - change qdel to accept 'ALL' as well as 'all'
   b - changed order of searching so we find most recent jobs first. Prevents
       finding old leftover job when pids rollover. Also some CACHEOBITFAILURES
