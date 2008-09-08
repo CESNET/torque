@@ -318,18 +318,20 @@ int run_pelog(
   char *id = "run_pelog";
 
   struct sigaction act, oldact;
-  char         *arg[11];
+  char  *arg[11];
   int   fds1 = 0;
   int   fds2 = 0;
   int   fd_input;
-  char   resc_list[2048];
-  char   resc_used[2048];
+  char  resc_list[2048];
+  char  resc_used[2048];
 
-  struct stat  sbuf;
+  struct stat sbuf;
   char   sid[20];
-  int   waitst;
-  int      isjoined;
-  char   buf[MAXPATHLEN + 2];
+  int    waitst;
+  int    isjoined;  /* boolean */
+  char   buf[MAXPATHLEN + 1024];
+
+  int    jobtypespecified = 0;
 
   resource      *r;
 
@@ -338,7 +340,40 @@ int run_pelog(
   int            LastArg;
   int            aindex;
 
-  if (stat(pelog, &sbuf) == -1)
+  int            rc;
+
+  char          *ptr;
+
+  if ((pjob == NULL) || (pelog == NULL) || (pelog[0] == '\0'))
+    {
+    return(0);
+    }
+
+  ptr = pjob->ji_wattr[(int)JOB_ATR_jobtype].at_val.at_str;
+
+  if (ptr != NULL)
+    {
+    jobtypespecified = 1;
+
+    snprintf(buf,sizeof(buf),"%s.%s",
+      pelog,
+      ptr);
+    }
+  else
+    {
+    strncpy(buf,pelog,sizeof(buf));
+    }
+
+  rc = stat(buf,&sbuf);
+
+  if ((rc == -1) && (jobtypespecified == 1))
+    {
+    strncpy(buf,pelog,sizeof(buf));
+
+    rc = stat(buf,&sbuf);
+    }
+
+  if (rc == -1)
     {
     if (errno == ENOENT)
       {
@@ -349,9 +384,9 @@ int run_pelog(
         static char tmpBuf[1024];
 
         sprintf(log_buffer, "%s script '%s' does not exist (cwd: %s)",
-                PPEType[which],
-                (pelog != NULL) ? pelog : "NULL",
-                getcwd(tmpBuf, sizeof(tmpBuf)));
+          PPEType[which],
+          (pelog != NULL) ? pelog : "NULL",
+          getcwd(tmpBuf, sizeof(tmpBuf)));
 
         log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
         }
@@ -365,8 +400,8 @@ int run_pelog(
   if (LOGLEVEL >= 5)
     {
     sprintf(log_buffer, "running %s script '%s'",
-            PPEType[which],
-            (pelog != NULL) ? pelog : "NULL");
+      PPEType[which],
+      (pelog != NULL) ? pelog : "NULL");
 
     log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
     }
@@ -790,25 +825,26 @@ int run_pelog(
       }
 
     /* Set PBS_NODEFILE */
+
+    {
+    char *envname = "PBS_NODEFILE";
+    char *envstr;
+
+    if (pjob->ji_flags & MOM_HAS_NODEFILE)
       {
-      char *envname = "PBS_NODEFILE";
-      char *envstr;
+      sprintf(buf, "%s/%s",
+        path_aux,
+        pjob->ji_qs.ji_jobid);
 
-      if (pjob->ji_flags & MOM_HAS_NODEFILE)
-        {
-        sprintf(buf, "%s/%s",
-                path_aux,
-                pjob->ji_qs.ji_jobid);
+      envstr = malloc((strlen(envname) + strlen(buf) + 2) * sizeof(char));
 
-        envstr = malloc((strlen(envname) + strlen(buf) + 2) * sizeof(char));
+      sprintf(envstr, "%s=%s",
+        envname,
+        buf);
 
-        sprintf(envstr, "%s=%s",
-                envname,
-                buf);
-
-        putenv(envstr);
-        }
+      putenv(envstr);
       }
+    }
 
     /* SET BEOWULF_JOB_MAP */
 
