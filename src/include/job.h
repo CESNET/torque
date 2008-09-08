@@ -213,7 +213,7 @@ struct grpcache
  */
 
 /* sync w/ src/server/job_attr_def.c */
-/* sync w/ src/resmom/request.c TJobAttr constants */
+/* sync w/TJobAttr[] table in src/resmom/request.c */
 
 enum job_atr
   {

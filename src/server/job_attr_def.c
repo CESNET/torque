@@ -112,8 +112,8 @@ extern int comp_chkpnt A_((attribute *, attribute *));
  * parent object type
  */
 
-/* sync w/ src/include/job.h */
-/* sync w/ src/resmom/request.c TJobAttr[] constants */
+/* sync w/enum job_atr in src/include/job.h */
+/* sync w/ TJobAttr[] in src/resmom/request.c */
 
 attribute_def job_attr_def[] =
   {
