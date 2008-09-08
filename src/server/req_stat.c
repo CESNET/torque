@@ -143,6 +143,10 @@ static int  status_node A_((struct pbsnode *, struct batch_request *, tlist_head
 static void req_stat_job_step2 A_((struct stat_cntl *));
 static void stat_update A_((struct work_task *));
 
+#ifndef TMAX_JOB
+#define TMAX_JOB 999999999
+#endif /* TMAX_JOB */
+
 /*
  * req_stat_job - service the Status Job Request
  *
@@ -315,6 +319,10 @@ static void req_stat_job_step2(
 
   int                   IsTruncated = 0;
 
+  long                  DTime;  /* delta time - only report full attribute list if J->MTime > DTime */
+
+  static svrattrl      *dpal = NULL;
+
   preq   = cntl->sc_origrq;
   type   = (enum TJobStatTypeEnum)cntl->sc_type;
   preply = &preq->rq_reply;
@@ -322,10 +330,13 @@ static void req_stat_job_step2(
   /* See pbs_server_attributes(1B) for details on "poll_jobs" behaviour */
 
   /* NOTE:  If IsTruncated is true, should walk all queues and walk jobs in each queue
-            until max_reported is reached (NYI) */
+            until max_reported is reached */
 
   if (!server.sv_attr[(int)SRV_ATR_PollJobs].at_val.at_long)
     {
+    /* polljobs not set - indicates we may need to obtain fresh data from
+       MOM */
+
     if (cntl->sc_jobid[0] == '\0')
       pjob = NULL;
     else
@@ -421,15 +432,100 @@ static void req_stat_job_step2(
   else
     pjob = (job *)GET_NEXT(svr_alljobs);
 
+  DTime = 0;
+
   if (preq->rq_extend != NULL)
     {
-    if (!strncmp(preq->rq_extend, EXECQUEONLY, strlen(EXECQUEONLY)))
+    char *ptr;
+
+    /* FORMAT:  { EXECQONLY | DELTA:<EPOCHTIME> } */
+
+    if (strstr(preq->rq_extend, EXECQUEONLY))
       exec_only = 1;
+
+    ptr = strstr(preq->rq_extend, "DELTA:");
+
+    if (ptr != NULL)
+      {
+      ptr += strlen("delta:");
+
+      DTime = strtol(ptr, NULL, 10);
+      }
     }
 
   free(cntl);
 
-  while (pjob != NULL)
+  if ((type == tjstTruncatedServer) || (type == tjstTruncatedQueue))
+    {
+    long qjcounter;
+    long qmaxreport;
+
+    /* loop through all queues */
+
+    for (pque = (pbs_queue *)GET_NEXT(svr_queues);
+         pque != NULL;
+         pque = (pbs_queue *)GET_NEXT(pque->qu_link))
+      {
+      qjcounter = 0;
+
+      if ((exec_only == 1) &&
+          (pque->qu_qs.qu_type != QTYPE_Execution))
+        {
+        /* ignore routing queues */
+
+        continue;
+        }
+
+      if (((pque->qu_attr[QA_ATR_MaxReport].at_flags & ATR_VFLAG_SET) != 0) &&
+          (pque->qu_attr[QA_ATR_MaxReport].at_val.at_long >= 0))
+        {
+        qmaxreport = pque->qu_attr[QA_ATR_MaxReport].at_val.at_long;
+        }
+      else
+        {
+        qmaxreport = TMAX_JOB;
+        }
+
+      /* loop through jobs in queue */
+
+      for (pjob = (job *)GET_NEXT(pque->qu_jobs);
+           pjob != NULL;
+           pjob = (job *)GET_NEXT(pjob->ji_alljobs))
+        {
+        if (qjcounter >= qmaxreport)
+          {
+          /* max_report reached for queue */
+
+          break;
+          }
+
+        pal = (svrattrl *)GET_NEXT(preq->rq_ind.rq_status.rq_attr);
+
+        rc = status_job(
+               pjob,
+               preq,
+               (pjob->ji_wattr[(int)JOB_ATR_mtime].at_val.at_long >= DTime) ? pal : dpal,
+               &preply->brp_un.brp_status,
+               &bad);
+
+        if ((rc != 0) && (rc != PBSE_PERM))
+          {
+          req_reject(rc, bad, preq, NULL, NULL);
+
+          return;
+          }
+
+        if (pjob->ji_qs.ji_state == JOB_STATE_QUEUED)
+          qjcounter++;
+        }    /* END for (pjob) */
+      }      /* END for (pque) */
+
+    reply_send(preq);
+
+    return;
+    }        /* END if ((type == tjstTruncatedServer) || ...) */
+
+  while (pjob != NULL) 
     {
     /* go ahead and build the status reply for this job */
 
