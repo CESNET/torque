@@ -2001,6 +2001,8 @@ int main(
   char *queue_name_out;
   char *server_name_out;
 
+  char *ExtendOpt = NULL;
+
   char operand[PBS_MAXCLTJOBID + 1];
   int alt_opt;
   int f_opt, B_opt, Q_opt;
@@ -2029,7 +2031,7 @@ int main(
 #endif /* !FALSE */
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
-#define GETOPT_ARGS "aefin1qrsu:xGMQRBW:-:"
+#define GETOPT_ARGS "aeE:fin1qrsu:xGMQRBW:-:"
 #else
 #define GETOPT_ARGS "fQBW:"
 #endif /* PBS_NO_POSIX_VIOLATION */
@@ -2075,6 +2077,13 @@ int main(
       case 'e':
 
         exec_only = 1;
+
+        break;
+
+      case 'E':
+
+        if (optarg != NULL)
+          ExtendOpt = strdup(optarg);
 
         break;
 
@@ -2546,7 +2555,11 @@ job_no_args:
 
         if ((stat_single_job == 1) || (p_atropl == 0))
           {
-          p_status = pbs_statjob(connect, job_id_out, NULL, exec_only ? EXECQUEONLY : NULL);
+          p_status = pbs_statjob(
+                       connect,
+                       job_id_out,
+                       NULL,
+                       exec_only ? EXECQUEONLY : ExtendOpt);
           }
         else
           {
