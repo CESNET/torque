@@ -310,7 +310,7 @@ static void pelogalm(
 int run_pelog(
 
   int   which,      /* I (one of PE_*) */
-  char *pelog,      /* I - script path */
+  char *specpelog,  /* I - script path */
   job  *pjob,       /* I - associated job */
   int   pe_io_type) /* I */
 
@@ -330,6 +330,7 @@ int run_pelog(
   int    waitst;
   int    isjoined;  /* boolean */
   char   buf[MAXPATHLEN + 1024];
+  char   pelog[MAXPATHLEN + 1024];
 
   int    jobtypespecified = 0;
 
@@ -344,7 +345,7 @@ int run_pelog(
 
   char          *ptr;
 
-  if ((pjob == NULL) || (pelog == NULL) || (pelog[0] == '\0'))
+  if ((pjob == NULL) || (specpelog == NULL) || (specpelog[0] == '\0'))
     {
     return(0);
     }
@@ -355,20 +356,20 @@ int run_pelog(
     {
     jobtypespecified = 1;
 
-    snprintf(buf,sizeof(buf),"%s.%s",
-      pelog,
+    snprintf(pelog,sizeof(pelog),"%s.%s",
+      specpelog,
       ptr);
     }
   else
     {
-    strncpy(buf,pelog,sizeof(buf));
+    strncpy(pelog,specpelog,sizeof(buf));
     }
 
-  rc = stat(buf,&sbuf);
+  rc = stat(pelog,&sbuf);
 
   if ((rc == -1) && (jobtypespecified == 1))
     {
-    strncpy(buf,pelog,sizeof(buf));
+    strncpy(pelog,specpelog,sizeof(buf));
 
     rc = stat(buf,&sbuf);
     }
