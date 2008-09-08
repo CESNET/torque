@@ -212,7 +212,7 @@ struct grpcache
  * define the size of the array.
  */
 
-/* sync w/ src/server/job_attr_def.c */
+/* sync w/job_attr_def[]  (NOTE:  must maintain same ordering between enum and job_attr_def[] table in src/server/job_at) */
 /* sync w/TJobAttr[] table in src/resmom/request.c */
 
 enum job_atr
@@ -234,6 +234,7 @@ enum job_atr
   JOB_ATR_grouplst,
   JOB_ATR_hold,
   JOB_ATR_interactive,
+  JOB_ATR_jobtype,     /* opaque job type string */
   JOB_ATR_join,
   JOB_ATR_keep,
   JOB_ATR_mailpnts,
@@ -276,7 +277,6 @@ enum job_atr
   JOB_ATR_start_count, /* number of times the job has been started */
   JOB_ATR_chkptdir,    /* directory where job checkpoint file is stored */
   JOB_ATR_chkptname,   /* name of checkpoint file */
-  JOB_ATR_jobtype,     /* opaque job type string */
 #include "site_job_attr_enum.h"
 
   JOB_ATR_UNKN,  /* the special "unknown" type    */
@@ -284,7 +284,7 @@ enum job_atr
   };
 
 /*
- * The "definitions" for the job attributes are in the following array,
+ * The "definitions" for the job attributes are in job_attr_def[],
  * it is also indexed by the JOB_ATR_... enums.
  */
 

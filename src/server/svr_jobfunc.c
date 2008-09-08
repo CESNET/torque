@@ -85,12 +85,12 @@
  * svr_setjobstate()  - set the state/substate of a job
  * svr_evaljobstate() - evaluate the state of a job based on attributes
  * chk_resc_limits()  - check job resources vs queue/server limits
- * svr_chkque()    - check if job can enter queue
- * job_set_wait()    - set event for when job's wait time ends
- * get_variable()    - get value of a single environ variable of a job
+ * svr_chkque()       - check if job can enter queue
+ * job_set_wait()     - set event for when job's wait time ends
+ * get_variable()     - get value of a single environ variable of a job
  * prefix_std_file()  - build the fully prefixed default name for std e/o
- * add_std_filename()  - add the default name for std e/o
- * get_jobowner()    - get job owner name without @host suffix
+ * add_std_filename() - add the default name for std e/o
+ * get_jobowner()     - get job owner name without @host suffix
  * set_resc_deflt()   - set unspecified resource_limit to default values
  * set_statechar()    - set the job state attribute character value
  *
@@ -1072,10 +1072,10 @@ int chk_resc_limits(
 
 int svr_chkque(
 
-  job     *pjob,
+  job       *pjob,
   pbs_queue *pque,
-  char     *hostname,
-  int      mtype,     /* MOVE_TYPE_* type, see server_limits.h */
+  char      *hostname,
+  int        mtype,     /* MOVE_TYPE_* type, see server_limits.h */
   char      *EMsg)      /* O (optional,minsize=1024) */
 
   {
@@ -1113,10 +1113,11 @@ int svr_chkque(
 
     if (site_acl_check(pjob, pque))
       {
-      if (EMsg) snprintf(EMsg, 1024,
-                           "site_acl_check() failed: user %s, queue %s",
-                           pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
-                           pque->qu_qs.qu_name);
+      if (EMsg) 
+        snprintf(EMsg, 1024,
+          "site_acl_check() failed: user %s, queue %s",
+          pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+          pque->qu_qs.qu_name);
 
       return(PBSE_PERM);
       }
@@ -1127,8 +1128,11 @@ int svr_chkque(
           &pjob->ji_wattr[(int)JOB_ATR_resource],
           &svr_resc_def[svr_resc_size - 1]) != 0)
       {
-      if (EMsg) snprintf(EMsg, 1024,
-                           "detected request for an unknown resource");
+      if (EMsg) 
+        {
+        snprintf(EMsg, 1024,
+          "detected request for an unknown resource");
+        }
 
       return(PBSE_UNKRESC);
       }
@@ -1137,8 +1141,9 @@ int svr_chkque(
 
     if (pjob->ji_wattr[(int)JOB_ATR_UNKN].at_flags & ATR_VFLAG_SET)
       {
-      if (EMsg) snprintf(EMsg, 1024,
-                           "detected presence of an unknown attribute");
+      if (EMsg) 
+        snprintf(EMsg, 1024,
+          "detected presence of an unknown attribute");
 
       return(PBSE_NOATTR);
       }
@@ -1159,10 +1164,11 @@ int svr_chkque(
           if (strcmp(Q_DT_interactive,
                      pque->qu_attr[QA_ATR_DisallowedTypes].at_val.at_arst->as_string[i]) == 0)
             {
-            if (EMsg) snprintf(EMsg, 1024,
-                                 "interactive job is not allowed for queue: user %s, queue %s",
-                                 pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
-                                 pque->qu_qs.qu_name);
+            if (EMsg) 
+              snprintf(EMsg, 1024,
+                "interactive job is not allowed for queue: user %s, queue %s",
+                pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+                pque->qu_qs.qu_name);
 
             return(PBSE_NOINTERACTIVE);
             }
@@ -1172,10 +1178,11 @@ int svr_chkque(
           if (strcmp(Q_DT_batch,
                      pque->qu_attr[QA_ATR_DisallowedTypes].at_val.at_arst->as_string[i]) == 0)
             {
-            if (EMsg) snprintf(EMsg, 1024,
-                                 "batch job is not allowed for queue: user %s, queue %s",
-                                 pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
-                                 pque->qu_qs.qu_name);
+            if (EMsg) 
+              snprintf(EMsg, 1024,
+                "batch job is not allowed for queue: user %s, queue %s",
+                pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+                pque->qu_qs.qu_name);
 
             return(PBSE_NOBATCH);
             }
@@ -1186,10 +1193,11 @@ int svr_chkque(
             && (pjob->ji_wattr[(int)JOB_ATR_rerunable].at_flags & ATR_VFLAG_SET &&
                 pjob->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long > 0))
           {
-          if (EMsg) snprintf(EMsg, 1024,
-                               "rerunable job is not allowed for queue: user %s, queue %s",
-                               pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
-                               pque->qu_qs.qu_name);
+          if (EMsg) 
+            snprintf(EMsg, 1024,
+              "rerunable job is not allowed for queue: user %s, queue %s",
+              pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+              pque->qu_qs.qu_name);
 
           return(PBSE_NORERUNABLE);
           }
@@ -1199,10 +1207,11 @@ int svr_chkque(
             && (!(pjob->ji_wattr[(int)JOB_ATR_rerunable].at_flags & ATR_VFLAG_SET) ||
                 pjob->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long == 0))
           {
-          if (EMsg) snprintf(EMsg, 1024,
-                               "only rerunable jobs are allowed for queue: user %s, queue %s",
-                               pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
-                               pque->qu_qs.qu_name);
+          if (EMsg) 
+            snprintf(EMsg, 1024,
+              "only rerunable jobs are allowed for queue: user %s, queue %s",
+              pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+              pque->qu_qs.qu_name);
 
           return(PBSE_NONONRERUNABLE);
           }
@@ -1216,9 +1225,10 @@ int svr_chkque(
       int rc;
       int slpygrp;
 
-      slpygrp = attr_ifelse_long(&pque->qu_attr[(int)QA_ATR_AclGroupSloppy],
-                                 &server.sv_attr[(int)SRV_ATR_AclGroupSloppy],
-                                 0);
+      slpygrp = attr_ifelse_long(
+        &pque->qu_attr[(int)QA_ATR_AclGroupSloppy],
+        &server.sv_attr[(int)SRV_ATR_AclGroupSloppy],
+        0);
 
       rc = acl_check(
              &pque->qu_attr[QA_ATR_AclGroup],
@@ -1323,11 +1333,12 @@ int svr_chkque(
     if ((pque->qu_attr[QA_ATR_MaxJobs].at_flags & ATR_VFLAG_SET) &&
         ((pque->qu_numjobs - pque->qu_numcompleted) >= pque->qu_attr[QA_ATR_MaxJobs].at_val.at_long))
       {
-      if (EMsg) snprintf(EMsg, 1024,
-                           "total number of jobs in queue exceeds the queue limit: "
-                           "user %s, queue %s",
-                           pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
-                           pque->qu_qs.qu_name);
+      if (EMsg) 
+        snprintf(EMsg, 1024,
+          "total number of jobs in queue exceeds the queue limit: "
+          "user %s, queue %s",
+          pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+          pque->qu_qs.qu_name);
 
       return(PBSE_MAXQUED);
       }
@@ -1353,11 +1364,12 @@ int svr_chkque(
 
       if (user_jobs >= pque->qu_attr[QA_ATR_MaxUserJobs].at_val.at_long)
         {
-        if (EMsg) snprintf(EMsg, 1024,
-                             "total number of current user's jobs exceeds the queue limit: "
-                             "user %s, queue %s",
-                             pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
-                             pque->qu_qs.qu_name);
+        if (EMsg) 
+          snprintf(EMsg, 1024,
+            "total number of current user's jobs exceeds the queue limit: "
+            "user %s, queue %s",
+            pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+            pque->qu_qs.qu_name);
 
         return(PBSE_MAXUSERQUED);
         }
@@ -1370,11 +1382,12 @@ int svr_chkque(
       {
       if (mtype == MOVE_TYPE_Move)  /* ok if not plain user */
         {
-        if (EMsg) snprintf(EMsg, 1024,
-                             "queue accepts only routed jobs, no direct submission: "
-                             "user %s, queue %s",
-                             pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
-                             pque->qu_qs.qu_name);
+        if (EMsg) 
+          snprintf(EMsg, 1024,
+            "queue accepts only routed jobs, no direct submission: "
+            "user %s, queue %s",
+            pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+            pque->qu_qs.qu_name);
 
         return(PBSE_QACESS);
         }
@@ -1391,11 +1404,12 @@ int svr_chkque(
       {
       if (acl_check(&pque->qu_attr[QA_ATR_AclHost], hostname, ACL_Host) == 0)
         {
-        if (EMsg) snprintf(EMsg, 1024,
-                             "host ACL rejected the submitting host: "
-                             "user %s, queue %s, host %s",
-                             pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
-                             pque->qu_qs.qu_name, hostname);
+        if (EMsg) 
+          snprintf(EMsg, 1024,
+            "host ACL rejected the submitting host: user %s, queue %s, host %s",
+            pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+            pque->qu_qs.qu_name, 
+            hostname);
 
         return(PBSE_BADHOST);
         }
@@ -1425,11 +1439,12 @@ int svr_chkque(
         else
           {
           /* no group acl, fail immediately */
-          if (EMsg) snprintf(EMsg, 1024,
-                               "user ACL rejected the submitting user: "
-                               "user %s, queue %s",
-                               pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
-                               pque->qu_qs.qu_name);
+
+          if (EMsg) 
+            snprintf(EMsg, 1024,
+              "user ACL rejected the submitting user: user %s, queue %s",
+              pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+              pque->qu_qs.qu_name);
 
           return(PBSE_PERM);
           }
