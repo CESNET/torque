@@ -362,16 +362,16 @@ int run_pelog(
     }
   else
     {
-    strncpy(pelog,specpelog,sizeof(buf));
+    strncpy(pelog,specpelog,sizeof(pelog));
     }
 
   rc = stat(pelog,&sbuf);
 
   if ((rc == -1) && (jobtypespecified == 1))
     {
-    strncpy(pelog,specpelog,sizeof(buf));
+    strncpy(pelog,specpelog,sizeof(pelog));
 
-    rc = stat(buf,&sbuf);
+    rc = stat(pelog,&sbuf);
     }
 
   if (rc == -1)
@@ -578,8 +578,8 @@ int run_pelog(
 
       switch (isjoined)
         {
+        case -1:
 
-        case - 1:
           fds2 = open_std_file(pjob, StdErr, O_WRONLY | O_APPEND,
                                pjob->ji_qs.ji_un.ji_momt.ji_exgid);
 
@@ -587,6 +587,7 @@ int run_pelog(
           break;
 
         case 1:
+
           fds1 = open_std_file(pjob, StdOut, O_WRONLY | O_APPEND,
                                pjob->ji_qs.ji_un.ji_momt.ji_exgid);
 
@@ -594,6 +595,7 @@ int run_pelog(
           break;
 
         default:
+
           fds1 = open_std_file(pjob, StdOut, O_WRONLY | O_APPEND,
                                pjob->ji_qs.ji_un.ji_momt.ji_exgid);
 
@@ -766,7 +768,7 @@ int run_pelog(
 
       strcpy(envstr, envname);
 
-      strcat(envstr, buf);
+      strcat(envstr,buf);
 
       /* do _not_ free the string when using putenv */
 
