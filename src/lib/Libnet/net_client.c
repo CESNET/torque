@@ -215,7 +215,7 @@ static int await_connect(
 
 
 /* in microseconds */
-#define TORQUE_MAXCONNECTTIMEOUT  100000
+#define TORQUE_MAXCONNECTTIMEOUT  500000
 
 /*
  * client_to_svr - connect to a server
