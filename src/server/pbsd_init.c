@@ -799,7 +799,8 @@ int pbsd_init(
           {
           /* TODO GB */
 
-          sprintf(log_buffer, "could not recover job from file %s--skipping",
+          sprintf(log_buffer, 
+                  "could not recover array-struct from file %s--skipping",
                   pdirent->d_name);
 
           log_err(errno, "pbsd_init", log_buffer);
@@ -880,7 +881,8 @@ int pbsd_init(
             }
           else
             {
-            /* should we do something here?  we won't beable to finish cloning this array */
+            /* FIXME: what shoudl we do here?  we won't beable to finish 
+               cloning this array because the initial job file is missing */
             }
 
           continue;
@@ -897,8 +899,8 @@ int pbsd_init(
             /* ignore/remove completed job */
 
             /* for some reason, if a completed job is recovered, and it is
-                    * forcibly purged with 'qdel -p', it will get deleted a second
-                    * time resulting in a segfault */
+             * forcibly purged with 'qdel -p', it will get deleted a 
+             * second time resulting in a segfault */
 
             job_purge(pjob);
 
