@@ -1182,7 +1182,6 @@ int main(
     }
 
   sprintf(log_buffer, "%ld\n",
-
           (long)sid);
 
   if (write(lockfds, log_buffer, strlen(log_buffer)) !=
@@ -1305,7 +1304,7 @@ int main(
     else
       waittime = next_task();
 
-    waittime = MAX(0, waittime);
+    waittime = MAX(0,waittime);
 
     if (*state == SV_STATE_RUN)
       {
@@ -1365,12 +1364,11 @@ int main(
       {
       check_children();
       }
-
 #endif
 
     /* touch the rpp streams that need to send */
 
-    rpp_request(42);
+    rpp_request(0);
 
     /* wait for a request and process it */
 

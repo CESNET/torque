@@ -2784,7 +2784,6 @@ int mom_open_socket_to_jobs_server(
 
     for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
       {
-
       struct sockaddr_in *addr;
       u_long              ipaddr;
       u_short             ipport;
@@ -2827,7 +2826,6 @@ int mom_open_socket_to_jobs_server(
    */
 
   pjob->ji_momhandle = sock;
-
 
   /* Associate a message handler with the connection */
 

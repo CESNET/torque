@@ -666,6 +666,9 @@ int stat_to_mom(
 
   /* get connection to MOM */
 
+  /*JOSH*/
+  fprintf(stdout,"stat_to_mom()\n");
+
   cntl->sc_conn = svr_connect(
                     pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
                     pbs_mom_port,

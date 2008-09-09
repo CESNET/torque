@@ -1605,7 +1605,6 @@ static int rpp_recv_pkt(
 
   switch (type)
     {
-
     case RPP_ACK:
 
       DBPRT((DBTO, "%s: ACK stream %d sequence %d crc %08lX\n",
@@ -3867,8 +3866,8 @@ int rpp_poll(void)
          stream_num))
 
   /*
-  ** Read socket to get any packets
-  */
+   * Read socket to get any packets
+   */
 
   for (;;)
     {

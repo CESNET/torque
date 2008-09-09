@@ -114,7 +114,6 @@ struct routem
 
 fd_set readset;
 
-
 void readit(
 
   int            sock,

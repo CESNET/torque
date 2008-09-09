@@ -197,7 +197,7 @@ int svr_connect(
     return(PBS_NET_RC_RETRY);
     }
 
-  /* establish UDP socket connection to specified host */
+  /* establish socket connection to specified host */
 
   sock = client_to_svr(hostaddr, port, 1, EMsg);
 
@@ -216,10 +216,10 @@ int svr_connect(
     if (LOGLEVEL >= 4)
       {
       sprintf(log_buffer, "cannot connect to %s port %d - cannot establish connection (%s) - time=%ld seconds",
-              (hostaddr == pbs_server_addr) ? "server" : "host",
-              port,
-              EMsg,
-              (long)(ETime - STime));
+          (hostaddr == pbs_server_addr) ? "server" : "host",
+          port,
+          EMsg,
+          (long)(ETime - STime));
 
       log_event(
         PBSEVENT_ADMIN,

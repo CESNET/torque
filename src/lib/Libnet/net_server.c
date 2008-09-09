@@ -86,6 +86,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <time.h>
+#include <stdlib.h>
 
 #include <sys/types.h>
 #include <sys/stat.h>  /* added - CRI 9/05 */
@@ -133,7 +134,8 @@ struct connection svr_conn[PBS_NET_MAX_CONNECTIONS];
 
 static int max_connection = PBS_NET_MAX_CONNECTIONS;
 static int num_connections = 0;
-static fd_set readset;
+/*static fd_set readset;*/
+static fd_set *GlobalSocketReadSet = NULL;
 static void (*read_func[2]) A_((int));
 
 pbs_net_t pbs_server_addr;
@@ -237,6 +239,8 @@ int init_network(
   static int  initialized = 0;
   int    sock;
 
+  int MaxNumDescriptors = 0;
+
   struct sockaddr_in socname;
   enum conn_type   type;
 #ifdef ENABLE_UNIX_SOCKETS
@@ -245,12 +249,15 @@ int init_network(
   int unixsocket;
 #endif
 
+  MaxNumDescriptors = get_max_num_descriptors();
+
   if (initialized == 0)
     {
     for (i = 0;i < PBS_NET_MAX_CONNECTIONS;i++)
       svr_conn[i].cn_active = Idle;
 
-    FD_ZERO(&readset);
+    /* initialize global "read" socket FD bitmap */
+    GlobalSocketReadSet = (fd_set *)calloc(1,sizeof(char) * get_fdset_size());
 
     type = Primary;
     }
@@ -274,12 +281,11 @@ int init_network(
 
     if (sock < 0)
       {
-
       return(-1);
       }
 
-    if (FD_SETSIZE < PBS_NET_MAX_CONNECTIONS)
-      max_connection = FD_SETSIZE;
+    if (MaxNumDescriptors < PBS_NET_MAX_CONNECTIONS)
+      max_connection = MaxNumDescriptors;
 
     i = 1;
 
@@ -308,7 +314,6 @@ int init_network(
 
     if (listen(sock, 512) < 0)
       {
-
       return(-1);
       }
     } /* if port != 0 */
@@ -358,7 +363,6 @@ int init_network(
 
 #endif /* END ENABLE_UNIX_SOCKETS */
 
-
   if (port != 0)
     {
     /* allocate a minute's worth of counter structs */
@@ -391,18 +395,21 @@ int wait_request(
 
   {
   extern char *PAddrToString(pbs_net_t *);
+  void close_conn();
 
   int i;
   int n;
 
   time_t now;
 
-  fd_set selset;
+  fd_set *SelectSet = NULL;
+  int SelectSetSize = 0;
+
+  int MaxNumDescriptors = 0;
 
   char tmpLine[1024];
 
   struct timeval timeout;
-  void close_conn();
 
   long OrigState = 0;
 
@@ -413,9 +420,15 @@ int wait_request(
 
   timeout.tv_sec  = waittime;
 
-  selset = readset;  /* readset is global */
+  SelectSetSize = sizeof(char) * get_fdset_size();
+  SelectSet = (fd_set *)calloc(1,SelectSetSize);
 
-  n = select(FD_SETSIZE, &selset, (fd_set *)0, (fd_set *)0, &timeout);
+  memcpy(SelectSet,GlobalSocketReadSet,SelectSetSize);
+
+  /* selset = readset;*/  /* readset is global */
+  MaxNumDescriptors = get_max_num_descriptors();
+
+  n = select(MaxNumDescriptors, SelectSet, (fd_set *)0, (fd_set *)0, &timeout);
 
   if (n == -1)
     {
@@ -426,17 +439,15 @@ int wait_request(
     else
       {
       int i;
-
       struct stat fbuf;
-
 
       /* check all file descriptors to verify they are valid */
 
-      /* NOTE:  selset may be modified by failed select() */
+      /* NOTE:  SelectSet may be modified by failed select() */
 
-      for (i = 0;i < (int)FD_SETSIZE;i++)
+      for (i = 0;i < MaxNumDescriptors;i++)
         {
-        if (FD_ISSET(i, &readset) == 0)
+        if (FD_ISSET(i, GlobalSocketReadSet) == 0)
           continue;
 
         if (fstat(i, &fbuf) == 0)
@@ -444,16 +455,17 @@ int wait_request(
 
         /* clean up SdList and bad sd... */
 
-        FD_CLR(i, &readset);
+        FD_CLR(i, GlobalSocketReadSet);
         }    /* END for (i) */
 
+      free(SelectSet);
       return(-1);
       }  /* END else (errno == EINTR) */
     }    /* END if (n == -1) */
 
   for (i = 0;(i < max_connection) && (n != 0);i++)
     {
-    if (FD_ISSET(i, &selset))
+    if (FD_ISSET(i, SelectSet))
       {
       /* this socket has data */
 
@@ -473,12 +485,11 @@ int wait_request(
         }
       else
         {
-        FD_CLR(i, &readset);
+        FD_CLR(i, GlobalSocketReadSet);
 
         close(i);
 
-        num_connections--;  /* added by CRI - should this be here? */
-
+        num_connections--;
         }
       }
     }    /* END for (i) */
@@ -487,6 +498,7 @@ int wait_request(
 
   if ((SState != NULL) && (OrigState != *SState))
     {
+    free(SelectSet);
     return(0);
     }
 
@@ -496,7 +508,6 @@ int wait_request(
 
   for (i = 0;i < max_connection;i++)
     {
-
     struct connection *cp;
 
     cp = &svr_conn[i];
@@ -513,9 +524,9 @@ int wait_request(
     /* NOTE:  add info about node associated with connection - NYI */
 
     snprintf(tmpLine, sizeof(tmpLine), "connection %d to host %s has timed out out after %d seconds - closing stale connection\n",
-             i,
-             PAddrToString(&cp->cn_addr),
-             PBS_NET_MAXCONNECTIDLE);
+        i,
+        PAddrToString(&cp->cn_addr),
+        PBS_NET_MAXCONNECTIDLE);
 
     log_err(-1, "wait_request", tmpLine);
 
@@ -526,6 +537,7 @@ int wait_request(
     close_conn(i);
     }  /* END for (i) */
 
+  free(SelectSet);
   return(0);
   }  /* END wait_request() */
 
@@ -562,7 +574,6 @@ static void accept_conn(
 
   svr_conn[sd].cn_lasttime = time((time_t *)0);
 
-
   if (svr_conn[sd].cn_socktype == PBS_SOCK_INET)
     {
     fromsize = sizeof(from);
@@ -574,6 +585,12 @@ static void accept_conn(
     newsock = accept(sd, (struct sockaddr *) & unixfrom, &fromsize);
     }
 
+  /*JOSH*/
+  fprintf(stdout,"accepted new socket %d (num_connections = %d, max_connections = %d)\n",
+    newsock,
+    num_connections,
+    max_connection);
+
   if (newsock == -1)
     {
     return;
@@ -583,6 +600,9 @@ static void accept_conn(
       (newsock >= PBS_NET_MAX_CONNECTIONS))
     {
     close(newsock);
+
+    fprintf(stdout,"too many concurrent connections--closing sock %d\n",
+      newsock);
 
     return;  /* too many current connections */
     }
@@ -620,7 +640,8 @@ void add_conn(
   {
   num_connections++;
 
-  FD_SET(sock, &readset);
+  FD_SET(sock, GlobalSocketReadSet);
+  /*FD_SET(sock, &readset);*/
 
   svr_conn[sock].cn_active   = type;
   svr_conn[sock].cn_addr     = addr;
@@ -676,7 +697,8 @@ void close_conn(
   if (svr_conn[sd].cn_oncl != 0)
     svr_conn[sd].cn_oncl(sd);
 
-  FD_CLR(sd, &readset);
+  FD_CLR(sd, GlobalSocketReadSet);
+  /*FD_CLR(sd, &readset);*/
 
   svr_conn[sd].cn_addr = 0;
 

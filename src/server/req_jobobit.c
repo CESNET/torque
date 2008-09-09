@@ -597,11 +597,13 @@ int mom_comm(
     if (pjob->ji_qs.ji_un.ji_exect.ji_momaddr == 0)
       {
       pjob->ji_qs.ji_un.ji_exect.ji_momaddr = get_hostaddr(
-                                                parse_servername(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str, &dummy));
+        parse_servername(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str, &dummy));
       }
 
-    pjob->ji_momhandle = svr_connect(
+    /*JOSH*/
+    fprintf(stdout,"mom_comm()\n");
 
+    pjob->ji_momhandle = svr_connect(
                            pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
                            pbs_mom_port,
                            process_Dreply,
@@ -621,7 +623,6 @@ int mom_comm(
         }
 
       pwt = set_task(
-
               WORK_Timed,
               (long)(time_now + PBS_NET_RETRY_TIME),
               func,
@@ -770,9 +771,7 @@ void on_job_exit(
 
   switch (pjob->ji_qs.ji_substate)
     {
-
     case JOB_SUBSTATE_EXITING:
-
     case JOB_SUBSTATE_ABORT:
 
       if (LOGLEVEL >= 2)
@@ -792,7 +791,6 @@ void on_job_exit(
         }
 
       svr_setjobstate(
-
         pjob,
         JOB_STATE_EXITING,
         JOB_SUBSTATE_STAGEOUT);
@@ -1239,7 +1237,6 @@ void on_job_rerun(
 
   switch (pjob->ji_qs.ji_substate)
     {
-
     case JOB_SUBSTATE_RERUN:
 
       IsFaked = 0;
@@ -1755,7 +1752,6 @@ void req_jobobit(
       }
 
     req_reject(
-
       bad,
       0,
       preq,
@@ -1830,7 +1826,6 @@ void req_jobobit(
     }
 
   modify_job_attr(
-
     pjob,
     patlist,
     ATR_DFLAG_MGWR | ATR_DFLAG_SvWR,
@@ -1905,7 +1900,6 @@ void req_jobobit(
 
     switch (exitstatus)
       {
-
       case JOB_EXEC_FAIL1:
 
       default:
@@ -2133,7 +2127,6 @@ void req_jobobit(
       }
 
     svr_setjobstate(
-
       pjob,
       JOB_STATE_EXITING,
       pjob->ji_qs.ji_substate);

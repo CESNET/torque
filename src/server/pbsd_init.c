@@ -888,7 +888,6 @@ int pbsd_init(
           continue;
           }
 
-
         if (strcmp(psuffix, job_suffix))
           continue;
 

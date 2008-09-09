@@ -160,8 +160,10 @@ int relay_to_mom(
       log_buffer);
     }
 
-  conn = svr_connect(
+  /*JOSH*/
+  fprintf(stdout,"%s\n",id);
 
+  conn = svr_connect(
            momaddr,
            pbs_mom_port,
            process_Dreply,
@@ -265,6 +267,9 @@ int issue_to_svr(
     }
   else
     {
+    /*JOSH*/
+    fprintf(stdout,"issue_to_svr()\n");
+
     handle = svr_connect(svraddr, port, process_Dreply, ToServerDIS);
 
     if (handle >= 0)

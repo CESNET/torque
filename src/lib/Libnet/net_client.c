@@ -103,34 +103,92 @@
 int bindresvport(int sd, struct sockaddr_in *sin);
 #endif
 
+/**
+ * Returns the max number of possible file descriptors (as
+ * per the OS limits).
+ *
+ */
+
+int get_max_num_descriptors(void)
+  {
+  static int max_num_descriptors = 0;
+
+  if (max_num_descriptors <= 0)
+    max_num_descriptors = getdtablesize();
+
+  return(max_num_descriptors);
+  }  /* END get_num_max_descriptors() */
+
+/**
+ * Returns the number of bytes needed to allocate
+ * a fd_set array that can hold all of the possible
+ * socket descriptors.
+ */
+
+int get_fdset_size(void)
+  {
+  int MaxNumDescriptors = 0;
+  int NumFDSetsNeeded = 0;
+  int NumBytesInFDSet = 0;
+
+  MaxNumDescriptors = get_max_num_descriptors();
+  NumBytesInFDSet = sizeof(fd_set);
+  NumFDSetsNeeded = MaxNumDescriptors / FD_SETSIZE;
+
+  return(NumFDSetsNeeded * NumBytesInFDSet);
+  }  /* END get_fdset_size() */
+
+
 /*
-** wait for connect to complete.  We use non-blocking sockets,
-** so have to wait for completion this way.
-*/
+ * Wait for connect to complete.  We use non-blocking sockets,
+ * so have to wait for completion this way.
+ */
 
 static int await_connect(
 
-  int timeout,   /* I */
-  int sockd)     /* I */
+  long timeout,   /* I (in microseconds) */
+  int  sockd)     /* I */
 
   {
-  fd_set fs;
+  /* fd_set fs; */
   int n, val, rc;
+
+  int MaxNumDescriptors = 0;
+
+  fd_set *BigFDSet = NULL;
 
   struct timeval tv;
 
   torque_socklen_t len;
 
-  tv.tv_sec = timeout;
-  tv.tv_usec = 0;
+  tv.tv_sec = 0;
+  tv.tv_usec = timeout;
 
+  /* calculate needed size for fd_set in select() */
+
+  MaxNumDescriptors = get_max_num_descriptors();
+
+  BigFDSet = (fd_set *)calloc(1,sizeof(char) * get_fdset_size());
+
+  /*JOSH*/
+  if (sockd >= MaxNumDescriptors)
+    {
+    fprintf(stdout,"Found BIG socket %d in await_connect()\n",
+      sockd);
+    }
+
+  /*
   FD_ZERO(&fs);
   FD_SET(sockd, &fs);
+  */
 
-  if ((n = select(sockd + 1, 0, &fs, 0, &tv)) != 1)
+  FD_SET(sockd, BigFDSet);
+
+  if ((n = select(sockd + 1, 0, BigFDSet, 0, &tv)) != 1)
     {
     /* FAILURE:  socket not ready for write */
 
+    free(BigFDSet);
     return(-1);
     }
 
@@ -142,6 +200,7 @@ static int await_connect(
     {
     /* SUCCESS:  no failures detected */
 
+    free(BigFDSet);
     return(0);
     }
 
@@ -149,13 +208,14 @@ static int await_connect(
 
   /* FAILURE:  socket error detected */
 
+  free(BigFDSet);
   return(-1);
   }  /* END await_connect() */
 
 
 
-
-#define TORQUE_MAXCONNECTTIMEOUT  5
+/* in microseconds */
+#define TORQUE_MAXCONNECTTIMEOUT  5000
 
 /*
  * client_to_svr - connect to a server
@@ -173,16 +233,17 @@ static int await_connect(
  * rather than look it up each time.
  *
  * NOTE:  will wait up to TORQUE_MAXCONNECTTIMEOUT seconds for transient network failures
+ *
+ * NOTE: may create new connection on reserved port to validate root/trusted authority (as
+ * in the case of pbs_iff)
  */
-
-/* NOTE:  create new connection on reserved port to validate root/trusted authority */
 
 int client_to_svr(
 
-  pbs_net_t     hostaddr, /* I - internet addr of host */
-  unsigned int  port,  /* I - port to which to connect */
+  pbs_net_t     hostaddr,   /* I - internet addr of host */
+  unsigned int  port,       /* I - port to which to connect */
   int           local_port, /* I - BOOLEAN:  not 0 to use local reserved port */
-  char         *EMsg)           /* O (optional,minsize=1024) */
+  char         *EMsg)       /* O (optional,minsize=1024) */
 
   {
   const char id[] = "client_to_svr";
@@ -203,9 +264,7 @@ int client_to_svr(
   errno = 0;
 
   local.sin_family      = AF_INET;
-
   local.sin_addr.s_addr = 0;
-
   local.sin_port        = 0;
 
   tryport = IPPORT_RESERVED - 1;
@@ -219,10 +278,12 @@ retry:  /* retry goto added (rentec) */
   if (sock < 0)
     {
     if (EMsg != NULL)
+      {
       sprintf(EMsg, "cannot create socket in %s - errno: %d %s",
-              id,
-              errno,
-              strerror(errno));
+          id,
+          errno,
+          strerror(errno));
+      }
 
     return(PBS_NET_RC_FATAL);
     }
@@ -230,8 +291,10 @@ retry:  /* retry goto added (rentec) */
   if (sock >= PBS_NET_MAX_CONNECTIONS)
     {
     if (EMsg != NULL)
+      {
       sprintf(EMsg, "PBS_NET_MAX_CONNECTIONS exceeded in %s",
-              id);
+          id);
+      }
 
     close(sock);  /* too many connections */
 
@@ -354,14 +417,17 @@ retry:  /* retry goto added (rentec) */
     {
     /* SUCCESS */
 
+    fprintf(stderr,"new connected socket %d\n",
+      sock);
+
     return(sock);
     }
 
 #ifdef NDEBUG2
   fprintf(stderr, "INFO:  cannot connect to port %d, errno=%d - %s\n",
-          tryport,
-          errno,
-          strerror(errno));
+      tryport,
+      errno,
+      strerror(errno));
 
 #endif /* NDEBUG2 */
 
@@ -369,9 +435,7 @@ retry:  /* retry goto added (rentec) */
 
   switch (errno)
     {
-
     case EADDRINUSE:
-
     case EADDRNOTAVAIL:
 
 #ifndef NOPRIVPORTS
@@ -392,9 +456,7 @@ retry:  /* retry goto added (rentec) */
       /* fall through to next case */
 
     case EINTR:
-
     case ETIMEDOUT:
-
     case EINPROGRESS:
 
       if (await_connect(TORQUE_MAXCONNECTTIMEOUT, sock) == 0)
@@ -441,6 +503,9 @@ retry:  /* retry goto added (rentec) */
     }  /* END switch (errno) */
 
   /* SUCCESS */
+
+  fprintf(stderr,"new connected socket %d\n",
+    sock);
 
   return(sock);
   }  /* END client_to_svr() */
