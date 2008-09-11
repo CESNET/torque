@@ -476,6 +476,10 @@ int wait_request(
       if (svr_conn[i].cn_active != Idle)
         {
         netcounter_incr();
+
+        fprintf(stdout,"calling callback function for socket %d\n",
+          i);
+
         svr_conn[i].cn_func(i);
 
         /* NOTE:  breakout if state changed (probably received shutdown request) */

@@ -220,6 +220,8 @@ static int await_connect(
 #define TORQUE_MAXCONNECTTIMEOUT  10000
 #endif /* PBS_MOM */
 
+/* global */
+long MaxConnectTimeout = 1000000; /* in microseconds */
 
 /*
  * client_to_svr - connect to a server
@@ -463,7 +465,7 @@ retry:  /* retry goto added (rentec) */
     case ETIMEDOUT:
     case EINPROGRESS:
 
-      if (await_connect(TORQUE_MAXCONNECTTIMEOUT, sock) == 0)
+      if (await_connect(MaxConnectTimeout, sock) == 0)
         {
         /* socket not ready for writing after TORQUE_MAXCONNECTTIMEOUT second timeout */
         /* no network failures detected */

@@ -763,6 +763,7 @@ static void stat_update(
       {
       /* we sent a stat request, but mom says it doesn't know anything about
          the job */
+
       if ((pjob = find_job(preq->rq_ind.rq_status.rq_id)))
         {
         /* job really isn't running any more - mom doesn't know anything about it
@@ -774,12 +775,13 @@ static void stat_update(
         job_abt(&pjob, "Job does not exist on node");
 
         /* TODO, if the job is rerunnable we should set its state back to queued */
-
         }
       }
     }
 
-
+  /*JOSH*/
+  fprintf(stdout,"closing job_stat connection %d\n",
+    connection[pwt->wt_event].ch_socket);
 
   release_req(pwt);
 
@@ -788,7 +790,7 @@ static void stat_update(
   if (cntl->sc_post)
     cntl->sc_post(cntl); /* continue where we left off */
   else
-    free(cntl); /* a bit of a kludge but its saves an extra func */
+    free(cntl);          /* a bit of a kludge but its saves an extra func */
 
   return;
   }  /* END stat_update() */
@@ -843,7 +845,6 @@ void poll_job_task(
   struct work_task *ptask)
 
   {
-
   job *pjob;
 
   pjob = (job *)ptask->wt_parm1;

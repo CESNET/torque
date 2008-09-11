@@ -236,6 +236,7 @@ int      src_login_interactive = TRUE;
 
 extern unsigned int pe_alarm_time;
 extern time_t   pbs_tcp_timeout;
+extern long     MaxConnectTimeout;
 
 char            tmpdir_basename[MAXPATHLEN];  /* for $TMPDIR */
 
@@ -6166,6 +6167,10 @@ void initialize_globals(void)
                     "tcp",
                     PBS_MANAGER_SERVICE_PORT);
     }
+
+  /* set timeout values for MOM */
+
+  MaxConnectTimeout = 10000;  /* in microseconds */
   }  /* END initialize_globals() */
 
 

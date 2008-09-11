@@ -1116,6 +1116,10 @@ void on_job_exit(
         {
         strcpy(preq->rq_ind.rq_delete.rq_objname, pjob->ji_qs.ji_jobid);
 
+        fprintf(stdout,"issuing request to completely finish job %s on socket %d\n",
+          pjob->ji_qs.ji_jobid,
+          connection[handle].ch_socket);
+
         issue_Drequest(handle, preq, release_req, 0);
 
         /* release_req will free preq and close connection */
