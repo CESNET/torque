@@ -298,7 +298,7 @@ XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 SUBDIRS = src doc
 EXTRA_DIST = CHANGELOG INSTALL.GNU README.configure README.mpiexec \
-             README.torque Release_Notes torque.setup torque.spec.in \
+             README.torque README.cygwin Release_Notes torque.setup torque.spec.in \
              DEVELOPMENT PBS_License.txt torque.spec \
 	     buildutils/tcl.m4 buildutils/self-extract-head-sh.in \
 	     buildutils/pbs_mkdirs.in buildutils/pbs_mach_type \
