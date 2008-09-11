@@ -213,9 +213,13 @@ static int await_connect(
   }  /* END await_connect() */
 
 
-
+#ifndef PBS_MOM
 /* in microseconds */
-#define TORQUE_MAXCONNECTTIMEOUT  500000
+#define TORQUE_MAXCONNECTTIMEOUT  1000000
+#else
+#define TORQUE_MAXCONNECTTIMEOUT  10000
+#endif /* PBS_MOM */
+
 
 /*
  * client_to_svr - connect to a server
