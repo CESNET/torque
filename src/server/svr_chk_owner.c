@@ -92,7 +92,6 @@
 #include "pbs_error.h"
 #include "log.h"
 #include "svrfunc.h"
-#include "assert.h"
 
 /* Global Data */
 
@@ -264,10 +263,6 @@ int svr_get_privilege(
     }
   else
     {
-    /* This asserts that a host should never have a colon
-     * as its first character*/
-
-    assert(colon_loc > host);
     num_host_chars = colon_loc - host;
     }
   strcpy(uh, user);
