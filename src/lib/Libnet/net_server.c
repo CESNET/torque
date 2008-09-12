@@ -644,6 +644,10 @@ void add_conn(
   {
   num_connections++;
 
+  printf("add connection for socket %d (%p)\n",
+    sock,
+    (void *)GlobalSocketReadSet);
+
   FD_SET(sock, GlobalSocketReadSet);
   /*FD_SET(sock, &readset);*/
 

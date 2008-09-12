@@ -139,13 +139,13 @@ extern int   issue_Drequest A_((int, struct batch_request *, void (*)(), struct 
 
 struct select_list
   {
-
   struct select_list *sl_next; /* ptr to next in list   */
-  enum batch_op     sl_op; /* comparison operator   */
+  enum batch_op       sl_op; /* comparison operator   */
   attribute_def      *sl_def; /* ptr to attr definition,for at_comp */
-  int      sl_atindx; /* index into attribute_def, for type */
-  attribute     sl_attr; /* the attribute (value) */
+  int                 sl_atindx; /* index into attribute_def, for type */
+  attribute           sl_attr; /* the attribute (value) */
   };
+
 
 struct stat_cntl    /* used in req_stat_job */
   {
@@ -153,7 +153,9 @@ struct stat_cntl    /* used in req_stat_job */
   int        sc_type;
   int        sc_XXXY;
   int        sc_conn;
-  pbs_queue      *sc_pque;
+  pbs_queue *sc_pque;
+
+  int        size;
 
   struct batch_request *sc_origrq;
 

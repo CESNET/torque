@@ -150,6 +150,8 @@ static void stat_update A_((struct work_task *));
 /*
  * req_stat_job - service the Status Job Request
  *
+ * @see req_stat_job_step2() - child
+ *
  * This request processes the request for status of a single job or
  * the set of jobs at a destination.
  * If SRV_ATR_PollJobs is not set or false (default), this takes three
@@ -169,21 +171,20 @@ enum TJobStatTypeEnum
   tjstServer,
   tjstTruncatedQueue,
   tjstTruncatedServer,
-  tjstLAST
-  };
+  tjstLAST };
 
 void req_stat_job(
 
   struct batch_request *preq) /* ptr to the decoded request   */
 
   {
-
   struct stat_cntl *cntl; /* see svrfunc.h  */
-  char     *name;
-  job     *pjob = NULL;
-  pbs_queue    *pque = NULL;
-  int      rc = 0;
+  char             *name;
+  job              *pjob = NULL;
+  pbs_queue        *pque = NULL;
+  int               rc = 0;
 
+  long              SpecMaxReport = TMAX_JOB;
 
   enum TJobStatTypeEnum type = tjstNONE;
 
@@ -198,13 +199,26 @@ void req_stat_job(
 
   if (preq->rq_extend != NULL)
     {
+    char *ptr;
+
     /* evaluate pbs_job_stat() 'extension' field */
 
-    if (!strncasecmp(preq->rq_extend, "truncated", strlen("truncated")))
+    ptr = strstr(preq->rq_extend,"truncated");
+
+    if (ptr != NULL)
       {
       /* truncate response by 'max_report' */
 
       type = tjstTruncatedServer;
+
+      ptr += strlen("truncated");
+
+      if (*ptr == ':')
+        {
+        ptr++;
+
+        SpecMaxReport = strtol(ptr,NULL,10);
+        }
       }
     }    /* END if (preq->rq_extend != NULL) */
 
@@ -260,23 +274,29 @@ void req_stat_job(
 
   if (cntl == NULL)
     {
-    req_reject(PBSE_SYSTEM, 0, preq, NULL, NULL);
+    req_reject(PBSE_SYSTEM,0,preq,NULL,NULL);
 
     return;
     }
 
   cntl->sc_type   = (int)type;
 
+  cntl->size      = SpecMaxReport;
+
   cntl->sc_conn   = -1;
   cntl->sc_pque   = pque;
   cntl->sc_origrq = preq;
-  cntl->sc_post   = req_stat_job_step2;
   cntl->sc_jobid[0] = '\0'; /* cause "start from beginning" */
-
+  
   if (server.sv_attr[(int)SRV_ATR_PollJobs].at_val.at_long)
-    cntl->sc_post = 0; /* we're not going to make clients wait */
+    cntl->sc_post = NULL; /* we're not going to make clients wait */
+  else
+    cntl->sc_post = req_stat_job_step2;
 
-  req_stat_job_step2(cntl); /* go to step 2, see if running is current */
+  /* go to step 2, see if running is current */
+
+  req_stat_job_step2(
+    cntl);
 
   return;
   }  /* END req_stat_job() */
@@ -285,9 +305,11 @@ void req_stat_job(
 
 
 
-/*
+/**
  * req_stat_job_step2 - continue with statusing of jobs
  * This is re-entered after sending status requests to MOM.
+ *
+ * @see req_stat_job() - parent
  *
  * Note, the funny initization/advance of pjob in the "while" loop
  * comes from the fact we want to look at the "next" job on re-entry.
@@ -295,17 +317,17 @@ void req_stat_job(
 
 static void req_stat_job_step2(
 
-  struct stat_cntl *cntl)  /* I/O */
+  struct stat_cntl *cntl)    /* I/O */
 
   {
-  svrattrl        *pal;
-  job         *pjob;
+  svrattrl             *pal;
+  job                  *pjob;
   job                  *cpjob;
 
   struct batch_request *preq;
 
   struct batch_reply   *preply;
-  int          rc = 0;
+  int                   rc = 0;
 
   enum TJobStatTypeEnum type;
 
@@ -313,6 +335,7 @@ static void req_stat_job_step2(
   int                   exec_only = 0;
 
   int                   IsTruncated = 0;
+  long                  SpecMaxReport = TMAX_JOB;
 
   long                  DTime;  /* delta time - only report full attribute list if J->MTime > DTime */
 
@@ -324,8 +347,10 @@ static void req_stat_job_step2(
 
   /* See pbs_server_attributes(1B) for details on "poll_jobs" behaviour */
 
-  /* NOTE:  If IsTruncated is true, should walk all queues and walk jobs in each queue
-            until max_reported is reached */
+  /* NOTE:  If IsTruncated is true, loop through all queues and loop through
+            all jobs in each queue until max_reported idle jobs are reached */
+
+  SpecMaxReport = cntl->size;
 
   if (!server.sv_attr[(int)SRV_ATR_PollJobs].at_val.at_long)
     {
@@ -444,7 +469,7 @@ static void req_stat_job_step2(
       {
       ptr += strlen("delta:");
 
-      DTime = strtol(ptr, NULL, 10);
+      DTime = strtol(ptr,NULL,10);
       }
     }
 
@@ -480,6 +505,8 @@ static void req_stat_job_step2(
         {
         qmaxreport = TMAX_JOB;
         }
+
+      qmaxreport = MIN(qmaxreport,SpecMaxReport);
 
       /* loop through jobs in queue */
 
