@@ -173,12 +173,24 @@ typedef struct badplace
  * password and group files.
  */
 
-#ifdef NGROUPS_MAX
+#define TORQUE_NGROUPS_MAX  32
+
+#ifdef TORQUE_NGROUPS_MAX
+struct grpcache
+  {
+  int    gc_ngroup; /* number of active supplementary groups */
+  int    gc_groups[TORQUE_NGROUPS_MAX];
+  char   gc_homedir[1]; /* more space allocated as part of this  */
+  /* structure following here   */
+  };
+#elif NGROUPS_MAX
+
+#define TORQUE_NGROUPS_MAX NGROUPS_MAX
 
 struct grpcache
   {
   int    gc_ngroup; /* number of active supplementary groups */
-  int    gc_groups[NGROUPS_MAX];
+  int    gc_groups[TORQUE_NGROUPS_MAX];
   char   gc_homedir[1]; /* more space allocated as part of this  */
   /* structure following here   */
   };

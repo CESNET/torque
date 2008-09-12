@@ -239,7 +239,7 @@ static pid_t fork_to_user(
   job            *pjob;
 
   struct passwd  *pwdp;
-  static int      fgrp[NGROUPS_MAX];
+  static int      fgrp[TORQUE_NGROUPS_MAX];
 
   char           *idir;
 
@@ -313,7 +313,7 @@ static pid_t fork_to_user(
       return(-PBSE_BADUSER);
       }
 
-    ngroup = init_groups(pwdp->pw_name, usergid, NGROUPS_MAX, fgrp);
+    ngroup = init_groups(pwdp->pw_name, usergid, TORQUE_NGROUPS_MAX, fgrp);
 
     if (ngroup < 0)
       ngroup = 0;

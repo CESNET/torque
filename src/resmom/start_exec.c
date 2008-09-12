@@ -373,7 +373,7 @@ struct passwd *check_pwd(
   if ((pjob->ji_grpcache->gc_ngroup = init_groups(
                                         pwdp->pw_name,
                                         pjob->ji_qs.ji_un.ji_momt.ji_exgid,
-                                        NGROUPS_MAX,
+                                        TORQUE_NGROUPS_MAX,
                                         pjob->ji_grpcache->gc_groups)) < 0)
     {
     /* FAILURE */
@@ -5987,14 +5987,14 @@ int init_groups(
   sigset_t savedset;
 
   int n, nsaved;
-  gid_t savedgroups[NGROUPS_MAX + 16]; /* plus one for the egid below */
+  gid_t savedgroups[TORQUE_NGROUPS_MAX + 16]; /* plus one for the egid below */
 
   gid_t momegid;
   int i;
 
   /* save current group access because we're about to overwrite it */
 
-  nsaved = getgroups(NGROUPS_MAX, savedgroups);
+  nsaved = getgroups(TORQUE_NGROUPS_MAX, savedgroups);
 
   if (nsaved < 0)
     {
