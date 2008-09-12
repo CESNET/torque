@@ -122,7 +122,7 @@ int get_max_num_descriptors(void)
 /**
  * Returns the number of bytes needed to allocate
  * a fd_set array that can hold all of the possible
- * socket descriptors.
+ * socket descriptors in the system.
  */
 
 int get_fdset_size(void)
@@ -130,12 +130,34 @@ int get_fdset_size(void)
   int MaxNumDescriptors = 0;
   int NumFDSetsNeeded = 0;
   int NumBytesInFDSet = 0;
+  int Result = 0;
 
   MaxNumDescriptors = get_max_num_descriptors();
+
   NumBytesInFDSet = sizeof(fd_set);
   NumFDSetsNeeded = MaxNumDescriptors / FD_SETSIZE;
 
-  return(NumFDSetsNeeded * NumBytesInFDSet);
+  if (MaxNumDescriptors < FD_SETSIZE)
+    {
+    /* the default size already provides sufficient space */
+
+    Result = NumBytesInFDSet;
+    }
+  else if ((MaxNumDescriptors % FD_SETSIZE) > 0)
+    {
+    /* we need to allocate more memory to cover extra
+     * bits--add an extra FDSet worth of memory to the size */
+
+    Result = (NumFDSetsNeeded + 1) * NumBytesInFDSet;
+    }
+  else
+    {
+    /* division was exact--we know exactly how many bytes we need */
+
+    Result = NumFDSetsNeeded * NumBytesInFDSet;
+    }
+
+  return(Result);
   }  /* END get_fdset_size() */
 
 
