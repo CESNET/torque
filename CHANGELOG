@@ -1,6 +1,14 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.4
+  b - fixed a bug preventing multiple TORQUE servers and TORQUE MOMs from operating properly all from the same host
+  f - enabled 'qsub -T' to specify "job type." Currently this will allow a per job prolog/epilog
+  f - added a new '-E' option to qstat which allows command-line users to pass "extend" strings via the API
+  f - added new max_report queue attribute which will limit the number of Idle jobs, per queue, that TORQUE reports to the scheduler
+  e - enhanced logging when a hostname cannot be looked up in DNS
+  e - PBS_NET_MAX_CONNECTIONS can now be defined at compile time (via CFLAGS)
+  e - modified source code so that all .c and .h files now conform more closely to the new CRI format style
+  c - fixed segfault when loading job files of an older/incompatible version
   b - fixed a bug where if attempt to send job to a pbs_mom failed due to 
       timeout, the job would indefinitely remain the in 'R' state
   b - fixed a bug where CPU time was not being added up properly in all cases 
