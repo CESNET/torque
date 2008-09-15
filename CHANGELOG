@@ -1,7 +1,6 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.4
-  e - made "pbs_mom -p" the default option when starting pbs_mom. Added a "-q" option to *not* perform the -p option.
   b - fixed a bug preventing multiple TORQUE servers and TORQUE MOMs from operating properly all from the same host
   f - enabled 'qsub -T' to specify "job type." Currently this will allow a per job prolog/epilog
   f - added a new '-E' option to qstat which allows command-line users to pass "extend" strings via the API
