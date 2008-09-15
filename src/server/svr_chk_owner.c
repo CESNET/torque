@@ -250,7 +250,7 @@ int svr_get_privilege(
   int   priv = (ATR_DFLAG_USRD | ATR_DFLAG_USWR);
   int num_host_chars;
   char  uh[PBS_MAXUSER + PBS_MAXHOSTNAME + 2];
-  char host_no_port[1024];
+  char host_no_port[PBS_MAXHOSTNAME + 1];
 
   char *colon_loc = strchr(host, ':');
 
@@ -259,7 +259,7 @@ int svr_get_privilege(
   if (colon_loc == NULL) 
     {
     /* no colon found */
-    num_host_chars = sizeof(host_no_port);
+    num_host_chars = PBS_MAXHOSTNAME;
     }
   else
     {
