@@ -386,6 +386,7 @@ static void req_stat_job_step2(
     JOB_ATR_LAST };
   
   int DeltaAList[] = {
+    JOB_ATR_state,
     JOB_ATR_jobname,
     JOB_ATR_resc_used,
     JOB_ATR_LAST };
