@@ -507,14 +507,14 @@ static void req_stat_job_step2(
     {
     char *ptr;
 
-    /* FORMAT:  { EXECQONLY | DELTA:<EPOCHTIME> } */
+    /* FORMAT:  { EXECQONLY | delta:<EPOCHTIME> | truncated[:<PROCCOUNT>] } */
 
     if (strstr(preq->rq_extend,EXECQUEONLY))
       exec_only = 1;
 
     DTime = 0;
 
-    ptr = strstr(preq->rq_extend,"DELTA:");
+    ptr = strstr(preq->rq_extend,"delta:");
 
     if (ptr != NULL)
       {
