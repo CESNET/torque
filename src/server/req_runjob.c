@@ -203,9 +203,9 @@ void req_runjob(
     ++scheduler_jobct; /* see scheduler_close() */
 
   sprintf(log_buffer, msg_manager,
-          msg_jobrun,
-          preq->rq_user,
-          preq->rq_host);
+    msg_jobrun,
+    preq->rq_user,
+    preq->rq_host);
 
   log_event(
     PBSEVENT_JOB,
@@ -245,6 +245,8 @@ void req_runjob(
       req_reject(rc, 0, preq, failhost, emsg);
       }
     }
+
+  pjob->ji_wattr[(int)JOB_ATR_mtime].at_val.at_long = time_now;
 
   return;
   }  /* END req_runjob() */

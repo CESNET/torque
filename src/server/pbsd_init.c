@@ -989,6 +989,7 @@ int pbsd_init(
     {
     darray_t Array;
     DArrayInit(&Array,100);
+
     /* Now, for each job found ... */
 
     while ((pdirent = readdir(dir)) != NULL)
@@ -1045,7 +1046,7 @@ int pbsd_init(
         else
           {
           sprintf(log_buffer, msg_init_badjob,
-                  pdirent->d_name);
+            pdirent->d_name);
 
           log_err(-1, "pbsd_init", log_buffer);
 
@@ -1067,7 +1068,7 @@ int pbsd_init(
             }
           }
         }
-      }
+      }    /* END while ((pdirent = readdir(dir)) != NULL) */
 
     closedir(dir);
     qsort(Array.Data,Array.AppendIndex,sizeof(Array.Data[0]),SortPrioAscend);
@@ -1075,12 +1076,13 @@ int pbsd_init(
     for (Index = 0; Index < Array.AppendIndex; Index++)
       {
       job *pjob = (job *)Array.Data[Index];
+
       if (pbsd_init_job(pjob, type) == FAILURE)
         {
         log_event(
           PBSEVENT_ERROR | PBSEVENT_SYSTEM | PBSEVENT_ADMIN | PBSEVENT_JOB | PBSEVENT_FORCE,
           PBS_EVENTCLASS_JOB,
-          pdirent->d_name,
+          pjob->ji_qs.ji_jobid,
           msg_script_open);
 
         continue;
@@ -1091,7 +1093,7 @@ int pbsd_init(
           (!(pjob->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET)) &&
           (pjob->ji_qs.ji_svrflags & JOB_SVFLG_SCRIPT))
         {
-        strcpy(basen, pdirent->d_name);
+        strcpy(basen,pjob->ji_qs.ji_jobid);
 
         psuffix = basen + baselen;
 
@@ -1124,7 +1126,6 @@ int pbsd_init(
       }
 
     sprintf(log_buffer, msg_init_exptjobs,
-
             had, server.sv_qs.sv_numjobs);
 
     log_event(

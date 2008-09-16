@@ -608,7 +608,7 @@ int svr_setjobstate(
       server.sv_jobstates[oldstate]--;
       server.sv_jobstates[newstate]++;
 
-      if (pque != (pbs_queue *)0)
+      if (pque != NULL)
         {
         pque->qu_njstate[oldstate]--;
         pque->qu_njstate[newstate]++;
@@ -635,8 +635,11 @@ int svr_setjobstate(
           job_attr_def[(int)JOB_ATR_etime].at_free(
             &pjob->ji_wattr[(int)JOB_ATR_etime]);
           }
-        }
-      }
+        }  /* END if (pque != NULL) */
+
+      pjob->ji_wattr[(int)JOB_ATR_mtime].at_val.at_long = time_now;
+      pjob->ji_wattr[(int)JOB_ATR_mtime].at_flags |= ATR_VFLAG_SET;
+      }    /* END if (oldstate != newstate) */
     }    /* END if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_TRANSICM) */
 
   /* set the states accordingly */

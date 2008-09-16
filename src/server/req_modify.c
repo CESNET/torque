@@ -114,6 +114,7 @@ extern char *msg_mombadmodify;
 extern int   comp_resc_gt;
 extern int   comp_resc_lt;
 extern int   LOGLEVEL;
+extern time_t time_now;
 
 
 extern const char *PJobSubState[];
@@ -130,7 +131,6 @@ static void post_modify_req(
   struct work_task *pwt)
 
   {
-
   struct batch_request *preq;
   job  *pjob;
 
@@ -166,10 +166,10 @@ static void post_modify_req(
         if (LOGLEVEL >= 0)
           {
           sprintf(log_buffer, "post_modify_req: PBSE_UNKJOBID for job %s in state %s-%s, dest = %s",
-                  (pjob->ji_qs.ji_jobid != NULL) ? pjob->ji_qs.ji_jobid : "",
-                  PJobState[pjob->ji_qs.ji_state],
-                  PJobSubState[pjob->ji_qs.ji_substate],
-                  pjob->ji_qs.ji_destin);
+            (pjob->ji_qs.ji_jobid != NULL) ? pjob->ji_qs.ji_jobid : "",
+            PJobState[pjob->ji_qs.ji_state],
+            PJobSubState[pjob->ji_qs.ji_substate],
+            pjob->ji_qs.ji_destin);
 
           LOG_EVENT(
             PBSEVENT_JOB,
@@ -193,7 +193,7 @@ static void post_modify_req(
 /**
  * req_modifyjob - service the Modify Job Request
  *
- * This request modifes a job's attributes.
+ * This request modifies a job's attributes.
  */
 
 void req_modifyjob(
@@ -334,20 +334,19 @@ void req_modifyjob(
 
   if (pjob->ji_qs.ji_state != JOB_STATE_RUNNING)
     {
-    svr_evaljobstate(pjob, &newstate, &newsubstate, 0);
+    svr_evaljobstate(pjob,&newstate,&newsubstate,0);
 
-    svr_setjobstate(pjob, newstate, newsubstate);
+    svr_setjobstate(pjob,newstate,newsubstate);
     }
   else
     {
     job_save(pjob, SAVEJOB_FULL);
     }
 
-  sprintf(log_buffer, msg_manager,
-
-          msg_jobmod,
-          preq->rq_user,
-          preq->rq_host);
+  sprintf(log_buffer,msg_manager,
+    msg_jobmod,
+    preq->rq_user,
+    preq->rq_host);
 
   LOG_EVENT(
     PBSEVENT_JOB,
@@ -369,6 +368,8 @@ void req_modifyjob(
 
     return;
     }
+
+  pjob->ji_wattr[(int)JOB_ATR_mtime].at_val.at_long = time_now;
 
   reply_ack(preq);
 

@@ -114,20 +114,21 @@ extern int      resc_access_perm; /* see encode_resc() in attr_fn_resc.c */
 
 extern struct server server;
 
-/*
+/**
  * status_job - Build the status reply for a single job.
+ *
+ * @see status_attrib() - child
  */
 
 int status_job(
 
-  job      *pjob, /* ptr to job to status */
+  job        *pjob,    /* ptr to job to status */
   struct batch_request *preq,
-  svrattrl   *pal, /* specific attributes to status */
+  svrattrl   *pal,     /* specific attributes to status */
   tlist_head *pstathd, /* RETURN: head of list to append status to */
-  int        *bad) /* RETURN: index of first bad attribute */
+  int        *bad)     /* RETURN: index of first bad attribute */
 
   {
-
   struct brp_status *pstat;
 
   int IsOwner = 0;
@@ -175,7 +176,7 @@ int status_job(
         JOB_ATR_LAST,
         preq->rq_perm,
         &pstat->brp_attr,
-        bad,
+        bad,                /* O */
         IsOwner))
     {
     return(PBSE_NOATTR);
@@ -189,8 +190,112 @@ int status_job(
 
 
 
+
+/**
+ * status_job - Build the status reply for a single job.
+ *
+ * @see status_attrib() - child
+ */
+
+int status_job_part(
+
+  job        *pjob,    /* ptr to job to status */
+  struct batch_request *preq,
+  int        *pal,     /* specific attributes to status */
+  tlist_head *pstathd, /* RETURN: head of list to append status to */
+  int        *bad)     /* RETURN: index of first bad attribute */
+
+  {
+  struct brp_status *pstat;
+
+  int    IsOwner = 0;
+
+  int    index;
+  int    pindex;
+  int    priv;
+
+  /* see if the client is authorized to status this job */
+
+  if (svr_authorize_jobreq(preq, pjob) == 0)
+    IsOwner = 1;
+
+  if (!server.sv_attr[(int)SRV_ATR_query_others].at_val.at_long)
+    {
+    if (IsOwner == 0)
+      {
+      return(PBSE_PERM);
+      }
+    }
+
+  /* allocate reply structure and fill in header portion */
+
+  pstat = (struct brp_status *)malloc(sizeof(struct brp_status));
+
+  if (pstat == NULL)
+    {
+    return(PBSE_SYSTEM);
+    }
+
+  CLEAR_LINK(pstat->brp_stlink);
+
+  pstat->brp_objtype = MGR_OBJ_JOB;
+
+  strcpy(pstat->brp_objname, pjob->ji_qs.ji_jobid);
+
+  CLEAR_HEAD(pstat->brp_attr);
+
+  append_link(pstathd, &pstat->brp_stlink, pstat);
+
+  /* add attributes to the status reply */
+
+  *bad = 0;
+
+  priv = preq->rq_perm & ATR_DFLAG_RDACC;  /* user-client privilege  */
+
+  resc_access_perm = priv;  /* pass privilege to encode_resc() */
+
+  /* for each attribute asked for or for all attributes, add to reply */
+
+  if (pal == NULL)
+    {
+    return(-1);
+    }
+
+  /* client specified certain attributes */
+
+  for (pindex = 0;pal[pindex] != JOB_ATR_LAST;pindex++)
+    {
+    index = pal[pindex];
+
+    if ((job_attr_def + index)->at_flags & priv)
+      {
+      if (!(((job_attr_def + index)->at_flags & ATR_DFLAG_PRIVR) && (IsOwner == 0)))
+        {
+        (job_attr_def + index)->at_encode(
+          pjob->ji_wattr + index,
+          &pstat->brp_attr,
+          (job_attr_def + index)->at_name,
+          NULL,
+          ATR_ENCODE_CLIENT);
+        }
+      }
+    }    /* END for (pindex) */
+
+  /* SUCCESS */
+
+  return(0);
+  }  /* END status_job_part() */
+
+
+
+
+
+
 /*
  * status_attrib - add each requested or all attributes to the status reply
+ *
+ * @see find_attr() - child
+ * @see stat_job() - parent
  *
  * Returns: 0 on success
  *  -1 on error (bad attribute), "bad" set to ordinal of attribute
@@ -198,13 +303,13 @@ int status_job(
 
 int status_attrib(
 
-  svrattrl *pal,  /* I */
+  svrattrl      *pal,    /* I */
   attribute_def *padef,
-  attribute *pattr,
-  int   limit,
-  int   priv,
-  tlist_head *phead,
-  int  *bad,
+  attribute     *pattr,
+  int            limit,
+  int            priv,
+  tlist_head    *phead,
+  int           *bad,
   int            IsOwner)  /* 0 == FALSE, 1 == TRUE */
 
   {
@@ -225,7 +330,7 @@ int status_attrib(
       {
       ++nth;
 
-      index = find_attr(padef, pal->al_name, limit);
+      index = find_attr(padef,pal->al_name,limit);
 
       if (index < 0)
         {
@@ -251,7 +356,7 @@ int status_attrib(
 
       pal = (svrattrl *)GET_NEXT(pal->al_link);
       }
-    }
+    }    /* END if (pal != NULL) */
   else
     {
     /* attrlist not specified, return all readable attributes */
@@ -259,11 +364,10 @@ int status_attrib(
     for (index = 0;index < limit;index++)
       {
       if (((padef + index)->at_flags & priv) &&
-          !((padef + index)->at_flags & ATR_DFLAG_NOSTAT))
+         !((padef + index)->at_flags & ATR_DFLAG_NOSTAT))
         {
         if (!(((padef + index)->at_flags & ATR_DFLAG_PRIVR) && (IsOwner == 0)))
           {
-
           (padef + index)->at_encode(
             pattr + index,
             phead,

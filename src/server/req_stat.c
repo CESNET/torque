@@ -125,7 +125,8 @@ extern int             LOGLEVEL;
 
 /* Extern Functions */
 
-int status_job A_((job *, struct batch_request *, svrattrl *, tlist_head *, int *));
+int status_job A_((job *,struct batch_request *,svrattrl *,tlist_head *,int *));
+int status_job_part A_((job *, struct batch_request *,int *,tlist_head *,int *));
 int status_attrib A_((svrattrl *, attribute_def *, attribute *, int, int, tlist_head *, int *, int));
 extern int   svr_connect A_((pbs_net_t, unsigned int, void (*)(int), enum conn_type));
 extern int status_nodeattrib(svrattrl *, attribute_def *, struct pbsnode *, int, int, tlist_head *, int*);
@@ -310,6 +311,7 @@ void req_stat_job(
  * This is re-entered after sending status requests to MOM.
  *
  * @see req_stat_job() - parent
+ * @see status_job() - child
  *
  * Note, the funny initization/advance of pjob in the "while" loop
  * comes from the fact we want to look at the "next" job on re-entry.
@@ -337,9 +339,56 @@ static void req_stat_job_step2(
   int                   IsTruncated = 0;
   long                  SpecMaxReport = TMAX_JOB;
 
-  long                  DTime;  /* delta time - only report full attribute list if J->MTime > DTime */
+  long                  DTime = -1;  /* delta time - only report full attribute list if J->MTime > DTime */
 
-  static svrattrl      *dpal = NULL;
+  /* list of attributes to send to optimized scheduler */
+
+  int FullAList[] = {
+    JOB_ATR_jobname,   /* this set appears first as they show */
+    JOB_ATR_job_owner, /* in a basic job status display       */
+    JOB_ATR_resc_used,
+    JOB_ATR_state,
+    JOB_ATR_account,  
+    JOB_ATR_chkpnt,    
+    JOB_ATR_ctime,
+    JOB_ATR_depend,
+    JOB_ATR_errpath,
+    JOB_ATR_exec_host,
+    JOB_ATR_exectime,
+    JOB_ATR_grouplst,
+    JOB_ATR_hold,
+    JOB_ATR_interactive,
+    JOB_ATR_jobtype,     /* opaque job type string */
+    JOB_ATR_mailpnts,
+    JOB_ATR_mailuser,
+    JOB_ATR_mtime,      
+    JOB_ATR_outpath,
+    JOB_ATR_priority,
+    JOB_ATR_qtime,
+    JOB_ATR_rerunable,
+    JOB_ATR_resource,
+    JOB_ATR_session_id,
+    JOB_ATR_shell,
+    JOB_ATR_stagein,
+    JOB_ATR_stageout,
+    JOB_ATR_userlst,
+    JOB_ATR_euser, /* execution user name for MOM    */
+    JOB_ATR_egroup, /* execution group name for MOM    */
+    JOB_ATR_etime, /* time job became eligible to run   */
+    JOB_ATR_exitstat, /* exit status of job     */
+    JOB_ATR_submit_args,
+    JOB_ATR_job_array_id,
+    JOB_ATR_job_array_request,
+    JOB_ATR_start_time,  /* time when job was first started */
+    JOB_ATR_start_count, /* number of times the job has been started */
+    JOB_ATR_chkptdir,    /* directory where job checkpoint file is stored */
+    JOB_ATR_chkptname,   /* name of checkpoint file */
+    JOB_ATR_LAST };
+  
+  int DeltaAList[] = {
+    JOB_ATR_jobname,
+    JOB_ATR_resc_used,
+    JOB_ATR_LAST };
 
   preq   = cntl->sc_origrq;
   type   = (enum TJobStatTypeEnum)cntl->sc_type;
@@ -452,7 +501,7 @@ static void req_stat_job_step2(
   else
     pjob = (job *)GET_NEXT(svr_alljobs);
 
-  DTime = 0;
+  DTime = -1;
 
   if (preq->rq_extend != NULL)
     {
@@ -460,10 +509,12 @@ static void req_stat_job_step2(
 
     /* FORMAT:  { EXECQONLY | DELTA:<EPOCHTIME> } */
 
-    if (strstr(preq->rq_extend, EXECQUEONLY))
+    if (strstr(preq->rq_extend,EXECQUEONLY))
       exec_only = 1;
 
-    ptr = strstr(preq->rq_extend, "DELTA:");
+    DTime = 0;
+
+    ptr = strstr(preq->rq_extend,"DELTA:");
 
     if (ptr != NULL)
       {
@@ -523,12 +574,39 @@ static void req_stat_job_step2(
 
         pal = (svrattrl *)GET_NEXT(preq->rq_ind.rq_status.rq_attr);
 
-        rc = status_job(
-               pjob,
-               preq,
-               (pjob->ji_wattr[(int)JOB_ATR_mtime].at_val.at_long >= DTime) ? pal : dpal,
-               &preply->brp_un.brp_status,
-               &bad);
+        if (DTime == -1)
+          {
+          /* report every attribute */
+
+          rc = status_job(
+                 pjob,
+                 preq,
+                 pal,
+                 &preply->brp_un.brp_status,
+                 &bad);
+          }
+        else if (pjob->ji_wattr[(int)JOB_ATR_mtime].at_val.at_long >= DTime)
+          {
+          /* report all scheduler-relevant attributes */
+
+          rc = status_job_part(
+                 pjob,
+                 preq,
+                 FullAList,
+                 &preply->brp_un.brp_status,
+                 &bad);
+          }
+        else
+          {
+          /* report delta attributes only */
+
+          rc = status_job_part(
+                 pjob,
+                 preq,
+                 DeltaAList,
+                 &preply->brp_un.brp_status,
+                 &bad);
+          }
 
         if ((rc != 0) && (rc != PBSE_PERM))
           {
