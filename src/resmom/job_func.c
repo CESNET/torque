@@ -627,11 +627,11 @@ void job_purge(
     {
     char file[MAXPATHLEN + 1];
 
-    sprintf(file, "%s/%s",
-            path_aux,
-            pjob->ji_qs.ji_jobid);
+    sprintf(file,"%s/%s",
+      path_aux,
+      pjob->ji_qs.ji_jobid);
 
-    unlink(file);
+    unlink(file);  /* remove job file */
 
     pjob->ji_flags &= ~MOM_HAS_NODEFILE;
     }
@@ -644,10 +644,11 @@ void job_purge(
     {
     sprintf(log_buffer, "removing job");
 
-    log_record(PBSEVENT_DEBUG,
-               PBS_EVENTCLASS_JOB,
-               pjob->ji_qs.ji_jobid,
-               log_buffer);
+    log_record(
+      PBSEVENT_DEBUG,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      log_buffer);
     }
 
   strcpy(namebuf, path_jobs); /* delete script file */
@@ -664,12 +665,12 @@ void job_purge(
     {
     sprintf(log_buffer, "removed job script");
 
-    log_record(PBSEVENT_DEBUG,
-               PBS_EVENTCLASS_JOB,
-               pjob->ji_qs.ji_jobid,
-               log_buffer);
+    log_record(
+      PBSEVENT_DEBUG,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      log_buffer);
     }
-
 
 #if IBM_SP2==2        /* IBM SP PSSP 3.1 */
   unload_sp_switch(pjob);

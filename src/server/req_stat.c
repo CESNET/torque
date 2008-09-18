@@ -522,6 +522,18 @@ static void req_stat_job_step2(
       ptr += strlen("delta:");
 
       DTime = strtol(ptr,NULL,10);
+
+      if (DTime == 0)
+        {
+        /* clear 'is reported' attribute of all jobs */
+
+        for (pjob = (job *)GET_NEXT(svr_alljobs);
+             pjob != NULL;
+             pjob = (job *)GET_NEXT(pjob->ji_alljobs))
+          {
+          pjob->ji_wattr[(int)JOB_ATR_rtime].at_val.at_long = 0;
+          }
+        }
       }
     }
 
@@ -586,7 +598,8 @@ static void req_stat_job_step2(
                  &preply->brp_un.brp_status,
                  &bad);
           }
-        else if (pjob->ji_wattr[(int)JOB_ATR_mtime].at_val.at_long >= DTime)
+        else if ((pjob->ji_wattr[(int)JOB_ATR_rtime].at_val.at_long == 0) ||
+                 (pjob->ji_wattr[(int)JOB_ATR_mtime].at_val.at_long >= DTime))
           {
           /* report all scheduler-relevant attributes */
 
@@ -596,6 +609,8 @@ static void req_stat_job_step2(
                  FullAList,
                  &preply->brp_un.brp_status,
                  &bad);
+
+          pjob->ji_wattr[(int)JOB_ATR_rtime].at_val.at_long = time_now;
           }
         else
           {
@@ -640,7 +655,7 @@ static void req_stat_job_step2(
 
     pal = (svrattrl *)GET_NEXT(preq->rq_ind.rq_status.rq_attr);
 
-    rc = status_job(pjob, preq, pal, &preply->brp_un.brp_status, &bad);
+    rc = status_job(pjob,preq,pal,&preply->brp_un.brp_status,&bad);
 
     if ((rc != 0) && (rc != PBSE_PERM))
       {

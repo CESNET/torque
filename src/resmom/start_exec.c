@@ -408,7 +408,13 @@ struct passwd *check_pwd(
  * This routine exits on error!  Only used by the BLCR restart code, and
  * there's really no good way to recover from an error in restart.
  */
-static int fdreopen(const char *path, const char mode, int fd)
+
+static int fdreopen(
+
+  const char *path, 
+  const char  mode, 
+  int         fd)
+
   {
   int newfd, dupfd;
 
@@ -5476,9 +5482,9 @@ char *std_file_name(
         jobpath = ptr + 1;
         }
 
-      if (!strcmp(jobpath, "/dev/null"))
+      if (!strcmp(jobpath,"/dev/null"))
         {
-        strcpy(path, "/dev/null");
+        strcpy(path,"/dev/null");
 
         *keeping = 1;
 
@@ -5491,7 +5497,7 @@ char *std_file_name(
     if (LOGLEVEL >= 10)
       {
       sprintf(log_buffer, "std_file_name path before NO_SPOOL_OUTPUT: %s",
-              path);
+        path);
 
       log_err(-1, "std_file_name", log_buffer);
       }

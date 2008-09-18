@@ -1194,7 +1194,6 @@ static void preobit_reply(
 
   switch (preq->rq_reply.brp_code)
     {
-
     case PBSE_CLEANEDOUT:
 
     case PBSE_UNKJOBID:
@@ -1202,7 +1201,7 @@ static void preobit_reply(
       /* this is the simple case of the job being purged from the server */
 
       sprintf(log_buffer,
-              "preobit_reply, unknown on server, deleting locally");
+        "preobit_reply, unknown on server, deleting locally");
 
       deletejob = 1;
 
@@ -1222,15 +1221,15 @@ static void preobit_reply(
         }
       else
         {
-        sprintf(log_buffer, "BUG: preq->rq_reply.brp_choice==%d",
-                preq->rq_reply.brp_choice);
+        sprintf(log_buffer,"BUG: preq->rq_reply.brp_choice==%d",
+          preq->rq_reply.brp_choice);
 
         break;
         }
 
       if (pstatus == NULL)
         {
-        sprintf(log_buffer, "BUG: pstatus==NULL");
+        sprintf(log_buffer,"BUG: pstatus==NULL");
 
         break;
         }
@@ -1238,8 +1237,8 @@ static void preobit_reply(
       if (strcmp(pstatus->brp_objname, pjob->ji_qs.ji_jobid))
         {
         sprintf(log_buffer,
-                "BUG: mismatched jobid in preobit_reply (%s != %s)",
-                pstatus->brp_objname, pjob->ji_qs.ji_jobid);
+          "BUG: mismatched jobid in preobit_reply (%s != %s)",
+          pstatus->brp_objname, pjob->ji_qs.ji_jobid);
 
         break;
         }
@@ -1328,11 +1327,24 @@ static void preobit_reply(
       {
       int x; /* dummy */
 
+      char *ptr;
+
       /* do this if not interactive */
 
-      unlink(std_file_name(pjob, StdOut, &x));
-      unlink(std_file_name(pjob, StdErr, &x));
-      unlink(std_file_name(pjob, Chkpt, &x));
+      ptr = std_file_name(pjob,StdOut,&x);
+
+      if ((ptr != NULL) && strcmp(ptr,"/dev/null"))
+        unlink(ptr);
+
+      ptr = std_file_name(pjob,StdErr,&x);
+
+      if ((ptr != NULL) && strcmp(ptr,"/dev/null"))
+        unlink(ptr);
+
+      ptr = std_file_name(pjob,Chkpt,&x);
+
+      if ((ptr != NULL) && strcmp(ptr,"/dev/null"))
+        unlink(ptr);
       }
 
     mom_deljob(pjob);
@@ -1559,11 +1571,24 @@ static void obit_reply(
           if (((pattr->at_flags & ATR_VFLAG_SET) == 0) ||
               (pattr->at_val.at_long == 0))
             {
+            char *ptr;
+
             /* do this if not interactive */
 
-            unlink(std_file_name(pjob, StdOut, &x));
-            unlink(std_file_name(pjob, StdErr, &x));
-            unlink(std_file_name(pjob, Chkpt, &x));
+            ptr = std_file_name(pjob,StdOut,&x);
+
+            if ((ptr != NULL) && strcmp(ptr,"/dev/null"))
+              unlink(ptr);
+
+            ptr = std_file_name(pjob,StdErr,&x);
+
+            if ((ptr != NULL) && strcmp(ptr,"/dev/null"))
+              unlink(ptr);
+
+            ptr = std_file_name(pjob,Chkpt,&x);
+
+            if ((ptr != NULL) && strcmp(ptr,"/dev/null"))
+              unlink(ptr);
             }
 
           mom_deljob(pjob);

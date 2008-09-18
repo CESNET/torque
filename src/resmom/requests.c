@@ -585,15 +585,15 @@ static void add_bad_list(
 
 static int return_file(
 
-  job         *pjob,
+  job           *pjob,
   enum job_file  which,
-  int          sock)
+  int            sock)
 
   {
   int        amt;
-  char        buf[RT_BLK_SZ];
+  char       buf[RT_BLK_SZ];
   int        fds;
-  char       *filename;
+  char      *filename;
 
   struct batch_request *prq;
   int        rc = 0;
@@ -601,7 +601,7 @@ static int return_file(
 
   filename = std_file_name(pjob, which, &amt); /* amt is place holder */
 
-  if (strcmp(filename, "/dev/null") == 0)
+  if (strcmp(filename,"/dev/null") == 0)
     {
     return(0);
     }
@@ -2503,7 +2503,7 @@ void req_rerunjob(
   struct batch_request *preq)  /* I */
 
   {
-  static char   *id = "req_rerunjob";
+  static char *id = "req_rerunjob";
 
   job  *pjob;
   int        sock;
@@ -2613,8 +2613,8 @@ static int sys_copy(
   int rc;
 
   sprintf(rcperr, "%srcperr.%ld",
-          path_spool,
-          (long)getpid());
+    path_spool,
+    (long)getpid());
 
   if (rmtflg == 0)
     {
@@ -2632,10 +2632,10 @@ static int sys_copy(
   if (LOGLEVEL >= 6)
     {
     sprintf(log_buffer, "executing copy command: %s %s %s %s",
-            ag0,
-            ag1,
-            ag2,
-            ag3);
+      ag0,
+      ag1,
+      ag2,
+      ag3);
 
     log_err(-1, id, log_buffer);
     }
@@ -2875,9 +2875,8 @@ void req_cpyfile(
       }
 
     sprintf(tmpLine, "fork_to_user failed with rc=%d '%s' - returning failure",
-
-            rc,
-            EMsg);
+      rc,
+      EMsg);
 
     log_err(errno, id, tmpLine);
 

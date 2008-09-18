@@ -140,6 +140,7 @@
 #define ATTR_exechost   "exec_host"
 #define ATTR_mtime      "mtime"
 #define ATTR_qtime      "qtime"
+#define ATTR_rtime      "rtime"
 #define ATTR_session    "session_id"
 #define ATTR_euser      "euser"
 #define ATTR_egroup     "egroup"
