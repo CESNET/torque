@@ -730,6 +730,11 @@ job *job_clone(
   return pnewjob;
   } /* END job_clone() */
 
+
+#ifndef CLONE_BATCH_SIZE
+#define CLONE_BATCH_SIZE 256
+#endif /* CLONE_BATCH_SIZE */
+
 /*
  * job_clone_wt - worktask to clone jobs for job array
  */
@@ -764,9 +769,7 @@ void job_clone_wt(
   strcat(namebuf, pjob->ji_qs.ji_fileprefix);
   strcat(namebuf, ".AR");
 
-
-  /* do the clones in batches of 256 */
-
+  /* do the clones in batches of CLONE_BATCH_SIZE */
 
   num_cloned = 0;
   loop = TRUE;
@@ -776,9 +779,9 @@ void job_clone_wt(
     start = rn->start;
     end = rn->end;
 
-    if (end - start > 256)
+    if (end - start > CLONE_BATCH_SIZE)
       {
-      end = start + 255;
+      end = start + (CLONE_BATCH_SIZE-1);
       }
 
     for (i = start; i <= end; i++)
@@ -797,7 +800,6 @@ void job_clone_wt(
       pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long = ++queue_rank;
       pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_flags |= ATR_VFLAG_SET;
 
-
       if ((rc = svr_enquejob(pjobclone)))
         {
         job_purge(pjobclone);
@@ -812,10 +814,8 @@ void job_clone_wt(
 
       rn->start++;
 
-
       array_save(pa);
       num_cloned++;
-
       }
 
     if (rn->start > rn->end)
@@ -826,14 +826,11 @@ void job_clone_wt(
       array_save(pa);
       }
 
-    if (num_cloned == 256 || rn == NULL)
+    if ((num_cloned == CLONE_BATCH_SIZE) || (rn == NULL))
       {
       loop = FALSE;
       }
-
     }
-
-
 
   if (rn != NULL)
     {
@@ -867,9 +864,7 @@ void job_clone_wt(
 
       job_save(pjob, SAVEJOB_FULL);
 
-
       pjob = (job*)GET_NEXT(pjob->ji_arrayjobs);
-
       }
     }
   } /* end job_clone_tw */

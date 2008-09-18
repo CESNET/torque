@@ -372,9 +372,9 @@ static void req_stat_job_step2(
     JOB_ATR_stagein,
     JOB_ATR_stageout,
     JOB_ATR_userlst,
-    JOB_ATR_euser, /* execution user name for MOM    */
-    JOB_ATR_egroup, /* execution group name for MOM    */
-    JOB_ATR_etime, /* time job became eligible to run   */
+    JOB_ATR_euser,    /* execution user name for MOM    */
+    JOB_ATR_egroup,   /* execution group name for MOM    */
+    JOB_ATR_etime,    /* time job became eligible to run   */
     JOB_ATR_exitstat, /* exit status of job     */
     JOB_ATR_submit_args,
     JOB_ATR_job_array_id,

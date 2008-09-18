@@ -70,10 +70,7 @@ static int parse_array_request(char *request, job_array *pa);
 /* search job array list to determine if id is a job array */
 int is_array(char *id)
   {
-
   job_array *pa;
-
-
 
   pa = (job_array*)GET_NEXT(svr_jobarrays);
 
@@ -123,8 +120,6 @@ job_array *get_array(char *id)
 int array_save(job_array *pa)
 
   {
-
-
   int fds;
   char namebuf[MAXPATHLEN];
   array_request_node *rn;
@@ -169,7 +164,6 @@ int array_save(job_array *pa)
 
   if (num_tokens > 0)
     {
-
     rn = (array_request_node*)GET_NEXT(pa->request_tokens);
 
     while (rn != NULL)
@@ -223,8 +217,6 @@ void array_get_parent_id(char *job_id, char *parent_id)
   *pid = '\0';
 
   strcat(pid, c);
-
-
   }
 
 
@@ -258,8 +250,6 @@ job_array *array_recov(char *path)
   CLEAR_HEAD(pa->request_tokens);
 
   fd = open(path, O_RDONLY, 0);
-
-
 
   /* read the file into the struct previously allocated.
    */
@@ -300,7 +290,6 @@ job_array *array_recov(char *path)
 
       if (read(fd, rn, sizeof(array_request_node)) != sizeof(array_request_node))
         {
-
         sprintf(log_buffer, "error reading array_request_node from %s", path);
         log_err(errno, "pbsd_init", log_buffer);
 
@@ -318,21 +307,15 @@ job_array *array_recov(char *path)
         free(pa);
 
         close(fd);
+
         return NULL;
         }
 
       CLEAR_LINK(rn->request_tokens_link);
 
       append_link(&pa->request_tokens, &rn->request_tokens_link, (void*)rn);
-
       }
-
-
-
     }
-
-
-
 
   close(fd);
 
@@ -345,7 +328,6 @@ job_array *array_recov(char *path)
   append_link(&svr_jobarrays, &pa->all_arrays, (void*)pa);
 
   return pa;
-
   }
 
 
@@ -355,10 +337,8 @@ job_array *array_recov(char *path)
  */
 int array_delete(job_array *pa)
   {
-
   char path[MAXPATHLEN + 1];
   array_request_node *rn;
-
 
   /* first thing to do is take this out of the servers list of all arrays */
   delete_link(&pa->all_arrays);
@@ -366,8 +346,6 @@ int array_delete(job_array *pa)
   strcpy(path, path_arrays);
   strcat(path, pa->ai_qs.fileprefix);
   strcat(path, ARRAY_FILE_SUFFIX);
-
-
 
   /* delete the on disk copy of the struct */
 
@@ -409,7 +387,6 @@ int array_delete(job_array *pa)
     rn = (array_request_node*)GET_NEXT(pa->request_tokens);
     }
 
-
   /* free the memory allocated for the struct */
   free(pa);
 
@@ -423,7 +400,6 @@ int setup_array_struct(job *pjob)
 
   struct work_task *wt;
   int bad_token_count;
-
 
   /* setup a link to this job array in the servers all_arrays list */
   pa = (job_array*)malloc(sizeof(job_array));
@@ -447,7 +423,6 @@ int setup_array_struct(job *pjob)
     {
     job_purge(pjob);
 
-
     if (LOGLEVEL >= 6)
       {
       log_record(
@@ -460,9 +435,7 @@ int setup_array_struct(job *pjob)
     return 1;
     }
 
-  bad_token_count =
-
-    parse_array_request(pjob->ji_wattr[(int)JOB_ATR_job_array_request].at_val.at_str, pa);
+  bad_token_count = parse_array_request(pjob->ji_wattr[(int)JOB_ATR_job_array_request].at_val.at_str, pa);
 
   array_save(pa);
 
@@ -478,7 +451,6 @@ int setup_array_struct(job *pjob)
   /* svr_setjobstate(pj,JOB_STATE_HELD,JOB_SUBSTATE_HELD);*/
 
   return 0;
-
   }
 
 
@@ -638,7 +610,6 @@ static int parse_array_request(char *request, job_array *pa)
       tokens[0] = temp_str;
       }
     }
-
 
   for (i = 0; i < num_tokens; i++)
     {
