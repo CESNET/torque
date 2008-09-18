@@ -15,6 +15,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       (fix for Linux only) 
   e - pbs_track now allows passing of - and -- options to the a.out argument
   b - qsub now properly interprets -W umask=0XXX as octal umask
+  e - allow $HOME to be specified for path
 
 2.3.3
   b - fixed bug where pbs_mom would sometimes not connect properly with 
