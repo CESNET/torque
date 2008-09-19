@@ -399,8 +399,7 @@ void rpp_request(
   return;
   }  /* END rpp_request() */
 
-void clear_listeners(
-  )  /* I */
+void clear_listeners()
   
   {
   int	 i;
@@ -1308,10 +1307,9 @@ int main(
      }
 #endif
 
-
     /* touch the rpp streams that need to send */
 
-    rpp_request(42);
+    rpp_request(0);
 
     /* wait for a request and process it */
 
