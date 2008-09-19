@@ -136,7 +136,7 @@ int array_save(job_array *pa)
     return -1;
     }
 
-  if (write(fds,  &(pa->ai_qs), sizeof(struct array_info)) == -1)
+  if (write(fds,&(pa->ai_qs),sizeof(struct array_info)) == -1)
     {
     unlink(namebuf);
     close(fds);
@@ -153,7 +153,6 @@ int array_save(job_array *pa)
     num_tokens++;
     rn = (array_request_node*)GET_NEXT(rn->request_tokens_link);
     }
-
 
   if (write(fds, &num_tokens, sizeof(num_tokens)) == -1)
     {
@@ -235,7 +234,7 @@ job_array *array_recov(char *path)
 
   old_version = ARRAY_QS_STRUCT_VERSION;
   /* allocate the storage for the struct */
-  pa = (job_array*)malloc(sizeof(job_array));
+  pa = (job_array*)calloc(1,sizeof(job_array));
 
   if (pa == NULL)
     {
@@ -402,7 +401,7 @@ int setup_array_struct(job *pjob)
   int bad_token_count;
 
   /* setup a link to this job array in the servers all_arrays list */
-  pa = (job_array*)malloc(sizeof(job_array));
+  pa = (job_array *)calloc(1,sizeof(job_array));
 
   pa->ai_qs.struct_version = ARRAY_QS_STRUCT_VERSION;
 

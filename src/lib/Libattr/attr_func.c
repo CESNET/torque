@@ -546,7 +546,7 @@ parse_equal_string(char *start, char **name, char **value)
  *  value1 [, value2 ...]
  *
  * On the first call, start is non null, a pointer to the first value
- * element upto a comma, new-line, or end of string is returned.
+ * element up to a comma, new-line, or end of string is returned.
  *      Commas escaped by a back-slash '\' are ignored.
  *
  * On any following calls with start set to a null pointer (char *)0,
