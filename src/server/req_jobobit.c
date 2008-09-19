@@ -2026,7 +2026,7 @@ void req_jobobit(
     log_event(
       PBSEVENT_ERROR|PBSEVENT_JOB,
       PBS_EVENTCLASS_JOB,
-      preq->rq_ind.rq_jobobit.rq_jid,
+      pjob->ji_qs.ji_jobid,
       log_buffer);
     }
 
@@ -2089,7 +2089,7 @@ void req_jobobit(
         log_event(
           PBSEVENT_ERROR|PBSEVENT_JOB,
           PBS_EVENTCLASS_JOB,
-          preq->rq_ind.rq_jobobit.rq_jid,
+          pjob->ji_qs.ji_jobid,
           "on_job_exit task assigned to job");
         }
       }
@@ -2138,7 +2138,7 @@ void req_jobobit(
         log_event(
           PBSEVENT_ERROR|PBSEVENT_JOB,
           PBS_EVENTCLASS_JOB,
-          preq->rq_ind.rq_jobobit.rq_jid,
+          pjob->ji_qs.ji_jobid,
           "on_job_rerun task assigned to job");
         }
       }
@@ -2154,7 +2154,7 @@ void req_jobobit(
     log_event(
       PBSEVENT_ERROR|PBSEVENT_JOB,
       PBS_EVENTCLASS_JOB,
-      preq->rq_ind.rq_jobobit.rq_jid,
+      pjob->ji_qs.ji_jobid,
       "req_jobobit completed");
     }
 
