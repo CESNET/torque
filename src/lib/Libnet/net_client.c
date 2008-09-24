@@ -447,8 +447,10 @@ retry:  /* retry goto added (rentec) */
     {
     /* SUCCESS */
 
+#ifdef JOSH
     fprintf(stderr,"new connected socket %d\n",
       sock);
+#endif /* JOSH */
 
     return(sock);
     }
@@ -534,8 +536,10 @@ retry:  /* retry goto added (rentec) */
 
   /* SUCCESS */
 
+#ifdef JOSH
   fprintf(stderr,"new connected socket %d\n",
     sock);
+#endif /* JOSH */
 
   return(sock);
   }  /* END client_to_svr() */

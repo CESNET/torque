@@ -477,8 +477,10 @@ int wait_request(
         {
         netcounter_incr();
 
+#ifdef JOSH
         fprintf(stdout,"calling callback function for socket %d\n",
           i);
+#endif /* JOSH */
 
         svr_conn[i].cn_func(i);
 
@@ -647,9 +649,11 @@ void add_conn(
   {
   num_connections++;
 
+#ifdef JOSH
   printf("add connection for socket %d (%p)\n",
     sock,
     (void *)GlobalSocketReadSet);
+#endif /* JOSH */
 
   FD_SET(sock, GlobalSocketReadSet);
   /*FD_SET(sock, &readset);*/
