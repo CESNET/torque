@@ -600,8 +600,9 @@ int mom_comm(
         parse_servername(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str, &dummy));
       }
 
-    /*JOSH*/
+#ifdef JOSH
     fprintf(stdout,"mom_comm()\n");
+#endif /* JOSH */
 
     pjob->ji_momhandle = svr_connect(
                            pjob->ji_qs.ji_un.ji_exect.ji_momaddr,

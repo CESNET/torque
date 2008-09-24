@@ -329,9 +329,10 @@ void svr_disconnect(
 
     shutdown(connection[handle].ch_socket, 2);
 
-    /*JOSH*/
+#ifdef JOSH
     fprintf(stdout,"closing socket %d\n",
       connection[handle].ch_socket);
+#endif /* JOSH */
 
     close_conn(connection[handle].ch_socket);
 

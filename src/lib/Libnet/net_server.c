@@ -589,11 +589,12 @@ static void accept_conn(
     newsock = accept(sd, (struct sockaddr *) & unixfrom, &fromsize);
     }
 
-  /*JOSH*/
+#ifdef JOSH
   fprintf(stdout,"accepted new socket %d (num_connections = %d, max_connections = %d)\n",
     newsock,
     num_connections,
     max_connection);
+#endif /* JOSH */
 
   if (newsock == -1)
     {
@@ -605,8 +606,10 @@ static void accept_conn(
     {
     close(newsock);
 
+#ifdef JOSH
     fprintf(stdout,"too many concurrent connections--closing sock %d\n",
       newsock);
+#endif /* JOSH */
 
     return;  /* too many current connections */
     }

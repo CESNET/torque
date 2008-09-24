@@ -787,8 +787,9 @@ int stat_to_mom(
 
   /* get connection to MOM */
 
-  /*JOSH*/
+#ifdef JOSH
   fprintf(stdout,"stat_to_mom()\n");
+#endif /* JOSH */
 
   cntl->sc_conn = svr_connect(
                     pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
@@ -900,9 +901,10 @@ static void stat_update(
       }
     }
 
-  /*JOSH*/
+#ifdef JOSH
   fprintf(stdout,"closing job_stat connection %d\n",
     connection[pwt->wt_event].ch_socket);
+#endif /* JOSH */
 
   release_req(pwt);
 

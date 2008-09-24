@@ -192,12 +192,13 @@ static int await_connect(
 
   BigFDSet = (fd_set *)calloc(1,sizeof(char) * get_fdset_size());
 
-  /*JOSH*/
+#ifdef JOSH
   if (sockd >= MaxNumDescriptors)
     {
     fprintf(stdout,"Found BIG socket %d in await_connect()\n",
       sockd);
     }
+#endif /* JOSH */
 
   /*
   FD_ZERO(&fs);
