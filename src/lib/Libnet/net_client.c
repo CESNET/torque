@@ -86,6 +86,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <string.h>
+#include <stdlib.h>
 #include "portability.h"
 #include "server_limits.h"
 #include "net_connect.h"
@@ -120,7 +121,7 @@ int get_max_num_descriptors(void)
 
 int get_fdset_size(void)
   {
-  int MaxNumDescriptors = 0;
+  unsigned int MaxNumDescriptors = 0;
   int NumFDSetsNeeded = 0;
   int NumBytesInFDSet = 0;
   int Result = 0;
