@@ -117,6 +117,7 @@ extern struct server server;
 /**
  * status_job - Build the status reply for a single job.
  *
+ * @see status_job_part() - peer
  * @see status_attrib() - child
  */
 

@@ -313,7 +313,7 @@ void req_stat_job(
  * @see req_stat_job() - parent
  * @see status_job() - child
  *
- * Note, the funny initization/advance of pjob in the "while" loop
+ * Note, the funny initialization/advance of pjob in the "while" loop
  * comes from the fact we want to look at the "next" job on re-entry.
  */
 
@@ -348,6 +348,7 @@ static void req_stat_job_step2(
     JOB_ATR_job_owner, /* in a basic job status display       */
     JOB_ATR_resc_used,
     JOB_ATR_state,
+    JOB_ATR_in_queue,
     JOB_ATR_account,  
     JOB_ATR_chkpnt,    
     JOB_ATR_ctime,
@@ -453,13 +454,13 @@ static void req_stat_job_step2(
       /* PBS_RESTAT_JOB defaults to 30 seconds */
 
       if ((pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING) &&
-          ((time_now - pjob->ji_momstat) > JobStatRate))
+         ((time_now - pjob->ji_momstat) > JobStatRate))
         {
         /* go to MOM for status */
 
-        strcpy(cntl->sc_jobid, pjob->ji_qs.ji_jobid);
+        strcpy(cntl->sc_jobid,pjob->ji_qs.ji_jobid);
 
-        if ((rc = stat_to_mom(pjob, cntl)) == PBSE_SYSTEM)
+        if ((rc = stat_to_mom(pjob,cntl)) == PBSE_SYSTEM)
           {
           break;
           }
@@ -484,7 +485,7 @@ static void req_stat_job_step2(
 
       reply_free(preply);
 
-      req_reject(rc, 0, preq, NULL, "cannot get update from mom");
+      req_reject(rc,0,preq,NULL,"cannot get update from mom");
 
       return;
       }
@@ -535,7 +536,7 @@ static void req_stat_job_step2(
           }
         }
       }
-    }
+    }    /* END if (preq->rq_extend != NULL) */
 
   free(cntl);
 
