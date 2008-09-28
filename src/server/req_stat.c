@@ -120,7 +120,7 @@ extern attribute_def  node_attr_def[];   /* node attributes defs */
 extern int	       pbs_mom_port;
 extern time_t	       time_now;
 extern char	      *msg_init_norerun;
-extern struct pbsnode *lfindIp(const struct sockaddr_storage *);
+extern struct pbsnode *lfindNode(const struct sockaddr_storage *, struct list_t *);
 extern int             LOGLEVEL;
 
 /* Extern Functions */
@@ -543,7 +543,7 @@ int stat_to_mom(
 
   /* if MOM is down just return stale information */
 
-  if (((node = lfindIp(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr)) != NULL) &&
+  if (((node = lfindNode(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr, ipaddrs)) != NULL) &&
        (node->nd_state & (INUSE_DELETED|INUSE_DOWN)))
     {
     if (LOGLEVEL >= 6)

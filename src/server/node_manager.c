@@ -231,15 +231,54 @@ struct list_t *lfind(
 }
 
 /**
+ * General functions for handling IP adresses in a list
+ */
+struct sockaddr_storage *lfindIp(
+            const struct sockaddr_storage *key,
+            struct list_t *root)
+{
+    struct list_t *node = lfind(key, root);
+    return (NULL == node) ? NULL : node->key;
+}
+
+void linsertIp(struct sockaddr_storage *nodep, struct list_t *root)
+{
+    struct list_t *node = root;
+    struct list_t *prev = NULL;
+
+    for (; node != NULL && 0 == compare_ip(nodep, node->key); prev = node, node = node->next) ;
+
+    /* insert */
+    if (NULL == node) {
+        node = malloc(sizeof(struct list_t));
+
+        if (NULL != node) {
+            if (NULL != prev)
+              prev->next = node;
+            node->key = nodep;
+            node->content = NULL;
+            node->next = NULL;
+            node->prev = prev;
+        }
+    }
+}
+
+void ldeleteIp(struct sockaddr_storage *key, struct list_t *root)
+{
+    ldeleteNode(key, root);
+}
+
+/**
  * Finds and returns a pbsnode by that key
  *
  * @param key A adress to be mapped to a pbsnode
  * @return the node associated with that ip adress
  */
-struct pbsnode *lfindIp(
-            const struct sockaddr_storage *key)
+struct pbsnode *lfindNode(
+            const struct sockaddr_storage *key,
+            struct list_t *root)
 {
-    struct list_t *node = lfind(key, ipaddrs);
+    struct list_t *node = lfind(key, root);
     return (NULL == node) ? NULL : node->content;
 }
 
@@ -249,9 +288,9 @@ struct pbsnode *lfindIp(
  *
  * @param nodep the node to be inserted
  */
-void linsertIp(struct pbsnode *nodep)
+void linsertNode(struct pbsnode *nodep, struct list_t *root)
 {
-    struct list_t *node = ipaddrs;
+    struct list_t *node = root;
     struct sockaddr_storage *key = nodep->nd_addrs[0]; /* always use the first adress as key */
     struct list_t *prev = NULL;
 
@@ -277,9 +316,9 @@ void linsertIp(struct pbsnode *nodep)
  *
  * @param key delete the first node matching the provided key
  */
-void ldeleteIp(struct sockaddr_storage *key)
+void ldeleteNode(struct sockaddr_storage *key, struct list_t *root)
 {
-    struct list_t *node = lfind(key, ipaddrs);
+    struct list_t *node = lfind(key, root);
 
     if (NULL == node) return;
 
@@ -333,18 +372,17 @@ struct pbsnode *tfind(
 /**
  * @see lfindIp
  */
-struct pbsnode *tfindStream(const int id)
+struct pbsnode *tfindStream(const int id, struct tree_t *root)
 {
-    return tfind(id, streams);
+    return tfind(id, root);
 }
 
 /**
  * @see linsertIp
  */
-void tinsertStream(struct pbsnode  *nodep)
+void tinsertStream(struct pbsnode  *nodep, struct tree_t *root)
 {
     register tree	*q;
-    tree *root = streams;
 
     /* nothing exists, nothing done */
     if (nodep == NULL)
@@ -380,9 +418,8 @@ void tinsertStream(struct pbsnode  *nodep)
 /**
  * @see ldeleteIp
  */
-void tdeleteStream(const int key)
+void tdeleteStream(const int key, struct tree_t *rootp)
   {
-  tree    *rootp = streams;
   tree		*p;
   register tree	*q;
   register tree	*r;
@@ -1027,7 +1064,7 @@ void send_cluster_addrs(
 
     rpp_close(np->nd_stream);
 
-    tdeleteStream(np->nd_stream);
+    tdeleteStream(np->nd_stream, streams);
 
     np->nd_stream = -1;
     }  /* END for (i) */
@@ -1381,12 +1418,12 @@ void stream_eof(
   /* find who the stream belongs to and mark down */
   if (stream >= 0)
     {
-    np = tfindStream(stream);
+    np = tfindStream(stream, streams);
     }
 
   if ((np == NULL) && (addr != NULL))
     {
-    np = lfindIp(addr);
+    np = lfindNode(addr, ipaddrs);
     }
 
   /* cannot locate node */
@@ -1410,7 +1447,7 @@ void stream_eof(
   if (np->nd_stream >= 0)
     {
 
-    tdeleteStream(np->nd_stream);
+    tdeleteStream(np->nd_stream, streams);
 
     np->nd_stream = -1;
     }
@@ -1512,7 +1549,7 @@ void ping_nodes(
         continue;
         }
 
-      tinsertStream(np);
+      tinsertStream(np, streams);
       }  /* END if (np->nd_stream < 0) */
 
     if (LOGLEVEL >= 6)
@@ -1568,7 +1605,7 @@ void ping_nodes(
 
     rpp_close(np->nd_stream);
 
-    tdeleteStream(np->nd_stream);
+    tdeleteStream(np->nd_stream, streams);
 
     np->nd_stream = -1;
     }  /* END for (i) */
@@ -1819,10 +1856,10 @@ void is_request(
       log_buffer);
     }
 
-  if ((node = tfindStream(stream)) != NULL)
+  if ((node = tfindStream(stream, streams)) != NULL)
     goto found;
 
-  if (NULL != (node = lfindIp(addr)))
+  if (NULL != (node = lfindNode(addr, ipaddrs)))
     {
     if (node->nd_stream >= 0) 
       {
@@ -1843,7 +1880,7 @@ void is_request(
       rpp_close(stream);
       rpp_close(node->nd_stream);
 
-      tdeleteStream(node->nd_stream);
+      tdeleteStream(node->nd_stream, streams);
 
       if (node->nd_state & INUSE_OFFLINE)
         {
@@ -1868,7 +1905,7 @@ void is_request(
 
     node->nd_stream = stream;
   
-    tinsertStream(node);
+    tinsertStream(node, streams);
 
     goto found;
     }  /* END if ((node = tfind(ipaddr,&ipaddrs)) != NULL) */

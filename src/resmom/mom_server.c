@@ -1431,12 +1431,12 @@ mom_server_update_receive_time_by_ip(u_long ipaddr, char *command_name)
 **	Modified by Tom Proett <proett@nas.nasa.gov> for PBS.
 */
 
-tree *okclients = NULL; /* tree of ip addrs */
+struct list_t *okclients = NULL; /* tree of ip addrs */
 
 
 
 
-
+#if 0
 /* list keys in tree */
 
 int tlist(
@@ -1637,6 +1637,7 @@ void tfree(
   return;
   }  /* END tfree() */
 
+#endif
 
 
 
@@ -1705,6 +1706,7 @@ mom_server_valid_message_source(int stream)
 
     return(pms);
     }
+#if 1
   else
     {
     /* There is no existing stream connection to the server. */
@@ -1719,8 +1721,6 @@ mom_server_valid_message_source(int stream)
      * the DNS server is dead.  We only do gethostbyname if we
      * get a message from the pbs_server.
      */
-#if 1
-    {
     int sindex;
 
     for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)

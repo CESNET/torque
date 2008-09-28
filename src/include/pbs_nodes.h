@@ -162,14 +162,17 @@ typedef struct list_t {
   struct list_t           *next;
 } list;
 
-struct pbsnode *tfindStream(const int Id);
-void tinsertStream(struct pbsnode *node);
-void tdeleteStream(const int Id);
+struct pbsnode *tfindStream(const int Id, struct tree_t *root);
+void tinsertStream(struct pbsnode *node, struct tree_t *root);
+void tdeleteStream(const int Id, struct tree_t *root);
 void tfree(struct tree_t *root);
 
-struct pbsnode *lfindIp(const struct sockaddr_storage * addr);
-void linsertIp(struct pbsnode *node);
-void ldeleteIp(struct sockaddr_storage * addr);
+struct sockaddr_storage *lfindIp(const struct sockaddr_storage *addr, struct list_t *root);
+void linsertIp(struct sockaddr_storage *node, struct list_t *root);
+void ldeleteIp(struct sockaddr_storage *node, struct list_t *root);
+struct pbsnode *lfindNode(const struct sockaddr_storage * addr, struct list_t *root);
+void linsertNode(struct pbsnode *node, struct list_t *root);
+void ldeleteNode(struct sockaddr_storage * addr, struct list_t *root);
 void lfree(struct list_t *root);
 
  
