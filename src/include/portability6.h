@@ -25,8 +25,8 @@
 #else
 #define SINLEN(a) \
   ((*a).sa_family == AF_INET ?\
-  sizeof(struct sockaddr_in) :\
-  sizeof(struct sockaddr_in6))
+   sizeof(struct sockaddr_in) :\
+   sizeof(struct sockaddr_in6))
 #endif
 #endif
 
@@ -69,15 +69,22 @@ static void freeaddrinfo(struct addrinfo *ai);
 
 #if 0
 #if defined ENABLE_IPV6 && !defined HAVE_STRUCT_SOCKADDR_IN6
-typedef struct my_in6_addr {
-    union {
-        uint32_t u6_addr32[4];
-        struct _my_in6_addr {
-            struct in_addr _addr_inet;
-            uint32_t _pad[3];
-        } _addr__inet;
+
+typedef struct my_in6_addr
+  {
+  union
+    {
+    uint32_t u6_addr32[4];
+
+    struct _my_in6_addr
+      {
+
+      struct in_addr _addr_inet;
+      uint32_t _pad[3];
+      } _addr__inet;
     } _union_inet;
-} in6_addr;
+  } in6_addr;
+
 #endif
 #endif
 

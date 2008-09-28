@@ -1,45 +1,45 @@
 /*
 *         OpenPBS (Portable Batch System) v2.3 Software License
-* 
+*
 * Copyright (c) 1999-2000 Veridian Information Solutions, Inc.
 * All rights reserved.
-* 
+*
 * ---------------------------------------------------------------------------
 * For a license to use or redistribute the OpenPBS software under conditions
 * other than those described below, or to purchase support for this software,
 * please contact Veridian Systems, PBS Products Department ("Licensor") at:
-* 
+*
 *    www.OpenPBS.org  +1 650 967-4675                  sales@OpenPBS.org
 *                        877 902-4PBS (US toll-free)
 * ---------------------------------------------------------------------------
-* 
+*
 * This license covers use of the OpenPBS v2.3 software (the "Software") at
 * your site or location, and, for certain users, redistribution of the
 * Software to other sites and locations.  Use and redistribution of
 * OpenPBS v2.3 in source and binary forms, with or without modification,
 * are permitted provided that all of the following conditions are met.
 * After December 31, 2001, only conditions 3-6 must be met:
-* 
+*
 * 1. Commercial and/or non-commercial use of the Software is permitted
 *    provided a current software registration is on file at www.OpenPBS.org.
 *    If use of this software contributes to a publication, product, or
 *    service, proper attribution must be given; see www.OpenPBS.org/credit.html
-* 
+*
 * 2. Redistribution in any form is only permitted for non-commercial,
 *    non-profit purposes.  There can be no charge for the Software or any
 *    software incorporating the Software.  Further, there can be no
 *    expectation of revenue generated as a consequence of redistributing
 *    the Software.
-* 
+*
 * 3. Any Redistribution of source code must retain the above copyright notice
 *    and the acknowledgment contained in paragraph 6, this list of conditions
 *    and the disclaimer contained in paragraph 7.
-* 
+*
 * 4. Any Redistribution in binary form must reproduce the above copyright
 *    notice and the acknowledgment contained in paragraph 6, this list of
 *    conditions and the disclaimer contained in paragraph 7 in the
 *    documentation and/or other materials provided with the distribution.
-* 
+*
 * 5. Redistributions in any form must be accompanied by information on how to
 *    obtain complete source code for the OpenPBS software and any
 *    modifications and/or additions to the OpenPBS software.  The source code
@@ -47,23 +47,23 @@
 *    than the cost of distribution plus a nominal fee, and all modifications
 *    and additions to the Software must be freely redistributable by any party
 *    (including Licensor) without restriction.
-* 
+*
 * 6. All advertising materials mentioning features or use of the Software must
 *    display the following acknowledgment:
-* 
+*
 *     "This product includes software developed by NASA Ames Research Center,
-*     Lawrence Livermore National Laboratory, and Veridian Information 
+*     Lawrence Livermore National Laboratory, and Veridian Information
 *     Solutions, Inc.
 *     Visit www.OpenPBS.org for OpenPBS software support,
 *     products, and information."
-* 
+*
 * 7. DISCLAIMER OF WARRANTY
-* 
+*
 * THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. ANY EXPRESS
 * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
 * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT
 * ARE EXPRESSLY DISCLAIMED.
-* 
+*
 * IN NO EVENT SHALL VERIDIAN CORPORATION, ITS AFFILIATED COMPANIES, OR THE
 * U.S. GOVERNMENT OR ANY OF ITS AGENCIES BE LIABLE FOR ANY DIRECT OR INDIRECT,
 * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
@@ -72,7 +72,7 @@
 * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-* 
+*
 * This license will be governed by the laws of the Commonwealth of Virginia,
 * without reference to its choice of law rules.
 */
@@ -243,21 +243,21 @@
 
 
 typedef struct mom_server
-{
-int             SStream;                  /* streams to pbs_server daemons */
-char            pbs_servername[PBS_MAXSERVERNAME + 1];
-time_t          next_connect_time;
-int             connect_failure_count;
-time_t          next_send_hello_time;
-int             sent_hello_count;
-char            ReportMomState;
-time_t          MOMLastSendToServerTime;
-time_t          MOMLastRecvFromServerTime;
-char            MOMLastRecvFromServerCmd[MMAX_LINE];
-int             received_hello_count;
-int             received_cluster_address_count;
-char            MOMSendStatFailure[MMAX_LINE];
-} mom_server;
+  {
+  int             SStream;                  /* streams to pbs_server daemons */
+  char            pbs_servername[PBS_MAXSERVERNAME + 1];
+  time_t          next_connect_time;
+  int             connect_failure_count;
+  time_t          next_send_hello_time;
+  int             sent_hello_count;
+  char            ReportMomState;
+  time_t          MOMLastSendToServerTime;
+  time_t          MOMLastRecvFromServerTime;
+  char            MOMLastRecvFromServerCmd[MMAX_LINE];
+  int             received_hello_count;
+  int             received_cluster_address_count;
+  char            MOMSendStatFailure[MMAX_LINE];
+  } mom_server;
 
 mom_server     mom_servers[PBS_MAXSERVER];
 int            mom_server_count = 0;
@@ -287,11 +287,14 @@ extern int   alarm_time; /* time before alarm */
 extern int   rm_errno;
 extern time_t  time_now;
 extern int         verbositylevel;
+
 extern struct list_t *okclients;  /* accept connections from */
 
 extern char *skipwhite(char *str);
 extern char *tokcpy(char *str, char *tok);
+
 extern struct config *rm_search(struct config *where, char *what);
+
 extern struct rm_attribute *momgetattr(char *str);
 extern char *conf_res(char *resline, struct rm_attribute *attr);
 extern char *dependent(char *res, struct rm_attribute *attr);
@@ -300,7 +303,7 @@ extern int MUSNPrintF(char **BPtr, int *BSpace, char *Format, ...);
 extern void linsert(struct sockaddr_storage *, struct list_t **);
 
 
-void state_to_server A_((int,int));
+void state_to_server A_((int, int));
 
 extern void DIS_rpp_reset A_((void));
 
@@ -338,6 +341,7 @@ mom_server_all_init()
     {
     mom_server_init(&mom_servers[sindex]);
     }
+
   mom_server_count = 0;
   }
 
@@ -359,11 +363,13 @@ mom_server_find_by_name(char *name)
   for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {
     pms = &mom_servers[sindex];
+
     if (!strcmp(pms->pbs_servername, name))
       {
       return(pms);
       }
     }
+
   return(NULL);
   }
 
@@ -385,11 +391,13 @@ mom_server_find_by_stream(int stream)
   for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {
     pms = &mom_servers[sindex];
+
     if (pms->SStream == stream)
       {
       return(pms);
       }
     }
+
   return(NULL);
   }
 
@@ -407,20 +415,24 @@ mom_server_find_by_ip(const struct sockaddr_storage *search_ipaddr)
   {
   mom_server *pms;
   int sindex;
+
   struct sockaddr_storage *addr;
 
   for (sindex = 0; sindex < PBS_MAXSERVER; sindex++)
     {
     pms = &mom_servers[sindex];
+
     if (pms->SStream != -1)
       {
       addr = rpp_getaddr(pms->SStream);
+
       if (compare_ip(addr, search_ipaddr))
         {
         return(pms);
         }
       }
     }
+
   return(NULL);
   }
 
@@ -439,11 +451,13 @@ mom_server_find_empty_slot(void)
   for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {
     pms = &mom_servers[sindex];
+
     if (pms->pbs_servername[0] == 0)
       {
       return(pms);
       }
     }
+
   return(NULL);
   }
 
@@ -470,26 +484,26 @@ mom_server_add(char *value)
     {
     /* This server name has already been added. */
 
-    sprintf(log_buffer,"server host %s already added", 
-      value);
-    log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
+    sprintf(log_buffer, "server host %s already added",
+            value);
+    log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, log_buffer);
     }
   else if ((pms = mom_server_find_empty_slot()))
     {
     /* Fill in the new server instance */
 
-    strncpy(pms->pbs_servername,value,PBS_MAXSERVERNAME);
+    strncpy(pms->pbs_servername, value, PBS_MAXSERVERNAME);
 
-    sprintf(log_buffer,"server %s added", pms->pbs_servername);
-    log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,log_buffer);
+    sprintf(log_buffer, "server %s added", pms->pbs_servername);
+    log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, log_buffer);
     }
   else
     {
-    sprintf(log_buffer,"server table overflow (max=%d) - server host %s not added", 
-      PBS_MAXSERVER,
-      value);
+    sprintf(log_buffer, "server table overflow (max=%d) - server host %s not added",
+            PBS_MAXSERVER,
+            value);
 
-    log_err(-1,id,log_buffer);
+    log_err(-1, id, log_buffer);
 
     return(0); /* FAILURE */
     }
@@ -501,41 +515,43 @@ mom_server_add(char *value)
    * the IP address here but rather do what needs to be done when a connection
    * is established.  Anyway, this should fix things for now.
    */
-  {
-  /* FIXME: must be able to retry failed lookups later */
-  struct addrinfo hints, *res, *rp;
-  int error, sfd;
-  memset(&hints, 0, sizeof(struct addrinfo));
-  hints.ai_family = PBS_SOCK_INET;
+    {
+    /* FIXME: must be able to retry failed lookups later */
+
+    struct addrinfo hints, *res, *rp;
+    int error, sfd;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = PBS_SOCK_INET;
 #ifdef TORQUE_WANT_IPV6
-  hints.ai_family |= PBS_SOCK_INET6;
+    hints.ai_family |= PBS_SOCK_INET6;
 #endif
-  hints.ai_protocol = SOCK_STREAM;
+    hints.ai_protocol = SOCK_STREAM;
 
-  if (0 == (error = getaddrinfo(pms->pbs_servername, NULL, &hints, &res)))
-    {
-    for (rp = res; rp->ai_next != NULL; rp = rp->ai_next)
+    if (0 == (error = getaddrinfo(pms->pbs_servername, NULL, &hints, &res)))
       {
-      sfd = socket(rp->ai_family, rp->ai_socktype,
-          rp->ai_protocol);
-      if (sfd == -1)
-        continue;
+      for (rp = res; rp->ai_next != NULL; rp = rp->ai_next)
+        {
+        sfd = socket(rp->ai_family, rp->ai_socktype,
+                     rp->ai_protocol);
 
-      if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
-        break;                  /* Success */
+        if (sfd == -1)
+          continue;
 
-      close(sfd);
+        if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
+          break;                  /* Success */
+
+        close(sfd);
+        }
+
+      linsertIp((struct sockaddr_storage *)rp->ai_addr, okclients);
       }
-
-    linsertIp((struct sockaddr_storage *)rp->ai_addr, okclients);
+    else
+      {
+      sprintf(log_buffer, "host %s not found: %s",
+              pms->pbs_servername,
+              gai_strerror(error));
+      }
     }
-  else
-    {
-    sprintf(log_buffer, "host %s not found: %s", 
-        pms->pbs_servername, 
-        gai_strerror(error));
-    }
-  }
 
   return(1);      /* SUCCESS */
   }
@@ -559,29 +575,30 @@ int mom_server_open_stream(mom_server *pms)
 
   /* Make a copy of the server name because it might have a port number. */
 
-  strcpy(server_name,pms->pbs_servername);
-  if ((portstr=strchr(server_name,':')) != NULL)
-    {
-    *(portstr)='\0';
+  strcpy(server_name, pms->pbs_servername);
 
-    if (*(portstr+1) != '\0')
-      port=atoi(portstr+1);
+  if ((portstr = strchr(server_name, ':')) != NULL)
+    {
+    *(portstr) = '\0';
+
+    if (*(portstr + 1) != '\0')
+      port = atoi(portstr + 1);
     }
 
   if (LOGLEVEL >= 5)
     {
-    sprintf(log_buffer,"%s: trying to open RPP conn to %s port %d",
-      id,
-      server_name,
-      port);
+    sprintf(log_buffer, "%s: trying to open RPP conn to %s port %d",
+            id,
+            server_name,
+            port);
 
-    log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+    log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
     }
 
   if ((pms->SStream = rpp_open(
-         server_name,
-         port,
-         pms->MOMSendStatFailure)) < 0)
+                        server_name,
+                        port,
+                        pms->MOMSendStatFailure)) < 0)
     {
     /* FAILURE */
 
@@ -589,22 +606,22 @@ int mom_server_open_stream(mom_server *pms)
       {
       if (errno == ENOENT)
         {
-        sprintf(log_buffer,"%s: cannot open rpp connection to %s, errno=%d, %s (check /etc/hosts file?)",
-          id,
-          server_name,
-          errno,
-          pms->MOMSendStatFailure);
+        sprintf(log_buffer, "%s: cannot open rpp connection to %s, errno=%d, %s (check /etc/hosts file?)",
+                id,
+                server_name,
+                errno,
+                pms->MOMSendStatFailure);
         }
       else
         {
-        sprintf(log_buffer,"%s: cannot open rpp connection to %s, errno=%d, %s",
-          id,
-          server_name,
-          errno,
-          pms->MOMSendStatFailure);
+        sprintf(log_buffer, "%s: cannot open rpp connection to %s, errno=%d, %s",
+                id,
+                server_name,
+                errno,
+                pms->MOMSendStatFailure);
         }
 
-      log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+      log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
       }
 
     PassCount = 1;
@@ -616,12 +633,12 @@ int mom_server_open_stream(mom_server *pms)
 
   if (LOGLEVEL >= 3)
     {
-    sprintf(log_buffer,"%s: added connection to %s port %d",
-      id,
-      server_name,
-      port);
+    sprintf(log_buffer, "%s: added connection to %s port %d",
+            id,
+            server_name,
+            port);
 
-    log_record(PBSEVENT_SYSTEM,0,id,log_buffer);                                         
+    log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
     }
 
   return(DIS_SUCCESS);
@@ -643,13 +660,13 @@ mom_server_close_stream(int stream)
 
 
 void
-mom_server_stream_error(mom_server *pms,char *id,char *message)
+mom_server_stream_error(mom_server *pms, char *id, char *message)
   {
-  sprintf(log_buffer,"error %s to server %s",
-    message,
-    pms->pbs_servername);
+  sprintf(log_buffer, "error %s to server %s",
+          message,
+          pms->pbs_servername);
 
-  log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+  log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
 
   rpp_close(pms->SStream);
   pms->SStream = -1;  /* Force new connection to server next time mom_server_check_connections is called. */
@@ -666,19 +683,20 @@ mom_server_stream_error(mom_server *pms,char *id,char *message)
  * @param pms pointer to mom_server instance
  */
 int
-mom_server_flush_io(mom_server *pms,char *id,char *message)
+mom_server_flush_io(mom_server *pms, char *id, char *message)
   {
 
-  if (rpp_flush(pms->SStream) == -1) 
+  if (rpp_flush(pms->SStream) == -1)
     {
-    log_err(errno,id,message);
-  
+    log_err(errno, id, message);
+
     rpp_close(pms->SStream);
 
     pms->SStream = -1;  /* Force new connection to server next time mom_server_check_connections is called. */
 
     return(DIS_PROTO);
     }
+
   return(DIS_SUCCESS);
   }
 
@@ -691,7 +709,7 @@ mom_server_flush_io(mom_server *pms,char *id,char *message)
  * @see is_request() - peer - process hello/cluster_addrs requests from pbs_server
  */
 
-int is_compose(mom_server *pms,int command)
+int is_compose(mom_server *pms, int command)
   {
   int ret;
 
@@ -704,17 +722,17 @@ int is_compose(mom_server *pms,int command)
 
   if ((ret = diswsi(pms->SStream, IS_PROTOCOL)) != DIS_SUCCESS)
     {
-    mom_server_stream_error(pms,"is_compose","writing protocol");
+    mom_server_stream_error(pms, "is_compose", "writing protocol");
     return(ret);
     }
   else if ((ret = diswsi(pms->SStream, IS_PROTOCOL_VER)) != DIS_SUCCESS)
     {
-    mom_server_stream_error(pms,"is_compose","writing protocol version");
+    mom_server_stream_error(pms, "is_compose", "writing protocol version");
     return(ret);
     }
   else if ((ret = diswsi(pms->SStream, command)) != DIS_SUCCESS)
     {
-    mom_server_stream_error(pms,"is_compose","writing protocol version");
+    mom_server_stream_error(pms, "is_compose", "writing protocol version");
     return(ret);
     }
 
@@ -767,24 +785,29 @@ extern struct config *config_array;
  * size[file=/home/user/test.txt]
  */
 void
-gen_size(char *name,char **BPtr, int *BSpace)
+gen_size(char *name, char **BPtr, int *BSpace)
   {
+
   struct config  *ap;
+
   struct rm_attribute *attr;
   char *value;
 
-  ap = rm_search(config_array,name);
+  ap = rm_search(config_array, name);
+
   if (ap)
     {
     attr = momgetattr(ap->c_u.c_value);
+
     if (attr)
       {
-      value = dependent(name,attr);
+      value = dependent(name, attr);
+
       if (value && *value)
         {
-        MUSNPrintF(BPtr,BSpace,"%s=%s",
-          name,
-          value);
+        MUSNPrintF(BPtr, BSpace, "%s=%s",
+                   name,
+                   value);
         (*BPtr)++; /* Need to start the next string after the null */
         (*BSpace)--;
         }
@@ -793,69 +816,77 @@ gen_size(char *name,char **BPtr, int *BSpace)
   }
 
 void
-gen_arch(char *name,char **BPtr, int *BSpace)
+gen_arch(char *name, char **BPtr, int *BSpace)
   {
+
   struct config  *ap;
 
-  ap = rm_search(config_array,name);
+  ap = rm_search(config_array, name);
+
   if (ap)
     {
-    MUSNPrintF(BPtr,BSpace,"%s=%s",
-      name,
-      ap->c_u.c_value);
+    MUSNPrintF(BPtr, BSpace, "%s=%s",
+               name,
+               ap->c_u.c_value);
     (*BPtr)++; /* Need to start the next string after the null */
     (*BSpace)--;
     }
   }
 
 void
-gen_opsys(char *name,char **BPtr, int *BSpace)
+gen_opsys(char *name, char **BPtr, int *BSpace)
   {
+
   struct config  *ap;
 
-  ap = rm_search(config_array,name);
+  ap = rm_search(config_array, name);
+
   if (ap)
     {
-    MUSNPrintF(BPtr,BSpace,"%s=%s",
-      name,
-      ap->c_u.c_value);
+    MUSNPrintF(BPtr, BSpace, "%s=%s",
+               name,
+               ap->c_u.c_value);
     (*BPtr)++; /* Need to start the next string after the null */
     (*BSpace)--;
     }
   }
 
 void
-gen_gres(char *name,char **BPtr, int *BSpace)
+gen_gres(char *name, char **BPtr, int *BSpace)
   {
+
   struct config  *ap;
+
   struct rm_attribute *attr;
   char  *value;
 
-  ap = rm_search(config_array,name);
+  ap = rm_search(config_array, name);
+
   if (ap)
     {
     attr = momgetattr(ap->c_u.c_value);
+
     if (attr)
       {
-      value = dependent(name,attr);
+      value = dependent(name, attr);
 
       if (value == NULL)
-        {  
+        {
         /* value not set (attribute required) */
 
-        MUSNPrintF(BPtr,BSpace,"%s=? %d",
-          name,
-          rm_errno);
-          (*BPtr)++; /* Need to start the next string after the null */
-          (*BSpace)--;
+        MUSNPrintF(BPtr, BSpace, "%s=? %d",
+                   name,
+                   rm_errno);
+        (*BPtr)++; /* Need to start the next string after the null */
+        (*BSpace)--;
         }
       else if (value[0] == '\0')
         {
         /* value not set (attribute optional) */
         }
-      else 
+      else
         {
-        if (strstr(value,":!") != NULL)
+        if (strstr(value, ":!") != NULL)
           {
           /* value contains executable call-out, must process */
 
@@ -867,55 +898,56 @@ gen_gres(char *name,char **BPtr, int *BSpace)
           char  src[1024];
           char  result[1024];
 
-          strncpy(src,value,sizeof(src));
+          strncpy(src, value, sizeof(src));
           result[0] = '\0';
 
-          ptr = strtok(src,"+");
+          ptr = strtok(src, "+");
 
           while (ptr != NULL)
             {
-            if ((tail = strchr(ptr,':')) == NULL)
+            if ((tail = strchr(ptr, ':')) == NULL)
               {
               /* cannot parse value */
 
-              ptr = strtok(NULL,"+");
+              ptr = strtok(NULL, "+");
 
               continue;
-              }  
+              }
 
-            strncpy(gname,ptr,tail - ptr);
+            strncpy(gname, ptr, tail - ptr);
+
             gname[tail - ptr] = '\0';
 
-            ptr = conf_res(tail + 1,attr);
+            ptr = conf_res(tail + 1, attr);
 
             if ((ptr == NULL) || (ptr[0] == '\0'))
               {
               /* all static attributes are optional */
 
-              ptr = strtok(NULL,"+");
+              ptr = strtok(NULL, "+");
 
               continue;
               }
 
             if (result[0] != '\0')
-              strcat(result,"+");
+              strcat(result, "+");
 
-            if ((ptr != NULL) && (strncmp(ptr,gname,strlen(gname))))
+            if ((ptr != NULL) && (strncmp(ptr, gname, strlen(gname))))
               {
-              strcat(result,gname);
-              strcat(result,":");
+              strcat(result, gname);
+              strcat(result, ":");
               }
 
-            strcat(result,ptr);
+            strcat(result, ptr);
 
-            ptr = strtok(NULL,"+");
+            ptr = strtok(NULL, "+");
             }  /* END while (ptr != NULL) */
 
           if (result[0] != '\0')
             {
-            MUSNPrintF(BPtr,BSpace,"%s=%s",
-              name,
-              result);
+            MUSNPrintF(BPtr, BSpace, "%s=%s",
+                       name,
+                       result);
             (*BPtr)++; /* Need to start the next string after the null */
             (*BSpace)--;
             }
@@ -927,35 +959,39 @@ gen_gres(char *name,char **BPtr, int *BSpace)
 
 
 void
-gen_gen(char *name,char **BPtr, int *BSpace)
+gen_gen(char *name, char **BPtr, int *BSpace)
   {
+
   struct config  *ap;
   char  *value;
   char  *ptr;
 
-  ap = rm_search(config_array,name);
+  ap = rm_search(config_array, name);
+
   if (ap)
     {
-    ptr = conf_res(ap->c_u.c_value,NULL);
+    ptr = conf_res(ap->c_u.c_value, NULL);
+
     if (ptr && *ptr)
       {
-      MUSNPrintF(BPtr,BSpace,"%s=%s",
-        name,
-        ptr);
+      MUSNPrintF(BPtr, BSpace, "%s=%s",
+                 name,
+                 ptr);
       (*BPtr)++; /* Need to start the next string after the null */
       (*BSpace)--;
       }
     }
   else
     {
-    value = dependent(name,NULL);
+    value = dependent(name, NULL);
+
     if (value == NULL)
-      {  
+      {
       /* value not set (attribute required) */
 
-      MUSNPrintF(BPtr,BSpace,"%s=? %d",
-        name,
-        rm_errno);
+      MUSNPrintF(BPtr, BSpace, "%s=? %d",
+                 name,
+                 rm_errno);
       (*BPtr)++; /* Need to start the next string after the null */
       (*BSpace)--;
       }
@@ -963,46 +999,48 @@ gen_gen(char *name,char **BPtr, int *BSpace)
       {
       /* value not set (attribute optional) */
       }
-    else 
+    else
       {
-      MUSNPrintF(BPtr,BSpace,"%s=%s",
-        name,
-       value);
+      MUSNPrintF(BPtr, BSpace, "%s=%s",
+                 name,
+                 value);
       (*BPtr)++; /* Need to start the next string after the null */
       (*BSpace)--;
       }
     } /* else if (ap) */
   }
 
-typedef void (*gen_func_ptr)(char *,char **, int *);
+typedef void (*gen_func_ptr)(char *, char **, int *);
 
 typedef struct stat_record
-{
+  {
   char *name;
   gen_func_ptr func;
-} stat_record;
+  } stat_record;
 
-stat_record stats[] = {
+stat_record stats[] =
+  {
     {"arch",        gen_arch},
-    {"opsys",       gen_gen},
-    {"uname",       gen_gen},
-    {"sessions",    gen_gen},
-    {"nsessions",   gen_gen},
-    {"nusers",      gen_gen},
-    {"idletime",    gen_gen},
-    {"totmem",      gen_gen},
-    {"availmem",    gen_gen},
-    {"physmem",     gen_gen},
-    {"ncpus",       gen_gen},
-    {"loadave",     gen_gen},
-    {"message",     gen_gen},
-    {"gres",        gen_gres},
-    {"netload",     gen_gen},
-    {"size",        gen_size},
-    {"state",       gen_gen},
-    {"jobs",        gen_gen},
-    {"varattr",     gen_gen},
-    {NULL,          NULL}};
+  {"opsys",       gen_gen},
+  {"uname",       gen_gen},
+  {"sessions",    gen_gen},
+  {"nsessions",   gen_gen},
+  {"nusers",      gen_gen},
+  {"idletime",    gen_gen},
+  {"totmem",      gen_gen},
+  {"availmem",    gen_gen},
+  {"physmem",     gen_gen},
+  {"ncpus",       gen_gen},
+  {"loadave",     gen_gen},
+  {"message",     gen_gen},
+  {"gres",        gen_gres},
+  {"netload",     gen_gen},
+  {"size",        gen_size},
+  {"state",       gen_gen},
+  {"jobs",        gen_gen},
+  {"varattr",     gen_gen},
+  {NULL,          NULL}
+  };
 
 /**
  * generate_server_status
@@ -1014,13 +1052,13 @@ void generate_server_status(char *buffer, int buffer_size)
   char *BPtr = buffer;
   int   BSpace = buffer_size;
 
-  for (i = 0;stats[i].name != NULL;i++) 
+  for (i = 0;stats[i].name != NULL;i++)
     {
     alarm(alarm_time);
 
     if (stats[i].func)
       {
-      (stats[i].func)(stats[i].name,&BPtr,&BSpace);
+      (stats[i].func)(stats[i].name, &BPtr, &BSpace);
       }
 
     alarm(0);
@@ -1037,7 +1075,7 @@ void generate_server_status(char *buffer, int buffer_size)
  * @param pms pointer to mom_server instance
  */
 void
-mom_server_update_stat(mom_server *pms,char *status_strings)
+mom_server_update_stat(mom_server *pms, char *status_strings)
   {
   static char *id = "mom_server_update_stat";
   char *cp;
@@ -1050,20 +1088,20 @@ mom_server_update_stat(mom_server *pms,char *status_strings)
 
   if (pms->SStream == -1)
     {
-    sprintf(log_buffer,"server \"%s\" has no active stream",
-      pms->pbs_servername);
-    log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+    sprintf(log_buffer, "server \"%s\" has no active stream",
+            pms->pbs_servername);
+    log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
     return;
     }
 
   pms->MOMLastSendToServerTime = time(0);
-  
+
   /* Generate the message header. */
 
-    if (is_compose(pms,IS_STATUS) != DIS_SUCCESS)
-      {
-        return;
-      }
+  if (is_compose(pms, IS_STATUS) != DIS_SUCCESS)
+    {
+    return;
+    }
 
   /* For each string, put it into the message. */
 
@@ -1071,35 +1109,35 @@ mom_server_update_stat(mom_server *pms,char *status_strings)
     {
     if (LOGLEVEL >= 7)
       {
-      sprintf(log_buffer,"%s: sending to server \"%s\"",
-        id,
-        cp);
-      log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+      sprintf(log_buffer, "%s: sending to server \"%s\"",
+              id,
+              cp);
+      log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
       }
 
-    if (diswst(pms->SStream,cp) != DIS_SUCCESS)
+    if (diswst(pms->SStream, cp) != DIS_SUCCESS)
       {
-      mom_server_stream_error(pms,id,"writing status string");
+      mom_server_stream_error(pms, id, "writing status string");
       return;
       }
     }
 
   /* Launch the message */
 
-  if (mom_server_flush_io(pms,id,"flush") != DIS_SUCCESS)
+  if (mom_server_flush_io(pms, id, "flush") != DIS_SUCCESS)
     return;
 
   if (LOGLEVEL >= 3)
     {
-    sprintf(log_buffer,"status update successfully sent to %s",
-      pms->pbs_servername);
-  
-    log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+    sprintf(log_buffer, "status update successfully sent to %s",
+            pms->pbs_servername);
+
+    log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
     }
 
-    /* It would be redundant to send state since it is already in status */
-  
-    pms->ReportMomState = 0;
+  /* It would be redundant to send state since it is already in status */
+
+  pms->ReportMomState = 0;
   }
 
 
@@ -1122,16 +1160,19 @@ mom_server_all_update_stat()
    * The buffer status_strings will contain NULL terminated strings.
    * The end of the buffer is marked with an empty string i.e. NULL NULL.
    */
+
   if (LOGLEVEL >= 6)
     {
-    log_record(PBSEVENT_SYSTEM,0,id,"composing status update for server");
+    log_record(PBSEVENT_SYSTEM, 0, id, "composing status update for server");
     }
-  memset(status_strings,0,sizeof(status_strings));
-  generate_server_status(status_strings,sizeof(status_strings));
+
+  memset(status_strings, 0, sizeof(status_strings));
+
+  generate_server_status(status_strings, sizeof(status_strings));
 
   for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {
-    mom_server_update_stat(&mom_servers[sindex],status_strings);
+    mom_server_update_stat(&mom_servers[sindex], status_strings);
     }
   }
 
@@ -1140,26 +1181,29 @@ mom_server_all_update_stat()
  * power
  *
  */
-long 
-power (register int x, register int n)
-{
-    register long p;
+long
+power(register int x, register int n)
+  {
+  register long p;
 
-    for (p = 1; n > 0; --n)
+  for (p = 1; n > 0; --n)
     {
-        p *= x;
+    p *= x;
     }
-    return (p);
-}
+
+  return (p);
+  }
 
 int
 calculate_retry_seconds(int count)
   {
   int retry_seconds;
 
-  retry_seconds = power(STARTING_RETRY_INTERVAL_IN_SECS,count);
+  retry_seconds = power(STARTING_RETRY_INTERVAL_IN_SECS, count);
+
   if (retry_seconds > MAX_RETRY_TIME_IN_SECS)
     retry_seconds = MAX_RETRY_TIME_IN_SECS;
+
   return(retry_seconds);
   }
 
@@ -1200,22 +1244,25 @@ int mom_server_check_connection(mom_server *pms)
 
   if (pms->next_send_hello_time == 0 || pms->next_send_hello_time <= time_now)
     {
-    sprintf(log_buffer,"Sending hello to server %s",
-      pms->pbs_servername);
-    log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+    sprintf(log_buffer, "Sending hello to server %s",
+            pms->pbs_servername);
+    log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
 
     pms->MOMLastSendToServerTime = time_now;
 
-    if (is_compose(pms,IS_HELLO) == -1)
+    if (is_compose(pms, IS_HELLO) == -1)
       {
       return(0);
       }
-    if (mom_server_flush_io(pms,id,"flush") != DIS_SUCCESS)
+
+    if (mom_server_flush_io(pms, id, "flush") != DIS_SUCCESS)
       return(0);
 
     pms->sent_hello_count++;
-    pms->next_send_hello_time = time_now + (ServerStatUpdateInterval*2);
+
+    pms->next_send_hello_time = time_now + (ServerStatUpdateInterval * 2);
     }
+
   return(1);
   }
 
@@ -1234,10 +1281,12 @@ int mom_server_all_check_connection()
   int           TotalClusterAddrsCount;
 
   TotalClusterAddrsCount = 0;
+
   for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {
-    TotalClusterAddrsCount +=mom_server_check_connection(&mom_servers[sindex]);
+    TotalClusterAddrsCount += mom_server_check_connection(&mom_servers[sindex]);
     }
+
   return(TotalClusterAddrsCount);
   }
 
@@ -1266,84 +1315,84 @@ void mom_server_diag(mom_server *pms, int sindex, char **BPtr, int *BSpace)
 
   time(&Now);
 
-  sprintf(tmpLine,"Server[%d]: %s (%s)\n",
-    sindex,
-    pms->pbs_servername,
-    netaddr(rpp_getaddr(pms->SStream)));
+  sprintf(tmpLine, "Server[%d]: %s (%s)\n",
+          sindex,
+          pms->pbs_servername,
+          netaddr(rpp_getaddr(pms->SStream)));
 
-    MUStrNCat(BPtr,BSpace,tmpLine);
+  MUStrNCat(BPtr, BSpace, tmpLine);
 
-    if ((pms->received_hello_count > 0) || 
-        (pms->received_cluster_address_count > 0))
+  if ((pms->received_hello_count > 0) ||
+      (pms->received_cluster_address_count > 0))
+    {
+    if (verbositylevel >= 1)
       {
-      if (verbositylevel >= 1)
-        {
-        sprintf(tmpLine,"  Init Msgs Received:     %d hellos/%d cluster-addrs\n",
-          pms->received_hello_count,
-          pms->received_cluster_address_count);
+      sprintf(tmpLine, "  Init Msgs Received:     %d hellos/%d cluster-addrs\n",
+              pms->received_hello_count,
+              pms->received_cluster_address_count);
 
-        MUStrNCat(BPtr,BSpace,tmpLine);
+      MUStrNCat(BPtr, BSpace, tmpLine);
 
-        sprintf(tmpLine,"  Init Msgs Sent:         %d hellos\n",
-          pms->sent_hello_count);
+      sprintf(tmpLine, "  Init Msgs Sent:         %d hellos\n",
+              pms->sent_hello_count);
 
-        MUStrNCat(BPtr,BSpace,tmpLine);
-        }
+      MUStrNCat(BPtr, BSpace, tmpLine);
       }
-    else
-      {
-      sprintf(tmpLine,"  WARNING:  no hello/cluster-addrs messages received from server\n");
+    }
+  else
+    {
+    sprintf(tmpLine, "  WARNING:  no hello/cluster-addrs messages received from server\n");
 
-      MUStrNCat(BPtr,BSpace,tmpLine);
+    MUStrNCat(BPtr, BSpace, tmpLine);
 
-      sprintf(tmpLine,"  Init Msgs Sent:         %d hellos\n",
-        pms->sent_hello_count);
+    sprintf(tmpLine, "  Init Msgs Sent:         %d hellos\n",
+            pms->sent_hello_count);
 
-      MUStrNCat(BPtr,BSpace,tmpLine);
-      }
+    MUStrNCat(BPtr, BSpace, tmpLine);
+    }
 
-    if (pms->MOMSendStatFailure[0] != '\0')
-      {
-      sprintf(tmpLine,"  WARNING:  could not open connection to server, %s%s\n",
-        pms->MOMSendStatFailure,
-        (strstr(pms->MOMSendStatFailure,"cname") != NULL) ?
-        " (check name resolution - /etc/hosts?)" :
-        "");
+  if (pms->MOMSendStatFailure[0] != '\0')
+    {
+    sprintf(tmpLine, "  WARNING:  could not open connection to server, %s%s\n",
+            pms->MOMSendStatFailure,
+            (strstr(pms->MOMSendStatFailure, "cname") != NULL) ?
+            " (check name resolution - /etc/hosts?)" :
+            "");
 
-      MUStrNCat(BPtr,BSpace,tmpLine);
-      }
+    MUStrNCat(BPtr, BSpace, tmpLine);
+    }
 
-    if (TMOMRejectConn[0] != '\0')
-      {
-      MUSNPrintF(BPtr,BSpace,"  WARNING:  invalid attempt to connect from server %s\n",
-        TMOMRejectConn);
-      }
+  if (TMOMRejectConn[0] != '\0')
+    {
+    MUSNPrintF(BPtr, BSpace, "  WARNING:  invalid attempt to connect from server %s\n",
+               TMOMRejectConn);
+    }
 
-    if (pms->MOMLastRecvFromServerTime > 0)
-      {
-      sprintf(tmpLine,"  Last Msg From Server:   %ld seconds (%s)\n",
-        (long)Now - pms->MOMLastRecvFromServerTime,
-        (pms->MOMLastRecvFromServerCmd[0] != '\0') ?
-        pms->MOMLastRecvFromServerCmd : "N/A");
-      }
-    else
-      {
-      sprintf(tmpLine,"  WARNING:  no messages received from server\n");
-      }
+  if (pms->MOMLastRecvFromServerTime > 0)
+    {
+    sprintf(tmpLine, "  Last Msg From Server:   %ld seconds (%s)\n",
+            (long)Now - pms->MOMLastRecvFromServerTime,
+            (pms->MOMLastRecvFromServerCmd[0] != '\0') ?
+            pms->MOMLastRecvFromServerCmd : "N/A");
+    }
+  else
+    {
+    sprintf(tmpLine, "  WARNING:  no messages received from server\n");
+    }
 
-    MUStrNCat(BPtr,BSpace,tmpLine);
+  MUStrNCat(BPtr, BSpace, tmpLine);
 
-    if (pms->MOMLastSendToServerTime > 0)
-      {
-      sprintf(tmpLine,"  Last Msg To Server:     %ld seconds\n",
-        (long)Now - pms->MOMLastSendToServerTime);
-      }
-    else
-      {
-      sprintf(tmpLine,"  WARNING:  no messages sent to server\n");
-      }
+  if (pms->MOMLastSendToServerTime > 0)
+    {
+    sprintf(tmpLine, "  Last Msg To Server:     %ld seconds\n",
+            (long)Now - pms->MOMLastSendToServerTime);
+    }
+  else
+    {
+    sprintf(tmpLine, "  WARNING:  no messages sent to server\n");
+    }
 
-    MUStrNCat(BPtr,BSpace,tmpLine);
+  MUStrNCat(BPtr, BSpace, tmpLine);
   }
 
 /**
@@ -1361,7 +1410,7 @@ void mom_server_all_diag(char **BPtr, int *BSpace)
 
   if (mom_servers[0].pbs_servername[0] == '\0')
     {
-    MUStrNCat(BPtr,BSpace,"WARNING:  server not specified (set $pbsserver)\n");
+    MUStrNCat(BPtr, BSpace, "WARNING:  server not specified (set $pbsserver)\n");
     }
   else
     {
@@ -1391,7 +1440,7 @@ mom_server_update_receive_time(int stream, char *command_name)
   if ((pms = mom_server_find_by_stream(stream)) != NULL)
     {
     pms->MOMLastRecvFromServerTime = time(0);
-    strcpy(pms->MOMLastRecvFromServerCmd,command_name);
+    strcpy(pms->MOMLastRecvFromServerCmd, command_name);
     }
   }
 
@@ -1416,7 +1465,7 @@ mom_server_update_receive_time_by_ip(struct sockaddr_storage *ipaddr, char *comm
   if ((pms = mom_server_find_by_ip(ipaddr)) != NULL)
     {
     pms->MOMLastRecvFromServerTime = time(0);
-    strcpy(pms->MOMLastRecvFromServerCmd,command_name);
+    strcpy(pms->MOMLastRecvFromServerCmd, command_name);
     }
   }
 
@@ -1436,7 +1485,7 @@ mom_server_update_receive_time_by_ip(struct sockaddr_storage *ipaddr, char *comm
 /*LINTLIBRARY*/
 
 /*
-**	Modified by Tom Proett <proett@nas.nasa.gov> for PBS.
+** Modified by Tom Proett <proett@nas.nasa.gov> for PBS.
 */
 
 struct list_t *okclients = NULL; /* tree of ip addrs */
@@ -1478,14 +1527,14 @@ int tlist(
 
   if (rootp->left != NULL)
     {
-    tlist(rootp->left,Buf,BSize);
+    tlist(rootp->left, Buf, BSize);
 
     BSize -= strlen(Buf);
     }
 
   if (rootp->right != NULL)
     {
-    tlist(rootp->right,Buf,BSize);
+    tlist(rootp->right, Buf, BSize);
 
     BSize -= strlen(Buf);
     }
@@ -1497,22 +1546,23 @@ int tlist(
     return(-1);
     }
 
-  sprintf(tmpLine,"%ld.%ld.%ld.%ld",
-    (rootp->key & 0xff000000) >> 24,
-    (rootp->key & 0x00ff0000) >> 16,
-    (rootp->key & 0x0000ff00) >> 8,
-    (rootp->key & 0x000000ff));
+  sprintf(tmpLine, "%ld.%ld.%ld.%ld",
+
+          (rootp->key & 0xff000000) >> 24,
+          (rootp->key & 0x00ff0000) >> 16,
+          (rootp->key & 0x0000ff00) >> 8,
+          (rootp->key & 0x000000ff));
 
   if ((Buf[0] != '\0') && (BSize > 1))
     {
-    strcat(Buf,",");
+    strcat(Buf, ",");
 
     BSize--;
     }
 
   if (BSize > (int)strlen(tmpLine))
     {
-    strcat(Buf,tmpLine);
+    strcat(Buf, tmpLine);
     }
 
   return(-1);
@@ -1525,8 +1575,8 @@ int tlist(
 
 struct pbsnode *tfind(
 
-  const u_long   key, /* key to be located */
-  tree         **rootp)	/* address of tree root */
+        const u_long   key, /* key to be located */
+        tree         **rootp) /* address of tree root */
 
   {
   if (rootp == NULL)
@@ -1536,11 +1586,11 @@ struct pbsnode *tfind(
     return(NULL);
     }
 
-  while (*rootp != NULL) 
-    {	
+  while (*rootp != NULL)
+    {
     /* Knuth's T1: */
 
-    if (key == (*rootp)->key)	
+    if (key == (*rootp)->key)
       {
       /* T2: */
 
@@ -1550,8 +1600,9 @@ struct pbsnode *tfind(
       }
 
     rootp = (key < (*rootp)->key) ?
-      &(*rootp)->left :	/* T3: follow left branch */
-      &(*rootp)->right;	/* T4: follow right branch */
+
+            &(*rootp)->left : /* T3: follow left branch */
+            &(*rootp)->right; /* T4: follow right branch */
     }  /* END while (*rootp != NULL) */
 
   /* cannot locate value in tree - failure */
@@ -1567,8 +1618,8 @@ struct pbsnode *tfind(
 
 void tinsert(
 
-  const u_long   key,	/* key to be located */
-  tree         **rootp)	/* address of tree root */
+  const u_long   key, /* key to be located */
+  tree         **rootp) /* address of tree root */
 
   {
   register tree *q;
@@ -1580,27 +1631,28 @@ void tinsert(
     return;
     }
 
-  while (*rootp != NULL) 
-    {	
+  while (*rootp != NULL)
+    {
     /* Knuth's T1: */
 
-    if (key == (*rootp)->key)	/* T2: */
+    if (key == (*rootp)->key) /* T2: */
       {
       /* key already exists */
 
-      return;			/* we found it! */
+      return;   /* we found it! */
       }
 
     rootp = (key < (*rootp)->key) ?
-      &(*rootp)->left :	/* T3: follow left branch */
-      &(*rootp)->right;	/* T4: follow right branch */
+
+            &(*rootp)->left : /* T3: follow left branch */
+            &(*rootp)->right; /* T4: follow right branch */
     }
-  
+
   /* create new tree node */
 
-  q = (tree *)malloc(sizeof(tree));	/* T5: key not found */
+  q = (tree *)malloc(sizeof(tree)); /* T5: key not found */
 
-  if (q == NULL) 
+  if (q == NULL)
     {
     /* cannot allocate memory - failure */
 
@@ -1609,11 +1661,12 @@ void tinsert(
 
   /* make new tree */
 
-  *rootp = q;			/* link new node to old */
+  *rootp = q;   /* link new node to old */
 
-  q->key = key;			/* initialize new tree node */
+  q->key = key;   /* initialize new tree node */
 
   q->left = NULL;
+
   q->right = NULL;
 
   /* success */
@@ -1636,6 +1689,7 @@ void tfree(
     }
 
   tfree(&(*rootp)->left);
+
   tfree(&(*rootp)->right);
 
   free(*rootp);
@@ -1657,7 +1711,7 @@ void tfree(
  * that the request is coming from a know server.
  * If the server is good, a pointer to the server
  * instance is returned.  Otherwise NULL indicates error.
- * 
+ *
  * @param stream The stream number in question
  * @return pms A pointer to the server instance.
  * @see is_request
@@ -1666,6 +1720,7 @@ mom_server *
 mom_server_valid_message_source(int stream)
   {
   static char *id = "mom_server_valid_message_source";
+
   struct sockaddr_storage *addr;
   mom_server *pms;
 
@@ -1673,6 +1728,7 @@ mom_server_valid_message_source(int stream)
    * establish stream connection to the place where this
    * message came from.
    */
+
   if ((pms = mom_server_find_by_stream(stream)))
     return(pms);
 
@@ -1691,8 +1747,8 @@ mom_server_valid_message_source(int stream)
      */
     if (pms->SStream != -1)
       {
-      sprintf(log_buffer,"duplicate connection from %s - closing original connection",
-        netaddr(addr));
+      sprintf(log_buffer, "duplicate connection from %s - closing original connection",
+              netaddr(addr));
 
       log_record(
         PBSEVENT_ERROR,
@@ -1711,6 +1767,7 @@ mom_server_valid_message_source(int stream)
 
     return(pms);
     }
+
 #if 1
   else
     {
@@ -1731,10 +1788,12 @@ mom_server_valid_message_source(int stream)
     for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
       {
       pms = &mom_servers[sindex];
+
       if (pms->pbs_servername[0] &&
           pms->SStream != -1)
         {
         int error;
+
         struct addrinfo hints, *res, *rp;
 
         memset(&hints, 0, sizeof(struct sockaddr_storage));
@@ -1755,76 +1814,77 @@ mom_server_valid_message_source(int stream)
         }
       }
     }
+
 #endif
 
-    sprintf(log_buffer,"bad connect from %s - unauthorized server",
-      netaddr(addr));
+  sprintf(log_buffer, "bad connect from %s - unauthorized server",
+          netaddr(addr));
 
-    sprintf(TMOMRejectConn,"%s  %s",
-      netaddr(addr),
-      "(server not authorized)");
+  sprintf(TMOMRejectConn, "%s  %s",
+          netaddr(addr),
+          "(server not authorized)");
 
-    log_err(-1,id,log_buffer);
+  log_err(-1, id, log_buffer);
 
-    rpp_close(stream);
+  rpp_close(stream);
 
-    return(NULL);
+  return(NULL);
 
   /* We don't have an existing connection, but is this a valid server? */
 
-/*  if (ServerIndex == -1)
-    {
-    port = GET_PORT(addr);
-
-    for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
+  /*  if (ServerIndex == -1)
       {
-      if (pbs_servername[sindex][0] == '\0')
-        break;
+      port = GET_PORT(addr);
 
-      if (compare_ip(addr,&MOMServerAddrs[sindex]))
+      for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
         {
-        ServerIndex = sindex;
+        if (pbs_servername[sindex][0] == '\0')
+          break;
 
-        if (SStream[sindex] != -1)
+        if (compare_ip(addr,&MOMServerAddrs[sindex]))
           {
-          sprintf(log_buffer,"duplicate connection from %s - closing original connection",
-            netaddr(addr));
+          ServerIndex = sindex;
 
-          log_record(
-            PBSEVENT_ERROR,
-            PBS_EVENTCLASS_SERVER,
-            id,
-            log_buffer);
+          if (SStream[sindex] != -1)
+            {
+            sprintf(log_buffer,"duplicate connection from %s - closing original connection",
+              netaddr(addr));
 
-          rpp_close(SStream[sindex]);
+            log_record(
+              PBSEVENT_ERROR,
+              PBS_EVENTCLASS_SERVER,
+              id,
+              log_buffer);
+
+            rpp_close(SStream[sindex]);
+            }
+
+          SStream[sindex] = stream;
+
+          break;
           }
+        }    * END for (sindex) */
 
-        SStream[sindex] = stream;
-  
-        break;
-        }
-      }    * END for (sindex) */
+  /*   if (ServerIndex == -1)
+       {
+       sprintf(log_buffer,"bad connect from %s - unauthorized server",
+         netaddr(addr));
 
- /*   if (ServerIndex == -1)
-      {
-      sprintf(log_buffer,"bad connect from %s - unauthorized server",
-        netaddr(addr));
+       sprintf(TMOMRejectConn,"%s  %s",
+         netaddr(addr),
+         "(server not authorized)");
 
-      sprintf(TMOMRejectConn,"%s  %s",
-        netaddr(addr),
-        "(server not authorized)");
+       log_err(-1,id,log_buffer);
 
-      log_err(-1,id,log_buffer);
+       rpp_close(stream);
 
-      rpp_close(stream);
-
-      return;
-      }
-    }    * END if (ServerIndex == -1) */
+       return;
+       }
+     }    * END if (ServerIndex == -1) */
   }
 
 /**
- * Request is coming from another server (i.e., pbs_server) over a DIS rpp 
+ * Request is coming from another server (i.e., pbs_server) over a DIS rpp
  * stream (process 'hello' and 'cluster_addrs' request).
  *
  * @see is_compose() - peer - generate message to send to pbs_server.
@@ -1842,13 +1902,13 @@ void is_request(
   {
   static char id[] = "is_request";
 
-  int		command = 0;
-  int		ret = DIS_SUCCESS;
+  int  command = 0;
+  int  ret = DIS_SUCCESS;
   mom_server *pms;
   extern char *PBSServerCmds[];
- 
-  struct	sockaddr_storage *addr = NULL;
-  void		init_addrs();
+
+  struct sockaddr_storage *addr = NULL;
+  void  init_addrs();
 
 
   if (cmdp != NULL)
@@ -1856,9 +1916,9 @@ void is_request(
 
   if (LOGLEVEL >= 4)
     {
-    sprintf(log_buffer,"stream %d version %d",
-      stream,
-      version);
+    sprintf(log_buffer, "stream %d version %d",
+            stream,
+            version);
 
     log_record(
       PBSEVENT_ERROR,
@@ -1867,12 +1927,12 @@ void is_request(
       log_buffer);
     }
 
-  if (version != IS_PROTOCOL_VER) 
+  if (version != IS_PROTOCOL_VER)
     {
-    sprintf(log_buffer,"protocol version %d unknown", 
-      version);
+    sprintf(log_buffer, "protocol version %d unknown",
+            version);
 
-    log_err(-1,id,log_buffer);
+    log_err(-1, id, log_buffer);
 
     rpp_close(stream);
 
@@ -1885,7 +1945,8 @@ void is_request(
   if ((pms = mom_server_valid_message_source(stream)) == NULL)
     return;
 
-  command = disrsi(stream,&ret);
+  command = disrsi(stream, &ret);
+
   if (ret != DIS_SUCCESS)
     goto err;
 
@@ -1895,9 +1956,9 @@ void is_request(
 
   if (LOGLEVEL >= 3)
     {
-    sprintf(log_buffer,"command %d, \"%s\", received",
-      command,
-      PBSServerCmds[command]);
+    sprintf(log_buffer, "command %d, \"%s\", received",
+            command,
+            PBSServerCmds[command]);
 
     log_record(
       PBSEVENT_ERROR,
@@ -1906,34 +1967,36 @@ void is_request(
       log_buffer);
     }
 
-  mom_server_update_receive_time(stream,PBSServerCmds[command]);
+  mom_server_update_receive_time(stream, PBSServerCmds[command]);
 
-  switch (command) 
+  switch (command)
     {
+
     case IS_NULL: /* a ping from the server */
 
       /* nothing seems to ever generate an IS_NULL message */
 
-      if (internal_state & INUSE_DOWN) 
+      if (internal_state & INUSE_DOWN)
         {
         int sindex;
 
         for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
           {
           if (mom_servers[sindex].SStream != -1)
-            state_to_server(sindex,1);
+            state_to_server(sindex, 1);
           }
         }
 
       break;
 
-    case IS_HELLO:		/* server wants a return ping */
-      if (is_compose(pms,IS_HELLO) != DIS_SUCCESS)
+    case IS_HELLO:  /* server wants a return ping */
+
+      if (is_compose(pms, IS_HELLO) != DIS_SUCCESS)
         {
         break;
         }
 
-      if (mom_server_flush_io(pms,id,"flush") != DIS_SUCCESS)
+      if (mom_server_flush_io(pms, id, "flush") != DIS_SUCCESS)
         break;
 
       pms->received_hello_count++;
@@ -1945,10 +2008,10 @@ void is_request(
       break;
 
     case IS_CLUSTER_ADDRS:
-      for (;;) 
+      for (;;)
         {
         /* FIXME this is nasty - how do we handle IPv6 over a stream? */
-        ipaddr = disrul(stream,&ret);
+        ipaddr = disrul(stream, &ret);
 
         if (ret != DIS_SUCCESS)
           break;
@@ -1959,12 +2022,12 @@ void is_request(
           {
           char tmpLine[1024];
 
-          sprintf(tmpLine,"%s:\t%ld.%ld.%ld.%ld added to okclients", 
-            id,
-            (ipaddr & 0xff000000) >> 24,
-            (ipaddr & 0x00ff0000) >> 16,
-            (ipaddr & 0x0000ff00) >> 8,
-            (ipaddr & 0x000000ff));
+          sprintf(tmpLine, "%s:\t%ld.%ld.%ld.%ld added to okclients",
+                  id,
+                  (ipaddr & 0xff000000) >> 24,
+                  (ipaddr & 0x00ff0000) >> 16,
+                  (ipaddr & 0x0000ff00) >> 8,
+                  (ipaddr & 0x000000ff));
 
           log_record(
             PBSEVENT_ERROR,
@@ -1987,10 +2050,10 @@ void is_request(
 
     default:
 
-      sprintf(log_buffer,"unknown command %d sent", 
-        command);
+      sprintf(log_buffer, "unknown command %d sent",
+              command);
 
-      log_err(-1,id,log_buffer);
+      log_err(-1, id, log_buffer);
 
       goto err;
     }  /* END switch(command) */
@@ -2004,11 +2067,11 @@ err:
   /* We come here if we got a DIS read error or a protocol
   ** element is missing.  */
 
-  sprintf(log_buffer,"%s from %s", 
-    dis_emsg[ret], 
-    (addr != NULL) ? netaddr(addr) : "???");
+  sprintf(log_buffer, "%s from %s",
+          dis_emsg[ret],
+          (addr != NULL) ? netaddr(addr) : "???");
 
-  log_err(-1,id,log_buffer);
+  log_err(-1, id, log_buffer);
 
   rpp_close(stream);
 
@@ -2044,6 +2107,7 @@ float compute_load_threshold(
 
   switch (*config)
     {
+
     case 'c':
 
       retval = system_ncpus;
@@ -2069,9 +2133,13 @@ float compute_load_threshold(
 
   switch (*config)
     {
+
     case '+':
+
     case '-':
+
     case '*':
+
     case '/':
 
       op = config;
@@ -2098,6 +2166,7 @@ float compute_load_threshold(
 
   switch (*op)
     {
+
     case '+':
 
       retval = retval + tmpval;
@@ -2122,20 +2191,20 @@ float compute_load_threshold(
 
       break;
     }
-  
+
   return(retval);
   }  /* END compute_load_threshold() */
 
 
 
 
-   
+
 /*
- * check_busy() - 
- *	If current load average ge max_load_val and busy not already set
- *		set it
- *	If current load average lt ideal_load_val and busy currently set
- *		unset it
+ * check_busy() -
+ * If current load average ge max_load_val and busy not already set
+ *  set it
+ * If current load average lt ideal_load_val and busy currently set
+ *  unset it
  */
 
 void check_busy(
@@ -2166,26 +2235,26 @@ void check_busy(
         numvnodes += pjob->ji_numvnod;
       }
 
-    mymax_load = compute_load_threshold(auto_max_load,numvnodes,max_load_val);
+    mymax_load = compute_load_threshold(auto_max_load, numvnodes, max_load_val);
 
-    myideal_load = compute_load_threshold(auto_ideal_load,numvnodes,ideal_load_val);
+    myideal_load = compute_load_threshold(auto_ideal_load, numvnodes, ideal_load_val);
     }
   else
-    {                                                                                     
+    {
     mymax_load = max_load_val;
     myideal_load = ideal_load_val;
     }
 
-  if ((mla >= mymax_load) && 
-     ((internal_state & INUSE_BUSY) == 0))
+  if ((mla >= mymax_load) &&
+      ((internal_state & INUSE_BUSY) == 0))
     {
     /* node transitioned from free to busy, report state */
 
     if (LOGLEVEL >= 2)
       {
-      sprintf(log_buffer,"state changed from idle to busy (load max=%f  detected=%f)\n",
-        mymax_load,
-        mla);
+      sprintf(log_buffer, "state changed from idle to busy (load max=%f  detected=%f)\n",
+              mymax_load,
+              mla);
 
       log_record(
         PBSEVENT_ERROR,
@@ -2202,16 +2271,16 @@ void check_busy(
         mom_servers[sindex].ReportMomState = 1;
       }
     }
-  else if ((mla < myideal_load) && 
-          ((internal_state & INUSE_BUSY) != 0))
+  else if ((mla < myideal_load) &&
+           ((internal_state & INUSE_BUSY) != 0))
     {
     /* node transitioned from busy to free, report state */
 
     if (LOGLEVEL >= 4)
       {
-      sprintf(log_buffer,"state changed from busy to idle (load max=%f  detected=%f)\n",
-        mymax_load,
-        mla);
+      sprintf(log_buffer, "state changed from busy to idle (load max=%f  detected=%f)\n",
+              mymax_load,
+              mla);
 
       log_record(
         PBSEVENT_ERROR,
@@ -2254,24 +2323,25 @@ int MUReadPipe(
     return(1);
     }
 
-  if ((fp = popen(Command,"r")) == NULL)
+  if ((fp = popen(Command, "r")) == NULL)
     {
     return(1);
     }
 
   ccount = 0;
+
   rcount = 0;
 
-  do 
+  do
     {
-    rc = fread(Buffer + ccount,1,BufSize - ccount,fp);
+    rc = fread(Buffer + ccount, 1, BufSize - ccount, fp);
 
     /* NOTE:  ferror may create false failures */
 
     if (rc > 0)
-      { 
+      {
       ccount += rc;
-      }  
+      }
 
     if ((ccount >= BufSize) || (rcount++ > 10))
       {
@@ -2279,7 +2349,8 @@ int MUReadPipe(
 
       break;
       }
-    } while (!feof(fp));
+    }
+  while (!feof(fp));
 
   if (ferror(fp))
     {
@@ -2304,7 +2375,7 @@ int MUReadPipe(
 
 /*
  * check_state() -
- *   if down criteria satisfied and node is up, mark node down 
+ *   if down criteria satisfied and node is up, mark node down
  *   if down criteria is not set and node is down, mark it up
  */
 
@@ -2329,7 +2400,7 @@ void check_state(
   PBSNodeMsgBuf[0] = '\0';
 
   /* conditions:  external state should be down if
-     - inadequate file handles available (for period X) 
+     - inadequate file handles available (for period X)
      - external health check fails
   */
 
@@ -2339,27 +2410,28 @@ void check_state(
 
 
 #if MOMCHECKLOCALSPOOL
-  {
-  char *sizestr;
-  u_Long freespace;
-  extern char *size_fs(char *);  /* FIXME: put this in a header file */
-
-  /* size_fs() is arch-specific method in mom_mach.c */
-  sizestr = size_fs(path_spool);  /* returns "free:total" */
-
-  freespace = strTouL(sizestr,NULL,10);
-
-  if (freespace < TMINSPOOLBLOCKS)
     {
-    /* inadequate disk space in spool directory */
+    char *sizestr;
+    u_Long freespace;
+    extern char *size_fs(char *);  /* FIXME: put this in a header file */
 
-    strcpy(PBSNodeMsgBuf,"ERROR: torque spool filesystem full");
+    /* size_fs() is arch-specific method in mom_mach.c */
+    sizestr = size_fs(path_spool);  /* returns "free:total" */
 
-    /* NOTE:  adjusting internal state may not be proper behavior, see note below */
+    freespace = strTouL(sizestr, NULL, 10);
 
-    internal_state |= INUSE_DOWN;
-    }
-  }    /* END BLOCK */
+    if (freespace < TMINSPOOLBLOCKS)
+      {
+      /* inadequate disk space in spool directory */
+
+      strcpy(PBSNodeMsgBuf, "ERROR: torque spool filesystem full");
+
+      /* NOTE:  adjusting internal state may not be proper behavior, see note below */
+
+      internal_state |= INUSE_DOWN;
+      }
+    }    /* END BLOCK */
+
 #endif /* MOMCHECKLOCALSPOOL */
 
   if (PBSNodeCheckPath[0] != '\0')
@@ -2369,15 +2441,15 @@ void check_state(
     if (ICount == 0)
       {
       if (MUReadPipe(
-           PBSNodeCheckPath,
-           tmpPBSNodeMsgBuf,
-           sizeof(tmpPBSNodeMsgBuf)) == 0)
+            PBSNodeCheckPath,
+            tmpPBSNodeMsgBuf,
+            sizeof(tmpPBSNodeMsgBuf)) == 0)
         {
-        if (!strncasecmp(tmpPBSNodeMsgBuf,"ERROR",strlen("ERROR")))
+        if (!strncasecmp(tmpPBSNodeMsgBuf, "ERROR", strlen("ERROR")))
           {
           IsError = 1;
           }
-        else if (!strncasecmp(tmpPBSNodeMsgBuf,"EVENT:",strlen("EVENT:")))
+        else if (!strncasecmp(tmpPBSNodeMsgBuf, "EVENT:", strlen("EVENT:")))
           {
           /* pass event directly to scheduler for processing */
 
@@ -2403,7 +2475,7 @@ void check_state(
 
       PBSNodeMsgBuf[sizeof(PBSNodeMsgBuf) - 1] = '\0';
 
-      /* NOTE:  not certain this is the correct behavior, scheduler should probably make this decision as 
+      /* NOTE:  not certain this is the correct behavior, scheduler should probably make this decision as
                 proper action may be context sensitive */
 
       if (IsError == 1)
@@ -2413,7 +2485,7 @@ void check_state(
 
   ICount ++;
 
-  ICount %= MAX(1,PBSNodeCheckInterval);
+  ICount %= MAX(1, PBSNodeCheckInterval);
 
   return;
   }  /* END check_state() */
@@ -2424,7 +2496,7 @@ void check_state(
 
 /**
  * state_to_server() - if ReportMomState is set, send state message to
- *	the server.
+ * the server.
  *
  * @see is_compose() - child
  */
@@ -2443,18 +2515,18 @@ void state_to_server(
     return;    /* Do nothing, just return */
     }
 
-  if (is_compose(pms,IS_UPDATE) != DIS_SUCCESS) 
+  if (is_compose(pms, IS_UPDATE) != DIS_SUCCESS)
     {
-    return;		
-    } 
-
-  if (diswui(pms->SStream,internal_state) != DIS_SUCCESS) 
-    {
-    mom_server_stream_error(pms,id,"writing internal state");
     return;
     }
 
-  if (mom_server_flush_io(pms,id,"flush") == DIS_SUCCESS)
+  if (diswui(pms->SStream, internal_state) != DIS_SUCCESS)
+    {
+    mom_server_stream_error(pms, id, "writing internal state");
+    return;
+    }
+
+  if (mom_server_flush_io(pms, id, "flush") == DIS_SUCCESS)
     {
     /* send successful, unset ReportMomState */
 
@@ -2462,9 +2534,9 @@ void state_to_server(
 
     if (LOGLEVEL >= 4)
       {
-      sprintf(log_buffer,"sent updated state 0x%x to server %s",
-        internal_state,
-        pms->pbs_servername);
+      sprintf(log_buffer, "sent updated state 0x%x to server %s",
+              internal_state,
+              pms->pbs_servername);
 
       log_record(
         PBSEVENT_ERROR,
@@ -2485,8 +2557,9 @@ mom_server_all_send_state()
   for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {
     pms = &mom_servers[sindex];
+
     if (pms->ReportMomState != 0)
-      state_to_server(sindex,0);
+      state_to_server(sindex, 0);
     }
   }
 
@@ -2518,7 +2591,7 @@ mom_server_all_send_state()
  *
  */
 
-int mom_open_socket_to_jobs_server( job * pjob, char *caller_id, void (*message_handler) A_((int)) )
+int mom_open_socket_to_jobs_server(job * pjob, char *caller_id, void (*message_handler) A_((int)))
   {
   char *svrport;
   char error_buffer[1024];
@@ -2530,23 +2603,24 @@ int mom_open_socket_to_jobs_server( job * pjob, char *caller_id, void (*message_
 
   /* See if the server address string has a ':' implying a port number. */
 
-  svrport = strchr(pjob->ji_wattr[(int)JOB_ATR_at_server].at_val.at_str,(int)':');
+  svrport = strchr(pjob->ji_wattr[(int)JOB_ATR_at_server].at_val.at_str, (int)':');
+
   if (svrport)
     port = atoi(svrport + 1);  /* Yes, use the specified server port number. */
   else
     port = default_server_port;  /* No, use the global default server port. */
 
   sock = client_to_svr(
-    &pjob->ji_qs.ji_un.ji_momt.ji_svraddr, /* This is set in req_queuejob. */
-    port,
-    1,  /* use local socket */
-    error_buffer);
+           &pjob->ji_qs.ji_un.ji_momt.ji_svraddr, /* This is set in req_queuejob. */
+           port,
+           1,  /* use local socket */
+           error_buffer);
 
   if (sock < 0)
     {
     /* error_buffer is filled in by the library with a message describing the failure */
 
-    log_err(errno,caller_id,error_buffer);
+    log_err(errno, caller_id, error_buffer);
 
     /* Try to make HA work.
      * Perhaps we should keep a list identifying who has been tried?
@@ -2556,19 +2630,23 @@ int mom_open_socket_to_jobs_server( job * pjob, char *caller_id, void (*message_
 
     for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
       {
+
       struct sockaddr_storage *addr;
 
       pms = &mom_servers[sindex];
+
       if (pms->SStream != -1)
         {
         addr = rpp_getaddr(pms->SStream);
+
         if (compare_ip(addr, &pjob->ji_qs.ji_un.ji_momt.ji_svraddr))
           {
           sock = client_to_svr(
-            addr,
-            addr->sa_family,
-            1,  /* use local socket */
-            error_buffer);
+                   addr,
+                   addr->sa_family,
+                   1,  /* use local socket */
+                   error_buffer);
+
           if (sock >= 0)
             break;
           }
@@ -2580,7 +2658,7 @@ int mom_open_socket_to_jobs_server( job * pjob, char *caller_id, void (*message_
 
   if (sock >= 0 && sock < 3)
     {
-    sock3 = fcntl(sock,F_DUPFD,3);
+    sock3 = fcntl(sock, F_DUPFD, 3);
     close(sock);
     sock = sock3;
     }
@@ -2598,7 +2676,7 @@ int mom_open_socket_to_jobs_server( job * pjob, char *caller_id, void (*message_
   if (sock >= 0 && message_handler)
     {
     add_conn(
-      sock, 
+      sock,
       ToServerDIS,
       pjob->ji_qs.ji_un.ji_momt.ji_svraddr,
       message_handler);
@@ -2688,7 +2766,7 @@ set_mom_server_down(pbs_net_t server_address)
       break;
       }
     }
-      
+
   return;
   }
 

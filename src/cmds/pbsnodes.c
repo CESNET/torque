@@ -1,45 +1,45 @@
 /*
 *         OpenPBS (Portable Batch System) v2.3 Software License
-* 
+*
 * Copyright (c) 1999-2000 Veridian Information Solutions, Inc.
 * All rights reserved.
-* 
+*
 * ---------------------------------------------------------------------------
 * For a license to use or redistribute the OpenPBS software under conditions
 * other than those described below, or to purchase support for this software,
 * please contact Veridian Systems, PBS Products Department ("Licensor") at:
-* 
+*
 *    www.OpenPBS.org  +1 650 967-4675                  sales@OpenPBS.org
 *                        877 902-4PBS (US toll-free)
 * ---------------------------------------------------------------------------
-* 
+*
 * This license covers use of the OpenPBS v2.3 software (the "Software") at
 * your site or location, and, for certain users, redistribution of the
 * Software to other sites and locations.  Use and redistribution of
 * OpenPBS v2.3 in source and binary forms, with or without modification,
 * are permitted provided that all of the following conditions are met.
 * After December 31, 2001, only conditions 3-6 must be met:
-* 
+*
 * 1. Commercial and/or non-commercial use of the Software is permitted
 *    provided a current software registration is on file at www.OpenPBS.org.
 *    If use of this software contributes to a publication, product, or
 *    service, proper attribution must be given; see www.OpenPBS.org/credit.html
-* 
+*
 * 2. Redistribution in any form is only permitted for non-commercial,
 *    non-profit purposes.  There can be no charge for the Software or any
 *    software incorporating the Software.  Further, there can be no
 *    expectation of revenue generated as a consequence of redistributing
 *    the Software.
-* 
+*
 * 3. Any Redistribution of source code must retain the above copyright notice
 *    and the acknowledgment contained in paragraph 6, this list of conditions
 *    and the disclaimer contained in paragraph 7.
-* 
+*
 * 4. Any Redistribution in binary form must reproduce the above copyright
 *    notice and the acknowledgment contained in paragraph 6, this list of
 *    conditions and the disclaimer contained in paragraph 7 in the
 *    documentation and/or other materials provided with the distribution.
-* 
+*
 * 5. Redistributions in any form must be accompanied by information on how to
 *    obtain complete source code for the OpenPBS software and any
 *    modifications and/or additions to the OpenPBS software.  The source code
@@ -47,23 +47,23 @@
 *    than the cost of distribution plus a nominal fee, and all modifications
 *    and additions to the Software must be freely redistributable by any party
 *    (including Licensor) without restriction.
-* 
+*
 * 6. All advertising materials mentioning features or use of the Software must
 *    display the following acknowledgment:
-* 
+*
 *     "This product includes software developed by NASA Ames Research Center,
-*     Lawrence Livermore National Laboratory, and Veridian Information 
+*     Lawrence Livermore National Laboratory, and Veridian Information
 *     Solutions, Inc.
 *     Visit www.OpenPBS.org for OpenPBS software support,
 *     products, and information."
-* 
+*
 * 7. DISCLAIMER OF WARRANTY
-* 
+*
 * THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. ANY EXPRESS
 * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
 * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT
 * ARE EXPRESSLY DISCLAIMED.
-* 
+*
 * IN NO EVENT SHALL VERIDIAN CORPORATION, ITS AFFILIATED COMPANIES, OR THE
 * U.S. GOVERNMENT OR ANY OF ITS AGENCIES BE LIABLE FOR ANY DIRECT OR INDIRECT,
 * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
@@ -72,53 +72,53 @@
 * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-* 
+*
 * This license will be governed by the laws of the Commonwealth of Virginia,
 * without reference to its choice of law rules.
 */
 /*
-**	This program exists to give a way to mark nodes
-**	Down, Offline, or Free in PBS.
+** This program exists to give a way to mark nodes
+** Down, Offline, or Free in PBS.
 **
-**	usage: pbsnodes [-s server][-{c|l|o|r}] node node ...
+** usage: pbsnodes [-s server][-{c|l|o|r}] node node ...
 **
-**	where the node(s) are the names given in the node
-**	description file.
+** where the node(s) are the names given in the node
+** description file.
 **
-**	pbsnodes			clear "DOWN" from all nodes so marked
-** 
-**	pbsnodes node1 node2		set nodes node1, node2 "DOWN"
-**					unmark "DOWN" from any other node
+** pbsnodes   clear "DOWN" from all nodes so marked
 **
-**	pbsnodes -a			list all nodes 
+** pbsnodes node1 node2  set nodes node1, node2 "DOWN"
+**     unmark "DOWN" from any other node
 **
-**	pbsnodes -l			list all nodes marked in any way
+** pbsnodes -a   list all nodes
 **
-**	pbsnodes -o node1 node2		mark nodes node1, node2 as OFF_LINE
-**					even if currently in use.
+** pbsnodes -l   list all nodes marked in any way
 **
-**	pbsnodes -r node1 node2 	clear OFF_LINE from listed nodes
+** pbsnodes -o node1 node2  mark nodes node1, node2 as OFF_LINE
+**     even if currently in use.
 **
-**	pbsnodes -c node1 node2		clear OFF_LINE or DOWN from listed nodes
+** pbsnodes -r node1 node2  clear OFF_LINE from listed nodes
+**
+** pbsnodes -c node1 node2  clear OFF_LINE or DOWN from listed nodes
 */
-#include	<pbs_config.h>   /* the master config generated by configure */
+#include <pbs_config.h>   /* the master config generated by configure */
 
-#include	<stdio.h>
-#include	<unistd.h>
-#include	<string.h>
-#include	<stdlib.h>
-#include	<limits.h>
+#include <stdio.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
+#include <limits.h>
 
-#include	"portability.h"
-#include	"pbs_ifl.h"
+#include "portability.h"
+#include "pbs_ifl.h"
 #include        "mcom.h"
 #include        "cmds.h"
-  
-#define	LIST	1
-#define	CLEAR	2
-#define	OFFLINE	3
-#define	RESET	4
-#define ALLI	5
+
+#define LIST 1
+#define CLEAR 2
+#define OFFLINE 3
+#define RESET 4
+#define ALLI 5
 #define PURGE   6
 #define DIAG    7
 #define NOTE    8
@@ -143,12 +143,13 @@ mbool_t DisplayXML = FALSE;
 
 static int set_note(
 
-  int    con, 
+  int    con,
   char  *name,
   char  *msg)
 
   {
-  char	         *errmsg;
+  char          *errmsg;
+
   struct attropl  new;
   int             rc;
 
@@ -159,24 +160,24 @@ static int set_note(
   new.next     = NULL;
 
   rc = pbs_manager(
-    con, 
-    MGR_CMD_SET, 
-    MGR_OBJ_NODE, 
-    name, 
-    &new, 
-    NULL);
+         con,
+         MGR_CMD_SET,
+         MGR_OBJ_NODE,
+         name,
+         &new,
+         NULL);
 
-  if (rc && !quiet) 
+  if (rc && !quiet)
     {
-    fprintf(stderr,"Error setting note attribute for %s - ", 
-      name);
+    fprintf(stderr, "Error setting note attribute for %s - ",
+            name);
 
     if ((errmsg = pbs_geterrmsg(con)) != NULL)
-      fprintf(stderr,"%s\n", 
-        errmsg);
+      fprintf(stderr, "%s\n",
+              errmsg);
     else
-      fprintf(stderr,"(error %d)\n", 
-        pbs_errno);
+      fprintf(stderr, "(error %d)\n",
+              pbs_errno);
     }
 
   return(rc);
@@ -190,9 +191,10 @@ static void prt_node_attr(
   int                  IsVerbose)   /* I */
 
   {
+
   struct attrl *pat;
 
-  for (pat = pbs->attribs;pat;pat = pat->next) 
+  for (pat = pbs->attribs;pat;pat = pat->next)
     {
     if ((pat->value == NULL) || (pat->value[0] == '?'))
       {
@@ -200,9 +202,10 @@ static void prt_node_attr(
         continue;
       }
 
-    printf("     %s = %s\n", 
-      pat->name, 
-      pat->value);
+    printf("     %s = %s\n",
+
+           pat->name,
+           pat->value);
     }  /* END for (pat) */
 
   return;
@@ -216,11 +219,12 @@ static char *get_nstate(
   struct batch_status *pbs)  /* I */
 
   {
+
   struct attrl *pat;
 
-  for (pat = pbs->attribs;pat != NULL;pat = pat->next) 
+  for (pat = pbs->attribs;pat != NULL;pat = pat->next)
     {
-    if (strcmp(pat->name,ATTR_NODE_state) == 0)
+    if (strcmp(pat->name, ATTR_NODE_state) == 0)
       {
       return(pat->value);
       }
@@ -238,11 +242,12 @@ static char *get_note(
   struct batch_status *pbs)  /* I */
 
   {
+
   struct attrl *pat;
 
-  for (pat = pbs->attribs;pat != NULL;pat = pat->next) 
+  for (pat = pbs->attribs;pat != NULL;pat = pat->next)
     {
-    if (strcmp(pat->name,ATTR_NODE_note) == 0)
+    if (strcmp(pat->name, ATTR_NODE_note) == 0)
       {
       return(pat->value);
       }
@@ -255,15 +260,16 @@ static char *get_note(
 
 static int marknode(
 
-  int            con, 
-  char          *name, 
-  char          *state1, 
+  int            con,
+  char          *name,
+  char          *state1,
   enum batch_op  op1,
-  char          *state2, 
+  char          *state2,
   enum batch_op  op2)
 
   {
-  char	         *errmsg;
+  char          *errmsg;
+
   struct attropl  new[2];
   int             rc;
 
@@ -272,39 +278,40 @@ static int marknode(
   new[0].value    = state1;
   new[0].op       = op1;
 
-  if (state2 == NULL) 
+  if (state2 == NULL)
     {
     new[0].next     = NULL;
-    } 
-  else 
+    }
+  else
     {
     new[0].next     = &new[1];
     new[1].next     = NULL;
     new[1].name     = ATTR_NODE_state;
     new[1].resource = NULL;
     new[1].value    = state2;
-    new[1].op	    = op2;
+    new[1].op     = op2;
     }
 
   rc = pbs_manager(
-    con, 
-    MGR_CMD_SET, 
-    MGR_OBJ_NODE, 
-    name, 
-    new, 
-    NULL);
 
-  if (rc && !quiet) 
+         con,
+         MGR_CMD_SET,
+         MGR_OBJ_NODE,
+         name,
+         new,
+         NULL);
+
+  if (rc && !quiet)
     {
-    fprintf(stderr,"Error marking node %s - ", 
-      name);
+    fprintf(stderr, "Error marking node %s - ",
+            name);
 
     if ((errmsg = pbs_geterrmsg(con)) != NULL)
-      fprintf(stderr,"%s\n", 
-        errmsg);
+      fprintf(stderr, "%s\n",
+              errmsg);
     else
-      fprintf(stderr,"error: %d\n",
-        pbs_errno);
+      fprintf(stderr, "error: %d\n",
+              pbs_errno);
     }
 
   return(rc);
@@ -315,32 +322,33 @@ static int marknode(
 
 struct batch_status *statnode(
 
-  int   con,
-  char *nodearg)
+        int   con,
+        char *nodearg)
 
   {
+
   struct batch_status *bstatus;
-  char	              *errmsg;
+  char               *errmsg;
 
-  bstatus = pbs_statnode(con,nodearg,NULL,NULL);
+  bstatus = pbs_statnode(con, nodearg, NULL, NULL);
 
-  if (bstatus == NULL) 
+  if (bstatus == NULL)
     {
-    if (pbs_errno) 
+    if (pbs_errno)
       {
-      if (!quiet) 
+      if (!quiet)
         {
         if ((errmsg = pbs_geterrmsg(con)) != NULL)
           {
-          fprintf(stderr,"%s: %s\n",
-            progname,
-            errmsg);
+          fprintf(stderr, "%s: %s\n",
+                  progname,
+                  errmsg);
           }
         else
           {
-          fprintf(stderr,"%s: Error %d\n",
-            progname,
-            pbs_errno);
+          fprintf(stderr, "%s: Error %d\n",
+                  progname,
+                  pbs_errno);
           }
         }
 
@@ -348,8 +356,8 @@ struct batch_status *statnode(
       }
 
     if (!quiet)
-      fprintf(stderr,"%s: No nodes found\n", 
-        progname);
+      fprintf(stderr, "%s: No nodes found\n",
+              progname);
 
     exit(2);
     }
@@ -368,20 +376,21 @@ void addxmlnode(
   {
   mxml_t *NE;
   mxml_t *AE;
+
   struct attrl *pat;
 
   NE = NULL;
 
-  MXMLCreateE(&NE,"Node");
+  MXMLCreateE(&NE, "Node");
 
-  MXMLAddE(DE,NE);
+  MXMLAddE(DE, NE);
 
   /* add nodeid */
 
   AE = NULL;
-  MXMLCreateE(&AE,"name");
-  MXMLSetVal(AE,pbstat->name,mdfString);
-  MXMLAddE(NE,AE);
+  MXMLCreateE(&AE, "name");
+  MXMLSetVal(AE, pbstat->name, mdfString);
+  MXMLAddE(NE, AE);
 
   for (pat = pbstat->attribs;pat;pat = pat->next)
     {
@@ -390,18 +399,19 @@ void addxmlnode(
     if (pat->value == NULL)
       continue;
 
-    MXMLCreateE(&AE,pat->name);
+    MXMLCreateE(&AE, pat->name);
 
-    MXMLSetVal(AE,pat->value,mdfString);
+    MXMLSetVal(AE, pat->value, mdfString);
 
-    MXMLAddE(NE,AE);
+    MXMLAddE(NE, AE);
     }
 
   return;
   } /* END addxmlnode() */
 
 
-enum NStateEnum {
+enum NStateEnum
+  {
   tnsNONE = 0, /* default behavior - show down, offline, and unknown nodes */
   tnsActive,   /* one or more jobs running on node */
   tnsAll,      /* list all nodes */
@@ -411,9 +421,11 @@ enum NStateEnum {
   tnsOffline,  /* node is offline */
   tnsUnknown,  /* node is unknown - no contact recieved */
   tnsUp,       /* node is healthy */
-  tnsLAST };
+  tnsLAST
+  };
 
-const char *NState[] = {
+const char *NState[] =
+  {
   "NONE",
   "active",
   "all",
@@ -423,7 +435,8 @@ const char *NState[] = {
   "offline",
   "unknown",
   "up",
-  NULL };
+  NULL
+  };
 
 
 int filterbystate(
@@ -439,10 +452,12 @@ int filterbystate(
 
   switch (ListType)
     {
+
     case tnsNONE:  /* display down, offline, and unknown nodes */
+
     default:
 
-      if (strstr(S,ND_down) || strstr(S,ND_offline) || strstr(S,ND_state_unknown)) 
+      if (strstr(S, ND_down) || strstr(S, ND_offline) || strstr(S, ND_state_unknown))
         {
         Display = 1;
         }
@@ -451,7 +466,7 @@ int filterbystate(
 
     case tnsActive:   /* one or more jobs running on node */
 
-      if (strstr(S,ND_busy) || strstr(S,ND_job_exclusive) || strstr(S,ND_job_sharing))
+      if (strstr(S, ND_busy) || strstr(S, ND_job_exclusive) || strstr(S, ND_job_sharing))
         {
         Display = 1;
         }
@@ -466,7 +481,7 @@ int filterbystate(
 
     case tnsBusy:     /* node cannot accept additional workload */
 
-      if (strstr(S,ND_busy))
+      if (strstr(S, ND_busy))
         {
         Display = 1;
         }
@@ -475,7 +490,7 @@ int filterbystate(
 
     case tnsDown:     /* node is down or unknown */
 
-      if (strstr(S,ND_down) || strstr(S,ND_state_unknown))
+      if (strstr(S, ND_down) || strstr(S, ND_state_unknown))
         {
         Display = 1;
         }
@@ -484,7 +499,7 @@ int filterbystate(
 
     case tnsFree:     /* node is idle/free */
 
-      if (strstr(S,ND_free))
+      if (strstr(S, ND_free))
         {
         Display = 1;
         }
@@ -493,7 +508,7 @@ int filterbystate(
 
     case tnsOffline:  /* node is offline */
 
-      if (strstr(S,ND_offline))
+      if (strstr(S, ND_offline))
         {
         Display = 1;
         }
@@ -502,7 +517,7 @@ int filterbystate(
 
     case tnsUnknown:  /* node is unknown - no contact recieved */
 
-      if (strstr(S,ND_state_unknown))
+      if (strstr(S, ND_state_unknown))
         {
         Display = 1;
         }
@@ -511,7 +526,7 @@ int filterbystate(
 
     case tnsUp:       /* node is healthy */
 
-      if (!strstr(S,ND_down) && !strstr(S,ND_offline) && !strstr(S,ND_state_unknown))
+      if (!strstr(S, ND_down) && !strstr(S, ND_offline) && !strstr(S, ND_state_unknown))
         {
         Display = 1;
         }
@@ -526,24 +541,26 @@ int filterbystate(
 
 int main(
 
-  int	 argc,  /* I */
+  int  argc,  /* I */
   char **argv)  /* I */
 
   {
+
   struct batch_status *bstatus = NULL;
-  int	 con;
-  char	*specified_server = NULL;
-  int	 errflg = 0;
-  int	 i;
-  extern char	*optarg;
-  extern int	 optind;
-  char	       **pa;
+  int  con;
+  char *specified_server = NULL;
+  int  errflg = 0;
+  int  i;
+  extern char *optarg;
+  extern int  optind;
+  char        **pa;
+
   struct batch_status *pbstat;
-  int	flag = ALLI;
-  char	*note = NULL;
+  int flag = ALLI;
+  char *note = NULL;
   enum  note_flags note_flag = unused;
   char **nodeargs = NULL;
-          int lindex;
+  int lindex;
 
   enum NStateEnum ListType = tnsNONE;
 
@@ -551,14 +568,15 @@ int main(
 
   progname = strdup(argv[0]);
 
-  while ((i = getopt(argc,argv,"acdlopqrs:x-:N:n")) != EOF)
+  while ((i = getopt(argc, argv, "acdlopqrs:x-:N:n")) != EOF)
     {
-    switch (i) 
+    switch (i)
       {
+
       case 'a':
 
         flag = ALLI;
- 
+
         break;
 
       case 'c':
@@ -604,7 +622,7 @@ int main(
         break;
 
       case 's':
-   
+
         specified_server = optarg;
 
         break;
@@ -639,15 +657,15 @@ int main(
 
           /* -N n is the same as -N ""  -- it clears the note */
 
-          if (!strcmp(note,"n"))
+          if (!strcmp(note, "n"))
             *note = '\0';
 
           if (strlen(note) > MAX_NOTE)
-            fprintf(stderr,"Warning: note exceeds length limit (%d) - server may reject it...\n",
-              MAX_NOTE);
+            fprintf(stderr, "Warning: note exceeds length limit (%d) - server may reject it...\n",
+                    MAX_NOTE);
 
-          if (strchr(note,'\n') != NULL)
-            fprintf(stderr,"Warning: note contains a newline - server may reject it...\n");
+          if (strchr(note, '\n') != NULL)
+            fprintf(stderr, "Warning: note contains a newline - server may reject it...\n");
           }
 
         break;
@@ -660,14 +678,14 @@ int main(
 
       case '-':
 
-        if ((optarg != NULL) && !strcmp(optarg,"version"))
+        if ((optarg != NULL) && !strcmp(optarg, "version"))
           {
-          fprintf(stderr,"version: %s\n",
-            PACKAGE_VERSION);
+          fprintf(stderr, "version: %s\n",
+                  PACKAGE_VERSION);
 
           exit(0);
           }
-        else if ((optarg != NULL) && !strcmp(optarg,"about"))
+        else if ((optarg != NULL) && !strcmp(optarg, "about"))
           {
           TShowAbout();
 
@@ -679,6 +697,7 @@ int main(
         break;
 
       case '?':
+
       default:
 
         errflg = 1;
@@ -689,7 +708,7 @@ int main(
 
   if ((note_flag == list) && (flag != LIST))
     {
-    fprintf(stderr,"Error: -n requires -l\n");
+    fprintf(stderr, "Error: -n requires -l\n");
     errflg = 1;
     }
 
@@ -701,15 +720,15 @@ int main(
       }
     }
 
-  if (errflg != 0) 
+  if (errflg != 0)
     {
     if (!quiet)
       {
-      fprintf(stderr,"usage:\t%s [-{c|d|l|o|p|r}] [-s server] [-n] [-N \"note\"] [-q] node ...\n",
-        progname);
+      fprintf(stderr, "usage:\t%s [-{c|d|l|o|p|r}] [-s server] [-n] [-N \"note\"] [-q] node ...\n",
+              progname);
 
-      fprintf(stderr,"\t%s [-{a|x}] [-s server] [-q] [node]\n",
-        progname);
+      fprintf(stderr, "\t%s [-{a|x}] [-s server] [-q] [node]\n",
+              progname);
       }
 
     exit(1);
@@ -717,14 +736,14 @@ int main(
 
   con = cnt2server(specified_server);
 
-  if (con <= 0) 
+  if (con <= 0)
     {
     if (!quiet)
       {
       fprintf(stderr, "%s: cannot connect to server %s, error=%d\n",
-        progname,           
-        (specified_server) ? specified_server : pbs_default(), 
-        pbs_errno);
+              progname,
+              (specified_server) ? specified_server : pbs_default(),
+              pbs_errno);
       }
 
     exit(1);
@@ -732,7 +751,7 @@ int main(
 
   /* if flag is ALLI, LIST, get status of all nodes */
 
-  if ((flag == ALLI) || (flag == LIST) || (flag == DIAG)) 
+  if ((flag == ALLI) || (flag == LIST) || (flag == DIAG))
     {
     if ((flag == ALLI) || (flag == LIST) || (flag == DIAG))
       {
@@ -745,7 +764,7 @@ int main(
 
           for (lindex = 1;lindex < tnsLAST;lindex++)
             {
-            if (!strcasecmp(NState[lindex],argv[optind]))
+            if (!strcasecmp(NState[lindex], argv[optind]))
               {
               ListType = lindex;
 
@@ -754,7 +773,7 @@ int main(
               break;
               }
             }
-          } 
+          }
         }
 
       /* allow node specification (if none, then create an empty list) */
@@ -765,7 +784,7 @@ int main(
         }
       else
         {
-        nodeargs = malloc(2*sizeof(char **));
+        nodeargs = malloc(2 * sizeof(char **));
         nodeargs[0] = strdup("");
         nodeargs[1] = '\0';
         }
@@ -777,14 +796,15 @@ int main(
     {
     /* set the note attrib string on specified nodes */
 
-    for (pa = argv + optind;*pa;pa++) 
+    for (pa = argv + optind;*pa;pa++)
       {
-      set_note(con,*pa,note);
+      set_note(con, *pa, note);
       }
     }
 
-  switch (flag) 
+  switch (flag)
     {
+
     case DIAG:
 
       /* NYI */
@@ -795,9 +815,9 @@ int main(
 
       /* clear  OFFLINE from specified nodes */
 
-      for (pa = argv + optind;*pa;pa++) 
+      for (pa = argv + optind;*pa;pa++)
         {
-        marknode(con,*pa,ND_offline,DECR,NULL,DECR);	
+        marknode(con, *pa, ND_offline, DECR, NULL, DECR);
         }
 
       break;
@@ -806,9 +826,9 @@ int main(
 
       /* clear OFFLINE, add DOWN to specified nodes */
 
-      for (pa = argv + optind;*pa;pa++) 
+      for (pa = argv + optind;*pa;pa++)
         {
-        marknode(con,*pa,ND_offline,DECR,ND_down,INCR);	
+        marknode(con, *pa, ND_offline, DECR, ND_down, INCR);
         }
 
       break;
@@ -817,9 +837,9 @@ int main(
 
       /* set OFFLINE on specified nodes */
 
-      for (pa = argv + optind;*pa;pa++) 
+      for (pa = argv + optind;*pa;pa++)
         {
-        marknode(con,*pa,ND_offline,INCR,NULL,INCR);	
+        marknode(con, *pa, ND_offline, INCR, NULL, INCR);
         }
 
       break;
@@ -837,46 +857,46 @@ int main(
       if (DisplayXML == TRUE)
         {
 
-        char *tmpBuf=NULL, *tail=NULL;
+        char *tmpBuf = NULL, *tail = NULL;
         int  bufsize;
 
         mxml_t *DE;
 
         DE = NULL;
 
-        MXMLCreateE(&DE,"Data");
+        MXMLCreateE(&DE, "Data");
 
-        for (lindex=0;nodeargs[lindex]!='\0';lindex++) 
+        for (lindex = 0;nodeargs[lindex] != '\0';lindex++)
           {
-          bstatus=statnode(con,nodeargs[lindex]);
+          bstatus = statnode(con, nodeargs[lindex]);
 
           for (pbstat = bstatus;pbstat;pbstat = pbstat->next)
             {
-            addxmlnode(DE,pbstat);
+            addxmlnode(DE, pbstat);
             }    /* END for (pbstat) */
 
           pbs_statfree(pbstat);
           }
 
-        MXMLToXString(DE,&tmpBuf,&bufsize,INT_MAX,&tail,TRUE);
+        MXMLToXString(DE, &tmpBuf, &bufsize, INT_MAX, &tail, TRUE);
 
         MXMLDestroyE(&DE);
 
-        fprintf(stdout,"%s\n",
-          tmpBuf);
+        fprintf(stdout, "%s\n",
+                tmpBuf);
         }
       else
         {
-        for (lindex = 0;nodeargs[lindex] != '\0';lindex++) 
+        for (lindex = 0;nodeargs[lindex] != '\0';lindex++)
           {
-          bstatus=statnode(con,nodeargs[lindex]);
+          bstatus = statnode(con, nodeargs[lindex]);
 
-          for (pbstat = bstatus;pbstat;pbstat = pbstat->next) 
+          for (pbstat = bstatus;pbstat;pbstat = pbstat->next)
             {
-            printf("%s\n", 
-              pbstat->name);
+            printf("%s\n",
+                   pbstat->name);
 
-            prt_node_attr(pbstat,0);
+            prt_node_attr(pbstat, 0);
 
             putchar('\n');
             }  /* END for (bpstat) */
@@ -891,35 +911,36 @@ int main(
 
       /* list any node that is DOWN, OFFLINE, or UNKNOWN */
 
-      for (lindex = 0;nodeargs[lindex] != '\0';lindex++) 
+      for (lindex = 0;nodeargs[lindex] != '\0';lindex++)
         {
-        bstatus=statnode(con,nodeargs[lindex]);
+        bstatus = statnode(con, nodeargs[lindex]);
 
-        for (pbstat = bstatus;pbstat != NULL;pbstat = pbstat->next) 
+        for (pbstat = bstatus;pbstat != NULL;pbstat = pbstat->next)
           {
           char *S;
 
           S = get_nstate(pbstat);
 
-          if (filterbystate(pbstat,ListType,S))
+          if (filterbystate(pbstat, ListType, S))
             {
             char *n;
 
             if ((note_flag == list) && (n = get_note(pbstat)))
               {
               printf("%-20.20s %-26.26s %s\n",
-                pbstat->name,
-                S,
-                n);
+                     pbstat->name,
+                     S,
+                     n);
               }
             else
               {
               printf("%-20.20s %s\n",
-                pbstat->name,
-                S);
+                     pbstat->name,
+                     S);
               }
             }
           }
+
         pbs_statfree(pbstat);
         }
 
@@ -927,7 +948,7 @@ int main(
     }  /* END switch (flag) */
 
   pbs_disconnect(con);
-  
+
   return(0);
   }  /* END main() */
 

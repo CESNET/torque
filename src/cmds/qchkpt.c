@@ -13,7 +13,7 @@
 
 int main(int argc, char **argv) /* qchkpt */
   {
-  int any_failed=0;
+  int any_failed = 0;
 
   char job_id[PBS_MAXCLTJOBID];       /* from the command line */
 
@@ -21,48 +21,58 @@ int main(int argc, char **argv) /* qchkpt */
   char server_out[MAXSERVERNAME];
   char rmt_server[MAXSERVERNAME];
 
-  for ( optind = 1; optind < argc; optind++)
+  for (optind = 1; optind < argc; optind++)
     {
     int connect;
-    int stat=0;
+    int stat = 0;
     int located = FALSE;
 
     strcpy(job_id, argv[optind]);
-    if ( get_server(job_id, job_id_out, server_out) )
+
+    if (get_server(job_id, job_id_out, server_out))
       {
       fprintf(stderr, "qchkpt: illegally formed job identifier: %s\n", job_id);
       any_failed = 1;
       continue;
       }
+
 cnt:
+
     connect = cnt2server(server_out);
-    if ( connect <= 0 )
+
+    if (connect <= 0)
       {
-      fprintf(stderr, "qchkpt: cannot connect to server %s (errno=%d)\n", 
-        pbs_server, pbs_errno);
+      fprintf(stderr, "qchkpt: cannot connect to server %s (errno=%d)\n",
+              pbs_server, pbs_errno);
       any_failed = pbs_errno;
       continue;
       }
 
     stat = pbs_checkpointjob(connect, job_id_out, NULL);
-    if ( stat && (pbs_errno != PBSE_UNKJOBID) )
+
+    if (stat && (pbs_errno != PBSE_UNKJOBID))
       {
       prt_job_err("qchkpt", connect, job_id_out);
       any_failed = pbs_errno;
       }
-    else if ( stat && (pbs_errno == PBSE_UNKJOBID) && !located )
+    else if (stat && (pbs_errno == PBSE_UNKJOBID) && !located)
       {
       located = TRUE;
-      if ( locate_job(job_id_out, server_out, rmt_server) )
+
+      if (locate_job(job_id_out, server_out, rmt_server))
         {
         pbs_disconnect(connect);
         strcpy(server_out, rmt_server);
         goto cnt;
         }
+
       prt_job_err("qchkpt", connect, job_id_out);
+
       any_failed = pbs_errno;
       }
+
     pbs_disconnect(connect);
     }
+
   exit(any_failed);
   }
