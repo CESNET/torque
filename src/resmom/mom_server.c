@@ -2010,24 +2010,55 @@ void is_request(
     case IS_CLUSTER_ADDRS:
       for (;;)
         {
-        /* FIXME this is nasty - how do we handle IPv6 over a stream? */
-        ipaddr = disrul(stream, &ret);
+        struct sockaddr_storage ipaddr;
+        int ip_proto = disrui(stream, &ret);
+
+        memset(&ipaddr, 0, SINLEN(&ipaddr));
+        if (ret != DIS_SUCCESS)
+          {
+          switch (ip_proto)
+            {
+            case TORQUE_PROTO_IPV4:
+              ipaddr.ss_family = AF_INET;
+              ((struct sockaddr_in*)&ipaddr)->sin_addr.s_addr = disrul(stream, &ret);
+              break;
+#ifdef TORQUE_WANT_IPV6
+            case TORQUE_PROTO_IPV6:
+              int k;
+              ipaddr.ss_family = AF_INET6;
+              for (k = 0; k < 4; ++k)
+                {
+                ((struct sockaddr_in6*)&ipaddr)->sin6_addr.s6_addr[k] = disrul(stream, &ret);
+                }
+              break;
+#endif
+            default:
+              if (LOGLEVEL >= 4)
+                {
+                char tmpLine[512];
+
+                sprintf(tmpLine, "ip protocol unknown while getting cluster adresses from %s", id);
+
+                log_record(
+                    PBSEVENT_ERROR,
+                    PBS_EVENTCLASS_JOB,
+                    id,
+                    tmpLine);
+                }
+            }
+          }
 
         if (ret != DIS_SUCCESS)
           break;
 
-        linsertIp(ipaddr, okclients);
+        linsertIp(&ipaddr, okclients);
 
         if (LOGLEVEL >= 4)
           {
           char tmpLine[1024];
 
-          sprintf(tmpLine, "%s:\t%ld.%ld.%ld.%ld added to okclients",
-                  id,
-                  (ipaddr & 0xff000000) >> 24,
-                  (ipaddr & 0x00ff0000) >> 16,
-                  (ipaddr & 0x0000ff00) >> 8,
-                  (ipaddr & 0x000000ff));
+          sprintf(tmpLine, "%s:\t%s added to okclients",
+                  id, netaddr(&ipaddr));
 
           log_record(
             PBSEVENT_ERROR,
