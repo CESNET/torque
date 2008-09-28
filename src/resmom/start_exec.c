@@ -154,7 +154,7 @@ extern char  *path_aux;
 extern gid_t   pbsgroup;
 extern time_t  time_now;
 extern unsigned int pbs_rm_port;
-extern u_long  localaddr;
+extern struct sockaddr_storage localaddr;
 extern  char            *nodefile_suffix;
 extern  char            *submithost_suffix;
 extern  char             DEFAULT_UMASK[];
@@ -234,7 +234,7 @@ int TMomFinalizeJob3(pjobexec_t *, int, int, int *);
 int TMomFinalizeChild(pjobexec_t *);
 
 int TMomCheckJobChild(pjobexec_t *, int, int *, int *);
-static int search_env_and_open(const char *, u_long);
+static int search_env_and_open(const char *, struct sockaddr_storage *);
 extern int TMOMJobGetStartInfo(job *, pjobexec_t **);
 extern int mom_reader(int, int);
 extern int mom_writer(int, int);
@@ -461,8 +461,8 @@ void exec_bail(
 
 int open_demux(
 
-  u_long addr, /* I */
-  int    port) /* I */
+  struct sockaddr_storage *addr, /* I */
+  int port) /* I */
 
   {
   static char id[] = "open_demux";
@@ -470,13 +470,14 @@ int open_demux(
   int         sock;
   int         i;
 
-  struct sockaddr_in remote;
+  struct sockaddr_storage remote;
 
-  remote.sin_addr.s_addr = addr;
-  remote.sin_port = htons((unsigned short)port);
-  remote.sin_family = AF_INET;
+  if (0 != memcpy(&remote, addr, SINLEN(addr)))
+      return (-1);
 
-  if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+  SET_PORT(&remote, htons((unsigned short)port));
+
+  if ((sock = socket(remote.ss_family, SOCK_STREAM, 0)) == -1)
     {
     sprintf(log_buffer, "%s: socket %s",
             id,
@@ -3360,7 +3361,7 @@ int start_process(
   int pts;
   int i, j;
   int fd0, fd1, fd2;
-  u_long ipaddr;
+  struct sockaddr_storage *ipaddr;
 
   struct  startjob_rtn sjr = {0, 0};
 
@@ -3406,12 +3407,11 @@ int start_process(
 
   if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) /* I'm MS */
     {
-    ipaddr = htonl(localaddr);
+    memcpy(&ipaddr, &localaddr, SINLEN(&localaddr));
     }
   else
     {
-
-    struct sockaddr_in *ap;
+    struct sockaddr_storage *ap;
 
     /*
     ** We always have a stream open to MS at node 0.
@@ -3429,7 +3429,7 @@ int start_process(
       return(-1);
       }
 
-    ipaddr = ap->sin_addr.s_addr;
+    memcpy(&ipaddr, ap, SINLEN(ap));
     }  /* END else (pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) */
 
   /* A restarted mom will not have called this yet, but it is needed
@@ -4374,9 +4374,9 @@ void start_exec(
 
   eventent *ep;
   int  i, nodenum;
-  int  ports[2], socks[2];
+  int  ports[4], socks[4];
 
-  struct sockaddr_in saddr;
+  struct sockaddr_storage saddr;
   hnodent *np;
   attribute *pattr;
   tlist_head phead;
@@ -4524,19 +4524,20 @@ void start_exec(
     ** Open two sockets for use by demux program later.
     */
 
-    for (i = 0;i < 2;i++)
+    for (i = 0;i < 4;i++)
       socks[i] = -1;
 
+    /* First initialize AF_INET socks */
     for (i = 0;i < 2;i++)
       {
       if ((socks[i] = socket(AF_INET, SOCK_STREAM, 0)) == -1)
         break;
 
-      memset(&saddr, '\0', sizeof(saddr));
+      memset(&saddr, '\0', sizeof(struct sockaddr_in));
 
-      saddr.sin_addr.s_addr = INADDR_ANY;
+      ((struct sockaddr_in*)&saddr)->sin_addr.s_addr = INADDR_ANY;
 
-      saddr.sin_family = AF_INET;
+      saddr.ss_family = AF_INET;
 
       if (bind(
             socks[i],
@@ -4566,16 +4567,19 @@ void start_exec(
 
       /* command sisters to abort job and continue */
 
-      log_err(errno, id, "stdout/err socket");
+      log_err(errno, id, "stdout/err socket, ipv6");
 
       exec_bail(pjob, JOB_EXEC_FAIL1);
 
       return;
       }
+#endif
 
     pjob->ji_stdout = socks[0];
 
     pjob->ji_stderr = socks[1];
+
+    
 
     /*
     ** Send out a JOIN_JOB message to all the MOM's in the sisterhood.
@@ -5756,7 +5760,7 @@ static void catchinter(
 static int search_env_and_open(
 
   const char *envname,   /* I */
-  u_long      ipaddr)    /* I */
+  struct sockaddr_storage *ipaddr)    /* I */
 
   {
   static char *id = "search_env_and_open";

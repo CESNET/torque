@@ -105,7 +105,7 @@ extern int h_errno;
  * get_hostaddr - get internal internet address of a host
  *
  * Returns a string containing the network address in host byte order.  A Null
- * value is returned on an error.
+ * value is returned on error.
  */
 
 

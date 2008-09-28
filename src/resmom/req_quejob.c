@@ -204,6 +204,7 @@ void req_quejob(
   svrattrl *psatl;
   int   rc;
   int   sock = preq->rq_conn;
+  struct sockaddr_storage *tmp_addr;
 
   /* set basic (user) level access permission */
 
@@ -301,13 +302,15 @@ void req_quejob(
 
       if (reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Queue) == 0)
         {
+        struct sockaddr_storage *tmp_addr;
         delete_link(&pj->ji_alljobs);
 
         append_link(&svr_newjobs, &pj->ji_alljobs, pj);
 
         pj->ji_qs.ji_un_type = JOB_UNION_TYPE_NEW;
         pj->ji_qs.ji_un.ji_newt.ji_fromsock = sock;
-        pj->ji_qs.ji_un.ji_newt.ji_fromaddr = get_connectaddr(sock);
+        tmp_addr = get_connectaddr(sock);
+        memcpy(&pj->ji_qs.ji_un.ji_newt.ji_fromaddr, tmp_addr, SINLEN(tmp_addr));
         pj->ji_qs.ji_un.ji_newt.ji_scriptsz = 0;
 
         /* Per Eric R., req_mvjobfile was giving error in open_std_file, showed up as fishy error message */
@@ -460,7 +463,8 @@ void req_quejob(
 
   pj->ji_qs.ji_un.ji_newt.ji_fromsock = sock;
 
-  pj->ji_qs.ji_un.ji_newt.ji_fromaddr = get_connectaddr(sock);
+  tmp_addr = get_connectaddr(sock);
+  memcpy(&pj->ji_qs.ji_un.ji_newt.ji_fromaddr, tmp_addr, SINLEN(tmp_addr));
 
   pj->ji_qs.ji_un.ji_newt.ji_scriptsz = 0;
 
@@ -892,6 +896,7 @@ void req_commit(
 
   {
   job   *pj;
+  struct sockaddr_storage *tmp_addr;
 
   pj = locate_new_job(preq->rq_conn, preq->rq_ind.rq_commit);
 
@@ -938,7 +943,8 @@ void req_commit(
 
   pj->ji_qs.ji_un_type = JOB_UNION_TYPE_MOM;
 
-  pj->ji_qs.ji_un.ji_momt.ji_svraddr = get_connectaddr(preq->rq_conn);
+  tmp_addr = get_connectaddr(preq->rq_conn);
+  memcpy(&pj->ji_qs.ji_un.ji_momt.ji_svraddr, tmp_addr, SINLEN(tmp_addr));
 
   pj->ji_qs.ji_un.ji_momt.ji_exitstat = 0;
 
@@ -1043,7 +1049,7 @@ static job *locate_new_job(
     {
     if ((pj->ji_qs.ji_un.ji_newt.ji_fromsock == -1) ||
         ((pj->ji_qs.ji_un.ji_newt.ji_fromsock == sock) &&
-         (pj->ji_qs.ji_un.ji_newt.ji_fromaddr == get_connectaddr(sock))))
+         compare_ip(&pj->ji_qs.ji_un.ji_newt.ji_fromaddr, get_connectaddr(sock))))
       {
       if ((jobid != NULL) && (*jobid != '\0'))
         {

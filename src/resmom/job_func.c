@@ -367,7 +367,7 @@ int conn_qsub(
   char *EMsg)      /* O (optional,minsize=1024) */
 
   {
-  pbs_net_t hostaddr;
+  struct sockaddr_storage hostaddr;
   int s;
 
   int flags;
@@ -375,8 +375,18 @@ int conn_qsub(
   if (EMsg != NULL)
     EMsg[0] = '\0';
 
-  if ((hostaddr = get_hostaddr(hostname)) == (pbs_net_t)0)
+  if (0 != (s = get_hostaddr(hostname, &hostaddr)))
     {
+#ifdef TORQUE_WANT_IPV6
+    if (EMsg != NULL)
+      {
+      snprintf(EMsg, 1024, "cannot get address for host '%s': %s",
+               hostname,
+               gai_strerror(s));
+      }
+
+#else
+
 #if !defined(H_ERRNO_DECLARED)
     extern int h_errno;
 #endif
@@ -390,10 +400,11 @@ int conn_qsub(
                h_errno);
       }
 
+#endif
     return(-1);
     }
 
-  s = client_to_svr(hostaddr, (unsigned int)port, 0, EMsg);
+  s = client_to_svr(&hostaddr, (unsigned int)port, 0, EMsg);
 
   /* NOTE:  client_to_svr() can return 0 for SUCCESS */
 
