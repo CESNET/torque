@@ -4547,19 +4547,65 @@ void start_exec(
         break;
         }
 
-      slen = sizeof(saddr);
+      slen = SINLEN(&saddr);
 
       if (getsockname(socks[i], (struct sockaddr *)&saddr, &slen) == -1)
         break;
 
-      ports[i] = (int)ntohs(saddr.sin_port);
+      ports[i] = (int)ntohs(GET_PORT(&saddr));
       }  /* END for (i) */
 
     if (i < 2)
       {
+      for (i = 0; i < 2; ++i)
+        {
+        if (socks[i] != -1)
+          close(socks[i]);
+        }
+
+      /* command sisters to abort job and continue */
+
+      log_err(errno, id, "stdout/err socket, ipv4");
+
+      exec_bail(pjob, JOB_EXEC_FAIL1);
+
+      return;
+      }
+
+#ifdef TORQUE_WANT_IPV6
+    /* If available, init AF_INET6 too */
+    for (i = 2;i < 4;i++)
+      {
+      if ((socks[i] = socket(AF_INET6, SOCK_STREAM, 0)) == -1)
+        break;
+
+      memset(&saddr, '\0', sizeof(struct sockaddr_in6));
+
+      ((struct sockaddr_in6*)&saddr)->sin6_addr.s6_addr = in6addr_any;
+
+      saddr.ss_family = AF_INET6;
+
+      if (bind(
+            socks[i],
+            (struct sockaddr *)&saddr,
+            sizeof(saddr)) == -1)
+        {
+        break;
+        }
+
+      slen = SINLEN(&saddr);
+
+      if (getsockname(socks[i], (struct sockaddr *)&saddr, &slen) == -1)
+        break;
+
+      ports[i] = (int)ntohs(GET_PORT(&saddr));
+      }  /* END for (i) */
+
+    if (i < 4)
+      {
       /* ERROR:  cannot open sockets for stdout and stderr */
 
-      for (i = 0;i < 2;i++)
+      for (i = 2;i < 4;i++)
         {
         if (socks[i] != -1)
           close(socks[i]);
