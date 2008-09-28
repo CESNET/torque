@@ -403,21 +403,19 @@ mom_server_find_by_stream(int stream)
  * @see mom_server_find_by_stream
  */
 mom_server *
-mom_server_find_by_ip(u_long search_ipaddr)
+mom_server_find_by_ip(const struct sockaddr_storage *search_ipaddr)
   {
   mom_server *pms;
   int sindex;
-  struct sockaddr_in *addr;
-  u_long              ipaddr;
+  struct sockaddr_storage *addr;
 
-  for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
+  for (sindex = 0; sindex < PBS_MAXSERVER; sindex++)
     {
     pms = &mom_servers[sindex];
     if (pms->SStream != -1)
       {
       addr = rpp_getaddr(pms->SStream);
-      ipaddr = ntohl(addr->sin_addr.s_addr);
-      if (ipaddr == search_ipaddr)
+      if (compare_ip(addr, search_ipaddr))
         {
         return(pms);
         }
@@ -504,28 +502,38 @@ mom_server_add(char *value)
    * is established.  Anyway, this should fix things for now.
    */
   {
-  struct hostent *host;
-  struct in_addr  saddr;
-  u_long          ipaddr;
-
   /* FIXME: must be able to retry failed lookups later */
+  struct addrinfo hints, *res, *rp;
+  int error, sfd;
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = PBS_SOCK_INET;
+#ifdef TORQUE_WANT_IPV6
+  hints.ai_family |= PBS_SOCK_INET6;
+#endif
+  hints.ai_protocol = SOCK_STREAM;
 
-  if ((host = gethostbyname(pms->pbs_servername)) == NULL) 
+  if (0 == (error = getaddrinfo(pms->pbs_servername, NULL, &hints, &res)))
     {
-    sprintf(log_buffer,"host %s not found", 
-      pms->pbs_servername);
+    for (rp = res; rp->ai_next != NULL; rp = rp->ai_next)
+      {
+      sfd = socket(rp->ai_family, rp->ai_socktype,
+          rp->ai_protocol);
+      if (sfd == -1)
+        continue;
 
-    log_err(-1,id,log_buffer);
+      if (bind(sfd, rp->ai_addr, rp->ai_addrlen) == 0)
+        break;                  /* Success */
 
+      close(sfd);
+      }
+
+    linsertIp((struct sockaddr_storage *)rp->ai_addr, okclients);
     }
   else
     {
-    memcpy(&saddr,host->h_addr,host->h_length);
-
-    ipaddr = ntohl(saddr.s_addr);
-
-    if (ipaddr != 0)
-      tinsert(ipaddr,&okclients);
+    sprintf(log_buffer, "host %s not found: %s", 
+        pms->pbs_servername, 
+        gai_strerror(error));
     }
   }
 
@@ -1401,7 +1409,7 @@ mom_server_update_receive_time(int stream, char *command_name)
  * @param command_name The name of the command that was received.
  */
 void
-mom_server_update_receive_time_by_ip(u_long ipaddr, char *command_name)
+mom_server_update_receive_time_by_ip(struct sockaddr_storage *ipaddr, char *command_name)
   {
   mom_server *pms;
 
@@ -1658,8 +1666,7 @@ mom_server *
 mom_server_valid_message_source(int stream)
   {
   static char *id = "mom_server_valid_message_source";
-  struct	sockaddr_in *addr = NULL;
-  u_long	ipaddr;
+  struct sockaddr_storage *addr;
   mom_server *pms;
 
   /* Check for the normal case, where some server has an open,
@@ -1669,14 +1676,12 @@ mom_server_valid_message_source(int stream)
   if ((pms = mom_server_find_by_stream(stream)))
     return(pms);
 
-  addr = rpp_getaddr(stream);  /* Get pointer to sockaddr_in for message source address */
-  ipaddr = ntohl(addr->sin_addr.s_addr);  /* Extract IP address of source of the message. */
+  addr = rpp_getaddr(stream);
 
   /* So the stream number did not match any server but maybe
    * the server has another stream connection open to the IP address.
    */
-
-  if ((pms = mom_server_find_by_ip(ipaddr)))
+  if ((pms = mom_server_find_by_ip(addr)))
     {
     /* This case can happen when both the pbs_mom and the pbs_server initiate
      * a communication session with the HELLO protocol on startup.
@@ -1729,21 +1734,22 @@ mom_server_valid_message_source(int stream)
       if (pms->pbs_servername[0] &&
           pms->SStream != -1)
         {
-        struct hostent *host;
-        struct in_addr  saddr;
-        u_long          server_ip;
+        int error;
+        struct addrinfo hints, *res, *rp;
 
-        if ((host = gethostbyname(pms->pbs_servername)) != NULL) 
+        memset(&hints, 0, sizeof(struct sockaddr_storage));
+        hints.ai_family = addr->sa_family;
+
+        if (0 == (error = getaddrinfo(pms->pbs_servername, NULL, &hints, &res)))
           {
-          memcpy(&saddr,host->h_addr,host->h_length);
-
-          server_ip = ntohl(saddr.s_addr);
-
-          if (ipaddr == server_ip)
+          for (rp = res; rp != NULL; rp = rp->ai_next)
             {
-            tinsert(ipaddr,&okclients);
-            pms->SStream = stream;
-            return(pms);
+            if (compare_ip((struct sockaddr_storage *)rp->ai_addr, addr))
+              {
+              linsertIp(addr, okclients);
+              pms->SStream = stream;
+              return(pms);
+              }
             }
           }
         }
@@ -1761,9 +1767,8 @@ mom_server_valid_message_source(int stream)
     log_err(-1,id,log_buffer);
 
     rpp_close(stream);
-    }
+
     return(NULL);
-//  addr = rpp_getaddr(stream);
 
   /* We don't have an existing connection, but is this a valid server? */
 
@@ -1798,7 +1803,7 @@ mom_server_valid_message_source(int stream)
   
         break;
         }
-      }    /* END for (sindex) */
+      }    * END for (sindex) */
 
  /*   if (ServerIndex == -1)
       {
@@ -1815,7 +1820,7 @@ mom_server_valid_message_source(int stream)
 
       return;
       }
-    }    /* END if (ServerIndex == -1) */
+    }    * END if (ServerIndex == -1) */
   }
 
 /**
@@ -1842,12 +1847,9 @@ void is_request(
   mom_server *pms;
   extern char *PBSServerCmds[];
  
-  short		port;
   struct	sockaddr_storage *addr = NULL;
   void		init_addrs();
 
-  int           ServerIndex;
-  int           sindex;
 
   if (cmdp != NULL)
     *cmdp = 0;
@@ -1951,7 +1953,7 @@ void is_request(
         if (ret != DIS_SUCCESS)
           break;
 
-        tinsert(ipaddr,&okclients);
+        linsertIp(ipaddr, okclients);
 
         if (LOGLEVEL >= 4)
           {
@@ -2535,7 +2537,7 @@ int mom_open_socket_to_jobs_server( job * pjob, char *caller_id, void (*message_
     port = default_server_port;  /* No, use the global default server port. */
 
   sock = client_to_svr(
-    pjob->ji_qs.ji_un.ji_momt.ji_svraddr, /* This is set in req_queuejob. */
+    &pjob->ji_qs.ji_un.ji_momt.ji_svraddr, /* This is set in req_queuejob. */
     port,
     1,  /* use local socket */
     error_buffer);
@@ -2554,21 +2556,17 @@ int mom_open_socket_to_jobs_server( job * pjob, char *caller_id, void (*message_
 
     for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
       {
-      struct sockaddr_in *addr;
-      u_long              ipaddr;
-      u_short             ipport;
+      struct sockaddr_storage *addr;
 
       pms = &mom_servers[sindex];
       if (pms->SStream != -1)
         {
         addr = rpp_getaddr(pms->SStream);
-        ipaddr = ntohl(addr->sin_addr.s_addr);
-        ipport = ntohs(addr->sin_port);
-        if (ipaddr != pjob->ji_qs.ji_un.ji_momt.ji_svraddr)
+        if (compare_ip(addr, &pjob->ji_qs.ji_un.ji_momt.ji_svraddr))
           {
           sock = client_to_svr(
-            ipaddr,
-            ipport,
+            addr,
+            addr->sa_family,
             1,  /* use local socket */
             error_buffer);
           if (sock >= 0)
@@ -2603,8 +2601,6 @@ int mom_open_socket_to_jobs_server( job * pjob, char *caller_id, void (*message_
       sock, 
       ToServerDIS,
       pjob->ji_qs.ji_un.ji_momt.ji_svraddr,
-      port, 
-      PBS_SOCK_INET, 
       message_handler);
     }
 

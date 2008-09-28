@@ -778,7 +778,7 @@ static void initialize_pbsnode(
         log_buffer);
       }
 
-    linsertIp(pnode);
+    linsertNode(pnode, ipaddrs);
     }  /* END for (i) */
 
   return;
@@ -849,7 +849,7 @@ void effective_node_delete(
     for (up = pnode->nd_addrs[0];up != NULL;up++) 
       {
       /* del node's IP addresses from tree  */
-      ldeleteIp(up);
+      ldeleteIp(up, ipaddrs);
       }
 
     if (pnode->nd_addrs != NULL) 
@@ -861,7 +861,7 @@ void effective_node_delete(
       }
     }
 
-  tdeleteStream(pnode->nd_stream);
+  tdeleteStream(pnode->nd_stream, streams);
 
   rpp_close(pnode->nd_stream);
   free(pnode->nd_name);
