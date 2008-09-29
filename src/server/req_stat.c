@@ -485,7 +485,7 @@ static void req_stat_job_step2(
 
       for (pjob = (job *)GET_NEXT(pque->qu_jobs);
            pjob != NULL;
-           pjob = (job *)GET_NEXT(pjob->ji_alljobs))
+           pjob = (job *)GET_NEXT(pjob->ji_jobque))
         {
         if (qjcounter >= qmaxreport)
           {
