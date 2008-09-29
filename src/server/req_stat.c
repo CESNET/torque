@@ -562,7 +562,7 @@ static void req_stat_job_step2(
         }
 
       if (((pque->qu_attr[QA_ATR_MaxReport].at_flags & ATR_VFLAG_SET) != 0) &&
-          (pque->qu_attr[QA_ATR_MaxReport].at_val.at_long >= 0))
+           (pque->qu_attr[QA_ATR_MaxReport].at_val.at_long >= 0))
         {
         qmaxreport = pque->qu_attr[QA_ATR_MaxReport].at_val.at_long;
         }
@@ -577,7 +577,7 @@ static void req_stat_job_step2(
 
       for (pjob = (job *)GET_NEXT(pque->qu_jobs);
            pjob != NULL;
-           pjob = (job *)GET_NEXT(pjob->ji_alljobs))
+           pjob = (job *)GET_NEXT(pjob->ji_jobque))
         {
         if (qjcounter >= qmaxreport)
           {
@@ -627,7 +627,7 @@ static void req_stat_job_step2(
 
         if ((rc != 0) && (rc != PBSE_PERM))
           {
-          req_reject(rc, bad, preq, NULL, NULL);
+          req_reject(rc,bad,preq,NULL,NULL);
 
           return;
           }
