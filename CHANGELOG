@@ -39,6 +39,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - corrected pbs_server, pbs_mom man pages for SIGUSR1 and SIGUSR2
   b - fixed a bug where if attempt to send job to a pbs_mom failed due to timeout, the job would
       indefinitely remain the in 'R' state
+  e - added qmgr option accounting_keep_days, specifies how long to keep
+      accounting files.
 
   
 2.2.1
