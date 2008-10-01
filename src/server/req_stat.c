@@ -654,21 +654,21 @@ static void req_stat_job_step2(
         if (pjob->ji_qs.ji_state == JOB_STATE_QUEUED)
           qjcounter++;
         }    /* END for (pjob) */
+
+      /*JOSH*/
+      if (LOGLEVEL >= 3)
+        {
+        sprintf(log_buffer,"sent scheduler %ld total jobs for queue %s\n",
+          sentJobCounter,
+          pque->qu_qs.qu_name);
+
+        log_event(
+          PBSEVENT_SYSTEM,
+          PBS_EVENTCLASS_QUEUE,
+          pque->qu_qs.qu_name,
+          log_buffer);
+        }
       }      /* END for (pque) */
-
-    /*JOSH*/
-    if (LOGLEVEL >= 3)
-      {
-      sprintf(log_buffer,"sent scheduler %ld total jobs for queue %s\n",
-        sentJobCounter,
-        pque->qu_qs.qu_name);
-
-      log_event(
-        PBSEVENT_SYSTEM,
-        PBS_EVENTCLASS_QUEUE,
-        pque->qu_qs.qu_name,
-        log_buffer);
-      }
 
     reply_send(preq);
 
