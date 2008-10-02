@@ -991,7 +991,6 @@ int post_epilogue(
 
     if (sock < 0)
       {
-
       /* We are trying to send obit, but failed - where is this retried?
        * Answer: I think that the main_loop should examine jobs and try
        * every so often to send the obit.  This would work for recovered
