@@ -839,7 +839,7 @@ int get_connecthost(
   /* Assume that if the ss_family field is populated, the structure holds
    * valid data */
 
-  if ((server_name == '\0') && (pbs_server_addr.ss_family != 0))
+  if ((server_name[0] == '\0') && (pbs_server_addr.ss_family != 0))
     {
     /* cache local server addr info */
 
@@ -875,13 +875,13 @@ int get_connecthost(
 
   addr = svr_conn[sock].cn_addr;
 
-  if ((server_name != '\0') && (svr_conn[sock].cn_addr.ss_family & PBS_SOCK_UNIX))
+  if ((server_name[0] != '\0') && (svr_conn[sock].cn_addr.ss_family & PBS_SOCK_UNIX))
     {
     /* lookup request is for local server */
 
     strncpy(namebuf, server_name, size);
     }
-  else if ((server_name != '\0') && compare_ip(&addr, &serveraddr))
+  else if ((server_name[0] != '\0') && compare_ip(&addr, &serveraddr))
     {
     /* lookup request is for local server, use cached name */
     strncpy(namebuf, server_name, size);
