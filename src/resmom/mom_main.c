@@ -587,7 +587,7 @@ extern int TMomCheckJobChild(pjobexec_t *, int, int *, int *);
 extern int TMomFinalizeJob3(pjobexec_t *, int, int, int *);
 extern void exec_bail(job *, int);
 extern void check_state(int);
-extern void linsert(struct sockaddr_storage *, struct list_t *);
+extern void linsertIp(struct sockaddr_storage *, struct list_t *);
 
 extern struct list_t *lfind(struct sockaddr_storage *, struct list_t *);
 extern int llist(struct list_t *, char *, int);
@@ -1672,7 +1672,7 @@ int addclient(
 
   if (0 == error)
     {
-    linsert(&ipaddr, okclients);
+    linsertIp(&ipaddr, okclients);
 
     if (NULL != ip)
       memcpy(ip, &ipaddr, sizeof(struct sockaddr_storage));

@@ -187,7 +187,6 @@ extern int TTmpDirName(job *, char *);
 extern int TMakeTmpDir(job *, char *);
 extern void mom_server_close_stream(int stream);
 
-extern struct list_t *lfind(struct sockaddr_storage *, struct list_t *);
 extern int llist(struct list_t *, char *, int);
 
 
@@ -1795,13 +1794,13 @@ void im_request(
       log_buffer);
     }
 
-  if (lfind(addr, okclients) == NULL)
+  if (lfindIp(addr, okclients) == NULL)
     {
     char tmpLine[2048];
 
     tmpLine[0] = '\0';
 
-    llist(okclients, tmpLine, 1024);
+    llist(okclients, tmpLine, 2048);
 
     sprintf(log_buffer, "bad connect from %s - unauthorized (okclients: %s)",
             netaddr(addr),

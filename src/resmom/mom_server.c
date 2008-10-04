@@ -261,7 +261,7 @@ typedef struct mom_server
 
 mom_server     mom_servers[PBS_MAXSERVER];
 int            mom_server_count = 0;
-pbs_net_t      down_svraddrs[PBS_MAXSERVER];
+struct sockaddr_storage down_svraddrs[PBS_MAXSERVER];
 
 
 extern unsigned int default_server_port;
@@ -300,7 +300,6 @@ extern char *conf_res(char *resline, struct rm_attribute *attr);
 extern char *dependent(char *res, struct rm_attribute *attr);
 extern int MUStrNCat(char **BPtr, int *BSpace, char *Src);
 extern int MUSNPrintF(char **BPtr, int *BSpace, char *Format, ...);
-extern void linsert(struct sockaddr_storage *, struct list_t **);
 
 
 void state_to_server A_((int, int));
@@ -1490,8 +1489,206 @@ mom_server_update_receive_time_by_ip(struct sockaddr_storage *ipaddr, char *comm
 
 struct list_t *okclients = NULL; /* tree of ip addrs */
 
+/***
+ * list keys in list pointed to by rootp
+ * @return The number of keys in the list
+ */
+int llist(
 
+  struct list_t *rootp,   /* I */
+  char *Buf,     /* O (modified), uses "..." to flag more ips avail */
+  int   BufSize) /* I */
 
+  {
+  struct list_t *listp = rootp;
+  int freeBufSize = BufSize;
+  /* is actually defined dynamically from the actual output length */
+  int neededBufSize = 0;
+  int keys = 0;
+
+  /* no for loop because i fail to integrate the if into a for definition */
+  while (NULL != listp)
+    {
+    char *address = netaddr(listp->key);
+    neededBufSize += strlen(address) + 1; /* account for trailing \0 */
+    neededBufSize += (listp->next) ? 1 : 0; /* account for the ",\0" delimiter */
+
+    if (neededBufSize < freeBufSize)
+      {
+      if (NULL != listp->next)
+        sprintf(Buf, "%s,", address);
+      else
+        sprintf(Buf, "%s", address);
+      }
+    else if (freeBufSize > 3) /* have 4 or more characters avail */
+      {
+      strcat(Buf, ",...");
+      break; /* no use trying more iterations */
+      }
+    else
+      break;
+
+    ++keys;
+    listp = listp->next;
+    }
+
+    return(keys);
+  }  /* END llist() */
+
+/**
+ * @private
+ */
+
+struct list_t *lfind(
+        const struct sockaddr_storage *key, /* I - IP to find a pbsnode to */
+        struct list_t                 *head) /* I - list head */
+  {
+
+  struct list_t *node = head;
+
+  for (; node != NULL && 0 == compare_ip(key, node->key); node = node->next) ;
+
+  return node;
+  }
+
+/**
+ * General functions for handling IP adresses in a list
+ */
+
+struct sockaddr_storage *lfindIp(
+        const struct sockaddr_storage *key,
+        struct list_t *root)
+  {
+
+  struct list_t *node = lfind(key, root);
+  return (NULL == node) ? NULL : node->key;
+  }
+
+void linsertIp(struct sockaddr_storage *nodep, struct list_t *root)
+  {
+
+  struct list_t *node = root;
+
+  struct list_t *prev = NULL;
+
+  for (; node != NULL && 0 == compare_ip(nodep, node->key); prev = node, node = node->next) ;
+
+  /* insert */
+  if (NULL == node)
+    {
+    node = malloc(sizeof(struct list_t));
+
+    if (NULL != node)
+      {
+      if (NULL != prev)
+        prev->next = node;
+
+      node->key = nodep;
+
+      node->content = NULL;
+
+      node->next = NULL;
+
+      node->prev = prev;
+      }
+    }
+  }
+
+void ldeleteIp(struct sockaddr_storage *key, struct list_t *root)
+  {
+  ldeleteNode(key, root);
+  }
+
+/**
+ * Finds and returns a pbsnode by that key
+ *
+ * @param key A adress to be mapped to a pbsnode
+ * @return the node associated with that ip adress
+ */
+
+struct pbsnode *lfindNode(
+        const struct sockaddr_storage *key,
+        struct list_t *root)
+  {
+
+  struct list_t *node = lfind(key, root);
+  return (NULL == node) ? NULL : node->content;
+  }
+
+/**
+ * Inserts a pbsnode into the IP list, if the list already contains the IP,
+ * nothing is inserted
+ *
+ * @param nodep the node to be inserted
+ */
+void linsertNode(struct pbsnode *nodep, struct list_t *root)
+  {
+
+  struct list_t *node = root;
+
+  struct sockaddr_storage *key = nodep->nd_addrs[0]; /* always use the first adress as key */
+
+  struct list_t *prev = NULL;
+
+  for (; node != NULL && 0 == compare_ip(key, node->key); prev = node, node = node->next) ;
+
+  /* insert */
+  if (NULL == node)
+    {
+    node = malloc(sizeof(struct list_t));
+
+    if (NULL != node)
+      {
+      if (NULL != prev)
+        prev->next = node;
+
+      node->key = key;
+
+      node->content = nodep;
+
+      node->next = NULL;
+
+      node->prev = prev;
+      }
+    }
+  }
+
+/**
+ * Deletes a pbsnodes and frees all the used resources
+ *
+ * @param key delete the first node matching the provided key
+ */
+void ldeleteNode(struct sockaddr_storage *key, struct list_t *root)
+  {
+
+  struct list_t *node = lfind(key, root);
+
+  if (NULL == node) return;
+
+  /* kill node from list */
+  node->prev->next = node->next;
+
+  node->next->prev = node->prev;
+
+  free(node);
+  }
+
+/**
+ * Frees all list_t elements contained in the list
+ *
+ * @param root the head of the list to be freed
+ */
+void lfree(struct list_t *root)
+  {
+
+  struct list_t *node;
+
+  for (; root != NULL; root = node)
+    {
+    node = root->next;
+    free(root);
+    }
+  }
 
 #if 0
 /* list keys in tree */
@@ -2728,9 +2925,10 @@ clear_down_mom_servers()
   {
   int sindex;
 
+  /* make this a simple memcpy(down_svraddrs, 0, sizeof(down_svraddrs))? */
   for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {
-    down_svraddrs[sindex] = 0;
+    down_svraddrs[sindex].ss_family = PBS_ADDR_INVALID;
     }
 
   return;
@@ -2744,13 +2942,13 @@ clear_down_mom_servers()
  * @see scan_for_exiting
  */
 int
-is_mom_server_down(pbs_net_t server_address)
+is_mom_server_down(const struct sockaddr_storage *server_address)
   {
   int sindex;
 
-  for (sindex = 0; sindex < PBS_MAXSERVER || down_svraddrs[sindex] == 0; sindex++)
+  for (sindex = 0; sindex < PBS_MAXSERVER && PBS_ADDR_INVALID != down_svraddrs[sindex].ss_family; sindex++)
     {
-    if (down_svraddrs[sindex] == server_address)
+    if (compare_ip(&down_svraddrs[sindex], server_address))
       {
       return (1);
       }
@@ -2764,17 +2962,13 @@ is_mom_server_down(pbs_net_t server_address)
  *
  * Checks to see if the server address down list is empty.
  * Called from the catch_child code.
+ * @return 1 if true, 0 if false
  * @see scan_for_exiting
  */
 int
 no_mom_servers_down()
   {
-  if (down_svraddrs[0] == 0)
-    {
-    return (1);
-    }
-
-  return (0);
+  return (PBS_ADDR_INVALID == down_svraddrs[0].ss_family) ? 1 : 0;
   }
 
 /**
@@ -2785,15 +2979,15 @@ no_mom_servers_down()
  * @see scan_for_exiting
  */
 void
-set_mom_server_down(pbs_net_t server_address)
+set_mom_server_down(const struct sockaddr_storage *server_address)
   {
   int sindex;
 
   for (sindex = 0; sindex < PBS_MAXSERVER; sindex++)
     {
-    if (down_svraddrs[sindex] == 0)
+    if (PBS_ADDR_INVALID == down_svraddrs[sindex].ss_family)
       {
-      down_svraddrs[sindex] = server_address;
+      memcpy(&down_svraddrs[sindex], server_address, SINLEN(server_address));
       break;
       }
     }
