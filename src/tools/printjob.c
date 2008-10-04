@@ -91,6 +91,8 @@
 #include "job.h"
 #include "tm.h"
 
+extern char *netaddr(struct sockaddr_storage *);
+
 void prt_job_struct(
 
   job *pjob)
@@ -132,8 +134,8 @@ void prt_job_struct(
       printf("union type new:\n");
       printf("\tsocket\t%d\n",
              pjob->ji_qs.ji_un.ji_newt.ji_fromsock);
-      printf("\taddr\t%lu\n",
-             pjob->ji_qs.ji_un.ji_newt.ji_fromaddr);
+      printf("\taddr\t%s\n",
+             netaddr(&pjob->ji_qs.ji_un.ji_newt.ji_fromaddr));
       printf("\tscript\t%d\n",
              pjob->ji_qs.ji_un.ji_newt.ji_scriptsz);
 
@@ -142,8 +144,8 @@ void prt_job_struct(
     case JOB_UNION_TYPE_EXEC:
 
       printf("union type exec:\n");
-      printf("\tmomaddr\t%lu\n",
-             pjob->ji_qs.ji_un.ji_exect.ji_momaddr);
+      printf("\tmomaddr\t%s\n",
+             netaddr(&pjob->ji_qs.ji_un.ji_exect.ji_momaddr));
       printf("\texits\t%d\n",
              pjob->ji_qs.ji_un.ji_exect.ji_exitstat);
 
@@ -162,8 +164,8 @@ void prt_job_struct(
     case JOB_UNION_TYPE_MOM:
 
       printf("union type mom:\n");
-      printf("\tsvraddr\t%lu\n",
-             pjob->ji_qs.ji_un.ji_momt.ji_svraddr);
+      printf("\tsvraddr\t%s\n",
+             netaddr(&pjob->ji_qs.ji_un.ji_momt.ji_svraddr));
       printf("\texitst\t%d\n",
              pjob->ji_qs.ji_un.ji_momt.ji_exitstat);
       printf("\tuid\t%ld\n",
