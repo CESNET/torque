@@ -580,9 +580,10 @@ void process_request(
 #else /* THIS CODE FOR MOM ONLY */
 
     {
-    extern tree *okclients;
+    extern struct list_t *okclients;
 
-    extern void mom_server_update_receive_time_by_ip(u_long ipaddr, const char *cmd);
+    extern void mom_server_update_receive_time_by_ip(struct sockaddr_storage *ipaddr, const char *cmd);
+    extern struct list_t *lfind(struct sockaddr_storage *, struct list_t *);
 
     /* check connecting host against allowed list of ok clients */
 
@@ -599,7 +600,7 @@ void process_request(
         log_buffer);
       }
 
-    if (!tfind(svr_conn[sfds].cn_addr, &okclients))
+    if (!lfind(&svr_conn[sfds].cn_addr, okclients))
       {
       sprintf(log_buffer, "request type %s from host %s rejected (host not authorized)",
               reqtype_to_txt(request->rq_type),
@@ -631,7 +632,7 @@ void process_request(
         log_buffer);
       }
 
-    mom_server_update_receive_time_by_ip(svr_conn[sfds].cn_addr, reqtype_to_txt(request->rq_type));
+    mom_server_update_receive_time_by_ip(&svr_conn[sfds].cn_addr, reqtype_to_txt(request->rq_type));
     }    /* END BLOCK */
 
   request->rq_fromsvr = 1;
