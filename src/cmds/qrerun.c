@@ -128,7 +128,7 @@ int main(
 
   extend[0] = '\0';
 
-  while ((c = getopt(argc, argv, GETOPT_ARGS)) != EOF)
+  while ((c = getopt(argc, argv, GETOPT_ARGS)) != (char)EOF)
     {
     switch (c)
       {
