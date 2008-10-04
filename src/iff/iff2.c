@@ -123,7 +123,7 @@ int main(
   {
   int   auth_type = PBS_credentialtype_none;
   int   err = 0;
-  pbs_net_t  hostaddr;
+  struct sockaddr_storage hostaddr, sockname;
   int   i;
   uid_t   myrealuid;
   uid_t          myeuid;
@@ -133,8 +133,6 @@ int main(
   struct passwd *pwent;
   int            servport = -1;
   int    sock;
-
-  struct sockaddr_in sockname;
 
   torque_socklen_t socknamelen;
 
@@ -227,7 +225,7 @@ int main(
 
   /* first, make sure we have a valid server (host), and ports */
 
-  if ((hostaddr = get_hostaddr(argv[optind])) == (pbs_net_t)0)
+  if (get_hostaddr(argv[optind], &hostaddr) != 0)
     {
     /* FAILURE */
 
@@ -248,7 +246,7 @@ int main(
 
   for (i = 0;i < 10;i++)
     {
-    sock = client_to_svr(hostaddr, (unsigned int)servport, 1, EMsg);
+    sock = client_to_svr(&hostaddr, (unsigned int)servport, 1, EMsg);
 
     if (sock != PBS_NET_RC_RETRY)
       break;
@@ -322,10 +320,10 @@ int main(
 
   socknamelen = sizeof(sockname);
 
-  if (getsockname(
+  if ((socknamelen = getsockname(
         parentsock,
         (struct sockaddr *)&sockname,
-        &socknamelen) < 0)
+        &socknamelen)) == (torque_socklen_t)-1)
     {
     /* FAILURE */
 
@@ -337,7 +335,7 @@ int main(
     return(3);
     }
 
-  parentport = ntohs(sockname.sin_port);
+  parentport = GET_PORT(&sockname);
 
   /* send authentication information */
 
