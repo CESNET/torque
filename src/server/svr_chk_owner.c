@@ -92,6 +92,7 @@
 #include "pbs_error.h"
 #include "log.h"
 #include "svrfunc.h"
+ #include "mcom.h"
 
 /* Global Data */
 
@@ -265,6 +266,7 @@ int svr_get_privilege(
     {
     num_host_chars = colon_loc - host;
     }
+
   strcpy(uh, user);
   strcat(uh, "@");
   strcat(uh, host);
