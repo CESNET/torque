@@ -1,6 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.4
+  c - fixed a few memory errors due to a spurious comma and some uninitialized memory being allocated
   b - fixed a bug preventing multiple TORQUE servers and TORQUE MOMs from operating properly all from the same host
   f - enabled 'qsub -T' to specify "job type." Currently this will allow a per job prolog/epilog
   f - added a new '-E' option to qstat which allows command-line users to pass "extend" strings via the API
