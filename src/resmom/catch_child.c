@@ -415,7 +415,7 @@ void scan_for_exiting()
   char         *id = "scan_for_exiting";
 
   static char noconnect[] =
-    "no contact with server at hostaddr %x, port %d, jobid %s errno %d (%s)";
+    "no contact with server at hostaddr %x, port %d, jobid %s (%s) errno %d (%s)";
 
   int		found_one = 0;
   job		*nxjob;
@@ -433,6 +433,7 @@ void scan_for_exiting()
   int im_compose A_((int,char *,char *,int,tm_event_t,tm_task_id));
   pbs_net_t   down_svraddrs[PBS_MAXSERVER] = {0,0,0,0};
   int    svr_index;
+  char   EMsg[1024];
 
   static int ForceObit    = -1;   /* boolean - if TRUE, ObitsAllowed will be enforced */
   static int ObitsAllowed = 1;
@@ -884,7 +885,7 @@ void scan_for_exiting()
     else
       port = default_server_port;
 
-    sock = client_to_svr(pjob->ji_qs.ji_un.ji_momt.ji_svraddr,port,1,NULL);
+    sock = client_to_svr(pjob->ji_qs.ji_un.ji_momt.ji_svraddr,port,1,EMsg);
 
     if (sock < 0) 
       {
@@ -892,6 +893,7 @@ void scan_for_exiting()
         pjob->ji_qs.ji_un.ji_momt.ji_svraddr,
         port,
         pjob->ji_qs.ji_jobid, 
+        EMsg,
         errno,
         strerror(errno));
 

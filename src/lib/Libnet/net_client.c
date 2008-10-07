@@ -176,8 +176,11 @@ static int await_connect(
 
   torque_socklen_t len;
 
-  tv.tv_sec = 0;
-  tv.tv_usec = timeout;
+  /* some operating systems (like FreeBSD) cannot have a value for tv.tv_usec larger than 1,000,000
+   * so we need to split up the timeout duration between seconds and microseconds */
+
+  tv.tv_sec = timeout / 1000000;
+  tv.tv_usec = timeout % 1000000;
 
   /* calculate needed size for fd_set in select() */
 
@@ -242,10 +245,10 @@ static int await_connect(
 
 int client_to_svr(
 
-  pbs_net_t     hostaddr,	/* I - internet addr of host */
-  unsigned int  port,		/* I - port to which to connect */
+  pbs_net_t     hostaddr,	  /* I - internet addr of host */
+  unsigned int  port,		    /* I - port to which to connect */
   int           local_port,	/* I - BOOLEAN:  not 0 to use local reserved port */
-  char         *EMsg)           /* O (optional,minsize=1024) */
+  char         *EMsg)       /* O (optional,minsize=1024) */
 
   {
   const char id[] = "client_to_svr";
@@ -457,7 +460,7 @@ retry:  /* retry goto added (rentec) */
     case ECONNREFUSED:
 
       if (EMsg != NULL)
-        sprintf(EMsg,"cannot bind to port %d in %s - connection refused",
+        sprintf(EMsg,"cannot connect to port %d in %s - connection refused",
           tryport,
           id);
 
@@ -472,7 +475,7 @@ retry:  /* retry goto added (rentec) */
     default:
 
       if (EMsg != NULL)
-        sprintf(EMsg,"cannot bind to port %d in %s - errno:%d %s",
+        sprintf(EMsg,"cannot connect to port %d in %s - errno:%d %s",
           tryport,
           id,
           errno,
