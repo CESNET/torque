@@ -272,7 +272,6 @@ scan_for_terminated(void)
 
   while ((pid = waitpid(-1, &statloc, WNOHANG)) > 0)
     {
-
     pjob = (job *)GET_NEXT(svr_alljobs);
 
     while (pjob)
@@ -332,8 +331,8 @@ scan_for_terminated(void)
       }
 
     DBPRT(("%s: task %d pid %d exit value %d\n", id,
-
            ptask->ti_qs.ti_task, pid, exiteval))
+
     kill_task(ptask, SIGKILL, 0);
     ptask->ti_qs.ti_exitstat = exiteval;
     ptask->ti_qs.ti_status = TI_STATE_EXITED;
@@ -343,7 +342,7 @@ scan_for_terminated(void)
               pjob->ji_qs.ji_jobid, log_buffer);
     exiting_tasks = 1;
     }
-  }
+  }  /* END scan_for_terminated() */
 
 
 /*

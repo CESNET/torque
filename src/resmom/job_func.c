@@ -149,6 +149,11 @@ void job_purge(job *);
 void unload_sp_switch A_((job *pjob));
 #endif   /* IBM SP */
 
+#ifdef CACHEOBITFAILURES
+void remove_job_from_obit_cache(job *pjob);
+#endif /* CACHEOBITFAILURES */
+
+
 /* Local Private Functions */
 
 static void job_init_wattr A_((job *));
@@ -717,6 +722,10 @@ void job_purge(
                pjob->ji_qs.ji_jobid,
                log_buffer);
     }
+
+#ifdef CACHEOBITFAILURES
+  remove_job_from_obit_cache(pjob);
+#endif /* CACHEOBITFAILURES */
 
   job_free(pjob);
 
