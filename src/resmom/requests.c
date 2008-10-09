@@ -450,7 +450,6 @@ static pid_t fork_to_user(
 
   if (SetUID == TRUE)
     {
-    setgroups(ngroup, (gid_t *)groups);
     if (setgroups(ngroup,(gid_t *)groups) != 0 ||
         setgid(usergid) != 0)
       {
