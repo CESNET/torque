@@ -3132,6 +3132,10 @@ int TMomFinalizeChild(
       (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
       strerror(errno));
 
+    if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
+
+    fsync(2);
+
     log_err(errno,id,log_buffer);
 
     starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
@@ -3146,6 +3150,10 @@ int TMomFinalizeChild(
       (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
       strerror(errno));
 
+    if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
+
+    fsync(2);
+
     log_err(errno,id,log_buffer);
 
     starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
@@ -3157,6 +3165,10 @@ int TMomFinalizeChild(
       "PBS: setuid to %lu failed: %s\n",
       (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
       strerror(errno));
+
+    if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
+
+    fsync(2);
 
     log_err(errno, id, log_buffer);
 
@@ -4407,6 +4419,10 @@ int start_process(
       (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
       strerror(errno));
 
+    if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
+
+    fsync(2);
+
     log_err(errno,id,log_buffer);
 
     starter_return(kid_write,kid_read,JOB_EXEC_FAIL2,&sjr);
@@ -4420,6 +4436,10 @@ int start_process(
       (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
       strerror(errno));
 
+    if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
+
+    fsync(2);
+
     log_err(errno,id,log_buffer);
 
     starter_return(kid_write,kid_read,JOB_EXEC_FAIL2,&sjr);
@@ -4431,6 +4451,10 @@ int start_process(
       "PBS: setuid to %lu failed: %s\n",
       (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
       strerror(errno));
+
+    if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
+
+    fsync(2);
 
     log_err(errno, id, log_buffer);
 
