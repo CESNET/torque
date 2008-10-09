@@ -452,6 +452,7 @@ static void req_stat_job_step2(
 
   if ((type == tjstTruncatedServer) || (type == tjstTruncatedQueue))
     {
+    long sentJobCounter;
     long qjcounter;
     long qmaxreport;
 
@@ -481,17 +482,32 @@ static void req_stat_job_step2(
         qmaxreport = TMAX_JOB;
         }
 
+      if (LOGLEVEL >= 5)
+        {
+        sprintf(log_buffer,"giving scheduler up to %ld idle jobs in queue %s\n",
+          qmaxreport,
+          pque->qu_qs.qu_name);
+
+        log_event(
+          PBSEVENT_SYSTEM,
+          PBS_EVENTCLASS_QUEUE,
+          pque->qu_qs.qu_name,
+          log_buffer);
+        }
+
+      sentJobCounter = 0;
       /* loop through jobs in queue */
 
       for (pjob = (job *)GET_NEXT(pque->qu_jobs);
            pjob != NULL;
            pjob = (job *)GET_NEXT(pjob->ji_jobque))
         {
-        if (qjcounter >= qmaxreport)
+        if ((qjcounter >= qmaxreport) &&
+            (pjob->ji_qs.ji_state == JOB_STATE_QUEUED))
           {
-          /* max_report reached for queue */
+          /* max_report of queued jobs reached for queue */
 
-          break;
+          continue;
           }
 
         pal = (svrattrl *)GET_NEXT(preq->rq_ind.rq_status.rq_attr);
@@ -510,9 +526,24 @@ static void req_stat_job_step2(
           return;
           }
 
+        sentJobCounter++;
+
         if (pjob->ji_qs.ji_state == JOB_STATE_QUEUED)
           qjcounter++;
         }    /* END for (pjob) */
+
+      if (LOGLEVEL >= 5)
+        {
+        sprintf(log_buffer,"sent scheduler %ld total jobs for queue %s\n",
+          sentJobCounter,
+          pque->qu_qs.qu_name);
+
+        log_event(
+          PBSEVENT_SYSTEM,
+          PBS_EVENTCLASS_QUEUE,
+          pque->qu_qs.qu_name,
+          log_buffer);
+        }
       }      /* END for (pque) */
 
     reply_send(preq);

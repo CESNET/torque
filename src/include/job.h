@@ -413,7 +413,7 @@ struct job
             (except for ji_stdout, ji_stderr) */
 
   list_link       ji_alljobs; /* links to all jobs in server */
-  list_link       ji_jobque; /* SVR: links to jobs in same queue */
+  list_link       ji_jobque;  /* SVR: links to jobs in same queue */
   /* MOM: links to polled jobs */
   time_t  ji_momstat; /* SVR: time of last status from MOM */
   /* MOM: time job suspend (Cray) */
@@ -465,7 +465,7 @@ struct job
   struct jobfix
     {
     int     qs_version;  /* quick save version */
-    int     ji_state;  /* internal copy of state */
+    int     ji_state;    /* internal copy of state */
     int     ji_substate; /* job sub-state */
     int     ji_svrflags; /* server flags */
     int     ji_numattr;  /* number of attributes in list */
