@@ -301,6 +301,8 @@ extern int MUStrNCat(char **BPtr, int *BSpace, char *Src);
 extern int MUSNPrintF(char **BPtr, int *BSpace, char *Format, ...);
 extern void tinsert(const u_long, tree **);
 
+char *TORQUE_JData = NULL;
+
 
 void state_to_server A_((int, int));
 
@@ -315,13 +317,21 @@ extern void DIS_rpp_reset A_((void));
  * @param pms pointer to mom_server instance
  * @see mom_server_all_init
  */
-void
-mom_server_init(mom_server *pms)
+
+void mom_server_init(
+
+  mom_server *pms)
+
   {
   pms->SStream = -1;
   pms->MOMLastRecvFromServerTime = 0;
   pms->ReportMomState = 1;
+
+  return;
   }
+
+
+
 
 
 /**
@@ -332,8 +342,7 @@ mom_server_init(mom_server *pms)
  * @see setup_program_envrionment
  */
 
-void
-mom_server_all_init(void)
+void mom_server_all_init(void)
 
   {
   int sindex;
@@ -504,7 +513,9 @@ mom_server *mom_server_find_empty_slot(void)
  * @see setpbsservername
  */
 
-int mom_server_add(char *value)
+int mom_server_add(
+
+  char *value)
 
   {
   static char *id = "mom_server_add";
@@ -619,11 +630,11 @@ int mom_server_open_stream(
   if (LOGLEVEL >= 5)
     {
     sprintf(log_buffer, "%s: trying to open RPP conn to %s port %d",
-            id,
-            server_name,
-            port);
+      id,
+      server_name,
+      port);
 
-    log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
+    log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
     }
 
   if ((pms->SStream = rpp_open(
@@ -638,20 +649,20 @@ int mom_server_open_stream(
       if (errno == ENOENT)
         {
         sprintf(log_buffer, "%s: cannot open rpp connection to %s, errno=%d (%s), %s (check /etc/hosts file?)",
-                id,
-                server_name,
-                errno,
-                pbs_strerror(pbs_errno),
-                pms->MOMSendStatFailure);
+          id,
+          server_name,
+          errno,
+          pbs_strerror(pbs_errno),
+          pms->MOMSendStatFailure);
         }
       else
         {
         sprintf(log_buffer, "%s: cannot open rpp connection to %s, errno=%d (%s), %s",
-                id,
-                server_name,
-                errno,
-                pbs_strerror(pbs_errno),
-                pms->MOMSendStatFailure);
+          id,
+          server_name,
+          errno,
+          pbs_strerror(pbs_errno),
+          pms->MOMSendStatFailure);
         }
 
       log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
@@ -667,9 +678,9 @@ int mom_server_open_stream(
   if (LOGLEVEL >= 3)
     {
     sprintf(log_buffer, "%s: added connection to %s port %d",
-            id,
-            server_name,
-            port);
+      id,
+      server_name,
+      port);
 
     log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
     }
@@ -707,8 +718,8 @@ void mom_server_stream_error(
   char       *message)
   {
   sprintf(log_buffer, "error %s to server %s",
-          message,
-          pms->pbs_servername);
+    message,
+    pms->pbs_servername);
 
   log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
 
@@ -809,12 +820,12 @@ int is_compose(
 
 
 /**
- *    generate_server_status
+ *  generate_server_status
  *
- *    This should update the PBS server with the status information
- *    that the resource manager should need.  This should allow for
- *    less trouble on the part of the resource manager.  It can get
- *    this information from the server rather than going to each mom.
+ *  This should update the PBS server with the status information
+ *  that the resource manager should need.  This should allow for
+ *  less trouble on the part of the resource manager.  It can get
+ *  this information from the server rather than going to each mom.
  *
  *  This was originally part of is_update_stat, a very complicated
  * routine.  I have broken this into pieces so that the special cases
@@ -833,6 +844,10 @@ int is_compose(
  * If there is some trouble with some status getting back to the
  * pbs_server, this is the place to look.
  */
+
+
+
+
 
 extern struct config *config_array;
 
@@ -856,7 +871,6 @@ void gen_size(
   int   *BSpace)
 
   {
-
   struct config  *ap;
 
   struct rm_attribute *attr;
@@ -875,8 +889,8 @@ void gen_size(
       if (value && *value)
         {
         MUSNPrintF(BPtr, BSpace, "%s=%s",
-                   name,
-                   value);
+          name,
+          value);
 
         (*BPtr)++; /* Need to start the next string after the null */
         (*BSpace)--;
@@ -898,16 +912,16 @@ void gen_arch(
   int   *BSpace)
 
   {
-
   struct config  *ap;
 
-  ap = rm_search(config_array, name);
+  ap = rm_search(config_array,name);
 
-  if (ap)
+  if (ap != NULL)
     {
-    MUSNPrintF(BPtr, BSpace, "%s=%s",
-               name,
-               ap->c_u.c_value);
+    MUSNPrintF(BPtr,BSpace,"%s=%s",
+      name,
+      ap->c_u.c_value);
+
     (*BPtr)++; /* Need to start the next string after the null */
     (*BSpace)--;
     }
@@ -926,16 +940,39 @@ void gen_opsys(
   int   *BSpace)
 
   {
-
   struct config  *ap;
 
-  ap = rm_search(config_array, name);
+  ap = rm_search(config_array,name);
 
-  if (ap)
+  if (ap != NULL)
     {
-    MUSNPrintF(BPtr, BSpace, "%s=%s",
-               name,
-               ap->c_u.c_value);
+    MUSNPrintF(BPtr,BSpace,"%s=%s",
+      name,
+      ap->c_u.c_value);
+
+    (*BPtr)++; /* Need to start the next string after the null */
+    (*BSpace)--;
+    }
+
+  return;
+  }
+
+
+
+
+
+void gen_jdata(
+
+  char  *name,
+  char **BPtr,
+  int   *BSpace)
+
+  {
+  if (TORQUE_JData != NULL)
+    {
+    MUSNPrintF(BPtr,BSpace,"%s=%s",
+      name,
+      TORQUE_JData);
 
     (*BPtr)++; /* Need to start the next string after the null */
     (*BSpace)--;
@@ -955,13 +992,12 @@ void gen_gres(
   int   *BSpace)
 
   {
-
   struct config  *ap;
 
   struct rm_attribute *attr;
   char  *value;
 
-  ap = rm_search(config_array, name);
+  ap = rm_search(config_array,name);
 
   if (ap != NULL)
     {
@@ -969,15 +1005,16 @@ void gen_gres(
 
     if (attr)
       {
-      value = dependent(name, attr);
+      value = dependent(name,attr);
 
       if (value == NULL)
         {
         /* value not set (attribute required) */
 
-        MUSNPrintF(BPtr, BSpace, "%s=? %d",
-                   name,
-                   rm_errno);
+        MUSNPrintF(BPtr,BSpace,"%s=? %d",
+          name,
+          rm_errno);
+
         (*BPtr)++; /* Need to start the next string after the null */
         (*BSpace)--;
         }
@@ -1047,8 +1084,9 @@ void gen_gres(
           if (result[0] != '\0')
             {
             MUSNPrintF(BPtr, BSpace, "%s=%s",
-                       name,
-                       result);
+              name,
+              result);
+
             (*BPtr)++; /* Need to start the next string after the null */
             (*BSpace)--;
             }
@@ -1065,24 +1103,29 @@ void gen_gres(
 
 
 
-void gen_gen(char *name, char **BPtr, int *BSpace)
-  {
+void gen_gen(
 
+  char  *name, 
+  char **BPtr, 
+  int   *BSpace)
+
+  {
   struct config  *ap;
   char  *value;
   char  *ptr;
 
-  ap = rm_search(config_array, name);
+  ap = rm_search(config_array,name);
 
-  if (ap)
+  if (ap != NULL)
     {
     ptr = conf_res(ap->c_u.c_value, NULL);
 
     if (ptr && *ptr)
       {
-      MUSNPrintF(BPtr, BSpace, "%s=%s",
-                 name,
-                 ptr);
+      MUSNPrintF(BPtr,BSpace,"%s=%s",
+        name,
+        ptr);
+
       (*BPtr)++; /* Need to start the next string after the null */
       (*BSpace)--;
       }
@@ -1095,9 +1138,10 @@ void gen_gen(char *name, char **BPtr, int *BSpace)
       {
       /* value not set (attribute required) */
 
-      MUSNPrintF(BPtr, BSpace, "%s=? %d",
-                 name,
-                 rm_errno);
+      MUSNPrintF(BPtr,BSpace,"%s=? %d",
+        name,
+        rm_errno);
+
       (*BPtr)++; /* Need to start the next string after the null */
       (*BSpace)--;
       }
@@ -1114,7 +1158,13 @@ void gen_gen(char *name, char **BPtr, int *BSpace)
       (*BSpace)--;
       }
     } /* else if (ap) */
+
+  return;
   }  /* END gen_gen() */
+
+
+
+
 
 typedef void (*gen_func_ptr)(char *, char **, int *);
 
@@ -1124,9 +1174,8 @@ typedef struct stat_record
   gen_func_ptr func;
   } stat_record;
 
-stat_record stats[] =
-  {
-    {"arch",        gen_arch},
+stat_record stats[] = {
+  {"arch",        gen_arch},
   {"opsys",       gen_gen},
   {"uname",       gen_gen},
   {"sessions",    gen_gen},
@@ -1144,6 +1193,7 @@ stat_record stats[] =
   {"size",        gen_size},
   {"state",       gen_gen},
   {"jobs",        gen_gen},
+  {"jobdata",     gen_jdata},
   {"varattr",     gen_gen},
   {NULL,          NULL}
   };
@@ -1220,7 +1270,7 @@ void mom_server_update_stat(
   if (pms->SStream == -1)
     {
     sprintf(log_buffer, "server \"%s\" has no active stream",
-            pms->pbs_servername);
+      pms->pbs_servername);
 
     log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
 
@@ -1231,7 +1281,7 @@ void mom_server_update_stat(
 
   /* Generate the message header. */
 
-  if (is_compose(pms, IS_STATUS) != DIS_SUCCESS)
+  if (is_compose(pms,IS_STATUS) != DIS_SUCCESS)
     {
     return;
     }
@@ -1242,11 +1292,11 @@ void mom_server_update_stat(
     {
     if (LOGLEVEL >= 7)
       {
-      sprintf(log_buffer, "%s: sending to server \"%s\"",
-              id,
-              cp);
+      sprintf(log_buffer,"%s: sending to server \"%s\"",
+        id,
+        cp);
 
-      log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
+      log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
       }
 
     if (diswst(pms->SStream, cp) != DIS_SUCCESS)
@@ -1271,7 +1321,7 @@ void mom_server_update_stat(
   if (LOGLEVEL >= 3)
     {
     sprintf(log_buffer, "status update successfully sent to %s",
-            pms->pbs_servername);
+      pms->pbs_servername);
 
     log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
     }
@@ -1299,8 +1349,7 @@ void mom_server_update_stat(
  * the strings to each server.
  */
 
-void
-mom_server_all_update_stat(void)
+void mom_server_all_update_stat(void)
 
   {
   static char *id = "mom_server_all_update_stat";
@@ -1324,7 +1373,7 @@ mom_server_all_update_stat(void)
 
   for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {
-    mom_server_update_stat(&mom_servers[sindex], status_strings);
+    mom_server_update_stat(&mom_servers[sindex],status_strings);
     }
 
   return;
@@ -2049,15 +2098,14 @@ void is_request(
   u_long ipaddr;
   extern char *PBSServerCmds[];
 
-
   if (cmdp != NULL)
     *cmdp = 0;
 
   if (LOGLEVEL >= 4)
     {
     sprintf(log_buffer, "stream %d version %d",
-            stream,
-            version);
+      stream,
+      version);
 
     log_record(
       PBSEVENT_ERROR,
@@ -2096,8 +2144,8 @@ void is_request(
   if (LOGLEVEL >= 3)
     {
     sprintf(log_buffer, "command %d, \"%s\", received",
-            command,
-            PBSServerCmds[command]);
+      command,
+      PBSServerCmds[command]);
 
     log_record(
       PBSEVENT_ERROR,
@@ -2109,8 +2157,8 @@ void is_request(
   mom_server_update_receive_time(stream, PBSServerCmds[command]);
 
   switch (command)
-    {
 
+    {
     case IS_NULL: /* a ping from the server */
 
       /* nothing seems to ever generate an IS_NULL message */
@@ -2304,7 +2352,6 @@ float compute_load_threshold(
 
   switch (*op)
     {
-
     case '+':
 
       retval = retval + tmpval;
