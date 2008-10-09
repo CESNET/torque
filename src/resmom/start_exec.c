@@ -3123,22 +3123,40 @@ int TMomFinalizeChild(
     log_err(-1, id, log_buffer);
     }
 
-  setgroups(
+  if (setgroups(
+     pjob->ji_grpcache->gc_ngroup,
+    (gid_t *)pjob->ji_grpcache->gc_groups) != 0)
+    {
+    snprintf(log_buffer,sizeof(log_buffer),
+      "PBS: setgroups for UID = %lu failed: %s\n",
+      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+      strerror(errno));
 
-    pjob->ji_grpcache->gc_ngroup,
-    (gid_t *)pjob->ji_grpcache->gc_groups);
+    log_err(errno,id,log_buffer);
 
-  setgid(pjob->ji_qs.ji_un.ji_momt.ji_exgid);
+    starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
+    }
+
+
+  if (setgid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) != 0)
+    {
+    snprintf(log_buffer,sizeof(log_buffer),
+      "PBS: setgid to %lu for UID = %lu failed: %s\n",
+      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exgid,
+      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+      strerror(errno));
+
+    log_err(errno,id,log_buffer);
+
+    starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
+    }
 
   if (setuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) < 0)
     {
-    sprintf(log_buffer, "PBS: setuid to %d failed: %s\n",
-            pjob->ji_qs.ji_un.ji_momt.ji_exuid,
-            strerror(errno));
-
-    if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
-
-    fsync(2);
+    snprintf(log_buffer,sizeof(log_buffer),
+      "PBS: setuid to %lu failed: %s\n",
+      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+      strerror(errno));
 
     log_err(errno, id, log_buffer);
 
@@ -4381,20 +4399,38 @@ int start_process(
 
   /* become the user and execv the shell and become the real job */
 
-  setgroups(pjob->ji_grpcache->gc_ngroup,
-            (gid_t *)pjob->ji_grpcache->gc_groups);
+  if (setgroups(pjob->ji_grpcache->gc_ngroup,
+    (gid_t *)pjob->ji_grpcache->gc_groups) != 0)
+    {
+    snprintf(log_buffer,sizeof(log_buffer),
+      "PBS: setgroups for UID = %lu failed: %s\n",
+      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+      strerror(errno));
 
-  setgid(pjob->ji_qs.ji_un.ji_momt.ji_exgid);
+    log_err(errno,id,log_buffer);
+
+    starter_return(kid_write,kid_read,JOB_EXEC_FAIL2,&sjr);
+    }
+
+  if (setgid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) != 0)
+    {
+    snprintf(log_buffer,sizeof(log_buffer),
+      "PBS: setgid to %lu for UID = %lu failed: %s\n",
+      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exgid,
+      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+      strerror(errno));
+
+    log_err(errno,id,log_buffer);
+
+    starter_return(kid_write,kid_read,JOB_EXEC_FAIL2,&sjr);
+    }
 
   if (setuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) < 0)
     {
-    sprintf(log_buffer, "PBS: setuid to %d failed: %s\n",
-            pjob->ji_qs.ji_un.ji_momt.ji_exuid,
-            strerror(errno));
-
-    if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
-
-    fsync(2);
+    snprintf(log_buffer,sizeof(log_buffer),
+      "PBS: setuid to %lu failed: %s\n",
+      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+      strerror(errno));
 
     log_err(errno, id, log_buffer);
 
