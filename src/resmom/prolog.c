@@ -566,7 +566,6 @@ int run_pelog(
         exit(255);
         }
 
-      setuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid);
       if (setuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) != 0)
         {
         snprintf(log_buffer,sizeof(log_buffer),
