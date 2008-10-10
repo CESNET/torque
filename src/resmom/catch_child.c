@@ -371,9 +371,14 @@ fail:
  *
  *  - preobit_reply()
  *      o validates server response to preobit message
+ *        If the server returns unknown job id (it may have been purged),
+ *        then the job is deleted from the mom: mom_deljob -> job_purge,
+ *        and that should be it for the job. Otherwise, we fork:
  *      - fork_me()
  *        o parent registers post_epilog in job ji_mompost attribute, sets job
- *          substate to JOB_SUBSTATE_OBIT, and registers post_epilogue handler
+ *          substate to JOB_SUBSTATE_OBIT, and registers post_epilogue handler.
+ *          This handler will be invoked when the waitpid in scan_for_terminated
+ *          catches a SIGCHLD for the job epilog invoked by the child.
  *        o child runs run_pelog()
  *
  *  - post_epilog()
