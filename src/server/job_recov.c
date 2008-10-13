@@ -382,6 +382,7 @@ job *job_recov(
   char *filename) /* I */   /* pathname to job save file */
 
   {
+  char *id = "job_recov";
   int	 fds;
   job	*pj;
   char	*pn;
@@ -440,7 +441,7 @@ job *job_recov(
     
   /* is ji_qs the version we expect? */
 
-  if (pj->ji_qs.qs_version != PBS_QS_VERSION)
+  if (pj->ji_qs.qs_version < PBS_QS_VERSION)
     {
     /* ji_qs is older version */
     sprintf(log_buffer, 
@@ -477,7 +478,13 @@ job *job_recov(
       
     qs_upgrade = TRUE;
     }  /* END if (pj->ji_qs.qs_version != PBS_QS_VERSION) */
-
+  else
+    {
+    sprintf(log_buffer, "job struct appears to be from an unknown "
+            "version of TORQUE and can not be recovered");
+    log_err(-1, id, log_buffer);
+    return (NULL);
+    }
   /* Does file name match the internal name? */
   /* This detects ghost files */
 
