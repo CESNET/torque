@@ -450,7 +450,7 @@ job *job_recov(
     {
     /* ji_qs is older version */
     sprintf(log_buffer,
-            "%s appears to be from an old version. Attempting to convert.\n",
+            "%s appears to be from a different version. Attempting to convert.\n",
             namebuf);
     log_err(-1, "job_recov", log_buffer);
 

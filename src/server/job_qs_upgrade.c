@@ -20,6 +20,7 @@
 #include "list_link.h"
 #include "attribute.h"
 #include "server_limits.h"
+#include "log.h"
 #include "job.h"
 #include "array.h"
 
@@ -132,7 +133,7 @@ typedef struct
 int job_qs_upgrade(
 
   job *pj,     /* I */
-  int fds,    /* I */
+  int fds,     /* I */
   int version) /* I */
 
   {
@@ -147,7 +148,14 @@ int job_qs_upgrade(
     return (-1);
     }
 
-  if (version == 0x00020200)
+  if (version > PBS_QS_VERSION)
+    {
+    sprintf(log_buffer, "job struct appears to be from an unknown "
+            "version of TORQUE and can not be recovered");
+    log_err(-1, "job_qs_upgrade", log_buffer);
+    return (-1);
+    }
+  else if (version == 0x00020200)
     {
     return  upgrade_2_2_X(pj, fds);
     }

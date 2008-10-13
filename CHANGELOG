@@ -1,16 +1,24 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.4
-  b - fixed a bug with "max_report" where jobs not in the Q state were not always being reported to scheduler
-  b - fixed bug with new UNIX socket communication when more than one TORQUE instance is running on the same host
-  c - fixed a few memory errors due to a spurious comma and some uninitialized memory being allocated
-  b - fixed a bug preventing multiple TORQUE servers and TORQUE MOMs from operating properly all from the same host
-  f - enabled 'qsub -T' to specify "job type." Currently this will allow a per job prolog/epilog
-  f - added a new '-E' option to qstat which allows command-line users to pass "extend" strings via the API
-  f - added new max_report queue attribute which will limit the number of Idle jobs, per queue, that TORQUE reports to the scheduler
+  b - fixed a bug with "max_report" where jobs not in the Q state were not 
+      always being reported to scheduler
+  b - fixed bug with new UNIX socket communication when more than one TORQUE 
+      instance is running on the same host
+  c - fixed a few memory errors due to a spurious comma and some uninitialized 
+      memory being allocated
+  b - fixed a bug preventing multiple TORQUE servers and TORQUE MOMs from 
+      operating properly all from the same host
+  f - enabled 'qsub -T' to specify "job type." Currently this will allow a per 
+      job prolog/epilog
+  f - added a new '-E' option to qstat which allows command-line users to pass 
+      "extend" strings via the API
+  f - added new max_report queue attribute which will limit the number of Idle 
+      jobs, per queue, that TORQUE reports to the scheduler
   e - enhanced logging when a hostname cannot be looked up in DNS
   e - PBS_NET_MAX_CONNECTIONS can now be defined at compile time (via CFLAGS)
-  e - modified source code so that all .c and .h files now conform more closely to the new CRI format style
+  e - modified source code so that all .c and .h files now conform more closely
+      to the new CRI format style
   c - fixed segfault when loading job files of an older/incompatible version
   b - fixed a bug where if attempt to send job to a pbs_mom failed due to 
       timeout, the job would indefinitely remain the in 'R' state
@@ -19,7 +27,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - pbs_track now allows passing of - and -- options to the a.out argument
   b - qsub now properly interprets -W umask=0XXX as octal umask
   e - allow $HOME to be specified for path
-  e - added --disable-qsub-keep-override to allow the qsub -k flag to not override -o -e.
+  e - added --disable-qsub-keep-override to allow the qsub -k flag to not 
+      override -o -e.
   e - updated with security patches for setuid, setgid, setgroups
 
 2.3.3
@@ -99,12 +108,14 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - make qdel -m functionality match the documentation
   b - prevent runaway hellos being sent to server when mom's node is removed
       from the server's node list
-  e - local client connections use a unix domain socket, bypassing inet and pbs_iff
+  e - local client connections use a unix domain socket, bypassing inet and 
+      pbs_iff
   f - Linux 2.6 cpuset support  (in development)
   e - new job array submission syntax
   b - fixed SIGUSR1 / SIGUSR2 to correctly change the log level
   f - health check script can now be run at job start and end
-  e - tm tasks are now stored in a single .TK file rather than eat lots of inodes
+  e - tm tasks are now stored in a single .TK file rather than eat lots of 
+      inodes
   f - new "extra_resc" server attribute
   b - "pbs_version" attr is now correctly read-only
   e - increase max size of .JB and .SC file names
@@ -124,6 +135,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fixed problem with tracking job memory usage on OS X
   b - fix memory leak in server and mom with MoveJobFile requests
       (backported from 2.3.1)
+  b - pbs_server doesn't try to "upgrade" .JB files if they have a newer 
+      version of the job_qs struct
 
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has
