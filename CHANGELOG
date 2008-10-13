@@ -10,7 +10,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix memory leak in server and mom with MoveJobFile requests
       (backported from 2.3.1)
   b - fix net_server.h build error
-  b - pbs_server doesn't try to "upgrade" .JB files if they come have a newer 
+  b - pbs_server doesn't try to "upgrade" .JB files if they have a newer 
       version of the job_qs struct
 
 2.2.1
