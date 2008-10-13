@@ -151,7 +151,7 @@ int job_qs_upgrade(
   if (version > PBS_QS_VERSION)
     {
     sprintf(log_buffer, "job struct appears to be from an unknown "
-            "version of TORQUE and can not be recovered");
+            "version of TORQUE and can not be converted");
     log_err(-1, "job_qs_upgrade", log_buffer);
     return (-1);
     }
