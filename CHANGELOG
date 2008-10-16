@@ -7,6 +7,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       (fix for Linux only) 
   e - pbs_track now allows passing of - and -- options to the a.out argument
   b - qsub now properly interprets -W umask=0XXX as octal umask
+  b - fixed correct_ct() in svr_jobfunc.c so we don't crash if we hit COMPLETED job
 
 2.3.3
   b - fixed bug where pbs_mom would sometimes not connect properly with 
