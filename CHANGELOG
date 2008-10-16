@@ -41,7 +41,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       indefinitely remain the in 'R' state
   e - added qmgr option accounting_keep_days, specifies how long to keep
       accounting files.
-
+  b - fixed correct_ct() in svr_jobfunc.c so we don't crash if we hit COMPLETED job
   
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has
