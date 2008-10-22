@@ -781,6 +781,31 @@ attribute_def job_attr_def[] = {
 	ATR_TYPE_LONG,
 	PARENT_TYPE_JOB
     },
+/* JOB_ATR_comp_time */
+    {	ATTR_comp_time,
+	decode_l,
+	encode_l,
+	set_l,
+	comp_l,
+	free_null,
+	NULL_FUNC,
+	READ_ONLY | ATR_DFLAG_SSET,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_JOB
+    },
+
+/* JOB_ATR_reported */
+    {	ATTR_reported,			/* "Reported" */
+	decode_b,
+	encode_b,
+	set_b,
+	comp_b,
+	free_null,
+	NULL_FUNC,
+	READ_ONLY | ATR_DFLAG_SSET,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_JOB
+    },
 
 /* Site defined attributes if any, see site_job_attr_*.h  */
 #include "site_job_attr_def.h"

@@ -205,7 +205,12 @@ struct grpcache {
  * define the size of the array.
  */
 
-/* sync w/XXX */
+/**
+ * sync w/ src/server/job_attr_def.c
+ * sync w/ src/resmom/request.c TJobAttr constants
+ *
+ * @see struct job
+ */
 
 enum job_atr {
   JOB_ATR_jobname,	/* this set appears first as they show */
@@ -265,6 +270,8 @@ enum job_atr {
   JOB_ATR_umask,
   JOB_ATR_start_time,  /* time when job was first started */
   JOB_ATR_start_count, /* number of times the job has been started */
+  JOB_ATR_comp_time,  /* time when job was last completed */
+  JOB_ATR_reported, /* tracks whether job has been reported to scheduler */
 #include "site_job_attr_enum.h"
 
   JOB_ATR_UNKN,		/* the special "unknown" type		  */

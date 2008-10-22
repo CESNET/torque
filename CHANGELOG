@@ -42,6 +42,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - added qmgr option accounting_keep_days, specifies how long to keep
       accounting files.
   b - fixed correct_ct() in svr_jobfunc.c so we don't crash if we hit COMPLETED job
+  e - added job_must_report qmgr configuration which says the job must be reported
+      to Moab. Added job attributes completion time and reported. Added PURGECOMP
+      functionality which allows Moab to confirm jobs are reported.
   
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has

@@ -150,6 +150,7 @@ enum srv_atr {
 	SVR_ATR_tokens,
 	SRV_ATR_NetCounter,
 	SRV_ATR_AcctKeepDays,
+  SRV_ATR_JobMustReport,
 #include "site_svr_attr_enum.h"
 	SRV_ATR_ServerName,
 	/* This must be last */

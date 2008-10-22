@@ -168,6 +168,7 @@ void req_rerunjob(
 
   {
   job *pjob;
+  struct work_task	*pwt;
 
   int  Force;
 
@@ -232,6 +233,21 @@ void req_rerunjob(
     {
     pjob->ji_qs.ji_state = JOB_STATE_QUEUED;
     pjob->ji_qs.ji_substate = JOB_SUBSTATE_QUEUED;
+    
+    /* reset some job attributes */
+    
+    pjob->ji_wattr[(int)JOB_ATR_comp_time].at_flags &= ~ATR_VFLAG_SET;
+    pjob->ji_wattr[(int)JOB_ATR_reported].at_flags &= ~ATR_VFLAG_SET;
+
+    /*
+     * delete any work task entries associated with the job
+     * there may be tasks for keep_completed proccessing
+     */
+
+    while ((pwt = (struct work_task *)GET_NEXT(pjob->ji_svrtask)) != NULL) 
+      {
+      delete_task(pwt);
+      }
 
     set_statechar(pjob);
 

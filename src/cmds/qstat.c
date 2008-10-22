@@ -1142,6 +1142,7 @@ void display_statjob(
                 !strcmp(a->name,ATTR_mtime) ||
                 !strcmp(a->name,ATTR_qtime) ||
                 !strcmp(a->name,ATTR_start_time) ||
+                !strcmp(a->name,ATTR_comp_time) ||
                 !strcmp(a->name,ATTR_a)) 
               {
               epoch = (time_t)atoi(a->value);

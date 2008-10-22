@@ -1158,6 +1158,7 @@ const char *TJobAttr[] = {
   "queuetype",
   "start_time",
   "start_count",
+  "reported",
   NULL };
 
 

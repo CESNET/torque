@@ -169,6 +169,8 @@
 #define ATTR_umask	"umask"
 #define ATTR_start_time  "start_time"
 #define ATTR_start_count "start_count"
+#define ATTR_comp_time   "completed_time"
+#define ATTR_reported    "reported"
 
 /* additional queue attributes names */
 
@@ -262,6 +264,7 @@
 #define ATTR_logfilerolldepth "log_file_roll_depth"
 #define ATTR_nextjobnum "next_job_number"
 #define ATTR_acctkeepdays "accounting_keep_days"
+#define ATTR_jobmustreport "job_must_report"
 
 /* additional node "attributes" names */
 
@@ -286,6 +289,7 @@
 
 #define DELDELAY  "deldelay="	/* see qdel.c */
 #define DELPURGE  "delpurge="   /* see qdel.c */
+#define PURGECOMP  "purgecomplete="   /* see req_delete.c */
 #define EXECQUEONLY  "exec_queue_only"   /* see req_stat.c */
 #define RERUNFORCE "force"
 
