@@ -45,6 +45,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - added job_must_report qmgr configuration which says the job must be reported
       to Moab. Added job attributes completion time and reported. Added PURGECOMP
       functionality which allows Moab to confirm jobs are reported.
+  e - modified to allow retention of completed jobs across server shutdown
   
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has

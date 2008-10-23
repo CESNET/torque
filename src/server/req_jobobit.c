@@ -753,7 +753,13 @@ void on_job_exit(
     log_buffer));
 #endif /* END VNODETESTING */
 
-  if ((handle = mom_comm(pjob,on_job_exit)) < 0)
+  /*
+   * we don't need a handle if we are complete. On starting up we will NOT have
+   * a connection to mom, but still want to try and process the completed job
+   */
+  
+  if ((pjob->ji_qs.ji_substate != JOB_SUBSTATE_COMPLETE) &&
+    ((handle = mom_comm(pjob,on_job_exit)) < 0))
     {
     /* FAILURE - cannot connect to mom */
 
@@ -1134,7 +1140,7 @@ void on_job_exit(
     
     case JOB_SUBSTATE_COMPLETE:
 
-      if (LOGLEVEL >= 4)
+      if ((LOGLEVEL >= 4) && (ptask->wt_type == WORK_Immed))
         {
         log_event(
           PBSEVENT_JOB,
