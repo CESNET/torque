@@ -307,12 +307,17 @@ struct pbsnode *lfindNode(
  */
 void linsertNode(struct pbsnode *nodep, struct list_t *root)
   {
+  struct list_t *node, *prev;
+  struct sockaddr_storage *key;
 
-  struct list_t *node = root;
+  if (NULL == nodep || NULL == nodep->nd_addrs)
+    return;
 
-  struct sockaddr_storage *key = nodep->nd_addrs[0]; /* always use the first adress as key */
+  node = root;
 
-  struct list_t *prev = NULL;
+  key = &nodep->nd_addrs[0]; /* always use the first adress as key */
+
+  prev = NULL;
 
   for (; node != NULL && 0 == compare_ip(key, node->key); prev = node, node = node->next) ;
 
@@ -981,7 +986,7 @@ void sync_node_jobs(
                     np->nd_addrs[] should not be NULL */
 
           conn = svr_connect(
-                   np->nd_addrs[0],
+                   &np->nd_addrs[0],
                    pbs_mom_port,
                    process_Dreply,
                    ToServerDIS);
@@ -1718,17 +1723,17 @@ int add_cluster_addrs(
       log_event(PBSEVENT_ADMIN, PBS_EVENTCLASS_SERVER, id, log_buffer);
       }
 
-    for (j = 0;np->nd_addrs[j];j++)
+    for (j = 0; j < np->nd_ip_cnt; j++)
       {
 
-      struct sockaddr_storage *ipaddr = np->nd_addrs[j];
+      struct sockaddr_storage ipaddr = np->nd_addrs[j];
 
       if (LOGLEVEL >= 8)
         {
         sprintf(log_buffer, "adding node[%d] interface[%d] %s to hello response",
                 i,
                 j,
-                netaddr(ipaddr));
+                netaddr(&ipaddr));
 
         log_event(PBSEVENT_ADMIN, PBS_EVENTCLASS_SERVER, id, log_buffer);
         }
@@ -1737,12 +1742,12 @@ int add_cluster_addrs(
 
       /* Assumes DIS_SUCCESS == 0 ! */
 
-      switch (ipaddr->ss_family)
+      switch (ipaddr.ss_family)
         {
 
         case AF_INET:
           ret = diswui(stream, TORQUE_PROTO_IPV4);
-          ret += diswul(stream, ((struct sockaddr_in*)ipaddr)->sin_addr.s_addr);
+          ret += diswul(stream, ((struct sockaddr_in*)&ipaddr)->sin_addr.s_addr);
           break;
 
         case AF_INET6:
@@ -1750,7 +1755,7 @@ int add_cluster_addrs(
 
           for (k = 0; k < 4; ++k)
             {
-            ret += diswul(stream, ((struct sockaddr_in6*)ipaddr)->sin6_addr.s6_addr[k]);
+            ret += diswul(stream, ((struct sockaddr_in6*)&ipaddr)->sin6_addr.s6_addr[k]);
             }
 
           break;

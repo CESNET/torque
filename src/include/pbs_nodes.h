@@ -137,7 +137,7 @@ struct pbsnode
 
   struct prop           *nd_l_st;
 
-  struct sockaddr_storage **nd_addrs; /* IP addresses of host */
+  struct sockaddr_storage *nd_addrs; /* IP addresses of host */
   int nd_ip_cnt;
 
   struct array_strings *nd_prop; /* array of properities */

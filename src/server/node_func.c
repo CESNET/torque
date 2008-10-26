@@ -193,10 +193,10 @@ struct pbsnode *PGetNodeFromAddr(
 
     for (aindex = 0;aindex < 10;aindex++)
       {
-      if (pbsndlist[nindex]->nd_addrs[aindex]->ss_family == AF_UNSPEC)
+      if (pbsndlist[nindex]->nd_addrs[aindex].ss_family == AF_UNSPEC)
         break;
 
-      if (compare_ip(pbsndlist[nindex]->nd_addrs[aindex], addr))
+      if (compare_ip(&pbsndlist[nindex]->nd_addrs[aindex], addr))
         {
         return(pbsndlist[nindex]);
         }
@@ -211,7 +211,7 @@ struct pbsnode *PGetNodeFromAddr(
 
 void bad_node_warning(
 
-  struct sockaddr_storage * addr)  /* I */
+  const struct sockaddr_storage * addr)  /* I */
 
   {
   int i;
@@ -240,7 +240,7 @@ void bad_node_warning(
       continue;
       }
 
-    if (pbsndlist[i]->nd_addrs[0] != addr)
+    if (!compare_ip(&pbsndlist[i]->nd_addrs[0], addr))
       {
       /* node does not match */
 
@@ -296,7 +296,7 @@ void bad_node_warning(
 
 int addr_ok(
 
-  struct sockaddr_storage * addr)  /* I */
+  const struct sockaddr_storage * addr)  /* I */
 
   {
   int i;
@@ -314,7 +314,8 @@ int addr_ok(
       /* NOTE:  deleted node may have already freed nd_addrs -
                 check should be redundant */
 
-      if ((pbsndlist[i]->nd_addrs == NULL) || (pbsndlist[i]->nd_addrs[0] != addr))
+      if ((pbsndlist[i]->nd_addrs == NULL) 
+          || (!compare_ip(&pbsndlist[i]->nd_addrs[0], addr)))
         continue;
 
       /* node matches addr */
@@ -736,7 +737,7 @@ static void initialize_pbsnode(
 
   struct pbsnode *pnode,
   char           *pname, /* node name */
-  struct sockaddr_storage **pul,  /* host byte order array, ipaddrs for this node */
+  struct sockaddr_storage *pul,  /* host byte order array, ipaddrs for this node */
   int            ip_cnt, /* number of elements in pul */
   int             ntype) /* time-shared or cluster */
 
@@ -775,7 +776,7 @@ static void initialize_pbsnode(
       {
       sprintf(log_buffer, "node '%s' allows trust for ipaddr %s\n",
               pnode->nd_name,
-              netaddr(pul[i]));
+              netaddr(&pul[i]));
 
       log_record(
         PBSEVENT_SCHED,
@@ -789,7 +790,6 @@ static void initialize_pbsnode(
 
   return;
   }  /* END initialize_pbsnode() */
-
 
 
 
@@ -858,7 +858,7 @@ void effective_node_delete(
 
   if (pnode->nd_addrs != NULL)
     {
-    for (up = pnode->nd_addrs[0];up != NULL;up++)
+    for (up = &pnode->nd_addrs[0];up != NULL;up++)
       {
       /* del node's IP addresses from tree  */
       ldeleteIp(up, ipaddrs);
@@ -887,11 +887,206 @@ void effective_node_delete(
   return;
   }  /* END effective_node_delete() */
 
+/**
+ * @private
+ */
+static char *insertNodeSuffix(const char *hostname)
+  {
+  /* FIXME: does anybody know why we use a flag value if we test for
+   * NodeSuffix != NULL anyway below?
+   */
+  static int NodeSuffixIsSet = 0;
+  static char *NodeSuffix;
+  /* FIXME: magic constant */
+  static char tmphostname[1024];
+
+  if (NodeSuffixIsSet == 0)
+    {
+    if (((server.sv_attr[(int)SRV_ATR_NodeSuffix].at_flags & ATR_VFLAG_SET) != 0) &&
+        (server.sv_attr[(int)SRV_ATR_NodeSuffix].at_val.at_str != NULL))
+      {
+      NodeSuffix = strdup(server.sv_attr[(int)SRV_ATR_NodeSuffix].at_val.at_str);
+      }
+
+    NodeSuffixIsSet = 1;
+    }
+
+  if (NodeSuffix != NULL)
+    {
+    char *ptr = strchr(hostname, '.');
+
+    if (ptr != NULL)
+      {
+      *ptr = '\0';
+
+      snprintf(tmphostname, sizeof(tmphostname), "%s%s.%s",
+          hostname,
+          NodeSuffix,
+          ptr + 1);
+
+      *ptr = '.';
+      }
+    else
+      {
+      snprintf(tmphostname, sizeof(tmphostname), "%s%s",
+          hostname,
+          NodeSuffix);
+      }
+    }
+
+  return tmphostname;
+  }
+
+#ifdef TORQUE_WANT_IPV6
+static int process_host_name_part6(
+    char *objname,
+    struct sockaddr_storage *ips,
+    char *node_name,
+    int   *ntype) /* node type; time-shared, not   */
+  {
+  char   *phostname;     /* caller supplied hostname   */
+  int    ipcount = 0;
+  int    len, error;
+  struct addrinfo hints, *addr, *addrs;
+  char            tmpHName[1024];
+  char *hname;
+  size_t size, size_suffix;
+
+  len = strlen(objname);
+
+  if (len == 0)
+    {
+    return(PBSE_UNKNODE);
+    }
+
+  phostname = strdup(objname);
+
+  if (phostname == NULL)
+    {
+    return(PBSE_SYSTEM);
+    }
+
+  *ntype = NTYPE_CLUSTER;
+
+  if ((len >= 3) && !strcmp(&phostname[len - 3], ":ts"))
+    {
+    phostname[len - 3] = '\0';
+    *ntype = NTYPE_TIMESHARED;
+    }
+
+  memset(&hints, 0, sizeof(struct addrinfo));
+  hints.ai_family = AF_INET | AF_INET6;
+  hints.ai_socktype = SOCK_STREAM;
+  /* need canonical name and we only use addresses we are able connect to */
+  hints.ai_flags = AI_CANONNAME | AI_ADDRCONFIG;
+
+  if (0 != (error = getaddrinfo(phostname, NULL, &hints, &addrs)))
+    {
+    sprintf(log_buffer, "%s", gai_strerror(error));
+
+    free(phostname);
+    phostname = NULL;
+
+    return(PBSE_UNKNODE);
+    }
+
+  hname = addrs->ai_canonname;
+  if (hname == NULL)
+    {
+    free(phostname);
+    phostname = NULL;
+
+    return(PBSE_SYSTEM);
+    }
+
+  /* first calc the amount of memory required */
+  for (addr = addrs, size = 0; NULL != addr; addr = addr->ai_next)
+    {
+    ipcount++;
+    size++;
+    }
+
+    {
+    /* don't loose the ips storage area */
+    struct sockaddr_storage *tmp;
+    tmp = (struct sockaddr_storage *)realloc(
+        ips, ipcount * sizeof(struct sockaddr_storage));
+
+    /* failure */
+    if (NULL == tmp && NULL != phostname)
+      {
+      free(phostname);
+      phostname = NULL;
+      return(PBSE_SYSTEM);
+      }
+    ips = tmp;
+    }
+
+  /* actually copy the addresses */
+  for (addr = addrs; NULL != addr; addr = addr->ai_next)
+    {
+    memcpy(&ips[ipcount - size--], addr->ai_addr, SINLEN(addr->ai_addr));
+    }
+
+  freeaddrinfo(addrs);
+
+  /* BEGIN node suffix magic */
+  memcpy(tmpHName, insertNodeSuffix(hname), sizeof(tmpHName));
+  /* END node suffix magic */
+
+  if (0 != (error = getaddrinfo(phostname, NULL, &hints, &addrs)))
+    {
+    sprintf(log_buffer, "%s", gai_strerror(error));
+
+    free(phostname);
+    phostname = NULL;
+
+    return(PBSE_UNKNODE);
+    }
+
+  hname = addrs->ai_canonname;
+  if (hname == NULL)
+    {
+    free(phostname);
+    phostname = NULL;
+
+    return(PBSE_SYSTEM);
+    }
+
+  /* first calc the amount of memory required */
+  for (addr = addrs, size_suffix = 0; NULL != addr; addr = addr->ai_next)
+    {
+    ipcount++;
+    size_suffix++;
+    }
+
+    {
+    /* don't loose the nd_addrs storage area */
+    struct sockaddr_storage *tmp;
+    tmp = (struct sockaddr_storage *)realloc(ips, ipcount * sizeof(struct sockaddr_storage));
+    /* failure */
+    if (NULL == tmp && NULL != phostname)
+      {
+      free(phostname);
+      phostname = NULL;
+      return(PBSE_SYSTEM);
+      }
+    ips = tmp;
+    }
+
+  for (addr = addrs; NULL != addr; addr = addr->ai_next)
+    {
+    memcpy(&ips[ipcount - size_suffix--], addr->ai_addr, SINLEN(addr->ai_addr));
+    }
+
+  /* return node name */
+  node_name = phostname;
+
+  return ipcount;
+  }
 
 
-
-
-
+#else
 static int process_host_name_part(
 
   char   *objname, /* node to be's name */
@@ -989,43 +1184,7 @@ static int process_host_name_part(
 
     totalipcount = 0;
 
-    if (NodeSuffixIsSet == 0)
-      {
-      if (((server.sv_attr[(int)SRV_ATR_NodeSuffix].at_flags & ATR_VFLAG_SET) != 0) &&
-          (server.sv_attr[(int)SRV_ATR_NodeSuffix].at_val.at_str != NULL))
-        {
-        NodeSuffix = strdup(server.sv_attr[(int)SRV_ATR_NodeSuffix].at_val.at_str);
-        }
-
-      NodeSuffixIsSet = 1;
-      }
-
-    if (NodeSuffix != NULL)
-      {
-      char *ptr;
-
-      /* NOTE:  extract outside of loop because hname will be freed */
-
-      ptr = strchr(hname, '.');
-
-      if (ptr != NULL)
-        {
-        *ptr = '\0';
-
-        snprintf(tmpHName, sizeof(tmpHName), "%s%s.%s",
-                 hname,
-                 NodeSuffix,
-                 ptr + 1);
-
-        *ptr = '.';
-        }
-      else
-        {
-        snprintf(tmpHName, sizeof(tmpHName), "%s%s",
-                 hname,
-                 NodeSuffix);
-        }
-      }
+    memcpy(tmpHName, insertNodeSuffix(hname), sizeof(tmpHName));
 
     for (hindex = 0;hindex < 2;hindex++)
       {
@@ -1116,6 +1275,7 @@ static int process_host_name_part(
   return(0);    /* function successful      */
   }  /* END process_host_name_part() */
 
+#endif
 
 
 
@@ -1395,6 +1555,7 @@ int create_pbs_node(
   struct pbsnode *pnode = NULL;
 
   struct pbsnode **tmpndlist;
+  int iht, rc, ntype;
 
   /* BEGIN Memory Allocation */
 
@@ -1460,11 +1621,19 @@ int create_pbs_node(
 
   /* END Memory Allocation */
 
-  if ((rc = process_host_name_part6(objname, &pnode)) != 0)
     {
-    log_err(-1, "process_host_name_part", log_buffer);
+    struct sockaddr_storage *ips = NULL;
+    /* memory shall be allocated by process_host_name_part6 */
+    char *node_name = NULL;
+    if ((rc = process_host_name_part6(objname, ips, node_name, &ntype)) < 0)
+      {
+      log_err(-1, "process_host_name_part", log_buffer);
 
-    return(rc);
+      return(rc);
+      }
+
+
+    initialize_pbsnode(pnode, node_name, ips, rc, ntype);
     }
 
   if (find_nodebyname(pnode->nd_name))
@@ -1606,8 +1775,6 @@ int create_pbs_node(
     {
     return(PBSE_SYSTEM);
     }
-
-  pnode->nd_ip_cnt = pul6_cnt;
 
   convert_pul_to_pul6(pul, pul6);
 
