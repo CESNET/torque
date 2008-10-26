@@ -166,10 +166,29 @@ int get_hostaddr(
   memset(&hints, 0, sizeof(struct addrinfo));
   hints.ai_socktype = SOCK_STREAM;
 
-  error = getaddrinfo(hostname, NULL, &hints, addr);
+  error = getaddrinfo(hostname, NULL, &hints, &addr);
 
   if (0 == error)
     {
+    for (res = addr; res != NULL; res = addr->ai_next)
+      {
+      int sfd = socket(res->ai_family, res->ai_socktype, res->ai_protocol);
+      if (sfd == -1)
+        continue;
+
+      if (bind(sfd, res->ai_addr, res->ai_addrlen) == 0)
+        break;                  /* Success */
+
+      close(sfd);
+      }
+
+    /* no address succeeded */
+    if (NULL == res)
+      {
+      pbs_errno = PBS_NET_RC_FATAL;
+      return(pbs_errno);
+      }
+
     memcpy(&ret, res->ai_addr, res->ai_addrlen);
     }
   else
