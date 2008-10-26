@@ -101,4 +101,7 @@ unsigned long  crc(unsigned char *, unsigned long);
 
 
 extern int rpp_fd;
+#ifdef TORQUE_WANT_IPV6
+extern int rpp_fd6;
+#endif
 extern int rpp_dbprt;

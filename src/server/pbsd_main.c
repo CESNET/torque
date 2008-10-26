@@ -1207,6 +1207,10 @@ int main(
   int  lockfds;
   int  rppfd;   /* fd to receive is HELLO's */
   int  privfd;  /* fd to send is messages */
+#ifdef TORQUE_WANT_IPV6
+  int  rppfd6;
+  int  privfd6;
+#endif
 
   struct sockaddr_storage any_addr; /* will be equivalent to IN[6]_ADDR_ANY */
   uint  tryport;
@@ -1517,7 +1521,7 @@ int main(
     exit(1);
     }
 
-  rpp_fd6 = -1;  /* force rpp_bind() to get another socket */
+  rppfd6 = -1;  /* force rpp_bind() to get another socket */
 
   tryport = IPPORT_RESERVED;
 

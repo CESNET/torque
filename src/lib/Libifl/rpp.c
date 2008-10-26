@@ -2630,92 +2630,141 @@ int rpp_bind(
 
   struct sockaddr_storage *fromp = &from;
 
-  if (rpp_fd == -1)
+  switch (af_family)
     {
-    if ((rpp_fd = socket(af_family, SOCK_DGRAM, 0)) == -1)
-      {
-      return(-1);
-      }
-
-    rpp_setsockopt(rpp_fd);
-    } /* END if (rpp_fd == -1) */
-
-  if (rpp_fd_array != NULL)
-    {
-    int i;
-
-    for (i = 0;i < rpp_fd_num;i++)
-      {
-      if (rpp_fd_array[i] == rpp_fd)
+    case AF_INET6:
+      if (rpp_fd6 == -1)
         {
-        return(rpp_fd);
+        if ((rpp_fd6 = socket(AF_INET6, SOCK_DGRAM, 0)) == -1)
+          {
+          return(-1);
+          }
+
+        rpp_setsockopt(rpp_fd6);
         }
-      }
-    }
 
-#ifdef TORQUE_WANT_IPV6
-  if (AF_INET6 == af_family)
-    {
-    memset(&from, '\0', sizeof(struct sockaddr_in6));
-    ((struct sockaddr_in6 *)fromp)->sin6_family = AF_INET6;
-    ((struct sockaddr_in6 *)fromp)->sin6_addr = in6addr_any;
-    ((struct sockaddr_in6 *)fromp)->sin6_port = htons((u_short)port);
-    }
-  else if (AF_INET == af_family)
-    {
-#endif
-    memset(&from, '\0', sizeof(struct sockaddr_in));
-    ((struct sockaddr_in *)fromp)->sin_family = AF_INET;
-    ((struct sockaddr_in *)fromp)->sin_addr.s_addr = htonl(INADDR_ANY);
-    ((struct sockaddr_in *)fromp)->sin_port = htons((u_short)port);
-#ifdef TORQUE_WANT_IPV6
-    }
-  else
-    {
-    /* Can't understand family, just return an error */
-    DBPRT((DBTO, "can't use af_family %d\n", af_family));
-    return(-1);
-    }
+      if (rpp_fd_array != NULL)
+        {
+        int i;
 
-#endif
+        for (i = 0;i < rpp_fd_num;i++)
+          {
+          if (rpp_fd_array[i] == rpp_fd6)
+            {
+            return(rpp_fd6);
+            }
+          }
+        }
 
-  if (bind(rpp_fd, (struct sockaddr *)&from, SINLEN(&from)) == -1)
-    {
-    return(-1);
-    }
+      memset(&from, '\0', sizeof(struct sockaddr_in6));
+      ((struct sockaddr_in6 *)fromp)->sin6_family = AF_INET6;
+      ((struct sockaddr_in6 *)fromp)->sin6_addr = in6addr_any;
+      ((struct sockaddr_in6 *)fromp)->sin6_port = htons((u_short)port);
 
+      if (bind(rpp_fd6, (struct sockaddr *)&from, SINLEN(&from)) == -1)
+        {
+        return(-1);
+        }
 
-  DBPRT((DBTO, "bind to port %d\n",
+      DBPRT((DBTO, "bind to port %d\n", GET_PORT(fromp)));
 
-         GET_PORT(fromp)))
-
-  if (rpp_fd_array == NULL)
-    {
-    rpp_fd_array = (int *)malloc(sizeof(int));
-    rpp_fd_num = 1;
+      if (rpp_fd_array == NULL)
+        {
+        rpp_fd_array = (int *)malloc(sizeof(int));
+        rpp_fd_num = 1;
 
 #if defined(HAVE_ATEXIT)
-    atexit(rpp_shutdown);
+        atexit(rpp_shutdown);
 #elif defined(HAVE_ON_EXIT)
-    on_exit(rpp_shutdown_on_exit, NULL);
+        on_exit(rpp_shutdown_on_exit, NULL);
 #else
-    /* atexit() or on_exit() must be defined */
+        /* atexit() or on_exit() must be defined */
 
-    abort compile
+        abort compile
 #endif /* HAVE_ATEXIT */
+        }
+      else
+        {
+        rpp_fd_num += 1;
+
+        rpp_fd_array = (int *)realloc(rpp_fd_array, sizeof(int) * rpp_fd_num);
+        }
+
+      assert(rpp_fd_array);
+
+      rpp_fd_array[rpp_fd_num-1] = rpp_fd6;
+
+      return(rpp_fd6);
+
+    case AF_INET:
+      if (rpp_fd == -1)
+        {
+        if ((rpp_fd = socket(AF_INET, SOCK_DGRAM, 0)) == -1)
+          {
+          return(-1);
+          }
+
+        rpp_setsockopt(rpp_fd);
+        } /* END if (rpp_fd == -1) */
+
+      if (rpp_fd_array != NULL)
+        {
+        int i;
+
+        for (i = 0;i < rpp_fd_num;i++)
+          {
+          if (rpp_fd_array[i] == rpp_fd)
+            {
+            return(rpp_fd);
+            }
+          }
+        }
+
+      memset(&from, '\0', sizeof(struct sockaddr_in));
+      ((struct sockaddr_in *)fromp)->sin_family = AF_INET;
+      ((struct sockaddr_in *)fromp)->sin_addr.s_addr = htonl(INADDR_ANY);
+      ((struct sockaddr_in *)fromp)->sin_port = htons((u_short)port);
+
+      if (bind(rpp_fd, (struct sockaddr *)&from, SINLEN(&from)) == -1)
+        {
+        return(-1);
+        }
+
+      DBPRT((DBTO, "bind to port %d\n", GET_PORT(fromp)));
+
+      if (rpp_fd_array == NULL)
+        {
+        rpp_fd_array = (int *)malloc(sizeof(int));
+        rpp_fd_num = 1;
+
+#if defined(HAVE_ATEXIT)
+        atexit(rpp_shutdown);
+#elif defined(HAVE_ON_EXIT)
+        on_exit(rpp_shutdown_on_exit, NULL);
+#else
+        /* atexit() or on_exit() must be defined */
+
+        abort compile
+#endif /* HAVE_ATEXIT */
+        }
+      else
+        {
+        rpp_fd_num += 1;
+
+        rpp_fd_array = (int *)realloc(rpp_fd_array, sizeof(int) * rpp_fd_num);
+        }
+
+      assert(rpp_fd_array);
+
+      rpp_fd_array[rpp_fd_num-1] = rpp_fd;
+
+      return(rpp_fd);
+
+    default:
+      /* Can't understand family, just return an error */
+      DBPRT((DBTO, "can't use af_family %d\n", af_family));
+      return(-1);
     }
-  else
-    {
-    rpp_fd_num += 1;
-
-    rpp_fd_array = (int *)realloc(rpp_fd_array, sizeof(int) * rpp_fd_num);
-    }
-
-  assert(rpp_fd_array);
-
-  rpp_fd_array[rpp_fd_num-1] = rpp_fd;
-
-  return(rpp_fd);
   }
 
 
@@ -3078,6 +3127,9 @@ void rpp_terminate()
   stream_array = NULL;
 
   rpp_fd = -1;
+#ifdef TORQUE_WANT_IPV6
+  rpp_fd6 = -1;
+#endif
 
   return;
   }  /* END rpp_terminate() */
