@@ -130,9 +130,9 @@ struct sockaddr_storage *ap;
                       NI_NUMERICHOST | NI_NUMERICSERV);
 
   if (error)
-    return gai_strerror(error);
-
-  snprintf(out, sizeof(out), "%s:%s", out, port);
+    snprintf(out, sizeof(out), "%s", gai_strerror(error));
+  else
+    snprintf(out, sizeof(out), "%s:%s", out, port);
 
 #else /* !TORQUE_WANT_IPV6 case */
 

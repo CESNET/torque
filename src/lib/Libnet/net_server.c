@@ -244,6 +244,12 @@ int init_network(
   int unixsocket;
 #endif
 
+#ifdef TORQUE_WANT_IPV6
+    struct addrinfo hints, *res = NULL;
+    int error;
+#endif
+
+
   if (initialized == 0)
     {
     for (i = 0;i < PBS_NET_MAX_CONNECTIONS;i++)
@@ -283,11 +289,6 @@ int init_network(
 
     /* bind to all addresses and dynamically assigned port */
 #if TORQUE_WANT_IPV6
-
-    struct addrinfo hints, *res = NULL;
-
-    int error;
-
     memset(&hints, 0, sizeof(hints));
 
     hints.ai_family = af_family;
@@ -313,7 +314,7 @@ int init_network(
       {
       int flg = 0;
 
-      if (setsockopt(sd, IPPROTO_IPV6, IPV6_V6ONLY,
+      if (setsockopt(sock, IPPROTO_IPV6, IPV6_V6ONLY,
                      &flg, sizeof(flg)) < 0)
         {
         log_err(-1, "init_network",
@@ -846,14 +847,14 @@ int get_connecthost(
     serveraddr = pbs_server_addr;
 
 #ifdef TORQUE_WANT_IPV6
-    addrlen = SINLEN(serveraddr);
-    error = getnameinfo((struct sockaddr *)serveraddr, addrlen,
+    addrlen = SINLEN(&serveraddr);
+    error = getnameinfo((struct sockaddr *)&serveraddr, addrlen,
                         server_name, NI_MAXHOST,
                         NULL, 0, 0);
 
     if (error)
       {
-      log_err(-1, "get_connecthost", gai_strerror());
+      log_err(-1, "get_connecthost", gai_strerror(error));
       return(-1);
       }
 
@@ -890,14 +891,13 @@ int get_connecthost(
 #ifdef TORQUE_WANT_IPV6
   else
     {
-
-    error = getnameinfo((struct sockaddr *)addr, addrlen,
+    error = getnameinfo((struct sockaddr *)&addr, SINLEN(&addr),
                         namebuf, size,
                         NULL, 0, 0);
 
     if (error)
       {
-      log_err(-1, "get_connecthost", gai_strerror());
+      log_err(-1, "get_connecthost", gai_strerror(error));
       }
     }
 
@@ -970,8 +970,8 @@ int compare_ip(
     case AF_INET6:
 
       if (IN6_ARE_ADDR_EQUAL(
-            ((struct sockaddr_in6*)lhs)->sin6_addr,
-            ((struct sockaddr_in6*)rhs)->sin6_addr))
+            &((struct sockaddr_in6*)lhs)->sin6_addr,
+            &((struct sockaddr_in6*)rhs)->sin6_addr))
         {
         return(1);
         }

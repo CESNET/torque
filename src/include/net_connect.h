@@ -185,7 +185,7 @@ enum conn_type
 
 void add_conn A_((int, enum conn_type, struct sockaddr_storage, void (*func) A_((int))));
 int  find_conn A_((struct sockaddr_storage *));
-int  client_to_svr A_((struct sockaddr_storage*, sa_family_t, int, char *));
+int  client_to_svr A_((const struct sockaddr_storage*, sa_family_t, int, char *));
 void close_conn A_((int));
 
 struct sockaddr_storage * get_connectaddr A_((int));

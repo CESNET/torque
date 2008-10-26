@@ -180,7 +180,7 @@ static int await_connect(
 
 int client_to_svr(
 
-  struct sockaddr_storage* hostaddr,     /* I - internet addr/port of host */
+  const struct sockaddr_storage* hostaddr,     /* I - internet addr/port of host */
   sa_family_t         af_family,    /* I - PF_{INET,INET6} - socket family */
   int                 local_port,   /* I - BOOLEAN:  not 0 if use local reserved port */
   char               *EMsg)         /* O (optional,minsize=1024) */

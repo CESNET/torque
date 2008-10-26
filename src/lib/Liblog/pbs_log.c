@@ -321,7 +321,7 @@ void log_err(
 
   int   errnum,  /* I (errno or PBSErrno) */
   char *routine, /* I */
-  char *text)    /* I */
+  const char *text)    /* I */
 
   {
   char  buf[LOG_BUF_SIZE];

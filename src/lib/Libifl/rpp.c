@@ -1239,36 +1239,41 @@ static int rpp_alist2(
   struct stream           *sp)
 
   {
+#ifdef TORQUE_WANT_IPV6
+  int addrlen, addrcount, error, i;
+
+  static char hostname[NI_MAXHOST];
+
+  struct addrinfo hints, *addri, *addrip;
+#else
+
+#endif
+
   if (NULL == sp)
     return(EINVAL);
 
 #ifdef TORQUE_WANT_IPV6
-  int addrlen, addrcount, error, i;
-
-  static hostname[NI_MAXHOST];
-
-  struct addrinfo hints, *addri, *addrip;
-
   switch (addr->ss_family)
     {
 
     case AF_INET:
-      addrlen = sizeof(sockaddr_in);
+      addrlen = sizeof(struct sockaddr_in);
       break;
 
     case AF_INET6:
-      addrlen = sizeof(sockaddr_in6);
+      addrlen = sizeof(struct sockaddr_in6);
       break;
 
     default:
-      DBPTR((DBTO, "protocol not supported in rpp_alist2\n"))
+      DBPRT((DBTO, "protocol not supported in rpp_alist2\n")) ;
+      return (EINVAL);
     }
 
-  if (error = gethostinfo((struct sockaddr*)addr, addrlen,
+  if (0 != (error = getnameinfo((struct sockaddr*)addr, addrlen,
                           hostname, NI_MAXHOST,
-                          NULL, 0, 0))
+                          NULL, 0, 0)))
     {
-    DBPTR((DBTO, "\s\n", gai_strerror(error)))
+    DBPRT((DBTO, "\s\n", gai_strerror(error)))
     return(error);
     }
 
@@ -1277,9 +1282,9 @@ static int rpp_alist2(
   hints.ai_family = AF_UNSPEC; /* TODO: should this be of the type in addr? */
   hints.ai_socktype = SOCK_STREAM;
 
-  if (error = getaddrinfo(hostname, NULL, &hints, &addrip))
+  if (0 != (error = getaddrinfo(hostname, NULL, &hints, &addrip)))
     {
-    DBPTR((DBTO, "\s\n", gai_strerror(error)))
+    DBPRT((DBTO, "\s\n", gai_strerror(error)))
     return(error);
     }
 
@@ -1290,16 +1295,16 @@ static int rpp_alist2(
   if (1 == addrcount)
     return 0;
 
-  if (sp->addr_array = calloc(addrcount, sizeof(struct sockaddr_storage)))
+  if (NULL != (sp->addr_array = calloc(addrcount, sizeof(struct sockaddr_storage))))
     {
     for (i = 1, addri = addrip;
          NULL != addri->ai_next;
          addri = addri->ai_next)
       {
-      if (compare_ip(addri->ai_addr, sp->addr))
+      if (compare_ip(addri->ai_addr, &sp->addr))
         {
-        if (sp->addr_array = realloc(sp->addr_array,
-                                     (addrcount--) * sizeof(struct sockaddr_storage)))
+        if (NULL != (sp->addr_array = realloc(sp->addr_array,
+                                     (addrcount--) * sizeof(struct sockaddr_storage))))
           continue;
         else
           /* sp->addr_array still contains addresses inserted before this */
@@ -2653,7 +2658,7 @@ int rpp_bind(
     {
     memset(&from, '\0', sizeof(struct sockaddr_in6));
     ((struct sockaddr_in6 *)fromp)->sin6_family = AF_INET6;
-    ((struct sockaddr_in6 *)fromp)->sin6_addr = IN6ADDR_ANY_INIT;
+    ((struct sockaddr_in6 *)fromp)->sin6_addr = in6addr_any;
     ((struct sockaddr_in6 *)fromp)->sin6_port = htons((u_short)port);
     }
   else if (AF_INET == af_family)
@@ -2674,7 +2679,7 @@ int rpp_bind(
 
 #endif
 
-  if (bind(rpp_fd, (struct sockaddr *)&from, SINLEN(from)) == -1)
+  if (bind(rpp_fd, (struct sockaddr *)&from, SINLEN(&from)) == -1)
     {
     return(-1);
     }
@@ -2735,8 +2740,7 @@ int rpp_open(
 
   struct stream  *sp;
 #ifdef TORQUE_WANT_IPV6
-
-  struct addrinfo hints, *addri, *addrp;
+  struct addrinfo hints, *addri, *addrp = NULL;
 #else
 
   struct hostent *hp;
@@ -2770,9 +2774,9 @@ int rpp_open(
   hints.ai_socktype = SOCK_DGRAM;
 
   /* addri will only be used later on */
-  if (error = getaddrinfo(name, NULL, &hints, &addri))
+  if (0 != (error = getaddrinfo(name, NULL, &hints, &addri)))
     {
-    DBPRT((DBTO, "%s: getaddrinfo failed: %s\n", id, gai_strerror(error))
+    DBPRT((DBTO, "%s: getaddrinfo failed: %s\n", id, gai_strerror(error)))
 
           if (NULL != EMsg)
     {
@@ -2826,7 +2830,7 @@ int rpp_open(
     for (addrp = addri; NULL != addrp && error; addrp = addrp->ai_next)
       {
       /* This also tests for sa_family */
-      if (compare_ip(sp->addr, addrp->addr))
+      if (compare_ip(&sp->addr, addrp->ai_addr))
         {
         error = 1;
         continue;
@@ -2898,7 +2902,7 @@ int rpp_open(
   */
 
 #ifdef TORQUE_WANT_IPV6
-  sp->addr = addrp->ai_addr;
+  memcpy(&sp->addr, addrp->ai_addr, SINLEN(addrp->ai_addr));
 
   sp->addrlen = addrp->ai_addrlen;
 
