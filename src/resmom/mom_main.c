@@ -4006,7 +4006,7 @@ int bad_restrict(
 #endif
 
 #ifdef TORQUE_WANT_IPV6
-  error = getnameinfo(addr, SINLEN(addr), hostname, NI_MAXHOST, NULL, 0, 0);
+  int error = getnameinfo(addr, SINLEN(addr), hostname, NI_MAXHOST, NULL, 0, 0);
 
   if (error)
     return(0);

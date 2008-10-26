@@ -1623,14 +1623,16 @@ struct pbsnode *lfindNode(
  */
 void linsertNode(struct pbsnode *nodep, struct list_t *root)
   {
+  struct list_t *node;
+  struct sockaddr_storage *key; /* always use the first adress as key */
+  struct list_t *prev;
+
   if (NULL == nodep || NULL == nodep->nd_addrs)
     return;
 
-  struct list_t *node = root;
-
-  struct sockaddr_storage *key = &nodep->nd_addrs[0]; /* always use the first adress as key */
-
-  struct list_t *prev = NULL;
+  node = root;
+  key = &nodep->nd_addrs[0]; 
+  prev = NULL;
 
   for (; node != NULL && 0 == compare_ip(key, node->key); prev = node, node = node->next) ;
 
@@ -2217,13 +2219,13 @@ void is_request(
           {
           switch (ip_proto)
             {
+            int k;
             case TORQUE_PROTO_IPV4:
               ipaddr.ss_family = AF_INET;
               ((struct sockaddr_in*)&ipaddr)->sin_addr.s_addr = disrul(stream, &ret);
               break;
 #ifdef TORQUE_WANT_IPV6
             case TORQUE_PROTO_IPV6:
-              int k;
               ipaddr.ss_family = AF_INET6;
               for (k = 0; k < 4; ++k)
                 {
