@@ -1247,7 +1247,7 @@ int main(
 
   get_hostaddr(server_host, &pbs_server_addr);
   memcpy(&pbs_mom_addr, &pbs_server_addr, SINLEN(&pbs_server_addr));   /* assume on same host */
-  memcpy(&pbs_scheduler_addr, &pbs_server_addr, SINLEN(&pbs_scheduler_port));   /* assume on same host */
+  memcpy(&pbs_scheduler_addr, &pbs_server_addr, SINLEN(&pbs_server_addr));   /* assume on same host */
 
   /* The following port numbers might have been initialized in set_globals_from_environment() above. */
 

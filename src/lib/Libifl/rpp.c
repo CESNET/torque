@@ -2879,7 +2879,7 @@ int rpp_open(
 
   stream = rpp_create_sp();
 
-  if (stream == -1)
+  if (stream == -1 || NULL == addrp || NULL == addrp->ai_addr)
     {
     if (EMsg != NULL)
       {

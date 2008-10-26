@@ -127,21 +127,21 @@ extern struct connection svr_conn[];
 extern struct sockaddr_storage  pbs_server_addr;
 extern int               LOGLEVEL;
 
-extern int     addr_ok(struct sockaddr_storage *);
-extern void    bad_node_warning(struct sockaddr_storage *);
+extern int     addr_ok(const struct sockaddr_storage *);
+extern void    bad_node_warning(const struct sockaddr_storage *);
 extern ssize_t read_blocking_socket(int, void *, ssize_t);
 
 
 
 int svr_connect(
 
-  struct sockaddr_storage *hostaddr,  /* host order */
+  const struct sockaddr_storage *hostaddr,  /* host order */
   unsigned int   port,   /* I */
   void (*func) A_((int)),
   enum conn_type cntype)
 
   {
-  extern char *PAddrToString(struct sockaddr_storage *);
+  extern char *PAddrToString(const struct sockaddr_storage *);
 
   char         EMsg[1024];
 

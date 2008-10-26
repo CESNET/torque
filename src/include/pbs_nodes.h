@@ -284,8 +284,8 @@ extern struct tree_t  *streams;
 
 extern int update_nodes_file A_((void));
 
-extern void bad_node_warning(struct sockaddr_storage *);
-extern int addr_ok(struct sockaddr_storage *);
+extern void bad_node_warning(const struct sockaddr_storage *);
+extern int addr_ok(const struct sockaddr_storage *);
 
 #ifdef BATCH_REQUEST_H
 extern void initialize_pbssubn A_((struct pbsnode *, struct pbssubn *, struct prop *));

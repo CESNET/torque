@@ -1623,10 +1623,12 @@ struct pbsnode *lfindNode(
  */
 void linsertNode(struct pbsnode *nodep, struct list_t *root)
   {
+  if (NULL == nodep || NULL == nodep->nd_addrs)
+    return;
 
   struct list_t *node = root;
 
-  struct sockaddr_storage *key = nodep->nd_addrs[0]; /* always use the first adress as key */
+  struct sockaddr_storage *key = &nodep->nd_addrs[0]; /* always use the first adress as key */
 
   struct list_t *prev = NULL;
 
