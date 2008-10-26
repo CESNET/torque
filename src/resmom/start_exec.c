@@ -4581,7 +4581,7 @@ void start_exec(
 
       memset(&saddr, '\0', sizeof(struct sockaddr_in6));
 
-      ((struct sockaddr_in6*)&saddr)->sin6_addr.s6_addr = in6addr_any;
+      ((struct sockaddr_in6*)&saddr)->sin6_addr = in6addr_any;
 
       saddr.ss_family = AF_INET6;
 

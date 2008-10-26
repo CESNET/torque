@@ -102,6 +102,9 @@ typedef struct sockaddr_storage* pbs_net_t; /* for holding host addresses */
 #define PBS_SOCK_INET     2
 #define PBS_SOCK_INET6     10
 
+#define PBS_IS_ADDR_INVALID(addr) (((addr)->ss_family) == (sa_family_t)(-1))
+#define PBS_SET_ADDR_INVALID(addr) ((addr)->ss_family = (sa_family_t)(-1))
+
 /*
 ** Protocol numbers and versions for PBS communications.
 */

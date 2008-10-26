@@ -2930,7 +2930,7 @@ clear_down_mom_servers()
   /* make this a simple memcpy(down_svraddrs, 0, sizeof(down_svraddrs))? */
   for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
     {
-    down_svraddrs[sindex].ss_family = PBS_ADDR_INVALID;
+    PBS_SET_ADDR_INVALID(&down_svraddrs[sindex]);
     }
 
   return;
@@ -2948,7 +2948,7 @@ is_mom_server_down(const struct sockaddr_storage *server_address)
   {
   int sindex;
 
-  for (sindex = 0; sindex < PBS_MAXSERVER && PBS_ADDR_INVALID != down_svraddrs[sindex].ss_family; sindex++)
+  for (sindex = 0; sindex < PBS_MAXSERVER && !PBS_IS_ADDR_INVALID(&down_svraddrs[sindex]); sindex++)
     {
     if (compare_ip(&down_svraddrs[sindex], server_address))
       {
@@ -2970,7 +2970,7 @@ is_mom_server_down(const struct sockaddr_storage *server_address)
 int
 no_mom_servers_down()
   {
-  return (PBS_ADDR_INVALID == down_svraddrs[0].ss_family) ? 1 : 0;
+  return (PBS_IS_ADDR_INVALID(&down_svraddrs[0])) ? 1 : 0;
   }
 
 /**
@@ -2987,7 +2987,7 @@ set_mom_server_down(const struct sockaddr_storage *server_address)
 
   for (sindex = 0; sindex < PBS_MAXSERVER; sindex++)
     {
-    if (PBS_ADDR_INVALID == down_svraddrs[sindex].ss_family)
+    if (PBS_IS_ADDR_INVALID(&down_svraddrs[sindex]))
       {
       memcpy(&down_svraddrs[sindex], server_address, SINLEN(server_address));
       break;
