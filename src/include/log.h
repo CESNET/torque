@@ -102,7 +102,7 @@ extern int   chk_file_sec_stderr;
 
 
 extern void log_close A_((int));
-extern void log_err A_((int, char *, char *));
+extern void log_err A_((int, char *, const char *));
 extern void log_event A_((int, int, char *, char *));
 extern int  log_open A_((char *, char *));
 extern void log_record A_((int, int, char *, char *));
