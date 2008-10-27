@@ -1231,9 +1231,7 @@ int mom_set_limits(
           return(error(pname, retval));
           }
 
-        reslim.rlim_cur = reslim.rlim_max =
-
-                            (unsigned long)((double)value / cputfactor);
+        reslim.rlim_cur = reslim.rlim_max = (unsigned long)((double)value / cputfactor);
 
         if (LOGLEVEL >= 2)
           {
@@ -2633,8 +2631,7 @@ char *cput_job(
     }
 
   sprintf(ret_string, "%.2f",
-
-          cputime * cputfactor);
+    cputime * cputfactor);
 
   return(ret_string);
   }  /* END cput_job() */
