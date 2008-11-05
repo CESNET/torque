@@ -37,8 +37,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - keep pbs_mom, pbs_server, pbs_sched from closing sockets opened by 
       nss_ldap
   b - corrected pbs_server, pbs_mom man pages for SIGUSR1 and SIGUSR2
-  b - fixed a bug where if attempt to send job to a pbs_mom failed due to timeout, the job would
-      indefinitely remain the in 'R' state
+  b - fixed a bug where if attempt to send job to a pbs_mom failed due to timeout,
+      the job would indefinitely remain the in 'R' state
   e - added qmgr option accounting_keep_days, specifies how long to keep
       accounting files.
   b - fixed correct_ct() in svr_jobfunc.c so we don't crash if we hit COMPLETED job
@@ -46,6 +46,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       to Moab. Added job attributes completion time and reported. Added PURGECOMP
       functionality which allows Moab to confirm jobs are reported.
   e - modified to allow retention of completed jobs across server shutdown
+  e - changed mom config varattr so invoked script returns the varattr name
+      and value(s)
   
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has
