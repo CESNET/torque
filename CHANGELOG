@@ -48,6 +48,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - modified to allow retention of completed jobs across server shutdown
   e - changed mom config varattr so invoked script returns the varattr name
       and value(s)
+  b - fixed a bug where CPU time was not being added up properly in all cases (fix for Linux only)
   
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has
