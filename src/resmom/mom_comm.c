@@ -1415,11 +1415,11 @@ void im_eof(
   int ret)     /* I */
 
   {
-  static char           id[] = "im_eof";
+  static char  id[] = "im_eof";
 
-  int                   num;
-  job                  *pjob;
-  hnodent              *np;
+  int      num = -1;
+  job     *pjob = NULL;
+  hnodent *np = NULL;
 
   struct sockaddr_in   *addr;
 
