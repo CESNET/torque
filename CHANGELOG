@@ -38,6 +38,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - removed qhold / qrls -h n option since there is no code to support it
   b - set job state and substate correctly when job has a hold attribute and
       is being rerun
+  e - fixed several compiler error and warnings for AIX 5.2 systems
 
 2.3.3
   b - fixed bug where pbs_mom would sometimes not connect properly with 

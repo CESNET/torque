@@ -95,6 +95,9 @@
 #include <fcntl.h>
 #include <sys/time.h>
 
+#ifdef _AIX
+#include <arpa/aixrcmds.h>
+#endif
 
 #ifdef __APPLE__
 /* this is a hack for the missing bindresvport declaration on OS X
