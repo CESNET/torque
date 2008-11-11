@@ -7,6 +7,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - on pbs_server startup, don't skip job-exclusive nodes on initial MOM scan
   b - pbs_server should not connect to "down" MOMs for any job operation
   b - use alarm() around writing to job's stdio incase it happens to be a stopped tty
+  b - reissue job obit even if no processes are found
 
 2.1.10
   b - fix buffer overflow in rm_request, 

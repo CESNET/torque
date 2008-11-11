@@ -1708,6 +1708,7 @@ void req_signaljob(
   {
   job            *pjob;
   int             sig;
+  int		  numprocs=0;
   char           *sname;
   struct sig_tbl *psigt;
   extern struct sig_tbl sig_tbl[];
@@ -1804,12 +1805,14 @@ void req_signaljob(
     return;
     }
 
-  if ((kill_job(pjob,sig) == 0) && (sig == 0)) 
+  numprocs=kill_job(pjob,sig);
+
+  if ((numprocs == 0) && ((sig == 0)||(sig == SIGKILL))) 
     {
     /* SIGNUL and no procs found, force job to exiting */
     /* force issue of (another) job obit */
 
-    sprintf(log_buffer,"job recycled into exiting on SIGNULL from substate %d",
+    sprintf(log_buffer,"job recycled into exiting on SIGNULL/KILL from substate %d",
       pjob->ji_qs.ji_substate);
 
     LOG_EVENT(
@@ -1821,21 +1824,6 @@ void req_signaljob(
     pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
     job_save(pjob,SAVEJOB_QUICK);
-
-    exiting_tasks = 1;
-    }
-
-  if ((sig == SIGKILL) && (pjob->ji_qs.ji_substate == JOB_SUBSTATE_EXITING)) 
-    {
-    /* force issue of (another) job obit */
-
-    sprintf(log_buffer,"job recycled into exiting on SIGKILL from substate exiting");
-
-    LOG_EVENT(
-      PBSEVENT_ERROR, 
-      PBS_EVENTCLASS_JOB,
-      pjob->ji_qs.ji_jobid, 
-      log_buffer);
 
     exiting_tasks = 1;
     }
