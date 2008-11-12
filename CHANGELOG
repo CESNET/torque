@@ -1,6 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.5
+  e - added new init.d scripts for Debian/Ubuntu systems
 
 2.3.4
   b - fixed a bug with RPM spec files due to new pbs_track executable
