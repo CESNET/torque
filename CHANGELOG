@@ -1,5 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
+2.3.6
+
 2.3.5
   e - added new init.d scripts for Debian/Ubuntu systems
   b - fixed regression in 2.3.4 release which incorrectly changed soname for libtorque
