@@ -17,7 +17,9 @@ EXTRA_DIST = CHANGELOG INSTALL.GNU README.configure README.mpiexec \
 	     contrib/README.pbs_python contrib/README.pbs_weblite \
 	     contrib/qpeek \
 	     contrib/init.d/pbs_mom contrib/init.d/pbs_server contrib/init.d/pbs_sched \
-	     contrib/init.d/suse.pbs_mom contrib/init.d/suse.pbs_server contrib/init.d/suse.pbs_sched
+	     contrib/init.d/suse.pbs_mom contrib/init.d/suse.pbs_server contrib/init.d/suse.pbs_sched \
+			 contrib/init.d/debian.pbs_mom contrib/init.d/debian.pbs_server contrib/init.d/debian.pbs_sched
+
 
 bin_SCRIPTS = pbs-config
 
