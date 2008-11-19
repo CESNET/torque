@@ -831,9 +831,9 @@ scan_for_exiting(void)
       }  /* END if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0) */
 
     /*
-    ** At this point, we know we are Mother Superior for this
-    ** job which is EXITING.  Time for it to die.
-    */
+     * At this point, we know we are Mother Superior for this
+     * job which is EXITING.  Time for it to die.
+     */
     pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Suspend;
 
     kill_job(pjob, SIGKILL, id, "local task termination detected");
@@ -841,7 +841,6 @@ scan_for_exiting(void)
 #ifdef ENABLE_CPA
     if (CPADestroyPartition(pjob) != 0)
       continue;
-
 #endif
 
     delete_link(&pjob->ji_jobque); /* unlink for poll list */
