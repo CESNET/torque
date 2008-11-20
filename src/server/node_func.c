@@ -1413,6 +1413,18 @@ int create_pbs_node(
     return(rc);
     }
 
+  if (pul == NULL)
+    {
+    free(pname);
+
+    snprintf(log_buffer, 1024, "no valid IP addresses found for '%s' - check name service",
+             objname);
+
+    log_err(-1, "process_host_name_part", log_buffer);
+
+    return(PBSE_SYSTEM);
+    }
+
   if (find_nodebyname(pname))
     {
     free(pname);
