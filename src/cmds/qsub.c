@@ -4056,7 +4056,7 @@ int main(
       [-S path] [-t number_to_submit] [-T type] [-u user_list] [-X]\n\
       [-W otherattributes=value...] [-v variable_list] [-V ] [-z] [script]\n";
 
-    fprintf(stderr, usage);
+    fprintf(stderr,"%s", usage);
 
     exit(2);
     }

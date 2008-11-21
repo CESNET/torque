@@ -740,7 +740,7 @@ static void lock_out(int fds, int op)
     {
     (void)strcpy(log_buffer, "pbs_sched: another scheduler running\n");
     log_err(errno, msg_daemonname, log_buffer);
-    fprintf(stderr, log_buffer);
+    fprintf(stderr, "%s", log_buffer);
     exit(1);
     }
   }
@@ -1132,7 +1132,10 @@ int main(
 
     lock_out(lockfds, F_WRLCK);
 
-    freopen(dbfile, "a", stdout);
+    if (!freopen(dbfile, "a", stdout)) {
+      perror("lockout, attempting to freopen dbfile");
+      exit(1);
+    }
 
     setvbuf(stdout, NULL, _IOLBF, 0);
 
@@ -1146,7 +1149,10 @@ int main(
     pid = getpid();
     }
 
-  freopen("/dev/null", "r", stdin);
+  if (!freopen("/dev/null", "r", stdin)) {
+    perror("lockout, attempting to freopen /dev/null");
+    exit(1);
+  }
 
   /* write scheduler's pid into lockfile */
 
