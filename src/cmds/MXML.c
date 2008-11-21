@@ -283,8 +283,18 @@ int MXMLSetAttr(
 
   if (E->AName == NULL)
     {
-    E->AName = (char **)calloc(1, sizeof(char *) * MMAX_XMLATTR);
-    E->AVal  = (char **)calloc(1, sizeof(char *) * MMAX_XMLATTR);
+    if ((E->AName = (char **)calloc(1, sizeof(char *) * MMAX_XMLATTR)) == NULL)
+      {
+		/* LOGERROR */
+		fprintf(stderr, "ERROR: could not calloc!\n");
+		return(FAILURE);
+      }
+    if ((E->AVal  = (char **)calloc(1, sizeof(char *) * MMAX_XMLATTR)) == NULL)
+      {
+		/* LOGERROR */ 
+		fprintf(stderr, "ERROR: could not calloc!\n");
+		return(FAILURE);
+      }
 
     E->ASize = MMAX_XMLATTR;
     E->ACount = 0;

@@ -771,9 +771,13 @@ void DIS_tcp_setup(
 
     if (tcparray == NULL)
       {
-      tcparray = (struct tcp_chan **)calloc(
+      if ((tcparray = (struct tcp_chan **)calloc(
                    tcparraymax,
-                   sizeof(struct tcp_chan *));
+                   sizeof(struct tcp_chan *)))==NULL)
+	{
+		log_err(errno, "DIS_tcp_setup", "calloc failure");
+		return;
+	}
 
       if (tcparray == NULL)
         {
@@ -784,9 +788,13 @@ void DIS_tcp_setup(
       }
     else
       {
-      tcparray = (struct tcp_chan **)realloc(
+      if ((tcparray = (struct tcp_chan **)realloc(
                    tcparray,
-                   tcparraymax * sizeof(struct tcp_chan *));
+                   tcparraymax * sizeof(struct tcp_chan *)))==NULL)
+	{
+		log_err(errno, "DIS_tcp_setup", "realloc failure");
+		return;
+	}
 
       if (tcparray == NULL)
         {

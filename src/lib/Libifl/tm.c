@@ -741,7 +741,12 @@ int   *nnodes;
   for (np = node_table; *np != TM_ERROR_NODE; np++)
     n++;  /* how many nodes */
 
-  np = (tm_node_id *)calloc(n, sizeof(tm_node_id));
+  if ((np = (tm_node_id *)calloc(n, sizeof(tm_node_id)))==NULL)
+    {
+	/* LOGERROR */
+	fprintf(stderr,"ERROR: could not calloc!\n");
+	return(TM_ERROR);
+    }
 
   for (i = 0; i < n; i++)
     np[i] = node_table[i];

@@ -1112,7 +1112,12 @@ int pbsd_init(
   else
     server.sv_tracksize = i;
 
-  server.sv_track = (struct tracking *)calloc(server.sv_tracksize, sizeof(struct tracking));
+  if ((server.sv_track = (struct tracking *)calloc(server.sv_tracksize, sizeof(struct tracking)))==NULL)
+    {
+	/* LOGERROR */
+	log_err(errno, "pbs_init", "calloc failure");
+	return(-1);	
+    }
 
   for (i = 0;i < server.sv_tracksize;i++)
     (server.sv_track + i)->tk_mtime = 0;

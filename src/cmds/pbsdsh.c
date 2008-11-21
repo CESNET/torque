@@ -1062,13 +1062,23 @@ int main(
     stop  = numnodes;
     }
 
-  ioenv = calloc(2, sizeof(char));
+  if ((ioenv = calloc(2, sizeof(char)))==NULL)
+    {
+	/* LOGERROR */
+	fprintf(stderr, "ERROR:	could not calloc 2 bytes!\n");
+	return(FAILURE);
+    }
 
   if (grabstdio)
     {
     stdoutfd = build_listener(&stdoutport);
 
-    *ioenv = calloc(50, sizeof(char));
+    if ((*ioenv = calloc(50, sizeof(char)))==NULL)
+      {
+	/* LOGERROR */
+	fprintf(stderr, "ERROR:	could not calloc 2 bytes!\n");
+	return(FAILURE);
+      }
     snprintf(*ioenv, 49, "TM_STDOUT_PORT=%d", stdoutport);
 
     FD_ZERO(&permrfsd);

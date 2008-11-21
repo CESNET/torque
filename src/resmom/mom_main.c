@@ -859,7 +859,16 @@ static char *getjoblist(
 
   if (list == NULL)
     {
-    list = calloc(BUFSIZ + 50, sizeof(char));
+    if ((list = calloc(BUFSIZ + 50, sizeof(char)))==NULL)
+      {
+	/* LOGERROR */
+	fprintf(stderr,"ERROR: could not calloc!\n");
+	/*
+	 * since we can't allocate memory to work with
+	 * let's pretend we don't have any jobs
+	 */ 
+	return (" ");	
+      }
 
     listlen = BUFSIZ;
     }
@@ -883,7 +892,13 @@ static char *getjoblist(
     if ((int)strlen(list) >= listlen)
       {
       listlen += BUFSIZ;
-      list = realloc(list, listlen);
+      if ((list = realloc(list, listlen))==NULL)
+	{
+		/* LOGERROR */
+		fprintf(stderr,"ERROR: could not realloc!\n");
+		/* let's pretend we don't have any jobs! */
+		return(" ");
+	}
       }
 
     firstjob = 0;
@@ -1788,7 +1803,12 @@ static u_long restricted(
 
   if (mask_max == 0)
     {
-    maskclient = (char **)calloc(4, sizeof(char *));
+    if ((maskclient = (char **)calloc(4, sizeof(char *)))==NULL)
+      {
+	/* LOGERROR */
+	fprintf(stderr,"ERROR: could not calloc!\n");
+	return(-1);	
+      }
 
     mask_max = 4;
     }
@@ -1799,9 +1819,14 @@ static u_long restricted(
     {
     mask_max *= 2;
 
-    maskclient = (char **)realloc(
+    if ((maskclient = (char **)realloc(
                    maskclient,
-                   mask_max * sizeof(char *));
+                   mask_max * sizeof(char *)))==NULL)
+      {
+	/* LOGERROR */
+	fprintf(stderr,"ERROR: could not realloc!\n");
+	return(-1);	
+      }
     }
 
   return(1);

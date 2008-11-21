@@ -129,7 +129,12 @@ int main(
 
         CmdIndex = momQuery;
 
-        Query[QueryI] = calloc(strlen(DiagPtr) + 3, sizeof(char));
+        if ((Query[QueryI] = calloc(strlen(DiagPtr) + 3, sizeof(char))) == NULL)
+	  {
+		fprintf(stderr, "ERROR:    could not calloc '%d' bytes!\n",
+			strlen(DiagPtr) + 3);
+		exit(EXIT_FAILURE);
+	  }
 
         if (optarg == NULL)
           {

@@ -294,7 +294,12 @@ dep_initialize(void)
 #endif /* AIX43 */
 
   if (swap_dev == NULL)
-    swap_dev = (char **)calloc(10, sizeof(char *));
+    if ((swap_dev = (char **)calloc(10, sizeof(char *)))==NULL)
+      {
+	/* LOGERROR */
+	log_err(errno,"dep_initialize","calloc failure");
+	return;
+      }
 
   page_size = sysconf(_SC_PAGESIZE);
 
@@ -316,7 +321,12 @@ dep_initialize(void)
         continue;
 
       DBPRT(("%s: swapdev(%d) %s\n", id, i, dev))
-      swap_dev = realloc(swap_dev, (i + 2) * sizeof(char *));
+      if ((swap_dev = realloc(swap_dev, (i + 2) * sizeof(char *)))==NULL)
+	{
+		/* LOGERROR */
+		log_err(errno,"dep_initialize","realloc failure");
+		return;
+	}
 
       swap_dev[i++] = strdup(dev);
       }
@@ -346,7 +356,12 @@ dep_initialize(void)
     log_err(errno, id, "F_SETFD");
     }
 
-  proc_tbl = malloc(ASIZE * sizeof(struct procsinfo));
+  if ((proc_tbl = malloc(ASIZE * sizeof(struct procsinfo)))==NULL)
+    {
+	/* LOGERROR */
+	log_err(errno, "dep_initialize","malloc failure");
+	return;
+    }
 
   proctot = ASIZE;
 

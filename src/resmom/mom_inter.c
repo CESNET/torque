@@ -534,14 +534,18 @@ int x11_create_display(
 
   *display = '\0';
 
-  socks = calloc(sizeof(struct pfwdsock),NUM_SOCKS);
-
-  if (socks == NULL)
+  if ((socks = calloc(sizeof(struct pfwdsock), NUM_SOCKS))==NULL)
     {
-    return(-1);
+	/* LOGERROR */
+	fprintf(stderr, "ERROR: could not calloc!\n");
+	return(-1);
     }
-
-  homeenv = malloc(strlen("HOME=") + strlen(homedir) + 2);
+  if ((homeenv = malloc(strlen("HOME=") + strlen(homedir) + 2))==NULL)
+    {
+	/* LOGERROR */
+	fprintf(stderr, "ERROR: could not malloc!\n");
+	return(-1);
+    }
 
   if (homeenv == NULL)
     {
