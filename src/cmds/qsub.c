@@ -308,13 +308,22 @@ static char *x11_get_proto(
 
   authstring = malloc(strlen(proto) + strlen(data) + strlen(screen) + 4);
 
+  if (authstring == NULL)
+    {
+    /* FAILURE */
+
+    return(NULL);
+    }
+
   sprintf(authstring, "%s:%s:%s",
-          proto,
-          data,
-          screen);
+    proto,
+    data,
+    screen);
 
   return(authstring);
   }  /* END x11_get_proto() */
+
+
 
 
 
@@ -371,7 +380,9 @@ int isexecutable(
     }
 
   return(FALSE);
-  }
+  }  /* END isexecutable() */
+
+
 
 
 
@@ -3286,17 +3297,18 @@ int process_opts(
 
               pdepend = malloc(PBS_DEPEND_LEN);
 
-              if (parse_depend_list(valuewd, pdepend, PBS_DEPEND_LEN))
+              if ((pdepend == NULL) ||
+                   parse_depend_list(valuewd,pdepend,PBS_DEPEND_LEN))
                 {
                 /* cannot parse 'depend' value */
 
-                fprintf(stderr, "qsub: illegal -W value\n");
+                fprintf(stderr,"qsub: illegal -W value\n");
                 errflg++;
 
                 break;
                 }
 
-              set_attr(&attrib, ATTR_depend, pdepend);
+              set_attr(&attrib,ATTR_depend,pdepend);
               }
             }
           else if (!strcmp(keyword, ATTR_stagein))

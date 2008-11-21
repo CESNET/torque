@@ -2048,9 +2048,12 @@ static u_long usecp(
 
     if (pcphosts == NULL)
       {
-      sprintf(log_buffer, "%s: out of memory while allocating pcphosts",
-              id);
-      log_err(-1, id, log_buffer);
+      sprintf(log_buffer,"%s: out of memory while allocating pcphosts",
+        id);
+
+      log_err(-1,id,log_buffer);
+
+      return(0);
       }
 
     cphosts_max = 2;
@@ -2062,9 +2065,14 @@ static u_long usecp(
 
     if (newp == NULL)
       {
-      sprintf(log_buffer, "%s: out of memory while reallocating pcphosts",
-              id);
-      log_err(-1, id, log_buffer);
+      /* FAILURE */
+
+      sprintf(log_buffer,"%s: out of memory while reallocating pcphosts",
+        id);
+
+      log_err(-1,id,log_buffer);
+
+      return(0);
       }
 
     pcphosts = newp;
@@ -2072,28 +2080,33 @@ static u_long usecp(
     cphosts_max += 2;
     }
 
-  pnxt = strchr(value, (int)':');
+  pnxt = strchr(value,(int)':');
 
   if (pnxt == NULL)
     {
     /* request failed */
 
-    sprintf(log_buffer, "invalid host specification: %s",
-            value);
+    sprintf(log_buffer,"invalid host specification: %s",
+      value);
 
-    log_err(-1, id, log_buffer);
+    log_err(-1,id,log_buffer);
 
     return(0);
     }
 
   *pnxt++ = '\0';
 
-  (pcphosts + cphosts_num)->cph_hosts = strdup(value);
+  pcphosts[cphosts_num].cph_hosts = strdup(value);
 
-  if ((pcphosts + cphosts_num)->cph_hosts == NULL)
+  if (pcphosts[cphosts_num].cph_hosts == NULL)
     {
-    sprintf(log_buffer, "%s: out of memory in strdup(cph_hosts)", id);
-    log_err(-1, id, log_buffer);
+    /* FAILURE */
+
+    sprintf(log_buffer,"%s: out of memory in strdup(cph_hosts)",
+      id);
+
+    log_err(-1,id,log_buffer);
+
     return(0);
     }
 
@@ -2103,10 +2116,14 @@ static u_long usecp(
     {
     if (*pnxt == '\0')
       {
-      sprintf(log_buffer, "invalid '%s' specification %s: "
-              "missing destination path", id, value);
+      sprintf(log_buffer, "invalid '%s' specification %s: " "missing destination path", 
+        id, 
+        value);
+
       log_err(-1, id, log_buffer);
+
       free(pcphosts[cphosts_num].cph_hosts);
+
       return(0);
       }
 
@@ -2115,24 +2132,32 @@ static u_long usecp(
 
   *pnxt++ = '\0';
 
-  (pcphosts + cphosts_num)->cph_from = strdup(value);
+  pcphosts[cphosts_num].cph_from = strdup(value);
 
-  if ((pcphosts + cphosts_num)->cph_from == NULL)
+  if (pcphosts[cphosts_num].cph_from == NULL)
     {
-    sprintf(log_buffer, "%s: out of memory in strdup(cph_from)", id);
-    log_err(-1, id, log_buffer);
+    sprintf(log_buffer,"%s: out of memory in strdup(cph_from)", 
+      id);
+
+    log_err(-1,id,log_buffer);
+
     free(pcphosts[cphosts_num].cph_hosts);
+
     return(0);
     }
 
-  (pcphosts + cphosts_num)->cph_to   = strdup(skipwhite(pnxt));
+  pcphosts[cphosts_num].cph_to = strdup(skipwhite(pnxt));
 
-  if ((pcphosts + cphosts_num)->cph_to == NULL)
+  if (pcphosts[cphosts_num].cph_to == NULL)
     {
-    sprintf(log_buffer, "%s: out of memory in strdup(cph_to)", id);
+    sprintf(log_buffer,"%s: out of memory in strdup(cph_to)", 
+      id);
+
     log_err(-1, id, log_buffer);
+
     free(pcphosts[cphosts_num].cph_hosts);
     free(pcphosts[cphosts_num].cph_from);
+
     return(0);
     }
 
@@ -6393,9 +6418,12 @@ void parse_command_line(
           {
           path_checkpoint = malloc(strlen(optarg) + 2);
 
-          strcpy(path_checkpoint, optarg);
+          if (path_checkpoint != NULL)
+            {
+            strcpy(path_checkpoint,optarg);
 
-          strcat(path_checkpoint, "/");
+            strcat(path_checkpoint,"/");
+            }
           }
 
 #else
@@ -6540,8 +6568,7 @@ void parse_command_line(
  * setup_program_environment
  */
 
-int
-setup_program_environment(void)
+int setup_program_environment(void)
 
   {
   static char   id[] = "setup_program_environment";
@@ -7488,15 +7515,18 @@ examine_all_polled_jobs(void)
 
         kill_msg = malloc(80 + strlen(log_buffer));
 
-        sprintf(kill_msg, "=>> PBS: job killed: %s\n",
-                log_buffer);
+        if (kill_msg != NULL)
+          {
+          sprintf(kill_msg,"=>> PBS: job killed: %s\n",
+            log_buffer);
 
-        message_job(pjob, StdErr, kill_msg);
+          message_job(pjob,StdErr,kill_msg);
 
-        free(kill_msg);
+          free(kill_msg);
+          }
         }
 
-      kill_job(pjob, SIGTERM, id, "job is over-limit-0");
+      kill_job(pjob,SIGTERM,id,"job is over-limit-0");
 
       pjob->ji_qs.ji_svrflags |= JOB_SVFLG_OVERLMT1;
       }

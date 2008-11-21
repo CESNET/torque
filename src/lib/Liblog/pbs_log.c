@@ -486,20 +486,20 @@ void log_record(
 
     while (tryagain)
       {
-      rc = fprintf(logfile,
-                   "%02d/%02d/%04d %02d:%02d:%02d;%04x;%10.10s;%s;%s;%s%.*s\n",
-                   ptm->tm_mon + 1,
-                   ptm->tm_mday,
-                   ptm->tm_year + 1900,
-                   ptm->tm_hour,
-                   ptm->tm_min,
-                   ptm->tm_sec,
-                   (eventtype & ~PBSEVENT_FORCE),
-                   msg_daemonname,
-                   class_names[objclass],
-                   objname,
-                   (text == start ? "" : "[continued]"),
-                   (int)nchars, start);
+      rc = fprintf(logfile,"%02d/%02d/%04d %02d:%02d:%02d;%04x;%10.10s;%s;%s;%s%.*s\n",
+             ptm->tm_mon + 1,
+             ptm->tm_mday,
+             ptm->tm_year + 1900,
+             ptm->tm_hour,
+             ptm->tm_min,
+             ptm->tm_sec,
+             (eventtype & ~PBSEVENT_FORCE),
+             msg_daemonname,
+             class_names[objclass],
+             objname,
+             (text == start ? "" : "[continued]"),
+             (int)nchars, 
+             start);
 
       if ((rc < 0) &&
           (errno == EPIPE) &&
@@ -509,7 +509,7 @@ void log_record(
          * reopen log and leave the previous file descriptor alone--do not close it */
 
         log_opened = 0;
-        log_open(NULL, log_directory);
+        log_open(NULL,log_directory);
         tryagain--;
         }
       else
@@ -525,7 +525,7 @@ void log_record(
       break;
 
     start = end + 1;
-    }
+    }  /* END while (1) */
 
   fflush(logfile);
 
@@ -534,8 +534,8 @@ void log_record(
     rc = errno;
     clearerr(logfile);
     savlog = logfile;
-    logfile = fopen("/dev/console", "w");
-    log_err(rc, "log_record", "PBS cannot write to its log");
+    logfile = fopen("/dev/console","w");
+    log_err(rc,"log_record","PBS cannot write to its log");
     fclose(logfile);
     logfile = savlog;
     }
@@ -617,16 +617,23 @@ void log_roll(
 
   file_buf_len = sizeof(char) * (strlen(logpath) + suffix_size + 1);
 
-  source = (char*)malloc(file_buf_len);
+  source = (char *)malloc(file_buf_len);
 
-  dest   = (char*)malloc(file_buf_len);
+  dest   = (char *)malloc(file_buf_len);
+
+  if ((source == NULL) || (dest == NULL))
+    {
+    err = errno;
+
+    goto done_roll;
+    }
 
   /* call unlink to delete logname.max_depth - it doesn't matter if it
      doesn't exist, so we'll ignore ENOENT */
 
-  sprintf(dest, "%s.%d",
-          logpath,
-          max_depth);
+  sprintf(dest,"%s.%d",
+    logpath,
+    max_depth);
 
   if ((unlink(dest) != 0) && (errno != ENOENT))
     {
@@ -640,47 +647,48 @@ void log_roll(
     {
     if (i == 0)
       {
-      strcpy(source, logpath);
+      strcpy(source,logpath);
       }
     else
       {
-      sprintf(source, "%s.%d",
-              logpath,
-              i);
+      sprintf(source,"%s.%d",
+        logpath,
+        i);
       }
 
-    sprintf(dest, "%s.%d",
-
-            logpath,
-            i + 1);
+    sprintf(dest,"%s.%d",
+      logpath,
+      i + 1);
 
     /* rename file if it exists */
 
-    if ((rename(source, dest) != 0) && (errno != ENOENT))
+    if ((rename(source,dest) != 0) && (errno != ENOENT))
       {
       err = errno;
       goto done_roll;
       }
-    }
+    }    /* END for (i) */
 
 done_roll:
 
   if (as)
     {
-    log_open(NULL, log_directory);
+    log_open(NULL,log_directory);
     }
   else
     {
-    log_open(logpath, log_directory);
+    log_open(logpath,log_directory);
     }
 
-  free(source);
+  if (source != NULL)
+    free(source);
 
-  free(dest);
+  if (dest != NULL)
+    free(dest);
 
   if (err != 0)
     {
-    log_err(err, "log_roll", "error while rollng logs");
+    log_err(err,"log_roll","error while rollng logs");
     }
   else
     {
@@ -693,6 +701,8 @@ done_roll:
 
   return;
   } /* END log_roll() */
+
+
 
 
 

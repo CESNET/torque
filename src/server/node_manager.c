@@ -3024,6 +3024,13 @@ static char *mod_spec(
 
   line = malloc(nsubspec * (len + 1) + strlen(spec) + 1);
 
+  if (line == NULL)
+    {
+    /* FAILURE */
+
+    return(NULL);
+    }
+
   cp = line;
 
   while (*spec)
@@ -3042,7 +3049,7 @@ static char *mod_spec(
 
   *cp++ = ':';
 
-  strcpy(cp, global);
+  strcpy(cp,global);
 
   return(line);
   }  /* END mod_spec() */
@@ -3739,8 +3746,8 @@ int set_nodes(
   if (LOGLEVEL >= 3)
     {
     sprintf(log_buffer, "allocating nodes for job %s with node expression '%.4000s'",
-            pjob->ji_qs.ji_jobid,
-            spec);
+      pjob->ji_qs.ji_jobid,
+      spec);
 
     log_record(
       PBSEVENT_SCHED,
@@ -3758,8 +3765,8 @@ int set_nodes(
     if (EMsg != NULL)
       {
       sprintf(log_buffer, "could not locate requested resources '%.4000s' (node_spec failed) %s",
-              spec,
-              EMsg);
+        spec,
+        EMsg);
 
       log_record(
         PBSEVENT_JOB,
@@ -3789,7 +3796,6 @@ int set_nodes(
 
   for (i = 0;i < svr_totnodes;i++)
     {
-
     struct jobinfo *jp;
 
     pnode = pbsndlist[i];
@@ -3826,16 +3832,17 @@ int set_nodes(
       if (LOGLEVEL >= 5)
         {
         sprintf(log_buffer, "allocated node %s/%d to job %s (nsnfree=%d)",
-                pnode->nd_name,
-                snp->index,
-                pjob->ji_qs.ji_jobid,
-                pnode->nd_nsnfree);
+          pnode->nd_name,
+          snp->index,
+          pjob->ji_qs.ji_jobid,
+          pnode->nd_nsnfree);
 
         log_record(
           PBSEVENT_SCHED,
           PBS_EVENTCLASS_REQUEST,
           id,
           log_buffer);
+
         DBPRT(("%s\n", log_buffer));
         }
 
@@ -3852,6 +3859,22 @@ int set_nodes(
         /* add job to front of subnode job array */
 
         jp = (struct jobinfo *)malloc(sizeof(struct jobinfo));
+
+        if (jp == NULL)
+          {
+          sprintf(log_buffer,"cannot alloc memory");
+
+          log_record(
+            PBSEVENT_SCHED,
+            PBS_EVENTCLASS_REQUEST,
+            id,
+            log_buffer);
+
+          if (EMsg != NULL)
+            sprintf(EMsg,"cannot alloc memory");
+
+          return(PBSE_RESCUNAV);
+          }
 
         jp->next = snp->jobs;
 
@@ -3873,6 +3896,22 @@ int set_nodes(
       /* build list of nodes ordered to match request */
 
       curr = (struct howl *)malloc(sizeof(struct howl));
+
+      if (curr == NULL)
+        {
+        sprintf(log_buffer,"cannot alloc memory");
+
+        log_record(
+          PBSEVENT_SCHED,
+          PBS_EVENTCLASS_REQUEST,
+          id,
+          log_buffer);
+
+        if (EMsg != NULL)
+          sprintf(EMsg,"cannot alloc memory");
+
+        return(PBSE_RESCUNAV);
+        }
 
       curr->order = pnode->nd_order;
 
@@ -3905,7 +3944,7 @@ int set_nodes(
     if (LOGLEVEL >= 1)
       {
       sprintf(log_buffer, "no nodes can be allocated to job %s",
-              pjob->ji_qs.ji_jobid);
+        pjob->ji_qs.ji_jobid);
 
       log_record(
         PBSEVENT_SCHED,
@@ -3915,7 +3954,7 @@ int set_nodes(
       }
 
     if (EMsg != NULL)
-      sprintf(EMsg, "no nodes can be allocated to job");
+      sprintf(EMsg,"no nodes can be allocated to job");
 
     return(PBSE_RESCUNAV);
     }  /* END if (hlist == NULL) */
@@ -3933,6 +3972,23 @@ int set_nodes(
 
   nodelist = malloc(++i);
 
+  if (nodelist == NULL)
+    {
+    sprintf(log_buffer, "no nodes can be allocated to job %s - no memory",
+      pjob->ji_qs.ji_jobid);
+
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    if (EMsg != NULL)
+      sprintf(EMsg,"no nodes can be allocated to job");
+
+    return(PBSE_RESCUNAV);
+    }
+
   *nodelist = '\0';
 
   /* now copy in name+name+... */
@@ -3944,8 +4000,8 @@ int set_nodes(
     NCount++;
 
     sprintf(nodelist + strlen(nodelist), "%s/%d+",
-            hp->name,
-            hp->index);
+      hp->name,
+      hp->index);
 
     nxt = hp->next;
 
@@ -3959,9 +4015,9 @@ int set_nodes(
   if (LOGLEVEL >= 3)
     {
     snprintf(log_buffer, sizeof(log_buffer), "job %s allocated %d nodes (nodelist=%.4000s)",
-             pjob->ji_qs.ji_jobid,
-             NCount,
-             nodelist);
+      pjob->ji_qs.ji_jobid,
+      NCount,
+      nodelist);
 
     log_record(
       PBSEVENT_SCHED,
@@ -4458,7 +4514,7 @@ static void set_one_old(
   struct jobinfo *jp;
   char        *pc;
 
-  if ((pc = strchr(name, (int)'/')))
+  if ((pc = strchr(name,(int)'/')))
     {
     index = atoi(pc + 1);
 
@@ -4473,7 +4529,7 @@ static void set_one_old(
     {
     pnode = pbsndmast[i];
 
-    if (strcmp(name, pnode->nd_name) == 0)
+    if (!strcmp(name,pnode->nd_name))
       {
       /* Mark node as being IN USE ...  */
 
@@ -4487,11 +4543,16 @@ static void set_one_old(
 
             jp = (struct jobinfo *)malloc(sizeof(struct jobinfo));
 
-            jp->next = snp->jobs;
+            /* NOTE:  should report failure if jp == NULL (NYI) */
 
-            snp->jobs = jp;
+            if (jp != NULL)
+              {
+              jp->next = snp->jobs;
 
-            jp->job = pjob;
+              snp->jobs = jp;
+
+              jp->job = pjob;
+              }
 
             if (--pnode->nd_nsnfree <= 0)
               pnode->nd_state |= shared;

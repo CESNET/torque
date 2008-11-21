@@ -115,19 +115,39 @@ no_hang(int sig)
   siglongjmp(env_alrm, 1);
   }
 
-static char *
-mystrdup(char *str)
+static char *mystrdup(
+
+  char *str)
+
   {
   char *dup;
+
   dup = (char *)malloc((size_t)strlen(str) * sizeof(str));
-  strcpy(dup, str);
+
+  if (dup == NULL)
+    {
+    fprintf(stderr, "xpbs_datadump: out of memory\n");
+
+    exit(2);
+    }
+
+  strcpy(dup,str);
+
   return(dup);
   }
 
-void
-set_attrop(struct attropl **list, char *a_name, char *r_name, char *v_name, enum batch_op op)
-  {
 
+
+
+void set_attrop(
+
+  struct attropl **list, 
+  char            *a_name, 
+  char            *r_name, 
+  char            *v_name, 
+  enum batch_op    op)
+
+  {
   struct attropl *attr;
 
   attr = (struct attropl *) malloc(sizeof(struct attropl));
@@ -135,11 +155,14 @@ set_attrop(struct attropl **list, char *a_name, char *r_name, char *v_name, enum
   if (attr == NULL)
     {
     fprintf(stderr, "xpbs_datadump: out of memory\n");
+
     exit(2);
     }
 
   if (a_name == NULL)
+    {
     attr->name = NULL;
+    }
   else
     {
     attr->name = (char *) malloc(strlen(a_name) + 1);
@@ -147,6 +170,7 @@ set_attrop(struct attropl **list, char *a_name, char *r_name, char *v_name, enum
     if (attr->name == NULL)
       {
       fprintf(stderr, "xpbs_datadump: out of memory\n");
+
       exit(2);
       }
 
@@ -154,7 +178,9 @@ set_attrop(struct attropl **list, char *a_name, char *r_name, char *v_name, enum
     }
 
   if (r_name == NULL)
+    {
     attr->resource = (char *)NULL;
+    }
   else
     {
     attr->resource = (char *) malloc(strlen(r_name) + 1);
@@ -162,14 +188,17 @@ set_attrop(struct attropl **list, char *a_name, char *r_name, char *v_name, enum
     if (attr->resource == NULL)
       {
       fprintf(stderr, "xpbs_datadump: out of memory\n");
+
       exit(2);
       }
 
-    strcpy(attr->resource, r_name);
+    strcpy(attr->resource,r_name);
     }
 
   if (v_name == NULL)
+    {
     attr->value = NULL;
+    }
   else
     {
     attr->value = (char *) malloc(strlen(v_name) + 1);

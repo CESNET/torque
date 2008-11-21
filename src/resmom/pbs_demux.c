@@ -201,7 +201,6 @@ int main(
   char *argv[])
 
   {
-
   struct timeval timeout;
   int i;
   int maxfd;
@@ -239,20 +238,28 @@ int main(
 
   routem = (struct routem *)malloc(maxfd * sizeof(struct routem));
 
-  for (i = 0;i < maxfd;++i)
+  if (routem == NULL)
     {
-    (routem + i)->r_where = invalid;
-    (routem + i)->r_nl    = 1;
+    fprintf(stderr, "%s: malloc failed\n",
+      argv[0]);
+
+    exit(1);
     }
 
-  (routem + main_sock_out)->r_where = new_out;
-  (routem + main_sock_err)->r_where = new_err;
+  for (i = 0;i < maxfd;++i)
+    {
+    routem[i].r_where = invalid;
+    routem[i].r_nl    = 1;
+    }
+
+  routem[main_sock_out].r_where = new_out;
+  routem[main_sock_err].r_where = new_err;
 
   FD_ZERO(&readset);
-  FD_SET(main_sock_out, &readset);
-  FD_SET(main_sock_err, &readset);
+  FD_SET(main_sock_out,&readset);
+  FD_SET(main_sock_err,&readset);
 
-  if (listen(main_sock_out, TORQUE_LISTENQUEUE) < 0)
+  if (listen(main_sock_out,TORQUE_LISTENQUEUE) < 0)
     {
     perror("listen on out");
 
@@ -272,7 +279,7 @@ int main(
     timeout.tv_usec = 0;
     timeout.tv_sec  = 10;
 
-    n = select(FD_SETSIZE, &selset, (fd_set *)0, (fd_set *)0, &timeout);
+    n = select(FD_SETSIZE,&selset,(fd_set *)0,(fd_set *)0,&timeout);
 
     if (n == -1)
       {
@@ -283,7 +290,7 @@ int main(
       else
         {
         fprintf(stderr, "%s: select failed\n",
-                argv[0]);
+          argv[0]);
 
         exit(1);
         }

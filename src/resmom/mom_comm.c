@@ -4746,9 +4746,8 @@ int tm_request(
         }
 
       DBPRT(("%s: POSTINFO %s task %d sent info %s:%s(%d)\n",
-
-             id,
-             jobid, fromtask, name, info, (int)len))
+        id,
+        jobid, fromtask, name, info, (int)len))
 
       if (prev_error)
         goto done;
@@ -4766,11 +4765,11 @@ int tm_request(
     case TM_REGISTER:
 
       sprintf(log_buffer, "REGISTER - NOT IMPLEMENTED %s",
-              jobid);
+        jobid);
 
-      tm_reply(fd, TM_ERROR, event);
+      tm_reply(fd,TM_ERROR,event);
 
-      diswsi(fd, TM_ENOTIMPLEMENTED);
+      diswsi(fd,TM_ENOTIMPLEMENTED);
 
       DIS_tcp_wflush(fd);
 
@@ -4843,7 +4842,7 @@ int tm_request(
       */
 
       DBPRT(("%s: TASKS %s on node %d\n",
-             id, jobid, nodeid))
+        id, jobid, nodeid))
 
       if (prev_error)
         goto done;
@@ -4923,7 +4922,7 @@ int tm_request(
       */
 
       DBPRT(("%s: SPAWN %s on node %d\n",
-             id, jobid, nodeid))
+        id, jobid, nodeid))
 
       numele = disrui(fd, &ret);
 
@@ -5002,7 +5001,22 @@ int tm_request(
 
       envp[i] = malloc(1024 * sizeof(char));
 
-      sprintf(envp[i], "PBS_VNODENUM=%d", nodeid);
+      if (envp[i] == NULL)
+        {
+        log_record(
+          PBSEVENT_ERROR,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          "cannot alloc env memory)");
+
+        arrayfree(argv);
+        arrayfree(envp);
+
+        goto done;
+        }
+
+      sprintf(envp[i],"PBS_VNODENUM=%d", 
+        nodeid);
 
       i++;
 
@@ -5060,7 +5074,7 @@ int tm_request(
 
         arrayfree(envp);
 
-        ret = tm_reply(fd, i, event);
+        ret = tm_reply(fd,i,event);
 
         if (ret != DIS_SUCCESS)
           goto done;

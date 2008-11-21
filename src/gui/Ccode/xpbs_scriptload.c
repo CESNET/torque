@@ -317,8 +317,16 @@ make_argv(int *argc, char *argv[], char *line)
     }
   }
 
-int
-process_opts(int argc, char **argv, int pass)
+
+
+
+
+int process_opts(
+
+  int    argc, 
+  char **argv, 
+  int    pass)
+
   {
   int i;
   int c;
@@ -793,28 +801,34 @@ process_opts(int argc, char **argv, int pass)
           break;
           }
 
-        i = parse_equal_string(optarg, &keyword, &valuewd);
+        i = parse_equal_string(optarg,&keyword,&valuewd);
 
         while (i == 1)
           {
-          if (strcmp(keyword, ATTR_depend) == 0)
+          if (!strcmp(keyword,ATTR_depend))
             {
             if_cmd_line(Depend_opt)
               {
               Depend_opt = passet;
+
               pdepend = malloc(PBS_DEPEND_LEN);
 
-              if (parse_depend_list(valuewd, pdepend, PBS_DEPEND_LEN))
+              if ((pdepend == NULL) ||
+                   parse_depend_list(valuewd,pdepend,PBS_DEPEND_LEN))
                 {
-                fprintf(stderr, "scriptload: illegal -W value\n");
+                fprintf(stderr,"scriptload: illegal -W value\n");
+
                 errflg++;
+
                 break;
                 }
 
-              printf("%s = %s\n", ATTR_depend, pdepend);
+              printf("%s = %s\n", 
+                ATTR_depend, 
+                pdepend);
               }
             }
-          else if (strcmp(keyword, ATTR_stagein) == 0)
+          else if (!strcmp(keyword,ATTR_stagein))
             {
             if_cmd_line(Stagein_opt)
               {
@@ -823,7 +837,9 @@ process_opts(int argc, char **argv, int pass)
               if (parse_stage_list(valuewd))
                 {
                 fprintf(stderr, "scriptload: illegal -W value\n");
+
                 errflg++;
+
                 break;
                 }
 

@@ -739,8 +739,10 @@ DIS_tcp_funcs(void)
 
 /*
  * DIS_tcp_setup - setup supports routines for dis, "data is strings", to
- *  use tcp stream I/O.  Also initializes an array of pointers to
+ * use tcp stream I/O.  Also initializes an array of pointers to
  * buffers and a buffer to be used for the given fd.
+ * 
+ * NOTE:  does not return FAILURE - FIXME
  */
 
 void DIS_tcp_setup(
@@ -748,7 +750,6 @@ void DIS_tcp_setup(
   int fd)
 
   {
-
   struct tcp_chan *tcp;
 
   /* check for bad file descriptor */
@@ -773,6 +774,13 @@ void DIS_tcp_setup(
       tcparray = (struct tcp_chan **)calloc(
                    tcparraymax,
                    sizeof(struct tcp_chan *));
+
+      if (tcparray == NULL)
+        {
+        /* FAILURE */
+ 
+        return;
+        }
       }
     else
       {
@@ -780,9 +788,16 @@ void DIS_tcp_setup(
                    tcparray,
                    tcparraymax * sizeof(struct tcp_chan *));
 
-      memset(&tcparray[hold], '\0', (tcparraymax - hold) * sizeof(struct tcp_chan *));
+      if (tcparray == NULL)
+        {
+        /* FAILURE */
+
+        return;
+        }
+
+      memset(&tcparray[hold],'\0',(tcparraymax - hold) * sizeof(struct tcp_chan *));
       }
-    }
+    }    /* END if (fd >= tcparraymax) */
 
   tcp = tcparray[fd];
 
@@ -793,7 +808,9 @@ void DIS_tcp_setup(
 
     if (tcp == NULL)
       {
-      log_err(errno, "DIS_tcp_setup", "malloc failure");
+      log_err(errno,"DIS_tcp_setup","malloc failure");
+
+      return;
       }
     }
 

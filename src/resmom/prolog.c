@@ -540,11 +540,11 @@ int run_pelog(
 
     if ((which == PE_PROLOGUSER) || (which == PE_EPILOGUSER))
       {
-      if (setgroups(pjob->ji_grpcache->gc_ngroup,
-        (gid_t *)pjob->ji_grpcache->gc_groups) != 0)
+      if (setgroups(
+           pjob->ji_grpcache->gc_ngroup,
+           (gid_t *)pjob->ji_grpcache->gc_groups) != 0)
         {
-        snprintf(log_buffer,sizeof(log_buffer),
-          "setgroups() for UID = %lu failed: %s\n",
+        snprintf(log_buffer,sizeof(log_buffer),"setgroups() for UID = %lu failed: %s\n",
           (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
           strerror(errno));
 
@@ -555,8 +555,7 @@ int run_pelog(
 
       if (setgid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) != 0)
         {
-        snprintf(log_buffer,sizeof(log_buffer),
-          "setgid(%lu) for UID = %lu failed: %s\n",
+        snprintf(log_buffer,sizeof(log_buffer),"setgid(%lu) for UID = %lu failed: %s\n",
           (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exgid,
           (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
           strerror(errno));
@@ -568,8 +567,7 @@ int run_pelog(
 
       if (setuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) != 0)
         {
-        snprintf(log_buffer,sizeof(log_buffer),
-          "setuid(%lu) failed: %s\n",
+        snprintf(log_buffer,sizeof(log_buffer),"setuid(%lu) failed: %s\n",
           (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
           strerror(errno));
 
@@ -592,8 +590,8 @@ int run_pelog(
       {
       /* no output, force to /dev/null */
 
-      fds1 = open("/dev/null", O_WRONLY, 0600);
-      fds2 = open("/dev/null", O_WRONLY, 0600);
+      fds1 = open("/dev/null",O_WRONLY,0600);
+      fds2 = open("/dev/null",O_WRONLY,0600);
       }
     else if (pe_io_type == PE_IO_TYPE_STD)
       {
@@ -614,14 +612,19 @@ int run_pelog(
                                pjob->ji_qs.ji_un.ji_momt.ji_exgid);
 
           fds1 = dup(fds2);
+
           break;
 
         case 1:
 
-          fds1 = open_std_file(pjob, StdOut, O_WRONLY | O_APPEND,
-                               pjob->ji_qs.ji_un.ji_momt.ji_exgid);
+          fds1 = open_std_file(
+            pjob, 
+            StdOut, 
+            O_WRONLY | O_APPEND,
+            pjob->ji_qs.ji_un.ji_momt.ji_exgid);
 
           fds2 = dup(fds1);
+
           break;
 
         default:
@@ -664,13 +667,12 @@ int run_pelog(
         {
         /* warn only, no failure */
 
-        sprintf(log_buffer,
-                "PBS: chdir to %s failed: %s (running user %s in current directory)",
-                pjob->ji_grpcache->gc_homedir,
-                strerror(errno),
-                which == PE_PROLOGUSER ? "prologue" : "epilogue");
+        sprintf(log_buffer,"PBS: chdir to %s failed: %s (running user %s in current directory)",
+          pjob->ji_grpcache->gc_homedir,
+          strerror(errno),
+          which == PE_PROLOGUSER ? "prologue" : "epilogue");
 
-        if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
+        if (write(2,log_buffer,strlen(log_buffer)) == -1) {}
 
         fsync(2);
         }
@@ -756,18 +758,21 @@ int run_pelog(
       envstr = malloc(
                  (strlen(envname) + strlen(r->rs_value.at_val.at_str) + 1) * sizeof(char));
 
-      strcpy(envstr, envname);
+      if (envstr != NULL)
+        {
+        strcpy(envstr,envname);
 
-      strcat(envstr, r->rs_value.at_val.at_str);
+        strcat(envstr,r->rs_value.at_val.at_str);
 
-      /* do _not_ free the string when using putenv */
+        /* do _not_ free the string when using putenv */
 
-      putenv(envstr);
+        putenv(envstr);
+        }
       }  /* END if (r != NULL) */
 
     r = find_resc_entry(
           &pjob->ji_wattr[(int)JOB_ATR_resource],
-          find_resc_def(svr_resc_def, "gres", svr_resc_size));
+          find_resc_def(svr_resc_def,"gres",svr_resc_size));
 
     if (r != NULL)
       {
@@ -779,16 +784,19 @@ int run_pelog(
       envstr = malloc(
                  (strlen(envname) + strlen(r->rs_value.at_val.at_str) + 1) * sizeof(char));
 
-      strcpy(envstr, envname);
+      if (envstr != NULL)
+        {
+        strcpy(envstr,envname);
 
-      strcat(envstr, r->rs_value.at_val.at_str);
+        strcat(envstr,r->rs_value.at_val.at_str);
 
-      /* do _not_ free the string when using putenv */
+        /* do _not_ free the string when using putenv */
 
-      putenv(envstr);
+        putenv(envstr);
+        }
       }  /* END if (r != NULL) */
 
-    if (TTmpDirName(pjob, buf))
+    if (TTmpDirName(pjob,buf))
       {
       const char *envname = "TMPDIR=";
       char *envstr;
@@ -796,30 +804,37 @@ int run_pelog(
       envstr = malloc(
                  (strlen(envname) + strlen(buf) + 1) * sizeof(char));
 
-      strcpy(envstr, envname);
+      if (envstr != NULL)
+        {
+        strcpy(envstr,envname);
 
-      strcat(envstr,buf);
+        strcat(envstr,buf);
 
-      /* do _not_ free the string when using putenv */
+        /* do _not_ free the string when using putenv */
 
-      putenv(envstr);
+        putenv(envstr);
+        }
       }  /* END if (TTmpDirName(pjob,&buf)) */
 
     /* Set PBS_SCHED_HINT */
+
       {
       char *envname = "PBS_SCHED_HINT";
       char *envval;
       char *envstr;
 
-      if ((envval = get_job_envvar(pjob, envname)) != NULL)
+      if ((envval = get_job_envvar(pjob,envname)) != NULL)
         {
         envstr = malloc((strlen(envname) + strlen(envval) + 2) * sizeof(char));
 
-        sprintf(envstr, "%s=%s",
-                envname,
-                envval);
+        if (envstr != NULL)
+          {
+          sprintf(envstr,"%s=%s",
+            envname,
+            envval);
 
-        putenv(envstr);
+          putenv(envstr);
+          }
         }
       }
 
@@ -828,16 +843,19 @@ int run_pelog(
       char *envname = "PBS_NODENUM";
       char *envstr;
 
-      sprintf(buf, "%d",
-              pjob->ji_nodeid);
+      sprintf(buf,"%d",
+        pjob->ji_nodeid);
 
       envstr = malloc((strlen(envname) + strlen(buf) + 2) * sizeof(char));
 
-      sprintf(envstr, "%s=%d",
-              envname,
-              pjob->ji_nodeid);
+      if (envstr != NULL)
+        {
+        sprintf(envstr,"%s=%d",
+          envname,
+          pjob->ji_nodeid);
 
-      putenv(envstr);
+        putenv(envstr);
+        }
       }
 
     /* Set PBS_MSHOST */
@@ -849,11 +867,14 @@ int run_pelog(
         {
         envstr = malloc((strlen(envname) + strlen(pjob->ji_vnods[0].vn_host->hn_host) + 2) * sizeof(char));
 
-        sprintf(envstr, "%s=%s",
-                envname,
-                pjob->ji_vnods[0].vn_host->hn_host);
+        if (envstr != NULL)
+          {
+          sprintf(envstr,"%s=%s",
+            envname,
+            pjob->ji_vnods[0].vn_host->hn_host);
 
-        putenv(envstr);
+          putenv(envstr);
+          }
         }
       }
 
@@ -871,22 +892,24 @@ int run_pelog(
 
       envstr = malloc((strlen(envname) + strlen(buf) + 2) * sizeof(char));
 
-      sprintf(envstr, "%s=%s",
-        envname,
-        buf);
+      if (envstr != NULL)
+        {
+        sprintf(envstr,"%s=%s",
+          envname,
+          buf);
 
-      putenv(envstr);
+        putenv(envstr);
+        }
       }
     }
 
     /* SET BEOWULF_JOB_MAP */
 
       {
-
       struct array_strings *vstrs;
 
-      int    VarIsSet = 0;
-      int    j;
+      int VarIsSet = 0;
+      int j;
 
       vstrs = pjob->ji_wattr[(int)JOB_ATR_variables].at_val.at_arst;
 
@@ -909,28 +932,34 @@ int run_pelog(
 
         envstr = malloc((strlen(vstrs->as_string[j])) * sizeof(char));
 
-        strcpy(envstr, vstrs->as_string[j]);
+        if (envstr != NULL)
+          {
+          strcpy(envstr,vstrs->as_string[j]);
 
-        putenv(envstr);
+          putenv(envstr);
+          }
         }
       }
 
-    execv(pelog, arg);
+    execv(pelog,arg);
 
-    sprintf(log_buffer, "execv of %s failed: %s\n",
-            pelog,
-            strerror(errno));
+    sprintf(log_buffer,"execv of %s failed: %s\n",
+      pelog,
+      strerror(errno));
 
-    if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
-
+    if (write(2,log_buffer,strlen(log_buffer)) == -1) 
+      {
+      /* FAILURE */
+      }
+    
     fsync(2);
 
     exit(255);
     }  /* END else () */
 
   switch (run_exit)
-    {
 
+    {
     case 0:
 
       /* NO-OP */

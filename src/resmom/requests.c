@@ -2912,28 +2912,27 @@ void req_cpyfile(
 
     /* FAILURE */
 
-    req_reject(-rc, 0, preq, mom_host, EMsg);
+    req_reject(-rc,0,preq,mom_host,EMsg);
 
     if ((rc != -PBSE_SYSTEM) && (rc != -PBSE_BADUSER))
       {
-      sprintf(tmpLine, "fork_to_user failed with rc=%d '%s' - exiting",
-              rc,
-              EMsg);
+      sprintf(tmpLine,"fork_to_user failed with rc=%d '%s' - exiting",
+        rc,
+        EMsg);
 
-      log_err(errno, id, tmpLine);
+      log_err(errno,id,tmpLine);
 
       exit(rc);
       }
 
-    sprintf(tmpLine, "fork_to_user failed with rc=%d '%s' - returning failure",
+    sprintf(tmpLine,"fork_to_user failed with rc=%d '%s' - returning failure",
+      rc,
+      EMsg);
 
-            rc,
-            EMsg);
-
-    log_err(errno, id, tmpLine);
+    log_err(errno,id,tmpLine);
 
     return;
-    }
+    }  /* END if (rc < 0) */
 
   if (rc > 0)
     {
@@ -2950,9 +2949,9 @@ void req_cpyfile(
 
 #if NO_SPOOL_OUTPUT == 1
   snprintf(homespool, sizeof(homespool), "%s/.pbs_spool/",
-           HDir);
+    HDir);
 
-  rcstat = stat(homespool, &myspooldir);
+  rcstat = stat(homespool,&myspooldir);
 
   if ((rcstat == 0) && S_ISDIR(myspooldir.st_mode))
     {
@@ -3028,9 +3027,21 @@ void req_cpyfile(
 
     pjob = job_alloc();
 
+    if (pjob == NULL)
+      {
+      /* FAILURE - in child process */
+
+      sprintf(log_buffer,"alloc failed with errno=%d - returning failure",
+        errno);
+
+      log_err(errno,id,log_buffer);
+
+      goto error;
+      }
+
     strcpy(pjob->ji_qs.ji_jobid, preq->rq_ind.rq_cpyfile.rq_jobid);
 
-    if (TTmpDirName(pjob, faketmpdir))
+    if (TTmpDirName(pjob,faketmpdir))
       {
       if (!mkdirtree(faketmpdir, 0755))
         {
@@ -3038,8 +3049,20 @@ void req_cpyfile(
 
         envstr = malloc((strlen("TMPDIR=") + strlen(faketmpdir) + 1) * sizeof(char));
 
-        sprintf(envstr, "TMPDIR=%s",
-                faketmpdir);
+        if (envstr == NULL)
+          {
+          /* FAILURE - in child process */
+
+          sprintf(log_buffer,"alloc failed with errno=%d - returning failure",
+            errno);
+
+          log_err(errno,id,log_buffer);
+
+          goto error;
+          }
+
+        sprintf(envstr,"TMPDIR=%s",
+          faketmpdir);
 
         putenv(envstr);
 
@@ -3257,10 +3280,10 @@ void req_cpyfile(
 
       default:
 
-        sprintf(log_buffer, "Failed to expand source path in data staging: %s",
-                arg2);
+        sprintf(log_buffer,"Failed to expand source path in data staging: %s",
+          arg2);
 
-        add_bad_list(&bad_list, log_buffer, 2);
+        add_bad_list(&bad_list,log_buffer,2);
 
         bad_files = 1;
 
@@ -3275,9 +3298,9 @@ void req_cpyfile(
 
     /* Expand and verify arg3 (destination path) */
 
-    switch (wordexp(arg3, &arg3exp, WRDE_NOCMD | WRDE_UNDEF))
-      {
+    switch (wordexp(arg3,&arg3exp,WRDE_NOCMD | WRDE_UNDEF))
 
+      {
       case 0:
 
         /* success - allow if word count is 1 */
@@ -3303,10 +3326,10 @@ void req_cpyfile(
 
       default:
 
-        sprintf(log_buffer, "Failed to expand destination path in data staging: %s",
-                arg3);
+        sprintf(log_buffer,"Failed to expand destination path in data staging: %s",
+           arg3);
 
-        add_bad_list(&bad_list, log_buffer, 2);
+        add_bad_list(&bad_list,log_buffer,2);
 
         bad_files = 1;
 
@@ -3318,7 +3341,6 @@ void req_cpyfile(
       }  /* END switch () */
 
     /* NOTE: more than one word is only allowed for arg2 (source) */
-
 
     arg2index = -1;
 
@@ -3373,8 +3395,8 @@ nextword:
       bad_files = 1;
 
       sprintf(log_buffer, "Unable to copy file %s to %s",
-              arg2,
-              arg3);
+        arg2,
+        arg3);
 
       add_bad_list(&bad_list, log_buffer, 2);
 

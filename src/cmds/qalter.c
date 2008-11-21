@@ -551,7 +551,8 @@ int main(
             {
             pdepend = malloc(PBS_DEPEND_LEN);
 
-            if (parse_depend_list(valuewd, pdepend, PBS_DEPEND_LEN))
+            if ((pdepend == NULL) ||
+                 parse_depend_list(valuewd,pdepend,PBS_DEPEND_LEN))
               {
               fprintf(stderr, "qalter: illegal -W value\n");
 
@@ -562,7 +563,7 @@ int main(
 
             valuewd = pdepend;
             }
-          else if (strcmp(keyword, ATTR_stagein) == 0)
+          else if (!strcmp(keyword,ATTR_stagein))
             {
             if (parse_stage_list(valuewd))
               {
@@ -573,22 +574,22 @@ int main(
               break;
               }
             }
-          else if (strcmp(keyword, ATTR_stageout) == 0)
+          else if (strcmp(keyword,ATTR_stageout) == 0)
             {
             if (parse_stage_list(valuewd))
               {
-              fprintf(stderr, "qalter: illegal -W value\n");
+              fprintf(stderr,"qalter: illegal -W value\n");
 
               errflg++;
 
               break;
               }
             }
-          else if (strcmp(keyword, ATTR_g) == 0)
+          else if (strcmp(keyword,ATTR_g) == 0)
             {
-            if (parse_at_list(valuewd, TRUE, FALSE))
+            if (parse_at_list(valuewd,TRUE,FALSE))
               {
-              fprintf(stderr, "qalter: illegal -W value\n");
+              fprintf(stderr,"qalter: illegal -W value\n");
 
               errflg++;
 
