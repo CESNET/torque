@@ -1866,6 +1866,7 @@ void req_signaljob(
   char           id[] = "req_signaljob";
   job            *pjob;
   int             sig;
+  int             numprocs=0;
   char           *sname;
 
   struct sig_tbl *psigt;
@@ -1975,12 +1976,20 @@ void req_signaljob(
     sleep(1);
     }
 
-  if ((kill_job(pjob, sig, id, "job was suspended, now killing") == 0) && (sig == 0))
+  /*
+   * When kill_job is launched, processes are killed and waitpid() should harvest the process
+   * and takes action to send an obit. If no matching process exists, then an obit may never be
+   * sent due to the current way that TORQUE's state machine works. 
+   */
+
+  numprocs = kill_job(pjob, sig, id, "killing job");
+
+  if ((numprocs == 0) && ((sig == 0)||(sig == SIGKILL)))
     {
     /* SIGNUL and no procs found, force job to exiting */
     /* force issue of (another) job obit */
 
-    sprintf(log_buffer, "job recycled into exiting on SIGNULL from substate %d",
+    sprintf(log_buffer, "job recycled into exiting on SIGNULL/KILL from substate %d",
             pjob->ji_qs.ji_substate);
 
     LOG_EVENT(
@@ -1992,21 +2001,6 @@ void req_signaljob(
     pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
     job_save(pjob, SAVEJOB_QUICK);
-
-    exiting_tasks = 1;
-    }
-
-  if ((sig == SIGKILL) && (pjob->ji_qs.ji_substate == JOB_SUBSTATE_EXITING))
-    {
-    /* force issue of (another) job obit */
-
-    sprintf(log_buffer, "job recycled into exiting on SIGKILL from substate exiting");
-
-    LOG_EVENT(
-      PBSEVENT_ERROR,
-      PBS_EVENTCLASS_JOB,
-      pjob->ji_qs.ji_jobid,
-      log_buffer);
 
     exiting_tasks = 1;
     }
@@ -2842,15 +2836,15 @@ void req_cpyfile(
   char   arg3[MAXPATHLEN + 1];
   int   bad_files = 0;
   char  *bad_list = NULL;
-  int   dir;
-  int   from_spool;  /* boolean - set if file must be removed from spool after copy */
+  int   dir = -1;
+  int   from_spool = 0;  /* boolean - set if file must be removed from spool after copy */
   int   len;
   char   localname[MAXPATHLEN + 1];  /* used only for in-bound */
 
-  struct rqfpair *pair;
+  struct rqfpair *pair = NULL;
   char  *prmt;
   int   rc;
-  int   rmtflag;
+  int   rmtflag = 0;
 #if NO_SPOOL_OUTPUT == 0
   char   undelname[MAXPATHLEN + 1];
 #endif /* !NO_SPOOL_OUTPUT */
