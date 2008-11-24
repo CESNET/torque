@@ -258,7 +258,9 @@ get_swtbl_num(void)
     if (fgets(buf, SWNODEBUFSZ - 1, pp) == NULL)
       break;
 
-    sscanf(buf, "%s %d", name, &swtbl_num[i].sw_num);
+    sscanf(buf,"%s %d", 
+      name, 
+      &swtbl_num[i].sw_num);
 
     if (swtbl_num[i].sw_name != NULL)
       free(swtbl_num[i].sw_name);
@@ -267,7 +269,9 @@ get_swtbl_num(void)
     }
 
   if (pclose(pp) != 0)
-    return (-1);
+    {
+    return(-1);
+    }
 
   ibm_sp2_num_nodes = i;
 
@@ -276,10 +280,18 @@ get_swtbl_num(void)
 
 #endif  /* IBM SP2 */
 
-void
-dep_initialize(void)
+
+
+
+/**
+ * NOTE: swap_dev is global
+ */
+
+void dep_initialize(void)
+
   {
   char *id = "dep_initialize";
+
   int i, rc, len;
   char line[200], *dev;
   char *swapfil = "/etc/swapspaces";
@@ -294,20 +306,28 @@ dep_initialize(void)
 #endif /* AIX43 */
 
   if (swap_dev == NULL)
-    if ((swap_dev = (char **)calloc(10, sizeof(char *)))==NULL)
+    {
+    if ((swap_dev = (char **)calloc(10,sizeof(char *)))==NULL)
       {
-	/* LOGERROR */
-	log_err(errno,"dep_initialize","calloc failure");
-	return;
+      /* FAILURE - cannot alloc memory */
+
+      log_err(errno,"dep_initialize","calloc failure");
+
+      return;
       }
+    }
 
   page_size = sysconf(_SC_PAGESIZE);
 
-  if ((fil = fopen(swapfil, "r")) == NULL)
-    log_err(errno, id, swapfil);
+  if ((fil = fopen(swapfil,"r")) == NULL)
+    {
+    log_err(errno,id,swapfil);
+    }
   else
     {
-    for (i = 0; fgets(line, sizeof(line), fil);)
+    char **tmpSwapDev;
+
+    for (i = 0;fgets(line,sizeof(line),fil);)
       {
       if (line[0] == '*')
         continue;
@@ -321,15 +341,33 @@ dep_initialize(void)
         continue;
 
       DBPRT(("%s: swapdev(%d) %s\n", id, i, dev))
-      if ((swap_dev = realloc(swap_dev, (i + 2) * sizeof(char *)))==NULL)
+
+      tmpSwapDev = (char **)realloc(swap_dev,(i + 2) * sizeof(char *));
+
+      if (tmpSwapDev == NULL)
 	{
-		/* LOGERROR */
-		log_err(errno,"dep_initialize","realloc failure");
-		return;
+        /* FAILURE - cannot alloc memory */
+
+        log_err(errno,"dep_initialize","realloc failure");
+
+        return;
 	}
 
-      swap_dev[i++] = strdup(dev);
-      }
+      swap_dev = tmpSwapDev;
+
+      swap_dev[i] = strdup(dev);
+
+      if (swap_dev[i] == NULL)
+        {
+        /* FAILURE - cannot alloc memory */
+
+        log_err(errno,"dep_initialize","strdup failure");
+
+        return;
+        }
+
+      i++;
+      }  /* END for (i) */
 
     swap_dev[i] = NULL;
 
@@ -339,6 +377,7 @@ dep_initialize(void)
   if ((kd = open("/dev/kmem", O_RDONLY)) == -1)
     {
     log_err(errno, id, "open");
+
     return;
     }
 
@@ -353,14 +392,16 @@ dep_initialize(void)
 
   if (fcntl(kd, F_SETFD, i) == -1)
     {
-    log_err(errno, id, "F_SETFD");
+    log_err(errno,id,"F_SETFD");
     }
 
   if ((proc_tbl = malloc(ASIZE * sizeof(struct procsinfo)))==NULL)
     {
-	/* LOGERROR */
-	log_err(errno, "dep_initialize","malloc failure");
-	return;
+    /* FAILURE - cannot alloc memory */
+
+    log_err(errno,"dep_initialize","malloc failure");
+
+    return;
     }
 
   proctot = ASIZE;
@@ -439,8 +480,11 @@ dep_initialize(void)
   return;
   }
 
-void
-dep_cleanup(void)
+
+
+
+void dep_cleanup(void)
+
   {
   char *id = "dep_cleanup";
   int i;
@@ -465,17 +509,25 @@ dep_cleanup(void)
     }
   }
 
+
+
+
 /*
  * This routine is called on each cycle of the main loop.
  */
 
-void
-dep_main_loop_cycle(void)
+void dep_main_loop_cycle(void)
+
   {
 #if IBM_SP2==2
   query_adp();
 #endif  /*IBM_SP2 */
+
+  return;
   }
+
+
+
 
 /*
  * Time decoding macro.  Accepts a timeval structure.  Returns unsigned long
@@ -1103,21 +1155,27 @@ getjobstat(void)
   return njob;
   }
 
+
+
+
+
 /*
  * Internal session number of cpu decoding routine.
  *
  *      Accepts a job pointer.  Returns TRUE if the nodes used
  *      by any session fall outside those allowed.
  */
-static unsigned long nodes_ses(pjob)
-job  *pjob;
+
+static unsigned long nodes_ses(
+
+  job  *pjob)
+
   {
   char  *id = "nodes_ses";
   int  i, j, k;
   resource *pres;
   char  *nodes;
   char  *badnodes = "";
-
 
   DBPRT(("%s: entered\n", id))
 
@@ -1127,11 +1185,11 @@ job  *pjob;
   ** We want to check the nodes used by any process in the job
   ** to these and return TRUE if they are not a subset.
   */
+
   nodes = pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str;
 
   for (i = 0; i < nproc; i++)
     {
-
     register struct procsinfo *pp = &proc_tbl[i];
 
     if (pp->pi_state == SNONE)
@@ -1145,10 +1203,11 @@ job  *pjob;
     ** loop to see if any JM job shows this
     ** proc as its client pid
     */
+
     DBPRT(("%s: pid=%d\n", id, pp->pi_pid))
+
     for (j = 0; j < njob; j++)
       {
-
       struct JM_JOB_STATUS *jp = &job_tbl[j];
       int len, hit;
       char *end;
@@ -1162,15 +1221,17 @@ job  *pjob;
       ** check to see if the nodes associated with
       ** the job are shown in "nodes"
       */
+
       DBPRT(("%s: job pid %d nodes %d\n",
              id, pp->pi_pid, jp->jm_num_nodes))
+
       hit = 0;
 
-      for (k = 0; k < jp->jm_num_nodes; k++)
+      for (k = 0;k < jp->jm_num_nodes;k++)
         {
+        struct JM_NODE_IN_JOB *np = &jp->jm_node_in_job[k];
 
-        struct JM_NODE_IN_JOB
-              *np = &jp->jm_node_in_job[k];
+        char  *tmpBadNodes;
 
         /*
         ** if we find a match, everything is okay,
@@ -1193,64 +1254,87 @@ job  *pjob;
         ** see if this node is already listed
         ** in the "badnodes" list
         */
-        if (match(np->jm_node_name, badnodes))
+
+        if (match(np->jm_node_name,badnodes))
           continue;
 
         /*
         ** not in the "badnodes" list so we need
         ** to add it
         */
+
         if ((len = strlen(badnodes)) == 0)
-      {
+          {
           badnodes = strdup(np->jm_node_name);
+
           continue;
           }
 
-        badnodes = realloc(badnodes,
+        tmpBadNodes = (char *)realloc(
+          badnodes,
+          len + strlen(np->jm_node_name) + 4);
 
-                           len + strlen(np->jm_node_name) + 4);
-        strcat(badnodes, "+");
-        strcat(badnodes, np->jm_node_name);
-        }
+        if (tmpBadNodes == NULL)
+          {
+          /* FAILURE - cannot alloc memory */
+
+          /* report node as 'disallowed' */
+
+          return(TRUE);
+          }
+
+        badnodes = tmpBadNodes;
+
+        strcat(badnodes,"+");
+        strcat(badnodes,np->jm_node_name);
+        }  /* END for (k) */
 
       if (hit == 0)
         continue;
 
-      sprintf(log_buffer, "rouge pid %d using node(s) %s",
-              jp->jm_client_pid,
-              jp->jm_node_in_job[0].jm_node_name);
+      sprintf(log_buffer,"rouge pid %d using node(s) %s",
+        jp->jm_client_pid,
+        jp->jm_node_in_job[0].jm_node_name);
 
-      for (k = 1; k < jp->jm_num_nodes; k++)
+      for (k = 1;k < jp->jm_num_nodes;k++)
         {
-
-        struct JM_NODE_IN_JOB
-              *np = &jp->jm_node_in_job[k];
+        struct JM_NODE_IN_JOB *np = &jp->jm_node_in_job[k];
         int n = strlen(log_buffer);
 
         end = &log_buffer[n];
-        sprintf(end, "+%s", np->jm_node_name);
+
+        sprintf(end,"+%s",
+          np->jm_node_name);
         }
 
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
-
-                 pjob->ji_qs.ji_jobid, log_buffer);
+      log_record(
+        PBSEVENT_JOB, 
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid, 
+        log_buffer);
       }
     }
 
   if (strlen(badnodes))
-  {
-    sprintf(log_buffer,
-            "node(s) %.450s outside allowed list %.450s",
-            badnodes, nodes);
+    {
+    sprintf(log_buffer,"node(s) %.450s outside allowed list %.450s",
+      badnodes, 
+      nodes);
+
     DBPRT(("%s: %s\n", id, log_buffer))
+
     free(badnodes);
+
     return(TRUE);
     }
-  else
-    return (FALSE);
-  }
+
+  return(FALSE);
+  }  /* END nodes_ses() */
 
 #endif /* IBM_SP2 */
+
+
+
 
 
 /*
@@ -2118,29 +2202,34 @@ sessions(struct rm_attribute *attrib)
   if (attrib)
     {
     log_err(-1, id, extra_parm);
+
     rm_errno = RM_ERR_BADPARAM;
-    return NULL;
+
+    return(NULL);
     }
 
   if ((nproc = getproctab()) == 0)
     {
     rm_errno = RM_ERR_SYSTEM;
-    return NULL;
+
+    return(NULL);
     }
 
-  if ((jids = calloc(nproc, sizeof(pid_t))) == NULL)
+  if ((jids = calloc(nproc,sizeof(pid_t))) == NULL)
     {
-    log_err(errno, id, "no memory");
+    log_err(errno,id,"no memory");
+
     rm_errno = RM_ERR_SYSTEM;
-    return NULL;
+
+    return(NULL);
     }
 
   /*
   ** Search for session
   */
+
   for (i = 0; i < nproc; i++)
     {
-
     register struct procsinfo *pp = &proc_tbl[i];
 
     if (pp->pi_state == SNONE)
@@ -2339,14 +2428,21 @@ nusers(struct rm_attribute *attrib)
   sprintf(ret_string, "%d", nuids);
 
   free(uids);
-  return ret_string;
+
+  return(ret_string);
   }
+
+
+
+
 
 uint swap_free;
 uint swap_size;
 
-int
-getswap(char *id)
+int getswap(
+
+  char *id)
+
   {
   static unsigned int lastai = 0;
   int i;
@@ -2354,15 +2450,18 @@ getswap(char *id)
   struct pginfo pginfo;
 
   if (lastai == reqnum) /* already have anoninfo */
-    return 0;
+    {
+    return(0);
+    }
 
   swap_free = swap_size = 0;
 
-  for (i = 0; swap_dev[i]; i++)
+  for (i = 0;swap_dev[i];i++)
     {
     if (swapqry(swap_dev[i], &pginfo) == -1)
       {
-      log_err(errno, id, swap_dev[i]);
+      log_err(errno,id,swap_dev[i]);
+
       continue;
       }
 

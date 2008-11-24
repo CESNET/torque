@@ -1101,65 +1101,65 @@ int set_job_env(
 
   c = getenv("HOME");
 
-  strcat(job_env, "PBS_O_HOME=");
+  strcat(job_env,"PBS_O_HOME=");
 
   if (c != NULL)
-    strcat(job_env, c);
+    strcat(job_env,c);
   else
-    strcat(job_env, "/");
+    strcat(job_env,"/");
 
   c = getenv("LANG");
 
   if (c != NULL)
     {
-    strcat(job_env, ",PBS_O_LANG=");
-    strcat(job_env, c);
+    strcat(job_env,",PBS_O_LANG=");
+    strcat(job_env,c);
     }
 
   c = getenv("LOGNAME");
 
   if (c != NULL)
     {
-    strcat(job_env, ",PBS_O_LOGNAME=");
-    strcat(job_env, c);
+    strcat(job_env,",PBS_O_LOGNAME=");
+    strcat(job_env,c);
     }
 
   c = getenv("PATH");
 
   if (c != NULL)
     {
-    strcat(job_env, ",PBS_O_PATH=");
-    strcat(job_env, c);
+    strcat(job_env,",PBS_O_PATH=");
+    strcat(job_env,c);
     }
 
   c = getenv("MAIL");
 
   if (c != NULL)
     {
-    strcat(job_env, ",PBS_O_MAIL=");
-    strcat(job_env, c);
+    strcat(job_env,",PBS_O_MAIL=");
+    strcat(job_env,c);
     }
 
   c = getenv("SHELL");
 
   if (c != NULL)
     {
-    strcat(job_env, ",PBS_O_SHELL=");
-    strcat(job_env, c);
+    strcat(job_env,",PBS_O_SHELL=");
+    strcat(job_env,c);
     }
 
   c = getenv("TZ");
 
   if (c != NULL)
     {
-    strcat(job_env, ",PBS_O_TZ=");
-    strcat(job_env, c);
+    strcat(job_env,",PBS_O_TZ=");
+    strcat(job_env,c);
     }
 
   if (qsub_host[0] != '\0')
     {
-    strcat(job_env, ",PBS_O_HOST=");
-    strcat(job_env, qsub_host);
+    strcat(job_env,",PBS_O_HOST=");
+    strcat(job_env,qsub_host);
     }
 
   if ((server_host[0] != '\0') ||
@@ -1167,26 +1167,26 @@ int set_job_env(
     {
     if ((rc = get_fullhostname(server_host, server_host, PBS_MAXHOSTNAME, NULL)) == 0)
       {
-      strcat(job_env, ",PBS_SERVER=");
-      strcat(job_env, server_host);
+      strcat(job_env,",PBS_SERVER=");
+      strcat(job_env,server_host);
 
       if (qsub_host[0] == '\0')
         {
-        strcat(job_env, ",PBS_O_HOST=");
-        strcat(job_env, server_host);
+        strcat(job_env,",PBS_O_HOST=");
+        strcat(job_env,server_host);
         }
       }
     }
 
   if (owner_uid[0] != '\0')
     {
-    strcat(job_env, ",PBS_O_UID=");
-    strcat(job_env, owner_uid);
+    strcat(job_env,",PBS_O_UID=");
+    strcat(job_env,owner_uid);
     }
 
   if (rc != 0)
     {
-    fprintf(stderr, "qsub: cannot get full local host name\n");
+    fprintf(stderr,"qsub: cannot get full local host name\n");
 
     exit(3);
     }
@@ -1197,18 +1197,18 @@ int set_job_env(
     {
     /* load init dir into env */
 
-    strcat(job_env, ",PBS_O_INITDIR=");
+    strcat(job_env,",PBS_O_INITDIR=");
 
-    strcat(job_env, PBS_InitDir);
+    strcat(job_env,PBS_InitDir);
     }
 
   if (PBS_RootDir[0] != '\0')
     {
     /* load init dir into env */
 
-    strcat(job_env, ",PBS_O_ROOTDIR=");
+    strcat(job_env,",PBS_O_ROOTDIR=");
 
-    strcat(job_env, PBS_RootDir);
+    strcat(job_env,PBS_RootDir);
     }
 
   /* get current working directory, use $PWD if available, it is more */
@@ -1216,7 +1216,7 @@ int set_job_env(
 
   s = job_env + strlen(job_env);
 
-  strcat(job_env, ",PBS_O_WORKDIR=");
+  strcat(job_env,",PBS_O_WORKDIR=");
 
   c = getenv("PWD");
 
@@ -1363,22 +1363,26 @@ state3:         /* No value - get it from qsub environment */
 
     if (strlen(job_env) + 2 + strlen(s) + 2*strlen(env) >= len)
       {
+      char *tmpJobEnv;
+
       /* increase size of job env buffer */
 
       len += 2 * strlen(env) + 1;
 
-      job_env = (char *)realloc(job_env, len);
+      tmpJobEnv = (char *)realloc(job_env,len);
 
-      if (job_env == NULL)
+      if (tmpJobEnv == NULL)
         {
         return(FALSE);
         }
+ 
+      job_env = tmpJobEnv;
       }
 
-    strcat(job_env, ",");
+    strcat(job_env,",");
 
-    strcat(job_env, s);
-    strcat(job_env, "=");
+    strcat(job_env,s);
+    strcat(job_env,"=");
 
     if (copy_env_value(job_env, env, 1) == NULL)
       {
@@ -1396,22 +1400,26 @@ state4:         /* goto label - Value specified */
 
     if (strlen(job_env) + 2 + strlen(s) + 2*strlen(c) >= len)
       {
+      char *tmpJobEnv;
+
       /* increase size of job env buffer */
 
       len += 2 * strlen(c) + 1;
 
-      job_env = (char *)realloc(job_env, len);
+      tmpJobEnv = (char *)realloc(job_env,len);
 
-      if (job_env == NULL)
+      if (tmpJobEnv == NULL)
         {
         return(FALSE);
         }
+
+      job_env = tmpJobEnv;
       }
 
-    strcat(job_env, ",");
+    strcat(job_env,",");
 
-    strcat(job_env, s);
-    strcat(job_env, "=");
+    strcat(job_env,s);
+    strcat(job_env,"=");
 
     if ((c = copy_env_value(job_env, c, 0)) == NULL)
       {
@@ -1445,20 +1453,24 @@ final:
 
       *s = '\0';  /* NOTE: *s is clobbering our current, real, environ */
 
-      if (strlen(job_env) + 2 + strlen(*evp) + 2*strlen(s + 1) >= len)
+      if ((strlen(job_env) + 2 + strlen(*evp) + 2 * strlen(s + 1)) >= len)
         {
+        char *tmpJobEnv;
+
         /* increase size of job env buffer */
 
         len += 2 * strlen(s + 1) + 1;
 
-        job_env = (char *)realloc(job_env, len);
+        tmpJobEnv = (char *)realloc(job_env,len);
 
-        if (job_env == NULL)
+        if (tmpJobEnv == NULL)
           {
           *s = '='; /* restore our existing environ */
 
           return(FALSE);
           }
+
+        job_env = tmpJobEnv; 
         }
 
       strcat(job_env, ",");

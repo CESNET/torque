@@ -862,6 +862,7 @@ job *find_job_by_node(
 
 
 
+
 /*
  * sync_node_jobs() - determine if a MOM has a stale job and possibly delete it
  */
@@ -900,7 +901,19 @@ void sync_node_jobs(
 
   joblist = strdup(jobstring_in);
 
-  jobidstr = strtok(joblist, " ");
+  if (joblist == NULL)
+    {
+    /* FAILURE - cannot alloc memory */
+
+    sprintf(log_buffer,"cannot alloc memory for %s",
+      jobstring_in);
+
+    log_err(-1,id,log_buffer);
+
+    return;
+    }
+
+  jobidstr = strtok(joblist," ");
 
   while ((jobidstr != NULL) && isdigit(*jobidstr))
     {
@@ -930,9 +943,9 @@ void sync_node_jobs(
           {
           /* job is reported by mom but server has no record of job */
 
-          sprintf(log_buffer, "stray job %s found on %s",
-                  jobidstr,
-                  np->nd_name);
+          sprintf(log_buffer,"stray job %s found on %s",
+            jobidstr,
+            np->nd_name);
 
           log_err(-1, id, log_buffer);
 
@@ -957,7 +970,7 @@ void sync_node_jobs(
               {
               strcpy(preq->rq_ind.rq_delete.rq_objname, jobidstr);
 
-              if (issue_Drequest(conn, preq, release_req, 0) != 0)
+              if (issue_Drequest(conn,preq,release_req,0) != 0)
                 {
                 /* release_req will free preq and close connection if successful */
 
@@ -974,9 +987,13 @@ void sync_node_jobs(
       }
 
     jobidstr = strtok(NULL, " ");
-    }
+    }  /* END while ((jobidstr != NULL) && ...) */
+
+  /* SUCCESS */
 
   free(joblist);
+
+  return;
   }  /* END sync_node_jobs() */
 
 
@@ -3217,8 +3234,8 @@ int MSNPrintF(
 
 static int node_spec(
 
-  char *spec,       /* I */
-  int  early,      /* I (boolean) */
+  char  *spec,       /* I */
+  int    early,      /* I (boolean) */
   int    exactmatch, /* I (boolean) - NOT USED */
   char  *FailNode,   /* O (optional,minsize=1024) */
   char  *EMsg)       /* O (optional,minsize=1024) */
@@ -3245,7 +3262,7 @@ static int node_spec(
   if (LOGLEVEL >= 6)
     {
     sprintf(log_buffer, "entered spec=%.4000s",
-            spec);
+      spec);
 
     log_record(
       PBSEVENT_SCHED,
@@ -3254,14 +3271,37 @@ static int node_spec(
       log_buffer);
 
     DBPRT(("%s\n",
-           log_buffer));
+      log_buffer));
     }
 
   exclusive = 1; /* by default, nodes (VPs) are requested exclusively */
 
   spec = strdup(spec);
 
-  if ((globs = strchr(spec, '#')) != NULL)
+  if (spec == NULL)
+    {
+    /* FAILURE */
+
+    sprintf(log_buffer,"cannot alloc memory");
+
+    if (LOGLEVEL >= 1)
+      {
+      log_record(
+        PBSEVENT_SCHED,
+        PBS_EVENTCLASS_REQUEST,
+        id,
+        log_buffer);
+      }
+
+    if (EMsg != NULL)
+      {
+      strncpy(EMsg,log_buffer,1024);
+      }
+
+    return(-1);
+    }
+
+  if ((globs = strchr(spec,'#')) != NULL)
     {
     *globs++ = '\0';
 
@@ -3312,8 +3352,8 @@ static int node_spec(
     free(spec);
 
     sprintf(log_buffer, "job allocation request exceeds available cluster nodes, %d requested, %d available",
-            num,
-            svr_clnodes);
+      num,
+      svr_clnodes);
 
     if (LOGLEVEL >= 6)
       {
@@ -3326,7 +3366,7 @@ static int node_spec(
 
     if (EMsg != NULL)
       {
-      strncpy(EMsg, log_buffer, 1024);
+      strncpy(EMsg,log_buffer,1024);
       }
 
     return(-1);
@@ -3335,8 +3375,9 @@ static int node_spec(
   if (LOGLEVEL >= 6)
     {
     sprintf(log_buffer, "job allocation debug: %d requested, %d svr_clnodes, %d svr_totnodes",
-            num,
-            svr_clnodes, svr_totnodes);
+      num,
+      svr_clnodes, 
+      svr_totnodes);
 
     log_record(
       PBSEVENT_SCHED,
@@ -3345,7 +3386,7 @@ static int node_spec(
       log_buffer);
 
     DBPRT(("%s\n",
-           log_buffer));
+      log_buffer));
     }
 
   /*
@@ -4606,17 +4647,24 @@ void set_old_nodes(
 
     old = strdup(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
 
-    while ((po = strrchr(old, (int)'+')) != NULL)
+    if (old == NULL)
+      {
+      /* FAILURE - cannot alloc memory */
+
+      return;
+      }
+
+    while ((po = strrchr(old,(int)'+')) != NULL)
       {
       *po++ = '\0';
 
-      set_one_old(po, pjob, shared);
+      set_one_old(po,pjob,shared);
       }
 
-    set_one_old(old, pjob, shared);
+    set_one_old(old,pjob,shared);
 
     free(old);
-    }
+    }  /* END if ((pbsndmast != NULL) && ...) */
 
   return;
   }  /* END set_old_nodes() */

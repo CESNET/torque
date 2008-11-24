@@ -567,10 +567,16 @@ void wait_for_task(
   }  /* END wait_for_task() */
 
 
+
+
+
 /* ask TM for all node resc descriptions and parse the output
  * for hostnames */
+
 char *gethostnames(
+
   tm_node_id *nodelist)
+
   {
   char *allnodes;
   char *rescinfo;
@@ -579,27 +585,34 @@ char *gethostnames(
   char *hoststart;
   int rc, tm_errno, i, j;
 
-  allnodes = calloc(numnodes, PBS_MAXNODENAME + 1 + sizeof(char));
-  rescinfo = calloc(numnodes, RESCSTRLEN + 1 + sizeof(char));
-  rescevent = calloc(numnodes, sizeof(tm_event_t));
+  allnodes = calloc(numnodes,PBS_MAXNODENAME + 1 + sizeof(char));
+  rescinfo = calloc(numnodes,RESCSTRLEN + 1 + sizeof(char));
+  rescevent = calloc(numnodes,sizeof(tm_event_t));
 
   if (!allnodes || !rescinfo || !rescevent)
     {
-    fprintf(stderr, "%s: malloc failed!\n", id);
+    fprintf(stderr,"%s: malloc failed!\n", 
+      id);
+
     tm_finalize();
+
     exit(1);
     }
 
   /* submit resource requests */
+
   for (i = 0;i < numnodes;i++)
     {
-    if (tm_rescinfo(nodelist[i],
-                    rescinfo + (i*RESCSTRLEN),
-                    RESCSTRLEN - 1,
-                    rescevent + i) != TM_SUCCESS)
+    if (tm_rescinfo(
+          nodelist[i],
+          rescinfo + (i*RESCSTRLEN),
+          RESCSTRLEN - 1,
+          rescevent + i) != TM_SUCCESS)
       {
       fprintf(stderr, "%s: error from tm_rescinfo()\n", id);
+
       tm_finalize();
+
       exit(1);
       }
     }
@@ -910,7 +923,6 @@ int main(
 
 #endif
 
-
   if (getenv("PBS_ENVIRONMENT") == NULL)
     {
     fprintf(stderr, "%s: not executing under PBS\n",
@@ -1024,7 +1036,9 @@ int main(
       (events_obit == NULL) ||
       (ev == NULL))
     {
-    fprintf(stderr, "%s: memory alloc of task ids failed\n",
+    /* FAILURE - cannot alloc memory */
+
+    fprintf(stderr,"%s: memory alloc of task ids failed\n",
       id);
 
     return(1);
@@ -1064,22 +1078,30 @@ int main(
 
   if ((ioenv = calloc(2, sizeof(char)))==NULL)
     {
-	/* LOGERROR */
-	fprintf(stderr, "ERROR:	could not calloc 2 bytes!\n");
-	return(FAILURE);
+    /* FAILURE - cannot alloc memory */
+
+    fprintf(stderr,"%s: memory alloc of ioenv failed\n",
+      id);
+
+    return(1);
     }
 
-  if (grabstdio)
+  if (grabstdio != 0)
     {
     stdoutfd = build_listener(&stdoutport);
 
-    if ((*ioenv = calloc(50, sizeof(char)))==NULL)
+    if ((*ioenv = calloc(50,sizeof(char))) == NULL)
       {
-	/* LOGERROR */
-	fprintf(stderr, "ERROR:	could not calloc 2 bytes!\n");
-	return(FAILURE);
+      /* FAILURE - cannot alloc memory */
+
+      fprintf(stderr,"%s: memory alloc of *ioenv failed\n",
+        id);
+
+      return(1);
       }
-    snprintf(*ioenv, 49, "TM_STDOUT_PORT=%d", stdoutport);
+
+    snprintf(*ioenv,49,"TM_STDOUT_PORT=%d", 
+      stdoutport);
 
     FD_ZERO(&permrfsd);
     }
@@ -1088,12 +1110,13 @@ int main(
 
   for (c = start; c < stop; ++c)
     {
-    if ((rc = tm_spawn(argc - optind,
-                       argv + optind,
-                       ioenv,
-                       *(nodelist + c),
-                       tid + c,
-                       events_spawn + c)) != TM_SUCCESS)
+    if ((rc = tm_spawn(
+                argc - optind,
+                argv + optind,
+                ioenv,
+                *(nodelist + c),
+                tid + c,
+                events_spawn + c)) != TM_SUCCESS)
       {
       fprintf(stderr,"%s: spawn failed on node %d err %s\n",
         id, 
@@ -1103,7 +1126,9 @@ int main(
     else
       {
       if (verbose)
-        fprintf(stderr, "%s: spawned task %d\n", id, c);
+        fprintf(stderr,"%s: spawned task %d\n", 
+          id, 
+          c);
 
       ++nspawned;
 

@@ -947,10 +947,10 @@ hnodent *find_node(
 
   if (i == pjob->ji_numvnod)
     {
-    sprintf(log_buffer, "node %d not found",
-            nodeid);
+    sprintf(log_buffer,"node %d not found",
+      nodeid);
 
-    log_err(-1, id, log_buffer);
+    log_err(-1,id,log_buffer);
 
     return(NULL);
     }
@@ -1008,8 +1008,11 @@ hnodent *find_node(
           sizeof(node_addr->sin_addr)) != 0)
       {
   */
+
   if (stream_addr->sin_addr.s_addr != node_addr->sin_addr.s_addr)
     {
+    /* FAILURE */
+
     char *addr1;
     char *addr2;
 
@@ -1017,14 +1020,14 @@ hnodent *find_node(
 
     addr2 = strdup(netaddr(node_addr));
 
-    sprintf(log_buffer, "stream id %d does not match %d to node %d (stream=%s node=%s)",
-            stream,
-            hp->hn_stream,
-            nodeid,
-            addr1,
-            addr2);
+    sprintf(log_buffer,"stream id %d does not match %d to node %d (stream=%s node=%s)",
+      stream,
+      hp->hn_stream,
+      nodeid,
+      (addr1 != NULL) ? addr1 : "",
+      (addr2 != NULL) ? addr2 : "");
 
-    log_err(-1, id, log_buffer);
+    log_err(-1,id,log_buffer);
 
     free(addr1);
     free(addr2);
@@ -1709,19 +1712,37 @@ char *resc_string(
   char   *getuname();
   extern int  resc_access_perm;
 
+  char   *tmpResStr;
+
   ch = getuname();
+
   len = strlen(ch);
+
   tot = len * 2;
+
   used = 0;
+
   res_str = (char *)malloc(tot);
-  strcpy(res_str, ch);
+
+  if (res_str == NULL)
+    {
+    /* FAILURE - cannot alloc memory */
+
+    return(NULL);
+    }
+
+  strcpy(res_str,ch);
+
   used += len;
+
   res_str[used++] = ':';
 
   at = &pjob->ji_wattr[(int)JOB_ATR_resource];
 
   if (at->at_type != ATR_TYPE_RESC)
     {
+    /* SUCCESS */
+
     res_str[used] = '\0';
 
     return(res_str);
@@ -1749,7 +1770,19 @@ char *resc_string(
     while (used + pal->al_rescln + pal->al_valln > tot)
       {
       tot *= 2;
-      res_str = realloc(res_str, tot);
+
+      tmpResStr = realloc(res_str,tot);
+
+      if (tmpResStr == NULL)
+        {
+        /* FAILURE - cannot alloc memory */
+
+        free(res_str);
+
+        return(NULL);
+        }
+
+      res_str = tmpResStr;
       }
 
     strcpy(&res_str[used], pal->al_resc);
@@ -1764,6 +1797,8 @@ char *resc_string(
   free_attrlist(&lhead);
 
   res_str[--used] = '\0';
+
+  /* SUCCESS */
 
   return(res_str);
   }  /* END resc_string() */
@@ -2371,8 +2406,8 @@ void im_request(
 
       job_save(pjob, SAVEJOB_FULL);
 
-      sprintf(log_buffer, "JOIN JOB as node %d",
-              nodeid);
+      sprintf(log_buffer,"JOIN JOB as node %d",
+        nodeid);
 
       log_record(
         PBSEVENT_JOB,
@@ -2433,9 +2468,9 @@ void im_request(
     if (LOGLEVEL >= 0)
       {
       sprintf(log_buffer, "ERROR:    received request '%s' from %s for job '%s' (job does not exist locally)",
-              PMOMCommand[MIN(command,IM_MAX)],
-              netaddr(addr),
-              jobid);
+        PMOMCommand[MIN(command,IM_MAX)],
+        netaddr(addr),
+        jobid);
 
       LOG_EVENT(
         PBSEVENT_JOB,
@@ -2456,9 +2491,9 @@ void im_request(
     if (LOGLEVEL >= 0)
       {
       sprintf(log_buffer, "ERROR:    received request '%s' from %s for job '%s' (job has no cookie)",
-              PMOMCommand[MIN(command,IM_MAX)],
-              netaddr(addr),
-              jobid);
+        PMOMCommand[MIN(command,IM_MAX)],
+        netaddr(addr),
+        jobid);
 
       LOG_EVENT(
         PBSEVENT_JOB,
@@ -2479,11 +2514,11 @@ void im_request(
     if (LOGLEVEL >= 0)
       {
       sprintf(log_buffer, "ERROR:    received request '%s' from %s for job '%s' (job has corrupt cookie - '%s' != '%s')",
-              PMOMCommand[MIN(command,IM_MAX)],
-              netaddr(addr),
-              jobid,
-              oreo,
-              cookie);
+        PMOMCommand[MIN(command,IM_MAX)],
+        netaddr(addr),
+        jobid,
+        oreo,
+        cookie);
 
       LOG_EVENT(
         PBSEVENT_JOB,
@@ -2515,7 +2550,7 @@ void im_request(
     if (nodeidx == pjob->ji_numnodes)
       {
       sprintf(log_buffer, "stream %d not found",
-              stream);
+        stream);
 
       log_err(-1, id, log_buffer);
 
@@ -2535,8 +2570,8 @@ void im_request(
     if (ep == NULL)
       {
       sprintf(log_buffer, "event %d taskid %ld not found",
-              event,
-              (long)fromtask);
+        event,
+        (long)fromtask);
 
       log_err(-1, id, log_buffer);
 
@@ -2556,7 +2591,6 @@ void im_request(
 
   switch (command)
     {
-
     case IM_KILL_JOB:
 
       /*
@@ -2582,7 +2616,7 @@ void im_request(
 
       reply = 0;
 
-      kill_job(pjob, SIGKILL, id, "kill_job message received");
+      kill_job(pjob,SIGKILL,id,"kill_job message received");
 
       pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
@@ -2626,12 +2660,12 @@ void im_request(
         break;
         }
 
-      taskid = disrsi(stream, &ret);
+      taskid = disrsi(stream,&ret);
 
       if (ret != DIS_SUCCESS)
         goto err;
 
-      globid = disrst(stream, &ret);
+      globid = disrst(stream,&ret);
 
       if (ret != DIS_SUCCESS)
         goto err;
@@ -2639,12 +2673,12 @@ void im_request(
       if (LOGLEVEL >= 3)
         {
         sprintf(log_buffer, "INFO:     received request '%s' from %s for job '%s' (spawning task on node '%d' with taskid=%d, globid='%s'",
-                PMOMCommand[MIN(command,IM_MAX)],
-                netaddr(addr),
-                jobid,
-                nodeid,
-                taskid,
-                globid);
+          PMOMCommand[MIN(command,IM_MAX)],
+          netaddr(addr),
+          jobid,
+          nodeid,
+          taskid,
+          globid);
 
         LOG_EVENT(
           PBSEVENT_JOB,
@@ -2666,9 +2700,9 @@ void im_request(
       else if (strcmp(pjob->ji_globid, globid) != 0)
         {
         DBPRT(("%s: globid job %s received %s\n",
-               id,
-               pjob->ji_globid,
-               globid))
+          id,
+          pjob->ji_globid,
+          globid))
 
         free(globid);
         }
@@ -2696,11 +2730,16 @@ void im_request(
 
         if (i == num - 1)
           {
+          char **tmpArgV;
+
           num *= 2;
 
-          argv = (char **)realloc(argv, num * sizeof(char **));
+          tmpArgV = (char **)realloc(argv,num * sizeof(char **));
 
-          assert(argv);
+          if (tmpArgV == NULL)
+            goto err;
+
+          argv = tmpArgV;
           }
 
         argv[i] = cp;
@@ -2740,7 +2779,7 @@ void im_request(
           {
           num *= 2;
 
-          envp = (char **)realloc(envp, num * sizeof(char **));
+          envp = (char **)realloc(envp,num * sizeof(char **));
 
           assert(envp);
           }
@@ -4987,7 +5026,7 @@ int tm_request(
           {
           numele *= 2;
 
-          envp = (char **)realloc(envp, numele * sizeof(char **));
+          envp = (char **)realloc(envp,numele * sizeof(char **));
 
           assert(envp);
           }

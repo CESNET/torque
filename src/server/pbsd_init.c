@@ -1091,16 +1091,16 @@ int pbsd_init(
 
 #if !defined(DEBUG) && !defined(NO_SECURITY_CHECK)
 
-  if (chk_file_sec(path_track, 0, 0, S_IWGRP | S_IWOTH, 0, EMsg) != 0)
+  if (chk_file_sec(path_track,0,0,S_IWGRP|S_IWOTH,0,EMsg) != 0)
     {
     return(-1);
     }
 
 #endif  /* not DEBUG and not NO_SECURITY_CHECK */
 
-  if (fstat(fd, &statbuf) < 0)
+  if (fstat(fd,&statbuf) < 0)
     {
-    log_err(errno, "pbs_init", "unable to stat tracking file");
+    log_err(errno,"pbs_init","unable to stat tracking file");
 
     return(-1);
     }
@@ -1112,11 +1112,13 @@ int pbsd_init(
   else
     server.sv_tracksize = i;
 
-  if ((server.sv_track = (struct tracking *)calloc(server.sv_tracksize, sizeof(struct tracking)))==NULL)
+  if ((server.sv_track = (struct tracking *)calloc(server.sv_tracksize,sizeof(struct tracking))) == NULL)
     {
-	/* LOGERROR */
-	log_err(errno, "pbs_init", "calloc failure");
-	return(-1);	
+    /* FAILURE - cannot alloc memory */
+
+    log_err(errno,"pbs_init","calloc failure");
+
+    return(-1);	
     }
 
   for (i = 0;i < server.sv_tracksize;i++)
@@ -1124,11 +1126,11 @@ int pbsd_init(
 
   /* NOTE:  tracking file records are optional */
 
-  i = read(fd, (char *)server.sv_track, server.sv_tracksize * sizeof(struct tracking));
+  i = read(fd,(char *)server.sv_track,server.sv_tracksize * sizeof(struct tracking));
 
   if (i < 0)
     {
-    log_err(errno, "pbs_init", "unable to read tracksize from tracking file");
+    log_err(errno,"pbs_init","unable to read tracksize from tracking file");
     }
 
   close(fd);
@@ -1137,7 +1139,9 @@ int pbsd_init(
 
   /* set work task to periodically save the tracking records */
 
-  set_task(WORK_Timed, (long)(time_now + PBS_SAVE_TRACK_TM), track_save, 0);
+  set_task(WORK_Timed,(long)(time_now + PBS_SAVE_TRACK_TM),track_save,0);
+
+  /* SUCCESS */
 
   return(0);
   }  /* END pbsd_init() */

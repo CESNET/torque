@@ -742,6 +742,8 @@ DIS_tcp_funcs(void)
  * use tcp stream I/O.  Also initializes an array of pointers to
  * buffers and a buffer to be used for the given fd.
  * 
+ * NOTE:  tmpArray is global
+ *
  * NOTE:  does not return FAILURE - FIXME
  */
 
@@ -771,37 +773,37 @@ void DIS_tcp_setup(
 
     if (tcparray == NULL)
       {
-      if ((tcparray = (struct tcp_chan **)calloc(
-                   tcparraymax,
-                   sizeof(struct tcp_chan *)))==NULL)
-	{
-		log_err(errno, "DIS_tcp_setup", "calloc failure");
-		return;
-	}
+      tcparray = (struct tcp_chan **)calloc(
+        tcparraymax,
+        sizeof(struct tcp_chan *));
 
       if (tcparray == NULL)
         {
         /* FAILURE */
- 
+
+        log_err(errno,"DIS_tcp_setup","calloc failure");
+
         return;
         }
       }
     else
       {
-      if ((tcparray = (struct tcp_chan **)realloc(
-                   tcparray,
-                   tcparraymax * sizeof(struct tcp_chan *)))==NULL)
-	{
-		log_err(errno, "DIS_tcp_setup", "realloc failure");
-		return;
-	}
+      struct tcp_chan **tmpTA;
 
-      if (tcparray == NULL)
+      tmpTA = (struct tcp_chan **)realloc(
+        tcparray,
+        tcparraymax * sizeof(struct tcp_chan *));
+
+      if (tmpTA == NULL)
         {
         /* FAILURE */
 
+        log_err(errno,"DIS_tcp_setup","realloc failure");
+
         return;
         }
+
+      tcparray = tmpTA;
 
       memset(&tcparray[hold],'\0',(tcparraymax - hold) * sizeof(struct tcp_chan *));
       }
@@ -811,8 +813,9 @@ void DIS_tcp_setup(
 
   if (tcp == NULL)
     {
-    tcp = tcparray[fd] =
-            (struct tcp_chan *)malloc(sizeof(struct tcp_chan));
+    tcparray[fd] = (struct tcp_chan *)malloc(sizeof(struct tcp_chan));
+
+    tcp = tcparray[fd];
 
     if (tcp == NULL)
       {

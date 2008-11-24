@@ -723,29 +723,35 @@ int tm_init(
 /*
 ** Copy out node info.  No communication with pbs_mom is needed.
 */
-int
-tm_nodeinfo(list, nnodes)
-tm_node_id  **list;
-int   *nnodes;
+
+int tm_nodeinfo(
+
+  tm_node_id  **list,
+  int          *nnodes)
+
   {
   tm_node_id *np;
   int  i;
   int  n = 0;
 
   if (!init_done)
-    return TM_BADINIT;
+    {
+    return(TM_BADINIT);
+    }
 
   if (node_table == NULL)
-    return TM_ESYSTEM;
+    {
+    return(TM_ESYSTEM);
+    }
 
   for (np = node_table; *np != TM_ERROR_NODE; np++)
     n++;  /* how many nodes */
 
-  if ((np = (tm_node_id *)calloc(n, sizeof(tm_node_id)))==NULL)
+  if ((np = (tm_node_id *)calloc(n,sizeof(tm_node_id)))==NULL)
     {
-	/* LOGERROR */
-	fprintf(stderr,"ERROR: could not calloc!\n");
-	return(TM_ERROR);
+    /* FAILURE - cannot alloc memory */
+
+    return(TM_ERROR);
     }
 
   for (i = 0; i < n; i++)
@@ -756,7 +762,7 @@ int   *nnodes;
   *nnodes = i;
 
   return(TM_SUCCESS);
-  }
+  }  /* END tm_nodeinfo() */
 
 
 

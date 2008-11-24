@@ -233,7 +233,15 @@ void clean_up(int exval)
   }
 
 
-char **pbs_setup(char *command, int argc, char *argv[])
+
+
+
+char **pbs_setup(
+
+  char *command, 
+  int   argc, 
+  char *argv[])
+
   {
   char *jobid;
   int   have_command = 0;
@@ -289,7 +297,9 @@ char **pbs_setup(char *command, int argc, char *argv[])
 
   if (hfile_mem == NULL)
     {
-    fprintf(stderr, "%s: Can't malloc memory", mcn);
+    fprintf(stderr,"%s: Can't malloc memory", 
+      mcn);
+
     exit(EXIT_FAILURE);
     }
 
@@ -299,40 +309,55 @@ char **pbs_setup(char *command, int argc, char *argv[])
 
     if (nhosts == hfile_size)
       {
-      hfile_size *= 2;
-      hfile_mem = (char **)realloc(hfile_mem, hfile_size * sizeof(char *));
+      char **tmpHFileMem;
 
-      if (hfile_mem == NULL)
+      hfile_size *= 2;
+
+      tmpHFileMem = (char **)realloc(hfile_mem,hfile_size * sizeof(char *));
+
+      if (tmpHFileMem == NULL)
         {
-        fprintf(stderr, "%s: Can't malloc memory", mcn);
+        fprintf(stderr, "%s: Can't malloc memory", 
+          mcn);
+
         exit(EXIT_FAILURE);
         }
+
+      hfile_mem = tmpHFileMem;
       }
-    }
+    }    /* END while (fgets() != NULL) */
 
   fclose(nf);
 
   if (nhosts == 0)
     {
-    fprintf(stderr, "%s: Fatal Error: malformed resource request(s)\n", mcn);
+    fprintf(stderr,"%s: Fatal Error: malformed resource request(s)\n", 
+      mcn);
+
     exit(EXIT_FAILURE);
     }
 
-  sprintf(nhoststring, "%d", nhosts);
+  sprintf(nhoststring,"%d", 
+    nhosts);
 
   /* do we have an command file specified in the environment */
+
   ocmdfile = getenv("MP_CMDFILE");
 
   if (ocmdfile && (*ocmdfile == '\0'))
     ocmdfile = 0;  /* if null file name, null the pointer */
 
   /* make an argument list */
+
   newargs = malloc((argc + 8) * sizeof(char *));
 
   if (newargs == NULL)
     {
     perror("malloc");
-    fprintf(stderr, "%s: Unable to allocate space for argument list\n", mcn);
+
+    fprintf(stderr,"%s: Unable to allocate space for argument list\n", 
+      mcn);
+
     exit(1);
     }
 
@@ -360,7 +385,6 @@ char **pbs_setup(char *command, int argc, char *argv[])
       ((*argv[1] != '-')  ||
        ((strcmp(argv[1], "-h") == 0) && (argc > 2) && (*argv[2] != '-'))))
     {
-
     /* have a command specified for poe to run */
 
     have_command = 1;
@@ -368,6 +392,7 @@ char **pbs_setup(char *command, int argc, char *argv[])
     if (ocmdfile)
       {
       fprintf(stderr, "%s: Progam specified on command line overrides -cmdfile option\n", mcn);
+
       ocmdfile = 0;
       }
     }
@@ -386,11 +411,13 @@ char **pbs_setup(char *command, int argc, char *argv[])
   if (newargs[0] == NULL)
     {
     fprintf(stderr, "%s:Impossible command error! Contact system administrator\n", mcn);
+
     exit(1);
     }
   else
     {
     /* advance past / character */
+
     (newargs[0])++;
     }
 
@@ -410,7 +437,6 @@ char **pbs_setup(char *command, int argc, char *argv[])
 
   for (i = 1; i < argc; i++)
     {
-
     if (strcmp(argv[i], "-procs") == 0)
       {
       nprocs_specified = 1;
@@ -423,7 +449,9 @@ char **pbs_setup(char *command, int argc, char *argv[])
 
         if (nprocs <= 0)
           {
-          fprintf(stderr, "%s: Value specified by -procs must be greater than zero\n", mcn);
+          fprintf(stderr, "%s: Value specified by -procs must be greater than zero\n", 
+            mcn);
+
           exit(1);
           }
 
@@ -440,14 +468,14 @@ char **pbs_setup(char *command, int argc, char *argv[])
     else if ((strcmp(argv[i], "-hostfile") == 0) ||
              (strcmp(argv[i], "-hfile") == 0))
       {
-
       /* skip it, will add our own */
-      i++;
 
+      i++;
       }
     else if (strcmp(argv[i], "-cmdfile") == 0)
       {
       /* skip over it this time, will add our own at end */
+
       ++i;
       }
     else
@@ -459,16 +487,17 @@ char **pbs_setup(char *command, int argc, char *argv[])
   if (ocmdfile)
     {
     /* have cmdfile specified,  copy and modify it */
+
     if (fix_cmdfile(ocmdfile, ncmdfname) == -1)
       {
       fprintf(stderr, "%s: unable to update command file\n", mcn);
+
       exit(1);
       }
 
     newargs[j++] = "-cmdfile";
 
     newargs[j++] = ncmdfname;
-
     }
 
   if (nhosts < nprocs)
@@ -478,6 +507,7 @@ char **pbs_setup(char *command, int argc, char *argv[])
     putenv("MP_EUILIB=ip");
 
     sprintf(hostfile, "/tmp/pbsHtemp.%s", getenv("PBS_JOBID"));
+
     nf = fopen(hostfile, "w");
 
     if (nf == NULL)
@@ -487,6 +517,7 @@ char **pbs_setup(char *command, int argc, char *argv[])
       }
 
     /* build new hostfile */
+
     for (i = index = 0; i < nprocs; i++)
       {
       fprintf(nf, "%s\n", hfile_mem[index++]);
@@ -500,6 +531,7 @@ char **pbs_setup(char *command, int argc, char *argv[])
   else if (nhosts >= nprocs && pcolon && *pcolon)
     {
     /* wants a specific subset */
+
     sprintf(hostfile, "/tmp/pbsTemp.%s", getenv("PBS_JOBID"));
     nf = fopen(hostfile, "w");
 
@@ -542,6 +574,7 @@ char **pbs_setup(char *command, int argc, char *argv[])
       fprintf(nf, "%s\n", hfile_mem[index]); /* add to our hostfile */
 
       hfile_mem[index][0] = '@'; /* remember using it */
+
       pcomma = strchr(offset, ',');
 
       if (pcomma)     /* still more in the list */
@@ -578,11 +611,17 @@ char **pbs_setup(char *command, int argc, char *argv[])
   newargs[j] = NULL;
 
   return(newargs);
-
   }
 
 
-void run_command(char *command, char *argv[])
+
+
+
+void run_command(
+
+  char *command, 
+  char *argv[])
+
   {
   int   i;
   char *psyscmd;
@@ -605,7 +644,6 @@ void run_command(char *command, char *argv[])
 
   if (ocmdfile || nhfile)
     {
-
     /* must use system() call to start real command so can remove files */
 
     syssz = strlen(command) + 1;
@@ -631,33 +669,48 @@ void run_command(char *command, char *argv[])
       strcat(psyscmd, argv[i++]);
       }
 
-    (void)system(psyscmd);
-    clean_up(0);
+    system(psyscmd);
 
+    clean_up(0);
     }
   else
     {
-
     /* run real command directly */
 
-    execv(command, argv);
+    execv(command,argv);
+
     /* not reached unless error */
-    fprintf(stderr, "%s: Error, exec of %s failed\n", mcn, command);
+
+    fprintf(stderr,"%s: Error, exec of %s failed\n", 
+      mcn, 
+      command);
+
     perror("execv");
+
     exit(1);
     }
-  }
+
+  return;
+  }    /* END run_command() */
 
 
-char *get_real_command(char *argv0)
+
+
+
+char *get_real_command(
+
+  char *argv0)
+
   {
   char *command_name;
   command_name = strrchr(argv0, '/');
 
-  if (command_name != NULL) command_name++; /* advance past "/" */
-  else command_name = argv0;
+  if (command_name != NULL) 
+    command_name++; /* advance past "/" */
+  else 
+    command_name = argv0;
 
-  if (!strcmp(command_name, "poe")) return(POE_PATH);
+  if (!strcmp(command_name,"poe")) return(POE_PATH);
 
   if (!strcmp(command_name, "pbspoe")) return(POE_PATH);
 
@@ -672,20 +725,30 @@ char *get_real_command(char *argv0)
   exit(1);
   }
 
-int
-is_interactive_ok(void)
-  {
 
+
+
+
+int is_interactive_ok(void)
+
+  {
   struct stat sb;
   int status;
   status = stat(INTERACTIVE_FILE, &sb);
 
-  if (status == -1) return(0);
-  else return(1);
+  if (status == -1) 
+    {
+    return(0);
+    }
+
+  return(1);
   }
 
-void
-refuse_interactive(void)
+
+
+
+void refuse_interactive(void)
+
   {
   char *nasty_gram =
     {
@@ -704,7 +767,14 @@ refuse_interactive(void)
   }
 
 
-main(int argc, char *argv[])
+
+
+
+int main(
+
+  int   argc, 
+  char *argv[])
+
   {
   char **args, *command;
   char *hostfile;
@@ -722,16 +792,17 @@ main(int argc, char *argv[])
   if (is_pbs_job())
     {
     args = pbs_setup(command, argc, argv);
+
     run_command(command, args);
     }
   else if (is_interactive_ok())
     {
-    run_command(command, argv);
+    run_command(command,argv);
     }
   else
     {
     refuse_interactive();
     }
 
-  return 0;
+  return(0);
   }

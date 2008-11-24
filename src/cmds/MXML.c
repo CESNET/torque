@@ -100,7 +100,14 @@ int MXMLSetChild(
   MXMLAddE(E, *CE);
 
   if (CName != NULL)
+    {
     (*CE)->Name = strdup(CName);
+
+    if ((*CE)->Name == NULL)
+      {
+      return(FAILURE);
+      }
+    }
 
   return(SUCCESS);
   }  /* END MXMLSetChild() */
@@ -121,13 +128,20 @@ int MXMLCreateE(
     return(FAILURE);
     }
 
-  if ((*E = (mxml_t *)calloc(1, sizeof(mxml_t))) == NULL)
+  if ((*E = (mxml_t *)calloc(1,sizeof(mxml_t))) == NULL)
     {
     return(FAILURE);
     }
 
   if ((Name != NULL) && (Name[0] != '\0'))
+    {
     (*E)->Name = strdup(Name);
+
+    if ((*E)->Name == NULL)
+      {
+      return(FAILURE);
+      }
+    }
 
   return(SUCCESS);
   }  /* END MXMLCreateE() */
@@ -242,7 +256,6 @@ int MXMLSetAttr(
 
   switch (Format)
     {
-
     case mdfString:
 
     default:
@@ -254,7 +267,7 @@ int MXMLSetAttr(
     case mdfInt:
 
       sprintf(tmpLine, "%d",
-              *(int *)V);
+        *(int *)V);
 
       ptr = tmpLine;
 
@@ -263,7 +276,7 @@ int MXMLSetAttr(
     case mdfLong:
 
       sprintf(tmpLine, "%ld",
-              *(long *)V);
+        *(long *)V);
 
       ptr = tmpLine;
 
@@ -272,12 +285,12 @@ int MXMLSetAttr(
     case mdfDouble:
 
       sprintf(tmpLine, "%f",
-              *(double *)V);
+        *(double *)V);
 
       ptr = tmpLine;
 
       break;
-    }  /* END switch(Format) */
+    }  /* END switch (Format) */
 
   /* initialize attribute table */
 
@@ -285,20 +298,21 @@ int MXMLSetAttr(
     {
     if ((E->AName = (char **)calloc(1, sizeof(char *) * MMAX_XMLATTR)) == NULL)
       {
-		/* LOGERROR */
-		fprintf(stderr, "ERROR: could not calloc!\n");
-		return(FAILURE);
+      fprintf(stderr,"ERROR: calloc() failed!\n");
+       
+      return(FAILURE);
       }
+
     if ((E->AVal  = (char **)calloc(1, sizeof(char *) * MMAX_XMLATTR)) == NULL)
       {
-		/* LOGERROR */ 
-		fprintf(stderr, "ERROR: could not calloc!\n");
-		return(FAILURE);
+      fprintf(stderr,"ERROR: calloc() failed!\n");
+
+      return(FAILURE);
       }
 
     E->ASize = MMAX_XMLATTR;
     E->ACount = 0;
-    }
+    }  /* END if (E->AName == NULL) */
 
   /* insert in alphabetical order */
 
@@ -310,7 +324,7 @@ int MXMLSetAttr(
 
   for (aindex = 0;aindex < E->ACount;aindex++)
     {
-    rc = strcmp(E->AName[aindex], A);
+    rc = strcmp(E->AName[aindex],A);
 
     if (rc > 0)
       break;
@@ -331,20 +345,35 @@ int MXMLSetAttr(
 
     if (aindex >= E->ASize)
       {
+      char **tmpAName;
+      char **tmpAVal;
+
       /* allocate memory */
 
-      E->AName = (char **)realloc(E->AName, sizeof(char *) * MAX(16, E->ASize << 1));
-      E->AVal  = (char **)realloc(E->AVal, sizeof(char *) * MAX(16, E->ASize << 1));
+      tmpAName = (char **)realloc(E->AName,sizeof(char *) * MAX(16,E->ASize << 1));
 
-      if ((E->AVal == NULL) || (E->AName == NULL))
+      if (tmpAName == NULL)
         {
-        E->ASize = 0;
+        /* FAILURE - cannot allocate memory */
 
         return(FAILURE);
         }
 
+      E->AName = tmpAName;
+     
+      tmpAVal = (char **)realloc(E->AVal,sizeof(char *) * MAX(16,E->ASize << 1));
+
+      if (tmpAVal == NULL)
+        {
+        /* FAILURE - cannot allocate memory */
+
+        return(FAILURE);
+        }
+
+      E->AVal = tmpAVal;
+ 
       E->ASize <<= 1;
-      }
+      }  /* END if (aindex >= E->ASize) */
     }    /* END if (aindex >= E->ACount) */
 
   if ((ptr == NULL) && (aindex >= E->ACount))
@@ -374,9 +403,23 @@ int MXMLSetAttr(
 
   E->AVal[iindex] = strdup((ptr != NULL) ? ptr : "");
 
+  if (E->AVal[iindex] == NULL)
+    {
+    /* FAILURE - cannot alloc memory */
+
+    return(FAILURE);
+    }
+
   if ((rc != 0) || (E->AName[iindex] == NULL))
     {
     E->AName[iindex] = strdup(A);
+
+    if (E->AName[iindex] == NULL)
+      {
+      /* FAILURE - cannot alloc memory */
+
+      return(FAILURE);
+      }
 
     E->ACount++;
     }
@@ -407,20 +450,24 @@ int MXMLAppendAttr(
 
   ATok = -1;
 
-  if (MXMLGetAttr(E, AName, &ATok, VBuf, sizeof(VBuf)) == SUCCESS)
+  if (MXMLGetAttr(E,AName,&ATok,VBuf,sizeof(VBuf)) == SUCCESS)
     {
     char DString[2];
 
+    char *tmpAVal;
+
     len = strlen(E->AVal[ATok]) + strlen(AVal) + 2;
 
-    E->AVal[ATok] = realloc(
-                      E->AVal[ATok],
-                      len);
+    tmpAVal = realloc(
+      E->AVal[ATok],
+      len);
 
-    if (E->AVal[ATok] == NULL)
+    if (tmpAVal == NULL)
       {
       return(FAILURE);
       }
+
+    E->AVal[ATok] = tmpAVal;
 
     DString[0] = Delim;
 
@@ -541,14 +588,24 @@ int MXMLAddE(
       }
     else
       {
-      E->C = (mxml_t **)realloc(E->C, sizeof(mxml_t *) * MAX(16, E->CSize << 1));
+      mxml_t **tmpC;
 
+      tmpC = (mxml_t **)realloc(E->C,sizeof(mxml_t *) * MAX(16,E->CSize << 1));
+ 
+      if (tmpC == NULL)
+        {
+        /* FAILURE - cannot alloc memory */
+
+        return(FAILURE);
+        }
+
+      E->C = tmpC;
       E->CSize <<= 1;
       }
 
     if (E->C == NULL)
       {
-      /* cannot alloc memory */
+      /* FAILURE - cannot alloc memory */
 
       return(FAILURE);
       }  /* END if (E->C == NULL) */
@@ -564,10 +621,15 @@ int MXMLAddE(
 
 
 
+
+/**
+ * NOTE:  Buf may be allocated on FAILURE 
+ */
+
 int MXMLToXString(
 
   mxml_t   *E,             /* I */
-  char    **Buf,           /* O (populated/modified) */
+  char    **Buf,           /* O (alloc/populated/modified) */
   int      *BufSize,       /* I/O */
   int       MaxBufSize,    /* I */
   char    **Tail,          /* O */
@@ -601,14 +663,12 @@ int MXMLToXString(
     }
   else
     {
-    if (BufSize != NULL)
-      {
-      NewSize = *BufSize;
-      }
-    else
+    if (BufSize == NULL)
       {
       return(FAILURE);
       }
+
+    NewSize = *BufSize;
     }
 
   while (MXMLToString(
@@ -618,6 +678,8 @@ int MXMLToXString(
            Tail,
            IsRootElement) == FAILURE)
     {
+    char *tmpBuf;
+
     if (NewSize >= MaxBufSize)
       {
       return(FAILURE);
@@ -625,12 +687,16 @@ int MXMLToXString(
 
     NewSize = MIN(NewSize << 1, MaxBufSize);
 
-    if ((*Buf = (char *)realloc(*Buf, NewSize)) == NULL)
+    tmpBuf = (char *)realloc(*Buf,NewSize);
+
+    if (tmpBuf == NULL)
       {
       /* cannot allocate buffer */
 
       return(FAILURE);
       }
+
+    *Buf = tmpBuf;
 
     if (BufSize != NULL)
       *BufSize = NewSize;
@@ -1394,8 +1460,10 @@ int MXMLFromString(
           *Tail = ptr + strlen(ptr);
 
         if (EMsg != NULL)
+          {
           sprintf(EMsg, "attribute name is too long - %.10s",
-                  tmpVLine);
+            tmpVLine);
+          }
 
         return(FAILURE);
         }
@@ -1403,7 +1471,7 @@ int MXMLFromString(
 
     tmpVLine[index] = '\0';
 
-    MXMLSetAttr(E, tmpNLine, (void *)tmpVLine, mdfString);
+    MXMLSetAttr(E,tmpNLine,(void *)tmpVLine,mdfString);
 
     ptr++; /* ignore '"' */
 
@@ -1450,10 +1518,21 @@ int MXMLFromString(
 
     E->Val = strdup(tmpVLine);
 
+    if (E->Val == NULL)
+      {
+      if (EMsg != NULL)
+        {
+        sprintf(EMsg,"cannot alloc memory for value - %.10s",
+          tmpVLine);
+        }
+
+      return(FAILURE);
+      }
+
     /* restore '<' symbols */
 
-    for (ptr2 = strchr(E->Val, (char)14);ptr2 != NULL;ptr2 = strchr(ptr2, (char)14))
-      * ptr2 = '<';
+    for (ptr2 = strchr(E->Val,(char)14);ptr2 != NULL;ptr2 = strchr(ptr2,(char)14))
+      *ptr2 = '<';
     }  /* END if (*ptr != '<') */
 
   /* extract children */
@@ -1491,9 +1570,11 @@ int MXMLFromString(
         if ((index >= MMAX_LINE) || (ptr2[0] == '\0'))
           {
           if (EMsg != NULL)
-            sprintf(EMsg, "element name is too long - %.10s",
-                    tmpCName);
-
+            {
+            sprintf(EMsg,"element name is too long - %.10s",
+              tmpCName);
+            }
+ 
           return(FAILURE);
           }
         }
