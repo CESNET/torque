@@ -219,7 +219,9 @@ netcounter_get(void)
 
 
 
-/*
+
+
+/**
  * init_network - initialize the network interface
  * allocate a socket and bind it to the service port,
  * add the socket to the readset for select(),
@@ -229,8 +231,8 @@ netcounter_get(void)
 
 int init_network(
 
-  unsigned int port,
-  void (*readfunc)())
+  unsigned int  port,
+  void        (*readfunc)())
 
   {
   int   i;
@@ -274,7 +276,6 @@ int init_network(
 
     if (sock < 0)
       {
-
       return(-1);
       }
 
@@ -295,6 +296,8 @@ int init_network(
 
     if (bind(sock, (struct sockaddr *)&socname, sizeof(socname)) < 0)
       {
+      /* FAILURE */
+
       close(sock);
 
       return(-1);
@@ -302,12 +305,13 @@ int init_network(
 
     /* record socket in connection structure and select set */
 
-    add_conn(sock, type, (pbs_net_t)0, 0, PBS_SOCK_INET, accept_conn);
+    add_conn(sock,type,(pbs_net_t)0,0,PBS_SOCK_INET,accept_conn);
 
     /* start listening for connections */
 
-    if (listen(sock, 512) < 0)
+    if (listen(sock,512) < 0)
       {
+      /* FAILURE */
 
       return(-1);
       }
@@ -351,13 +355,11 @@ int init_network(
 
     if (listen(unixsocket, 512) < 0)
       {
-
       return(-1);
       }
-    } /* if port == 0 */
+    }   /* END if (port == 0) */
 
 #endif /* END ENABLE_UNIX_SOCKETS */
-
 
   if (port != 0)
     {
@@ -370,7 +372,7 @@ int init_network(
       }
     }
 
-  return (0);
+  return(0);
   }  /* END init_network() */
 
 

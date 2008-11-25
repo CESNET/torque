@@ -1852,10 +1852,15 @@ static void resume_suspend(
 
 
 
-/*
+/**
  * req_signaljob - issue (kill) a specified signal to a job
  * Signal may be either a numeric string or a signal name
  * with or without the "SIG" prefix.
+ *
+ * NOTE:  process_request() set up as request handler via accept_conn()
+ *
+ * @see process_request->dispatch_request() - parent
+ * @see req_signaljob() in server/req_signal.c - peer
  */
 
 void req_signaljob(
@@ -1886,8 +1891,8 @@ void req_signaljob(
 
   if (LOGLEVEL >= 3)
     {
-    sprintf(log_buffer, "signaling job with signal %s",
-            sname);
+    sprintf(log_buffer,"signaling job with signal %s",
+      sname);
 
     log_record(
       PBSEVENT_JOB,
@@ -1900,21 +1905,21 @@ void req_signaljob(
     {
     if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
       {
-      req_reject(PBSE_BADSTATE, 0, preq, NULL, NULL);
+      req_reject(PBSE_BADSTATE,0,preq,NULL,NULL);
       }
     else
       {
 #ifdef _CRAY /* suspend/resume on Cray only */
-      cray_susp_resum(pjob, 1, preq);
+      cray_susp_resum(pjob,1,preq);
 #else
-      resume_suspend(pjob, 1, preq);
+      resume_suspend(pjob,1,preq);
 #endif /* _CRAY */
       }
 
     return;
     }
 
-  if (!strcasecmp(sname, SIG_RESUME))
+  if (!strcasecmp(sname,SIG_RESUME))
     {
     if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_SUSPEND)
       {
@@ -1926,11 +1931,9 @@ void req_signaljob(
       }
 
 #ifdef _CRAY
-    cray_susp_resum(pjob, 0, preq);
-
+    cray_susp_resum(pjob,0,preq);
 #else
-    resume_suspend(pjob, 0, preq);
-
+    resume_suspend(pjob,0,preq);
 #endif /* _CRAY */
 
     return;
@@ -1944,14 +1947,14 @@ void req_signaljob(
     }
   else
     {
-    if (!strncasecmp("SIG", sname, 3))
+    if (!strncasecmp("SIG",sname,3))
       sname += 3;
 
     psigt = sig_tbl;
 
     while (psigt->sig_name != NULL)
       {
-      if (!strcasecmp(sname, psigt->sig_name))
+      if (!strcasecmp(sname,psigt->sig_name))
         break;
 
       psigt++;
@@ -1962,7 +1965,7 @@ void req_signaljob(
 
   if (sig < 0)
     {
-    req_reject(PBSE_UNKSIG, 0, preq, NULL, NULL);
+    req_reject(PBSE_UNKSIG,0,preq,NULL,NULL);
 
     return;
     }
@@ -1990,7 +1993,7 @@ void req_signaljob(
     /* force issue of (another) job obit */
 
     sprintf(log_buffer, "job recycled into exiting on SIGNULL/KILL from substate %d",
-            pjob->ji_qs.ji_substate);
+      pjob->ji_qs.ji_substate);
 
     LOG_EVENT(
       PBSEVENT_ERROR,

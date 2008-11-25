@@ -6861,29 +6861,30 @@ int setup_program_environment(void)
   if (lockfds < 0)
     {
     sprintf(log_buffer, "pbs_mom: unable to open lock file - errno=%d '%s'\n",
-            errno,
-            strerror(errno));
+      errno,
+      strerror(errno));
 
-    fprintf(stderr, "%s", log_buffer);
+    fprintf(stderr,"%s",
+      log_buffer);
 
     return(1);
     }
 
-  mom_lock(lockfds, F_WRLCK); /* See if other MOMs are running */
+  mom_lock(lockfds,F_WRLCK); /* See if other MOMs are running */
 
   /* initialize the network interface */
 
-  if (init_network(pbs_mom_port, process_request) != 0)
+  if (init_network(pbs_mom_port,process_request) != 0)
     {
     c = errno;
 
     sprintf(log_buffer, "server port = %u, errno = %d (%s)",
-            pbs_mom_port,
-            c,
-            strerror(c));
+      pbs_mom_port,
+      c,
+      strerror(c));
 
     if (c == EADDRINUSE)
-      strcat(log_buffer, ", already in use");
+      strcat(log_buffer,", already in use");
 
     log_err(-1, msg_daemonname, log_buffer);
 
@@ -6899,9 +6900,9 @@ int setup_program_environment(void)
     c = errno;
 
     sprintf(log_buffer, "resource (tcp) port = %u, errno = %d (%s)",
-            pbs_rm_port,
-            c,
-            strerror(c));
+      pbs_rm_port,
+      c,
+      strerror(c));
 
     if (c == EADDRINUSE)
       strcat(log_buffer, ", already in use");
@@ -7807,8 +7808,7 @@ kill_all_running_jobs(void)
  * @see main() - parent
  */
 
-void
-main_loop(void)
+void main_loop(void)
 
   {
   static char   id[] = "main_loop";
@@ -7935,13 +7935,13 @@ main_loop(void)
 
     /* wait_request does a select and then calls the connection's cn_func for sockets with data */
 
-    if (wait_request(tmpTime, NULL) != 0)
+    if (wait_request(tmpTime,NULL) != 0)
       {
       if (errno == EBADF)
         {
-        init_network(pbs_mom_port, process_request);
+        init_network(pbs_mom_port,process_request);
 
-        init_network(pbs_rm_port, tcp_request);
+        init_network(pbs_rm_port,tcp_request);
         }
 
       log_err(-1, msg_daemonname, "wait_request failed");
