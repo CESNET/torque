@@ -255,6 +255,8 @@ char            MOMUNameMissing[64];
 int             MOMConfigDownOnError      = 0;
 int             MOMConfigRestart          = 0;
 int             MOMConfigRReconfig        = 0;
+int             MOMRetryObit              = 0;  /* NOTE:  change to TRUE is 2.4 */
+
 long            system_ncpus = 0;
 char           *auto_ideal_load = NULL;
 char           *auto_max_load   = NULL;
@@ -351,6 +353,7 @@ static unsigned long setautomaxload(char *);
 static unsigned long setnodefilesuffix(char *);
 static unsigned long setnospooldirlist(char *);
 static unsigned long setmomhost(char *);
+static unsigned long setretryobit(char *);
 static unsigned long setrreconfig(char *);
 static unsigned long setsourceloginbatch(char *);
 static unsigned long setsourcelogininteractive(char *);
@@ -360,10 +363,8 @@ static struct specials
   {
   char            *name;
   u_long(*handler)();
-  } special[] =
-
-  {
-    { "alloc_par_cmd",       setallocparcmd },
+  } special[] = {
+  { "alloc_par_cmd",       setallocparcmd },
   { "auto_ideal_load",     setautoidealload },
   { "auto_max_load",       setautomaxload },
   { "xauthpath",           setxauthpath },
@@ -404,7 +405,8 @@ static struct specials
   { "nospool_dir_list",    setnospooldirlist },
   { "mom_host",            setmomhost },
   { "remote_reconfig",     setrreconfig },
-  { "job_output_file_umask",           setumask },
+  { "retry_obit",          setretryobit },
+  { "job_output_file_umask", setumask },
   { "preexec",             setpreexec },
   { "source_login_batch",  setsourceloginbatch },
   { "source_login_interactive",  setsourcelogininteractive },
@@ -2562,10 +2564,12 @@ static unsigned long setcheckpolltime(
 
 
 
-/*
-** Add static resource or shell escape line from config file.
-** This is a support routine for read_config().
-*/
+
+
+/**
+ * Add static resource or shell escape line from config file.
+ * This is a support routine for read_config().
+ */
 
 static void add_static(
 
@@ -3193,6 +3197,9 @@ static unsigned long setmomhost(
   }  /* END setmomhost() */
 
 
+
+
+
 static u_long setrreconfig(
 
   char *Value)  /* I */
@@ -3201,7 +3208,7 @@ static u_long setrreconfig(
   static char   id[] = "setrreconfig";
   int           enable = -1;
 
-  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, Value);
+  log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,Value);
 
   if (Value == NULL)
     {
@@ -3211,17 +3218,13 @@ static u_long setrreconfig(
     }
 
   /* accept various forms of "true", "yes", and "1" */
+
   switch (Value[0])
     {
-
     case 't':
-
     case 'T':
-
     case 'y':
-
     case 'Y':
-
     case '1':
 
       enable = 1;
@@ -3229,19 +3232,20 @@ static u_long setrreconfig(
       break;
 
     case 'f':
-
     case 'F':
-
     case 'n':
-
     case 'N':
-
     case '0':
 
       enable = 0;
 
       break;
 
+    default:
+
+      /* NO-OP */
+
+      break;
     }
 
   if (enable != -1)
@@ -3251,6 +3255,67 @@ static u_long setrreconfig(
 
   return(1);
   }  /* END setrreconfig() */
+
+
+
+
+
+static u_long setretryobit(
+
+  char *Value)  /* I */
+
+  {
+  static char   id[] = "setretryobit";
+  int           enable = -1;
+
+  log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,id,Value);
+
+  if (Value == NULL)
+    {
+    /* FAILURE */
+
+    return(0);
+    }
+
+  /* accept various forms of "true", "yes", and "1" */
+
+  switch (Value[0])
+    {
+    case 't':
+    case 'T':
+    case 'y':
+    case 'Y':
+    case '1':
+
+      enable = 1;
+
+      break;
+
+    case 'f':
+    case 'F':
+    case 'n':
+    case 'N':
+    case '0':
+
+      enable = 0;
+
+      break;
+
+    default:
+
+      /* NO-OP */
+
+      break;
+    }
+
+  if (enable != -1)
+    {
+    MOMRetryObit = enable;
+    }
+
+  return(1);
+  }  /* END setretryobit() */
+
 
 
 static unsigned long setnospooldirlist(
@@ -3329,11 +3394,11 @@ check_log(void)
 
 
 
-/*
-** Open and read the config file.  Save information in a linked
-** list.  After reading the file, create an array, copy the list
-** elements to the array and free the list.
-*/
+/**
+ * Open and read the config file.  Save information in a linked
+ * list.  After reading the file, create an array, copy the list
+ * elements to the array and free the list.
+ */
 
 /* NOTE:  add new mom config parameters to 'special[]' */
 
@@ -3344,24 +3409,24 @@ int read_config(
   {
   static char id[] = "read_config";
 
-  FILE                 *conf;
+  FILE               *conf;
 
-  struct stat            sb;
+  struct stat         sb;
 
   struct config_list *cp;
 
-  struct config  *ap;
-  char                   line[120];
-  char                   name[50];
-  char                  *str;
-  char                  *ptr;
+  struct config      *ap;
+  char                line[120];
+  char                name[50];
+  char               *str;
+  char               *ptr;
 
-  int                    linenum;
-  int                    i;
+  int                 linenum;
+  int                 i;
 
-  int                    IgnConfig = 0;
+  int                 IgnConfig = 0;
 
-  int                    rc;
+  int                 rc;
 
   int n, list_len;
   char *server_list_ptr;
@@ -3371,7 +3436,7 @@ int read_config(
   if (LOGLEVEL >= 3)
     {
     sprintf(log_buffer, "updating configuration using file '%s'",
-            (file != NULL) ? file : "NULL");
+      (file != NULL) ? file : "NULL");
 
     log_record(
       PBSEVENT_SYSTEM,
@@ -3408,7 +3473,7 @@ int read_config(
     IgnConfig = 1;
 
     sprintf(log_buffer, "fstat: %s",
-            file);
+      file);
 
     log_err(errno, id, log_buffer);
 
@@ -3431,7 +3496,7 @@ int read_config(
       if (LOGLEVEL >= 3)
         {
         sprintf(log_buffer, "cannot open file '%s'",
-                file);
+          file);
 
         log_record(
           PBSEVENT_SYSTEM,
@@ -4954,8 +5019,7 @@ int rm_request(
 
       if (MOMConfigRReconfig == FALSE)
         {
-        log_err(-1, id,
-                "remote reconfiguration disabled, ignoring request");
+        log_err(-1,id,"remote reconfiguration disabled, ignoring request");
 
         goto bad;
         }
