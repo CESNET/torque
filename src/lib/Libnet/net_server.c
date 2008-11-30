@@ -273,7 +273,7 @@ int init_network(
 
   read_func[initialized++] = readfunc;
 
-  if (port != 0)
+  if (port != 0) /* FIXME: does this just mean af_family != PF_UNIX? */
     {
     if ((sock = socket(af_family, SOCK_STREAM, 0)) < 0)
       {
@@ -358,7 +358,9 @@ int init_network(
   if (port == 0)
     {
     /* setup unix domain socket */
+    struct sockaddr_un unix_sock;
 
+    printf("sizeof(un): %d, sizeof(storage): %d\n", sizeof(struct sockaddr_un), sizeof(struct sockaddr_storage));
     unixsocket = socket(AF_UNIX, SOCK_STREAM, 0);
 
     if (unixsocket < 0)
@@ -366,16 +368,16 @@ int init_network(
       return(-1);
       }
 
-    memset(&socname, 0, sizeof(struct sockaddr_storage));
+    memset(&unix_sock, 0, sizeof(struct sockaddr_un));
 
-    socname.ss_family = AF_UNIX;
-    strncpy(((struct sockaddr_un*)&socname)->sun_path, TSOCK_PATH, 107);  /* sun_path is defined to be 108 bytes */
+/*    unix_sock.ss_family = AF_UNIX; */
+    strncpy(unix_sock.sun_path, TSOCK_PATH, 107);  /* sun_path is defined to be 108 bytes */
 
     unlink(TSOCK_PATH);  /* don't care if this fails */
 
     if (bind(unixsocket,
-             (struct sockaddr *)&socname,
-             sizeof(socname)) < 0)
+             (struct sockaddr *)&unix_sock,
+             sizeof(struct sockaddr_un)) < 0)
       {
       close(unixsocket);
 
@@ -389,7 +391,7 @@ int init_network(
       return(-1);
       }
 
-    add_conn(unixsocket, type, socname, accept_conn);
+/*    add_conn(unixsocket, type, unix_sock, accept_conn); */
 
     if (listen(unixsocket, 512) < 0)
       {
