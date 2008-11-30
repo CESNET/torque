@@ -1533,8 +1533,11 @@ void convert_pul_to_pul6(u_long *pul, struct sockaddr_storage **pul6)
 
   for (; 0 != pul[cnt]; ++cnt)
     {
-    pul6[cnt]->ss_family = AF_INET;
-    ((struct sockaddr_in*)pul6[cnt])->sin_addr.s_addr = pul[cnt];
+    if (NULL != (pul6[cnt] = malloc(sizeof(struct sockaddr_storage))))
+      {
+      pul6[cnt]->ss_family = AF_INET;
+      ((struct sockaddr_in*)pul6[cnt])->sin_addr.s_addr = pul[cnt];
+      }
     }
   }
 
