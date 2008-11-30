@@ -2928,7 +2928,11 @@ int rpp_open(
 
   stream = rpp_create_sp();
 
-  if (stream == -1 || NULL == addrp || NULL == addrp->ai_addr)
+  if (stream == -1 
+#ifdef TORQUE_WANT_IPV6 /* FIXME: this seems to be stupid */
+      || NULL == addrp || NULL == addrp->ai_addr
+#endif
+      )
     {
     if (EMsg != NULL)
       {

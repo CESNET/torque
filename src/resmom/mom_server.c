@@ -2219,7 +2219,9 @@ void is_request(
           {
           switch (ip_proto)
             {
-            int k;
+#ifdef TORQUE_WANT_IPV6
+            int k = 0;
+#endif
             case TORQUE_PROTO_IPV4:
               ipaddr.ss_family = AF_INET;
               ((struct sockaddr_in*)&ipaddr)->sin_addr.s_addr = disrul(stream, &ret);
@@ -2227,7 +2229,7 @@ void is_request(
 #ifdef TORQUE_WANT_IPV6
             case TORQUE_PROTO_IPV6:
               ipaddr.ss_family = AF_INET6;
-              for (k = 0; k < 4; ++k)
+              for (; k < 4; ++k)
                 {
                 ((struct sockaddr_in6*)&ipaddr)->sin6_addr.s6_addr[k] = disrul(stream, &ret);
                 }

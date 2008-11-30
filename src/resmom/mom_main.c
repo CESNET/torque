@@ -6478,7 +6478,9 @@ int setup_program_environment()
   static char   id[] = "setup_program_environment";
   int   c;
   int       hostc = 1;
+#ifndef DEBUG
   FILE  *dummyfile;
+#endif
   int  tryport;
   int  rppfd;   /* fd for rm and im comm */
   int  privfd = 0;  /* fd for sending job info */

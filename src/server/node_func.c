@@ -1106,7 +1106,7 @@ static int process_host_name_part(
   char            tmpHName[1024];
   char           *hptr;
 
-  static int      NodeSuffixIsSet = 0;
+/*  static int      NodeSuffixIsSet = 0; */
 
   static char    *NodeSuffix;
 
@@ -1778,7 +1778,8 @@ int create_pbs_node(
 
   convert_pul_to_pul6(pul, pul6);
 
-  initialize_pbsnode(pnode, pname, pul6, pul6_cnt, ntype);
+  /* FIXME: pul6 is pointer to pointer array - this may not result in contingous arrays of struct sockaddr_storage?! */
+  initialize_pbsnode(pnode, pname, pul6[0], pul6_cnt, ntype);
 
   /* create and initialize the first subnode to go with the parent node */
 

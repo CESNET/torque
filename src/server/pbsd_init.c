@@ -315,7 +315,7 @@ int pbsd_init(
   struct work_task *wt;
   job_array *pa;
 
-  char   EMsg[1024];
+  /* char   EMsg[1024]; */
 
   extern int TForceUpdate;
 
