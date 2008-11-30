@@ -370,7 +370,7 @@ int init_network(
 
     memset(&unix_sock, 0, sizeof(struct sockaddr_un));
 
-/*    unix_sock.ss_family = AF_UNIX; */
+    unix_sock.sun_family = AF_UNIX;
     strncpy(unix_sock.sun_path, TSOCK_PATH, 107);  /* sun_path is defined to be 108 bytes */
 
     unlink(TSOCK_PATH);  /* don't care if this fails */
