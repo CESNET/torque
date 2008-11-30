@@ -2805,7 +2805,12 @@ int rpp_open(
 
   /* Careful: function execution has side effects on rpp_fd_array and is
    * implementation defined! */
-  if ((rpp_bind(0, AF_INET) == -1) || (-1 == rpp_bind(0, AF_INET6))) /* bind if we need to */
+  if ((rpp_bind(0, AF_INET) == -1) 
+#ifdef TORQUE_WANT_IPV6 /* may not have AF_INET6 defined on cygwin */
+      || (-1 == rpp_bind(0, AF_INET6))) /* bind if we need to */
+#else
+    )
+#endif
     {
     if (EMsg != NULL)
       sprintf(EMsg, "cannot bind rpp socket");
