@@ -84,7 +84,7 @@ qsub \- submit pbs job
 qsub [\-a date_time] [\-A account_string] [\-b secs] [\-c interval] [\-C directive_prefix]
 [\-d path] [\-D path] [\-e path] [\-h] [\-I] [\-j join] [\-k keep] [\-l resource_list]
 [\-m mail_options] [\-M user_list] [\-N name] [\-o path] 
-[\-p priority] [\-q destination] [\-r c] [\-S path_list] [\-t num_jobs]
+[\-p priority] [\-q destination] [\-r c] [\-S path_list] [\-t num_jobs] [\-T prologue/epilogue script_name] 
 [\-u user_list] [\-v variable_list] [\-V] [\-W additional_attributes] [\-X] [\-z]
 [script]
 .SH DESCRIPTION
@@ -758,6 +758,15 @@ The
 argument is an integer id or a range of integers. Multiple ids
 or id ranges can be combined in a comma delimted list. Examples :
 \-t 1-100 or \-t 1,10,50-100
+.IP "\-T script_name" 8
+Allows for per job prologue and epilogue scripts. The full script name will be
+prologue.[name] or epilogue.[name]. For the job submission, only request
+the name of the prologue or epilogue script.
+.IP
+Example: 
+.Ty "qsub -T prescript"
+.br
+Specifies to use the script prologue.prescript
 .IP "\-u user_list" 8
 Defines the user name under which the job is to run on the execution system.
 .IP
