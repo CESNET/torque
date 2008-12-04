@@ -229,7 +229,7 @@ char *pbs_get_server_list()
         return(server_list);
         }
 
-      if (fgets(server_list,PBS_MAXSERVERNAME,fd) == NULL)
+      if (fgets(server_list,sizeof(server_list),fd) == NULL)
         {
         fclose(fd);
 
@@ -243,7 +243,7 @@ char *pbs_get_server_list()
       } 
     else 
       {
-      strncpy(server_list,server,PBS_MAXSERVERNAME);
+      strncpy(server_list,server,sizeof(server_list)-1);
       }
     got_dflt = TRUE;
     }  /* END if (got_dflt != TRUE) */
