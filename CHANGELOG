@@ -4,7 +4,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no longer be
       found in the OS processor table. This prevents jobs from getting "stuck" when the PID
       vanishes in some rare cases.
-  e - forward-ported change from 2.1-fixes (r2581) (b - reissue job obit even if no processes are found)
+  e - forward-ported change from 2.1-fixes (r2581) (b - reissue job obit even if no
+      processes are found)
+  b - change back to not sending status updates until we get cluster addr message
+      from server, also only try to send hello when the server stream is down.
 
 2.3.5
   e - added new init.d scripts for Debian/Ubuntu systems
