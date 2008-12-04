@@ -248,7 +248,6 @@ typedef struct mom_server
   char            pbs_servername[PBS_MAXSERVERNAME + 1];
   time_t          next_connect_time;
   int             connect_failure_count;
-  time_t          next_send_hello_time;
   int             sent_hello_count;
   char            ReportMomState;
   time_t          MOMLastSendToServerTime;
@@ -524,6 +523,7 @@ int mom_server_add(char *value)
     /* Fill in the new server instance */
 
     strncpy(pms->pbs_servername, value, PBS_MAXSERVERNAME);
+    mom_server_count++;
 
     sprintf(log_buffer, "server %s added", pms->pbs_servername);
     log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, log_buffer);
@@ -1374,6 +1374,38 @@ int calculate_retry_seconds(
   }
 
 
+/**
+ * mom_server_send_hello
+ *
+ * This sends a hello message to server.
+ *
+ * @param pms pointer to mom_server instance
+ * @return count 0 or -1
+ *
+ */
+
+int mom_server_send_hello(
+
+  mom_server *pms)
+
+  {
+  static char id[] = "mom_server_send_hello";
+
+  if (is_compose(pms, IS_HELLO) == -1)
+    {
+    return(-1);
+    }
+
+  if (mom_server_flush_io(pms, id, "flush") != DIS_SUCCESS)
+    {
+    return(-1);
+    }
+
+  pms->sent_hello_count++;
+
+  return(0);
+  }  /* END mom_server_send_hello() */
+
 
 
 
@@ -1404,6 +1436,19 @@ int mom_server_check_connection(
     return(0);
     }
 
+  if ((pms->SStream != -1) && 
+      (time_now >= (pms->MOMLastSendToServerTime + (ServerStatUpdateInterval*2))))
+    {
+    sprintf(log_buffer,"connection to server %s timeout", 
+      pms->pbs_servername);
+
+    log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+
+    rpp_close(pms->SStream);
+
+    pms->SStream = -1;
+    }
+
   if (pms->SStream == -1)
     {
     /* No connection to server */
@@ -1430,34 +1475,23 @@ int mom_server_check_connection(
 
         return(0);        /* attempt to restore connection to pbs_server failed */
         }
+
+      sprintf(log_buffer, "sending hello to server %s",
+              pms->pbs_servername);
+
+      log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
+
+      pms->MOMLastSendToServerTime = time_now;
+      
+      if (mom_server_send_hello(pms) == -1)
+        {
+        return(0);
+        }
+
       }
     }    /* END if (pms->SStream == -1) */
 
-  if ((pms->next_send_hello_time == 0) || (pms->next_send_hello_time <= time_now))
-    {
-    sprintf(log_buffer, "sending hello to server %s",
-            pms->pbs_servername);
-
-    log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
-
-    pms->MOMLastSendToServerTime = time_now;
-
-    if (is_compose(pms, IS_HELLO) == -1)
-      {
-      return(0);
-      }
-
-    if (mom_server_flush_io(pms, id, "flush") != DIS_SUCCESS)
-      {
-      return(0);
-      }
-
-    pms->sent_hello_count++;
-
-    pms->next_send_hello_time = time_now + (ServerStatUpdateInterval * 2);
-    }
-
-  return(1);
+  return(pms->received_cluster_address_count);
   }  /* END mom_server_check_connection() */
 
 
@@ -1998,7 +2032,7 @@ mom_server *mom_server_valid_message_source(
 
     pms->SStream = stream;
 
-    pms->next_send_hello_time = 0;
+    mom_server_send_hello(pms);
 
     return(pms);
     }
