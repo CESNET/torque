@@ -331,7 +331,7 @@ attribute_def job_attr_def[] =
     ATR_TYPE_LONG,
     PARENT_TYPE_JOB
   },
-  /* JOB_ATR_type */
+  /* JOB_ATR_jobtype */
   { ATTR_jobtype,   /* "Job_Type" */
     decode_str,
     encode_str,
