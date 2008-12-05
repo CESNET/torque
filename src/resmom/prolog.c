@@ -404,7 +404,7 @@ int run_pelog(
       PPEType[which],
       (pelog != NULL) ? pelog : "NULL");
 
-    log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
+    log_err(-1,id,log_buffer);  /* not actually an error--but informational */
     }
 
   /* script must be owned by root, be regular file, read and execute by user *
