@@ -624,7 +624,7 @@ scan_for_exiting(void)
           {
           /*
           ** Send a response over to MOM
-          ** whose brat sent the request.
+          ** whose child sent the request.
           */
 
           im_compose(
@@ -702,7 +702,7 @@ scan_for_exiting(void)
 
       /*
       ** Check to see if I'm still in touch with
-      ** the head office.  If not, I'm just going to
+      ** the mother superior.  If not, I'm just going to
       ** get rid of this job.
       */
 

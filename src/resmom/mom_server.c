@@ -1363,12 +1363,21 @@ int calculate_retry_seconds(
   int count)
 
   {
-  int retry_seconds;
+  int retry_seconds = 0;
+
+  /* Why are we using this hand-crafted power function instead of pow()? */
+  /* pow() is probably using a more efficient processor instruction on most
+   * architectures */
 
   retry_seconds = power(STARTING_RETRY_INTERVAL_IN_SECS, count);
 
-  if (retry_seconds > MAX_RETRY_TIME_IN_SECS)
+  /* the (retry_seconds <= 0) condition helps avoid overflow! */
+
+  if ((retry_seconds > MAX_RETRY_TIME_IN_SECS) ||
+      (retry_seconds <= 0))
+    {
     retry_seconds = MAX_RETRY_TIME_IN_SECS;
+    }
 
   return(retry_seconds);
   }
@@ -2791,6 +2800,7 @@ int mom_open_socket_to_jobs_server(
   /* See if the server address string has a ':' implying a port number. */
 
   serverAddr = pjob->ji_wattr[(int)JOB_ATR_at_server].at_val.at_str;
+
   if (serverAddr != NULL)
     {
     svrport = strchr(serverAddr, (int)':');
