@@ -160,6 +160,7 @@ extern double cputfactor;
 extern double wallfactor;
 extern  long    system_ncpus;
 extern  int     ignwalltime;
+extern  int     ignvmem;
 
 /*
 ** local functions and data
@@ -714,7 +715,7 @@ int    set_mode; /* SET_LIMIT_SET or SET_LIMIT_ALTER */
       {
       reslim.rlim_cur = reslim.rlim_max = mem_limit;
 
-      if (setrlimit(RLIMIT_AS, &reslim) < 0)
+      if ((ignvmem == 0) && (setrlimit(RLIMIT_AS, &reslim) < 0))
         return (error("RLIMIT_AS", PBSE_SYSTEM));
       }
     }
@@ -917,7 +918,7 @@ job   *pjob;
       if (retval != PBSE_NONE)
         continue;
 
-      if ((num = mem_sum(pjob)) > value)
+      if ((ignvmem == 0) && ((num = mem_sum(pjob)) > value))
         {
         sprintf(log_buffer,
                 "vmem %lu exceeded limit %lu",
