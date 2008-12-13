@@ -11,8 +11,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - change pbs_server so log_file_max_size of zero behavior matches documentation
   e - added periodic logging of version and loglevel to help in support
   e - added pbs_mom config option ignvmem to ignore vmem/pvmem limit enforcement
-  b - fix strtok strings in fifo scheduler that had tab characters replaced by space by astyle
-      (replaced with \t as they should have been)
+  b - change to correct strtoks that accidentally got changed in astyle 
+      formatting
 
 2.3.5
   e - added new init.d scripts for Debian/Ubuntu systems
