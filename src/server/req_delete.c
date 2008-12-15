@@ -1049,6 +1049,19 @@ void purge_completed_jobs(
   time_str += strlen(PURGECOMP);
   purge_time = strtol(time_str,NULL,10);
   
+  /*
+    * Clean unreported capability is only for operators and managers.
+    * Check if request is authorized
+  */
+
+  if ((preq->rq_perm & (ATR_DFLAG_OPRD|ATR_DFLAG_OPWR|
+                    ATR_DFLAG_MGRD|ATR_DFLAG_MGWR)) == 0)
+    {
+    req_reject(PBSE_PERM,0,preq,NULL,
+      "must have operator or manager privilege to use -c parameter");
+    return;
+    }
+    
   if (LOGLEVEL >= 4)
     {
     sprintf(log_buffer,"Received purge completed jobs command, purge time is %ld (%s)",
