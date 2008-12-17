@@ -5282,6 +5282,7 @@ int TMomCheckJobChild(
 
   timeout.tv_sec  = Timeout;
   timeout.tv_usec = 0;
+  errno = 0;
 
   FD_ZERO(&fdset);
 
