@@ -613,25 +613,25 @@ void req_quejob(
 
     /* need to set certain environmental variables per POSIX */
 
-    clear_attr(&tempattr, &job_attr_def[(int)JOB_ATR_variables]);
+    clear_attr(&tempattr,&job_attr_def[(int)JOB_ATR_variables]);
 
-    strcpy(buf, pbs_o_que);
+    strcpy(buf,pbs_o_que);
 
-    strcat(buf, pque->qu_qs.qu_name);
+    strcat(buf,pque->qu_qs.qu_name);
 
-    if (get_variable(pj, pbs_o_host) == NULL)
+    if (get_variable(pj,pbs_o_host) == NULL)
       {
-      strcat(buf, ",");
-      strcat(buf, pbs_o_host);
-      strcat(buf, "=");
-      strcat(buf, preq->rq_host);
+      strcat(buf,",");
+      strcat(buf,pbs_o_host);
+      strcat(buf,"=");
+      strcat(buf,preq->rq_host);
       }
 
-    job_attr_def[(int)JOB_ATR_variables].at_decode(&tempattr,
-
-        NULL,
-        NULL,
-        buf);
+    job_attr_def[(int)JOB_ATR_variables].at_decode(
+      &tempattr,
+      NULL,
+      NULL,
+      buf);
 
     job_attr_def[(int)JOB_ATR_variables].at_set(
       &pj->ji_wattr[(int)JOB_ATR_variables],
@@ -653,10 +653,11 @@ void req_quejob(
 #if 0
     else  /* change to show expected output path and filename */
       {
-      replace_attr_string(&pj->ji_wattr[(int)JOB_ATR_outpath],
-                          (add_std_filename(pj,
-                                            pj->ji_wattr[(int)JOB_ATR_outpath].at_val.at_str,
-                                            (int)'o')));
+      replace_attr_string(
+        &pj->ji_wattr[(int)JOB_ATR_outpath],
+        (add_std_filename(pj,
+        pj->ji_wattr[(int)JOB_ATR_outpath].at_val.at_str,
+        (int)'o')));
       }
 
 #endif
@@ -672,10 +673,11 @@ void req_quejob(
 #if 0
     else  /* change to show expected error path and filename */
       {
-      replace_attr_string(&pj->ji_wattr[(int)JOB_ATR_errpath],
-                          (add_std_filename(pj,
-                                            pj->ji_wattr[(int)JOB_ATR_errpath].at_val.at_str,
-                                            (int)'e')));
+      replace_attr_string(
+        &pj->ji_wattr[(int)JOB_ATR_errpath],
+        (add_std_filename(pj,
+        pj->ji_wattr[(int)JOB_ATR_errpath].at_val.at_str,
+        (int)'e')));
       }
 
 #endif
@@ -720,7 +722,7 @@ void req_quejob(
         {
         job_purge(pj);
 
-        req_reject(PBSE_BADACCT, 0, preq, NULL, "invalid account");
+        req_reject(PBSE_BADACCT,0,preq,NULL,"invalid account");
 
         return;
         }
@@ -748,8 +750,7 @@ void req_quejob(
       }
 
 #endif /* PNOT */
-
-    }
+    }  /* END if (created_here) */
   else
     {
     /* job was created elsewhere and moved here */
