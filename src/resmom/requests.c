@@ -3033,6 +3033,8 @@ void req_cpyfile(
 
       log_err(errno,id,log_buffer);
 
+      bad_files = 1;
+
       goto error;
       }
 
@@ -3054,6 +3056,8 @@ void req_cpyfile(
             errno);
 
           log_err(errno,id,log_buffer);
+
+          bad_files = 1;
 
           goto error;
           }
