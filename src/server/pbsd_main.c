@@ -1482,7 +1482,6 @@ void check_acct_log(
        log_buffer);
      
     acct_cleanup(server.sv_attr[(int)SRV_ATR_AcctKeepDays].at_val.at_long);
-    
    }
 
   set_task(WORK_Timed,time_now + PBS_ACCT_CHECK_RATE,check_acct_log,NULL);

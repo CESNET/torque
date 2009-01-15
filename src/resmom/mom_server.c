@@ -1025,7 +1025,6 @@ void check_state(
 
   {
   static int ICount = 0;
-
   static char tmpPBSNodeMsgBuf[1024];
 
   if (Force)
@@ -1109,8 +1108,7 @@ void check_state(
       }
     }      /* END if (PBSNodeCheckPath[0] != '\0') */
 
-  ICount ++;
-
+  ICount++;
   ICount %= MAX(1,PBSNodeCheckInterval);
 
   return;

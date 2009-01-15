@@ -1221,6 +1221,7 @@ void on_job_exit(
          */
         
         PurgeIt = TRUE;
+
         if (((pjob->ji_wattr[(int)JOB_ATR_reported].at_flags & ATR_VFLAG_SET) != 0)
           && (pjob->ji_wattr[(int)JOB_ATR_reported].at_val.at_long == 0))
           {
@@ -1228,6 +1229,7 @@ void on_job_exit(
             {
             sprintf(log_buffer, "Bypassing job %s waiting for purge completed command",
               pjob->ji_qs.ji_jobid);
+
             log_record(
               PBSEVENT_JOB,
               PBS_EVENTCLASS_JOB,
