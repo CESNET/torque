@@ -3065,7 +3065,6 @@ void im_request(
           }
 
         sprintf(log_buffer, "%s: SIGNAL_TASK %s from node %d task %d signal %d",
-
                 id,
                 jobid,
                 nodeid,

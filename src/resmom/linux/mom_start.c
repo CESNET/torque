@@ -450,8 +450,11 @@ scan_for_terminated(void)
 
       while (ptask != NULL)
         {
-        if (ptask->ti_qs.ti_sid == pid)
+        if ((ptask->ti_qs.ti_sid == pid) &&
+            (ptask->ti_qs.ti_status != TI_STATE_EXITED))
+          {
           break;
+          }
 
         ptask = (task *)GET_NEXT(ptask->ti_jobtask);
         }  /* END while (ptask) */
@@ -578,9 +581,7 @@ scan_for_terminated(void)
     kill_task(ptask, SIGKILL, 0);
 
     ptask->ti_qs.ti_exitstat = exiteval;
-
     ptask->ti_qs.ti_status   = TI_STATE_EXITED;
-
     task_save(ptask);
 
     sprintf(log_buffer, "%s: job %s task %d terminated, sid=%d",
