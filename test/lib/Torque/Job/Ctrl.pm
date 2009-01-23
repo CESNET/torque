@@ -23,7 +23,6 @@ use base 'Exporter';
 our @EXPORT = qw(
                 submitJob
                 submitSleepJob
-                submitCheckpointJob
                 runJobs 
                 delJobs
                 );
@@ -67,55 +66,6 @@ sub submitSleepJob #($)
 
     $job_id = -1;
     fail('Unable to submit a sleep job: ' . $qsub{ 'STDERR' });
-
-    } # END else
-
-  return $job_id;
-
-  } # END submitSleepJob #($) 
-
-###############################################################################
-# submitCheckpointJob 
-###############################################################################
-sub submitCheckpointJob #($) 
-  {
-  
-  my ($params) = @_; 
-
-  # Parameters
-  my $user       = $params->{ 'user'       } || carp '"user" not given';
-  my $torque_bin = $params->{ 'torque_bin' } || carp '"torque_bin" not given';
-  my $app        = $params->{ 'app'        } || carp '"app" not give';
-  my $add_args   = $params->{ 'add_args'   } || '';
-  my $c_value    = $params->{ 'c_value'    } || 'enabled';
- 
-  # Variables
-  my $ld_library_path = $props->get_property( 'LD_LIBRARY_PATH' );
-
-  # Make sure torque_bin ends in a / 
-  $torque_bin .= '/';
-
-  # Return value
-  my $job_id;  
-  
-  # Submit a job
-  my $qsub_cmd = "${torque_bin}qsub -c $c_value -v LD_LIBRARY_PATH=$ld_library_path $add_args $app";
-  my %qsub     = runCommandAs($user, $qsub_cmd);
-
-  if ($qsub{ 'EXIT_CODE' } == 0)
-    {
-
-    $job_id = $qsub{ 'STDOUT' };
-    $job_id = cleanupJobId($job_id);
-
-    pass("Successfully submitted a checkpoint job '$job_id'");
-
-    } # END if ($qsub{ 'EXIT_CODE' } == 0)
-  else
-    {
-
-    $job_id = -1;
-    fail('Unable to submit a checkpoint job: ' . $qsub{ 'STDERR' });
 
     } # END else
 
@@ -236,7 +186,6 @@ Torque::Job::Ctrl - A module to control torque jobs
  use Torque::Job::Ctrl qw (
                            submitJob
                            submitSleepJob
-                           submitCheckpointJob
                            runJobs
                            delJobs
                           );
@@ -257,16 +206,6 @@ Torque::Job::Ctrl - A module to control torque jobs
                'add_args'   => '-l walltime=30:00'
              };
  my $job_id = submitSleepJob($params);
-
- # Submit a checkpoint job
- my $params = {
-               'user'       => $user1,
-               'torque_bin' => $torque_bin,
-               'app'        => '/tmp/app.pl',
-               'add_args'   => '-l walltime=30:00'
-             };
- my $job_id = submitCheckpointJob($params);
-
 
  # delJobs
  my @job_ids = qw(1.host 2.host);
@@ -306,18 +245,6 @@ my $params = {
                'sleep_time' => 200,
                'add_args'   => '-l walltime=30:00'
              };
-
-=item submitCheckpointJob
-
-Takes a hashref of parameters and submits a job with checkpointing enabled.  It returns the job_id.  The following hash illustrates the possible values:
-
-my $params = {
-               'user'       => 'user1',
-               'torque_bin' => '/var/spool/torque/bin',
-               'app'        => '/tmp/app.pl',
-               'add_args'   => '-l walltime=30:00'
-             };
-
 
 =item delJobs
 
