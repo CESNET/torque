@@ -4,8 +4,7 @@ use strict;
 use warnings;
 
 use FindBin;
-use lib "$FindBin::Bin/../../../../../lib/";
-
+use lib "$FindBin::Bin/../../../../lib/";
 
 # Test Modules
 use CRI::Test;
