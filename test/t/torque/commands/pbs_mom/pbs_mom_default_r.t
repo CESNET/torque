@@ -94,7 +94,7 @@ ok($pgrep{ 'EXIT_CODE' } == 0, "Verifying that pbs_mom is running");
 
 # Check that the job is still running
 %job_info = job_info($job_id);
-ok($job_info{ $job_id }{ 'job_state' } eq 'Q', "Checking that job '$job_id' is in the queued (Q) state")
+ok($job_info{ $job_id }{ 'job_state' } eq 'R', "Checking that job '$job_id' is in the running (R) state")
   or diag("\$job_info{ $job_id }{ 'job_state' } => $job_info{ $job_id }{ 'job_state' }");
 
 ###############################################################################
