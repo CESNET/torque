@@ -1,4 +1,4 @@
-LD_LIBRARY_PATH = /usr/test/torque/lib:/usr/test/blcr/lib
+LD_LIBRARY_PATH = /usr/test/torque/lib
 
 moab.user.one       = testuser1
 moab.user.one.group = testgroup1
