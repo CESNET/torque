@@ -21,5 +21,4 @@ execute_tests(
 "$testbase/config_mom.t",
 "$testbase/cp_chkpt_scripts.t",
 "$testbase/create_torque_conf.t",
-"$testbase/check_blcr.t",
 );
