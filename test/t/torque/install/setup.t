@@ -25,6 +25,7 @@ setDesc('Setup Torque with multiple queues');
 # Variables
 ###############################################################################
 my $user     = 'root';
+my $home_dir = $props->get_property('Torque.Home.Dir');
 my $q1       = $props->get_property('torque.queue.one');
 my $q2       = $props->get_property('torque.queue.two');
 my $hostname = $props->get_property('Test.Host');
@@ -43,7 +44,7 @@ $user = "$user\@$hostname";
 # queues
 diag "initializing TORQUE (admin: $user)\n";
 
-my $pbs_cmd = 'pbs_server -t create';
+my $pbs_cmd = "$home_dir/sbin/pbs_server -t create";
 my $exp     = Expect->spawn($pbs_cmd)
  or die "Cannot spawn '$pbs_cmd'";
 
