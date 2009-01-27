@@ -19,6 +19,5 @@ execute_tests(
 "$testbase/make_install.t",
 "$testbase/setup.t",
 "$testbase/config_mom.t",
-"$testbase/cp_chkpt_scripts.t",
 "$testbase/create_torque_conf.t",
 );
