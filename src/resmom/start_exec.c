@@ -2975,11 +2975,11 @@ int TMomFinalizeChild(
 
     /* NOTE:  set arg2 to 5 to enable file open timeout check */
 
-    if (open_std_out_err(pjob,0) == -1) 
+    if (open_std_out_err(pjob,0) == -1)
       {
       log_err(-1,id,"unable to open stdout/stderr descriptors");
 
-      starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL1,&sjr);
+      starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_STDOUTFAIL,&sjr);
 
       /*NOTREACHED*/
 
@@ -3596,6 +3596,12 @@ int TMomFinalizeJob3(
 
         break;
 
+      case JOB_EXEC_STDOUTFAIL:  /* -9 */
+
+        strcpy(tmpLine,"job exec failure, could not open/create stdout/stderr files, no retry");
+
+        break;
+
       default:
 
         sprintf(tmpLine,"job exec failure, code=%d",
@@ -3899,6 +3905,7 @@ int start_process(
           break;
 
         case JOB_EXEC_FAIL1:  /* -1 */
+        case JOB_EXEC_STDOUTFAIL: /* -9 */
 
           strcpy(tmpLine,"stdio setup failed");
 
@@ -4225,6 +4232,11 @@ int start_process(
     }
   else 
     {
+    /* This code block may be dead (may never be run). This is due to the fact that
+     * start_process() is only called by a sister who has received a IM_SPAWN_TASK,
+     * but the below comment states that the code only runs for a "single node" job,
+     * and all sisters are part of a multi-node job. */
+
     /* normal batch job, single node, write straight to files */
 
     pts = -1;
