@@ -20,5 +20,4 @@ execute_tests(
 "$testbase/setup.t",
 "$testbase/config_mom.t",
 "$testbase/create_torque_conf.t",
-"$testbase/check_blcr.t",
 );

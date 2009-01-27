@@ -9,7 +9,7 @@ use lib "$FindBin::Bin/../../../lib/";
 use CRI::Test;
 
 plan('no_plan');
-setDesc('Install Latest Torque from subversion to use BLCR checkpointing');
+setDesc('Install Latest Torque');
 
 my $testbase = $FindBin::Bin;
 

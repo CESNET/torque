@@ -23,6 +23,5 @@ execute_tests(
 "$testbase/nightly_remote_install_torques.t",
 "$testbase/config_server.t",
 "$testbase/create_torque_conf.t",
-"$testbase/check_blcr.t",
 "$testbase/startup.t",
 );

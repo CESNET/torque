@@ -19,11 +19,6 @@ my %hostnameCommand = runCommand("hostname --ip-address", "Getting hostname IP a
 my $ipAddress       = $hostnameCommand{'STDOUT'};
 chomp($ipAddress);
 
-# BLCR Variables
-my $checkpoint_script   = $props->get_property('torque.checkpoint_script'  );
-my $restart_script      = $props->get_property('torque.restart_script'     );
-my $checkpoint_run_exe  = $props->get_property('torque.checkpoint_run_exe' );
-my $checkpoint_interval = $props->get_property('torque.checkpoint_interval');
 my $loglevel            = $props->get_property('mom.config.loglevel'       );
 
 ok(open(CONFIG, ">$configFile"), "Opening Torque mom config file") 
@@ -33,11 +28,6 @@ print CONFIG << "EOF";
 \$logevent       255
 \$loglevel       $loglevel
 \$restricted     $ipAddress  # note: IP address of host running pbs_server
-
-\$checkpoint_script   $checkpoint_script
-\$restart_script      $restart_script
-\$checkpoint_run_exe  $checkpoint_run_exe
-\$checkpoint_interval $checkpoint_interval
 EOF
 
 ok(close CONFIG, 'Closing Torque mom config file') 
