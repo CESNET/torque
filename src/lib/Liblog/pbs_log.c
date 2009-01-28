@@ -677,7 +677,7 @@ void log_close(
 int log_remove_old(
 
   char  *DirPath,     /* I (path in which we're removing files)*/
-  ulong ExpireTime)   /* I (how old the file must be to be removed, in seconds) */
+  unsigned long ExpireTime)   /* I (how old the file must be to be removed, in seconds) */
 
   {
   char tmpPath[MAX_PATH_LEN];
@@ -689,7 +689,7 @@ int log_remove_old(
   unsigned long TTime;
  
   int IsDir = FALSE;
-  TTime = time(NULL);
+  TTime = time((time_t *)NULL);
  
   /* check the input for an empty path */
   if ((DirPath == NULL) || (DirPath[0] == '\0'))
@@ -707,14 +707,14 @@ int log_remove_old(
   DirHandle = opendir(DirPath);
 
   /* fail if path couldn't be opened */  
-  if (DirHandle == NULL)
+  if (DirHandle == (DIR *)NULL)
     {
     return(-1);
     }
 
   FileHandle = readdir(DirHandle);
   
-  while (FileHandle != NULL)
+  while (FileHandle != (struct dirent *)NULL)
     {    
     /* attempt to delete old files */
 
@@ -744,7 +744,7 @@ int log_remove_old(
       }
 
     /* set FMTime's value */
-    FMTime = (ulong)sbuf.st_mtime;
+    FMTime = (unsigned long)sbuf.st_mtime;
     
     if ((IsDir == FALSE) &&
         (TTime - FMTime) > ExpireTime)
