@@ -36,7 +36,8 @@ my $mom_copy_command       = $props->get_property('mom.copy.command');
 my $mom_varattrs           = $props->get_property('mom.config.varattr');
 
 # Torque Variables
-my $torque_spool_dir = $props->get_property('Torque.Home.Dir') . "spool/";
+my $torque_spool_dir = $props->get_property('Torque.Home.Dir') . "/spool/";
+$torque_spool_dir    =~ s/\/\//\//g; # Replace any // with /
 
 ###############################################################################
 # test_mult_diag
