@@ -34,9 +34,9 @@ stopTorque($torque_params)
 ###############################################################################
 
 # Configuration File
-my $pbsserver            = $props->get_property('Test.Host'                        );
-my $pbsclient            = $props->get_property('Test.Host'                        );
-my $restricted           = $props->get_property('Test.Host'                        );
+my $pbsserver            = $props->get_property('Test.Host'                       );
+my $pbsclient            = $props->get_property('Test.Host'                       );
+my $restricted           = $props->get_property('Test.Host'                       );
 my $logevent             = $props->get_property('mom.config.logevent'             );
 my $cputmult             = $props->get_property('mom.config.cputmult'             );
 my $usecp                = $props->get_property('mom.config.usecp'                );
@@ -66,7 +66,7 @@ my $rcpcmd               = $props->get_property('mom.config.rcpcmd'             
 my $tape8mm              = $props->get_property('mom.config.tape8mm'              );
 
 # The function Data::Properties::get_property() doesn't return a value if it is zero,
-# so we have to go through the back door to get 0 values.
+# so we have to access the variables directly.
 my $enable_mom_restart   = $props->{ '_props' }{ 'mom.config.enablemomrestart' };
 my $down_on_error        = $props->{ '_props' }{ 'mom.config.down_on_error'    };
 
@@ -145,7 +145,6 @@ foreach my $node (@remote_nodes)
 
   # Copy the new file
   run_and_check_cmd("scp $mom_cfg_file $node:$mom_cfg_file");
-
 
   } # END foreach my $node (@nodes)
 
