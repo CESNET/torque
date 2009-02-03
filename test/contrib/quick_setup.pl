@@ -49,7 +49,7 @@ my $moab_test_prefix    = '/usr/local/qatests/src/moab/';
 my $torque_test_prefix  = '/usr/local/qatests/src/torque/';
 
 # Template props loc
-my $props_loc = resolve_path("$FindBin::Bin/../etc/props/torque.props");
+my $props_loc = resolve_path("$FindBin::Bin/../etc/props/default.props");
 
 ###############################################################################
 # Check that the user is $root
