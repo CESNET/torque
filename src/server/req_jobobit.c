@@ -1755,7 +1755,6 @@ void req_jobobit(
       }
 
     req_reject(
-
       bad,
       0,
       preq,
@@ -1830,7 +1829,6 @@ void req_jobobit(
     }
 
   modify_job_attr(
-
     pjob,
     patlist,
     ATR_DFLAG_MGWR | ATR_DFLAG_SvWR,
@@ -2133,7 +2131,6 @@ void req_jobobit(
       }
 
     svr_setjobstate(
-
       pjob,
       JOB_STATE_EXITING,
       pjob->ji_qs.ji_substate);

@@ -425,7 +425,7 @@ struct job
   time_t  ji_chkpttime; /* periodic checkpoint time */
   time_t  ji_chkptnext; /* next checkpoint time */
   time_t  ji_sampletim; /* last usage sample time, irix only */
-  pid_t  ji_momsubt; /* pid of mom subtask   */
+  pid_t  ji_momsubt;    /* pid of mom subtask   */
   int (*ji_mompost)();       /* ptr to post processing func  */
 
   struct batch_request *ji_preq; /* hold request until finish_exec */
