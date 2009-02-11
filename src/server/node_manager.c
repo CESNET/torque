@@ -2010,7 +2010,6 @@ found:
         log_event(PBSEVENT_ADMIN, PBS_EVENTCLASS_SERVER, id, log_buffer);
         }
 
-#ifndef ALT_CLSTR_ADDR
       ret = is_compose(stream, IS_CLUSTER_ADDRS);
 
       if (ret != DIS_SUCCESS)
@@ -2037,7 +2036,7 @@ found:
       /* rpp_eom(stream); */
 
       /* CLUSTER_ADDRS successful */
-#endif
+
       node->nd_state &= ~(INUSE_NEEDS_HELLO_PING);
 
       break;
