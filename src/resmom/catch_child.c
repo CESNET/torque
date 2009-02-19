@@ -126,6 +126,7 @@
 #endif /* PENABLE_DYNAMIC_CPUSETS */
 
 /* External Functions */
+unsigned long setpbsserver(char *);
 
 /* External Globals */
 
@@ -147,6 +148,8 @@ extern int              LOGLEVEL;
 
 extern char            *PJobSubState[];
 extern char             mom_host[];
+extern char    pbs_servername[PBS_MAXSERVER][PBS_MAXSERVERNAME + 1];
+extern u_long    MOMServerAddrs[PBS_MAXSERVER];
 
 
 /* external prototypes */
@@ -886,6 +889,62 @@ void scan_for_exiting()
       port = default_server_port;
 
     sock = client_to_svr(pjob->ji_qs.ji_un.ji_momt.ji_svraddr,port,1,EMsg);
+
+    if(sock < 0)
+      {
+      /* if we are in high availability mode we may have a new pbs_server
+       * and we should send back our data to that server */
+
+      for (svr_index = 0;svr_index < PBS_MAXSERVER;svr_index++)
+        {
+        if (pbs_servername[svr_index][0] == '\0')
+          break;
+
+        if (MOMServerAddrs[svr_index] == 0)
+          {
+          /* server is defined, but we don't have an IP address */
+
+          /* setpbsserver() should populate MOMServerAddrs w/ an IP
+           * address */
+
+          setpbsserver(pbs_servername[svr_index]);
+          }
+
+        if (MOMServerAddrs[svr_index] == 0)
+          {
+          /* something is wrong. skip */
+
+          continue;
+          }
+
+        if (pjob->ji_qs.ji_un.ji_momt.ji_svraddr == MOMServerAddrs[svr_index])
+          {
+          /* we already tried this address before the loop, and it didn't work. skip. */
+
+          continue;
+          }
+
+        /* try to connect to new server address--if it is currently the active
+         * server, we should get a valid socket connection */
+
+        sock = client_to_svr(MOMServerAddrs[svr_index], port, 1, EMsg);
+
+        if(sock < 0)
+          {
+          /* we did not connect. Try the next one*/
+
+          continue;
+          }
+
+        /* update the server address in the job, so future communications
+         * will automatically be sent to the new server */
+
+        pjob->ji_qs.ji_un.ji_momt.ji_svraddr = MOMServerAddrs[svr_index];
+        break;
+        }
+      }
+
+    /* check to see if could not find any valid sockets to a pbs_server */
 
     if (sock < 0) 
       {

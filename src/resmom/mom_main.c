@@ -288,6 +288,7 @@ pjobexec_t      TMOMStartInfo[TMAX_JE];
 /* prototypes */
 
 extern void     add_resc_def(char *,char *);
+unsigned long setpbsserver(char *);
 
 
 #define PMOMTCPTIMEOUT 60  /* duration in seconds mom TCP requests will block */
@@ -338,7 +339,6 @@ static unsigned long restricted(char *);
 static unsigned long jobstartblocktime(char *);
 static unsigned long usecp(char *);
 static unsigned long wallmult(char *);
-static unsigned long setpbsserver(char *);
 static unsigned long setnodecheckscript(char *);
 static unsigned long setnodecheckinterval(char *);
 static unsigned long settimeout(char *);
@@ -1647,7 +1647,7 @@ static u_long setpbsclient(
 
 /* FIXME: we need to handle a non-default port number */
 
-static u_long setpbsserver(
+u_long setpbsserver(
 
   char *value)  /* I */
   

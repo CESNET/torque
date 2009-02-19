@@ -52,6 +52,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - improved the performance of pbs_server when submitting large numbers of jobs with dependencies defined
   e - TORQUE can now handle server names larger than 64 bytes (now set to 1024, which should be larger than the max for hostnames)
   e - Added -c option to qdel. Used to clean up unreported jobs.
+  b - Fixed a bug in TORQUE HA where running jobs would not properly send obits to new pbs_server
+      during an HA switchover
   b - qsub now properly interprets -W umask=0XXX as octal umask
   
 2.2.1
