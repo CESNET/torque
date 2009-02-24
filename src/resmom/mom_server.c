@@ -1496,7 +1496,6 @@ int mom_server_check_connection(
         {
         return(0);
         }
-
       }
     }    /* END if (pms->SStream == -1) */
 
