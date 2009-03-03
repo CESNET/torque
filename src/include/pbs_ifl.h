@@ -266,6 +266,7 @@
 #define ATTR_nextjobnum "next_job_number"
 #define ATTR_acctkeepdays "accounting_keep_days"
 #define ATTR_jobmustreport "job_must_report"
+#define ATTR_lockfile "lock_file"
 
 /* additional node "attributes" names */
 

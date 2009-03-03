@@ -55,6 +55,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - Fixed a bug in TORQUE HA where running jobs would not properly send obits to new pbs_server
       during an HA switchover
   b - qsub now properly interprets -W umask=0XXX as octal umask
+  e - added qmgr server attribute lock_file, specifies where server lock file
+      is located
   
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has

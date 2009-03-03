@@ -134,7 +134,8 @@ extern char	    *msg_svdbnosv;
 
 int svr_recov(
 
-  char *svrfile)  /* I */
+  char *svrfile,  /* I */
+  int read_only)  /* I */
 
   {
   static char *this_function_name = "svr_recov";
@@ -179,7 +180,8 @@ int svr_recov(
         svr_attr_def, 
         server.sv_attr,
 	(int)SRV_ATR_LAST,
-        0) != 0 ) 
+        0,
+        !read_only) != 0 ) 
     {
     log_err(errno, this_function_name, "error on recovering server attr");
 
@@ -189,9 +191,13 @@ int svr_recov(
     }
 
   /* Restore the current job number and make it visible in qmgr print server commnad. */
-  server.sv_qs.sv_jobidnumber = i;
-  server.sv_attr[(int)SRV_ATR_NextJobNum].at_val.at_long = i;
-  server.sv_attr[(int)SRV_ATR_NextJobNum].at_flags |= ATR_VFLAG_SET|ATR_VFLAG_MODIFY;
+  
+  if (!read_only)
+    {
+    server.sv_qs.sv_jobidnumber = i;
+    server.sv_attr[(int)SRV_ATR_NextJobNum].at_val.at_long = i;
+    server.sv_attr[(int)SRV_ATR_NextJobNum].at_flags |= ATR_VFLAG_SET|ATR_VFLAG_MODIFY;
+    }
 
   close(sdb);
 	
@@ -207,7 +213,7 @@ int svr_recov(
         PBS_SVRACL, 
         svr_attr_def[i].at_name);
 
-      if (svr_attr_def[i].at_action != (int (*)())0)
+      if ((!read_only) && (svr_attr_def[i].at_action != (int (*)())0))
         {
         svr_attr_def[i].at_action(
           &server.sv_attr[i],
