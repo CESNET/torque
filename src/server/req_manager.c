@@ -2435,14 +2435,6 @@ int nextjobnum_chk(
   else if (pattr->at_val.at_long >= 0)
     {
     server.sv_qs.sv_jobidnumber = pattr->at_val.at_long;
-#if 0
-    /* This will cause next_job_number to be undisplayable in qmgr print server.
-     * See encode_l where it returns if the attribute is not set.
-     * Why would this ever be the desired behavior?
-     */
-    pattr->at_flags &= ~ATR_VFLAG_SET;
-#endif
-    svr_save(&server,SVR_SAVE_FULL);
     return(PBSE_NONE);
     }
   else
