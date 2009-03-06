@@ -113,7 +113,7 @@ int main(
 
   int  errflg = 0;
 
-  char c;
+  int c;
 
   static char usage[] = "usage: qrerun [-f] <JOBID>[ <JOBID>]...\n";
 
@@ -128,7 +128,7 @@ int main(
 
   extend[0] = '\0';
 
-  while ((c = (char) getopt(argc,argv,GETOPT_ARGS)) != EOF)
+  while ((c = getopt(argc,argv,GETOPT_ARGS)) != EOF)
     {
     switch (c)
       {
