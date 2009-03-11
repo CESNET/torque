@@ -226,8 +226,8 @@ char *csv_nth(char *str, int n)
  * @see pbs_default()
  * @see pbs_fbserver()
  */
-char *
-pbs_get_server_list(void)
+
+char *pbs_get_server_list(void)
   {
   FILE *fd;
   char *pn;
@@ -237,6 +237,11 @@ pbs_get_server_list(void)
     {
     memset(server_list, 0, sizeof(server_list));
     server = getenv("PBS_DEFAULT");
+
+    if ((server == NULL) || (*server == '\0'))
+      {
+      server = getenv("PBS_SERVER");
+      }
 
     if ((server == NULL) || (*server == '\0'))
       {
@@ -270,6 +275,11 @@ pbs_get_server_list(void)
   return(server_list);
   }
 
+
+
+
+
+
 /**
  * The routine is called to get the name of the primary
  * server.  It can possibly trigger reading of the server name
@@ -280,8 +290,9 @@ pbs_get_server_list(void)
  * @return A pointer to the default server name.
  * @see pbs_fbserver()
  */
-char *
-pbs_default(void)
+
+char *pbs_default(void)
+
   {
   char *cp;
 
@@ -299,6 +310,9 @@ pbs_default(void)
   }
 
 
+
+
+
 /**
  * The routine is called to get the name of the fall-back
  * server.  It can possibly trigger reading of the server name
@@ -309,8 +323,9 @@ pbs_default(void)
  * @return A pointer to the fall-back server name.
  * @see pbs_default()
  */
-char *
-pbs_fbserver(void)
+
+char *pbs_fbserver(void)
+
   {
   char *cp;
 
@@ -598,7 +613,6 @@ int pbs_original_connect(
   char *server)  /* I (FORMAT:  NULL | '\0' | HOSTNAME | HOSTNAME:PORT )*/
 
   {
-
   struct sockaddr_in server_addr;
 
   struct hostent *hp;
@@ -892,7 +906,7 @@ int pbs_original_connect(
     }
 
   return(out);
-  }  /* END pbs_connect() */
+  }  /* END pbs_original_connect() */
 
 
 
@@ -961,6 +975,8 @@ int pbs_disconnect(
 
 
 
+
+
 /**
  * This is a new version of this function that allows
  * connecting to a list of servers.  It is backwards
@@ -970,6 +986,7 @@ int pbs_disconnect(
  * @param server_name_ptr A pointer to a server name or server name list.
  * @returns A file descriptor number.
  */
+
 int pbs_connect(char *server_name_ptr)    /* I (optional) */
   {
   int connect = -1;
@@ -989,7 +1006,7 @@ int pbs_connect(char *server_name_ptr)    /* I (optional) */
     if (getenv("PBSDEBUG"))
       {
       fprintf(stderr, "pbs_connect called with explicit server name \"%s\"\n",
-              server_name_list);
+        server_name_list);
       }
     }
   else
@@ -999,7 +1016,7 @@ int pbs_connect(char *server_name_ptr)    /* I (optional) */
     if (getenv("PBSDEBUG"))
       {
       fprintf(stderr, "pbs_connect using default server name list \"%s\"\n",
-              server_name_list);
+        server_name_list);
       }
     }
 

@@ -125,26 +125,30 @@ int cnt2server_conf(
 
 
 
-int cnt2server(char *SpecServer)    /* I (optional) */
+int cnt2server(
+
+  char *SpecServer)    /* I (optional) */
+
   {
   int connect;
   time_t firsttime = 0, thistime = 0;
 
   char Server[1024];
 
-
   if (cnt2server_retry > 0)
     {
     firsttime = time(NULL);
     }
 
-  memset(Server, 0, sizeof(Server));
+  memset(Server,0,sizeof(Server));
 
-  if (SpecServer && SpecServer[0])
+  if ((SpecServer != NULL) && (SpecServer[0] != '\0'))
     {
-    strncpy(Server, SpecServer, sizeof(Server));
+    strncpy(Server,SpecServer,sizeof(Server));
     Server[sizeof(Server) - 1] = '\0';
     }
+
+  /* NOTE:  env vars PBS_DEFAULT and PBS_SERVER will be checked and applied w/in pbs_connect() */
 
 start:
 
@@ -156,18 +160,17 @@ start:
       {
       switch (pbs_errno)
         {
-
         case PBSE_BADHOST:
 
           if ((Server == NULL) || (Server[0] == '\0'))
             {
             fprintf(stderr, "Cannot resolve default server host '%s' - check server_name file.\n",
-                    pbs_default());
+              pbs_default());
             }
           else
             {
             fprintf(stderr, "Cannot resolve specified server host '%s'.\n",
-                    Server);
+              Server);
             }
 
           break;
@@ -242,20 +245,19 @@ start:
               if (getenv("PBSDEBUG") != NULL)
                 {
                 fprintf(stderr, "attempting fallback server %s\n",
-                        fbserver);
+                  fbserver);
                 }
 
               goto start;
               }
 
             fprintf(stderr, "Cannot connect to default server host '%s' - check pbs_server daemon.\n",
-
-                    pbs_default());
+              pbs_default());
             }
           else
             {
             fprintf(stderr, "Cannot connect to specified server host '%s'.\n",
-                    Server);
+              Server);
             }
           }
         else
@@ -291,7 +293,7 @@ retry:
     if (getenv("PBSDEBUG") != NULL)
       {
       fprintf(stderr, "seconds remaining: %d\n",
-              (int)(cnt2server_retry - (thistime - firsttime)));
+        (int)(cnt2server_retry - (thistime - firsttime)));
       }
     }
   else

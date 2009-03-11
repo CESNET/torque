@@ -169,20 +169,26 @@ static int set_note(
 
   if (rc && !quiet)
     {
-    fprintf(stderr, "Error setting note attribute for %s - ",
-            name);
+    fprintf(stderr,"Error setting note attribute for %s - ",
+      name);
 
     if ((errmsg = pbs_geterrmsg(con)) != NULL)
-      fprintf(stderr, "%s\n",
-              errmsg);
+      {
+      fprintf(stderr,"%s\n",
+        errmsg);
+      }
     else
-      fprintf(stderr, "(error %d) %s\n",
-              pbs_errno,
-              pbs_strerror(pbs_errno));
+      {
+      fprintf(stderr,"(error %d) %s\n",
+        pbs_errno,
+        pbs_strerror(pbs_errno));
+      }
     }
 
   return(rc);
-  }
+  }  /* END set_note() */
+
+
 
 
 
@@ -523,8 +529,12 @@ int filterbystate(
       break;
     }  /* END switch (ListType) */
 
-  return Display;
+  return(Display);
   }
+
+
+
+
 
 int main(
 
@@ -532,7 +542,6 @@ int main(
   char **argv)  /* I */
 
   {
-
   struct batch_status *bstatus = NULL;
   int  con;
   char *specified_server = NULL;
@@ -555,11 +564,10 @@ int main(
 
   progname = strdup(argv[0]);
 
-  while ((i = getopt(argc, argv, "acdlopqrs:x-:N:n")) != EOF)
+  while ((i = getopt(argc,argv,"acdlopqrs:x-:N:n")) != EOF)
     {
     switch (i)
       {
-
       case 'a':
 
         flag = ALLI;
@@ -636,24 +644,25 @@ int main(
         if (note == NULL)
           {
           perror("Error: strdup() returned NULL");
+
           exit(1);
           }
-        else
+
+        note_flag = set;
+
+        /* -N n is the same as -N ""  -- it clears the note */
+
+        if (!strcmp(note, "n"))
+          *note = '\0';
+
+        if (strlen(note) > MAX_NOTE)
           {
-          note_flag = set;
-
-          /* -N n is the same as -N ""  -- it clears the note */
-
-          if (!strcmp(note, "n"))
-            *note = '\0';
-
-          if (strlen(note) > MAX_NOTE)
-            fprintf(stderr, "Warning: note exceeds length limit (%d) - server may reject it...\n",
-                    MAX_NOTE);
-
-          if (strchr(note, '\n') != NULL)
-            fprintf(stderr, "Warning: note contains a newline - server may reject it...\n");
+          fprintf(stderr, "Warning: note exceeds length limit (%d) - server may reject it...\n",
+            MAX_NOTE);
           }
+
+        if (strchr(note, '\n') != NULL)
+          fprintf(stderr, "Warning: note contains a newline - server may reject it...\n");
 
         break;
 
@@ -728,10 +737,10 @@ int main(
     if (!quiet)
       {
       fprintf(stderr, "%s: cannot connect to server %s, error=%d (%s)\n",
-              progname,
-              (specified_server) ? specified_server : pbs_default(),
-              pbs_errno,
-              pbs_strerror(pbs_errno));
+        progname,
+        (specified_server) ? specified_server : pbs_default(),
+        pbs_errno,
+        pbs_strerror(pbs_errno));
       }
 
     exit(1);
