@@ -12,6 +12,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix net_server.h build error
   b - pbs_server doesn't try to "upgrade" .JB files if they have a newer 
       version of the job_qs struct
+  c - check filename for NULL to prevent crash
 
 2.2.1
   b - fixed a bug where pbs_server never delete files from the "jobs" directory
