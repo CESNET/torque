@@ -57,6 +57,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - qsub now properly interprets -W umask=0XXX as octal umask
   e - added qmgr server attribute lock_file, specifies where server lock file
       is located
+  c - check filename for NULL to prevent crash
   
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has
