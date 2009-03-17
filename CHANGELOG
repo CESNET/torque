@@ -8,6 +8,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - pbs_server should not connect to "down" MOMs for any job operation
   b - use alarm() around writing to job's stdio incase it happens to be a stopped tty
   b - reissue job obit even if no processes are found
+  c - check filename for NULL to prevent crash
 
 2.1.10
   b - fix buffer overflow in rm_request, 
