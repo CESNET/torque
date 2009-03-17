@@ -4,6 +4,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a valid group name.
       This helps TORQUE be more robust to group lookup failures.
   b - fixed a bug where UNIX domain socket communication was failing when "--disable-privports" was used.
+  c - check filename for NULL to prevent crash
 
 2.3.6
   e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no longer be
