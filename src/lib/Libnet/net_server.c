@@ -176,6 +176,13 @@ netcounter_incr(void)
     }
   }
 
+
+int get_num_connections()
+  {
+  return(num_connections);
+  }
+
+
 int *
 netcounter_get(void)
   {
@@ -404,6 +411,7 @@ int wait_request(
 
   fd_set selset;
 
+  char id[] = "wait_request";
   char tmpLine[1024];
 
   struct timeval timeout;
@@ -484,6 +492,11 @@ int wait_request(
 
         num_connections--;  /* added by CRI - should this be here? */
 
+        sprintf(tmpLine,"closed connection to fd %d - num_connections=%d (select bad socket)",
+          i,
+          num_connections);
+
+        log_err(-1,id,tmpLine);
         }
       }
     }    /* END for (i) */

@@ -6,6 +6,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fixed a bug where UNIX domain socket communication was failing when "--disable-privports" was used.
   c - check filename for NULL to prevent crash
   e - Merged in more logging and NOSIGCHLDMOM capability from Yahoo branch
+  e - merged in new log_ext() function to allow more fine grained syslog events, 
+      you can now specify severity level. Also added more logging statements
 
 2.3.6
   e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no longer be
