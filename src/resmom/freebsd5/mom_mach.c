@@ -405,6 +405,14 @@ job  *pjob;
 
   cputime = 0;
 
+  if (LOGLEVEL >= 7)
+    {
+    sprintf(log_buffer,"proc_array loop start - jobid = %s", 
+      pjob->ji_qs.ji_jobid);
+
+    log_record(PBSEVENT_DEBUG,0,id,log_buffer);
+    }
+
   for (i = 0; i < nproc; i++)
     {
 
@@ -416,6 +424,17 @@ job  *pjob;
     nps++;
 
     cputime += pp->ki_runtime / 1000000;
+    
+    if (LOGLEVEL >= 7)
+      {
+      sprintf(log_buffer,"%s: session=%d pid=%d cputime=%llu",
+        id, 
+        sess_tbl[i], 
+        pp->ki_pid, 
+        (long long unsigned)pp->ki_runtime / 1000000);
+
+      log_record(PBSEVENT_SYSTEM,0,id,log_buffer);
+      }
 
     DBPRT(("%s: ses %d pid %d cputime %llu\n", id,
            sess_tbl[i], pp->ki_pid, (long long unsigned)pp->ki_runtime / 1000000))
@@ -1094,7 +1113,35 @@ int         pg;
   sesid = ptask->ti_qs.ti_sid;
 
   if (sesid <= 1)
-    return 0;
+    {
+    if (LOGLEVEL >= 3)
+      {
+      sprintf(log_buffer,"cannot send signal %d to task (no session id)",
+        sig);
+
+      log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        ptask->ti_job->ji_qs.ji_jobid,
+        log_buffer);
+      }
+
+    /* FAILURE */
+
+    return(0);
+    }
+
+  if (LOGLEVEL >= 5)
+    {
+    sprintf(log_buffer,"sending signal %d to task",
+      sig);
+
+    log_record(
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      ptask->ti_job->ji_qs.ji_jobid,
+      log_buffer);
+    }
 
   if ((err = mom_get_sample()) != PBSE_NONE)
     return 0;
@@ -1107,8 +1154,21 @@ int         pg;
     if (sesid != sess_tbl[i])
       continue;
 
-    DBPRT(("%s: send signal %d to pid %d\n", id,
-           sig, pp->ki_pid))
+    if (LOGLEVEL >= 5)
+      {
+      sprintf(log_buffer,"%s: killing pid %d task %d with sig %d",
+        id, 
+        pp->ki_pid, 
+        ptask->ti_qs.ti_task, 
+        sig);
+
+      log_record(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        ptask->ti_job->ji_qs.ji_jobid,
+        log_buffer);
+      }
+      
     (void)kill(pp->ki_pid, sig);
 
     ++ct;
@@ -1125,7 +1185,16 @@ int         pg;
 int
 mom_close_poll(void)
   {
-  DBPRT(("mom_close_poll entered\n"))
+  char	*id = "mom_close_poll";
+
+  if (LOGLEVEL >= 6)
+    {
+    log_record(
+      PBSEVENT_SYSTEM,
+      0,
+      id,
+      "entered");
+    }
 
   if (kd)
     {
@@ -1213,6 +1282,14 @@ pid_t jobid;
     }
 
   cputime = 0;
+
+  if (LOGLEVEL >= 6)
+    {
+    sprintf(log_buffer,"proc_array loop start - jobid = %d", 
+      jobid);
+
+    log_record(PBSEVENT_DEBUG,0,id,log_buffer);
+    }
 
   for (i = 0; i < nproc; i++)
     {
@@ -1420,6 +1497,7 @@ static char *
 resi_job(jobid)
 pid_t jobid;
   {
+  char         *id = "resi_job";
   int   i, found;
   int   resisize;
 
@@ -1432,6 +1510,14 @@ pid_t jobid;
   resisize = 0;
 
   found = 0;
+
+  if (LOGLEVEL >= 6)
+    {
+    sprintf(log_buffer,"proc_array loop start - jobid = %d", 
+      jobid);
+
+    log_record(PBSEVENT_DEBUG,0,id,log_buffer);
+    }
 
   for (i = 0; i < nproc; i++)
     {
