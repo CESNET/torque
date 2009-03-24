@@ -2692,7 +2692,7 @@ static int sys_copy(
             ag2,
             ag3);
 
-    log_err(-1, id, log_buffer);
+    log_ext(-1, id, log_buffer, LOG_DEBUG);
     }
 
   for (loop = 1;loop < 4;++loop)
