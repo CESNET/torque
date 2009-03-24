@@ -11,6 +11,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - added code to allow compilers to override CLONE_BATCH_SIZE at configure
       time (allows for finer grained control on how arrays are created) (ported
       from Yahoo R2461)
+  e - added code which prefixes the severity tag on all log_ext() and log_err()
+      messages (ported from Yahoo R2358)
 
 2.3.6
   e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no longer be
