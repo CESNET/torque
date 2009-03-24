@@ -13,6 +13,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       from Yahoo R2461)
   e - added code which prefixes the severity tag on all log_ext() and log_err()
       messages (ported from Yahoo R2358)
+  f - added code from 2.3-extreme that allows TORQUE to handle more than 1024 sockets.
+      Also, increased the size of TORQUE's internal socket handle table to avoid
+      running out of handles under busy conditions.
 
 2.3.6
   e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no longer be
