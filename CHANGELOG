@@ -20,6 +20,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       which should be larger than the max for hostnames)
   e - added qmgr option accounting_keep_days, specifies how long to keep
       accounting files.
+  e - changed mom config varattr so invoked script returns the varattr name
+      and value(s)
 
 2.3.6
   e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no longer be
