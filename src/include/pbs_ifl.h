@@ -266,6 +266,7 @@
 #define ATTR_nextjobnum  "next_job_number"
 #define ATTR_extraresc   "extra_resc"
 #define ATTR_schedversion "sched_version"
+#define ATTR_acctkeepdays "accounting_keep_days"
 
 /* additional node "attributes" names */
 
