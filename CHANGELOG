@@ -1,9 +1,11 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.7
-  e - pbs_mom sisters can now tolerate an explicit group ID instead of only a valid group name.
-      This helps TORQUE be more robust to group lookup failures.
-  b - fixed a bug where UNIX domain socket communication was failing when "--disable-privports" was used.
+  e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 
+      valid group name. This helps TORQUE be more robust to group lookup 
+      failures.
+  b - fixed a bug where UNIX domain socket communication was failing when 
+      "--disable-privports" was used.
   c - check filename for NULL to prevent crash
   e - Merged in more logging and NOSIGCHLDMOM capability from Yahoo branch
   e - merged in new log_ext() function to allow more fine grained syslog events, 
@@ -13,11 +15,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       from Yahoo R2461)
   e - added code which prefixes the severity tag on all log_ext() and log_err()
       messages (ported from Yahoo R2358)
-  f - added code from 2.3-extreme that allows TORQUE to handle more than 1024 sockets.
+  f - added code from 2.3-extreme that allows TORQUE to handle more than 1024 
+      sockets.
       Also, increased the size of TORQUE's internal socket handle table to avoid
       running out of handles under busy conditions.
-  e - TORQUE can now handle server names larger than 64 bytes (now set to 1024,
-      which should be larger than the max for hostnames)
   e - added qmgr option accounting_keep_days, specifies how long to keep
       accounting files.
   e - changed mom config varattr so invoked script returns the varattr name
@@ -30,14 +31,15 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       is located
 
 2.3.6
-  e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no longer be
-      found in the OS processor table. This prevents jobs from getting "stuck" when the PID
-      vanishes in some rare cases.
-  e - forward-ported change from 2.1-fixes (r2581) (b - reissue job obit even if no
-      processes are found)
+  e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no
+      longer be found in the OS processor table. This prevents jobs from getting
+      "stuck" when the PID vanishes in some rare cases.
+  e - forward-ported change from 2.1-fixes (r2581) (b - reissue job obit even if
+      no processes are found)
   b - change back to not sending status updates until we get cluster addr message
       from server, also only try to send hello when the server stream is down.
-  b - change pbs_server so log_file_max_size of zero behavior matches documentation
+  b - change pbs_server so log_file_max_size of zero behavior matches 
+      documentation
   e - added periodic logging of version and loglevel to help in support
   e - added pbs_mom config option ignvmem to ignore vmem/pvmem limit enforcement
   b - change to correct strtoks that accidentally got changed in astyle 
@@ -45,8 +47,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.5
   e - added new init.d scripts for Debian/Ubuntu systems
-  b - fixed regression in 2.3.4 release which incorrectly changed soname for libtorque
-  b - fixed a bug where TORQUE's exponential backoff for sending messages to the MOM could overflow
+  b - fixed regression in 2.3.4 release which incorrectly changed soname for 
+      libtorque
+  b - fixed a bug where TORQUE's exponential backoff for sending messages to the
+      MOM could overflow
 
 2.3.4
   b - fixed a bug with RPM spec files due to new pbs_track executable
