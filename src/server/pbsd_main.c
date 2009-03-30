@@ -1406,7 +1406,7 @@ int main(
 
     /* touch the rpp streams that need to send */
 
-    rpp_request(0);
+    rpp_request(42);
 
     /* wait for a request and process it */
 

@@ -15,10 +15,6 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       from Yahoo R2461)
   e - added code which prefixes the severity tag on all log_ext() and log_err()
       messages (ported from Yahoo R2358)
-  f - added code from 2.3-extreme that allows TORQUE to handle more than 1024 
-      sockets.
-      Also, increased the size of TORQUE's internal socket handle table to avoid
-      running out of handles under busy conditions.
   e - added qmgr option accounting_keep_days, specifies how long to keep
       accounting files.
   e - changed mom config varattr so invoked script returns the varattr name
