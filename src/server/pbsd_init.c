@@ -198,6 +198,8 @@ extern tlist_head task_list_timed;
 extern tlist_head task_list_event;
 extern time_t	 time_now;
 
+extern int a_opt_init;
+
 extern int LOGLEVEL;
 extern char *plogenv;
 
@@ -278,7 +280,6 @@ int pbsd_init(
   int type)		/* type of initialization   */
 
   {
-  int	a_opt = -1;
   int	baselen;
   char	basen[MAXPATHLEN+1];
   struct dirent *pdirent;
@@ -517,11 +518,6 @@ int pbsd_init(
 
   /* 3. Set default server attibutes values */
 
-  if (server.sv_attr[(int)SRV_ATR_scheduling].at_flags & ATR_VFLAG_SET)
-    {
-    a_opt = server.sv_attr[(int)SRV_ATR_scheduling].at_val.at_long;
-    }
-
   for (i = 0;i < SRV_ATR_LAST;i++)
     clear_attr(&server.sv_attr[i],&svr_attr_def[i]);
 
@@ -623,11 +619,11 @@ int pbsd_init(
 
   /* 7. Set up other server and global variables */
 
-  if (a_opt != -1) 
+  if (a_opt_init != -1) 
     {
     /* a_option was set, overrides saved value of scheduling attr */
 
-    server.sv_attr[(int)SRV_ATR_scheduling].at_val.at_long = a_opt;
+    server.sv_attr[(int)SRV_ATR_scheduling].at_val.at_long = a_opt_init;
     server.sv_attr[(int)SRV_ATR_scheduling].at_flags |=
       ATR_VFLAG_SET;
     }
