@@ -25,6 +25,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       Specifies how long to keep log files before they are automatically removed
   e - added qmgr server attribute lock_file, specifies where server lock file
       is located
+  e - modified to allow retention of completed jobs across server shutdown
 
 2.3.6
   e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no

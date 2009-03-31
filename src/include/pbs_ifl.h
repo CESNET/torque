@@ -172,6 +172,7 @@
 #define ATTR_start_count "start_count"
 #define ATTR_chkptdir    "checkpoint_dir"    /* user specified directory for checkpoint files */
 #define ATTR_chkptname   "checkpoint_name"   /* user specified name of checkpoint file */
+#define ATTR_comp_time   "comp_time"
 
 /* additional queue attributes names */
 

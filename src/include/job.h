@@ -277,6 +277,7 @@ enum job_atr
   JOB_ATR_start_count, /* number of times the job has been started */
   JOB_ATR_chkptdir,    /* directory where job checkpoint file is stored */
   JOB_ATR_chkptname,   /* name of checkpoint file */
+  JOB_ATR_comp_time,  /* time when job was completed */
 #include "site_job_attr_enum.h"
 
   JOB_ATR_UNKN,  /* the special "unknown" type    */
