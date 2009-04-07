@@ -26,6 +26,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - added qmgr server attribute lock_file, specifies where server lock file
       is located
   e - modified to allow retention of completed jobs across server shutdown
+  e - added job_must_report qmgr configuration which says the job must be reported
+      to scheduler. Added job attribute "reported". Added PURGECOMP functionality
+      which allows scheduler to confirm jobs are reported. Also added -c option
+      to qdel. Used to clean up unreported jobs.
 
 2.3.6
   e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no

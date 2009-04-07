@@ -1258,6 +1258,8 @@ const char *TJobAttr[] =
   "start_count",
   "chkptdir",
   "chkptname",
+  "comp_time",
+  "reported",
   "job_type",
   NULL
   };

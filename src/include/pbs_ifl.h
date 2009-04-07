@@ -173,6 +173,7 @@
 #define ATTR_chkptdir    "checkpoint_dir"    /* user specified directory for checkpoint files */
 #define ATTR_chkptname   "checkpoint_name"   /* user specified name of checkpoint file */
 #define ATTR_comp_time   "comp_time"
+#define ATTR_reported    "reported"
 
 /* additional queue attributes names */
 
@@ -270,6 +271,7 @@
 #define ATTR_schedversion "sched_version"
 #define ATTR_acctkeepdays "accounting_keep_days"
 #define ATTR_lockfile "lock_file"
+#define ATTR_jobmustreport "job_must_report"
 
 /* additional node "attributes" names */
 
@@ -294,6 +296,7 @@
 
 #define DELDELAY  "deldelay=" /* see qdel.c */
 #define DELPURGE  "delpurge="   /* see qdel.c */
+#define PURGECOMP  "purgecomplete="   /* see req_delete.c */
 #define EXECQUEONLY  "exec_queue_only"   /* see req_stat.c */
 #define RERUNFORCE "force"
 
