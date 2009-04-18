@@ -6,6 +6,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       failures.
   b - fixed a bug where UNIX domain socket communication was failing when 
       "--disable-privports" was used.
+  e - add job exit status as 10th argument to the epilogue script
   c - check filename for NULL to prevent crash
   e - Merged in more logging and NOSIGCHLDMOM capability from Yahoo branch
   e - merged in new log_ext() function to allow more fine grained syslog events, 
@@ -31,6 +32,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       which allows scheduler to confirm jobs are reported. Also added -c option
       to qdel. Used to clean up unreported jobs.
   b - Fix so interactive jobs run when using $job_output_file_umask userdefault
+
 
 2.3.6
   e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no
