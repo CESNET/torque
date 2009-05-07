@@ -1075,6 +1075,7 @@ void display_statjob(
   mxml_t *JE;
   mxml_t *AE;
   mxml_t *RE1;
+  mxml_t *JI;
 
   /* XML only support for full output */
 
@@ -1126,9 +1127,15 @@ void display_statjob(
 
         MXMLCreateE(&JE, "Job");
 
-        MXMLSetVal(JE, p->name, mdfString);
-
         MXMLAddE(DE, JE);
+
+        JI = NULL;
+
+        MXMLCreateE(&JI, "Job_Id");
+
+        MXMLSetVal(JI, p->name,mdfString);
+
+        MXMLAddE(JE, JI);
         }
       else
         {
@@ -2373,7 +2380,7 @@ int main(
   if (errflg)
     {
     static char usage[] = "usage: \n\
-                          qstat [-f] [-1] [-W site_specific] [ job_identifier... | destination... ]\n\
+                          qstat [-f [-1]] [-W site_specific] [-x] [ job_identifier... | destination... ]\n\
                           qstat [-a|-i|-r|-e] [-u user] [-n [-1]] [-s] [-G|-M] [-R] [job_id... | destination...]\n\
                           qstat -Q [-f [-1]] [-W site_specific] [ destination... ]\n\
                           qstat -q [-G|-M] [ destination... ]\n\
