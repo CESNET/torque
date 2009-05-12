@@ -802,7 +802,6 @@ void on_job_exit(
         }
 
       svr_setjobstate(
-
         pjob,
         JOB_STATE_EXITING,
         JOB_SUBSTATE_STAGEOUT);
@@ -1182,6 +1181,7 @@ void on_job_exit(
 
           pjob->ji_wattr[(int)JOB_ATR_reported].at_flags =
             ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
+
           job_save(pjob,SAVEJOB_FULL);
           }
         }
@@ -1253,6 +1253,7 @@ void on_job_exit(
          */
         
         PurgeIt = TRUE;
+
         if (((pjob->ji_wattr[(int)JOB_ATR_reported].at_flags & ATR_VFLAG_SET) != 0)
           && (pjob->ji_wattr[(int)JOB_ATR_reported].at_val.at_long == 0))
           {
@@ -2001,7 +2002,6 @@ void req_jobobit(
 
     switch (exitstatus)
       {
-
       case JOB_EXEC_FAIL1:
 
       default:

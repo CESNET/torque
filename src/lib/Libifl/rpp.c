@@ -1195,7 +1195,6 @@ rpp_create_sp(void)
     }
 
   DBPRT((DBTO, "rpp_create_sp: new index %d\n",
-
          i))
 
   return(i);
@@ -3203,7 +3202,6 @@ static int rpp_attention(
 
   switch (sp->state)
     {
-
     case RPP_STALE:  /* need to report error */
 
       return(TRUE);

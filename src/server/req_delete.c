@@ -1158,8 +1158,8 @@ void purge_completed_jobs(
       }
     }
 
-
   reply_ack(preq);
+
   return;
   } /* END purge_completed_jobs() */
 

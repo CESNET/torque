@@ -4016,7 +4016,6 @@ int start_process(
 
       switch (sjr.sj_code)
         {
-
         case JOB_EXEC_OK:  /* 0 */
 
           /* NO-OP */
@@ -5410,7 +5409,6 @@ static void starter_return(
   struct startjob_rtn *sjrtn)    /* I */
 
   {
-
   struct startjob_rtn ack;
   int i;
 

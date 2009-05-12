@@ -2006,7 +2006,6 @@ void im_request(
 
   switch (command)
     {
-
     case IM_JOIN_JOB:
 
       /*

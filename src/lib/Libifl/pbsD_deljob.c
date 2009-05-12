@@ -156,7 +156,6 @@ int pbs_deljob(
     }
 
   rc = PBSD_manager(
-
          c,
          PBS_BATCH_DeleteJob,
          MGR_CMD_DELETE,

@@ -5333,7 +5333,6 @@ void do_rpp(
 
   switch (proto)
     {
-
     case RM_PROTOCOL:
 
       DBPRT(("%s: got a resource monitor request\n",
