@@ -297,10 +297,11 @@ static void pelogalm(
  *		- argv[7] is the list of resources used
  *		- argv[8] is the queue in which the job resides
  *		- argv[9] is the account under which the job run
- *      The prologue also has:
- *              - argv[5] is the list of resource limits specified
- *              - argv[6] is the queue in which the job resides
- *              - argv[7] is the account under which the job is run
+ *		- argv[10] is the job's exit status
+ *  The prologue also has:
+ *    - argv[5] is the list of resource limits specified
+ *    - argv[6] is the queue in which the job resides
+ *    - argv[7] is the account under which the job is run
  */
 
 int run_pelog(
@@ -314,7 +315,7 @@ int run_pelog(
   char *id = "run_pelog";
 
   struct sigaction act, oldact;
-  char	        *arg[11];
+  char	*arg[12];
   int		 fds1 = 0;
   int		 fds2 = 0;
   int		 fd_input;
@@ -322,6 +323,7 @@ int run_pelog(
   char		 resc_used[2048];
   struct stat	 sbuf;
   char		 sid[20];
+  char     exit_stat[12];
   int		 waitst;
   int      isjoined;
   char		 buf[MAXPATHLEN + 2];
@@ -633,14 +635,18 @@ int run_pelog(
       sprintf(sid,"%ld",
         pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long);
 
+      sprintf(exit_stat,"%d",
+        pjob->ji_qs.ji_un.ji_exect.ji_exitstat);
+
       arg[5] = sid;
       arg[6] = resc_to_string(pjob,(int)JOB_ATR_resource,resc_list,sizeof(resc_list));
       arg[7] = resc_to_string(pjob,(int)JOB_ATR_resc_used,resc_used,sizeof(resc_used)); 
       arg[8] = pjob->ji_wattr[(int)JOB_ATR_in_queue].at_val.at_str;
       arg[9] = pjob->ji_wattr[(int)JOB_ATR_account].at_val.at_str;
-      arg[10] = NULL;
+      arg[10] = exit_stat;
+      arg[11] = NULL;
 
-      LastArg = 10;
+      LastArg = 11;
       } 
     else 
       {

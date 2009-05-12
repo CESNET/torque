@@ -421,7 +421,6 @@ void scan_for_terminated()
 
     while (pjob != NULL) 
       {
-
       if (LOGLEVEL >= 7)
         {
         snprintf(log_buffer,1024,"checking job w/subtask pid=%d (child pid=%d)",

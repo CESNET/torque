@@ -59,6 +59,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       is located
   c - check filename for NULL to prevent crash
   b - Fix so interactive jobs run when using $job_output_file_umask userdefault
+  e - add job exit status as 10th argument to the epilogue script
+
   
 2.2.1
   b - fix a bug where dependent jobs get put on hold when the previous job has

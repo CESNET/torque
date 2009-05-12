@@ -1714,18 +1714,18 @@ void req_jobobit(
   int		  alreadymailed = 0;
   int		  amt;
   int		  bad;
-  char 		  acctbuf[RESC_USED_BUF];
+  char 		acctbuf[RESC_USED_BUF];
   int		  accttail;
   int		  exitstatus;
-  char		  mailbuf[RESC_USED_BUF];
+  char		mailbuf[RESC_USED_BUF];
   int		  need;
   int		  newstate;
   int		  newsubst;
-  char		 *pc;
-  job		 *pjob;
+  char		*pc;
+  job		  *pjob;
   struct work_task *ptask;
   svrattrl	 *patlist;
-  unsigned int    dummy;
+  unsigned int dummy;
   extern char *PAddrToString(pbs_net_t *);
   
   if (LOGLEVEL >= 7)

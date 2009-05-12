@@ -767,8 +767,6 @@ int svr_startjob(
 */
 
 
-
-
 static int svr_strtjob2(
 
   job                  *pjob,  /* I */

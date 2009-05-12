@@ -280,8 +280,9 @@ int svr_enquejob(
   /* add job to server's 'all job' list and update server counts */
 
 #ifndef NDEBUG
-  sprintf(log_buffer, "enqueuing into %s, state %x hop %ld",
+  sprintf(log_buffer, "enqueuing into %s, state %s (%x) hop %ld",
     pque->qu_qs.qu_name, 
+    PJobState[pjob->ji_qs.ji_state],
     pjob->ji_qs.ji_state,
     pjob->ji_wattr[(int)JOB_ATR_hopcount].at_val.at_long);
 
