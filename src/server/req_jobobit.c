@@ -1248,6 +1248,7 @@ void on_job_exit(
             
             PurgeIt = FALSE;
           }
+
         if (PurgeIt)
           {
           job_purge(pjob);

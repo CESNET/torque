@@ -134,6 +134,7 @@ static void purge_completed_jobs A_((struct batch_request *));
 
 struct work_task *apply_job_delete_nanny A_((struct job *,int));
 int has_job_delete_nanny A_((struct job *));
+void del_idle_job A_((struct job *));
  
 /* Private Data Items */
 
@@ -194,6 +195,47 @@ void remove_stagein(
   }  /* END remove_stagein() */
 
 
+
+
+ /*
+ * del_idle_job
+ * This is used to delete jobs in idle or "error" states
+ * jobs deleted using this function will still appear in qstat outputs
+ * as a "deleted" job.
+ *
+ * @param pjob - the job to be deleted
+ */
+void del_idle_job(
+
+  struct job *pjob) /* I */
+
+  {
+  struct work_task *ptask;
+  struct pbs_queue *pque;
+  int KeepSeconds = 0;
+
+  svr_setjobstate(pjob,JOB_STATE_COMPLETE,JOB_SUBSTATE_COMPLETE);
+
+  if ((pque = pjob->ji_qhdr) && (pque != NULL))
+    {
+    pque->qu_numcompleted++;
+    }
+
+  pjob->ji_wattr[(int)JOB_ATR_exitstat].at_val.at_long = 127;
+  pjob->ji_wattr[(int)JOB_ATR_exitstat].at_flags |= ATR_VFLAG_SET;
+
+  KeepSeconds = attr_ifelse_long(
+                  &pque->qu_attr[(int)QE_ATR_KeepCompleted],
+                  &server.sv_attr[(int)SRV_ATR_KeepCompleted],
+                  0);
+
+  ptask = set_task(WORK_Timed,time_now + KeepSeconds,on_job_exit,pjob);
+
+  if (ptask != NULL)
+    {
+    append_link(&pjob->ji_svrtask,&ptask->wt_linkobj,ptask);
+    }
+  }  /* END del_idle_job() */
 
 
 
@@ -516,10 +558,10 @@ jump:
     {
     /*
      * the job is not transitting (though it may have been) and
-     * is not running, so abort it.
+     * is not running, so put it into a completed state.
      */
 
-    job_abt(&pjob,Msg);
+    del_idle_job(pjob);
     }  /* END else if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_CHKPT) != 0) */
 
   reply_ack(preq);

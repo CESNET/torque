@@ -142,6 +142,7 @@ extern void acct_close(void);
 extern int  svr_startjob A_((job *,struct batch_request *,char *,char *)); 
 extern int RPPConfigure(int,int);
 extern void acct_cleanup(long);
+extern void del_idle_job A_((struct job*));
 #ifdef NO_SIGCHLD
 extern void check_children ();
 #endif
@@ -1273,6 +1274,21 @@ int main(
     *state = SV_STATE_RUN;
 
   DBPRT(("pbs_server is up\n"));
+
+  /* take care of any jobs that might be out of sync from server to nodes*/
+
+  for (pjob =(job *)GET_NEXT(svr_alljobs);
+       pjob != NULL;
+       pjob = (job *)GET_NEXT(pjob->ji_alljobs))
+    {
+    if ((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) &&
+        (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN))
+      {
+      /* cancel jobs that the server thinks have started but haven't really */
+
+      del_idle_job(pjob);
+      }
+    }
 
   while (*state != SV_STATE_DOWN) 
     {

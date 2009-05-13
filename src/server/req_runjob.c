@@ -795,9 +795,9 @@ static int svr_strtjob2(
   pattr->at_val.at_long++;
   pattr->at_flags |= ATR_VFLAG_SET;
 
-  /* send the job to MOM */
-
   svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
+
+  /* send the job to MOM */
 
   if (send_job(
         pjob,

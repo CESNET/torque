@@ -25,6 +25,7 @@ extern void job_purge(job *pjob);
 extern struct work_task *apply_job_delete_nanny(struct job *,int);
 extern int has_job_delete_nanny(struct job *);
 extern void remove_stagein(job *pjob);
+extern void del_idle_job(struct job *);
 
 extern char *msg_unkarrayid;
 extern char *msg_permlog;
@@ -188,7 +189,12 @@ void req_deletearray(struct batch_request *preq)
       } 
     else 
       {
-      job_abt(&pjob, NULL);
+      /*
+       * the job is not transitting (though it may have been) and
+       * is not running, so put in into a complete state.
+       */
+
+      del_idle_job(pjob);
       }
       
     pjob = next;  
@@ -312,7 +318,7 @@ void req_deletearray(struct batch_request *preq)
             job_abt(&pjob,NULL);
             } 
           else 
-	    {
+	          {
             job_abt(&pjob,NULL);
             }
 	    
