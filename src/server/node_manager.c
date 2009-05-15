@@ -2722,7 +2722,7 @@ static int number(
   int i = 0;
   char *str = *ptr;
 
-  while (isdigit(*str))
+  while (isdigit(*str) && (size_t)(i+1) < sizeof holder)
     holder[i++] = *str++;
 
   if (i == 0)
@@ -2732,7 +2732,7 @@ static int number(
 
   holder[i] = '\0';
 
-  if ((i = atoi(holder)) == 0)
+  if ((i = atoi(holder)) <= 0)
     {
     sprintf(log_buffer, "zero illegal");
 
