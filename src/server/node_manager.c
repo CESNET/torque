@@ -2722,7 +2722,7 @@ static int number(
   int i = 0;
   char *str = *ptr;
 
-  while (isdigit(*str) && (size_t)(i+1) < sizeof holder)
+  while (isdigit(*str) && (unsigned int)(i + 1) < sizeof holder)
     holder[i++] = *str++;
 
   if (i == 0)
