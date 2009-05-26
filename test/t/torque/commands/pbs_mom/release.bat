@@ -25,7 +25,7 @@ execute_tests(
               "$testbase/pbs_mom_cL.t",
               "$testbase/pbs_mom_cM.t",
               "$testbase/pbs_mom_cR.t",
-              "$testbase/pbs_mom_default_r.t",
+#              "$testbase/pbs_mom_default_r.t",
               "$testbase/pbs_mom_p.t",
 #              "$testbase/pbs_mom_r.t",
               "$testbase/pbs_mom_x.t",

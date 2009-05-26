@@ -18,14 +18,14 @@ use Torque::Job::Ctrl   qw(
                             delJobs
                           );
 use Torque::Test::Utils qw(
-                            job_info
+                            verify_job_state
                           );
 
 plan('no_plan');
 setDesc('pbs_mom (Check default -r behavior for TORQUE 2.3)');
 
 # Variables
-my $sleep_time = 299;
+my $sleep_time = 30;
 my $job_id;
 my $job_params = {
                    'user'       => $props->get_property('torque.user.one'),
@@ -40,7 +40,6 @@ my $pbs_mom_cmd = "pbs_mom";
 # Hashes
 my %pgrep;
 my %pbs_mom;
-my %job_info;
 
 ###############################################################################
 # Make sure pbs_mom is stopped
@@ -73,10 +72,12 @@ runJobs($job_id);
 diag("Stop pbs and check that the job is still in the running state");
 stopPbsmom();
 
-# Check that the job is still running
-%job_info = job_info($job_id);
-ok($job_info{ $job_id }{ 'job_state' } eq 'R', "Checking that job '$job_id' is in the running (R) state")
-  or diag("\$job_info{ $job_id }{ 'job_state' } => $job_info{ $job_id }{ 'job_state' }");
+# Check for the 'Q' state
+verify_job_state({
+                  'job_id'        => $job_id,
+                  'exp_job_state' => 'R',
+                  'wait_time'     => 2 * $sleep_time
+                });
 
 ###############################################################################
 # Start pbs_mom and verify that the job is still in the running state
@@ -90,12 +91,12 @@ ok($pbs_mom{ 'EXIT_CODE' } == 0, "Checking exit code of pbs_mom")
 %pgrep = runCommand($pgrep_cmd);
 ok($pgrep{ 'EXIT_CODE' } == 0, "Verifying that pbs_mom is running");
 
-# Sleep for a few seconds
-
-# Check that the job is still running
-%job_info = job_info($job_id);
-ok($job_info{ $job_id }{ 'job_state' } eq 'R', "Checking that job '$job_id' is in the running (R) state")
-  or diag("\$job_info{ $job_id }{ 'job_state' } => $job_info{ $job_id }{ 'job_state' }");
+# Check for the 'Q' state
+verify_job_state({
+                  'job_id'        => $job_id,
+                  'exp_job_state' => 'Q',
+                  'wait_time'     => 2 * $sleep_time
+                });
 
 ###############################################################################
 # Delete the job
