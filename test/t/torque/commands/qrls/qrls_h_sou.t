@@ -25,7 +25,7 @@ use Torque::Test::Utils        qw(
 
 # Test Description
 plan('no_plan');
-setDesc("qrls -h s");
+setDesc("qrls -h sou");
 
 # Variables
 my $job_params;
