@@ -56,7 +56,6 @@ $job_id = submitSleepJob($job_params);
 ###############################################################################
 # Test qrls as the original user
 ###############################################################################
-diag("Test qrls as the original user");
 
 # Test qhold
 $cmd   = "qhold $job_id";
@@ -95,7 +94,6 @@ ok($job_info{ $job_id }{ 'Hold_Types' } eq $rls_type,
 ##############################################################################
 # Test qrls as a different user
 ###############################################################################
-diag("Test qrls as a different user");
 
 # Test qhold
 $cmd   = "qhold $job_id";
@@ -105,7 +103,7 @@ ok($qhold{ 'EXIT_CODE' } == 0, "Checking exit code of '$cmd'");
 # Check the job_state and Hold_Types
 $verify_params = {
                   'job_id' => $job_id,
-                  'exp_job_state' => 'R'
+                  'exp_job_state' => 'H'
                  };
 
 verify_job_state($verify_params);
@@ -124,7 +122,7 @@ ok($qrls{ 'EXIT_CODE' } != 0, "Checking exit code of '$cmd'");
 
 $verify_params = {
                   'job_id' => $job_id,
-                  'exp_job_state' => 'R'
+                  'exp_job_state' => 'H'
                  };
 
 verify_job_state($verify_params);
