@@ -605,7 +605,7 @@ int mom_comm(
     pjob->ji_momhandle = svr_connect(
 
                            pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
-                           pbs_mom_port,
+                           pjob->ji_qs.ji_un.ji_exect.ji_momport,
                            process_Dreply,
                            ToServerDIS);
 

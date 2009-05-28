@@ -653,6 +653,7 @@ int stat_to_mom(
 
   struct batch_request *newrq;
   int          rc;
+  u_long       addr;
 
   struct work_task     *pwt = 0;
 
@@ -676,7 +677,11 @@ int stat_to_mom(
 
   /* if MOM is down just return stale information */
 
-  if (((node = tfind_addr(pjob->ji_qs.ji_un.ji_exect.ji_momaddr)) != NULL) &&
+  addr = pjob->ji_qs.ji_un.ji_exect.ji_momaddr;
+  addr += pjob->ji_qs.ji_un.ji_exect.ji_mom_rmport;
+  addr += pjob->ji_qs.ji_un.ji_exect.ji_momport;
+
+  if (((node = tfind_addr(addr)) != NULL) &&
       (node->nd_state & (INUSE_DELETED | INUSE_DOWN)))
     {
     if (LOGLEVEL >= 6)
@@ -699,7 +704,7 @@ int stat_to_mom(
 
   cntl->sc_conn = svr_connect(
                     pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
-                    pbs_mom_port,
+                    pjob->ji_qs.ji_un.ji_exect.ji_momport,
                     process_Dreply,
                     ToServerDIS);
 
@@ -1239,7 +1244,10 @@ static int status_node(
 
   pstat->brp_objtype = MGR_OBJ_NODE;
 
-  strcpy(pstat->brp_objname, pnode->nd_name);
+  if(pnode->nd_mom_alt_name)
+    strcpy(pstat->brp_objname, pnode->nd_mom_alt_name);
+  else
+    strcpy(pstat->brp_objname, pnode->nd_name);
 
   CLEAR_LINK(pstat->brp_stlink);
   CLEAR_HEAD(pstat->brp_attr);

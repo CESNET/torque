@@ -142,10 +142,13 @@ struct pbsnode
 
   struct array_strings  *nd_status;
   char           *nd_note;  /* note set by administrator */
+  char		*nd_mom_alt_name; /* for multiple moms on a single node */
   int     nd_stream; /* RPP stream to Mom on host */
   enum psit   nd_flag;
+  unsigned short nd_mom_port; /* For multi-mom-mode unique port value PBS_MOM_SERVICE_PORT*/
+  unsigned short nd_mom_rm_port; /* For multi-mom-mode unique port value PBS_MANAGER_SERVICE_PORT */
   short     nd_nprops; /* number of properties */
-  short                  nd_nstatus;    /* number of status items */
+  short     nd_nstatus;    /* number of status items */
   short     nd_nsn; /* number of VPs  */
   short     nd_nsnfree; /* number of VPs free */
   short    nd_nsnshared; /* number of VPs shared */
@@ -242,6 +245,9 @@ enum nodeattr
   ND_ATR_jobs,
   ND_ATR_status,
   ND_ATR_note,
+  ND_ATR_mom_port,
+  ND_ATR_mom_rm_port,
+  ND_ATR_mom_alt_name,
   ND_ATR_LAST
   }; /* WARNING: Must be the highest valued enum */
 
@@ -252,6 +258,8 @@ extern struct pbsnode **pbsndlist;  /* array of ptr to nodes  */
 extern int    svr_totnodes;  /* number of nodes (hosts) */
 extern int    svr_tsnodes;  /* number of timeshared nodes */
 extern int    svr_clnodes;  /* number of cluster nodes */
+
+extern int 	  MultiMomMode; /* moms configured for multiple moms per machine */
 
 extern struct tree_t  *ipaddrs;
 
@@ -270,6 +278,7 @@ extern void setup_notification A_((char *));
 extern  struct pbssubn  *find_subnodebyname A_((char *));
 
 extern struct pbsnode  *find_nodebyname A_((char *));
+extern struct pbsnode  *find_nodebynameandaltname A_((char *, char *));
 extern void free_prop_list A_((struct prop*));
 extern void     free_prop_attr  A_((attribute*));
 extern void recompute_ntype_cnts A_(());

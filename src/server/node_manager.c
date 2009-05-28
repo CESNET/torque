@@ -1835,6 +1835,8 @@ void is_request(
   int  i;
 
   unsigned long ipaddr;
+  uint16_t  mom_port;
+  uint16_t  rm_port;
 
   struct sockaddr_in *addr;
 
@@ -1844,6 +1846,11 @@ void is_request(
 
   if (cmdp != NULL)
     *cmdp = 0;
+
+  command = disrsi(stream, &ret);
+
+  if (ret != DIS_SUCCESS)
+    goto err;
 
   if (LOGLEVEL >= 4)
     {
@@ -1859,6 +1866,10 @@ void is_request(
     }
 
   addr = rpp_getaddr(stream);
+
+  mom_port = disrsi(stream, &ret);
+  rm_port = disrsi(stream, &ret);
+
 
   if (version != IS_PROTOCOL_VER)
     {
@@ -1891,6 +1902,9 @@ void is_request(
     goto found;
 
   ipaddr = ntohl(addr->sin_addr.s_addr);
+
+  ipaddr += mom_port;
+  ipaddr += rm_port;
 
   if ((node = tfind(ipaddr, &ipaddrs)) != NULL)
     {
@@ -1965,11 +1979,6 @@ void is_request(
   return;
 
 found:
-
-  command = disrsi(stream, &ret);
-
-  if (ret != DIS_SUCCESS)
-    goto err;
 
   if (cmdp != NULL)
     *cmdp = command;
@@ -2575,7 +2584,9 @@ static int search(
     {
     pnode = pbsndlist[i];
 
-    if (pnode->nd_state & INUSE_DELETED)
+    if (pnode->nd_state & INUSE_DELETED
+        || pnode->nd_state & INUSE_DOWN
+        || pnode->nd_state & INUSE_OFFLINE)
       continue;
 
     if (pnode->nd_ntype == NTYPE_CLUSTER)
@@ -2596,7 +2607,21 @@ static int search(
       */
 
       if (!hasprop(pnode, glorf))
-        continue;
+        {
+        if(pnode->nd_mom_alt_name && !strcmp(pnode->nd_mom_alt_name, glorf->name))
+          {
+          struct prop tempProp;
+
+          tempProp.name = pnode->nd_name;
+          tempProp.mark = glorf->mark;
+          tempProp.next = glorf->next;
+
+          if(!hasprop(pnode, &tempProp))
+            continue;
+          }
+          else
+            continue;
+        }
 
       if ((skip == SKIP_NONE) || (skip == SKIP_NONE_REUSE))
         {
@@ -2941,6 +2966,8 @@ static int listelem(
 
   for (i = 0;i < svr_totnodes;i++)
     {
+    struct prop tempProp;
+
     pnode = pbsndlist[i];
 
     if (pnode->nd_state & INUSE_DELETED)
@@ -2950,6 +2977,16 @@ static int listelem(
       {
       if (hasprop(pnode, prop) && hasppn(pnode, node_req, SKIP_NONE))
         hit++;
+      else
+        if(pnode->nd_mom_alt_name && strcmp(pnode->nd_mom_alt_name, prop->name) == 0)
+          {
+          tempProp.name = pnode->nd_name;
+          tempProp.mark = prop->mark;
+          tempProp.next = prop->next;
+          
+          if (hasprop(pnode, &tempProp) && hasppn(pnode, node_req, SKIP_NONE))
+            hit++;
+          }
 
       if (hit == num)
         {
@@ -3749,10 +3786,11 @@ static int node_spec(
 int set_nodes(
 
   job   *pjob,      /* I */
-  char *spec,      /* I */
-  char **rtnlist,   /* O */
-  char  *FailHost,  /* O (optional,minsize=1024) */
-  char  *EMsg)      /* O (optional,minsize=1024) */
+  char *spec,       /* I */
+  char **rtnlist,      /* O */
+  char **rtnportlist,  /* O */
+  char  *FailHost,     /* O (optional,minsize=1024) */
+  char  *EMsg)         /* O (optional,minsize=1024) */
 
   {
 
@@ -3761,11 +3799,12 @@ int set_nodes(
     char *name;
     int   order;
     int   index;
+    uint16_t port;
 
     struct howl *next;
     } *hp, *hlist, *curr, *prev, *nxt;
 
-  int     i;
+  int     i, count;
   short   newstate;
 
   int     NCount;
@@ -3776,6 +3815,7 @@ int set_nodes(
 
   struct pbssubn *snp;
   char           *nodelist;
+  char           *portlist;
 
   if (FailHost != NULL)
     FailHost[0] = '\0';
@@ -3924,6 +3964,9 @@ int set_nodes(
 
         pnode->nd_nsnfree--;            /* reduce free count */
 
+        pjob->ji_qs.ji_un.ji_exect.ji_momport = pnode->nd_mom_port;
+        pjob->ji_qs.ji_un.ji_exect.ji_mom_rmport = pnode->nd_mom_rm_port;
+
         if (snp->inuse == INUSE_FREE)
           {
           snp->inuse = newstate;
@@ -3958,6 +4001,8 @@ int set_nodes(
       curr->name  = pnode->nd_name;
 
       curr->index = snp->index;
+
+      curr->port = pnode->nd_mom_rm_port;
 
       for (prev = NULL, hp = hlist;hp;prev = hp, hp = hp->next)
         {
@@ -4004,10 +4049,12 @@ int set_nodes(
   /* build list of allocated nodes */
 
   i = 1;  /* first, size list */
+  count = 1; /* count the number of nodes to be used */
 
   for (hp = hlist;hp != NULL;hp = hp->next)
     {
     i += (strlen(hp->name) + 6);
+    count++;
     }
 
   nodelist = malloc(++i);
@@ -4031,6 +4078,28 @@ int set_nodes(
 
   *nodelist = '\0';
 
+  /* port list will have a string of sister port addresses */
+  portlist = malloc((count * PBS_MAXPORTNUM) + count);
+  if (portlist == NULL)
+    {
+    sprintf(log_buffer, "no nodes can be allocated to job %s - no memory",
+      pjob->ji_qs.ji_jobid);
+
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    if (EMsg != NULL)
+      sprintf(EMsg,"no nodes can be allocated to job");
+
+    return(PBSE_RESCUNAV);
+    }
+
+  *portlist = '\0';
+
+
   /* now copy in name+name+... */
 
   NCount = 0;
@@ -4043,14 +4112,18 @@ int set_nodes(
       hp->name,
       hp->index);
 
+    sprintf(portlist + strlen(portlist), "%d+", hp->port);
+
     nxt = hp->next;
 
     free(hp);
     }
 
   *(nodelist + strlen(nodelist) - 1) = '\0'; /* strip trailing + */
+  *(portlist + strlen(portlist) - 1) = 0;
 
   *rtnlist = nodelist;
+  *rtnportlist = portlist;
 
   if (LOGLEVEL >= 3)
     {

@@ -107,7 +107,7 @@ extern int   node_reserve A_((char *speclist, resource_t tag));
 extern int   init_resc_defs A_((void));
 
 #ifdef JOB_H
-extern int   set_nodes A_((job *, char *, char **, char *, char *));
+extern int   set_nodes A_((job *, char *, char **, char **, char *, char *));
 extern int   is_ts_node A_((char *));
 extern char *find_ts_node A_((void));
 extern void  free_nodes A_((job *));

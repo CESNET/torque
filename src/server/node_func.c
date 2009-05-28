@@ -331,6 +331,11 @@ int addr_ok(
 
         chk_len = server.sv_attr[(int)SRV_ATR_check_rate].at_val.at_long;
 
+        if(pbsndlist[i]->nd_lastupdate == 0)
+          {
+          continue;
+          }
+
         if (pbsndlist[i]->nd_lastupdate <= (time_now - chk_len))
           {
           status = 0;
@@ -398,6 +403,52 @@ struct pbsnode *find_nodebyname(
 
   return(pnode);
   }  /* END find_nodebyname() */
+
+/* find_nodebynameandaltname() -  find a node by its name and alternative name */
+
+struct pbsnode *find_nodebynameandaltname(
+       char *nodename, 
+       char *altname)
+  {
+  int  i;
+  char  *pslash;
+
+  struct pbsnode *pnode;
+
+  if ((pslash = strchr(nodename, (int)'/')) != NULL)
+    *pslash = '\0';
+
+  pnode = NULL;
+
+  for (i = 0;i < svr_totnodes;i++)
+    {
+    if (pbsndlist[i]->nd_state & INUSE_DELETED)
+      continue;
+
+    if(altname && pbsndlist[i]->nd_mom_alt_name)
+      {
+      if((strcasecmp(nodename,pbsndlist[i]->nd_name) == 0)
+         && (strcasecmp(altname, pbsndlist[i]->nd_mom_alt_name) == 0))
+        {
+        pnode = pbsndlist[i];
+        break;
+        }
+      }
+    else if (!altname && !pbsndlist[i]->nd_mom_alt_name)
+      {
+      if (strcasecmp(nodename, pbsndlist[i]->nd_name) == 0)
+        pnode = pbsndlist[i];
+        break;
+      }
+
+    }
+
+  if (pslash != NULL)
+    *pslash = '/'; /* restore the slash */
+
+  return(pnode);
+  }  /* END find_nodebynameoraltname() */
+
 
 
 
@@ -639,6 +690,12 @@ int status_nodeattrib(
       atemp[i].at_val.at_long = pnode->nd_nsn;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_note))
       atemp[i].at_val.at_str  = pnode->nd_note;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_mom_port))
+      atemp[i].at_val.at_long  = pnode->nd_mom_port;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_mom_rm_port))
+      atemp[i].at_val.at_long  = pnode->nd_mom_rm_port;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_mom_alt_name))
+      atemp[i].at_val.at_str  = pnode->nd_mom_alt_name;
     else
       {
       /*we don't ever expect this*/
@@ -750,14 +807,16 @@ static void initialize_pbsnode(
   int             ntype) /* time-shared or cluster */
 
   {
-  char *id = "initialize_pbsnode";
+/*  char *id = "initialize_pbsnode"; */
 
-  int i;
+/*  int i; */
 
   memset(pnode, 0, sizeof(struct pbsnode));
 
   pnode->nd_name    = pname;
   pnode->nd_stream  = -1;
+  pnode->nd_mom_port = PBS_MOM_SERVICE_PORT;
+  pnode->nd_mom_rm_port = PBS_MANAGER_SERVICE_PORT;
   pnode->nd_addrs   = pul;       /* list of host byte order */
   pnode->nd_ntype   = ntype;
   pnode->nd_nsn     = 0;
@@ -776,8 +835,9 @@ static void initialize_pbsnode(
   pnode->nd_nprops  = 0;
   pnode->nd_nstatus = 0;
   pnode->nd_warnbad = 0;
+  pnode->nd_mom_alt_name = NULL;
 
-  for (i = 0;pul[i];i++)
+  /*for (i = 0;pul[i];i++)
     {
     if (LOGLEVEL >= 6)
       {
@@ -796,7 +856,7 @@ static void initialize_pbsnode(
       }
 
     tinsert(pul[i], pnode, &ipaddrs);
-    }  /* END for (i) */
+    }*/  /* END for (i) */
 
   return;
   }  /* END initialize_pbsnode() */
@@ -898,6 +958,63 @@ void effective_node_delete(
 
   return;
   }  /* END effective_node_delete() */
+
+
+/* free_node() - clean up and free all elements of a pbsnode that has not been
+   entered into any tables. called from create_pbs_node() */
+void free_node(
+
+  struct pbsnode *pnode)
+
+  {
+
+  struct pbssubn  *psubn;
+
+  struct pbssubn  *pnxt;
+
+  psubn = pnode->nd_psn;
+
+  while (psubn != NULL)
+    {
+    pnxt = psubn->next;
+
+    subnode_delete(psubn);
+
+    psubn = pnxt;
+    }
+
+  pnode->nd_last->next = NULL;      /* just in case */
+
+  pnode->nd_last       = NULL;
+
+  free_prop_list(pnode->nd_first);
+
+  pnode->nd_first = NULL;
+
+  if (pnode->nd_addrs != NULL)
+    {
+
+    if (pnode->nd_addrs != NULL)
+      {
+      /* remove array of IP addresses */
+
+      free(pnode->nd_addrs);
+
+      pnode->nd_addrs = NULL;
+      }
+    }
+
+  free(pnode->nd_name);
+
+  pnode->nd_name    = NULL;
+  pnode->nd_stream  = -1;
+  pnode->nd_state   = INUSE_DELETED;
+  pnode->nd_nsn     = 0;
+  pnode->nd_nsnfree = 0;
+
+  return;
+  }  /* END free_node() */
+
 
 
 
@@ -1397,6 +1514,8 @@ int create_pbs_node(
 
   {
 
+  static char id[] = "create_pbs_node";
+
   struct pbsnode  *pnode = NULL;
 
   struct pbsnode **tmpndlist;
@@ -1405,6 +1524,9 @@ int create_pbs_node(
   u_long          *pul;  /* 0 terminated host adrs array*/
   int              rc;
   int              iht;
+  int             i;
+  int             reused_entry = 0;
+  u_long          addr;
 
   if ((rc = process_host_name_part(objname, &pul, &pname, &ntype)) != 0)
     {
@@ -1425,13 +1547,13 @@ int create_pbs_node(
     return(PBSE_SYSTEM);
     }
 
-  if (find_nodebyname(pname))
+/*  if (find_nodebyname(pname))
     {
     free(pname);
     free(pul);
 
     return(PBSE_NODEEXIST);
-    }
+    } */
 
   for (iht = 0; iht < svr_totnodes; iht++)
     {
@@ -1440,6 +1562,7 @@ int create_pbs_node(
       /*available, use*/
 
       pnode = pbsndmast[iht];
+      reused_entry = 1;
 
       break;
       }
@@ -1463,7 +1586,7 @@ int create_pbs_node(
 
     /* expand pbsndmast array exactly svr_totnodes long*/
 
-    tmpndlist = (struct pbsnode **)realloc(
+/*    tmpndlist = (struct pbsnode **)realloc(
                   pbsndmast,
                   sizeof(struct pbsnode *) * (svr_totnodes + 1));
 
@@ -1474,11 +1597,11 @@ int create_pbs_node(
       free(pname);
 
       return(PBSE_SYSTEM);
-      }
+      } */
 
     /*add in the new entry etc*/
 
-    pbsndmast = tmpndlist;
+/*    pbsndmast = tmpndlist;
 
     pbsndmast[svr_totnodes++] = pnode;
 
@@ -1501,7 +1624,7 @@ int create_pbs_node(
       pbsndmast,
       svr_totnodes * sizeof(struct pbsnode *));
 
-    pbsndlist = tmpndlist;
+    pbsndlist = tmpndlist; */
     }
 
   initialize_pbsnode(pnode, pname, pul, ntype);
@@ -1531,10 +1654,91 @@ int create_pbs_node(
 
   if (rc != 0)
     {
-    effective_node_delete(pnode);
+    free_node(pnode);
+/*    effective_node_delete(pnode);*/
 
     return(rc);
     }
+
+  if (find_nodebynameandaltname(pname, pnode->nd_mom_alt_name))
+    {
+    free(pname);
+    free(pul);
+
+    free_node(pnode);
+
+    return(PBSE_NODEEXIST);
+    }
+
+  /* expand pbsndmast array exactly svr_totnodes long*/
+
+  tmpndlist = (struct pbsnode **)realloc(
+                pbsndmast,
+                sizeof(struct pbsnode *) * (svr_totnodes + 1));
+
+  if (tmpndlist == NULL)
+    {
+    free(pnode);
+    free(pul);
+    free(pname);
+
+    return(PBSE_SYSTEM);
+    }
+
+  if(!reused_entry)
+    {
+    /*add in the new entry etc*/
+  
+    pbsndmast = tmpndlist;
+  
+    pbsndmast[svr_totnodes++] = pnode;
+  
+    tmpndlist = (struct pbsnode **)realloc(
+                  pbsndlist,
+                  sizeof(struct pbsnode *) * (svr_totnodes + 1));
+  
+    if (tmpndlist == NULL)
+      {
+      free(pnode);
+      free(pul);
+      free(pname);
+  
+      return(PBSE_SYSTEM);
+      }
+  
+    memcpy(
+  
+      tmpndlist,
+      pbsndmast,
+      svr_totnodes * sizeof(struct pbsnode *));
+  
+    pbsndlist = tmpndlist;
+    }
+
+
+  for (i = 0;pul[i];i++)
+    {
+    if (LOGLEVEL >= 6)
+      {
+      sprintf(log_buffer, "node '%s' allows trust for ipaddr %ld.%ld.%ld.%ld\n",
+              pnode->nd_name,
+              (pul[i] & 0xff000000) >> 24,
+              (pul[i] & 0x00ff0000) >> 16,
+              (pul[i] & 0x0000ff00) >> 8,
+              (pul[i] & 0x000000ff));
+
+      log_record(
+        PBSEVENT_SCHED,
+        PBS_EVENTCLASS_REQUEST,
+        id,
+        log_buffer);
+      }
+    
+    addr = pul[i] + pnode->nd_mom_port + pnode->nd_mom_rm_port;
+    tinsert(addr, pnode, &ipaddrs);
+    }  /* END for (i) */
+
+
 
   recompute_ntype_cnts();
 
@@ -2048,3 +2252,69 @@ int   actmode; /*action mode; "NEW" or "ALTER"   */
 
   return 0;
   }
+
+/*
+ * node_mom_port_action - action routine for node's port attribute
+ */
+
+int node_mom_port_action(new, pobj, actmode)
+attribute *new;  /*derive props into this attribute*/
+void  *pobj;  /*pointer to a pbsnode struct     */
+int   actmode; /*action mode; "NEW" or "ALTER"   */
+  {
+
+  struct pbsnode *pnode = (struct pbsnode *)pobj;
+  int rc = 0;
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+      new->at_val.at_long = pnode->nd_mom_port;
+      break;
+
+    case ATR_ACTION_ALTER:
+      pnode->nd_mom_port = new->at_val.at_long;
+      break;
+
+    default:
+
+      rc = PBSE_INTERNAL;
+    }
+
+  return rc;
+  }
+
+/*
+ * node_mom_rm_port_action - action routine for node's port attribute
+ */
+
+int node_mom_rm_port_action(new, pobj, actmode)
+attribute *new;  /*derive props into this attribute*/
+void  *pobj;  /*pointer to a pbsnode struct     */
+int   actmode; /*action mode; "NEW" or "ALTER"   */
+  {
+
+  struct pbsnode *pnode = (struct pbsnode *)pobj;
+  int rc = 0;
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+      new->at_val.at_long = pnode->nd_mom_rm_port;
+      break;
+
+    case ATR_ACTION_ALTER:
+      pnode->nd_mom_rm_port = new->at_val.at_long;
+      break;
+
+    default:
+
+      rc = PBSE_INTERNAL;
+    }
+
+  return rc;
+  }
+
+

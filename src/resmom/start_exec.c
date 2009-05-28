@@ -3999,7 +3999,7 @@ int start_process(
       return(-1);
       }
 
-    if (write(parent_write, &sjr, sizeof(sjr)) == -1) {}
+/*    if (write(parent_write, &sjr, sizeof(sjr)) == -1) {} */
 
     close(parent_write);
 

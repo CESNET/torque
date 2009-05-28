@@ -138,6 +138,7 @@
 
 #define ATTR_ctime      "ctime"
 #define ATTR_exechost   "exec_host"
+#define ATTR_execport	"exec_port"
 #define ATTR_mtime      "mtime"
 #define ATTR_qtime      "qtime"
 #define ATTR_session    "session_id"
@@ -275,13 +276,16 @@
 
 /* additional node "attributes" names */
 
-#define ATTR_NODE_state      "state"
-#define ATTR_NODE_np         "np"
-#define ATTR_NODE_properties "properties"
-#define ATTR_NODE_ntype      "ntype"
-#define ATTR_NODE_jobs       "jobs"
-#define ATTR_NODE_status     "status"
-#define ATTR_NODE_note       "note"
+#define ATTR_NODE_state       "state"
+#define ATTR_NODE_np          "np"
+#define ATTR_NODE_properties  "properties"
+#define ATTR_NODE_ntype       "ntype"
+#define ATTR_NODE_jobs        "jobs"
+#define ATTR_NODE_status      "status"
+#define ATTR_NODE_note        "note"
+#define ATTR_NODE_mom_port	  "mom_service_port"
+#define ATTR_NODE_mom_rm_port "mom_manager_port" 
+#define ATTR_NODE_mom_alt_name "mom_alt_name"
 
 
 

@@ -9,7 +9,7 @@
 * other than those described below, or to purchase support for this software,
 * please contact Veridian Systems, PBS Products Department ("Licensor") at:
 *
-*    www.OpenPBS.org  +1 650 967-4675                  sales@OpenPBS.org
+*    www.OpenPBS.org  +1 650 967-4675                  sales@OpenPBS.org         
 *                        877 902-4PBS (US toll-free)
 * ---------------------------------------------------------------------------
 *
@@ -158,7 +158,8 @@
 #define DEFAULT_SERVER_STAT_UPDATES 45
 
 #define PMAX_PORT           32000
-
+#define MAX_PORT_STRING_LEN         6
+#define MAX_LOCK_FILE_NAME_LEN      15
 /* Global Data Items */
 
 char           *program_name;
@@ -176,6 +177,7 @@ int  internal_state = 0;
 int             ignwalltime = 0;        /* by default, enable mom based walltime enforcement */
 int             ignvmem = 0; /* by default, enable mom based vmem enforcement */
 int  lockfds = -1;
+int  multi_mom = 0;
 time_t  loopcnt;  /* used for MD5 calc */
 float  max_load_val = -1.0;
 int  hostname_specified = 0;
@@ -199,6 +201,7 @@ char        *path_aux;
 char        *path_server_name;
 char           *path_home = PBS_SERVER_HOME;
 char           *mom_home;
+
 extern char    *msg_daemonname;          /* for logs     */
 extern char *msg_info_mom; /* Mom information message   */
 extern int pbs_errno;
@@ -448,7 +451,7 @@ struct config common_config[] =
   { NULL,        {NULL} }
   };
 
-int                     LOGLEVEL = 0;  /* valid values (0 - 10) */
+int                     LOGLEVEL = 7;  /* valid values (0 - 10) */
 int                     LOGKEEPDAYS = 0; /* days each log file should be kept before deleting */
 int                     DEBUGMODE = 0;
 int                     DOBACKGROUND = 1;
@@ -6542,7 +6545,7 @@ void parse_command_line(
 
   errflg = 0;
 
-  while ((c = getopt(argc, argv, "a:c:C:d:DhH:l:L:M:prR:s:S:vx-:")) != -1)
+  while ((c = getopt(argc, argv, "a:c:C:d:DhH:l:L:mM:prR:s:S:vx-:")) != -1)
     {
     switch (c)
       {
@@ -6692,6 +6695,11 @@ void parse_command_line(
 
         break;
 
+      case 'm':
+
+        multi_mom = 1;
+        break;
+
       case 'p':
 
         if (recover == 0)
@@ -6795,6 +6803,8 @@ int setup_program_environment(void)
   int           c;
   int           hostc = 1;
   FILE         *dummyfile;
+  char         logSuffix[MAX_PORT_STRING_LEN];
+  char         momLock[MAX_LOCK_FILE_NAME_LEN];
   int  tryport;
   int  rppfd;  /* fd for rm and im comm */
   int  privfd = 0; /* fd for sending job info */
@@ -6973,7 +6983,15 @@ int setup_program_environment(void)
     hostc = gethostname(mom_host, PBS_MAXHOSTNAME);
     }
 
-  log_init(NULL, mom_host);
+  if(!multi_mom)
+    {
+    log_init(NULL, mom_host);
+    }
+  else
+    {
+    sprintf(logSuffix, "%d", pbs_mom_port);
+    log_init(logSuffix, mom_host);
+    }
 
   /* open log file while std in,out,err still open, forces to fd 4 */
 
@@ -6988,7 +7006,13 @@ int setup_program_environment(void)
 
   check_log(); /* see if this log should be rolled */
 
-  lockfds = open("mom.lock", O_CREAT | O_WRONLY, 0644);
+  if(!multi_mom)
+    sprintf(momLock,"mom.lock");
+  else
+    sprintf(momLock, "mom%d.lock", pbs_mom_port);
+
+
+  lockfds = open(momLock, O_CREAT | O_WRONLY, 0644);
 
   if (lockfds < 0)
     {
@@ -7002,7 +7026,7 @@ int setup_program_environment(void)
     return(1);
     }
 
-  mom_lock(lockfds,F_WRLCK); /* See if other MOMs are running */
+    mom_lock(lockfds,F_WRLCK); /* See if other MOMs are running */
 
   /* initialize the network interface */
 

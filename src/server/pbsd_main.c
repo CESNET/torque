@@ -228,6 +228,8 @@ int             TForceUpdate = 0;  /* (boolean) */
 char           *ProgName;
 char           *NodeSuffix = NULL;
 
+int             MultiMomMode = 0;
+
 
 
 void
@@ -669,7 +671,7 @@ int main(
 
   /* parse the parameters from the command line */
 
-  while ((c = getopt(argc, argv, "A:a:d:DfhH:L:l:M:p:R:S:t:v-:")) != -1)
+  while ((c = getopt(argc, argv, "A:a:d:DfhH:L:l:mM:p:R:S:t:v-:")) != -1)
     {
     switch (c)
       {
@@ -927,6 +929,9 @@ int main(
 
         log_file = optarg;
 
+        break;
+      case 'm':
+        MultiMomMode = 1;
         break;
 
       case 'M':
@@ -1285,6 +1290,14 @@ int main(
     PBS_EVENTCLASS_SERVER,
     msg_daemonname,
     log_buffer);
+
+  sprintf(log_buffer, "total number of nodes: %d\n", svr_totnodes);
+  log_event(
+    PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+    PBS_EVENTCLASS_SERVER,
+    msg_daemonname,
+    log_buffer);
+
 
 #ifdef NO_SIGCHLD
   log_record(

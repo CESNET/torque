@@ -5186,6 +5186,13 @@ int tm_request(
         phost->hn_stream = rpp_open(phost->hn_host, pbs_rm_port, NULL);
         }
 
+      sprintf(log_buffer, "host: %s\n", phost->hn_host);
+      log_record(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_SERVER,
+        id,
+        log_buffer);
+
       ret = im_compose(
 
               phost->hn_stream,

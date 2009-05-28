@@ -210,5 +210,40 @@ attribute_def node_attr_def[] =
     ATR_TYPE_STR,
     PARENT_TYPE_NODE,
   },
-
+  /* ND_ATR_port */
+  { ATTR_NODE_mom_port,  /* "port" */
+	decode_l,
+	encode_l,
+	set_l,
+	comp_null,
+	free_null,
+	node_mom_port_action,
+	NO_USER_SET,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_NODE,
+  },
+  /* ND_ATR_port */
+  { ATTR_NODE_mom_rm_port,  /* "port" */
+	decode_l,
+	encode_l,
+	set_l,
+	comp_null,
+	free_null,
+	node_mom_rm_port_action,
+	NO_USER_SET,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_NODE,
+  },
+  /* ND_ATR_alt_mom_name */
+  { ATTR_NODE_mom_alt_name,
+	decode_str,
+	encode_str,
+	set_alt_name_str,
+	comp_str,
+	free_str,
+	node_alt_name,
+	NO_USER_SET,
+	ATR_TYPE_STR,
+	PARENT_TYPE_NODE,
+  },
   };
