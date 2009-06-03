@@ -2586,7 +2586,8 @@ static int search(
 
     if (pnode->nd_state & INUSE_DELETED
         || pnode->nd_state & INUSE_DOWN
-        || pnode->nd_state & INUSE_OFFLINE)
+        || pnode->nd_state & INUSE_OFFLINE
+        || (pnode->nd_flag == thinking))
       continue;
 
     if (pnode->nd_ntype == NTYPE_CLUSTER)
@@ -3911,11 +3912,22 @@ int set_nodes(
 
       if (LOGLEVEL >= 5)
         {
-        sprintf(log_buffer, "allocated node %s/%d to job %s (nsnfree=%d)",
-          pnode->nd_name,
-          snp->index,
-          pjob->ji_qs.ji_jobid,
-          pnode->nd_nsnfree);
+        if(pnode->nd_mom_alt_name)
+          {
+          sprintf(log_buffer, "allocated node %s/%d to job %s (nsnfree=%d)",
+            pnode->nd_mom_alt_name,
+            snp->index,
+            pjob->ji_qs.ji_jobid,
+            pnode->nd_nsnfree);
+          }
+        else
+          {
+          sprintf(log_buffer, "allocated node %s/%d to job %s (nsnfree=%d)",
+            pnode->nd_name,
+            snp->index,
+            pjob->ji_qs.ji_jobid,
+            pnode->nd_nsnfree);
+          }
 
         log_record(
           PBSEVENT_SCHED,
@@ -3998,7 +4010,10 @@ int set_nodes(
 
       curr->order = pnode->nd_order;
 
-      curr->name  = pnode->nd_name;
+      if(pnode->nd_mom_alt_name)
+        curr->name = pnode->nd_mom_alt_name;
+      else
+        curr->name  = pnode->nd_name;
 
       curr->index = snp->index;
 
