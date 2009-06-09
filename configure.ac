@@ -18,6 +18,10 @@ dnl
 dnl Expanded to support 'make distcheck', shared libs,
 dnl  bi-arches, pbs-config script, and updated to TORQUE 2.x
 dnl  by Garrick Staples (garrick@usc.edu)
+dnl 
+dnl Expanded to allow --enable-high-availability in order to have improved
+dnl high availability features
+dnl 
 
 AC_PREREQ(2.53)
 AC_INIT([torque], [2.3.0], [torqueusers@supercluster.org])
@@ -241,6 +245,22 @@ if test "x$GCC" = "xyes" ;then
   fi
 fi
 
+
+dnl check if we should use high availability mode
+AC_ARG_ENABLE(high_availability, [
+  --enable-high-availability  Enables advanced high availability mode (multi-threaded)])
+if test "x$GCC" = "xyes" ;then
+  AC_MSG_CHECKING([whether to use threaded high availability])
+  if test "${enable_high_availability}" == "yes" ; then
+    AC_MSG_RESULT([yes])
+    PTHREAD_LIBS=-lpthread
+    LIBS="$LIBS $PTHREAD_LIBS"
+    CFLAGS="$CFLAGS -DUSE_HA_THREADS"
+  else
+    AC_MSG_RESULT([no])
+    high_availability=yes
+  fi
+fi
 
 dnl
 dnl If hpux and gcc, force the XOPEN interface.

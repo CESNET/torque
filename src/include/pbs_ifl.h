@@ -267,6 +267,7 @@
 #define ATTR_acctkeepdays "accounting_keep_days"
 #define ATTR_jobmustreport "job_must_report"
 #define ATTR_lockfile "lock_file"
+#define ATTR_LockfileUpdateTime "lockfile_update_time"
 
 /* additional node "attributes" names */
 
