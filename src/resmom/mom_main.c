@@ -7817,6 +7817,15 @@ int main(
 
         while (ptask != NULL) 
           {
+          if (ptask->ti_qs.ti_status == TI_STATE_EXITED)
+            {
+            /* if we've already marked this task as exited,
+             * do not set exitstat and other stats */
+
+            ptask = (task *)GET_NEXT(ptask->ti_jobtask);
+            continue;
+            }
+
 #ifdef _CRAY
           if (pjob->ji_globid == NULL)
             break;
@@ -7828,7 +7837,6 @@ int main(
           if ((kill(ptask->ti_qs.ti_sid,0) == -1) && (errno == ESRCH)) 
 #endif	/* not cray */
             {
-
             if (LOGLEVEL >= 3)
               {
               LOG_EVENT(
@@ -7841,7 +7849,6 @@ int main(
             ptask->ti_qs.ti_exitstat = 0;
 
             ptask->ti_qs.ti_status = TI_STATE_EXITED;
-
             pjob->ji_qs.ji_un.ji_momt.ji_exitstat = 0;
 
             if (LOGLEVEL >= 6)
