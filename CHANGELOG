@@ -60,6 +60,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   c - check filename for NULL to prevent crash
   b - Fix so interactive jobs run when using $job_output_file_umask userdefault
   e - add job exit status as 10th argument to the epilogue script
+  e - added two more arguments to epilogue: stdout and stderr paths
+  b - fixed a bug where it is possible for pbs_mom to set a job's exit_status to 0, even though the exit_status was originally set to a non-zero value
 
   
 2.2.1
