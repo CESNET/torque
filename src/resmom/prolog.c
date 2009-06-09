@@ -288,7 +288,7 @@ static void pelogalm(
  *		- argv[1] is the jobid
  *		- argv[2] is the user's name
  *		- argv[3] is the user's group name
- *              - argv[4] is the job name
+ *    - argv[4] is the job name
  *		- the input file is an architecture-dependent file
  *		- the output and error are the job's output and error
  *	The epilogue also has:
@@ -298,6 +298,8 @@ static void pelogalm(
  *		- argv[8] is the queue in which the job resides
  *		- argv[9] is the account under which the job run
  *		- argv[10] is the job's exit status
+ *		- argv[11] is the path to the job's std_out file
+ *		- argv[12] is the path to the job's std_err file
  *  The prologue also has:
  *    - argv[5] is the list of resource limits specified
  *    - argv[6] is the queue in which the job resides
@@ -315,7 +317,7 @@ int run_pelog(
   char *id = "run_pelog";
 
   struct sigaction act, oldact;
-  char	*arg[12];
+  char	*arg[15];
   int		 fds1 = 0;
   int		 fds2 = 0;
   int		 fd_input;
@@ -644,9 +646,11 @@ int run_pelog(
       arg[8] = pjob->ji_wattr[(int)JOB_ATR_in_queue].at_val.at_str;
       arg[9] = pjob->ji_wattr[(int)JOB_ATR_account].at_val.at_str;
       arg[10] = exit_stat;
-      arg[11] = NULL;
+      arg[11] = pjob->ji_wattr[(int)JOB_ATR_outpath].at_val.at_str;
+      arg[12] = pjob->ji_wattr[(int)JOB_ATR_errpath].at_val.at_str;
+      arg[13] = NULL;
 
-      LastArg = 11;
+      LastArg = 13;
       } 
     else 
       {
