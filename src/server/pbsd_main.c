@@ -2369,8 +2369,6 @@ static int daemonize_server(
   int    pid;
   FILE  *dummyfile;
 
-  struct rlimit rlim;
-
   char   id[] = "daemonize_server";
 
   if (!DoBackground)
@@ -2388,21 +2386,6 @@ static int daemonize_server(
   /* run pbs_server in the background */
 
   /* fork to disconnect from terminal */
-
-  if (getrlimit(RLIMIT_CORE,&rlim) == 0)
-    {
-    if (rlim.rlim_cur != RLIM_INFINITY)
-      {
-      sprintf(log_buffer,"INFO:     system core limit set to %d (complete core files might not be generated)",
-          (int)rlim.rlim_cur);
-
-      log_event(
-        PBSEVENT_SYSTEM, 
-        PBS_EVENTCLASS_SERVER,
-        id, 
-        log_buffer);
-      }
-    }
 
   if ((pid = fork()) == -1)
     {
@@ -2423,10 +2406,6 @@ static int daemonize_server(
 
     exit(0);
     }
-
-  /* restore core limit in child */
-
-  setrlimit(RLIMIT_CORE,&rlim);
 
   /* NOTE: setsid() disconnects from controlling-terminal */
 
