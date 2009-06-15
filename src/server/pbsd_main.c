@@ -129,7 +129,6 @@
 #include <pthread.h>
 #endif
 
-#define HA_LOCK_UPDATE_TIME    3
 #define TSERVER_HA_CHECK_TIME  1  /* 1 second sleep time between checks on the lock file for high availability */
 
 /* external functions called */
@@ -239,10 +238,10 @@ listener_connection listener_conns[MAXLISTENERS];
 int		queue_rank = 0;
 int a_opt_init = -1;
 /* HA global data items */
-long      HALockUpdateTime = HA_LOCK_UPDATE_TIME;
+long      HALockCheckTime = 0;
+long      HALockUpdateTime = 0;
 char      HALockFile[MAXPATHLEN+1];
 mutex_t   EUIDMutex; /* prevents threads from trying to lock the file from a different euid */
-int       HALockCheckTime = 30;
 int       HALockFD;
 /* END HA global data items */
 
@@ -1048,6 +1047,7 @@ int main(
       PBS_SVR_PRIVATE);
     }
 
+#ifndef USE_HA_THREADS
   if ((lockfds = open(lockfile,O_CREAT|O_TRUNC|O_WRONLY,0600)) < 0) 
     {
     sprintf(log_buffer, "%s: unable to open lock file '%s'",
@@ -1061,9 +1061,22 @@ int main(
 
     exit(2);
     }
+#endif /* !USE_HA_THREADS */
 
   /* HA EVENTS MUST HAPPEN HERE */
 
+  strcpy(HALockFile,lockfile);
+  HALockCheckTime = server.sv_attr[(int)SRV_ATR_LockfileCheckTime].at_val.at_long; 
+  HALockUpdateTime = server.sv_attr[(int)SRV_ATR_LockfileUpdateTime].at_val.at_long; 
+
+  /* apply HA defaults */
+
+  if (HALockCheckTime == 0)
+    HALockCheckTime = PBS_LOCKFILE_CHECK_TIME;
+
+  if (HALockUpdateTime == 0)
+    HALockUpdateTime = PBS_LOCKFILE_UPDATE_TIME;
+  
   if ((pc = getenv("PBSDEBUG")) != NULL)
     {
     DEBUGMODE = 1;
@@ -1078,7 +1091,26 @@ int main(
     }
 
 #ifdef USE_HA_THREADS
-  lock_out_ha();
+  if (high_availability_mode)
+    {
+    lock_out_ha();
+    }
+  else
+    {
+    if ((lockfds = open(lockfile,O_CREAT|O_TRUNC|O_WRONLY,0600)) < 0) 
+      {
+      sprintf(log_buffer, "%s: unable to open lock file '%s'",
+        msg_daemonname,
+        lockfile);
+
+      fprintf(stderr,"%s\n", 
+        log_buffer);
+
+      log_err(errno,msg_daemonname,log_buffer);
+
+      exit(2);
+      }
+    }
 #else
   if (high_availability_mode)
     {
@@ -1166,12 +1198,15 @@ int main(
   sprintf(log_buffer,"%ld\n", 
     (long)sid);
 
-  if (write(lockfds,log_buffer,strlen(log_buffer)) != 
-      (ssize_t)strlen(log_buffer))
+  if (!high_availability_mode)
     {
-    log_err(errno,msg_daemonname,"failed to write pid to lockfile");
+    if (write(lockfds,log_buffer,strlen(log_buffer)) != 
+        (ssize_t)strlen(log_buffer))
+      {
+      log_err(errno,msg_daemonname,"failed to write pid to lockfile");
 
-    exit(-1);
+      exit(-1);
+      }
     }
 
 #if (PLOCK_DAEMONS & 1)
@@ -1806,7 +1841,7 @@ char *extract_dir(
 
   strncpy(Dir,FullPath,DirSize);
   
-  ptr = strchr(Dir,'/');
+  ptr = strrchr(Dir,'/');
   
   if (ptr != NULL)
     {
@@ -1845,10 +1880,17 @@ int is_ha_lock_file_valid(
   
   if (stat(LockDir,&Stat) == -1)
     {
+    char tmpLine[MAX_LINE];
+
     /* stat failed */
     strerror_r(errno,ErrorString,sizeof(ErrorString));
     
-    log_err(errno,id,"Could not stat the lockfile");
+    snprintf(tmpLine,sizeof(tmpLine),"could not stat the lockfile dir '%s': %s",
+      LockDir,
+      ErrorString);
+
+    log_err(errno,id,tmpLine);
+
     return(FALSE);
     }
     
@@ -1873,7 +1915,7 @@ int is_ha_lock_file_valid(
 
   if (GoodPermissions == FALSE)
     {
-    log_err(-1,id,"Could not obtain the needed permissions for the lock file");
+    log_err(-1,id,"could not obtain the needed permissions for the lock file");
     }
   
   return(GoodPermissions);
@@ -2054,7 +2096,7 @@ void *update_ha_lock_thread(
   static long LastModifyTime = 0;
   char  id[] = "update_ha_lock_thread";
   
-  if (HALockFile[0] == '\0')
+  if (ISEMPTYSTR(HALockFile))
     {
     /* locking HA not enabled */
     
@@ -2065,7 +2107,7 @@ void *update_ha_lock_thread(
   
   while (TRUE)
     {
-    usleep(DEF_USPERSECOND*HALockUpdateTime);
+    usleep(DEF_USPERSECOND * HALockUpdateTime);
     
     mutex_lock(&EUIDMutex);
     
@@ -2116,6 +2158,7 @@ void *update_ha_lock_thread(
           EMsg,
           errno,
           ErrorString);
+
         log_err(errno,id,log_buffer);
         }
       else
@@ -2123,12 +2166,15 @@ void *update_ha_lock_thread(
         sprintf(log_buffer,"could not update HA lock file '%s' in heartbeat thread (%s)",
           HALockFile,
           EMsg);
+
         log_err(-1,id,log_buffer);
         }
+
+      /* shut down TORQUE */
+
+      exit(-10);
       }
-    /* shut down TORQUE */
-    exit(-10);
-    }
+    }  /* END while (TRUE) */
   
   /* NOTREACHED */
   return(NULL);
@@ -2247,11 +2293,15 @@ static void lock_out_ha()
   snprintf(MutexLockFile,sizeof(MutexLockFile),"%s.mutex",
     HALockFile);
 
+  time_now = time(NULL);
+
   while (!FilePossession)
     {
     if (NumChecks > 0)
       {
-      usleep(DEF_USPERSECOND*server.sv_attr[(int)SRV_ATR_LockfileUpdateTime].at_val.at_long);
+      usleep(DEF_USPERSECOND * HALockCheckTime);
+
+      time_now = time(NULL);
 
       UseFLock = FALSE;
       if (MutexLockFD > 0)
@@ -2285,8 +2335,7 @@ static void lock_out_ha()
       
       FileIsMissing = FALSE;
       
-      if ((time_now - StatBuf.st_mtime) <
-          server.sv_attr[(int)SRV_ATR_LockfileUpdateTime].at_val.at_long)
+      if ((time_now - StatBuf.st_mtime) < HALockCheckTime)
         {
         /* someone else probably has the lock */
         
@@ -2346,7 +2395,7 @@ static void lock_out_ha()
     PBS_EVENTCLASS_SERVER,
     id,
     "high availability file lock obtained");
-  } /* END try_lock_ha() */
+  } /* END lock_out_ha() */
 #endif /* USE_HA_THREADS */
 
 

@@ -112,6 +112,8 @@
 #define PBS_POLLJOBS         TRUE /* enable pbs_server job polling */
 #define PBS_LOG_CHECK_RATE    300 /* check log size (and log age) every 5 min */
 #define PBS_ACCT_CHECK_RATE   60*60  /* check accounting files every hour if accounting_keep_days is set */
+#define PBS_LOCKFILE_UPDATE_TIME 3   /* how often TORQUE updates HA lock file */
+#define PBS_LOCKFILE_CHECK_TIME  9   /* how often secondary TORQUE checks HA lock file */
 
 /* Server Database information - path names */
 
