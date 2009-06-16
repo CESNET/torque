@@ -2976,10 +2976,14 @@ static int listelem(
 
     if (pnode->nd_ntype == NTYPE_CLUSTER)
       {
-      if (hasprop(pnode, prop) && hasppn(pnode, node_req, SKIP_NONE))
+      /* if prop is NULL we are not worried about properties. Just make sure it meets the node_req */
+      if(prop == NULL && hasppn(pnode, node_req, SKIP_NONE))
+        {
         hit++;
-      else
-        if(pnode->nd_mom_alt_name && strcmp(pnode->nd_mom_alt_name, prop->name) == 0)
+        }
+      else if(pnode->nd_mom_alt_name)
+        {
+        if (strcmp(pnode->nd_mom_alt_name, prop->name) == 0)
           {
           tempProp.name = pnode->nd_name;
           tempProp.mark = prop->mark;
@@ -2988,6 +2992,9 @@ static int listelem(
           if (hasprop(pnode, &tempProp) && hasppn(pnode, node_req, SKIP_NONE))
             hit++;
           }
+        }
+      else if (hasprop(pnode, prop) && hasppn(pnode, node_req, SKIP_NONE))
+        hit++;
 
       if (hit == num)
         {

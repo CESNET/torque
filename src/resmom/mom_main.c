@@ -6840,6 +6840,8 @@ int setup_program_environment(void)
     DOBACKGROUND = 0;
     }
 
+  memset(TMOMStartInfo, 0, sizeof(pjobexec_t)*TMAX_JE);
+
   /* modify program environment */
 
   if ((num_var_env = setup_env(PBS_ENVIRON)) == -1)
@@ -8195,6 +8197,7 @@ int main(
   initialize_globals();
 
   parse_command_line(argc, argv); /* Calls exit on command line error */
+
 
   if ((rc = setup_program_environment()) != 0)
     {
