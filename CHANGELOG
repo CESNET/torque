@@ -33,6 +33,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       to qdel. Used to clean up unreported jobs.
   b - Fix so interactive jobs run when using $job_output_file_umask userdefault
   b - Changes to improve the qstat -x XML output and documentation
+  b - fix truncated output in qmgr (peter h IPSec+jan n NANCO)
 
 2.3.6
   e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no
