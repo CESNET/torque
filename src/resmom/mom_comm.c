@@ -805,7 +805,7 @@ int send_sisters(
       {
       char EMsg[1024];
 
-      np->hn_stream = rpp_open(np->hn_host, pbs_rm_port, EMsg);
+      np->hn_stream = rpp_open(np->hn_host, np->port, EMsg);
 
       if (np->hn_stream == -1)
         {
@@ -967,7 +967,7 @@ hnodent *find_node(
     /* if node is not me and no stream open, open one */
 
     if (pjob->ji_nodeid != hp->hn_node && node_addr == NULL)
-      hp->hn_stream = rpp_open(hp->hn_host, pbs_rm_port, NULL);
+      hp->hn_stream = rpp_open(hp->hn_host, hp->port, NULL);
 
     return(hp);
     }
@@ -4892,7 +4892,7 @@ int tm_request(
 
         if (phost->hn_stream == -1)
           {
-          phost->hn_stream = rpp_open(phost->hn_host, pbs_rm_port, NULL);
+          phost->hn_stream = rpp_open(phost->hn_host, phost->port, NULL);
           }
 
         ret = im_compose(
@@ -5183,7 +5183,7 @@ int tm_request(
 
       if (phost->hn_stream == -1)
         {
-        phost->hn_stream = rpp_open(phost->hn_host, pbs_rm_port, NULL);
+        phost->hn_stream = rpp_open(phost->hn_host, phost->port, NULL);
         }
 
       sprintf(log_buffer, "host: %s\n", phost->hn_host);
@@ -5291,7 +5291,7 @@ int tm_request(
 
         if (phost->hn_stream == -1)
           {
-          phost->hn_stream = rpp_open(phost->hn_host, pbs_rm_port, NULL);
+          phost->hn_stream = rpp_open(phost->hn_host, phost->port, NULL);
           }
 
         ret = im_compose(phost->hn_stream, jobid, cookie, IM_SIGNAL_TASK, event, fromtask);
@@ -5387,7 +5387,7 @@ int tm_request(
 
         if (phost->hn_stream == -1)
           {
-          phost->hn_stream = rpp_open(phost->hn_host, pbs_rm_port, NULL);
+          phost->hn_stream = rpp_open(phost->hn_host, phost->port, NULL);
           }
 
         ret = im_compose(
@@ -5505,7 +5505,7 @@ int tm_request(
 
         if (phost->hn_stream == -1)
           {
-          phost->hn_stream = rpp_open(phost->hn_host, pbs_rm_port, NULL);
+          phost->hn_stream = rpp_open(phost->hn_host, phost->port, NULL);
           }
 
         ret = im_compose(
@@ -5593,7 +5593,7 @@ int tm_request(
 
         if (phost->hn_stream == -1)
           {
-          phost->hn_stream = rpp_open(phost->hn_host, pbs_rm_port, NULL);
+          phost->hn_stream = rpp_open(phost->hn_host, phost->port, NULL);
           }
 
         ret = im_compose(

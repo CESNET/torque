@@ -2607,22 +2607,21 @@ static int search(
               continue;
       */
 
-      if (!hasprop(pnode, glorf))
+      /* 6/16/2009 Ken Nielson
+         The old code had only the following line
+         if (!hasprop(pnode, glorf)
+          continue
+       
+          hasprop is simply looking to match nd_name from pnode with name from glorf.
+          For the multiple-mom we will check against the nd_name and nd_mom_alt_name */
+
+      if(pnode->nd_mom_alt_name)
         {
-        if(pnode->nd_mom_alt_name && !strcmp(pnode->nd_mom_alt_name, glorf->name))
-          {
-          struct prop tempProp;
-
-          tempProp.name = pnode->nd_name;
-          tempProp.mark = glorf->mark;
-          tempProp.next = glorf->next;
-
-          if(!hasprop(pnode, &tempProp))
-            continue;
-          }
-          else
-            continue;
+        if(strcmp(pnode->nd_mom_alt_name, glorf->name))
+          continue;
         }
+      else if (!hasprop(pnode, glorf))
+        continue;
 
       if ((skip == SKIP_NONE) || (skip == SKIP_NONE_REUSE))
         {
@@ -2981,19 +2980,16 @@ static int listelem(
         {
         hit++;
         }
-      else if(pnode->nd_mom_alt_name)
+      else if(pnode->nd_mom_alt_name && (strcmp(pnode->nd_mom_alt_name, prop->name) == 0))
         {
-        if (strcmp(pnode->nd_mom_alt_name, prop->name) == 0)
-          {
-          tempProp.name = pnode->nd_name;
-          tempProp.mark = prop->mark;
-          tempProp.next = prop->next;
+        tempProp.name = pnode->nd_name;
+        tempProp.mark = prop->mark;
+        tempProp.next = prop->next;
           
-          if (hasprop(pnode, &tempProp) && hasppn(pnode, node_req, SKIP_NONE))
-            hit++;
-          }
+        if (hasprop(pnode, &tempProp) && hasppn(pnode, node_req, SKIP_NONE))
+          hit++;
         }
-      else if (hasprop(pnode, prop) && hasppn(pnode, node_req, SKIP_NONE))
+      else if (hasprop(pnode, prop) && hasppn(pnode, node_req, SKIP_NONE) && pnode->nd_mom_alt_name == NULL)
         hit++;
 
       if (hit == num)

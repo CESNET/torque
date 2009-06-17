@@ -4735,7 +4735,7 @@ void job_nodes(
 
   int  i, j, nhosts, nodenum;
   int  ix;
-  char  *cp, *nodestr;
+  char  *cp, *nodestr, *portstr;
   hnodent *hp;
   vnodent *np;
   extern char    mom_host[];
@@ -4748,9 +4748,12 @@ void job_nodes(
       ATR_VFLAG_SET)
     {
     nodestr = pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str;
+    portstr = pjob->ji_wattr[(int)JOB_ATR_exec_port].at_val.at_str;
 
     if (nodestr != NULL)
       {
+      /* count how many nodes there are by counting the number of '+'
+         characters in the string */
       for (cp = nodestr;*cp;cp++)
         {
         if (*cp == '+')
@@ -4779,6 +4782,8 @@ void job_nodes(
   for (i = 0;i < nodenum;i++, np++)
     {
     char *dp, nodename[MAXPATHLEN + 1];
+    char *portptr, portnumber[MAXPORTLEN + 1]; 
+    int portcount;
 
     ix = 0;
 
@@ -4819,6 +4824,21 @@ void job_nodes(
         break;
       }
 
+    /* Get the port number for this host */
+    for(cp = portstr, portptr = portnumber, portcount = 0;portcount < (MAXPORTLEN+1)&& *cp; cp++, portptr++, portcount++)
+      {
+      if (*cp == '+')
+        {
+        portstr = cp + 1;
+
+        break;
+        }
+
+      *portptr = *cp;
+      }
+
+    *portptr = 0;
+
     hp = &pjob->ji_hosts[j];
 
     if (j == nhosts)
@@ -4829,6 +4849,7 @@ void job_nodes(
       hp->hn_stream = -1;
       hp->hn_sister = SISTER_OKAY;
       hp->hn_host = strdup(nodename);
+      hp->port = atoi(portnumber);
 
       CLEAR_HEAD(hp->hn_events);
       }
@@ -5057,7 +5078,7 @@ void start_exec(
 
       /* rpp_open() will succeed even if MOM is down */
 
-      np->hn_stream = rpp_open(np->hn_host, pbs_rm_port, log_buffer);
+      np->hn_stream = rpp_open(np->hn_host, np->port, log_buffer);
 
       if (np->hn_stream < 0)
         {

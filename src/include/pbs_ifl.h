@@ -363,9 +363,13 @@
    versions of TORQUE.  Do not change in a -fixes branch */
 
 
+
 #define PBS_MAXHOSTNAME  64 /* max host name length */
 #ifndef MAXPATHLEN
 #define MAXPATHLEN  1024 /* max path name length */
+#endif
+#ifndef MAXPORTLEN
+#define MAXPORTLEN  5
 #endif
 #ifndef MAXNAMLEN
 #define MAXNAMLEN  255
