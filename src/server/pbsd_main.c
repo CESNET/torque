@@ -175,10 +175,8 @@ extern void check_children ();
 #define ISEMPTYSTR(STR)  ((STR)[0] == '\0')
 
 #ifdef USE_HA_THREADS 
-typedef pthread_mutex_t mutex_t;
 static void   lock_out_ha A_(());
 #else
-typedef int mutex_t;
 static void   lock_out A_((int,int));
 static int    try_lock_out A_((int,int));
 #endif
@@ -237,6 +235,7 @@ unsigned int	pbs_server_port_dis;
 listener_connection listener_conns[MAXLISTENERS];
 int		queue_rank = 0;
 int a_opt_init = -1;
+
 /* HA global data items */
 long      HALockCheckTime = 0;
 long      HALockUpdateTime = 0;
@@ -1878,7 +1877,7 @@ int is_ha_lock_file_valid(
   
   extract_dir(HALockFile,LockDir,sizeof(LockDir));
   
-  if (stat(LockDir,&Stat) == -1)
+  if (stat(LockDir,&Stat) != 0)
     {
     char tmpLine[MAX_LINE];
 
@@ -2109,9 +2108,11 @@ void *update_ha_lock_thread(
     {
     usleep(DEF_USPERSECOND * HALockUpdateTime);
     
+    rc = 0;
+
     mutex_lock(&EUIDMutex);
-    
-    if (stat(HALockFile,&statbuf) != -1)
+
+    if (stat(HALockFile,&statbuf) == 0)
       {
       /* check to make sure that no other process has modified this file
        * since the last time we did */
@@ -2329,7 +2330,7 @@ static void lock_out_ha()
       
     /* check if file lock exists */
       
-    if (stat(HALockFile,&StatBuf) != 1 )
+    if (stat(HALockFile,&StatBuf) == 0)
       {
       /* file DOES exist--check time */
       

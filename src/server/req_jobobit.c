@@ -1246,7 +1246,7 @@ void on_job_exit(
             append_link(&pjob->ji_svrtask,&ptask->wt_linkobj,ptask);
             }
             
-            PurgeIt = FALSE;
+          PurgeIt = FALSE;
           }
 
         if (PurgeIt)

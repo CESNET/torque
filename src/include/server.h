@@ -241,4 +241,11 @@ typedef struct new_node {
 	char                *nn_name;   /* name of new node */
 } new_node;                                                                                           
 
+/* Threaded-HA code */
+#ifdef USE_HA_THREADS 
+typedef pthread_mutex_t mutex_t;
+#else
+typedef int mutex_t;
+#endif /* USE_HA_THREADS */
+
 /* END server.h */

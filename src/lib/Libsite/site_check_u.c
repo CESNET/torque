@@ -104,6 +104,10 @@ extern char *pbs_o_host;
 extern char  server_host[];
 extern char *msg_orighost;	/* error message: no PBS_O_HOST */
 
+extern mutex_t  EUIDMutex;
+int mutex_lock A_((mutex_t *));
+int mutex_unlock A_((mutex_t *));
+
 extern int   LOGLEVEL;
 
 /*
@@ -310,7 +314,9 @@ int site_check_user_map(
   if (dptr != NULL)
     *dptr = '.';
 
+  mutex_lock(&EUIDMutex);
   rc = ruserok(orighost,0,owner,luser);
+  mutex_unlock(&EUIDMutex);
 
   if (EMsg != NULL)
     {
