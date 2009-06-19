@@ -2089,6 +2089,7 @@ void *update_ha_lock_thread(
   {
   char EMsg[MAX_LINE];
   
+  int LocalErrno = 0;
   int rc = 0;
   struct stat statbuf;
   struct utimbuf timebuf;
@@ -2109,9 +2110,11 @@ void *update_ha_lock_thread(
     usleep(DEF_USPERSECOND * HALockUpdateTime);
     
     rc = 0;
+    LocalErrno = 0;
 
     mutex_lock(&EUIDMutex);
 
+    errno = 0;
     if (stat(HALockFile,&statbuf) == 0)
       {
       /* check to make sure that no other process has modified this file
@@ -2131,14 +2134,17 @@ void *update_ha_lock_thread(
         timebuf.actime  = LastModifyTime;
         timebuf.modtime = LastModifyTime;
         
+        errno = 0;
         rc = utime(HALockFile,&timebuf);
+        LocalErrno = errno;
         }
       }
     else
       {
-      snprintf(EMsg,sizeof(EMsg),"could not stat file");
-      
+      LocalErrno = errno;
       rc = -1;
+
+      snprintf(EMsg,sizeof(EMsg),"could not stat file");
       }
       
     mutex_unlock(&EUIDMutex);
@@ -2150,17 +2156,17 @@ void *update_ha_lock_thread(
       char ErrorString[MAX_LINE];
       /* error occurred--immediate shutdown needed */
     
-      if (errno != 0)
+      if (LocalErrno != 0)
         {
-        strerror_r(errno,ErrorString,sizeof(ErrorString));
+        strerror_r(LocalErrno,ErrorString,sizeof(ErrorString));
         
         sprintf(log_buffer,"could not update HA lock file '%s' in heartbeat thread (%s - errno %d:%s)",
           HALockFile,
           EMsg,
-          errno,
+          LocalErrno,
           ErrorString);
 
-        log_err(errno,id,log_buffer);
+        log_err(LocalErrno,id,log_buffer);
         }
       else
         {
