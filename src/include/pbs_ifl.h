@@ -285,7 +285,6 @@
 #define ATTR_NODE_note        "note"
 #define ATTR_NODE_mom_port	  "mom_service_port"
 #define ATTR_NODE_mom_rm_port "mom_manager_port" 
-#define ATTR_NODE_mom_alt_name "mom_alt_name"
 
 
 

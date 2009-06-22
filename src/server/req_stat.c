@@ -1244,10 +1244,7 @@ static int status_node(
 
   pstat->brp_objtype = MGR_OBJ_NODE;
 
-  if(pnode->nd_mom_alt_name)
-    strcpy(pstat->brp_objname, pnode->nd_mom_alt_name);
-  else
-    strcpy(pstat->brp_objname, pnode->nd_name);
+  strcpy(pstat->brp_objname, pnode->nd_name);
 
   CLEAR_LINK(pstat->brp_stlink);
   CLEAR_HEAD(pstat->brp_attr);

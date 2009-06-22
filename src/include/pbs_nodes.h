@@ -142,7 +142,6 @@ struct pbsnode
 
   struct array_strings  *nd_status;
   char           *nd_note;  /* note set by administrator */
-  char		*nd_mom_alt_name; /* for multiple moms on a single node */
   int     nd_stream; /* RPP stream to Mom on host */
   enum psit   nd_flag;
   unsigned short nd_mom_port; /* For multi-mom-mode unique port value PBS_MOM_SERVICE_PORT*/
@@ -247,7 +246,6 @@ enum nodeattr
   ND_ATR_note,
   ND_ATR_mom_port,
   ND_ATR_mom_rm_port,
-  ND_ATR_mom_alt_name,
   ND_ATR_LAST
   }; /* WARNING: Must be the highest valued enum */
 

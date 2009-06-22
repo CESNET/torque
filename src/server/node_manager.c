@@ -2584,10 +2584,7 @@ static int search(
     {
     pnode = pbsndlist[i];
 
-    if (pnode->nd_state & INUSE_DELETED
-        || pnode->nd_state & INUSE_DOWN
-        || pnode->nd_state & INUSE_OFFLINE
-        || (pnode->nd_flag == thinking))
+    if (pnode->nd_state & INUSE_DELETED)
       continue;
 
     if (pnode->nd_ntype == NTYPE_CLUSTER)
@@ -2607,20 +2604,7 @@ static int search(
               continue;
       */
 
-      /* 6/16/2009 Ken Nielson
-         The old code had only the following line
-         if (!hasprop(pnode, glorf)
-          continue
-       
-          hasprop is simply looking to match nd_name from pnode with name from glorf.
-          For the multiple-mom we will check against the nd_name and nd_mom_alt_name */
-
-      if(pnode->nd_mom_alt_name)
-        {
-        if(strcmp(pnode->nd_mom_alt_name, glorf->name))
-          continue;
-        }
-      else if (!hasprop(pnode, glorf))
+      if (!hasprop(pnode, glorf))
         continue;
 
       if ((skip == SKIP_NONE) || (skip == SKIP_NONE_REUSE))
@@ -2727,8 +2711,6 @@ static int search(
 
   return(0);
   }  /* END search() */
-
-
 
 
 
@@ -2966,8 +2948,6 @@ static int listelem(
 
   for (i = 0;i < svr_totnodes;i++)
     {
-    struct prop tempProp;
-
     pnode = pbsndlist[i];
 
     if (pnode->nd_state & INUSE_DELETED)
@@ -2975,21 +2955,7 @@ static int listelem(
 
     if (pnode->nd_ntype == NTYPE_CLUSTER)
       {
-      /* if prop is NULL we are not worried about properties. Just make sure it meets the node_req */
-      if(prop == NULL && hasppn(pnode, node_req, SKIP_NONE))
-        {
-        hit++;
-        }
-      else if(pnode->nd_mom_alt_name && (strcmp(pnode->nd_mom_alt_name, prop->name) == 0))
-        {
-        tempProp.name = pnode->nd_name;
-        tempProp.mark = prop->mark;
-        tempProp.next = prop->next;
-          
-        if (hasprop(pnode, &tempProp) && hasppn(pnode, node_req, SKIP_NONE))
-          hit++;
-        }
-      else if (hasprop(pnode, prop) && hasppn(pnode, node_req, SKIP_NONE) && pnode->nd_mom_alt_name == NULL)
+      if (hasprop(pnode, prop) && hasppn(pnode, node_req, SKIP_NONE))
         hit++;
 
       if (hit == num)
@@ -3046,6 +3012,7 @@ done:
 
   return(ret);
   }  /* END listelem() */
+
 
 
 
@@ -3915,22 +3882,11 @@ int set_nodes(
 
       if (LOGLEVEL >= 5)
         {
-        if(pnode->nd_mom_alt_name)
-          {
-          sprintf(log_buffer, "allocated node %s/%d to job %s (nsnfree=%d)",
-            pnode->nd_mom_alt_name,
-            snp->index,
-            pjob->ji_qs.ji_jobid,
-            pnode->nd_nsnfree);
-          }
-        else
-          {
-          sprintf(log_buffer, "allocated node %s/%d to job %s (nsnfree=%d)",
+        sprintf(log_buffer, "allocated node %s/%d to job %s (nsnfree=%d)",
             pnode->nd_name,
             snp->index,
             pjob->ji_qs.ji_jobid,
             pnode->nd_nsnfree);
-          }
 
         log_record(
           PBSEVENT_SCHED,
@@ -4013,10 +3969,7 @@ int set_nodes(
 
       curr->order = pnode->nd_order;
 
-      if(pnode->nd_mom_alt_name)
-        curr->name = pnode->nd_mom_alt_name;
-      else
-        curr->name  = pnode->nd_name;
+      curr->name  = pnode->nd_name;
 
       curr->index = snp->index;
 
