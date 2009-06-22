@@ -3999,7 +3999,8 @@ int start_process(
       return(-1);
       }
 
-    if (write(parent_write, &sjr, sizeof(sjr)) == -1) {}
+/* This write to the pipe is redundant and leads to a sigpipe because of a race condition with the child */
+/*    if (write(parent_write, &sjr, sizeof(sjr)) == -1) {} */
 
     close(parent_write);
 
