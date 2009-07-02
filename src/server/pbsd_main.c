@@ -173,6 +173,9 @@ extern void check_children ();
 #define FAILURE 0
 #endif
 #define ISEMPTYSTR(STR)  ((STR)[0] == '\0')
+#ifndef MAX_CMD_ARGS
+#define MAX_CMD_ARGS 10
+#endif /* MAX_CMD_ARGS */
 
 #ifdef USE_HA_THREADS 
 static void   lock_out_ha A_(());
@@ -198,6 +201,9 @@ static int    start_hot_jobs();
 static int    daemonize_server A_((int,int *));
 int mutex_lock A_((mutex_t *));
 int mutex_unlock A_((mutex_t *));
+int get_file_info A_((char *,unsigned long *,long *,bool_t *,bool_t *));
+int get_full_path A_((char *,char *,int)); 
+int svr_restart();
 
 /* Global Data Items */
 
@@ -222,6 +228,7 @@ char	       *path_nodestate;
 char	       *path_nodenote;
 char	       *path_nodenote_new;
 char	       *path_resources;
+char         *ArgV[MAX_CMD_ARGS];
 extern char    *msg_daemonname;
 extern int	pbs_errno;
 char	       *pbs_o_host = "PBS_O_HOST";
@@ -240,6 +247,7 @@ int a_opt_init = -1;
 long      HALockCheckTime = 0;
 long      HALockUpdateTime = 0;
 char      HALockFile[MAXPATHLEN+1];
+char      OriginalPath[MAXPATHLEN+1];
 mutex_t   EUIDMutex; /* prevents threads from trying to lock the file from a different euid */
 int       HALockFD;
 /* END HA global data items */
@@ -530,6 +538,7 @@ int main(
   char	 lockfile[MAXPATHLEN + 1];
   char	*pc = NULL;
   char  *ptr;
+  char  *pathPtr = NULL;
   job	*pjob;
   pbs_queue *pque;
   char	*servicename = NULL;
@@ -578,6 +587,29 @@ int main(
   time_now = time((time_t *)0);
 
   last_jobstat_time = time_now;
+
+  /* save argv for later use */
+
+  for (i = 0;i < argc;i++)
+    {
+    /* need to allocate strlen() AND +1 for NULL terminator */
+    ArgV[i] = (char *)malloc(sizeof(char) * (strlen(argv[i])+1));
+    
+    if (ArgV[i] == NULL)
+      {
+      printf("ERROR:      failed to allocate memory to save argv, shutting down\n");
+
+      exit (-1);
+      }
+
+    strcpy(ArgV[i],argv[i]);
+    }
+
+  /* save the path before we go into the background. If we don't do this we can't 
+   * restart the server because the path will change */
+
+  pathPtr = getenv("PATH");
+  strncpy(OriginalPath,pathPtr,sizeof(OriginalPath));
 
   /* close files for security purposes */
 
@@ -1036,8 +1068,22 @@ int main(
   if ((server.sv_attr[(int)SRV_ATR_lockfile].at_flags & ATR_VFLAG_SET) &&
                (server.sv_attr[(int)SRV_ATR_lockfile].at_val.at_str))
     {
-    sprintf(lockfile,"%s",
-      server.sv_attr[(int)SRV_ATR_lockfile].at_val.at_str);
+    char *LockfilePtr = server.sv_attr[(int)SRV_ATR_lockfile].at_val.at_str;
+
+    /* check if an absolute path is specified or not */
+
+    if (LockfilePtr[0] == '/')
+      {
+      snprintf(lockfile,sizeof(lockfile),"%s",
+        LockfilePtr);
+      }
+    else
+      {
+      snprintf(lockfile,sizeof(lockfile),"%s/%s/%s",
+        path_home,
+        PBS_SVR_PRIVATE,
+        LockfilePtr);
+      }
     }
   else
     {
@@ -2177,9 +2223,9 @@ void *update_ha_lock_thread(
         log_err(-1,id,log_buffer);
         }
 
-      /* shut down TORQUE */
+      /* restart pbs_server */
 
-      exit(-10);
+      svr_restart();
       }
     }  /* END while (TRUE) */
   
@@ -2363,7 +2409,12 @@ static void lock_out_ha()
         {
         FileIsMissing = TRUE;
           
-        /* assume we're starting up? */
+       /* if we don't have a mutex to protect file creation
+           race conditions, we need to wait and check again:
+           otherwise we can safely create it immediately */
+
+        if (UseFLock == FALSE)
+          continue;
         }
         
       /* this is not the first time the file has been missing--we are
@@ -2561,6 +2612,270 @@ static int try_lock_out(
   return(fcntl(fds,F_SETLK,&flock) != 0);
   }
 #endif /* !USE_HA_THREADS */
+
+
+
+/**
+ * gets attributes for the specified file/directory
+ *
+ * @param FileName (I)
+ * @param ModifyTime (O) [optional]
+ * @param FileSize   (O) [optional]
+ * @param IsExe      (O) [optional]
+ * @param IsDir      (O) [optional]
+ */
+
+int get_file_info(
+
+  char          *FileName,    /* I */
+  unsigned long *ModifyTime,  /* O (optional */
+  long          *FileSize,    /* O (optional */
+  bool_t        *IsExe,       /* O (optional */
+  bool_t        *IsDir)       /* O (optional */
+
+  {
+  int   rc;
+  char *ptr;
+  char *id = "get_file_info";
+
+  struct stat sbuf;
+
+  if (IsExe != NULL)
+    *IsExe = FALSE;
+
+  if (ModifyTime != NULL)
+    *ModifyTime = 0;
+
+  if (FileSize != NULL)
+    *FileSize = 0;
+
+  if (IsDir != NULL)
+    *IsDir = FALSE;
+
+  if ((FileName == NULL) || (FileName[0] == '\0'))
+    {
+    return(FAILURE);
+    }
+
+  /* FORMAT:   <FILENAME>[ <ARG>]... */
+
+  /* NOTE:  mask off, then restore possible args */
+
+  ptr = strchr(FileName,' ');
+
+  if (ptr != NULL)
+    *ptr = '\0';
+
+  rc = stat(FileName,&sbuf);
+
+  if (rc == -1)
+    {
+    sprintf(log_buffer,"INFO:      cannot stat file '%s', errno: %d (%s)\n",
+      FileName,
+      errno,
+      strerror(errno));
+
+    log_err(errno,id,log_buffer);
+
+    return(FAILURE);
+    }
+
+  if (ModifyTime != NULL)
+    {
+    *ModifyTime = (unsigned long)sbuf.st_mtime;
+    }
+
+  if (FileSize != NULL)
+    {
+    *FileSize = (long)sbuf.st_size;
+    }
+
+  if (IsExe != NULL)
+    {
+    if (sbuf.st_mode & S_IXUSR)
+      *IsExe = TRUE;
+    else
+      *IsExe = FALSE;
+    }
+
+  if (IsDir != NULL)
+    {
+    if (sbuf.st_mode & S_IFDIR)
+      *IsDir = TRUE;
+    else
+      *IsDir = FALSE;
+    }
+
+  return(SUCCESS);
+  } /* end get_file_info() */
+
+
+
+
+/**
+ * gets the full path for command
+ *
+ * @return SUCCESS if the path is found, FAILURE otherwise
+ */
+
+int get_full_path(
+
+  char *Cmd,         /* I */
+  char *GoodCmd,     /* O */
+  int   GoodCmdLen)  /* O */
+
+  {
+  char   *TokPtr = NULL;
+  char   *Delims = ":;"; /* windows and unix path deliminators */
+  char   *PathLocation;
+  char    tmpPath[MAX_LINE];
+  bool_t  IsExe = FALSE;
+  bool_t  IsDir = FALSE;
+
+  if (Cmd[0] == '/')
+    {
+    /* absolute path specified */
+
+    if (get_file_info(Cmd,NULL,NULL,&IsExe,&IsDir) == FAILURE)
+      {
+      return(FAILURE);
+      }
+
+    if ((IsExe == FALSE) && (IsDir == FALSE))
+      {
+      return(FAILURE);
+      }
+
+    snprintf(GoodCmd,GoodCmdLen,"%s",Cmd);
+
+    return(SUCCESS);
+    }
+
+  PathLocation = strtok_r(OriginalPath,Delims,&TokPtr);
+
+  while (PathLocation != NULL)
+    {
+    if (strlen(PathLocation) <= 0)
+      {
+      PathLocation = strtok_r(NULL,Delims,&TokPtr);
+
+      continue;
+      }
+
+    if (PathLocation[strlen(PathLocation) - 1] == '/')
+      {
+      sprintf(tmpPath,"%s%s",
+        PathLocation,
+        Cmd);
+      }
+    else
+      {
+      sprintf(tmpPath,"%s/%s",
+        PathLocation,
+        Cmd);
+      }
+
+    if (get_file_info(tmpPath,NULL,NULL,&IsExe,NULL) == FAILURE)
+      {
+      PathLocation = strtok_r(NULL,Delims,&TokPtr);
+
+      continue;
+      }
+
+    if (IsExe == FALSE)
+      {
+      PathLocation = strtok_r(NULL,Delims,&TokPtr);
+
+      continue;
+      }
+
+    snprintf(GoodCmd,GoodCmdLen,"%s",tmpPath);
+
+    return(SUCCESS);
+    } /* END while (PathLocation != NULL) */
+
+  return(FAILURE);
+  } /* END get_full_path() */
+
+
+
+
+/**
+ * Restarts the pbs_server
+ */
+
+int svr_restart()
+
+  {
+  int   rc;
+
+  char  FullCmd[MAX_LINE];
+  char *id = "svr_restart";
+
+  if (get_full_path(
+        ArgV[0],
+        FullCmd,
+        sizeof(FullCmd)) == FAILURE)
+    {
+    sprintf(log_buffer,"ALERT:      cannot locate full path for '%s'\n",
+      ArgV[0]);
+
+    log_err(-1,id,log_buffer);
+
+    exit(-10);
+    }
+
+  /* shut down network connections and rpp */
+
+  RPPConfigure(1,0);  /* help rpp_shutdown go a bit faster */
+  rpp_shutdown();
+
+  net_close(-1);   /* close all network connections */
+
+  /* copying FullCmd to ArV[0] is necessary for multiple restarts because 
+   * the path changes when we run pbs_server in the background. */
+
+  if (strcmp(FullCmd,ArgV[0]) != 0)
+    {
+    free(ArgV[0]);
+
+    ArgV[0] = malloc(sizeof(char) * (strlen(FullCmd) + 1));
+
+    if (ArgV[0] == NULL)
+      {
+      /* could not malloc */
+
+      log_err(errno,id,"ERROR:     cannot allocate memory for full command, cannot restart\n");
+
+      exit(-10);
+      }
+
+    strcpy(ArgV[0],FullCmd);
+    }
+
+  sprintf(log_buffer,"INFO:     about to exec '%s'\n",ArgV[0]);
+
+  log_event(
+    PBSEVENT_SYSTEM,
+    PBS_EVENTCLASS_SERVER,
+    id,
+    log_buffer);
+
+  log_close(1);
+
+  if ((rc = execv(FullCmd,ArgV)) == -1)
+    {
+    /* exec failed */
+
+    exit(-10);
+    }
+
+  /* NOT REACHED */
+
+  exit(0);
+
+  return(SUCCESS);
+  }  /* END svr_restart() */
 
 /* END pbsd_main.c */
 
