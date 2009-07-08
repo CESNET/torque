@@ -938,7 +938,7 @@ int run_pelog(
         {
         char *envstr;
 
-        envstr = malloc((strlen(vstrs->as_string[j])) * sizeof(char));
+        envstr = malloc((strlen(vstrs->as_string[j]) + 1) * sizeof(char));
 
         if (envstr != NULL)
           {
