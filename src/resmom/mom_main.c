@@ -4770,28 +4770,38 @@ int rm_request(
               {
               if (PBSNodeCheckPath[0] != '\0')
                 {
-                sprintf(tmpLine, "Node Health Check Script: %s (%d second update interval)\n",
-                        PBSNodeCheckPath,
-                        PBSNodeCheckInterval);
+                if (FailurePBSNodeCheckInterval != PBSNodeCheckInterval)
+                  {
+                  sprintf(tmpLine, "Node Health Check Script: %s (%d,%d second update interval)\n",
+                    PBSNodeCheckPath,
+                    FailurePBSNodeCheckInterval,
+                    PBSNodeCheckInterval);
+                  }
+                else
+                  {
+                  sprintf(tmpLine, "Node Health Check Script: %s (%d second update interval)\n",
+                    PBSNodeCheckPath,
+                    PBSNodeCheckInterval);
+                  }
 
-                MUStrNCat(&BPtr, &BSpace, tmpLine);
+                MUStrNCat(&BPtr,&BSpace,tmpLine);
                 }
               }
 
             sprintf(tmpLine, "MOM active:             %ld seconds\n",
-                    (long)Now - MOMStartTime);
+              (long)Now - MOMStartTime);
 
             MUStrNCat(&BPtr, &BSpace, tmpLine);
 
             if (verbositylevel >= 1)
               {
               sprintf(tmpLine, "Check Poll Time:        %d seconds\n",
-                      CheckPollTime);
+                CheckPollTime);
 
               MUStrNCat(&BPtr, &BSpace, tmpLine);
 
               sprintf(tmpLine, "Server Update Interval: %d seconds\n",
-                      ServerStatUpdateInterval);
+                ServerStatUpdateInterval);
 
               MUStrNCat(&BPtr, &BSpace, tmpLine);
               }
@@ -4799,7 +4809,7 @@ int rm_request(
             if (PBSNodeMsgBuf[0] != '\0')
               {
               sprintf(tmpLine, "MOM Message:            %s (use 'momctl -q clearmsg' to clear)\n",
-                      PBSNodeMsgBuf);
+                PBSNodeMsgBuf);
 
               MUStrNCat(&BPtr, &BSpace, tmpLine);
               }
