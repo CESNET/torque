@@ -846,7 +846,7 @@ uninstall-info: uninstall-info-recursive
 
 
 snap:
-	$(MAKE) VERSION=$(VERSION)-snap.$${snapstamp:-`date +%Y%m%d%H%M`} dist
+	$(MAKE) VERSION=$(VERSION)-trans-snap.$${snapstamp:-`date +%Y%m%d%H%M`} dist
 
 dist-hook:
 	chmod u+w $(distdir)/README.torque $(distdir)/configure $(distdir)/torque.spec
