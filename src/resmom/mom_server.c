@@ -207,6 +207,7 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <sys/param.h>
 #include <sys/times.h>
 #include <sys/stat.h>
@@ -2458,8 +2459,8 @@ void check_busy(
     if (LOGLEVEL >= 4)
       {
       sprintf(log_buffer, "state changed from busy to idle (load max=%f  detected=%f)\n",
-              mymax_load,
-              mla);
+        mymax_load,
+        mla);
 
       log_record(
         PBSEVENT_ERROR,
@@ -2497,6 +2498,8 @@ int MUReadPipe(
 
   int   rcount;
   int   ccount;
+
+  static char *id = "MUReadPipe";
 
   if (ExitCodeP != NULL)
     *ExitCodeP = 0;
@@ -2542,7 +2545,7 @@ int MUReadPipe(
     rc = pclose(fp);
 
     if (ExitCodeP != NULL)
-      *ExitCodeP = rc;
+      *ExitCodeP = WEXITSTATUS(rc);
 
     return(1);
     }
@@ -2554,7 +2557,20 @@ int MUReadPipe(
   rc = pclose(fp);
 
   if (ExitCodeP != NULL)
-    *ExitCodeP = rc;
+    *ExitCodeP = WEXITSTATUS(rc);
+
+  if (LOGLEVEL >= 4)
+    {
+    sprintf(log_buffer,"command '%s' completed with exit code %d\n",
+      Command,
+      WEXITSTATUS(rc));
+
+    log_record(
+      PBSEVENT_ERROR,
+      PBS_EVENTCLASS_JOB,
+      (char *)id,
+      log_buffer);
+    }
 
   return(0);
   }  /* END MUReadPipe() */
@@ -2688,6 +2704,10 @@ void check_state(
       ICount = 0;
     }
 
+  fprintf(stderr,"%d %d\n",
+    ICount,
+    LastNodeCheckExitCode);
+
   return;
   }  /* END check_state() */
 
@@ -2709,6 +2729,7 @@ void state_to_server(
 
   {
   static char id[] = "state_to_server";
+
   mom_server *pms = &mom_servers[ServerIndex];
 
   if ((force == 0) && (pms->ReportMomState == 0))
@@ -2737,8 +2758,8 @@ void state_to_server(
     if (LOGLEVEL >= 4)
       {
       sprintf(log_buffer, "sent updated state 0x%x to server %s",
-              internal_state,
-              pms->pbs_servername);
+        internal_state,
+        pms->pbs_servername);
 
       log_record(
         PBSEVENT_ERROR,

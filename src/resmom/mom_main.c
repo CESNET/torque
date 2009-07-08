@@ -4772,14 +4772,14 @@ int rm_request(
                 {
                 if (FailurePBSNodeCheckInterval != PBSNodeCheckInterval)
                   {
-                  sprintf(tmpLine, "Node Health Check Script: %s (%d,%d second update interval)\n",
+                  sprintf(tmpLine, "Node Health Check Script: %s (%d,%d intervals/update)\n",
                     PBSNodeCheckPath,
                     FailurePBSNodeCheckInterval,
                     PBSNodeCheckInterval);
                   }
                 else
                   {
-                  sprintf(tmpLine, "Node Health Check Script: %s (%d second update interval)\n",
+                  sprintf(tmpLine, "Node Health Check Script: %s (%d intervals/update)\n",
                     PBSNodeCheckPath,
                     PBSNodeCheckInterval);
                   }
