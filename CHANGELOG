@@ -1,5 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
+2.3.8
+
 2.3.7
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 
       valid group name. This helps TORQUE be more robust to group lookup 
