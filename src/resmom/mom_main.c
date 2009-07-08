@@ -496,7 +496,8 @@ static char  config_file[_POSIX_PATH_MAX] = "config";
 
 char                    PBSNodeMsgBuf[1024];
 char                    PBSNodeCheckPath[1024];
-int                     PBSNodeCheckInterval;
+int                     PBSNodeCheckInterval        = 0;
+int                     FailurePBSNodeCheckInterval = 0;
 int                     PBSNodeCheckProlog = 0;
 int                     PBSNodeCheckEpilog = 0;
 static char            *MOMExePath = NULL;
@@ -2867,18 +2868,33 @@ static unsigned long setnodecheckinterval(
   {
   char newstr[1024] = "node_check_interval ";
 
+  char *ptr;
+
   log_record(
     PBSEVENT_SYSTEM,
     PBS_EVENTCLASS_SERVER,
     "node_check_interval",
     value);
 
-  PBSNodeCheckInterval = (int)strtol(value, NULL, 10);
+  /* FORMAT:  [<FAILINTERVAL>,]<DEFAULTINTERVAL> [jobstart] [jobend] */
 
-  if (strstr(value, "jobstart"))
+  if ((ptr = strchr(value,',')) != NULL)
+    {
+    FailurePBSNodeCheckInterval = (int)strtol(value,NULL,10);
+
+    PBSNodeCheckInterval = (int)strtol(ptr + 1,NULL,10);
+    }
+  else
+    {
+    PBSNodeCheckInterval = (int)strtol(value,NULL,10);
+
+    FailurePBSNodeCheckInterval = PBSNodeCheckInterval;
+    }
+
+  if (strstr(value,"jobstart"))
     PBSNodeCheckProlog = 1;
 
-  if (strstr(value, "jobend"))
+  if (strstr(value,"jobend"))
     PBSNodeCheckEpilog = 1;
 
   strcat(newstr, value);

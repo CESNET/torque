@@ -276,6 +276,7 @@ extern int             internal_state;
 extern int             LOGLEVEL;
 extern char            PBSNodeCheckPath[1024];
 extern int             PBSNodeCheckInterval;
+extern int             FailurePBSNodeCheckInterval;
 extern char            PBSNodeMsgBuf[1024];
 extern int             received_hello_count[];
 extern char            TMOMRejectConn[];
@@ -2485,9 +2486,10 @@ void check_busy(
 
 int MUReadPipe(
 
-  char *Command,  /* I */
-  char *Buffer,   /* O */
-  int   BufSize)  /* I */
+  char *Command,   /* I */
+  char *Buffer,    /* O */
+  int   BufSize,   /* I */
+  int  *ExitCodeP) /* O */
 
   {
   FILE *fp;
@@ -2496,12 +2498,15 @@ int MUReadPipe(
   int   rcount;
   int   ccount;
 
+  if (ExitCodeP != NULL)
+    *ExitCodeP = 0;
+
   if ((Command == NULL) || (Buffer == NULL))
     {
     return(1);
     }
 
-  if ((fp = popen(Command, "r")) == NULL)
+  if ((fp = popen(Command,"r")) == NULL)
     {
     return(1);
     }
@@ -2534,7 +2539,10 @@ int MUReadPipe(
     {
     /* FAILURE */
 
-    pclose(fp);
+    rc = pclose(fp);
+
+    if (ExitCodeP != NULL)
+      *ExitCodeP = rc;
 
     return(1);
     }
@@ -2543,10 +2551,14 @@ int MUReadPipe(
 
   Buffer[MIN(BufSize - 1,ccount)] = '\0';
 
-  pclose(fp);
+  rc = pclose(fp);
+
+  if (ExitCodeP != NULL)
+    *ExitCodeP = rc;
 
   return(0);
   }  /* END MUReadPipe() */
+
 
 
 
@@ -2565,6 +2577,7 @@ void check_state(
   static int ICount = 0;
 
   static char tmpPBSNodeMsgBuf[1024];
+  static int  LastNodeCheckExitCode = 0;
 
   if (Force)
     {
@@ -2621,7 +2634,8 @@ void check_state(
       if (MUReadPipe(
             PBSNodeCheckPath,
             tmpPBSNodeMsgBuf,
-            sizeof(tmpPBSNodeMsgBuf)) == 0)
+            sizeof(tmpPBSNodeMsgBuf),
+            &LastNodeCheckExitCode) == 0)
         {
         if (!strncasecmp(tmpPBSNodeMsgBuf, "ERROR", strlen("ERROR")))
           {
@@ -2663,7 +2677,16 @@ void check_state(
 
   ICount ++;
 
-  ICount %= MAX(1, PBSNodeCheckInterval);
+  if (LastNodeCheckExitCode == 0)
+    {
+    if (ICount >= MAX(1,PBSNodeCheckInterval))
+      ICount = 0;
+    }
+  else
+    {
+    if (ICount >= MAX(1,FailurePBSNodeCheckInterval))
+      ICount = 0;
+    }
 
   return;
   }  /* END check_state() */
