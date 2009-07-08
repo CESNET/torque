@@ -96,6 +96,7 @@
 
 /* sync w/dis_emsg[] (lib/Libdis/dis.c) */
 
+#define DIS_MAX_VALUE 11 /* sync w/ last DIS_* value */
 #define DIS_SUCCESS 0 /* No error */
 #define DIS_OVERFLOW 1 /* Value too large to convert */
 #define DIS_HUGEVAL 2 /* Tried to write floating point infinity */
