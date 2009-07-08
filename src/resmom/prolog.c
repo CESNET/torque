@@ -124,6 +124,8 @@ extern int pe_input A_((char *));
 extern int TTmpDirName A_((job *, char *));
 extern void encode_used A_((job *, tlist_head *));
 
+int PassMoabVars = TRUE;
+
 /* END extern prototypes */
 
 const char *PPEType[] =
@@ -244,15 +246,15 @@ static int pelog_err(
   char *text)  /* I */
 
   {
-  sprintf(log_buffer, "prolog/epilog failed, file: %s, exit: %d, %s",
-          file,
-          n,
-          text);
+  sprintf(log_buffer,"prolog/epilog failed, file: %s, exit: %d, %s",
+    file,
+    n,
+    text);
 
-  sprintf(PBSNodeMsgBuf, "ERROR: %s",
-          log_buffer);
+  sprintf(PBSNodeMsgBuf,"ERROR: %s",
+    log_buffer);
 
-  log_err(-1, "run_pelog", log_buffer);
+  log_err(-1,"run_pelog",log_buffer);
 
   return(n);
   }  /* END pelog_err() */
@@ -306,6 +308,11 @@ static void pelogalm(
  *   - argv[5] is the list of resource limits specified
  *   - argv[6] is the queue in which the job resides
  *   - argv[7] is the account under which the job is run
+ *
+ * The following environment variables are set:
+ *  PBS_NODENUM,PBS_SCHED_HINT,TMPDIR,PBS_RESOURCE_GRES,PBS_RESOURCE_NODES,
+ *  PBS_NODENUM,PBS_MSHOST,PBS_NODEFILE,BEOWULF_JOB_MAP,MOAB_*
+ *
  */
 
 int run_pelog(
@@ -576,11 +583,11 @@ int run_pelog(
           (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
           strerror(errno));
 
-        log_err(errno, id, log_buffer);
+        log_err(errno,id,log_buffer);
 
         exit(255);
         }
-      }
+      }    /* END if ((which == PE_PROLOGUSER) || (which == PE_EPILOGUSER)) */
 
     if (fd_input != 0)
       {
@@ -613,8 +620,11 @@ int run_pelog(
         {
         case -1:
 
-          fds2 = open_std_file(pjob, StdErr, O_WRONLY | O_APPEND,
-                               pjob->ji_qs.ji_un.ji_momt.ji_exgid);
+          fds2 = open_std_file(
+            pjob, 
+            StdErr, 
+            O_WRONLY | O_APPEND,
+            pjob->ji_qs.ji_un.ji_momt.ji_exgid);
 
           fds1 = dup(fds2);
 
@@ -688,13 +698,13 @@ int run_pelog(
     if (DEBUGMODE == 1)
       {
       fprintf(stderr, "PELOGINFO:  script:'%s'  jobid:'%s'  euser:'%s'  egroup:'%s'  jobname:'%s' SSID:'%ld'  RESC:'%s'\n",
-              pelog,
-              pjob->ji_qs.ji_jobid,
-              pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,
-              pjob->ji_wattr[(int)JOB_ATR_egroup].at_val.at_str,
-              pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str,
-              pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long,
-              resc_to_string(pjob, (int)JOB_ATR_resource, resc_list, sizeof(resc_list)));
+        pelog,
+        pjob->ji_qs.ji_jobid,
+        pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,
+        pjob->ji_wattr[(int)JOB_ATR_egroup].at_val.at_str,
+        pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str,
+        pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long,
+        resc_to_string(pjob, (int)JOB_ATR_resource, resc_list, sizeof(resc_list)));
       }
 
     arg[0] = pelog;
@@ -711,9 +721,10 @@ int run_pelog(
       /* for epilog only */
 
       sprintf(sid, "%ld",
-              pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long);
+        pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long);
+
       sprintf(exit_stat,"%d",
-              pjob->ji_qs.ji_un.ji_exect.ji_exitstat);
+        pjob->ji_qs.ji_un.ji_exect.ji_exitstat);
 
       arg[5] = sid;
       arg[6] = resc_to_string(pjob, (int)JOB_ATR_resource, resc_list, sizeof(resc_list));
@@ -764,7 +775,7 @@ int run_pelog(
       char *envstr;
 
       envstr = malloc(
-                 (strlen(envname) + strlen(r->rs_value.at_val.at_str) + 1) * sizeof(char));
+        (strlen(envname) + strlen(r->rs_value.at_val.at_str) + 1) * sizeof(char));
 
       if (envstr != NULL)
         {
@@ -790,7 +801,7 @@ int run_pelog(
       char *envstr;
 
       envstr = malloc(
-                 (strlen(envname) + strlen(r->rs_value.at_val.at_str) + 1) * sizeof(char));
+        (strlen(envname) + strlen(r->rs_value.at_val.at_str) + 1) * sizeof(char));
 
       if (envstr != NULL)
         {
@@ -810,7 +821,7 @@ int run_pelog(
       char *envstr;
 
       envstr = malloc(
-                 (strlen(envname) + strlen(buf) + 1) * sizeof(char));
+        (strlen(envname) + strlen(buf) + 1) * sizeof(char));
 
       if (envstr != NULL)
         {
@@ -916,7 +927,6 @@ int run_pelog(
       {
       struct array_strings *vstrs;
 
-      int VarIsSet = 0;
       int j;
 
       vstrs = pjob->ji_wattr[(int)JOB_ATR_variables].at_val.at_arst;
@@ -928,26 +938,36 @@ int run_pelog(
               "BEOWULF_JOB_MAP=",
               strlen("BEOWULF_JOB_MAP=")))
           {
-          VarIsSet = 1;
+          char *envstr;
 
-          break;
+          envstr = malloc((strlen(vstrs->as_string[j])) * sizeof(char));
+ 
+          if (envstr != NULL)
+            {
+            strcpy(envstr,vstrs->as_string[j]);
+
+            putenv(envstr);
+            }
           }
-        }
-
-      if (VarIsSet == 1)
-        {
-        char *envstr;
-
-        envstr = malloc((strlen(vstrs->as_string[j])) * sizeof(char));
-
-        if (envstr != NULL)
+        else if ((PassMoabVars == TRUE) && 
+                 !strncmp(
+                   vstrs->as_string[j],
+                   "MOAB_",
+                   strlen("MOAB_")))
           {
-          strcpy(envstr,vstrs->as_string[j]);
+          char *envstr;
 
-          putenv(envstr);
+          envstr = malloc((strlen(vstrs->as_string[j])) * sizeof(char));
+
+          if (envstr != NULL)
+            {
+            strcpy(envstr,vstrs->as_string[j]);
+
+            putenv(envstr);
+            }
           }
         }
-      }
+      }    /* END BLOCK */
 
     execv(pelog,arg);
 
