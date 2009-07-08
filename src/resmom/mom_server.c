@@ -2695,6 +2695,8 @@ void check_state(
 
   if (LastNodeCheckExitCode == 0)
     {
+    /* health check reported success */
+
     if (ICount >= MAX(1,PBSNodeCheckInterval))
       ICount = 0;
     }
