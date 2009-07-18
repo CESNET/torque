@@ -103,7 +103,7 @@ int cpuset_delete(char *cpusetname)
 
   closedir(dir);
 
-  return(rmdir(path) == 0);
+  return(rmdir(path));
 
   }
 
