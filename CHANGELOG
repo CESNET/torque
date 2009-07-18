@@ -2,6 +2,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.8
   b - fix return value of cpuset_delete() for Linux (Chris Samuel - VPAC)
+  c - keep pbs_server from trying to free empty attrlist after recieving 
+      bad request (Michael Meier, University of Erlangen-Nurnberg)
 
 2.3.7
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 
