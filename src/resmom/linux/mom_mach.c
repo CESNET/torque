@@ -2092,6 +2092,13 @@ int kill_task(
   sesid = ptask->ti_qs.ti_sid;
   mompid = getpid();
 
+  /* if this a service task then request a stop on the script */
+
+  if (kill_service_task(ptask, sig))
+    {
+    return(1);
+    }
+
   if (LOGLEVEL >= 5)
     {
     sprintf(log_buffer, "%s: sending signal %d to task %d, session %d",

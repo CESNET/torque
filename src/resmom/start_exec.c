@@ -2046,7 +2046,11 @@ int TMomFinalizeJob2(
 
   char                  buf[MAXPATHLEN + 2];
   pid_t                 cpid;
+#if SHELL_USE_ARGV == 0
+#if SHELL_INVOKE == 1
   int                   i, j;
+#endif /* SHELL_INVOKE */
+#endif  /* !SHELL_USE_ARGV */
 
   job                  *pjob;
   task                 *ptask;
@@ -2133,10 +2137,27 @@ int TMomFinalizeJob2(
     /* will be stdin of shell  */
 
     close(TJE->pipe_script[0]);
+
+    /* if this is a service job, then add start after script */
+
+    if (((pjob->ji_wattr[(int)JOB_ATR_service].at_flags & ATR_VFLAG_SET) != 0) &&
+        (pjob->ji_wattr[(int)JOB_ATR_service].at_val.at_long != 0) &&
+        (pjob->ji_numnodes == 1))
+      {
+      strcat(buf," start");
+      }
+
     strcat(buf, "\n");      /* setup above */
 
     i = strlen(buf);
     j = 0;
+
+    if (TRUE || LOGLEVEL >= 10)
+      {
+      sprintf(log_buffer, "writing to shell pipe (%s)\n",
+        buf);
+      log_ext(-1, id, log_buffer, LOG_DEBUG);
+      }
 
     while (j < i)
       {
@@ -2276,6 +2297,7 @@ int TMomFinalizeChild(
   int                    pport = 0;
   int                    pts;
   int                    qsub_sock;
+  int                    service_job = FALSE;
   char                  *shell;
   char                  *shellname;
   char                  *idir;
@@ -3126,72 +3148,82 @@ int TMomFinalizeChild(
 
   /*
    * become the user, execv the shell and become the real job
+   * unless we are running a service job, which will be run as root
    */
 
-  if (LOGLEVEL >= 10)
+  if (((pjob->ji_wattr[(int)JOB_ATR_service].at_flags & ATR_VFLAG_SET) == 0) ||
+      (pjob->ji_wattr[(int)JOB_ATR_service].at_val.at_long == 0) ||
+      (pjob->ji_numnodes > 1))
     {
-    sprintf(log_buffer, "setting user/group credentials to %d/%d",
-      pjob->ji_qs.ji_un.ji_momt.ji_exuid,
-      pjob->ji_qs.ji_un.ji_momt.ji_exgid);
+    if (LOGLEVEL >= 10)
+      {
+      sprintf(log_buffer, "setting user/group credentials to %d/%d",
+        pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+        pjob->ji_qs.ji_un.ji_momt.ji_exgid);
 
-    log_ext(-1, id, log_buffer, LOG_DEBUG);
-    }
+      log_ext(-1, id, log_buffer, LOG_DEBUG);
+      }
 
-  if (setgroups(
-     pjob->ji_grpcache->gc_ngroup,
-    (gid_t *)pjob->ji_grpcache->gc_groups) != 0)
-    {
-    snprintf(log_buffer,sizeof(log_buffer),
-      "PBS: setgroups for UID = %lu failed: %s\n",
-      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
-      strerror(errno));
+    if (setgroups(
+       pjob->ji_grpcache->gc_ngroup,
+      (gid_t *)pjob->ji_grpcache->gc_groups) != 0)
+      {
+      snprintf(log_buffer,sizeof(log_buffer),
+        "PBS: setgroups for UID = %lu failed: %s\n",
+        (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+        strerror(errno));
 
-    if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
+      if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
 
-    fsync(2);
+      fsync(2);
 
-    log_err(errno,id,log_buffer);
+      log_err(errno,id,log_buffer);
 
-    starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
-    }
+      starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
+      }
 
 
-  if (setgid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) != 0)
-    {
-    snprintf(log_buffer,sizeof(log_buffer),
-      "PBS: setgid to %lu for UID = %lu failed: %s\n",
-      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exgid,
-      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
-      strerror(errno));
+    if (setgid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) != 0)
+      {
+      snprintf(log_buffer,sizeof(log_buffer),
+        "PBS: setgid to %lu for UID = %lu failed: %s\n",
+        (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exgid,
+        (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+        strerror(errno));
 
-    if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
+      if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
 
-    fsync(2);
+      fsync(2);
 
-    log_err(errno,id,log_buffer);
+      log_err(errno,id,log_buffer);
 
-    starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
-    }
+      starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
+      }
 
-  if (setuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) < 0)
-    {
-    snprintf(log_buffer,sizeof(log_buffer),
-      "PBS: setuid to %lu failed: %s\n",
-      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
-      strerror(errno));
+    if (setuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) < 0)
+      {
+      snprintf(log_buffer,sizeof(log_buffer),
+        "PBS: setuid to %lu failed: %s\n",
+        (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+        strerror(errno));
 
-    if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
+      if (write(2, log_buffer, strlen(log_buffer)) == -1) {}
 
-    fsync(2);
+      fsync(2);
 
-    log_err(errno, id, log_buffer);
+      log_err(errno, id, log_buffer);
 
-    starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
-    }
+      starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
+      }
 
 #ifdef _CRAY
-  seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid); /* cray kludge */
+    seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid); /* cray kludge */
 #endif /* CRAY */
+    }
+  else
+    {
+    service_job = TRUE;
+    }
 
   /*
    * cwd to PBS_O_INITDIR if specified, otherwise User's Home
@@ -3408,6 +3440,28 @@ int TMomFinalizeChild(
       arg[aindex + 1] = NULL;
 
       aindex++;
+
+      if (service_job)
+        {
+        arg[aindex] = malloc(strlen("start") + 1);
+
+        if (arg[aindex] == NULL)
+          {
+          log_err(errno,id,"cannot alloc env");
+
+          starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
+
+          /*NOTREACHED*/
+
+          return(-1);
+          }
+
+        strcpy(arg[aindex],"start");
+
+        arg[aindex + 1] = NULL;
+
+        aindex++;
+        }
       }
 
 #endif /* SHELL_USE_ARGV */
@@ -3451,6 +3505,25 @@ int TMomFinalizeChild(
       }
     else
       {
+      if (TRUE || LOGLEVEL >= 10)
+        {
+        char cmd[1024];
+        int i;
+
+        strcpy(cmd,arg[0]);
+        for (i = 1; arg[i] != NULL; i++)
+          {
+          strcat(cmd," ");
+          strcat(cmd,arg[i]);
+          }
+        strcat(cmd,")");
+
+        sprintf(log_buffer, "execing shell (%s) args (%s)\n",
+          shell,
+          cmd);
+        log_ext(-1, id, log_buffer, LOG_DEBUG);
+        }
+      
       execve(shell,arg,vtable.v_envp);
       }
     }    /* END if ((pjob->ji_numnodes == 1) || ...) */

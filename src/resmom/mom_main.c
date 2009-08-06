@@ -280,6 +280,8 @@ extern int      mom_server_all_send_state(void);
 extern int      mom_server_add(char *name);
 extern int      mom_server_count;
 
+void            status_service_job(job *pjob);
+
 #define PMOMTCPTIMEOUT 60  /* duration in seconds mom TCP requests will block */
 
 
@@ -7823,6 +7825,18 @@ examine_all_running_jobs(void)
 
     mom_set_use(pjob);
 
+    /* if it is a service job then check by <execscript> status instead of kill */
+
+    if (((pjob->ji_wattr[(int)JOB_ATR_service].at_flags & ATR_VFLAG_SET) != 0) &&
+        (pjob->ji_wattr[(int)JOB_ATR_service].at_val.at_long != 0) &&
+        (((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) == 0) ||
+        (pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long == 0)) &&        
+        (pjob->ji_numnodes == 1))
+      {
+      status_service_job(pjob);
+      continue;
+      }
+
     /* have all job processes vanished undetected?       */
     /* double check by sig0 to session pid for each task */
 
@@ -7916,6 +7930,236 @@ examine_all_running_jobs(void)
   return;
   }  /* END examine_all_running_jobs() */
 
+
+
+
+
+/*
+ * status a service job.
+ * Call with the job pointer.
+ */
+
+void status_service_job(
+
+  job *pjob)   /* I */
+  {
+  char *id = "status_service_job";
+  FILE       *fp;
+  char        cmd[MAXPATHLEN + 2];
+  char        retdata[200];
+  task *ptask;
+
+  sprintf(log_buffer, "Requesting status for service job %s",
+    pjob->ji_qs.ji_jobid);
+
+  if (LOGLEVEL >= 7)
+    {
+    log_record(
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      id,
+      log_buffer);
+    }
+
+  DBPRT(("%s\n", log_buffer));
+
+  /* check status of service job to see if it is still running */
+  
+  strcpy(cmd, path_jobs);
+  strcat(cmd, pjob->ji_qs.ji_fileprefix);
+  strcat(cmd, JOB_SCRIPT_SUFFIX);
+  strcat(cmd, " status");
+  retdata[0] = '\0';
+
+  fp = popen(cmd, "r");
+
+  if ((fp == NULL) || 
+    (fgets(retdata, 200, fp) == NULL) ||
+    (strlen(retdata) == 0))
+    {
+    log_ext(errno, id, "Pipe failure", LOG_ERR);
+    pclose(fp);
+    return;
+    }
+
+  pclose(fp);
+
+  if (LOGLEVEL >= 7)
+    {
+    snprintf(log_buffer, 1024, "Service job status = %s",
+      retdata);
+
+    LOG_EVENT(
+      PBSEVENT_DEBUG,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      log_buffer);
+    }
+
+  if (strncasecmp(retdata, "running", strlen("running")))
+    {
+    /* if it is no longer running then clean up */
+    /* set tasks to exited */
+
+    if (LOGLEVEL >= 7)
+      {
+
+      LOG_EVENT(
+        PBSEVENT_DEBUG,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        "Cleaning up service job");
+      }
+
+    ptask = (task *)GET_NEXT(pjob->ji_tasks);
+
+    while (ptask != NULL)
+      {
+      ptask->ti_qs.ti_exitstat = 0;
+
+      ptask->ti_qs.ti_status = TI_STATE_EXITED;
+      pjob->ji_qs.ji_un.ji_momt.ji_exitstat = 0;
+
+      if (LOGLEVEL >= 6)
+        {
+        log_record(
+          PBSEVENT_ERROR,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          "saving task (main loop)");
+        }
+
+      task_save(ptask);
+
+      exiting_tasks = 1;
+
+      ptask = (task *)GET_NEXT(ptask->ti_jobtask);
+      }  /* END while (ptask) */
+
+    }
+
+  return;
+  }  /* END status_service_job() */
+
+
+
+
+/*
+ * stop a service job.
+ * Call with the job pointer.
+ */
+
+void stop_service_job(
+
+  job *pjob)   /* I */
+  {
+
+  char *id = "stop_service_job";
+  FILE       *fp;
+  char        cmd[MAXPATHLEN + 2];
+  char        retdata[200];
+
+  sprintf(log_buffer, "Requesting stop of service job %s",
+    pjob->ji_qs.ji_jobid);
+
+  if (LOGLEVEL >= 2)
+    {
+    log_record(
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_JOB,
+      id,
+      log_buffer);
+    }
+
+  DBPRT(("%s\n", log_buffer));
+
+  /* Issue stop to service job */
+  
+  strcpy(cmd, path_jobs);
+  strcat(cmd, pjob->ji_qs.ji_fileprefix);
+  strcat(cmd, JOB_SCRIPT_SUFFIX);
+  strcat(cmd, " stop");
+  retdata[0] = '\0';
+
+  fp = popen(cmd, "r");
+
+  if (fp == NULL)
+    {
+    log_ext(errno, id, "Pipe failure", LOG_ERR);
+    pclose(fp);
+    return;
+    }
+
+  fgets(retdata, 200, fp);
+
+  pclose(fp);
+
+  if (LOGLEVEL >= 7)
+    {
+    snprintf(log_buffer, 1024, "Service job stop = %s",
+      retdata);
+
+    LOG_EVENT(
+      PBSEVENT_DEBUG,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      log_buffer);
+    }
+
+  return;
+  }  /* END stop_service_job() */
+
+
+
+
+
+/*
+ * do we kill a service job.
+ * Call with the job pointer.
+ */
+
+int kill_service_task(
+
+  task *ptask,  /* I */
+  int   sig)    /* I */
+  {
+
+  char *id = "kill_service_task";
+  job  *pjob;
+
+  /* if this a service task then request a stop on the script */
+  
+  pjob = ptask->ti_job;
+  
+  if (((pjob->ji_wattr[(int)JOB_ATR_service].at_flags & ATR_VFLAG_SET) != 0) &&
+      (pjob->ji_wattr[(int)JOB_ATR_service].at_val.at_long != 0) &&
+      (((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) == 0) ||
+      (pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long == 0)) &&        
+      (pjob->ji_numnodes == 1))
+    {
+    if (LOGLEVEL >= 5)
+      {
+      sprintf(log_buffer,
+        "%s: sending stop (%d) for service job - task %d, parenttask = %d, session %d",
+        id,
+        sig,
+        ptask->ti_qs.ti_task,
+        ptask->ti_qs.ti_parenttask,
+        ptask->ti_qs.ti_sid);
+
+      log_record(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+      }
+
+    stop_service_job(pjob);
+    return (1);
+    }
+
+  return (0);
+  }  /* END kill_service_task() */
 
 
 

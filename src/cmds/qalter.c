@@ -121,7 +121,7 @@ int main(
   char rmt_server[MAXSERVERNAME];
   char path_out[MAXPATHLEN + 1];
 
-#define GETOPT_ARGS "a:A:c:e:h:j:k:l:m:M:N:o:p:r:S:u:v:W:x:"
+#define GETOPT_ARGS "a:A:c:e:h:j:k:l:m:M:N:o:p:r:s:S:u:v:W:x:"
 
   while ((c = getopt(argc, argv, GETOPT_ARGS)) != EOF)
     {
@@ -493,6 +493,32 @@ int main(
 
         break;
 
+      case 's':
+
+        /* service */
+
+        if (strlen(optarg) != 1)
+          {
+          fprintf(stderr, "qalter: illegal -s value\n");
+
+          errflg++;
+
+          break;
+          }
+
+        if ((*optarg != 'y') && (*optarg != 'n'))
+          {
+          fprintf(stderr, "qalter: illegal -s value\n");
+
+          errflg++;
+
+          break;
+          }
+
+        set_attr(&attrib, ATTR_service, optarg);
+
+        break;
+
       case 'S':
 
         if (parse_at_list(optarg, TRUE, TRUE))
@@ -632,11 +658,11 @@ int main(
   if (errflg || (optind == argc))
     {
     static char usage[] = "usage: qalter \
-                          [-a date_time] [-A account_string] [-c interval] [-e path] \n\
-                          [-h hold_list] [-j y|n] [-k keep] [-l resource_list] [-m mail_options] \n\
-                          [-M user_list] [-N jobname] [-o path] [-p priority] [-r y|n] [-S path] \n\
-                          [-u user_list] [-v variable_list] [-W dependency_list] [-x exec_host] \n\
-                          job_identifier...\n";
+        [-a date_time] [-A account_string] [-c interval] [-e path] \n\
+        [-h hold_list] [-j y|n] [-k keep] [-l resource_list] [-m mail_options] \n\
+        [-M user_list] [-N jobname] [-o path] [-p priority] [-r y|n] [-s y|n] \n\
+        [-S path] [-u user_list] [-v variable_list] [-W dependency_list] \n\
+        [-x exec_host] job_identifier...\n";
 
     fprintf(stderr, "%s", usage);
 

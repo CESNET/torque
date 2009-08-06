@@ -469,6 +469,20 @@ void req_quejob(
       return;
       }
 
+    /* if service attribute is being set, don't allow for non operator / manager */
+
+    if ((!strcmp(psatl->al_name, ATTR_service)) &&
+     ((preq->rq_perm & (ATR_DFLAG_MGWR | ATR_DFLAG_OPWR)) == 0))
+      {
+      /* FAILURE */
+
+      job_purge(pj);
+
+      reply_badattr(PBSE_ATTRRO, 1, psatl, preq);
+
+      return;
+      }
+
     /* decode attribute */
 
     rc = pdef->at_decode(

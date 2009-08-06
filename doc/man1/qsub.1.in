@@ -83,8 +83,8 @@ qsub \- submit pbs job
 .SH SYNOPSIS
 qsub [\-a date_time] [\-A account_string] [\-b secs] [\-c interval] [\-C directive_prefix]
 [\-d path] [\-D path] [\-e path] [\-h] [\-I] [\-j join] [\-k keep] [\-l resource_list]
-[\-m mail_options] [\-M user_list] [\-N name] [\-o path] 
-[\-p priority] [\-q destination] [\-r c] [\-S path_list] [\-t num_jobs] [\-T prologue/epilogue script_name] 
+[\-m mail_options] [\-M user_list] [\-N name] [\-o path] [\-p priority]
+[\-q destination] [\-r c] [\-s c] [\-S path_list] [\-t num_jobs] [\-T prologue/epilogue script_name] 
 [\-u user_list] [\-v variable_list] [\-V] [\-W additional_attributes] [\-X] [\-z]
 [script]
 .SH DESCRIPTION
@@ -721,6 +721,24 @@ attribute is set to the character  'y'.
 .Ig
 If the argument is "\fBn\fP", the job is not rerunable.
 The default value is 'y', rerunable.
+.IP "\-s y|n" 8
+Declares whether the job is to be run as a service.
+The argument is a single character, either
+.Ty y
+or 
+.Ty n .
+.IP
+If the argument is "\fBy\fP", the job is to be handled as a service.
+.if !\n(Pb .ig Ig
+The
+.At Service
+attribute is set to the character  'y'.
+.Ig
+If the argument is "\fBn\fP", the job is not to handled as a service.
+The default value is 'n', not a service. Only non-interactive, non-checkpointable,
+serial jobs may be services. Only operators and managers can set the service
+attribute. To be a service, the job script must accept start, stop, and status
+commands.
 .IP "\-S path_list" 8
 Declares the shell that interprets the job script.
 .IP

@@ -320,6 +320,11 @@ void req_modifyjob(
   if (rc)
     {
     /* FAILURE */
+    if (rc == -1)
+      {
+      req_reject(PBSE_IVALREQ, 0, preq, NULL, "Job cannot be a service");
+      return;
+      }
 
     reply_badattr(rc, bad, plist, preq);
 
@@ -398,6 +403,7 @@ int modify_job_attr(
   attribute  newattr[(int)JOB_ATR_LAST];
   attribute *pattr;
   int      rc;
+  resource *jbrc;
 
   if (pjob->ji_qhdr->qu_qs.qu_type == QTYPE_Execution)
     allow_unkn = -1;
@@ -461,6 +467,57 @@ int modify_job_attr(
         (pattr + (int)JOB_ATR_hold)->at_val.at_long;
 
     rc = chk_hold_priv(i, perm);
+    }
+
+  /*
+   * if service attribute is being set, don't allow for
+   * 1 - non-serial jobs
+   * 2 - checkpointable jobs
+   * 3 - interactive jobs
+   */
+
+  if ((rc == 0) &&
+      (newattr[(int)JOB_ATR_service].at_flags & ATR_VFLAG_SET) &&
+      (newattr[(int)JOB_ATR_service].at_val.at_long != 0))
+    {
+    if ((pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_flags & ATR_VFLAG_SET) &&
+        (pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_val.at_str[0] != 'u'))
+      {
+        rc = -1;
+        sprintf(log_buffer,
+          "Cannot change service attribute - job is checkpointable");
+      }
+
+    if ((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) &&
+        (pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long > 0))
+      {
+        rc = -1;
+        sprintf(log_buffer,
+          "Cannot change service attribute - job is interactive");
+      }
+
+    jbrc = (resource *)GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
+
+    while (jbrc != NULL)
+      {
+      if ((strcmp(jbrc->rs_defin->rs_name,"nodect") == 0) &&
+        (jbrc->rs_value.at_val.at_long > 1))
+        {
+        rc = -1;
+        sprintf(log_buffer,
+          "Cannot change service attribute - not a serial job");
+       }
+      jbrc = (resource *)GET_NEXT(jbrc->rs_link);
+      }  /* END while (jbrc != NULL) */
+
+    if ((rc == -1) && (LOGLEVEL >= 5))
+      {
+      LOG_EVENT(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+      }
     }
 
   if (rc == 0)

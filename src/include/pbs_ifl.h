@@ -133,6 +133,7 @@
 #define ATTR_stagein  "stagein"
 #define ATTR_stageout "stageout"
 #define ATTR_jobtype  "jobtype"
+#define ATTR_service  "service"
 
 /* additional job and general attribute names */
 

@@ -1264,6 +1264,7 @@ const char *TJobAttr[] =
   "chkptname",
   "comp_time",
   "reported",
+  "service",
   "job_type",
   NULL
   };

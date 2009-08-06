@@ -908,12 +908,14 @@ int S_opt = FALSE;
 int V_opt = FALSE;
 int Depend_opt    = FALSE;
 int Interact_opt  = FALSE;
+int Service_opt   = FALSE;
 int Stagein_opt   = FALSE;
 int Stageout_opt  = FALSE;
 int Grouplist_opt = FALSE;
 int Forwardx11_opt = FALSE;
 int Umask_opt = FALSE;
 char *v_value = NULL;
+int Service_job   = FALSE;
 
 
 char *copy_env_value(
@@ -2508,7 +2510,7 @@ int process_opts(
   int tmpfd;
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
-#define GETOPT_ARGS "a:A:b:c:C:d:D:e:hIj:k:l:m:M:N:o:p:q:r:S:t:T:u:v:VW:Xz-:"
+#define GETOPT_ARGS "a:A:b:c:C:d:D:e:hIj:k:l:m:M:N:o:p:q:r:s:S:t:T:u:v:VW:Xz-:"
 #else
 #define GETOPT_ARGS "a:A:c:C:e:hj:k:l:m:M:N:o:p:q:r:S:u:v:VW:z"
 #endif /* PBS_NO_POSIX_VIOLATION */
@@ -3166,6 +3168,42 @@ int process_opts(
           }
 
         break;
+#if !defined(PBS_NO_POSIX_VIOLATION)
+
+      case 's':
+
+        if_cmd_line(Service_opt)
+          {
+          Service_opt = passet;
+
+          if (strlen(optarg) != 1)
+            {
+            fprintf(stderr, "qsub: illegal -s value\n");
+
+            errflg++;
+
+            break;
+            }
+
+          if ((*optarg != 'y') && (*optarg != 'n'))
+            {
+            fprintf(stderr, "qsub: illegal -s value\n");
+
+            errflg++;
+
+            break;
+            }
+
+          set_attr(&attrib, ATTR_service, optarg);
+          if (*optarg == 'y')
+            {
+            Service_job = TRUE;
+            }
+          }
+
+        break;
+
+#endif /* PBS_NO_POSIX_VIOLATION */
 
       case 'S':
 
@@ -4077,7 +4115,7 @@ int main(
       [-c { c[=<INTERVAL>] | s | n }] [-C directive_prefix] [-d path] [-D path]\n\
       [-e path] [-h] [-I] [-j oe] [-k {oe}] [-l resource_list] [-m n|{abe}]\n\
       [-M user_list] [-N jobname] [-o path] [-p priority] [-q queue] [-r y|n]\n\
-      [-S path] [-t number_to_submit] [-T type] [-u user_list] [-X]\n\
+      [-s y|n] [-S path] [-t number_to_submit] [-T type] [-u user_list] [-X]\n\
       [-W otherattributes=value...] [-v variable_list] [-V ] [-z] [script]\n";
 
     fprintf(stderr,"%s", usage);
@@ -4234,6 +4272,17 @@ int main(
   if (Interact_opt && t_opt)
     {
     fprintf(stderr, "qsub: interactive job can not be job array.\n");
+
+    unlink(script_tmp);
+
+    exit(2);
+    }
+
+  /* interactive job can not be service */
+
+  if (Interact_opt && Service_job)
+    {
+    fprintf(stderr, "qsub: interactive job can not be a service.\n");
 
     unlink(script_tmp);
 

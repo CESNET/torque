@@ -850,6 +850,19 @@ attribute_def job_attr_def[] =
   	PARENT_TYPE_JOB
   },
 
+  /* JOB_ATR_service */
+  {	ATTR_service,			/* "service" */
+  	decode_b,
+  	encode_b,
+  	set_b,
+  	comp_b,
+  	free_null,
+  	NULL_FUNC,
+  	READ_WRITE | ATR_DFLAG_SSET | ATR_DFLAG_MOM,
+  	ATR_TYPE_LONG,
+  	PARENT_TYPE_JOB
+  },
+
   /* Site defined attributes if any, see site_job_attr_*.h  */
 #include "site_job_attr_def.h"
 
