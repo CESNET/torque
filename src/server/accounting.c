@@ -117,6 +117,8 @@ extern attribute_def job_attr_def[];
 extern char     *path_acct;
 extern int      resc_access_perm;
 extern time_t      time_now;
+extern int       LOGLEVEL;
+
 
 
 #define EXTRA_PAD 1000 /* Used to bad the account buffer string */
@@ -691,3 +693,4 @@ void acct_cleanup(
 
 
 /* END accounting.c */
+

@@ -636,6 +636,7 @@ int set_arst(
 
             need = pas->as_next - pc;
 
+
             memcpy(pas->as_string[i], pc, (size_t)need);
 
             pas->as_next -= nsize;
