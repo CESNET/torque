@@ -125,6 +125,7 @@ enum srv_atr
   SRV_ATR_Comment,
   SRV_ATR_DefNode,
   SRV_ATR_NodePack,              /* 30 */
+  SRV_ATR_DynamicServer,
   SRV_ATR_NodeSuffix,
   SRV_ATR_JobStatRate,
   SRV_ATR_PollJobs,

@@ -955,14 +955,22 @@ static void chk_svr_resc_limit(
 
     ptr = jbrc_nodes->rs_value.at_val.at_str;
 
-    if (isdigit(*ptr) && !strchr(ptr, ':') && !strchr(ptr, '+'))
+    if (server.sv_attr[(int)SRV_ATR_DynamicServer].at_val.at_long)
+      IgnTest = 1;
+
+    if (isdigit(*ptr) && !strchr(ptr,':') && !strchr(ptr,'+'))
       {
+      /* nodes specified as <X>:ppn=<Y> */
+
       tmpI = (int)strtol(ptr, NULL, 10);
 
       if ((SvrNodeCt > 0) && (tmpI <= SvrNodeCt))
         IgnTest = 1;
 
       if (server.sv_attr[(int)SRV_ATR_NodePack].at_val.at_long)
+        IgnTest = 1;
+
+      if (server.sv_attr[(int)SRV_ATR_DynamicServer].at_val.at_long)
         IgnTest = 1;
       }
 

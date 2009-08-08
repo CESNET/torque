@@ -623,7 +623,7 @@ int status_nodeattrib(
 
   for (i = 0;i < ND_ATR_LAST;i++)
     {
-    /*set up attributes using data from node*/
+    /* set up attributes using data from node */
 
     if (!strcmp((padef + i)->at_name, ATTR_NODE_state))
       atemp[i].at_val.at_short = pnode->nd_state;
@@ -641,7 +641,7 @@ int status_nodeattrib(
       atemp[i].at_val.at_str  = pnode->nd_note;
     else
       {
-      /*we don't ever expect this*/
+      /* we don't ever expect this */
 
       *bad = 0;
 
@@ -1208,16 +1208,18 @@ update_nodes_file(void)
     /* don't write to maintain compatability with old style file */
 
     if (np->nd_nsn > 1)
-      fprintf(nin, " %s=%d",
-              ATTR_NODE_np,
-              np->nd_nsn);
+      {
+      fprintf(nin," %s=%d",
+        ATTR_NODE_np,
+        np->nd_nsn);
+      }
 
     /* write out properties */
 
     for (j = 0;j < np->nd_nprops - 1;++j)
       {
-      fprintf(nin, " %s",
-              np->nd_prop->as_string[j]);
+      fprintf(nin," %s",
+        np->nd_prop->as_string[j]);
       }
 
     /* finish off line with new-line */
@@ -1264,8 +1266,9 @@ update_nodes_file(void)
  * recompute_ntype_cnts - Recomputes the current number of cluster
  *          nodes and current number of time-shared nodes
  */
-void
-recompute_ntype_cnts(void)
+
+void recompute_ntype_cnts(void)
+
   {
   int   svr_loc_clnodes = 0;
   int   svr_loc_tsnodes = 0;
@@ -1273,15 +1276,16 @@ recompute_ntype_cnts(void)
 
   struct pbsnode  *pnode;
 
-  if (svr_totnodes)
+  if (svr_totnodes > 0)
     {
     for (i = 0; i < svr_totnodes; ++i)
       {
-
       pnode = pbsndlist[i];
 
       if (pnode->nd_state & INUSE_DELETED)
         continue;
+
+      /* NOTE:  if ignNP is in place, should svr_loc_clnodes be MAX_INT */
 
       if (pnode->nd_ntype == NTYPE_CLUSTER)
         svr_loc_clnodes += pnode->nd_nsn;
@@ -1293,6 +1297,8 @@ recompute_ntype_cnts(void)
 
     svr_tsnodes = svr_loc_tsnodes;
     }
+
+  return;
   }
 
 
@@ -1307,17 +1313,16 @@ recompute_ntype_cnts(void)
 
 struct prop *init_prop(
 
-        char *pname) /* I */
+  char *pname) /* I */
 
   {
-
   struct prop *pp;
 
   if ((pp = (struct prop *)malloc(sizeof(struct prop))) != NULL)
     {
-    pp->name    = pname;
-    pp->mark    = 0;
-    pp->next    = 0;
+    pp->name = pname;
+    pp->mark = 0;
+    pp->next = 0;
     }
 
   return(pp);
@@ -1334,10 +1339,9 @@ struct prop *init_prop(
 
 static struct pbssubn *create_subnode(
 
-        struct pbsnode *pnode)
+  struct pbsnode *pnode)
 
   {
-
   struct pbssubn  *psubn;
 
   struct pbssubn **nxtsn;
@@ -1962,7 +1966,6 @@ static void delete_a_subnode(
   struct pbsnode *pnode)
 
   {
-
   struct pbssubn *psubn;
 
   struct pbssubn *pprior = NULL;
@@ -2002,24 +2005,27 @@ static void delete_a_subnode(
  * node_np_action - action routine for node's np attribute
  */
 
-int node_np_action(new, pobj, actmode)
-attribute *new;  /*derive props into this attribute*/
-void  *pobj;  /*pointer to a pbsnode struct     */
-int   actmode; /*action mode; "NEW" or "ALTER"   */
-  {
+int node_np_action(
 
+  attribute *new,     /* derive props into this attribute*/
+  void      *pobj,    /* pointer to a pbsnode struct     */
+  int        actmode) /* action mode; "NEW" or "ALTER"   */
+
+  {
   struct pbsnode *pnode = (struct pbsnode *)pobj;
   short  old_np;
   short  new_np;
 
   switch (actmode)
     {
-
     case ATR_ACTION_NEW:
+
       new->at_val.at_long = pnode->nd_nsn;
+
       break;
 
     case ATR_ACTION_ALTER:
+
       old_np = pnode->nd_nsn;
       new_np = (short)new->at_val.at_long;
 
@@ -2028,7 +2034,6 @@ int   actmode; /*action mode; "NEW" or "ALTER"   */
 
       while (new_np != old_np)
         {
-
         if (new_np < old_np)
           {
           delete_a_subnode(pnode);
@@ -2044,7 +2049,7 @@ int   actmode; /*action mode; "NEW" or "ALTER"   */
       pnode->nd_nsn = old_np;
 
       break;
-    }
+    }  /* END switch (actmode) */
 
-  return 0;
-  }
+  return(0);
+  }  /* END node_np_action() */

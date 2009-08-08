@@ -542,8 +542,8 @@ void update_node_state(
     if (((np->nd_state & INUSE_DOWN) && (LOGLEVEL >= 2)) ||
         ((np->nd_state & INUSE_BUSY) && (LOGLEVEL >= 4)))
       {
-      sprintf(log_buffer, "node %s marked free",
-              (np->nd_name != NULL) ? np->nd_name : "NULL");
+      sprintf(log_buffer,"node %s marked free",
+        (np->nd_name != NULL) ? np->nd_name : "NULL");
       }
 
     np->nd_state &= ~INUSE_BUSY;
@@ -647,7 +647,7 @@ void update_node_state(
         np->nd_nsnfree = np->nd_nsn;
 
         sprintf(log_buffer, "job allocation released on node %s - node marked free",
-                (np->nd_name != NULL) ? np->nd_name : "NULL");
+          (np->nd_name != NULL) ? np->nd_name : "NULL");
 
         if (snjacount > 0)
           {
@@ -661,9 +661,9 @@ void update_node_state(
         if (np->nd_nsnfree != nsn_free)
           {
           sprintf(log_buffer, "subnode allocation adjusted on node %s (%d -> %d)",
-                  (np->nd_name != NULL) ? np->nd_name : "NULL",
-                  np->nd_nsnfree,
-                  nsn_free);
+            (np->nd_name != NULL) ? np->nd_name : "NULL",
+            np->nd_nsnfree,
+            nsn_free);
 
           np->nd_nsnfree = nsn_free;
 
@@ -678,9 +678,9 @@ void update_node_state(
           if (LOGLEVEL >= 7)
             {
             sprintf(log_buffer, "subnode allocation correct on node %s (%d free, %d configured)",
-                    (np->nd_name != NULL) ? np->nd_name : "NULL",
-                    np->nd_nsnfree,
-                    np->nd_nsn);
+              (np->nd_name != NULL) ? np->nd_name : "NULL",
+              np->nd_nsnfree,
+              np->nd_nsn);
             }
           }
 
@@ -694,10 +694,10 @@ void update_node_state(
             {
             if (log_buffer[0] == '\0')
               sprintf(log_buffer, "unset job-exclusive state for node %s in state %d (%d free, %d configured)",
-                      (np->nd_name != NULL) ? np->nd_name : "NULL",
-                      np->nd_state,
-                      np->nd_nsnfree,
-                      np->nd_nsn);
+                (np->nd_name != NULL) ? np->nd_name : "NULL",
+                np->nd_state,
+                np->nd_nsnfree,
+                np->nd_nsn);
             else
               strcat(log_buffer, "(unset job-exclusive state)");
             }
@@ -711,10 +711,10 @@ void update_node_state(
       if (LOGLEVEL >= 7)
         {
         sprintf(log_buffer, "skipping subnode allocation test for node %s in state %d (%d free, %d configured)\n",
-                (np->nd_name != NULL) ? np->nd_name : "NULL",
-                np->nd_state,
-                np->nd_nsnfree,
-                np->nd_nsn);
+          (np->nd_name != NULL) ? np->nd_name : "NULL",
+          np->nd_state,
+          np->nd_nsnfree,
+          np->nd_nsn);
         }
       }
 
@@ -1299,20 +1299,21 @@ int is_stat_get(
       sync_node_jobs(np, ret_info + strlen("jobs="));
       }
     else if (server.sv_attr[(int)SRV_ATR_AutoNodeNP].at_val.at_long &&
-             !strncmp(ret_info, "ncpus=", 6))
+             !strncmp(ret_info,"ncpus=",6))
       {
-
       struct attribute nattr;
 
       /* first we decode ret_info into nattr... */
 
-      if ((node_attr_def + ND_ATR_np)->at_decode(&nattr, ATTR_NODE_np, NULL, ret_info + 6) == 0)
+      if ((node_attr_def + ND_ATR_np)->at_decode(&nattr,ATTR_NODE_np,NULL,ret_info + 6) == 0)
         {
         /* ... and if MOM's ncpus is higher than our np... */
+
         if (nattr.at_val.at_long > np->nd_nsn)
           {
           /* ... then we do the defined magic to create new subnodes */
-          (node_attr_def + ND_ATR_np)->at_action(&nattr, (void *)np, ATR_ACTION_ALTER);
+
+          (node_attr_def + ND_ATR_np)->at_action(&nattr,(void *)np,ATR_ACTION_ALTER);
 
           update_nodes_file();
           }
@@ -1366,7 +1367,7 @@ int is_stat_get(
   /* it's nice to know when the last update happened */
 
   sprintf(date_attrib, "rectime=%ld",
-          (long)time_now);
+    (long)time_now);
 
   if (decode_arst(&temp, NULL, NULL, date_attrib))
     {
@@ -1378,7 +1379,6 @@ int is_stat_get(
 
     return(DIS_NOCOMMIT);
     }
-
 
   /* insert the information from "temp" into np */
 
