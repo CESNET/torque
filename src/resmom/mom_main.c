@@ -8090,7 +8090,12 @@ void stop_service_job(
     return;
     }
 
-  fgets(retdata, 200, fp);
+  if (!fgets(retdata, 200, fp))
+    {
+    log_ext(errno, id, "fgets failure", LOG_ERR);
+    pclose(fp);
+    return;
+    }
 
   pclose(fp);
 
