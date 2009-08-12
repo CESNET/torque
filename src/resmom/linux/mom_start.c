@@ -464,6 +464,26 @@ scan_for_terminated(void)
 
       pjob = (job *)GET_PRIOR(pjob->ji_alljobs);
       }  /* END while (pjob != NULL) */
+      
+    if ((pjob != NULL) && 
+      (pjob->ji_qs.ji_substate == JOB_SUBSTATE_SUSPEND) &&
+      is_service_job(pjob))
+      {
+      if (LOGLEVEL >= 7)
+        {
+        sprintf(log_buffer, "ignoring pid %d for service job, exitcode=%d",
+                pid,
+                statloc);
+
+        log_record(
+          PBSEVENT_DEBUG,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          log_buffer);
+        }
+
+      continue;
+      }  /* END if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_SUSPEND) */
 
     if (pjob == NULL)
       {

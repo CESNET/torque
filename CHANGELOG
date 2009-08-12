@@ -3,6 +3,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 2.3.7 Transition
   f - Added new job attribute ATTR_service. Allows job to run as a pseudo
       service (job script accepts start, stop and status commands)
+  f - added SIG_SUSPEND/SIG_RESUME capability for pseudo services
       
 2.3.7
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 

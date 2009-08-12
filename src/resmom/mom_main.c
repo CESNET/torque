@@ -7827,11 +7827,7 @@ examine_all_running_jobs(void)
 
     /* if it is a service job then check by <execscript> status instead of kill */
 
-    if (((pjob->ji_wattr[(int)JOB_ATR_service].at_flags & ATR_VFLAG_SET) != 0) &&
-        (pjob->ji_wattr[(int)JOB_ATR_service].at_val.at_long != 0) &&
-        (((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) == 0) ||
-        (pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long == 0)) &&        
-        (pjob->ji_numnodes == 1))
+    if (is_service_job(pjob))
       {
       status_service_job(pjob);
       continue;
@@ -8049,7 +8045,7 @@ void status_service_job(
  * Call with the job pointer.
  */
 
-void stop_service_job(
+int stop_service_job(
 
   job *pjob)   /* I */
   {
@@ -8087,14 +8083,14 @@ void stop_service_job(
     {
     log_ext(errno, id, "Pipe failure", LOG_ERR);
     pclose(fp);
-    return;
+    return (FALSE);
     }
 
   if (!fgets(retdata, 200, fp))
     {
     log_ext(errno, id, "fgets failure", LOG_ERR);
     pclose(fp);
-    return;
+    return (FALSE);
     }
 
   pclose(fp);
@@ -8111,8 +8107,42 @@ void stop_service_job(
       log_buffer);
     }
 
-  return;
+  return (TRUE);
   }  /* END stop_service_job() */
+
+
+
+
+
+/*
+ * is this a service job, yes if it meets the follwing criteria
+ * 1 - has service attribute set true
+ * 2 - serial job
+ * 3 - non-checkpointable job
+ * 4 - non-interactive job
+ * Call with the job pointer.
+ */
+
+int is_service_job(
+
+  job *pjob)   /* I */
+  {
+  /* is this a service job */
+
+  if (((pjob->ji_wattr[(int)JOB_ATR_service].at_flags & ATR_VFLAG_SET) != 0) &&
+      (pjob->ji_wattr[(int)JOB_ATR_service].at_val.at_long != 0) &&
+      (((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) == 0) ||
+      (pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long == 0)) &&        
+      (((pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_flags & ATR_VFLAG_SET) == 0) ||
+      (pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_val.at_str[0] == 'u') ||
+      (pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_val.at_str[0] == 'n')) &&
+      (pjob->ji_numnodes == 1))
+    {
+    return (TRUE);
+    }
+
+  return (FALSE);
+  }  /* END is_service_job() */
 
 
 
@@ -8136,11 +8166,7 @@ int kill_service_task(
   
   pjob = ptask->ti_job;
   
-  if (((pjob->ji_wattr[(int)JOB_ATR_service].at_flags & ATR_VFLAG_SET) != 0) &&
-      (pjob->ji_wattr[(int)JOB_ATR_service].at_val.at_long != 0) &&
-      (((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) == 0) ||
-      (pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long == 0)) &&        
-      (pjob->ji_numnodes == 1))
+  if (is_service_job(pjob))
     {
     if (LOGLEVEL >= 5)
       {

@@ -1556,6 +1556,7 @@ int TMomFinalizeJob1(
   torque_socklen_t  slen;
 
   int                    i;
+  int                    resuming_service = FALSE;
 
   attribute  *pattr;
   attribute  *pattri;
@@ -1862,8 +1863,18 @@ int TMomFinalizeJob1(
    * is not used otherwise by MOM
    */
 
-  if ((pjob->ji_numnodes > 1) || (mom_do_poll(pjob) != 0))
+  if ((is_service_job(pjob)) &&
+    ((pjob->ji_qs.ji_substate == JOB_SUBSTATE_SUSPEND) ||
+    (is_linked(&mom_polljobs, &pjob->ji_jobque))))
+    {
+    resuming_service = TRUE;
+    }
+
+  if (((pjob->ji_numnodes > 1) || (mom_do_poll(pjob) != 0)) &&
+    (!resuming_service))
+    {
     append_link(&mom_polljobs, &pjob->ji_jobque, pjob);
+    }
 
   pattri = &pjob->ji_wattr[(int)JOB_ATR_interactive];
 
@@ -2140,9 +2151,7 @@ int TMomFinalizeJob2(
 
     /* if this is a service job, then add start after script */
 
-    if (((pjob->ji_wattr[(int)JOB_ATR_service].at_flags & ATR_VFLAG_SET) != 0) &&
-        (pjob->ji_wattr[(int)JOB_ATR_service].at_val.at_long != 0) &&
-        (pjob->ji_numnodes == 1))
+    if (is_service_job(pjob))
       {
       strcat(buf," start");
       }
@@ -2152,7 +2161,7 @@ int TMomFinalizeJob2(
     i = strlen(buf);
     j = 0;
 
-    if (TRUE || LOGLEVEL >= 10)
+    if (LOGLEVEL >= 10)
       {
       sprintf(log_buffer, "writing to shell pipe (%s)\n",
         buf);
@@ -3151,9 +3160,7 @@ int TMomFinalizeChild(
    * unless we are running a service job, which will be run as root
    */
 
-  if (((pjob->ji_wattr[(int)JOB_ATR_service].at_flags & ATR_VFLAG_SET) == 0) ||
-      (pjob->ji_wattr[(int)JOB_ATR_service].at_val.at_long == 0) ||
-      (pjob->ji_numnodes > 1))
+  if (!is_service_job(pjob))
     {
     if (LOGLEVEL >= 10)
       {

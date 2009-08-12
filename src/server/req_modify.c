@@ -481,7 +481,8 @@ int modify_job_attr(
       (newattr[(int)JOB_ATR_service].at_val.at_long != 0))
     {
     if ((pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_flags & ATR_VFLAG_SET) &&
-        (pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_val.at_str[0] != 'u'))
+        (pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_val.at_str[0] != 'u') &&
+        (pjob->ji_wattr[(int)JOB_ATR_chkpnt].at_val.at_str[0] != 'n'))
       {
         rc = -1;
         sprintf(log_buffer,
