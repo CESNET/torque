@@ -274,6 +274,7 @@ extern void free_prop_list A_((struct prop*));
 extern void     free_prop_attr  A_((attribute*));
 extern void recompute_ntype_cnts A_(());
 extern  int     create_pbs_node A_((char *, svrattrl *, int, int *));
+extern  int create_partial_pbs_node A_((char *, unsigned long, int));
 extern  int     mgr_set_node_attr A_((struct pbsnode *, attribute_def *, int, svrattrl *, int, int *, void *, int));
 
 struct prop  *init_prop A_((char *pname));
