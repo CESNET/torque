@@ -912,9 +912,9 @@ scan_for_exiting(void)
 
     DIS_tcp_setup(sock);
 
-    if (encode_DIS_ReqHdr(sock, PBS_BATCH_StatusJob, pbs_current_user) ||
-        encode_DIS_Status(sock, pjob->ji_qs.ji_jobid, NULL) ||
-        encode_DIS_ReqExtend(sock, NULL))
+    if (tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_StatusJob, pbs_current_user) ||
+        tcp_encode_DIS_Status(sock, pjob->ji_qs.ji_jobid, NULL) ||
+        tcp_encode_DIS_ReqExtend(sock, NULL))
       {
       return;
       }
@@ -1039,9 +1039,9 @@ int post_epilogue(
 
   DIS_tcp_setup(sock);
 
-  if (encode_DIS_ReqHdr(sock, PBS_BATCH_JobObit, pbs_current_user) ||
-      encode_DIS_JobObit(sock, preq) ||
-      encode_DIS_ReqExtend(sock, 0))
+  if (tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_JobObit, pbs_current_user) ||
+      tcp_encode_DIS_JobObit(sock, preq) ||
+      tcp_encode_DIS_ReqExtend(sock, 0))
     {
     /* FAILURE */
 

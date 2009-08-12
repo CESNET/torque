@@ -204,16 +204,19 @@ int diswul A_((int stream, unsigned long value));
 /*#if UINT_MAX == ULONG_MAX*/
 #if SIZEOF_UNSIGNED_INT == SIZEOF_UNSIGNED_LONG
 #define diswui(stream, value) diswul(stream, (unsigned long)(value))
+#define tcp_diswui(stream, value) tcp_diswul(stream, (unsigned long)(value))
 #else
 int diswui A_((int stream, unsigned value));
 #endif
 #define diswus(stream, value) diswui(stream, (unsigned)(value))
 #define diswuc(stream, value) diswui(stream, (unsigned)(value))
+#define tcp_diswuc(stream, value) tcp_diswui(stream, (unsigned)(value))
 
 int diswsl A_((int stream, long value));
 /*#if INT_MIN == LONG_MIN && INT_MAX == LONG_MAX*/
 #if SIZEOF_INT == SIZEOF_LONG
 #define diswsi(stream, value) diswsl(stream, (long)(value))
+#define tcp_diswsi(stream, value) tcp_diswsl(stream, (long)(value))
 #else
 int diswsi A_((int stream, int value));
 #endif
@@ -229,6 +232,7 @@ int diswsi A_((int stream, int value));
 
 int diswcs A_((int stream, const char *value, size_t nchars));
 #define diswst(stream, value) diswcs(stream, value, strlen(value))
+#define tcp_diswst(stream, value) tcp_diswcs(stream, value, strlen(value))
 
 int diswl_ A_((int stream, dis_long_double_t value, unsigned int ndigs));
 #define diswl(stream, value) diswl_(stream, (value), LDBL_DIG)
@@ -239,6 +243,26 @@ int diswl_ A_((int stream, dis_long_double_t value, unsigned int ndigs));
 #else
 int diswf A_((int stream, double value));
 #endif
+
+/* prototype for tcp dis functions */
+char *tcp_disrcs(int stream, size_t *nchars, int *retval);
+int tcp_disrfst(int stream,	size_t achars, char *value);
+int tcp_disrsi(int stream, int *retval);
+int tcp_disrsi_(int stream,	int *negate, unsigned *value, unsigned count, char *buf);
+unsigned tcp_disrui(int stream,	int *retval);
+int tcp_disrsi_(int stream,	int *negate, unsigned *value, unsigned count, char *buf);
+char *tcp_disrst(int stream, int *retval);
+long tcp_disrsl(int  stream, int *retval);
+int tcp_disrfcs(int stream, size_t  *nchars, size_t  achars, char  *value);
+unsigned char tcp_disruc(int stream, int *retval);
+void tcp_disiui_(char *buf);
+
+int tcp_diswcs(int stream, const char *value, size_t nchars);
+int tcp_diswsi(int stream, int value);
+int tcp_diswsl(int  stream, long value);
+int tcp_diswui(int stream, unsigned value);
+int tcp_diswul(int stream, unsigned long value);
+
 
 extern const char *dis_emsg[];
 
@@ -261,10 +285,11 @@ extern int  PConnTimeout(int);
 
 struct tcpdisbuf
   {
+  unsigned long tdis_bufsize;
   char *tdis_leadp;
   char *tdis_trailp;
   char *tdis_eod;
-  char  tdis_thebuf[THE_BUF_SIZE];
+  char  *tdis_thebuf;
   };
 
 struct tcp_chan

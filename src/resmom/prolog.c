@@ -376,9 +376,11 @@ int run_pelog(
     rc = stat(pelog,&sbuf);
     }
 
+  printf("pelog: %s\n", pelog);
+
   if (rc == -1)
     {
-    if (errno == ENOENT)
+    if (errno == ENOENT || errno == EBADF)
       {
       /* prolog script does not exist */
 
