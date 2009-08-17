@@ -7943,6 +7943,7 @@ void status_service_job(
   FILE       *fp;
   char        cmd[MAXPATHLEN + 2];
   char        retdata[200];
+  time_t save_stime = 0;
   task *ptask;
 
   sprintf(log_buffer, "Requesting status for service job %s",
@@ -7997,41 +7998,64 @@ void status_service_job(
     /* if it is no longer running then clean up */
     /* set tasks to exited */
 
-    if (LOGLEVEL >= 7)
+    if (pjob->ji_wattr[(int)JOB_ATR_rerunable].at_val.at_long)
       {
+      /* job is rerunable, try to restart it */
 
-      LOG_EVENT(
-        PBSEVENT_DEBUG,
-        PBS_EVENTCLASS_JOB,
-        pjob->ji_qs.ji_jobid,
-        "Cleaning up service job");
-      }
-
-    ptask = (task *)GET_NEXT(pjob->ji_tasks);
-
-    while (ptask != NULL)
-      {
-      ptask->ti_qs.ti_exitstat = 0;
-
-      ptask->ti_qs.ti_status = TI_STATE_EXITED;
-      pjob->ji_qs.ji_un.ji_momt.ji_exitstat = 0;
-
-      if (LOGLEVEL >= 6)
+      if (LOGLEVEL >= 7)
         {
-        log_record(
-          PBSEVENT_ERROR,
+        LOG_EVENT(
+          PBSEVENT_DEBUG,
           PBS_EVENTCLASS_JOB,
           pjob->ji_qs.ji_jobid,
-          "saving task (main loop)");
+          "Restarting service job");
         }
 
-      task_save(ptask);
+      save_stime = pjob->ji_qs.ji_stime;
 
-      exiting_tasks = 1;
+      /* need to restart the service job */
 
-      ptask = (task *)GET_NEXT(ptask->ti_jobtask);
-      }  /* END while (ptask) */
+      start_exec(pjob);
 
+      pjob->ji_qs.ji_stime = save_stime;
+      }
+    else
+      {
+      if (LOGLEVEL >= 7)
+        {
+
+        LOG_EVENT(
+          PBSEVENT_DEBUG,
+          PBS_EVENTCLASS_JOB,
+          pjob->ji_qs.ji_jobid,
+          "Cleaning up service job");
+        }
+
+      ptask = (task *)GET_NEXT(pjob->ji_tasks);
+
+      while (ptask != NULL)
+        {
+        ptask->ti_qs.ti_exitstat = 0;
+
+        ptask->ti_qs.ti_status = TI_STATE_EXITED;
+        pjob->ji_qs.ji_un.ji_momt.ji_exitstat = 0;
+
+        if (LOGLEVEL >= 6)
+          {
+          log_record(
+            PBSEVENT_ERROR,
+            PBS_EVENTCLASS_JOB,
+            pjob->ji_qs.ji_jobid,
+            "saving task (main loop)");
+          }
+
+        task_save(ptask);
+
+        exiting_tasks = 1;
+
+        ptask = (task *)GET_NEXT(ptask->ti_jobtask);
+        }  /* END while (ptask) */
+      }
     }
 
   return;
