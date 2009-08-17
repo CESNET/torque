@@ -31,7 +31,7 @@ sub get_recieved_signals #($)
                         . "/spool/$job_id.OU";
 
   open(JOB_OU, "<$job_output_file")
-    or (    fail("Unable to open '$job_output_file'")
+    or (    fail("Unable to open '$job_output_file': $!")
         and return %signals);
 
   while (my $line = <JOB_OU>)
