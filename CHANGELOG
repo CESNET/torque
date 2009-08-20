@@ -8,6 +8,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       use a 32 bit user name.(Ken Nielson Cluster Resources)
   c - modified acct_job in server/accounting.c to dynamically allocate memory
       to accomodate strings larger than PBS_ACCT_MAX_RCD. (Ken Nielson Cluster Resources)
+  e - moving jobs can now trigger a scheduling iteration    
 
 2.3.7
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 
