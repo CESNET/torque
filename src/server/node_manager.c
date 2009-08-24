@@ -3883,10 +3883,10 @@ int set_nodes(
       if (LOGLEVEL >= 5)
         {
         sprintf(log_buffer, "allocated node %s/%d to job %s (nsnfree=%d)",
-            pnode->nd_name,
-            snp->index,
-            pjob->ji_qs.ji_jobid,
-            pnode->nd_nsnfree);
+          pnode->nd_name,
+          snp->index,
+          pjob->ji_qs.ji_jobid,
+          pnode->nd_nsnfree);
 
         log_record(
           PBSEVENT_SCHED,

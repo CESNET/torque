@@ -9,7 +9,7 @@
 * other than those described below, or to purchase support for this software,
 * please contact Veridian Systems, PBS Products Department ("Licensor") at:
 *
-*    www.OpenPBS.org  +1 650 967-4675                  sales@OpenPBS.org         
+*    www.OpenPBS.org  +1 650 967-4675                  sales@OpenPBS.org
 *                        877 902-4PBS (US toll-free)
 * ---------------------------------------------------------------------------
 *
@@ -158,6 +158,7 @@
 #define DEFAULT_SERVER_STAT_UPDATES 45
 
 #define PMAX_PORT           32000
+
 #define MAX_PORT_STRING_LEN         6
 #define MAX_LOCK_FILE_NAME_LEN      15
 /* Global Data Items */
@@ -451,7 +452,7 @@ struct config common_config[] =
   { NULL,        {NULL} }
   };
 
-int                     LOGLEVEL = 7;  /* valid values (0 - 10) */
+int                     LOGLEVEL = 0;  /* valid values (0 - 10) */
 int                     LOGKEEPDAYS = 0; /* days each log file should be kept before deleting */
 int                     DEBUGMODE = 0;
 int                     DOBACKGROUND = 1;
@@ -3407,6 +3408,16 @@ check_log(void)
   {
   last_log_check = time_now;
 
+  /* periodically record the version and loglevel */
+
+  sprintf(log_buffer, msg_info_mom, PACKAGE_VERSION, LOGLEVEL);
+
+  log_event(
+    PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+    PBS_EVENTCLASS_SERVER,
+    msg_daemonname,
+    log_buffer);
+
   if (LOGKEEPDAYS > 0)
     {
     /* remove logs older than log_keep_days */
@@ -4411,7 +4422,10 @@ int rm_request(
 
   /* looks okay, find out what command it is */
 
-  command = disrsi(iochan, &ret);
+  if(tcp)
+    command = tcp_disrsi(iochan, &ret);
+  else
+    command = disrsi(iochan, &ret);
 
   if (ret != DIS_SUCCESS)
     {
@@ -4440,7 +4454,10 @@ int rm_request(
 
       reqnum++;
 
-      ret = diswsi(iochan, RM_RSP_OK);
+      if(tcp)
+        ret = tcp_diswsi(iochan, RM_RSP_OK);
+      else
+        ret = diswsi(iochan, RM_RSP_OK);
 
       if (ret != DIS_SUCCESS)
         {
@@ -4452,7 +4469,10 @@ int rm_request(
 
       for (;;)
         {
-        cp = disrst(iochan, &ret);
+        if(tcp)
+          cp = tcp_disrst(iochan, &ret);
+        else
+          cp = disrst(iochan, &ret);
 
         if (ret == DIS_EOD)
           {
@@ -5071,7 +5091,11 @@ int rm_request(
 
         free(cp);
 
-        ret = diswst(iochan, output);
+        if(tcp)
+          ret = tcp_diswst(iochan, output);
+        else
+          ret = diswst(iochan, output);
+
 
         if (ret != DIS_SUCCESS)
           {
@@ -5105,7 +5129,10 @@ int rm_request(
 
       log_record(PBSEVENT_SYSTEM, 0, id, "configure");
 
-      body = disrst(iochan, &ret);
+      if(tcp)
+        body = tcp_disrst(iochan, &ret);
+      else
+        body = disrst(iochan, &ret);
 
       /* FORMAT:  FILE:<FILENAME> or <FILEDATA> (NYI) */
 
@@ -5158,7 +5185,10 @@ int rm_request(
 
       len = read_config(body);
 
-      ret = diswsi(iochan, len ? RM_RSP_ERROR : RM_RSP_OK);
+      if(tcp)
+        ret = tcp_diswsi(iochan, len ? RM_RSP_ERROR : RM_RSP_OK);
+      else
+        ret = diswsi(iochan, len ? RM_RSP_ERROR : RM_RSP_OK);
 
       if (ret != DIS_SUCCESS)
         {
@@ -5182,7 +5212,10 @@ int rm_request(
 
       log_record(PBSEVENT_SYSTEM, 0, id, "shutdown");
 
-      ret = diswsi(iochan, RM_RSP_OK);
+      if(tcp)
+        ret = tcp_diswsi(iochan, RM_RSP_OK);
+      else
+        ret = diswsi(iochan, RM_RSP_OK);
 
       if (ret != DIS_SUCCESS)
         {
@@ -5215,7 +5248,10 @@ int rm_request(
 
       log_err(-1, id, log_buffer);
 
-      ret = diswsi(iochan, RM_RSP_ERROR);
+      if(tcp)
+        ret = tcp_diswsi(iochan, RM_RSP_ERROR);
+      else
+        ret = diswsi(iochan, RM_RSP_ERROR);
 
       if (ret != DIS_SUCCESS)
         {
@@ -5225,7 +5261,10 @@ int rm_request(
         goto bad;
         }
 
-      ret = diswst(iochan, log_buffer);
+      if(tcp)
+        ret = tcp_diswst(iochan, log_buffer);
+      else
+        ret = diswst(iochan, log_buffer);
 
       if (ret != DIS_SUCCESS)
         {
@@ -5459,7 +5498,7 @@ int do_tcp(
 
   pbs_tcp_timeout = 0;
 
-  proto = disrsi(fd, &ret);
+  proto = tcp_disrsi(fd, &ret);
 
   if (tmpT > 0)
     {
@@ -5506,7 +5545,7 @@ int do_tcp(
       break;
     }  /* END switch (ret) */
 
-  version = disrsi(fd, &ret);
+  version = tcp_disrsi(fd, &ret);
 
   if (ret != DIS_SUCCESS)
     {
@@ -7028,7 +7067,7 @@ int setup_program_environment(void)
     return(1);
     }
 
-    mom_lock(lockfds,F_WRLCK); /* See if other MOMs are running */
+  mom_lock(lockfds,F_WRLCK); /* See if other MOMs are running */
 
   /* initialize the network interface */
 

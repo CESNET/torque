@@ -3074,7 +3074,7 @@ char *sessions(
     if ((jobid = ps->session) == 0)
       continue;
 
-    if (LOGLEVEL >= 8)
+    if (LOGLEVEL >= 6)
       {
       sprintf(log_buffer, "%s[%d]: pid %d sid %d",
               id,
@@ -3320,7 +3320,7 @@ char *nusers(
     if ((uid = ps->uid) == 0)
       continue;
 
-    if (LOGLEVEL >= 8)
+    if (LOGLEVEL >= 6)
       {
       sprintf(log_buffer, "%s[%d]: pid %d uid %d",
               id,

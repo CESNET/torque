@@ -1171,6 +1171,7 @@ int node_note(
   }  /* END node_note() */
 
 
+
 /*
  * a set_str() wrapper with sanity checks for notes
  */

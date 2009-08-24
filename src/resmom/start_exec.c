@@ -2046,7 +2046,11 @@ int TMomFinalizeJob2(
 
   char                  buf[MAXPATHLEN + 2];
   pid_t                 cpid;
+#if SHELL_USE_ARGV == 0
+#if SHELL_INVOKE == 1
   int                   i, j;
+#endif /* SHELL_INVOKE */
+#endif  /* !SHELL_USE_ARGV */
 
   job                  *pjob;
   task                 *ptask;
@@ -3999,6 +4003,7 @@ int start_process(
       return(-1);
       }
 
+/* This write to the pipe is redundant and leads to a sigpipe because of a race condition with the child */
 /*    if (write(parent_write, &sjr, sizeof(sjr)) == -1) {} */
 
     close(parent_write);

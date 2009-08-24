@@ -94,6 +94,7 @@
 #include <signal.h>
 #include <netdb.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/socket.h>
@@ -917,6 +918,7 @@ int pbs_disconnect(
   int connect)  /* I (socket descriptor) */
 
   {
+  int  flags;
   int  sock;
   static char x[THE_BUF_SIZE / 4];
 
@@ -926,7 +928,7 @@ int pbs_disconnect(
 
   DIS_tcp_setup(sock);
 
-  if ((encode_DIS_ReqHdr(sock, PBS_BATCH_Disconnect, pbs_current_user) == 0) &&
+  if ((tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_Disconnect, pbs_current_user) == 0) &&
       (DIS_tcp_wflush(sock) == 0))
     {
     int atime;
@@ -944,17 +946,29 @@ int pbs_disconnect(
 
     atime = alarm(pbs_tcp_timeout);
 
-    /* NOTE:  alarm will break out of blocking read even with sigaction ignored */
+#ifndef PBS_DISCONNECT_NOWAIT
+    /* get the flags and make sure the socket is non-blocking */
 
-    while (1)
+    if ((flags = fcntl(sock, F_GETFL)) != -1)
       {
-      /* wait for server to close connection */
+      flags |= O_NONBLOCK;
 
-      /* NOTE:  if read of 'sock' is blocking, request below may hang forever */
+      if (fcntl(sock,F_SETFL,flags) != -1)
+        {
+        /* only attempt to check the server's connection if the socket is non-blocking */
 
-      if (read(sock, &x, sizeof(x)) < 1)
-        break;
+        /* NOTE:  alarm will break out of blocking read even with sigaction ignored */
+
+        while (1)
+          {
+          /* wait for server to close connection (up to 30 seconds due to read_nonblocking_socket() */
+
+          if (read(sock,&x,sizeof(x)) < 1)  /* read() is really read_nonblocking_socket() */
+            break;
+          }
+        }
       }
+#endif /* !PBS_DISCONNECT_NOWAIT */
 
     alarm(atime);
 
