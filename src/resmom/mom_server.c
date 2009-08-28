@@ -447,6 +447,10 @@ mom_server *mom_server_find_by_ip(
     if (pms->SStream != -1)
       {
       addr = rpp_getaddr(pms->SStream);
+      if(addr == NULL)
+        {
+        return(NULL);
+        }
       ipaddr = ntohl(addr->sin_addr.s_addr);
 
       if (ipaddr == search_ipaddr)
