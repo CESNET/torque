@@ -203,6 +203,10 @@ char        *path_server_name;
 char           *path_home = PBS_SERVER_HOME;
 char           *mom_home;
 
+extern int  multi_mom;
+extern unsigned int pbs_rm_port;
+
+
 extern char    *msg_daemonname;          /* for logs     */
 extern char *msg_info_mom; /* Mom information message   */
 extern int pbs_errno;
@@ -7969,6 +7973,7 @@ kill_all_running_jobs(void)
 
   {
   job *pjob;
+  unsigned int momport = 0;
 
   for (pjob = (job *)GET_NEXT(svr_alljobs);
        pjob != NULL;
@@ -7980,7 +7985,12 @@ kill_all_running_jobs(void)
 
       pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-      job_save(pjob, SAVEJOB_QUICK);
+	  if(multi_mom)
+		{
+		momport = pbs_rm_port;
+		}
+
+	  job_save(pjob, SAVEJOB_QUICK, momport);
       }
     else
       {

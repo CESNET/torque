@@ -130,6 +130,9 @@ extern int  svr_chkque A_((job *, pbs_queue *, char *, int, char *));
 extern int  job_route A_((job *));
 extern void check_state(int);
 extern void mom_server_all_update_stat();
+extern int  multi_mom;
+extern unsigned int pbs_rm_port;
+
 
 /* Global Data Items: */
 
@@ -534,6 +537,7 @@ void req_jobscript(
 
   int  fds;
   char  namebuf[MAXPATHLEN];
+  char  portname[MAXPATHLEN];
   job *pj;
   int  filemode = 0700;
   extern char mom_host[];
@@ -591,6 +595,12 @@ void req_jobscript(
   strcpy(namebuf, path_jobs);
 
   strcat(namebuf, pj->ji_qs.ji_fileprefix);
+  if(multi_mom)
+    {
+    sprintf(portname, "%d", pbs_rm_port);
+    strcat(namebuf, portname);
+    }
+
   strcat(namebuf, JOB_SCRIPT_SUFFIX);
 
   if (pj->ji_qs.ji_un.ji_newt.ji_scriptsz == 0)
@@ -775,6 +785,8 @@ void req_rdytocommit(
   char OrigSChar;
   long OrigFlags;
 
+  unsigned int momport = 0;
+
   pj = locate_new_job(sock, preq->rq_ind.rq_rdytocommit);
 
   if (LOGLEVEL >= 6)
@@ -819,7 +831,11 @@ void req_rdytocommit(
   pj->ji_wattr[(int)JOB_ATR_state].at_val.at_char = 'T';
   pj->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_VFLAG_SET;
 
-  if (job_save(pj, SAVEJOB_NEW) == -1)
+  if(multi_mom)
+    {
+    momport = pbs_rm_port;
+    }
+  if (job_save(pj, SAVEJOB_NEW, momport) == -1)
     {
     char tmpLine[1024];
 
@@ -892,6 +908,7 @@ void req_commit(
 
   {
   job   *pj;
+  unsigned int momport;
 
   pj = locate_new_job(preq->rq_conn, preq->rq_ind.rq_commit);
 
@@ -998,7 +1015,12 @@ void req_commit(
     reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Commit);
     }
 
-  job_save(pj, SAVEJOB_FULL);
+  if(multi_mom)
+    {
+    momport = pbs_rm_port;
+    }
+
+  job_save(pj, SAVEJOB_FULL, momport);
 
   /* NOTE: we used to flag JOB_ATR_errpath, JOB_ATR_outpath,
    * JOB_ATR_session_id, and JOB_ATR_altid as modified at this point to make sure

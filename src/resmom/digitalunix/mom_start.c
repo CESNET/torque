@@ -105,6 +105,7 @@ extern int  exiting_tasks;
 extern char  mom_host[];
 extern tlist_head svr_alljobs;
 extern int  termin_child;
+extern int  multi_mom;
 
 /* Private variables */
 
@@ -300,7 +301,7 @@ scan_for_terminated(void)
 
       pjob->ji_momsubt = 0;
 
-      (void)job_save(pjob, SAVEJOB_QUICK);
+      (void)job_save(pjob, SAVEJOB_QUICK,0);
       continue;
       }
 

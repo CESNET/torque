@@ -1159,7 +1159,7 @@ void purge_completed_jobs(
       pjob->ji_wattr[(int)JOB_ATR_reported].at_flags =
         ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
           
-      job_save(pjob,SAVEJOB_FULL); 
+      job_save(pjob,SAVEJOB_FULL, 0); 
       }
     }
 

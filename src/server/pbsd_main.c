@@ -1496,7 +1496,7 @@ int main(
        pjob = (job *)GET_NEXT(pjob->ji_alljobs))
     {
     if (pjob->ji_modified)
-      job_save(pjob, SAVEJOB_FULL);
+      job_save(pjob, SAVEJOB_FULL, 0);
     }
 
   if (svr_chngNodesfile)

@@ -156,6 +156,9 @@ extern  char             PRE_EXEC[];
 extern int LOGLEVEL;
 extern long TJobStartBlockTime;
 
+extern int  multi_mom;
+extern unsigned int pbs_rm_port;
+
 
 int              mom_reader_go;  /* see catchinter() & mom_writer() */
 
@@ -231,6 +234,7 @@ int TMomFinalizeChild(pjobexec_t *);
 
 int TMomCheckJobChild(pjobexec_t *, int, int *, int *);
 static int search_env_and_open(const char *, u_long);
+
 extern int TMOMJobGetStartInfo(job *, pjobexec_t **);
 extern int mom_reader(int, int);
 extern int mom_writer(int, int);
@@ -721,6 +725,7 @@ void exec_bail(
   static char id[] = "exec_bail";
 
   int nodecount;
+  unsigned int momport = 0;
 
   nodecount = send_sisters(pjob, IM_ABORT_JOB);
 
@@ -740,7 +745,12 @@ void exec_bail(
 
   pjob->ji_qs.ji_un.ji_momt.ji_exitstat = code;
 
-  job_save(pjob, SAVEJOB_QUICK);
+  if(multi_mom)
+    {
+    momport = pbs_rm_port;
+    }
+
+  job_save(pjob, SAVEJOB_QUICK, momport);
 
   exiting_tasks = 1;
 
@@ -2045,6 +2055,7 @@ int TMomFinalizeJob2(
   static char          *id = "TMomFinalizeJob2";
 
   char                  buf[MAXPATHLEN + 2];
+  char                  portname[MAXPATHLEN];
   pid_t                 cpid;
 #if SHELL_USE_ARGV == 0
 #if SHELL_INVOKE == 1
@@ -2118,6 +2129,12 @@ int TMomFinalizeJob2(
   strcpy(buf, path_jobs);
 
   strcat(buf, pjob->ji_qs.ji_fileprefix);
+  if(multi_mom)
+    {
+    sprintf(portname, "%d", pbs_rm_port);
+    strcat(buf, portname);
+    }
+
 
   strcat(buf, JOB_SCRIPT_SUFFIX);
 
@@ -2271,6 +2288,11 @@ int TMomFinalizeChild(
   char                  *arg[32];
 
   char                   buf[MAXPATHLEN + 2];
+#ifndef SHELL_USE_ARGV
+#ifndef SHELL_INVOKE
+  char                   portname[MAXPATHLEN];
+#endif
+#endif
   pid_t                  cpid;
   int                    i, j, vnodenum;
 
@@ -2867,6 +2889,11 @@ int TMomFinalizeChild(
     strcpy(buf, path_jobs);
 
     strcat(buf, pjob->ji_qs.ji_fileprefix);
+    if(multi_mom)
+      {
+      sprintf(portname, "%d", pbs_rm_port;
+      strcat(buf, portname);
+      }
 
     strcat(buf, JOB_SCRIPT_SUFFIX);
 
@@ -3407,6 +3434,13 @@ int TMomFinalizeChild(
 
       strcpy(arg[aindex],path_jobs);
       strcat(arg[aindex],pjob->ji_qs.ji_fileprefix);
+      if(multi_mom)
+        {
+        sprintf(portname, "%d", pbs_rm_port;
+        strcat(arg[aindex], portname);
+        }
+
+
       strcat(arg[aindex],JOB_SCRIPT_SUFFIX);
 
       arg[aindex + 1] = NULL;
@@ -3611,6 +3645,7 @@ int TMomFinalizeJob3(
 
   job  *pjob;
   task *ptask;
+  unsigned int momport = 0;
 
   pjob = (job *)TJE->pjob;
   ptask = (task *)TJE->ptask;
@@ -3808,7 +3843,12 @@ int TMomFinalizeJob3(
 
   /* changed from SAVEJOB_QUICK to SAVEJOB_FULL (USC - 2/5/2005) */
 
-  job_save(pjob, SAVEJOB_FULL);
+  if(multi_mom)
+    {
+    momport = pbs_rm_port;
+    }
+
+  job_save(pjob, SAVEJOB_FULL, momport);
 
   sprintf(log_buffer, "job %s started, pid = %ld",
           pjob->ji_qs.ji_jobid,
@@ -3852,6 +3892,7 @@ int start_process(
   int i, j;
   int fd0, fd1, fd2;
   u_long ipaddr;
+  unsigned int momport = 0;
 
   struct  startjob_rtn sjr =
     {
@@ -4095,7 +4136,12 @@ int start_process(
       pjob->ji_qs.ji_state    = JOB_STATE_RUNNING;
       pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
 
-      job_save(pjob, SAVEJOB_QUICK);
+      if(multi_mom)
+        {
+        momport = pbs_rm_port;
+        }
+
+      job_save(pjob, SAVEJOB_QUICK, momport);
       }
 
     sprintf(log_buffer, "%s: task started, tid %d, sid %ld, cmd %s",
@@ -4717,9 +4763,6 @@ void nodes_free(
   }  /* END nodes_free() */
 
 
-
-
-
 /**
  * Generate array hosts & vnodes for a job from the exec_host attribute.
  * Call nodes_free() just in case we have seen this job before.
@@ -4823,7 +4866,7 @@ void job_nodes(
 
     /* see if we already have this host */
 
-    for (j = 0;j < nhosts;++j)
+    for (j = 0;j < nhosts;++j)                                  
       {
       if (strcmp(nodename, pjob->ji_hosts[j].hn_host) == 0)
         break;
@@ -4946,6 +4989,7 @@ void start_exec(
   int           stream;
   char          tmpdir[MAXPATHLEN];
 
+
   torque_socklen_t slen;
 
   void im_compose A_((
@@ -5047,7 +5091,7 @@ void start_exec(
   /* if nodecount > 1, return once joins are sent, if nodecount == 1,
      return once job is started */
 
-  if (nodenum > 1)
+    if (nodenum > 1)
     {
     /* Step 4.0A Send Join Request to Sisters */
 

@@ -109,6 +109,7 @@ extern int  exiting_tasks;
 extern char  mom_host[];
 extern tlist_head svr_alljobs;
 extern int  termin_child;
+extern int  multi_mom;
 
 extern int       LOGLEVEL;
 
@@ -300,7 +301,7 @@ scan_for_terminated(void)
 
     pjob->ji_momsubt = 0;
 
-    job_save(pjob, SAVEJOB_QUICK);
+    job_save(pjob, SAVEJOB_QUICK, 0);
     TJCache[TJCIndex] = ((job *)1);
 
     }  /* END for (TJIndex) */
@@ -445,7 +446,7 @@ scan_for_terminated(void)
 
       pjob->ji_momsubt = 0;
 
-      (void)job_save(pjob, SAVEJOB_QUICK);
+      (void)job_save(pjob, SAVEJOB_QUICK, 0);
 
       continue;
       }  /* END if (pid == pjob->ji_momsubt) */

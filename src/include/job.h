@@ -814,7 +814,7 @@ extern job  *job_clone A_((job *, int));
 extern void  job_free A_((job *));
 extern void  job_purge A_((job *));
 extern job  *job_recov A_((char *));
-extern int   job_save A_((job *, int));
+extern int   job_save A_((job *, int, int));
 extern int   modify_job_attr A_((job *, svrattrl *, int, int *));
 extern char *prefix_std_file A_((job *, int));
 extern char *add_std_filename A_((job *, char *, int));

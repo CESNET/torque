@@ -109,7 +109,8 @@ extern int  exiting_tasks;
 extern char  mom_host[];
 extern tlist_head svr_alljobs;
 extern int  termin_child;
-
+extern int  multi_mom;
+extern unsigned int pbs_rm_port;
 extern int       LOGLEVEL;
 
 extern char     *AllocParCmd;
@@ -324,6 +325,7 @@ scan_for_terminated(void)
   job *pjob;
   task *ptask = NULL;
   int statloc;
+  unsigned int momport = 0;
 
 #ifdef CACHEOBITFAILURES
   int tjcindex;
@@ -407,7 +409,12 @@ scan_for_terminated(void)
 
     pjob->ji_momsubt = 0;
 
-    job_save(pjob, SAVEJOB_QUICK);
+    if(multi_mom)
+      {
+      momport = pbs_rm_port;
+      }
+
+    job_save(pjob, SAVEJOB_QUICK, momport);
     TJCache[TJCIndex] = ((job *)1);
     }  /* END for (TJIndex) */
 
@@ -554,7 +561,12 @@ scan_for_terminated(void)
 
       pjob->ji_momsubt = 0;
 
-      job_save(pjob, SAVEJOB_QUICK);
+      if(multi_mom)
+        {
+        momport = pbs_rm_port;
+        }
+
+      job_save(pjob, SAVEJOB_QUICK, momport);
 
       continue;
       }  /* END if (pid == pjob->ji_momsubt) */

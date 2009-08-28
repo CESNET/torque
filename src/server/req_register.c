@@ -547,7 +547,7 @@ void req_register(
   else
     {
     if ((pjob != NULL) && (pjob->ji_modified != 0))
-      job_save(pjob, SAVEJOB_FULL);
+      job_save(pjob, SAVEJOB_FULL, 0);
 
     reply_ack(preq);
     }

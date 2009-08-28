@@ -1195,7 +1195,7 @@ void on_job_exit(
           pjob->ji_wattr[(int)JOB_ATR_reported].at_flags =
             ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 
-          job_save(pjob,SAVEJOB_FULL);
+          job_save(pjob,SAVEJOB_FULL, 0);
           }
         }
       else if (((pjob->ji_wattr[(int)JOB_ATR_reported].at_flags & ATR_VFLAG_SET) != 0)
@@ -1246,7 +1246,7 @@ void on_job_exit(
           pjob->ji_wattr[(int)JOB_ATR_comp_time].at_flags |= ATR_VFLAG_SET;
 
           ptask = set_task(WORK_Timed, time_now + KeepSeconds, on_job_exit, pjob);
-          job_save(pjob, SAVEJOB_FULL);
+          job_save(pjob, SAVEJOB_FULL, 0);
           }
 
         if (ptask != NULL)

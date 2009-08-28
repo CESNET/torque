@@ -119,6 +119,8 @@
 
 extern struct var_table vtable;      /* see start_exec.c */
 extern char           **environ;
+extern int  multi_mom;
+
 
 extern int InitUserEnv(
 
@@ -1289,6 +1291,7 @@ void req_modifyjob(
   job  *pjob;
   svrattrl *plist;
   int   rc;
+  unsigned int momport = 0;
 
   char tmpLine[1024];
 
@@ -1429,7 +1432,12 @@ void req_modifyjob(
     return;
     }
 
-  job_save(pjob, SAVEJOB_FULL);
+  if(multi_mom)
+    {
+    momport = pbs_rm_port;
+    }
+
+  job_save(pjob, SAVEJOB_FULL, momport);
 
   sprintf(log_buffer, msg_manager,
           msg_jobmod,
@@ -1886,6 +1894,7 @@ void req_signaljob(
   int             sig;
   int             numprocs=0;
   char           *sname;
+  unsigned int momport = 0;
 
   struct sig_tbl *psigt;
 
@@ -2016,7 +2025,12 @@ void req_signaljob(
 
     pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-    job_save(pjob, SAVEJOB_QUICK);
+    if(multi_mom)
+      {
+      momport = pbs_rm_port;
+      }
+
+    job_save(pjob, SAVEJOB_QUICK, momport);
 
     exiting_tasks = 1;
     }
@@ -3637,6 +3651,8 @@ int mom_checkpoint_job(
   char         *name;
   int  filelen;
   task         *ptask;
+  unsigned int momport = 0;
+
   extern char   task_fmt[];
 
   assert(pjob != NULL);
@@ -3737,7 +3753,12 @@ int mom_checkpoint_job(
 
   pjob->ji_qs.ji_svrflags |= JOB_SVFLG_CHKPT;
 
-  job_save(pjob, SAVEJOB_FULL); /* to save resources_used so far */
+  if(multi_mom)
+    {
+    momport = pbs_rm_port;
+    }
+
+  job_save(pjob, SAVEJOB_FULL, momport); /* to save resources_used so far */
 
   sprintf(log_buffer, "checkpointed to %s",
           path);

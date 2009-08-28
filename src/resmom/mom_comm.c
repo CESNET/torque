@@ -146,6 +146,8 @@ extern tree           *okclients; /* accept connections from */
 extern  int             port_care;
 extern  char           *path_prologp;
 extern  char           *path_prologuserp;
+extern int  multi_mom;
+extern unsigned int pbs_rm_port;
 
 const char *PMOMCommand[] =
   {
@@ -208,10 +210,17 @@ int task_save(
   int i;
   int TaskID = 0;
   char namebuf[MAXPATHLEN];
+  char portname[MAXPATHLEN];
   int openflags;
 
   strcpy(namebuf, path_jobs);     /* job directory path */
   strcat(namebuf, pjob->ji_qs.ji_fileprefix);
+  if(multi_mom)
+    {
+    sprintf(portname, "%d", pbs_rm_port);
+    strcat(namebuf, portname);
+    }
+
   strcat(namebuf, JOB_TASKDIR_SUFFIX);
 
   openflags = O_WRONLY | O_CREAT | O_Sync;
@@ -534,12 +543,19 @@ int task_recov(
   int  fds;
   task  *pt;
   char  namebuf[MAXPATHLEN];
+  char  portname[MAXPATHLEN];
 
   struct taskfix task_save;
   tm_task_id tid;
 
   strcpy(namebuf, path_jobs);     /* job directory path */
   strcat(namebuf, pjob->ji_qs.ji_fileprefix);
+  if(multi_mom)
+    {
+    sprintf(portname, "%d", pbs_rm_port);
+    strcat(namebuf, portname);
+    }
+
   strcat(namebuf, JOB_TASKDIR_SUFFIX);
 
 #ifdef HAVE_OPEN64
@@ -1180,6 +1196,7 @@ void node_bailout(
   task          *ptask;
   eventent      *ep;
   int            i;
+  unsigned int momport = 0;
 
   ep = (eventent *)GET_NEXT(np->hn_events);
 
@@ -1244,7 +1261,12 @@ void node_bailout(
 
           pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-          job_save(pjob, SAVEJOB_QUICK);
+          if(multi_mom)
+            {
+            momport = pbs_rm_port;
+            }
+
+          job_save(pjob, SAVEJOB_QUICK, momport);
 
           exiting_tasks = 1;
           }
@@ -1864,6 +1886,7 @@ void im_request(
   tlist_head  lhead;
   svrattrl  *psatl;
   attribute_def  *pdef;
+  unsigned int momport = 0;
 
   struct passwd  *check_pwd();
   extern int  resc_access_perm;
@@ -2403,7 +2426,12 @@ void im_request(
 
 #endif /* IBM SP */
 
-      job_save(pjob, SAVEJOB_FULL);
+      if(multi_mom)
+        {
+        momport = pbs_rm_port;
+        }
+
+      job_save(pjob, SAVEJOB_FULL, momport);
 
       sprintf(log_buffer,"JOIN JOB as node %d",
         nodeid);
@@ -2621,7 +2649,12 @@ void im_request(
 
       pjob->ji_obit = event;
 
-      job_save(pjob, SAVEJOB_QUICK);
+      if(multi_mom)
+        {
+        momport = pbs_rm_port;
+        }
+
+      job_save(pjob, SAVEJOB_QUICK, momport);
 
       exiting_tasks = 1;
 
@@ -3311,7 +3344,12 @@ void im_request(
         pjob->ji_qs.ji_state    = JOB_STATE_RUNNING;
         pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
 
-        job_save(pjob, SAVEJOB_QUICK);
+        if(multi_mom)
+          {
+          momport = pbs_rm_port;
+          }
+
+        job_save(pjob, SAVEJOB_QUICK, momport);
         }
 
       /* Now comes a recomendation for killing the job. */
@@ -3669,7 +3707,12 @@ void im_request(
 
             pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-            job_save(pjob, SAVEJOB_QUICK);
+            if(multi_mom)
+              {
+              momport = pbs_rm_port;
+              }
+
+            job_save(pjob, SAVEJOB_QUICK, momport);
 
             exiting_tasks = 1;
             }
@@ -4202,7 +4245,12 @@ void im_request(
 
             pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-            job_save(pjob, SAVEJOB_QUICK);
+            if(multi_mom)
+              {
+              momport = pbs_rm_port;
+              }
+
+            job_save(pjob, SAVEJOB_QUICK, momport);
 
             exiting_tasks = 1;
             }
@@ -4481,6 +4529,8 @@ int tm_request(
   tm_node_id nodeid;
   tm_task_id taskid = 0, fromtask;
   attribute *at;
+  unsigned int momport = 0;
+
   extern u_long  localaddr;
 
   extern struct connection svr_conn[];
@@ -5179,7 +5229,12 @@ int tm_request(
 
       ep = event_alloc(IM_SPAWN_TASK, phost, event, fromtask);
 
-      job_save(pjob, SAVEJOB_FULL);
+      if(multi_mom)
+        {
+        momport = pbs_rm_port;
+        }
+
+      job_save(pjob, SAVEJOB_FULL, momport);
 
       if (phost->hn_stream == -1)
         {
@@ -5735,6 +5790,7 @@ static int adoptSession(pid_t sid, char *id, int command, char *cookie)
   {
   job *pjob;
   task *ptask;
+  unsigned int momport = 0;
 
   /* extern  int next_sample_time; */
   /* extern  time_t time_resc_updated; */
@@ -5844,7 +5900,12 @@ static int adoptSession(pid_t sid, char *id, int command, char *cookie)
     {
     pjob->ji_qs.ji_state = JOB_STATE_RUNNING;
     pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
-    job_save(pjob, SAVEJOB_QUICK);
+    if(multi_mom)
+      {
+      momport = pbs_rm_port;
+      }
+
+    job_save(pjob, SAVEJOB_QUICK, momport);
     }
 
   if (mom_get_sample() == PBSE_NONE)
