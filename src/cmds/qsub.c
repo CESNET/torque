@@ -1188,7 +1188,7 @@ int set_job_env(
   else
     {
     c = pbs_default();
-    if (*c != 0)
+    if (*c != '\0')
       {
       strncpy(server_host, c, sizeof(server_host));
       strcat(job_env,",PBS_SERVER=");
