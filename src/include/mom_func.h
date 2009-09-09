@@ -114,6 +114,13 @@ struct cphosts
   char *cph_to;
   };
 
+struct radix_buf
+  {
+  int current_string_len;
+  int max_string_len;
+  char *host_list;
+  };
+
 extern int cphosts_num;
 
 /* holds the varattrs */

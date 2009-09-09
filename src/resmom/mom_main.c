@@ -203,6 +203,7 @@ char        *path_server_name;
 char           *path_home = PBS_SERVER_HOME;
 char           *mom_home;
 
+
 extern int  multi_mom;
 extern unsigned int pbs_rm_port;
 

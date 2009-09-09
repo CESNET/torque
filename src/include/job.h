@@ -282,6 +282,7 @@ enum job_atr
   JOB_ATR_chkptname,   /* name of checkpoint file */
   JOB_ATR_comp_time,  /* time when job was completed */
   JOB_ATR_reported, /* tracks whether job has been reported to scheduler */
+  JOB_ATR_job_radix,
 #include "site_job_attr_enum.h"
 
   JOB_ATR_UNKN,  /* the special "unknown" type    */

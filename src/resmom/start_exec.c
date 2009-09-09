@@ -171,6 +171,7 @@ extern int      src_login_batch;
 extern int      src_login_interactive;
 
 
+
 /* Local Variables */
 
 static int      script_in; /* script file, will be stdin   */
@@ -234,6 +235,8 @@ int TMomFinalizeChild(pjobexec_t *);
 
 int TMomCheckJobChild(pjobexec_t *, int, int *, int *);
 static int search_env_and_open(const char *, u_long);
+
+int add_host_to_sister_list(char *, struct radix_buf *);
 
 extern int TMOMJobGetStartInfo(job *, pjobexec_t **);
 extern int mom_reader(int, int);
@@ -4763,6 +4766,36 @@ void nodes_free(
   }  /* END nodes_free() */
 
 
+int add_host_to_sister_list(char *hostname, struct radix_buf *list)
+{
+  char *tmp;
+  char *cp;
+
+  if((int)(strlen(hostname)+list->current_string_len + 1) >= list->max_string_len)
+    {
+    /* This is a long list and we need to make more room */
+    tmp = (char *)realloc(list->host_list, list->max_string_len + THE_BUF_SIZE);
+    assert(tmp != NULL);
+
+    list->max_string_len += THE_BUF_SIZE;
+    list->host_list = tmp;
+    }
+
+  if(list->host_list[0] != 0)
+    {
+    cp = &list->host_list[strlen(list->host_list)];
+    *cp = '+';
+    cp++; *cp = 0;
+    strcat(list->host_list, hostname);
+    }
+  else
+    strcpy(list->host_list, hostname);
+
+  return(0);
+}
+
+
+
 /**
  * Generate array hosts & vnodes for a job from the exec_host attribute.
  * Call nodes_free() just in case we have seen this job before.
@@ -4866,7 +4899,7 @@ void job_nodes(
 
     /* see if we already have this host */
 
-    for (j = 0;j < nhosts;++j)                                  
+    for (j = 0;j < nhosts;++j)
       {
       if (strcmp(nodename, pjob->ji_hosts[j].hn_host) == 0)
         break;
@@ -4978,17 +5011,22 @@ void start_exec(
   static char  *id = "start_exec";
 
   eventent     *ep;
-  int  i, nodenum;
+  int  i,j, nodenum, rc;
   int  ports[2], socks[2];
 
   struct sockaddr_in saddr;
   hnodent      *np;
   attribute    *pattr;
   tlist_head    phead;
-  svrattrl     *psatl;
+  svrattrl      satl;
+  svrattrl      *psatl;
   int           stream;
   char          tmpdir[MAXPATHLEN];
 
+  int index;
+  int mom_radix = 0;
+  attribute_def *pdef;
+  struct radix_buf  **sister_list;
 
   torque_socklen_t slen;
 
@@ -5091,7 +5129,82 @@ void start_exec(
   /* if nodecount > 1, return once joins are sent, if nodecount == 1,
      return once job is started */
 
-    if (nodenum > 1)
+  index = find_attr(job_attr_def, ATTR_job_radix, JOB_ATR_LAST);
+
+  if(index > 0)
+     {
+     /* parallel job */
+
+     pdef = &job_attr_def[index];
+     psatl = &satl;
+
+     rc = pdef->at_decode(
+                &pjob->ji_wattr[index],
+                psatl->al_atopl.name,
+                psatl->al_atopl.resource,
+                psatl->al_atopl.value);
+
+
+     if(rc == 0)
+       {
+       mom_radix = atoi(satl.al_atopl.value);
+       }
+
+    }
+
+  /* If the job_radix attribute has been set then nodenum must be at least one
+     more than mom_radix or there is no point in doing a radix */
+    if(mom_radix > 0 && (mom_radix + 1) <= nodenum)
+    {
+       pjob->ji_resources = (noderes *)calloc(nodenum - 1, sizeof(noderes));
+  
+       assert(pjob->ji_resources != NULL);
+  
+       CLEAR_HEAD(phead);
+  
+       pattr = pjob->ji_wattr;
+  
+       for (i = 0;i < (int)JOB_ATR_LAST;i++)
+         {
+         (job_attr_def + i)->at_encode(
+           pattr + i,
+           &phead,
+           (job_attr_def + i)->at_name,
+           NULL,
+           ATR_ENCODE_MOM);
+         }  /* END for (i) */
+  
+        attrl_fixlink(&phead);
+  
+        sister_list = (struct radix_buf **)calloc((size_t)mom_radix, sizeof(struct radix_buf));
+        assert(sister_list != NULL);
+  
+        for(i = 0; i < mom_radix; i++)
+          {
+          sister_list[i] = (struct radix_buf *)malloc(sizeof(struct radix_buf));
+          assert(sister_list[i] != NULL);
+          sister_list[i]->host_list = (char *)malloc(THE_BUF_SIZE);
+          assert(sister_list[i]->host_list != NULL);
+  
+          memset(sister_list[i]->host_list, 0, THE_BUF_SIZE);
+          sister_list[i]->current_string_len = 0;
+          sister_list[i]->max_string_len = THE_BUF_SIZE;
+          }
+  
+      /* Parse nodes into the radix */
+        i = 1; /* start at 1 because ji_hosts[0] is mother superior */
+        do
+          {
+          for(j = 0; j < mom_radix && i < nodenum; j++)
+            {
+            np = &pjob->ji_hosts[i];
+            add_host_to_sister_list(np->hn_host, sister_list[j]);
+            i++;
+            }
+          }while(i < nodenum);
+  
+    }
+    else if (nodenum > 1)
     {
     /* Step 4.0A Send Join Request to Sisters */
 
