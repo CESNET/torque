@@ -5145,7 +5145,7 @@ void start_exec(
                 psatl->al_atopl.value);
 
 
-     if(rc == 0)
+     if(rc == 0 && (psatl->al_atopl.value != NULL))
        {
        mom_radix = atoi(satl.al_atopl.value);
        }
