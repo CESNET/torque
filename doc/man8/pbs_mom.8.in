@@ -382,16 +382,20 @@ HEALTH CHECK for more information).
 specifies when to run the MOM health check.  The check can be either periodic,
 event-driver, or both.  The value starts with an integer specifying the number
 of MOM intervals between subsequent executions of the specified health check.
-After the integer is an optional comma-separated list of event names.
+You can optionally specify the interval for when the node health script fails,
+this is done by adding a comma-separated failure interval before the the normal
+value. After the integers are an optional space-separated list of event names.
 Currently supported are "jobstart" and "jobend".  This value defaults to 1 with
 no events indicating the check is run every mom interval. (see HEALTH CHECK for
 more information)
 .IP
-.Ty "$node_check_interval 0"  Disabled.
+.Ty "$node_check_interval"  " Disabled."
 .br
-.Ty "$node_check_interval 0,jobstart"  Only runs at job starts
+.Ty "$node_check_interval 0 jobstart"  " Only runs at job starts"
 .br
-.Ty "$node_check_interval 10,jobstart,jobend"
+.Ty "$node_check_interval 10 jobstart jobend"
+.br
+.Ty "$node_check_interval 2,10 jobstart jobend"
 .IP
 .IP prologalarm
 Specifies maximum duration (in seconds) which the mom will wait for the job prolog
