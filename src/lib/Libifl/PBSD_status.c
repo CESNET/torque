@@ -134,7 +134,6 @@ struct batch_status *PBSD_status_get(
         int c)  /* I */
 
   {
-
   struct brp_cmdstat  *stp; /* pointer to a returned status record */
 
   struct batch_status *bsp = NULL;

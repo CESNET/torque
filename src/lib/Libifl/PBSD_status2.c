@@ -105,21 +105,21 @@ int PBSD_status_put(
 
   DIS_tcp_setup(sock);
 
-  if ((rc = encode_DIS_ReqHdr(sock, function, pbs_current_user)) != 0)
+  if ((rc = tcp_encode_DIS_ReqHdr(sock, function, pbs_current_user)) != 0)
     {
     if ((rc < 0) || (rc > DIS_MAX_VALUE))
       {
       connection[c].ch_errtxt = strdup("Error encoding request header");
       }
     }
-  else if ((rc = encode_DIS_Status(sock, id, attrib)) != 0)
+  else if ((rc = tcp_encode_DIS_Status(sock, id, attrib)) != 0)
     {
     if ((rc < 0) || (rc > DIS_MAX_VALUE))
       {
       connection[c].ch_errtxt = strdup("Error encoding status");
       }
     }
-  else if ((rc = encode_DIS_ReqExtend(sock, extend)) != 0)
+  else if ((rc = tcp_encode_DIS_ReqExtend(sock, extend)) != 0)
     {
     if ((rc < 0) || (rc > DIS_MAX_VALUE))
       {

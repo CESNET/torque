@@ -565,7 +565,7 @@ void account_jobstr(
 
   /* pack in general information about the job */
 
-  buf = (char *)malloc(bufSize);
+  buf = (char *)malloc(bufSize+1);
   if(!buf)
     return;
   acct_job(pjob, &buf, &bufSize);

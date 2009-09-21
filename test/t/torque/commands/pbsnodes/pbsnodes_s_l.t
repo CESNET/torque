@@ -92,8 +92,9 @@ foreach my $node (@nodes)
   } # END foreach my $node (@nodes)
 
 # Wait for pbsmom to update it's status
-logMsg("Sleeping for $status_update_time");
-sleep($status_update_time);
+my $sleeptime = $status_update_time * 2;
+diag("Sleeping for $sleeptime");
+sleep($sleeptime);
 
 # Test pbsnodes -s $server -l for no status
 $cmd      = "pbsnodes -s $server -l";
@@ -106,5 +107,3 @@ foreach my $node (@nodes)
   ok(! defined $node_states{ $node }, "Checking for no status for '$node'");
 
   } # END foreach my $node (@nodes)
-
-

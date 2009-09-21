@@ -212,8 +212,9 @@ struct grpcache
  * define the size of the array.
  */
 
-/* sync w/job_attr_def[]  (NOTE:  must maintain same ordering between enum and job_attr_def[] table in src/server/job_at) */
-/* sync w/TJobAttr[] table in src/resmom/request.c */
+/* sync w/job_attr_def[]  (NOTE:  must maintain same ordering between enum and
+   job_attr_def[] table in src/server/job_attr_def.c) */
+/* sync w/TJobAttr[] table in src/resmom/requests.c */
 
 enum job_atr
   {

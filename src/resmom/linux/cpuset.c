@@ -103,7 +103,7 @@ int cpuset_delete(char *cpusetname)
 
   closedir(dir);
 
-  return(rmdir(path) == 0);
+  return(rmdir(path));
 
   }
 
@@ -320,7 +320,6 @@ int create_jobset(
       sprintf(tmppath, "%d", np->vn_index);
 
       strcat(cpusbuf, tmppath);
-
       }
     }
 

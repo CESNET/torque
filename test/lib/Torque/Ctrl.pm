@@ -28,6 +28,8 @@ our @EXPORT = qw(
                 );
 
 
+my $torque_sbin = $props->get_property('Torque.Home.Dir') . "/sbin/" || '';
+
 ###############################################################################
 # startTorque ($)
 ###############################################################################
@@ -141,9 +143,6 @@ sub startPbsmom #($)#
 
   # Return values
   my $return           = 1;
-
-  # Mom executables
-  my $torque_sbin = $props->get_property( 'Torque.Home.Dir' ) . "/sbin/" || '';
 
   # Set up the commands
   my $pbs_mom_cmd  = "${torque_sbin}pbs_mom ";
@@ -297,7 +296,7 @@ sub startPbsserver #($)
   my $args  = $cfg->{ 'args' } || '';
 
   # pbs_server command
-  my $pbs_server_cmd  = 'pbs_server ';
+  my $pbs_server_cmd  = "${torque_sbin}pbs_server ";
   $pbs_server_cmd    .= $args;
 
   # Stop the pbs_server
@@ -370,7 +369,7 @@ sub startPbssched #($)#
   my $return = 1;
 
   # Set up the command
-  my $pbs_sched_cmd  = 'pbs_sched ';
+  my $pbs_sched_cmd  = "${torque_sbin}pbs_sched ";
   $pbs_sched_cmd    .= $cfg->{ 'args' }
     if defined $cfg->{ 'args' };
 

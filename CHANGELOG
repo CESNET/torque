@@ -1,5 +1,18 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
+2.3.8
+  b - fix return value of cpuset_delete() for Linux (Chris Samuel - VPAC)
+  c - keep pbs_server from trying to free empty attrlist after recieving 
+      bad request (Michael Meier, University of Erlangen-Nurnberg)
+  e - Set PBS_MAXUSER to 32 from 16 in order to accomodate systems that 
+      use a 32 bit user name.(Ken Nielson Cluster Resources)
+  c - modified acct_job in server/accounting.c to dynamically allocate memory
+      to accomodate strings larger than PBS_ACCT_MAX_RCD. (Ken Nielson Cluster 
+      Resources)
+  e - moving jobs can now trigger a scheduling iteration
+  b - fix how qsub sets PBS_O_HOST and PBS_SERVER (Eirikur Hjartarson, deCODE 
+      genetics)
+
 2.3.7 Transition
   f - Added new job attribute ATTR_service. Allows job to run as a pseudo
       service (job script accepts start, stop and status commands)
@@ -13,7 +26,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       "--disable-privports" was used.
   e - add job exit status as 10th argument to the epilogue script
   c - check filename for NULL to prevent crash
-  e - Merged in more logging and NOSIGCHLDMOM capability from Yahoo branch
+  e - merged in more logging and NOSIGCHLDMOM capability from Yahoo branch
   e - merged in new log_ext() function to allow more fine grained syslog events, 
       you can now specify severity level. Also added more logging statements
   e - added code to allow compilers to override CLONE_BATCH_SIZE at configure
@@ -28,19 +41,20 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - improved the performance of pbs_server when submitting large numbers of
       jobs with dependencies defined
   e - added new parameter "log_keep_days" to both pbs_server and pbs_mom.
-      Specifies how long to keep log files before they are automatically removed
+      specifies how long to keep log files before they are automatically removed
   e - added qmgr server attribute lock_file, specifies where server lock file
       is located
   e - modified to allow retention of completed jobs across server shutdown
-  e - added job_must_report qmgr configuration which says the job must be reported
-      to scheduler. Added job attribute "reported". Added PURGECOMP functionality
-      which allows scheduler to confirm jobs are reported. Also added -c option
-      to qdel. Used to clean up unreported jobs.
-  b - Fix so interactive jobs run when using $job_output_file_umask userdefault
-  b - Changes to improve the qstat -x XML output and documentation
+  e - added job_must_report qmgr configuration which says the job must be 
+      reported to scheduler. Added job attribute "reported". Added PURGECOMP 
+      functionality which allows scheduler to confirm jobs are reported. Also 
+      added -c option to qdel. Used to clean up unreported jobs.
+  b - fix so interactive jobs run when using $job_output_file_umask userdefault
+  b - changes to improve the qstat -x XML output and documentation
   b - fix truncated output in qmgr (peter h IPSec+jan n NANCO)
   b - fix so find_resc_entry still works after setting server extra_resc
   b - change so set_jobexid() gets called if JOB_ATR_egroup is not set
+  b - fixed memory issue (underallocated array for a string)
 
 2.3.6
   e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no
@@ -48,8 +62,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       "stuck" when the PID vanishes in some rare cases.
   e - forward-ported change from 2.1-fixes (r2581) (b - reissue job obit even if
       no processes are found)
-  b - change back to not sending status updates until we get cluster addr message
-      from server, also only try to send hello when the server stream is down.
+  b - change back to not sending status updates until we get cluster addr 
+      message from server, also only try to send hello when the server stream 
+      is down.
   b - change pbs_server so log_file_max_size of zero behavior matches 
       documentation
   e - added periodic logging of version and loglevel to help in support

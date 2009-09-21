@@ -105,7 +105,7 @@ char *extend;
 
   /* setup DIS support routines for following DIS calls */
 
-  DIS_tcp_setup(connection[c].ch_socket);
+/*  DIS_tcp_setup(connection[c].ch_socket); */
 
   if ((rc = PBSD_msg_put(c, jobid, fileopt, msg, extend)))
     {

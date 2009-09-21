@@ -385,7 +385,7 @@ int run_pelog(
 
   if (rc == -1)
     {
-    if (errno == ENOENT)
+    if (errno == ENOENT || errno == EBADF)
       {
       /* prolog script does not exist */
 
