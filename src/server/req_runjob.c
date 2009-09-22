@@ -1513,6 +1513,11 @@ static int assign_hosts(
   if (list != NULL)
     free(list);
 
+  if(portlist != NULL)
+    {
+    free(portlist);
+    }
+
   return(rc);
   }  /* END assign_hosts() */
 
