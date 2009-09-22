@@ -688,6 +688,15 @@ void process_Dreply(
 
   dispatch_task(ptask);
 
+  /* this was allocated way down in tcp_disrcs which was
+   	 eventually called from DIS_reply_read. It has to
+   	 be freed here or the memory is lost */
+  if(request->rq_reply.brp_un.brp_txt.brp_str)
+	{
+	free(request->rq_reply.brp_un.brp_txt.brp_str);
+	}
+
+
   return;
   }  /* END process_Dreply() */
 
