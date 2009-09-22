@@ -4783,10 +4783,12 @@ int rm_request(
                 {
                 if (FailurePBSNodeCheckInterval != PBSNodeCheckInterval)
                   {
-                  sprintf(tmpLine, "Node Health Check Script: %s (%d,%d intervals/update)\n",
+                  sprintf(tmpLine, "Node Health Check Script: %s (%d,%d intervals/update) (%d second update interval)\n",
                     PBSNodeCheckPath,
                     FailurePBSNodeCheckInterval,
-                    PBSNodeCheckInterval);
+                    PBSNodeCheckInterval,
+                    PBSNodeCheckInterval * ServerStatUpdateInterval
+                          );
                   }
                 else
                   {
@@ -4794,6 +4796,9 @@ int rm_request(
                     PBSNodeCheckPath,
                     PBSNodeCheckInterval);
                   }
+                sprintf(tmpLine, "Node Health Check Script: %s (%d second update interval)\n",
+                        PBSNodeCheckPath,
+                        PBSNodeCheckInterval * ServerStatUpdateInterval);
 
                 MUStrNCat(&BPtr,&BSpace,tmpLine);
                 }
@@ -5343,12 +5348,12 @@ void do_rpp(
   static char     id[] = "do_rpp";
 
   int             ret, proto, version;
-  void im_request A_((int, int));
+  void im_request A_((int, int));                                                                                                                                                                                                                                                                                                                                                                                            
   void is_request A_((int, int, int *));
   void im_eof     A_((int, int));
 
   DIS_rpp_reset();
-  proto = disrsi(stream, &ret);
+  proto = disrsi(stream, &ret);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
 
   if (ret != DIS_SUCCESS)
     {
