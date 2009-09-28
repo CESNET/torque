@@ -688,11 +688,6 @@ void process_Dreply(
 
   dispatch_task(ptask);
 
-  if(request->rq_reply.brp_un.brp_txt.brp_str)
-	{
-	free(request->rq_reply.brp_un.brp_txt.brp_str);
-	}
-
   return;
   }  /* END process_Dreply() */
 
