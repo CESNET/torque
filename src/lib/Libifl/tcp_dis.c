@@ -883,7 +883,6 @@ void DIS_tcp_setup(
   }  /* END DIS_tcp_setup() */
 
 
-
 /* With larger systems (over 20000 cores) THE_BUF_SIZE is no longer large enough to handle
    buffer sizes needed to transfer all of the information of a job. These dis functions
    which have been shared between tcp and udp are now begin strictly set for tcp so

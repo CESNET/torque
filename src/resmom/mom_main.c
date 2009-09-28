@@ -3459,16 +3459,6 @@ check_log(void)
     log_roll(log_file_roll_depth);
     }
 
-  /* periodically record the version and loglevel */
-
-  sprintf(log_buffer, msg_info_mom, PACKAGE_VERSION, LOGLEVEL);
-
-  log_event(
-    PBSEVENT_SYSTEM | PBSEVENT_FORCE,
-    PBS_EVENTCLASS_SERVER,
-    msg_daemonname,
-    log_buffer);
-
   return;
   }  /* END check_log() */
 
@@ -4784,7 +4774,7 @@ int rm_request(
                 {
                 sprintf(tmpLine, "Node Health Check Script: %s (%d second update interval)\n",
                         PBSNodeCheckPath,
-                        PBSNodeCheckInterval);
+                        PBSNodeCheckInterval * ServerStatUpdateInterval);
 
                 MUStrNCat(&BPtr, &BSpace, tmpLine);
                 }
@@ -6565,11 +6555,6 @@ static char *mk_dirs(
 
   return(pn);
   }  /* END mk_dirs() */
-
-
-
-
-
 
 /*
  * parse_command_line

@@ -320,7 +320,6 @@ int create_jobset(
       sprintf(tmppath, "%d", np->vn_index);
 
       strcat(cpusbuf, tmppath);
-
       }
     }
 

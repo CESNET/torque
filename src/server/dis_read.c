@@ -195,7 +195,6 @@ int dis_request_read(
 
   switch (request->rq_type)
     {
-
     case PBS_BATCH_Disconnect:
 
       return(-1);  /* set EOF return */

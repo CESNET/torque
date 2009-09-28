@@ -2077,9 +2077,8 @@ int get_svr_attr(
 
     if(path_priv == NULL)
       {
-      path_priv      = build_path(path_home, PBS_SVR_PRIVATE, suffix_slash);
+      path_priv = build_path(path_home, PBS_SVR_PRIVATE, suffix_slash);
       }
-
     if(path_svrdb == NULL)
       {
       path_svrdb     = build_path(path_priv, PBS_SERVERDB, NULL);

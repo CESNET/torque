@@ -72,10 +72,10 @@ foreach my $signal (@signals)
 
   $job_id = submit_and_run_job();
 
+  sleep_diag 5;
+
   $cmd  = "qsig -s $signal $job_id";
   %qsig = run_and_check_cmd($cmd);
-
-  sleep 2;
 
   %rcvd_signals = get_recieved_signals($job_id);
   ok(defined $rcvd_signals{ $signal }, "Checking for the '$signal' signal");
