@@ -229,6 +229,8 @@ char           *ProgName;
 char           *NodeSuffix = NULL;
 
 int allow_any_mom = FALSE;
+int             MultiMomMode = 0;
+
 
 
 void
@@ -933,6 +935,9 @@ int main(
         log_file = optarg;
 
         break;
+      case 'm':
+        MultiMomMode = 1;
+        break;
 
       case 'M':
 
@@ -1291,6 +1296,14 @@ int main(
     msg_daemonname,
     log_buffer);
 
+  sprintf(log_buffer, "total number of nodes: %d\n", svr_totnodes);
+  log_event(
+    PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+    PBS_EVENTCLASS_SERVER,
+    msg_daemonname,
+    log_buffer);
+
+
 #ifdef NO_SIGCHLD
   log_record(
     PBSEVENT_SYSTEM | PBSEVENT_FORCE,
@@ -1488,7 +1501,7 @@ int main(
        pjob = (job *)GET_NEXT(pjob->ji_alljobs))
     {
     if (pjob->ji_modified)
-      job_save(pjob, SAVEJOB_FULL);
+      job_save(pjob, SAVEJOB_FULL, 0);
     }
 
   if (svr_chngNodesfile)

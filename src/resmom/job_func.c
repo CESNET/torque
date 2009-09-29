@@ -168,6 +168,8 @@ extern int   LOGLEVEL;
 extern tlist_head svr_newjobs;
 extern tlist_head svr_alljobs;
 
+extern int multi_mom;
+extern int pbs_rm_port;
 
 void nodes_free A_((job *));
 int TTmpDirName A_((job *, char *));
@@ -568,6 +570,7 @@ void job_purge(
   static char   id[] = "job_purge";
 
   char          namebuf[MAXPATHLEN + 1];
+  char          portname[MAXPATHLEN + 1];
   extern char  *msg_err_purgejob;
   int           rc;
   extern void MOMCheckRestart A_((void));
@@ -654,6 +657,11 @@ void job_purge(
   strcpy(namebuf, path_jobs); /* delete script file */
 
   strcat(namebuf, pjob->ji_qs.ji_fileprefix);
+  if(multi_mom)
+    {
+    sprintf(portname, "%d", pbs_rm_port);
+    strcat(namebuf, portname);
+    }
   strcat(namebuf, JOB_SCRIPT_SUFFIX);
 
   if (unlink(namebuf) < 0)
@@ -679,7 +687,11 @@ void job_purge(
   strcpy(namebuf, path_jobs);     /* job directory path */
 
   strcat(namebuf, pjob->ji_qs.ji_fileprefix);
-
+  if(multi_mom)
+    {
+    sprintf(portname, "%d", pbs_rm_port);
+    strcat(namebuf, portname);
+    }
   strcat(namebuf, JOB_TASKDIR_SUFFIX);
 
   remtree(namebuf);
@@ -692,7 +704,7 @@ void job_purge(
 
     strcpy(namebuf, path_checkpoint); /* delete any checkpoint file */
     strcat(namebuf, pjob->ji_qs.ji_fileprefix);
-    strcat(namebuf, JOB_CKPT_SUFFIX);
+   strcat(namebuf, JOB_CKPT_SUFFIX);
     remtree(namebuf);
     }
 #endif
@@ -701,6 +713,12 @@ void job_purge(
   strcpy(namebuf, path_jobs); /* delete job file */
 
   strcat(namebuf, pjob->ji_qs.ji_fileprefix);
+
+  if(multi_mom)
+    {
+    sprintf(portname, "%d", pbs_rm_port);
+    strcat(namebuf, portname);
+    }
 
   strcat(namebuf, JOB_FILE_SUFFIX);
 

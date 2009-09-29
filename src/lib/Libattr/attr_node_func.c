@@ -1226,5 +1226,60 @@ int set_note_str(
   return(rc);
   }  /* END set_note_str() */
 
+/*
+ * a set_str() wrapper with sanity checks for alternate names
+ */
+
+int set_alt_name_str(
+
+  struct attribute *attr,
+  struct attribute *new,
+  enum batch_op     op)
+
+  {
+  static char id[] = "set_note_str";
+  size_t nsize;
+  int rc = 0;
+
+  assert(attr && new && new->at_val.at_str && (new->at_flags & ATR_VFLAG_SET));
+  nsize = strlen(new->at_val.at_str);    /* length of new alternate name */
+
+  if (nsize > PBS_MAXSERVERNAME)
+    {
+    sprintf(log_buffer, "Warning: Client attempted to set note with len (%d) > PBS_MAXSERVERNAME (%d)",
+            (int)nsize,
+            PBS_MAXSERVERNAME);
+
+    log_record(
+      PBSEVENT_SECURITY,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    rc = PBSE_BADNDATVAL;
+    }
+
+  if (strchr(new->at_val.at_str, '\n') != NULL)
+    {
+    sprintf(log_buffer, "Warning: Client attempted to set note with a newline char");
+
+    log_record(
+      PBSEVENT_SECURITY,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    rc = PBSE_BADNDATVAL;
+    }
+
+  if (rc != 0)
+    return(rc);
+
+  rc = set_str(attr, new, op);
+
+  return(rc);
+  }  /* END set_alt_name_str() */
+
+
 /* END attr_node_func.c */
 

@@ -1215,6 +1215,7 @@ void mom_server_update_stat(
   {
   static char *id = "mom_server_update_stat";
   char *cp;
+  int  ret;
 
   if (pms->pbs_servername[0] == 0)
     {
@@ -1242,11 +1243,25 @@ void mom_server_update_stat(
     return;
     }
 
+  ret = diswus(pms->SStream, pbs_mom_port);
+  if(ret)
+    {
+    return;
+    }
+
+  ret = diswus(pms->SStream, pbs_rm_port);
+  if(ret)
+    {
+    return;
+    }
+
+
+
   /* For each string, put it into the message. */
 
   for (cp = status_strings;cp && *cp;cp += strlen(cp) + 1)
     {
-    if (LOGLEVEL >= 7)
+    if (LOGLEVEL >= 8)
       {
       sprintf(log_buffer, "%s: sending to server \"%s\"",
               id,
@@ -1274,7 +1289,7 @@ void mom_server_update_stat(
     return;
     }
 
-  if (LOGLEVEL >= 3)
+  if (LOGLEVEL >= 8)
     {
     sprintf(log_buffer, "status update successfully sent to %s",
             pms->pbs_servername);
@@ -1405,8 +1420,21 @@ int mom_server_send_hello(
 
   {
   static char id[] = "mom_server_send_hello";
+  int ret;
 
   if (is_compose(pms, IS_HELLO) == -1)
+    {
+    return(-1);
+    }
+
+  ret = diswus(pms->SStream, pbs_mom_port);
+  if(ret)
+    {
+    return(-1);
+    }
+
+  ret = diswus(pms->SStream, pbs_rm_port);
+  if(ret)
     {
     return(-1);
     }
@@ -2181,6 +2209,10 @@ void is_request(
         break;
         }
 
+      diswus(pms->SStream, pbs_mom_port);
+
+      diswus(pms->SStream, pbs_rm_port);
+
       if (mom_server_flush_io(pms, id, "flush") != DIS_SUCCESS)
         break;
 
@@ -2738,12 +2770,26 @@ void state_to_server(
 
   mom_server *pms = &mom_servers[ServerIndex];
 
+  int ret;
+
   if ((force == 0) && (pms->ReportMomState == 0))
     {
     return;    /* Do nothing, just return */
     }
 
   if (is_compose(pms, IS_UPDATE) != DIS_SUCCESS)
+    {
+    return;
+    }
+
+  ret = diswus(pms->SStream, pbs_mom_port);
+  if(ret)
+    {
+    return;
+    }
+
+  ret = diswus(pms->SStream, pbs_rm_port);
+  if(ret)
     {
     return;
     }

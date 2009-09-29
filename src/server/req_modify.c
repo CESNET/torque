@@ -345,7 +345,7 @@ void req_modifyjob(
     }
   else
     {
-    job_save(pjob, SAVEJOB_FULL);
+    job_save(pjob, SAVEJOB_FULL, 0);
     }
 
   sprintf(log_buffer, msg_manager,

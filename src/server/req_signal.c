@@ -303,7 +303,7 @@ static void post_signal_req(
 
         set_statechar(pjob);
 
-        job_save(pjob, SAVEJOB_QUICK);
+        job_save(pjob, SAVEJOB_QUICK, 0);
 
         /* release resources allocated to suspended job - NORWAY */
 
@@ -322,7 +322,7 @@ static void post_signal_req(
 
         set_statechar(pjob);
 
-        job_save(pjob, SAVEJOB_QUICK);
+        job_save(pjob, SAVEJOB_QUICK, 0);
         }
       }
 

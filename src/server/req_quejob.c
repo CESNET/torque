@@ -1261,7 +1261,7 @@ void req_rdytocommit(
 
     }
 
-  if (job_save(pj, SAVEJOB_NEW) == -1)
+  if (job_save(pj, SAVEJOB_NEW, 0) == -1)
     {
     char tmpLine[1024];
 
@@ -1488,7 +1488,7 @@ void req_commit(
     return;
     }
 
-  if (job_save(pj, SAVEJOB_FULL) != 0)
+  if (job_save(pj, SAVEJOB_FULL, 0) != 0)
     {
     job_purge(pj);
 

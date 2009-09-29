@@ -680,7 +680,7 @@ int svr_startjob(
 
     memcpy(&saddr.sin_addr, hp->h_addr, hp->h_length);
 
-    saddr.sin_port = htons(pbs_rm_port);
+    saddr.sin_port = htons(pjob->ji_qs.ji_un.ji_exect.ji_mom_rmport);
 
     /* Connect to the host. */
 
@@ -816,7 +816,7 @@ static int svr_strtjob2(
   if (send_job(
         pjob,
         pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
-        pbs_mom_port,
+        pjob->ji_qs.ji_un.ji_exect.ji_momport,
         MOVE_TYPE_Exec,
         post_sendmom,
         (void *)preq) == 2)
@@ -876,6 +876,7 @@ static void post_sendmom(
   int  newstate;
   int  newsub;
   int  r;
+  u_long addr;
   int  stat;
   job *jobp = (job *)pwt->wt_parm1;
 
@@ -1005,8 +1006,10 @@ static void post_sendmom(
     case 10:
 
       /* NOTE: if r == 10, connection to mom timed out.  Mark node down */
-
-      stream_eof(-1, jobp->ji_qs.ji_un.ji_exect.ji_momaddr, 0);
+      addr = jobp->ji_qs.ji_un.ji_exect.ji_momaddr;
+      addr += jobp->ji_qs.ji_un.ji_exect.ji_momport;
+      addr += jobp->ji_qs.ji_un.ji_exect.ji_mom_rmport;
+      stream_eof(-1, addr, 0);
 
       /* send failed, requeue the job */
 
@@ -1331,6 +1334,7 @@ static int assign_hosts(
   {
   unsigned int  dummy;
   char  *list = NULL;
+  char  *portlist = NULL;
   char  *hosttoalloc = NULL;
   pbs_net_t  momaddr = 0;
   resource *pres;
@@ -1428,7 +1432,7 @@ static int assign_hosts(
     {
     if ((rc = is_ts_node(hosttoalloc)) != 0)
       {
-      rc = set_nodes(pjob, hosttoalloc, &list, FailHost, EMsg);
+      rc = set_nodes(pjob, hosttoalloc, &list, &portlist, FailHost, EMsg);
 
       set_exec_host = 1; /* maybe new VPs, must set */
 
@@ -1451,6 +1455,15 @@ static int assign_hosts(
         NULL,
         hosttoalloc);  /* O */
 
+      job_attr_def[(int)JOB_ATR_exec_port].at_free(
+        &pjob->ji_wattr[(int)JOB_ATR_exec_port]);
+
+      job_attr_def[(int)JOB_ATR_exec_port].at_decode(
+        &pjob->ji_wattr[(int)JOB_ATR_exec_port],
+        NULL,
+        NULL,
+        portlist);  /* O */
+
       pjob->ji_modified = 1;
       }
     else
@@ -1460,6 +1473,7 @@ static int assign_hosts(
       momaddr = pjob->ji_qs.ji_un.ji_exect.ji_momaddr;
 
       hosttoalloc = pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str;
+      portlist = pjob->ji_wattr[(int)JOB_ATR_exec_port].at_val.at_str;
       }
 
     strncpy(
@@ -1467,6 +1481,7 @@ static int assign_hosts(
       pjob->ji_qs.ji_destin,
       parse_servername(hosttoalloc, &dummy),
       PBS_MAXROUTEDEST);
+
 
     if (momaddr == 0)
       {
@@ -1497,6 +1512,11 @@ static int assign_hosts(
 
   if (list != NULL)
     free(list);
+
+  if(portlist != NULL)
+    {
+    free(portlist);
+    }
 
   return(rc);
   }  /* END assign_hosts() */

@@ -105,7 +105,9 @@ int PBSD_status_put(
 
   DIS_tcp_setup(sock);
 
-  if ((rc = tcp_encode_DIS_ReqHdr(sock, function, pbs_current_user)) != 0)
+  if ((rc = tcp_encode_DIS_ReqHdr(sock, function, pbs_current_user)) ||
+      (rc = tcp_encode_DIS_Status(sock, id, attrib)) ||
+      (rc = tcp_encode_DIS_ReqExtend(sock, extend)))
     {
     if ((rc < 0) || (rc > DIS_MAX_VALUE))
       {

@@ -134,11 +134,13 @@
 #define ATTR_stageout "stageout"
 #define ATTR_jobtype  "jobtype"
 #define ATTR_service  "service"
+#define ATTR_job_radix "job_radix"
 
 /* additional job and general attribute names */
 
 #define ATTR_ctime      "ctime"
 #define ATTR_exechost   "exec_host"
+#define ATTR_execport	"exec_port"
 #define ATTR_mtime      "mtime"
 #define ATTR_qtime      "qtime"
 #define ATTR_session    "session_id"
@@ -286,6 +288,8 @@
 #define ATTR_NODE_jobs       "jobs"
 #define ATTR_NODE_status     "status"
 #define ATTR_NODE_note       "note"
+#define ATTR_NODE_mom_port	  "mom_service_port"
+#define ATTR_NODE_mom_rm_port "mom_manager_port" 
 
 
 
@@ -363,9 +367,13 @@
    versions of TORQUE.  Do not change in a -fixes branch */
 
 
+
 #define PBS_MAXHOSTNAME  64 /* max host name length */
 #ifndef MAXPATHLEN
 #define MAXPATHLEN  1024 /* max path name length */
+#endif
+#ifndef MAXPORTLEN
+#define MAXPORTLEN  5
 #endif
 #ifndef MAXNAMLEN
 #define MAXNAMLEN  255

@@ -156,6 +156,9 @@ extern  char             PRE_EXEC[];
 extern int LOGLEVEL;
 extern long TJobStartBlockTime;
 
+extern int  multi_mom;
+extern unsigned int pbs_rm_port;
+
 
 int              mom_reader_go;  /* see catchinter() & mom_writer() */
 
@@ -166,6 +169,7 @@ extern char             checkpoint_run_exe_name[];
 
 extern int      src_login_batch;
 extern int      src_login_interactive;
+
 
 
 /* Local Variables */
@@ -231,6 +235,9 @@ int TMomFinalizeChild(pjobexec_t *);
 
 int TMomCheckJobChild(pjobexec_t *, int, int *, int *);
 static int search_env_and_open(const char *, u_long);
+
+int add_host_to_sister_list(char *, struct radix_buf *);
+
 extern int TMOMJobGetStartInfo(job *, pjobexec_t **);
 extern int mom_reader(int, int);
 extern int mom_writer(int, int);
@@ -721,6 +728,7 @@ void exec_bail(
   static char id[] = "exec_bail";
 
   int nodecount;
+  unsigned int momport = 0;
 
   nodecount = send_sisters(pjob, IM_ABORT_JOB);
 
@@ -740,7 +748,12 @@ void exec_bail(
 
   pjob->ji_qs.ji_un.ji_momt.ji_exitstat = code;
 
-  job_save(pjob, SAVEJOB_QUICK);
+  if(multi_mom)
+    {
+    momport = pbs_rm_port;
+    }
+
+  job_save(pjob, SAVEJOB_QUICK, momport);
 
   exiting_tasks = 1;
 
@@ -2056,6 +2069,7 @@ int TMomFinalizeJob2(
   static char          *id = "TMomFinalizeJob2";
 
   char                  buf[MAXPATHLEN + 2];
+  char                  portname[MAXPATHLEN];
   pid_t                 cpid;
 #if SHELL_USE_ARGV == 0
 #if SHELL_INVOKE == 1
@@ -2129,6 +2143,12 @@ int TMomFinalizeJob2(
   strcpy(buf, path_jobs);
 
   strcat(buf, pjob->ji_qs.ji_fileprefix);
+  if(multi_mom)
+    {
+    sprintf(portname, "%d", pbs_rm_port);
+    strcat(buf, portname);
+    }
+
 
   strcat(buf, JOB_SCRIPT_SUFFIX);
 
@@ -2297,6 +2317,11 @@ int TMomFinalizeChild(
   char                  *arg[32];
 
   char                   buf[MAXPATHLEN + 2];
+#ifndef SHELL_USE_ARGV
+#ifndef SHELL_INVOKE
+  char                   portname[MAXPATHLEN];
+#endif
+#endif
   pid_t                  cpid;
   int                    i, j, vnodenum;
 
@@ -2894,6 +2919,11 @@ int TMomFinalizeChild(
     strcpy(buf, path_jobs);
 
     strcat(buf, pjob->ji_qs.ji_fileprefix);
+    if(multi_mom)
+      {
+      sprintf(portname, "%d", pbs_rm_port;
+      strcat(buf, portname);
+      }
 
     strcat(buf, JOB_SCRIPT_SUFFIX);
 
@@ -3442,6 +3472,13 @@ int TMomFinalizeChild(
 
       strcpy(arg[aindex],path_jobs);
       strcat(arg[aindex],pjob->ji_qs.ji_fileprefix);
+      if(multi_mom)
+        {
+        sprintf(portname, "%d", pbs_rm_port;
+        strcat(arg[aindex], portname);
+        }
+
+
       strcat(arg[aindex],JOB_SCRIPT_SUFFIX);
 
       arg[aindex + 1] = NULL;
@@ -3687,6 +3724,7 @@ int TMomFinalizeJob3(
 
   job  *pjob;
   task *ptask;
+  unsigned int momport = 0;
 
   pjob = (job *)TJE->pjob;
   ptask = (task *)TJE->ptask;
@@ -3884,7 +3922,12 @@ int TMomFinalizeJob3(
 
   /* changed from SAVEJOB_QUICK to SAVEJOB_FULL (USC - 2/5/2005) */
 
-  job_save(pjob, SAVEJOB_FULL);
+  if(multi_mom)
+    {
+    momport = pbs_rm_port;
+    }
+
+  job_save(pjob, SAVEJOB_FULL, momport);
 
   sprintf(log_buffer, "job %s started, pid = %ld",
           pjob->ji_qs.ji_jobid,
@@ -3928,6 +3971,7 @@ int start_process(
   int i, j;
   int fd0, fd1, fd2;
   u_long ipaddr;
+  unsigned int momport = 0;
 
   struct  startjob_rtn sjr =
     {
@@ -4171,7 +4215,12 @@ int start_process(
       pjob->ji_qs.ji_state    = JOB_STATE_RUNNING;
       pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
 
-      job_save(pjob, SAVEJOB_QUICK);
+      if(multi_mom)
+        {
+        momport = pbs_rm_port;
+        }
+
+      job_save(pjob, SAVEJOB_QUICK, momport);
       }
 
     sprintf(log_buffer, "%s: task started, tid %d, sid %ld, cmd %s",
@@ -4793,6 +4842,33 @@ void nodes_free(
   }  /* END nodes_free() */
 
 
+int add_host_to_sister_list(char *hostname, struct radix_buf *list)
+{
+  char *tmp;
+  char *cp;
+
+  if((int)(strlen(hostname)+list->current_string_len + 1) >= list->max_string_len)
+    {
+    /* This is a long list and we need to make more room */
+    tmp = (char *)realloc(list->host_list, list->max_string_len + THE_BUF_SIZE);
+    assert(tmp != NULL);
+
+    list->max_string_len += THE_BUF_SIZE;
+    list->host_list = tmp;
+    }
+
+  if(list->host_list[0] != 0)
+    {
+    cp = &list->host_list[strlen(list->host_list)];
+    *cp = '+';
+    cp++; *cp = 0;
+    strcat(list->host_list, hostname);
+    }
+  else
+    strcpy(list->host_list, hostname);
+
+  return(0);
+}
 
 
 
@@ -4816,7 +4892,7 @@ void job_nodes(
 
   int  i, j, nhosts, nodenum;
   int  ix;
-  char  *cp, *nodestr;
+  char  *cp, *nodestr, *portstr;
   hnodent *hp;
   vnodent *np;
   extern char    mom_host[];
@@ -4829,9 +4905,12 @@ void job_nodes(
       ATR_VFLAG_SET)
     {
     nodestr = pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str;
+    portstr = pjob->ji_wattr[(int)JOB_ATR_exec_port].at_val.at_str;
 
     if (nodestr != NULL)
       {
+      /* count how many nodes there are by counting the number of '+'
+         characters in the string */
       for (cp = nodestr;*cp;cp++)
         {
         if (*cp == '+')
@@ -4860,6 +4939,8 @@ void job_nodes(
   for (i = 0;i < nodenum;i++, np++)
     {
     char *dp, nodename[MAXPATHLEN + 1];
+    char *portptr, portnumber[MAXPORTLEN + 1]; 
+    int portcount;
 
     ix = 0;
 
@@ -4900,6 +4981,21 @@ void job_nodes(
         break;
       }
 
+    /* Get the port number for this host */
+    for(cp = portstr, portptr = portnumber, portcount = 0;portcount < (MAXPORTLEN+1)&& *cp; cp++, portptr++, portcount++)
+      {
+      if (*cp == '+')
+        {
+        portstr = cp + 1;
+
+        break;
+        }
+
+      *portptr = *cp;
+      }
+
+    *portptr = 0;
+
     hp = &pjob->ji_hosts[j];
 
     if (j == nhosts)
@@ -4910,6 +5006,7 @@ void job_nodes(
       hp->hn_stream = -1;
       hp->hn_sister = SISTER_OKAY;
       hp->hn_host = strdup(nodename);
+      hp->port = atoi(portnumber);
 
       CLEAR_HEAD(hp->hn_events);
       }
@@ -4990,16 +5087,22 @@ void start_exec(
   static char  *id = "start_exec";
 
   eventent     *ep;
-  int  i, nodenum;
+  int  i,j, nodenum, rc;
   int  ports[2], socks[2];
 
   struct sockaddr_in saddr;
   hnodent      *np;
   attribute    *pattr;
   tlist_head    phead;
-  svrattrl     *psatl;
+  svrattrl      satl;
+  svrattrl      *psatl;
   int           stream;
   char          tmpdir[MAXPATHLEN];
+
+  int index;
+  int mom_radix = 0;
+  attribute_def *pdef;
+  struct radix_buf  **sister_list;
 
   torque_socklen_t slen;
 
@@ -5102,7 +5205,82 @@ void start_exec(
   /* if nodecount > 1, return once joins are sent, if nodecount == 1,
      return once job is started */
 
-  if (nodenum > 1)
+  index = find_attr(job_attr_def, ATTR_job_radix, JOB_ATR_LAST);
+
+  if(index > 0)
+     {
+     /* parallel job */
+
+     pdef = &job_attr_def[index];
+     psatl = &satl;
+
+     rc = pdef->at_decode(
+                &pjob->ji_wattr[index],
+                psatl->al_atopl.name,
+                psatl->al_atopl.resource,
+                psatl->al_atopl.value);
+
+
+     if(rc == 0 && (psatl->al_atopl.value != NULL))
+       {
+       mom_radix = atoi(satl.al_atopl.value);
+       }
+
+    }
+
+  /* If the job_radix attribute has been set then nodenum must be at least one
+     more than mom_radix or there is no point in doing a radix */
+    if(mom_radix > 0 && (mom_radix + 1) <= nodenum)
+    {
+       pjob->ji_resources = (noderes *)calloc(nodenum - 1, sizeof(noderes));
+  
+       assert(pjob->ji_resources != NULL);
+  
+       CLEAR_HEAD(phead);
+  
+       pattr = pjob->ji_wattr;
+  
+       for (i = 0;i < (int)JOB_ATR_LAST;i++)
+         {
+         (job_attr_def + i)->at_encode(
+           pattr + i,
+           &phead,
+           (job_attr_def + i)->at_name,
+           NULL,
+           ATR_ENCODE_MOM);
+         }  /* END for (i) */
+  
+        attrl_fixlink(&phead);
+  
+        sister_list = (struct radix_buf **)calloc((size_t)mom_radix, sizeof(struct radix_buf));
+        assert(sister_list != NULL);
+  
+        for(i = 0; i < mom_radix; i++)
+          {
+          sister_list[i] = (struct radix_buf *)malloc(sizeof(struct radix_buf));
+          assert(sister_list[i] != NULL);
+          sister_list[i]->host_list = (char *)malloc(THE_BUF_SIZE);
+          assert(sister_list[i]->host_list != NULL);
+  
+          memset(sister_list[i]->host_list, 0, THE_BUF_SIZE);
+          sister_list[i]->current_string_len = 0;
+          sister_list[i]->max_string_len = THE_BUF_SIZE;
+          }
+  
+      /* Parse nodes into the radix */
+        i = 1; /* start at 1 because ji_hosts[0] is mother superior */
+        do
+          {
+          for(j = 0; j < mom_radix && i < nodenum; j++)
+            {
+            np = &pjob->ji_hosts[i];
+            add_host_to_sister_list(np->hn_host, sister_list[j]);
+            i++;
+            }
+          }while(i < nodenum);
+  
+    }
+    else if (nodenum > 1)
     {
     /* Step 4.0A Send Join Request to Sisters */
 
@@ -5138,7 +5316,7 @@ void start_exec(
 
       /* rpp_open() will succeed even if MOM is down */
 
-      np->hn_stream = rpp_open(np->hn_host, pbs_rm_port, log_buffer);
+      np->hn_stream = rpp_open(np->hn_host, np->port, log_buffer);
 
       if (np->hn_stream < 0)
         {

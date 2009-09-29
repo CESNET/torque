@@ -383,6 +383,8 @@ int run_pelog(
     rc = stat(pelog,&sbuf);
     }
 
+  printf("pelog: %s\n", pelog);
+
   if (rc == -1)
     {
     if (errno == ENOENT || errno == EBADF)
@@ -962,7 +964,6 @@ int run_pelog(
           if (envstr != NULL)
             {
             strcpy(envstr,vstrs->as_string[j]);
-
             putenv(envstr);
             }
           }

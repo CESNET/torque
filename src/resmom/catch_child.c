@@ -138,7 +138,8 @@ extern int  termin_child;
 extern struct connection svr_conn[];
 extern int  resc_access_perm;
 extern char  *path_aux;
-
+extern int  multi_mom;
+extern unsigned int pbs_rm_port;
 extern int              LOGLEVEL;
 
 extern char            *PJobSubState[];
@@ -430,6 +431,7 @@ scan_for_exiting(void)
   int im_compose A_((int, char *, char *, int, tm_event_t, tm_task_id));
   pbs_net_t   down_svraddrs[PBS_MAXSERVER] = {0, 0, 0, 0};
   int    svr_index;
+  unsigned int momport = 0;
 
   static int ForceObit    = -1;   /* boolean - if TRUE, ObitsAllowed will be enforced */
   static int ObitsAllowed = 1;
@@ -573,7 +575,12 @@ scan_for_exiting(void)
 
           pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-          job_save(pjob, SAVEJOB_QUICK);
+          if(multi_mom)
+            {
+            momport = pbs_rm_port;
+            }
+
+          job_save(pjob, SAVEJOB_QUICK, momport);
           }
         else if (LOGLEVEL >= 3)
           {
@@ -1471,6 +1478,7 @@ static void obit_reply(
   job   *nxjob;
   job   *pjob;
   attribute  *pattr;
+  unsigned int momport = 0;
 
   struct batch_request *preq;
   int    x; /* dummy */
@@ -1531,7 +1539,12 @@ static void obit_reply(
 
           pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITED;
 
-          job_save(pjob, SAVEJOB_QUICK);
+          if(multi_mom)
+            {
+            momport = pbs_rm_port;
+            }
+
+          job_save(pjob, SAVEJOB_QUICK, momport);
 
           break;
 
@@ -1551,7 +1564,12 @@ static void obit_reply(
 
           pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITED;
 
-          job_save(pjob, SAVEJOB_QUICK);
+          if(multi_mom)
+            {
+            momport = pbs_rm_port;
+            }
+
+          job_save(pjob, SAVEJOB_QUICK, momport);
 
           break;
 
@@ -1703,6 +1721,7 @@ void init_abort_jobs(
   /*  struct stat    statbuf; */
   extern char   *path_checkpoint;
 #endif
+  unsigned int momport = 0;
 
   if (LOGLEVEL >= 6)
     {
@@ -1960,7 +1979,12 @@ void init_abort_jobs(
 
       pj->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-      job_save(pj, SAVEJOB_QUICK);
+      if(multi_mom)
+        {
+        momport = pbs_rm_port;
+        }
+
+      job_save(pj, SAVEJOB_QUICK, momport);
 
       exiting_tasks = 1;
       }  /* END if ((recover != 2) && ...) */

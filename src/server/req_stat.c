@@ -653,6 +653,7 @@ int stat_to_mom(
 
   struct batch_request *newrq;
   int          rc;
+  u_long       addr;
 
   struct work_task     *pwt = 0;
 
@@ -676,7 +677,11 @@ int stat_to_mom(
 
   /* if MOM is down just return stale information */
 
-  if (((node = tfind_addr(pjob->ji_qs.ji_un.ji_exect.ji_momaddr)) != NULL) &&
+  addr = pjob->ji_qs.ji_un.ji_exect.ji_momaddr;
+  addr += pjob->ji_qs.ji_un.ji_exect.ji_mom_rmport;
+  addr += pjob->ji_qs.ji_un.ji_exect.ji_momport;
+
+  if (((node = tfind_addr(addr)) != NULL) &&
       (node->nd_state & (INUSE_DELETED | INUSE_DOWN)))
     {
     if (LOGLEVEL >= 6)
@@ -699,7 +704,7 @@ int stat_to_mom(
 
   cntl->sc_conn = svr_connect(
                     pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
-                    pbs_mom_port,
+                    pjob->ji_qs.ji_un.ji_exect.ji_momport,
                     process_Dreply,
                     ToServerDIS);
 
@@ -774,7 +779,7 @@ static void stat_update(
           /* first save since running job (or the sid has changed), */
           /* must save session id    */
 
-          job_save(pjob, SAVEJOB_FULL);
+          job_save(pjob, SAVEJOB_FULL,0);
 
           svr_mailowner(pjob, MAIL_BEGIN, MAIL_NORMAL, NULL);
           }

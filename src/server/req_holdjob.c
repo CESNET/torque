@@ -215,7 +215,7 @@ void req_holdjob(
       pjob->ji_qs.ji_substate = JOB_SUBSTATE_RERUN;
       pjob->ji_qs.ji_svrflags |=
         JOB_SVFLG_HASRUN | JOB_SVFLG_CHKPT;
-      job_save(pjob, SAVEJOB_QUICK);
+      job_save(pjob, SAVEJOB_QUICK, 0);
       LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB,
                 pjob->ji_qs.ji_jobid, log_buffer);
       }

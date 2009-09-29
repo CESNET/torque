@@ -1040,7 +1040,7 @@ int pbsd_init(
       {
       pjob->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long = ++queue_rank;
 
-      job_save(pjob, SAVEJOB_FULL);
+      job_save(pjob, SAVEJOB_FULL, 0);
 
       pjob = (job *)GET_NEXT(pjob->ji_alljobs);
       }

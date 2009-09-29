@@ -279,6 +279,19 @@ attribute_def job_attr_def[] =
     ATR_TYPE_STR,
     PARENT_TYPE_JOB
   },
+    /* JOB_ATR_exec_port */
+  { ATTR_execport,  /* "exec_port" */
+    decode_str,
+    encode_str,
+    set_str,
+    comp_str,
+    free_str,
+    NULL_FUNC,
+    READ_ONLY | ATR_DFLAG_MOM | ATR_DFLAG_OPWR | ATR_DFLAG_SvWR,  /* allow operator/scheduler to modify exec_host */
+    ATR_TYPE_STR,
+    PARENT_TYPE_JOB
+  },
+
   /* JOB_ATR_exectime */
   { ATTR_a,   /* "Execution_Time" (aka release_date) */
     decode_l,
@@ -862,6 +875,20 @@ attribute_def job_attr_def[] =
   	ATR_TYPE_LONG,
   	PARENT_TYPE_JOB
   },
+
+  /* JOB_ATR_job_radix */
+  { ATTR_job_radix,  /* "job_radix" */
+	decode_l,
+	encode_l,
+	set_l,
+	comp_l,
+	free_null,
+	NULL_FUNC,
+	READ_WRITE | ATR_DFLAG_SSET | ATR_DFLAG_MOM,
+	ATR_TYPE_LONG,
+	PARENT_TYPE_JOB
+  },
+
 
   /* Site defined attributes if any, see site_job_attr_*.h  */
 #include "site_job_attr_def.h"

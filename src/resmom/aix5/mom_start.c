@@ -108,6 +108,7 @@ static char ident[] = "@(#) $RCSfile$ $Revision$";
 
 /* Global Variables */
 
+extern int  multi_mom;
 extern int  exiting_tasks;
 extern char  mom_host[];
 extern tlist_head svr_alljobs;
@@ -327,7 +328,7 @@ scan_for_terminated(void)
 
       pjob->ji_momsubt = 0;
 
-      (void)job_save(pjob, SAVEJOB_QUICK);
+      (void)job_save(pjob, SAVEJOB_QUICK, 0);
       continue;
       }
 

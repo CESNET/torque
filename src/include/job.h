@@ -92,6 +92,7 @@
 
 /* anything including job.h also needs array.h so lets just include it this way*/
 #include "array.h"
+#include <stdint.h>
 
 /*
  * Dependent Job Structures
@@ -231,6 +232,7 @@ enum job_atr
   JOB_ATR_depend,
   JOB_ATR_errpath,
   JOB_ATR_exec_host,
+  JOB_ATR_exec_port,
   JOB_ATR_exectime,
   JOB_ATR_grouplst,
   JOB_ATR_hold,
@@ -240,7 +242,7 @@ enum job_atr
   JOB_ATR_keep,
   JOB_ATR_mailpnts,
   JOB_ATR_mailuser,
-  JOB_ATR_mtime,         /* (20) */
+  JOB_ATR_mtime,         /* (21) */
   JOB_ATR_outpath,
   JOB_ATR_priority,
   JOB_ATR_qtime,
@@ -252,7 +254,7 @@ enum job_atr
   JOB_ATR_stageout,
   JOB_ATR_substate,
   JOB_ATR_userlst,
-  JOB_ATR_variables,    /* (32) */
+  JOB_ATR_variables,    /* (33) */
   /* this set contains private attributes,  */
   /* as such not sent to clients (status)   */
 
@@ -262,7 +264,7 @@ enum job_atr
   JOB_ATR_hopcount,
   JOB_ATR_qrank,
   JOB_ATR_queuetype,
-  JOB_ATR_sched_hint,   /* 39 */
+  JOB_ATR_sched_hint,   /* 40 */
   JOB_ATR_security,
   JOB_ATR_Comment,
   JOB_ATR_Cookie,
@@ -273,7 +275,7 @@ enum job_atr
   JOB_ATR_submit_args,
   JOB_ATR_job_array_id,
   JOB_ATR_job_array_request,
-  JOB_ATR_umask,        /* 50 */
+  JOB_ATR_umask,        /* 51 */
   JOB_ATR_start_time,  /* time when job was first started */
   JOB_ATR_start_count, /* number of times the job has been started */
   JOB_ATR_chkptdir,    /* directory where job checkpoint file is stored */
@@ -281,6 +283,7 @@ enum job_atr
   JOB_ATR_comp_time,  /* time when job was completed */
   JOB_ATR_reported, /* tracks whether job has been reported to scheduler */
   JOB_ATR_service,  /* True if job is to be treated as a service */
+  JOB_ATR_job_radix,
 #include "site_job_attr_enum.h"
 
   JOB_ATR_UNKN,  /* the special "unknown" type    */
@@ -308,6 +311,7 @@ typedef struct hnodent
   char *hn_host; /* hostname of node */
   int  hn_stream; /* stream to MOM on node */
   int  hn_sister; /* save error for KILL_JOB event */
+  uint16_t port; /*  resmom port default 15003 */
   tlist_head hn_events; /* pointer to list of events */
   } hnodent;
 
@@ -486,6 +490,8 @@ struct job
       struct   /* if in execution queue .. */
         {
         pbs_net_t ji_momaddr;  /* host addr of Server */
+        uint16_t ji_momport;  /* host port of Server default 15002 */
+        uint16_t ji_mom_rmport; /* host mom manager port of Server default 15003 */
         int       ji_exitstat; /* job exit status from MOM */
         } ji_exect;
 
@@ -810,7 +816,7 @@ extern job  *job_clone A_((job *, int));
 extern void  job_free A_((job *));
 extern void  job_purge A_((job *));
 extern job  *job_recov A_((char *));
-extern int   job_save A_((job *, int));
+extern int   job_save A_((job *, int, int));
 extern int   modify_job_attr A_((job *, svrattrl *, int, int *));
 extern char *prefix_std_file A_((job *, int));
 extern char *add_std_filename A_((job *, char *, int));

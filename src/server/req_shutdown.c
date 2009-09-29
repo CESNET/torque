@@ -372,7 +372,7 @@ static int shutdown_chkpt(
       "shutting down with active checkpointable job");
     }
 
-  job_save(pjob, SAVEJOB_QUICK);
+  job_save(pjob, SAVEJOB_QUICK, 0);
 
   return(0);
   }  /* END shutdown_chkpt() */

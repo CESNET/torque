@@ -157,6 +157,7 @@ void remove_stagein(
   {
 
   struct batch_request *preq = 0;
+  u_long addr;
 
   preq = cpy_stage(preq, pjob, JOB_ATR_stagein, 0);
 
@@ -170,8 +171,12 @@ void remove_stagein(
 
     preq->rq_extra = NULL;
 
+    addr = pjob->ji_qs.ji_un.ji_exect.ji_momaddr;
+    addr += pjob->ji_qs.ji_un.ji_exect.ji_mom_rmport;
+    addr += pjob->ji_qs.ji_un.ji_exect.ji_momport;
+
     if (relay_to_mom(
-          pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+          addr,
           preq,
           release_req) == 0)
       {
@@ -1154,7 +1159,7 @@ void purge_completed_jobs(
       pjob->ji_wattr[(int)JOB_ATR_reported].at_flags =
         ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
           
-      job_save(pjob,SAVEJOB_FULL); 
+      job_save(pjob,SAVEJOB_FULL, 0); 
       }
     }
 

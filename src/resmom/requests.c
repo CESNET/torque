@@ -119,6 +119,8 @@
 
 extern struct var_table vtable;      /* see start_exec.c */
 extern char           **environ;
+extern int  multi_mom;
+
 
 extern int InitUserEnv(
 
@@ -1290,6 +1292,7 @@ void req_modifyjob(
   job  *pjob;
   svrattrl *plist;
   int   rc;
+  unsigned int momport = 0;
 
   char tmpLine[1024];
 
@@ -1430,7 +1433,12 @@ void req_modifyjob(
     return;
     }
 
-  job_save(pjob, SAVEJOB_FULL);
+  if(multi_mom)
+    {
+    momport = pbs_rm_port;
+    }
+
+  job_save(pjob, SAVEJOB_FULL, momport);
 
   sprintf(log_buffer, msg_manager,
           msg_jobmod,
@@ -1917,6 +1925,7 @@ void req_signaljob(
   int             sig;
   int             numprocs=0;
   char           *sname;
+  unsigned int momport = 0;
 
   struct sig_tbl *psigt;
 
@@ -2047,7 +2056,12 @@ void req_signaljob(
 
     pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-    job_save(pjob, SAVEJOB_QUICK);
+    if(multi_mom)
+      {
+      momport = pbs_rm_port;
+      }
+
+    job_save(pjob, SAVEJOB_QUICK, momport);
 
     exiting_tasks = 1;
     }
@@ -2987,6 +3001,12 @@ void req_cpyfile(
   /* child */
 
   /* now running as user in the user's home directory */
+  if (LOGLEVEL >= 8)
+    {
+    sprintf(log_buffer,"%s: %s after fork_to_user, running as user in the user's home directory\n",
+      id, preq->rq_ind.rq_cpyfile.rq_jobid);
+    log_err(-1, id, log_buffer);
+    }
 
 #if NO_SPOOL_OUTPUT == 1
   snprintf(homespool, sizeof(homespool), "%s/.pbs_spool/",
@@ -3001,6 +3021,12 @@ void req_cpyfile(
   else
     {
     havehomespool = 0;
+    }
+  if (LOGLEVEL >= 8)
+    {
+    sprintf(log_buffer,"%s: havehomespool = %d (%s)\n",
+      id, havehomespool, homespool);
+    log_err(-1, id, log_buffer);
     }
 
 #else  /* NO_SPOOL_OUTPUT == 1 */
@@ -3039,6 +3065,12 @@ void req_cpyfile(
           {
           havehomespool = 1;
 
+          if (LOGLEVEL >= 8)
+            {
+            sprintf(log_buffer,"%s: %s reseting homespool to (%s)\n",
+              id, preq->rq_ind.rq_cpyfile.rq_jobid, wdir);
+            log_err(-1, id, log_buffer);
+            }
           strncpy(homespool, wdir, sizeof(homespool));
 
           break;
@@ -3048,6 +3080,12 @@ void req_cpyfile(
           {
           havehomespool = 1;
 
+          if (LOGLEVEL >= 8)
+            {
+            sprintf(log_buffer,"%s:%s reseting homespool to (%s)\n",
+              id, preq->rq_ind.rq_cpyfile.rq_jobid, wdir);
+            log_err(-1, id, log_buffer);
+            }
           strncpy(homespool, wdir, sizeof(homespool));
 
           break;
@@ -3057,6 +3095,12 @@ void req_cpyfile(
     }      /* END if ((havehomespool == 0) && (TNoSpoolDirList != NULL)) */
 
 #ifdef HAVE_WORDEXP
+  if (LOGLEVEL >= 8)
+    {
+    sprintf(log_buffer,"%s:%s using HAVE_WORDEXP\n",
+      id, preq->rq_ind.rq_cpyfile.rq_jobid);
+    log_err(-1, id, log_buffer);
+    }
   faketmpdir[0] = '\0';
 
   if ((pjob = find_job(preq->rq_ind.rq_cpyfile.rq_jobid)) == NULL)
@@ -3065,6 +3109,12 @@ void req_cpyfile(
      * This limits the available variables we can use.  fork_to_user()
      * has already set PBS_JOBID and HOME for us.  Now just fake a TMPDIR
      * if we need it. */
+    if (LOGLEVEL >= 8)
+      {
+      sprintf(log_buffer,"%s: stage in for job %s\n",
+        id, preq->rq_ind.rq_cpyfile.rq_jobid);
+      log_err(-1, id, log_buffer);
+      }
 
     pjob = job_alloc();
 
@@ -3117,6 +3167,12 @@ void req_cpyfile(
     }
   else
     {
+    if (LOGLEVEL >= 8)
+      {
+      sprintf(log_buffer,"%s: %s init user environment\n",
+        id, preq->rq_ind.rq_cpyfile.rq_jobid);
+      log_err(-1, id, log_buffer);
+      }
     InitUserEnv(pjob, NULL, NULL, NULL, NULL);
 
     *(vtable.v_envp + vtable.v_used) = NULL;
@@ -3170,6 +3226,12 @@ void req_cpyfile(
       if (pair->fp_flag == STDJOBFILE)
         {
 #if NO_SPOOL_OUTPUT == 0
+        if (LOGLEVEL >= 8)
+          {
+          sprintf(log_buffer,"%s:%s NO_SPOOL_OUTPUT is 0\n",
+            id, preq->rq_ind.rq_cpyfile.rq_jobid);
+          log_err(-1, id, log_buffer);
+          }
 
         if (havehomespool == 1)
           {
@@ -3244,6 +3306,12 @@ void req_cpyfile(
 
         strncpy(localname, pair->fp_local, sizeof(localname) - 1);  /* from location */
         }
+      if (LOGLEVEL >= 8)
+        {
+        sprintf(log_buffer,"%s: %s stage out (%s) remote file (%d) localfile (%s)\n",
+          id, preq->rq_ind.rq_cpyfile.rq_jobid, prmt, rmtflag, localname);
+        log_err(-1, id, log_buffer);
+        }
 
 #if SRFS
       /* Is this file part of $BIGDIR or $FASTDIR ? */
@@ -3307,6 +3375,12 @@ void req_cpyfile(
 #ifdef HAVE_WORDEXP
 
     /* Expand and verify arg2 (source path) */
+    if (LOGLEVEL >= 8)
+      {
+      sprintf(log_buffer,"%s: %s verifying arg2 (%s)\n",
+        id, preq->rq_ind.rq_cpyfile.rq_jobid, arg2);
+      log_err(-1, id, log_buffer);
+      }
 
     switch (wordexp(arg2, &arg2exp, WRDE_NOCMD | WRDE_UNDEF))
       {
@@ -3342,6 +3416,12 @@ void req_cpyfile(
       }  /* END switch () */
 
     /* Expand and verify arg3 (destination path) */
+    if (LOGLEVEL >= 8)
+      {
+      sprintf(log_buffer,"%s: %s verifying arg3 (%s)\n",
+        id, preq->rq_ind.rq_cpyfile.rq_jobid, arg3);
+      log_err(-1, id, log_buffer);
+      }
 
     switch (wordexp(arg3,&arg3exp,WRDE_NOCMD | WRDE_UNDEF))
 
@@ -3429,6 +3509,12 @@ nextword:
       /* local file, source == destination, don't copy */
 
       continue;
+      }
+    if (LOGLEVEL >= 8)
+      {
+      sprintf(log_buffer,"%s: %s doing sys_copy ARG2 (%s) remote (%d) ARG3 (%s)\n",
+        id, preq->rq_ind.rq_cpyfile.rq_jobid, arg2, rmtflag, arg3);
+      log_err(-1, id, log_buffer);
       }
 
     if ((rc = sys_copy(rmtflag, arg2, arg3, preq->rq_conn)) != 0)
@@ -3668,6 +3754,8 @@ int mom_checkpoint_job(
   char         *name;
   int  filelen;
   task         *ptask;
+  unsigned int momport = 0;
+
   extern char   task_fmt[];
 
   assert(pjob != NULL);
@@ -3768,7 +3856,12 @@ int mom_checkpoint_job(
 
   pjob->ji_qs.ji_svrflags |= JOB_SVFLG_CHKPT;
 
-  job_save(pjob, SAVEJOB_FULL); /* to save resources_used so far */
+  if(multi_mom)
+    {
+    momport = pbs_rm_port;
+    }
+
+  job_save(pjob, SAVEJOB_FULL, momport); /* to save resources_used so far */
 
   sprintf(log_buffer, "checkpointed to %s",
           path);

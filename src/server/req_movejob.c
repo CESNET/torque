@@ -316,9 +316,9 @@ void req_orderjob(
 
   /* need to update disk copy of both jobs to save new order */
 
-  job_save(pjob1, SAVEJOB_FULL);
+  job_save(pjob1, SAVEJOB_FULL, 0);
 
-  job_save(pjob2, SAVEJOB_FULL);
+  job_save(pjob2, SAVEJOB_FULL, 0);
 
   reply_ack(req);
 

@@ -807,7 +807,8 @@ void job_clone_wt(
         job_purge(pjobclone);
         }
 
-      if (job_save(pjobclone, SAVEJOB_FULL) != 0)
+
+      if (job_save(pjobclone, SAVEJOB_FULL, 0) != 0)
         {
         job_purge(pjobclone);
         }
@@ -869,7 +870,8 @@ void job_clone_wt(
 
       svr_setjobstate(pjob, newstate, newsub);
 
-      job_save(pjob, SAVEJOB_FULL);
+
+      job_save(pjob, SAVEJOB_FULL, 0);
 
 
       pjob = (job*)GET_NEXT(pjob->ji_arrayjobs);

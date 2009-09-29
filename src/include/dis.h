@@ -204,7 +204,7 @@ float disrf A_((int stream, int *retval));
 
 int diswul A_((int stream, unsigned long value));
 /*#if UINT_MAX == ULONG_MAX*/
-#if SIZEOF_UNSIGNED_INT == SIZEOF_UNSIGNED_LONG
+#if SIZEOF_UNSIGNED_INT == SIZEOF_UNSIGNED_LONG 
 #define diswui(stream, value) diswul(stream, (unsigned long)(value))
 #else
 int diswui A_((int stream, unsigned value));

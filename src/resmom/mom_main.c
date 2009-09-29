@@ -161,6 +161,8 @@
 #define MAX_RESEND_JOBS     512
 #define DUMMY_JOB_PTR       1
 
+#define MAX_PORT_STRING_LEN         6
+#define MAX_LOCK_FILE_NAME_LEN      15
 /* Global Data Items */
 
 char           *program_name;
@@ -178,6 +180,7 @@ int  internal_state = 0;
 int             ignwalltime = 0;        /* by default, enable mom based walltime enforcement */
 int             ignvmem = 0; /* by default, enable mom based vmem enforcement */
 int  lockfds = -1;
+int  multi_mom = 0;
 time_t  loopcnt;  /* used for MD5 calc */
 float  max_load_val = -1.0;
 int  hostname_specified = 0;
@@ -201,6 +204,12 @@ char        *path_aux;
 char        *path_server_name;
 char           *path_home = PBS_SERVER_HOME;
 char           *mom_home;
+
+
+extern int  multi_mom;
+extern unsigned int pbs_rm_port;
+
+
 extern char    *msg_daemonname;          /* for logs     */
 extern char *msg_info_mom; /* Mom information message   */
 extern int pbs_errno;
@@ -4790,15 +4799,15 @@ int rm_request(
                 if (FailurePBSNodeCheckInterval != PBSNodeCheckInterval)
                   {
                   sprintf(tmpLine, "Node Health Check Script: %s (%d,%d seconds/update)\n",
-                    PBSNodeCheckPath,
-                    FailurePBSNodeCheckInterval * ServerStatUpdateInterval,
-                    PBSNodeCheckInterval * ServerStatUpdateInterval);
+                  PBSNodeCheckPath,
+                  FailurePBSNodeCheckInterval * ServerStatUpdateInterval,
+                  PBSNodeCheckInterval * ServerStatUpdateInterval);
                   }
                 else
                   {
-                sprintf(tmpLine, "Node Health Check Script: %s (%d second update interval)\n",
-                    PBSNodeCheckPath,
-                    PBSNodeCheckInterval * ServerStatUpdateInterval);
+                  sprintf(tmpLine, "Node Health Check Script: %s (%d second update interval)\n",
+                  PBSNodeCheckPath,
+                  PBSNodeCheckInterval * ServerStatUpdateInterval);
                   }
 
                 MUStrNCat(&BPtr,&BSpace,tmpLine);
@@ -6601,7 +6610,7 @@ void parse_command_line(
 
   errflg = 0;
 
-  while ((c = getopt(argc, argv, "a:c:C:d:DhH:l:L:M:prR:s:S:vx-:")) != -1)
+  while ((c = getopt(argc, argv, "a:c:C:d:DhH:l:L:mM:prR:s:S:vx-:")) != -1)
     {
     switch (c)
       {
@@ -6751,6 +6760,11 @@ void parse_command_line(
 
         break;
 
+      case 'm':
+
+        multi_mom = 1;
+        break;
+
       case 'p':
 
         if (recover == 0)
@@ -6854,6 +6868,8 @@ int setup_program_environment(void)
   int           c;
   int           hostc = 1;
   FILE         *dummyfile;
+  char         logSuffix[MAX_PORT_STRING_LEN];
+  char         momLock[MAX_LOCK_FILE_NAME_LEN];
   int  tryport;
   int  rppfd;  /* fd for rm and im comm */
   int  privfd = 0; /* fd for sending job info */
@@ -6888,6 +6904,8 @@ int setup_program_environment(void)
 
     DOBACKGROUND = 0;
     }
+
+  memset(TMOMStartInfo, 0, sizeof(pjobexec_t)*TMAX_JE);
 
   /* modify program environment */
 
@@ -7032,7 +7050,15 @@ int setup_program_environment(void)
     hostc = gethostname(mom_host, PBS_MAXHOSTNAME);
     }
 
-  log_init(NULL, mom_host);
+  if(!multi_mom)
+    {
+    log_init(NULL, mom_host);
+    }
+  else
+    {
+    sprintf(logSuffix, "%d", pbs_mom_port);
+    log_init(logSuffix, mom_host);
+    }
 
   /* open log file while std in,out,err still open, forces to fd 4 */
 
@@ -7047,7 +7073,13 @@ int setup_program_environment(void)
 
   check_log(); /* see if this log should be rolled */
 
-  lockfds = open("mom.lock", O_CREAT | O_WRONLY, 0644);
+  if(!multi_mom)
+    sprintf(momLock,"mom.lock");
+  else
+    sprintf(momLock, "mom%d.lock", pbs_mom_port);
+
+
+  lockfds = open(momLock, O_CREAT | O_WRONLY, 0644);
 
   if (lockfds < 0)
     {
@@ -8301,6 +8333,7 @@ kill_all_running_jobs(void)
 
   {
   job *pjob;
+  unsigned int momport = 0;
 
   for (pjob = (job *)GET_NEXT(svr_alljobs);
        pjob != NULL;
@@ -8312,7 +8345,12 @@ kill_all_running_jobs(void)
 
       pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-      job_save(pjob, SAVEJOB_QUICK);
+	  if(multi_mom)
+		{
+		momport = pbs_rm_port;
+		}
+
+	  job_save(pjob, SAVEJOB_QUICK, momport);
       }
     else
       {
@@ -8616,6 +8654,7 @@ int main(
   initialize_globals();
 
   parse_command_line(argc, argv); /* Calls exit on command line error */
+
 
   if ((rc = setup_program_environment()) != 0)
     {
