@@ -12,6 +12,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   e - moving jobs can now trigger a scheduling iteration
   b - fix how qsub sets PBS_O_HOST and PBS_SERVER (Eirikur Hjartarson, deCODE 
       genetics)
+  e - add qpool.gz to contrib directory
 
 2.3.7
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 
