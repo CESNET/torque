@@ -21,6 +21,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   f - added SIG_SUSPEND/SIG_RESUME capability for pseudo services
       
 2.3.7
+  f - Merged multi-mom support from 2.3-multimom branch. Does not work with
+      Dynamic node creation yet.
+  f - Any-mom feature added. Allows any pbs_mom to come into the cluster
+      without the need to be in a nodes file
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 
       valid group name. This helps TORQUE be more robust to group lookup 
       failures.
