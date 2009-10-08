@@ -2717,6 +2717,16 @@ static int sys_copy(
         {
         if ((rc = WEXITSTATUS(rc)) == 0)
           {
+          if (LOGLEVEL >= 8)
+            {
+            sprintf(log_buffer, "return code (%d) from copy: %s %s %s %s",
+                  rc,
+                  ag0,
+                  ag1,
+                  ag2,
+                  ag3);
+            log_err(-1, id, log_buffer);
+            }
           return(rc);          /* good,  stop now */
           }
         }
@@ -2728,10 +2738,23 @@ static int sys_copy(
         {
         rc = (40000 + WTERMSIG(rc)); /* 400xx is signaled */
         }
+      if (LOGLEVEL >= 8)
+        {
+        sprintf(log_buffer, "return code (%d) from copy: %s %s %s %s",
+              rc,
+              ag0,
+              ag1,
+              ag2,
+              ag3);
+        log_err(-1, id, log_buffer);
+        }
       }
     else if (rc < 0)
       {
       rc = errno + 10000; /* error on fork (100xx), retry */
+      sprintf(log_buffer,"%s: fork failure (%d) AG2 (%s) AG3 (%s)\n",
+        id, errno, ag2, ag3);
+      log_err(errno, id, log_buffer);
       }
     else
       {
@@ -2765,6 +2788,15 @@ static int sys_copy(
         }
 
       /* NOTE:  arg2 should be source, arg3 should be destination */
+      if (LOGLEVEL >= 8)
+        {
+        sprintf(log_buffer, "execling copy command: %s %s %s %s",
+              ag0,
+              ag1,
+              ag2,
+              ag3);
+        log_err(-1, id, log_buffer);
+        }
 
       execl(ag0, ag0, ag1, ag2, ag3, NULL);
 
@@ -3563,6 +3595,12 @@ error:
     else
       {
       /* Copy in/out succeeded */
+    if (LOGLEVEL >= 8)
+      {
+      sprintf(log_buffer,"%s: %s sys_copy suceeded ARG2 (%s) ARG3 (%s)\n",
+        id, preq->rq_ind.rq_cpyfile.rq_jobid, arg2, arg3);
+      log_err(-1, id, log_buffer);
+      }
 
       if (dir == STAGE_DIR_OUT)
         {
@@ -3601,6 +3639,12 @@ error:
 
 #endif
 
+  if (LOGLEVEL >= 8)
+    {
+    sprintf(log_buffer,"%s: %s replying with %s\n",
+      id, preq->rq_ind.rq_cpyfile.rq_jobid, bad_files == 1? "Failure":"ACK");
+    log_err(-1, id, log_buffer);
+    }
   if (bad_files)
     {
     reply_text(preq, PBSE_NOCOPYFILE, bad_list);
@@ -3608,6 +3652,12 @@ error:
   else
     {
     reply_ack(preq);
+    }
+  if (LOGLEVEL >= 8)
+    {
+    sprintf(log_buffer,"%s: %s reply complete\n",
+      id, preq->rq_ind.rq_cpyfile.rq_jobid);
+    log_err(-1, id, log_buffer);
     }
 
   /* we are the child, exit not return */
