@@ -1593,7 +1593,6 @@ int create_pbs_node(
     }
 
   rc = mgr_set_node_attr(
-
          pnode,
          node_attr_def,
          ND_ATR_LAST,
@@ -1610,23 +1609,23 @@ int create_pbs_node(
     return(rc);
     }
 
-    /* expand pbsndmast array exactly svr_totnodes long*/
-
-  tmpndlist = (struct pbsnode **)realloc(
-                pbsndmast,
-                sizeof(struct pbsnode *) * (svr_totnodes + 1));
-
-  if (tmpndlist == NULL)
-    {
-    free(pnode);
-    free(pul);
-    free(pname);
-
-    return(PBSE_SYSTEM);
-    }
-
   if(!reused_entry)
     {
+    /* expand pbsndmast array exactly svr_totnodes long*/
+
+    tmpndlist = (struct pbsnode **)realloc(
+                  pbsndmast,
+                  sizeof(struct pbsnode *) * (svr_totnodes + 1));
+
+    if (tmpndlist == NULL)
+      {
+      free(pnode);
+      free(pul);
+      free(pname);
+
+      return(PBSE_SYSTEM);
+      }
+
     /*add in the new entry etc*/
   
     pbsndmast = tmpndlist;
@@ -1646,9 +1645,7 @@ int create_pbs_node(
       return(PBSE_SYSTEM);
       }
   
-    memcpy(
-  
-      tmpndlist,
+    memcpy(tmpndlist,
       pbsndmast,
       svr_totnodes * sizeof(struct pbsnode *));
   
@@ -2308,7 +2305,7 @@ int create_partial_pbs_node(char *nodename, unsigned long addr, int perms)
       return(PBSE_SYSTEM);
       }
 
-    /*add in the new entry etc*/
+    /* add in the new entry etc */
 
     pbsndmast = tmpndlist;
 
