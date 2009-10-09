@@ -182,7 +182,7 @@ int job_save(
 
   if(mom_port)
     {
-    sprintf(portname, "%d", mom_port);
+    sprintf(portname, ".%d", mom_port);
     strcat(namebuf1, portname);
     }
 

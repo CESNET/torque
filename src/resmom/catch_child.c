@@ -1752,15 +1752,37 @@ void init_abort_jobs(
     exit(1);
     }
 
+  /* walk through "jobs" directory and load in job files */
+
   while ((pdirent = readdir(dir)) != NULL)
     {
-    if ((i = strlen(pdirent->d_name)) <= job_suf_len)
+    if ((i = strlen(pdirent->d_name)) <= job_suf_len)  /* filename is too small */
       continue;
 
     psuffix = pdirent->d_name + i - job_suf_len;
 
-    if (strcmp(psuffix, job_suffix))
+    if (strcmp(psuffix,job_suffix))  /* incorrect extension */
       continue;
+
+    if (multi_mom)
+      {
+      /* if multi-mom, make sure we are the correct mom for this job */      
+
+      char *ptr = NULL;
+      char  tmpLine[1024];
+
+      snprintf(tmpLine,sizeof(tmpLine),".%d",pbs_rm_port);
+
+      ptr = strstr(pdirent->d_name,tmpLine);
+
+      if (ptr == NULL)
+        {
+        /* didn't find port in filename--we can't recover this job file
+         * because it doesn't belong to us! */
+        
+        continue;
+        }
+      }
 
     pj = job_recov(pdirent->d_name);
 
