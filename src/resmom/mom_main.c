@@ -157,7 +157,7 @@
 #define CHECK_POLL_TIME     45
 #define DEFAULT_SERVER_STAT_UPDATES 45
 
-#define PMAX_PORT           32000
+#define PMAX_PORT           52000
 #define MAX_RESEND_JOBS     512
 #define DUMMY_JOB_PTR       1
 
