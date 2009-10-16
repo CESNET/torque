@@ -1277,6 +1277,16 @@ update_nodes_file(void)
               ATTR_NODE_np,
               np->nd_nsn);
 
+    /* write the mom_service_port and mom_manager_port */
+    fprintf(nin, " %s=%d",
+            ATTR_NODE_mom_port,
+            np->nd_mom_port);
+
+
+    fprintf(nin, " %s=%d",
+            ATTR_NODE_mom_rm_port,
+            np->nd_mom_rm_port);
+
     /* write out properties */
 
     for (j = 0;j < np->nd_nprops - 1;++j)
