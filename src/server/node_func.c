@@ -1277,15 +1277,14 @@ update_nodes_file(void)
               ATTR_NODE_np,
               np->nd_nsn);
 
-    /* write the mom_service_port and mom_manager_port */
-    fprintf(nin, " %s=%d",
-            ATTR_NODE_mom_port,
-            np->nd_mom_port);
+	/* write the mom_service_port and mom_manager_port*/
+	fprintf(nin, " %s=%d",
+			ATTR_NODE_mom_port,
+			np->nd_mom_port);
 
-
-    fprintf(nin, " %s=%d",
-            ATTR_NODE_mom_rm_port,
-            np->nd_mom_rm_port);
+	fprintf(nin, " %s=%d",
+			ATTR_NODE_mom_rm_port,
+			np->nd_mom_rm_port);
 
     /* write out properties */
 
@@ -1617,6 +1616,33 @@ int create_pbs_node(
     effective_node_delete(pnode);
 
     return(rc);
+    }
+
+  /* Now make sure that in the case of a mult-mom the same
+     mom_service_port and mom_manager_port has not been used */
+  for(i=0; pul[i]; i++)
+    {
+    addr = pul[i] + pnode->nd_mom_port + pnode->nd_mom_rm_port;
+    if(tfind(addr, &ipaddrs) )
+      {
+      snprintf(log_buffer, 1024, "Trying to add duplicate node %s address %ld.%ld.%ld.%ld, mom_serivce_port %d mom_manager_port %d",
+              pnode->nd_name,
+              (pul[i] & 0xff000000) >> 24,
+              (pul[i] & 0x00ff0000) >> 16,
+              (pul[i] & 0x0000ff00) >> 8,
+              (pul[i] & 0x000000ff),
+               pnode->nd_mom_port,
+               pnode->nd_mom_rm_port);
+
+      log_err(-1, "create_pbs_node", log_buffer);
+
+      effective_node_delete(pnode);
+      free(pname);
+      free(pul);
+      free(pnode);
+
+      return(PBSE_DUPLIST);
+      }
     }
 
   if(!reused_entry)

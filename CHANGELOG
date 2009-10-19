@@ -14,6 +14,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       genetics)
   e - added OS independent resending of failed job obits (from D Beer), also
       removed OS specific CACHEOBITFAILURES code.
+  e - Added check for duplicate mom_service_port and mom_manager_port for multiple
+      moms on the same node
 
 2.3.7 Transition
   f - Added new job attribute ATTR_service. Allows job to run as a pseudo
