@@ -16,6 +16,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       removed OS specific CACHEOBITFAILURES code.
   e - Added check for duplicate mom_service_port and mom_manager_port for multiple
       moms on the same node
+  b - fix so after* dependencies are handled correctly for exiting / completed
+      jobs
 
 2.3.7 Transition
   f - Added new job attribute ATTR_service. Allows job to run as a pseudo
