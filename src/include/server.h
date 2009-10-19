@@ -156,6 +156,7 @@ enum srv_atr
   SRV_ATR_SchedVersion,
   SRV_ATR_AcctKeepDays,          /* 60 */
   SRV_ATR_lockfile,
+  SRV_ATR_CredentialLifetime,
   SRV_ATR_JobMustReport,
 #include "site_svr_attr_enum.h"
   /* This must be last */

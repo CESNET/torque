@@ -13,6 +13,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix how qsub sets PBS_O_HOST and PBS_SERVER (Eirikur Hjartarson, deCODE 
       genetics)
   e - add qpool.gz to contrib directory
+  b - all the user to turn off credential lifetimes so they don't have to lose
+      iterations while credentials are renewed.
 
 2.3.7
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 
