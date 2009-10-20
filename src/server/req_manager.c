@@ -2064,14 +2064,13 @@ void mgr_node_create(
     }
 
   mgr_log_attr(
-
     msg_man_set,
     plist,
     PBS_EVENTCLASS_NODE,
     preq->rq_ind.rq_manager.rq_objname);
 
   setup_notification(preq->rq_ind.rq_manager.rq_objname);     /* set mechanism for notifying */
-  /* other nodes of new member   */
+                                                              /* other nodes of new member   */
 
   if (update_nodes_file())
     {

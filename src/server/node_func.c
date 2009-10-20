@@ -760,7 +760,7 @@ static void initialize_pbsnode(
 
 /*  int i; */
 
-  memset(pnode, 0, sizeof(struct pbsnode));
+  memset(pnode,0,sizeof(struct pbsnode));
 
   pnode->nd_name    = pname;
   pnode->nd_stream  = -1;
@@ -1620,32 +1620,32 @@ int create_pbs_node(
 
   /* Now make sure that in the case of a mult-mom the same
      mom_service_port and mom_manager_port has not been used */
-  for(i=0; pul[i]; i++)
+
+  for (i = 0;pul[i];i++)
     {
     addr = pul[i] + pnode->nd_mom_port + pnode->nd_mom_rm_port;
-    if(tfind(addr, &ipaddrs) )
+
+    if (tfind(addr,&ipaddrs))
       {
       snprintf(log_buffer, 1024, "Trying to add duplicate node %s address %ld.%ld.%ld.%ld, mom_serivce_port %d mom_manager_port %d",
-              pnode->nd_name,
-              (pul[i] & 0xff000000) >> 24,
-              (pul[i] & 0x00ff0000) >> 16,
-              (pul[i] & 0x0000ff00) >> 8,
-              (pul[i] & 0x000000ff),
-               pnode->nd_mom_port,
-               pnode->nd_mom_rm_port);
+        pnode->nd_name,
+        (pul[i] & 0xff000000) >> 24,
+        (pul[i] & 0x00ff0000) >> 16,
+        (pul[i] & 0x0000ff00) >> 8,
+        (pul[i] & 0x000000ff),
+        pnode->nd_mom_port,
+        pnode->nd_mom_rm_port);
 
       log_err(-1, "create_pbs_node", log_buffer);
 
       effective_node_delete(pnode);
-      free(pname);
-      free(pul);
       free(pnode);
 
       return(PBSE_DUPLIST);
       }
     }
 
-  if(!reused_entry)
+  if (!reused_entry)
     {
     /* expand pbsndmast array exactly svr_totnodes long*/
 
@@ -1662,7 +1662,7 @@ int create_pbs_node(
       return(PBSE_SYSTEM);
       }
 
-    /*add in the new entry etc*/
+    /* add in the new entry etc */
   
     pbsndmast = tmpndlist;
   
@@ -1688,7 +1688,6 @@ int create_pbs_node(
     pbsndlist = tmpndlist;
     }
 
-
   for (i = 0;pul[i];i++)
     {
     if (LOGLEVEL >= 6)
@@ -1708,14 +1707,13 @@ int create_pbs_node(
       }
     
     addr = pul[i] + pnode->nd_mom_port + pnode->nd_mom_rm_port;
-    tinsert(addr, pnode, &ipaddrs);
+    tinsert(addr,pnode,&ipaddrs);
     }  /* END for (i) */
-
 
   recompute_ntype_cnts();
 
-  return(PBSE_NONE);     /*create completely successful*/
-  }
+  return(PBSE_NONE);     /* create completely successful */
+  }  /* create_pbs_node() */
 
 
 
@@ -2296,7 +2294,7 @@ int   actmode; /*action mode; "NEW" or "ALTER"   */
 int create_partial_pbs_node(char *nodename, unsigned long addr, int perms)
 {
   int iht;
-  int              ntype; /* node type; time-shared, not */
+  int ntype; /* node type; time-shared, not */
   int rc, bad = 0;
   svrattrl *plist = NULL;
   struct pbsnode **tmpndlist;
@@ -2359,7 +2357,6 @@ int create_partial_pbs_node(char *nodename, unsigned long addr, int perms)
       }
 
     memcpy(
-
       tmpndlist,
       pbsndmast,
       svr_totnodes * sizeof(struct pbsnode *));
@@ -2391,7 +2388,6 @@ int create_partial_pbs_node(char *nodename, unsigned long addr, int perms)
     }
 
   rc = mgr_set_node_attr(
-
          pnode,
          node_attr_def,
          ND_ATR_LAST,
@@ -2415,7 +2411,6 @@ int create_partial_pbs_node(char *nodename, unsigned long addr, int perms)
 
 
 return(PBSE_NONE);     /*create completely successful*/
- 
-}
+}  /* END create_partial_pbs_node() */
 
 

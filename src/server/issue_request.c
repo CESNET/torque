@@ -173,7 +173,6 @@ int relay_to_mom(
     }
 
   conn = svr_connect(
-
            momaddr,
            pbs_mom_port,
            process_Dreply,

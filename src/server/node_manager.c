@@ -1132,17 +1132,16 @@ void send_cluster_addrs(
 
 
 /*
- *      setup_notification -  Sets up the  mechanism for notifying
- *                            other members of the server's node
- *                            pool that a new node was added manually
- *                            via qmgr.  Actual notification occurs some
- *                            time later through the send_cluster_addrs mechanism
+ * setup_notification -  Sets up the  mechanism for notifying
+ *                       other members of the server's node
+ *                       pool that a new node was added manually
+ *                       via qmgr.  Actual notification occurs some
+ *                       time later through the send_cluster_addrs mechanism
  */
 
 void setup_notification(char *pname)
 
   {
-
   struct pbsnode *pnode;
   new_node       *nnew;
 
@@ -1170,7 +1169,6 @@ void setup_notification(char *pname)
     }
 
   set_task(
-
     WORK_Timed,
     time_now + 5,
     send_cluster_addrs,
@@ -2014,34 +2012,33 @@ void is_request(
 
     goto found;
     }  /* END if ((node = tfind(ipaddr,&ipaddrs)) != NULL) */
-    else if (allow_any_mom)                                           
-      {                                                               
-        {                                                             
-          hp = gethostbyaddr(&ipaddr, sizeof(ipaddr), AF_INET);       
-          if(hp != NULL)                                              
-            {                                                         
-            strncpy(nodename, hp->h_name, PBS_MAXHOSTNAME);           
-            err = create_partial_pbs_node(nodename, ipaddr, perm);    
-            }                                                         
-          else                                                        
-            {      
-            tmpaddr = ntohl(addr->sin_addr.s_addr);                                                   
-            sprintf(nodename, "0x%lX", tmpaddr);
-            err = create_partial_pbs_node(nodename, ipaddr, perm);    
-            }                                                         
+  else if (allow_any_mom)                                           
+    {                                                               
+    hp = gethostbyaddr(&ipaddr, sizeof(ipaddr), AF_INET);       
+
+    if (hp != NULL)                                              
+      {                                                         
+      strncpy(nodename, hp->h_name, PBS_MAXHOSTNAME);           
+      err = create_partial_pbs_node(nodename, ipaddr, perm);    
+      }                                                         
+    else                                                        
+      {      
+      tmpaddr = ntohl(addr->sin_addr.s_addr);                                                   
+      sprintf(nodename, "0x%lX", tmpaddr);
+      err = create_partial_pbs_node(nodename, ipaddr, perm);    
+      }                                                         
                                                                       
-          if(err == PBSE_NONE)                                        
-            {   
-            node = tfind(ipaddr, &ipaddrs);                           
-            goto found;                                               
-            }                                                         
-        }                                                             
-      }
+    if (err == PBSE_NONE)                                        
+      {   
+      node = tfind(ipaddr, &ipaddrs);                           
+      goto found;                                               
+      }                                                         
+    }
 
   /* node not listed in trusted ipaddrs list */
 
   sprintf(log_buffer, "bad attempt to connect from %s (address not trusted - check entry in server_priv/nodes)",
-          netaddr(addr));
+    netaddr(addr));
 
   if (LOGLEVEL >= 2)
     {
