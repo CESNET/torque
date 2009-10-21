@@ -18,6 +18,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       moms on the same node
   b - fix so after* dependencies are handled correctly for exiting / completed
       jobs
+  b - fix tracejob so it handles multiple server and mom logs for the same day
 
 2.3.7 Transition
   f - Added new job attribute ATTR_service. Allows job to run as a pseudo
