@@ -17,6 +17,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       iterations while credentials are renewed.
   b - fix so after* dependencies are handled correctly for exiting / completed
       jobs
+  b - fix tracejob so it handles multiple server and mom logs for the same day
 
 2.3.7
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 
