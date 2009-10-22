@@ -18,9 +18,14 @@ dnl
 dnl Expanded to support 'make distcheck', shared libs,
 dnl  bi-arches, pbs-config script, and updated to TORQUE 2.x
 dnl  by Garrick Staples (garrick@usc.edu)
+dnl
+dnl Expanded to allow --enable-high-availability in order to have improved
+dnl high availability features
+dnl by David Beer (dbeer@adaptivecomputing.com)
+dnl
 
 AC_PREREQ(2.53)
-AC_INIT([torque], [2.4.0], [torqueusers@supercluster.org])
+AC_INIT([torque], [2.4.1b1], [torqueusers@supercluster.org])
 AC_REVISION($Revision$)
 AC_CONFIG_SRCDIR([src/cmds/qrun.c])
 AC_CONFIG_AUX_DIR([buildutils])
@@ -75,15 +80,71 @@ AC_DEFINE_UNQUOTED(MACH_RESC_DEFS, "resc_def_${PBS_MACH}.c",
 
 dnl
 dnl  ######################################################################
-dnl  Debug mode?
+dnl  Autorun mode?
 dnl
-AC_MSG_CHECKING([whether to turn on the DEBUG flag])
-AC_ARG_ENABLE(debug,
-    [  --enable-debug          turn on the DEBUG flag],
-    enable_debug=$enableval, enable_debug=no)
-AC_MSG_RESULT($enable_debug)
-if test "x$enable_debug" = "xyes" ; then
-	AC_DEFINE(DEBUG, 1, [turns on the compilation of DEBUG code])
+AC_MSG_CHECKING([whether to turn on the AUTORUN_JOBS flag])
+AC_ARG_ENABLE(autorun,
+    [  --enable-autorun        turn on the AUTORUN_JOBS flag],
+    enable_autorun=$enableval, enable_autorun=no)
+AC_MSG_RESULT($enable_autorun)
+if test "x$enable_autorun" = "xyes" ; then
+	AC_DEFINE(AUTORUN_JOBS, 1, [turns on the compilation of AUTORUN_JOBS code])
+fi
+
+
+
+dnl
+dnl  ######################################################################
+dnl  Resource max not default mode?
+dnl
+AC_MSG_CHECKING([whether to turn on the RESOURCEMAXNOTDEFAULT flag])
+AC_ARG_ENABLE(maxnotdefault,
+    [  --enable-maxnotdefault  turn on the RESOURCEMAXNOTDEFAULT flag],
+    enable_maxnotdefault=$enableval, enable_maxnotdefault=no)
+AC_MSG_RESULT($enable_maxnotdefault)
+if test "x$enable_maxnotdefault" = "xyes" ; then
+	AC_DEFINE(RESOURCEMAXNOTDEFAULT, 1, [turns on the compilation of RESOURCEMAXNOTDEFAULT code])
+fi
+
+
+dnl
+dnl  ######################################################################
+dnl  Quick commit mode?
+dnl
+AC_MSG_CHECKING([whether to turn on the QUICKCOMMIT flag])
+AC_ARG_ENABLE(quickcommit,
+    [  --enable-quickcommit    turn on the QUICKCOMMIT flag],
+    enable_quickcommit=$enableval, enable_quickcommit=no)
+AC_MSG_RESULT($enable_quickcommit)
+if test "x$enable_quickcommit" = "xyes" ; then
+	AC_DEFINE(QUICKCOMMIT, 1, [turns on the compilation of QUICKCOMMIT code])
+fi
+
+dnl
+dnl  ######################################################################
+dnl   Disable qsub keep(-k) override?
+dnl
+AC_ARG_ENABLE(qsub-keep-override, [
+  --disable-qsub-keep-override 
+                          do not allow the qsub -k flag to override -o -e.],
+[case "${enableval}" in
+  yes)  ;;
+  no)  QSUB_KEEP_NO_OVERRIDE=1;
+       AC_DEFINE(QSUB_KEEP_NO_OVERRIDE, 1, [turns on the QSUB_KEEP_NO_OVERRIDE flag]) ;;
+  *)   AC_MSG_ERROR(--enable-qsub-keep-override cannot take a value) ;;
+esac])dnl
+
+dnl
+dnl  ######################################################################
+dnl  No SIG_CHLD mode?
+dnl
+AC_MSG_CHECKING([whether to turn on the NO_SIGCHLD flag])
+AC_ARG_ENABLE(nochildsignal,
+    [  --enable-nochildsignal  turn on the NO_SIGCHLD flag],
+    enable_nochildsignal=$enableval, enable_nochildsignal=no)
+AC_MSG_RESULT($enable_nochildsignal)
+if test "x$enable_nochildsignal" = "xyes" ; then
+	AC_DEFINE(NO_SIGCHLD, 1, [turns on the compilation of NO_SIGCHLD code])
 fi
 
 
@@ -133,13 +194,13 @@ AC_SUBST(build_drmaa)
 dnl
 dnl  ######################################################################
 dnl  Check for the C compiler (some tests rely on it)
+dnl  this needs to be before AC_ARG_ENABLE(debug)
 dnl
 
 dnl  did the user provide CC and CFLAGS variables?  store for later
-user_choosed_cc_set=${CC+set}
-user_choosed_cflags_set=${CFLAGS+set}
-
-
+dnl  user_choosed_cc_set=${CC+set}
+dnl  user_choosed_cflags_set=${CFLAGS+set}
+dnl  SPECIFIED_CFLAGS=$CFLAGS
 dnl  look for the C-Compiler
 AC_PROG_CC
 AC_PROG_GCC_TRADITIONAL
@@ -176,6 +237,51 @@ dnl  ######################################################################
 dnl  Check how to compile
 dnl
 
+
+dnl
+dnl  ######################################################################
+dnl  compile in debug code?
+dnl
+AC_MSG_CHECKING([whether to turn on the compilation of DEBUG code])
+AC_ARG_ENABLE(debug,
+    [  --enable-debug          turn on the compilation of DEBUG code],
+    enable_debug=$enableval, enable_debug=no)
+AC_MSG_RESULT($enable_debug)
+if test "x$enable_debug" = "xyes" ; then
+	AC_DEFINE(DEBUG, 1, [turns on the compilation of DEBUG code])
+fi
+
+
+dnl
+dnl  ######################################################################
+dnl  compile with debugging symbols
+dnl  this needs to be after AC_PROG_CC and before AX_CFLAGS_GCC_OPTION
+dnl  and TAC_SYS_LARGEFILE
+dnl
+AC_MSG_CHECKING([whether to compile with debugging symbols])
+AC_ARG_WITH([debug],
+  AC_HELP_STRING([--with-debug], [compile with debugging symbols]),
+  DEBUG_SYMBOLS=$withval, DEBUG_SYMBOLS="no")
+AC_MSG_RESULT([DEBUG_SYMBOLS=$DEBUG_SYMBOLS])
+dnl  remove -O* and add -g
+if test "$DEBUG_SYMBOLS" = 'yes'; then
+  AC_MSG_RESULT([before tweak CFLAGS=$CFLAGS])
+  CFLAGS=`echo $CFLAGS | sed 's/ \?-O[[^ ]]*//g'`
+  AC_MSG_RESULT([mid tweak CFLAGS=$CFLAGS])
+  case $CFLAGS in
+    *-g*)
+      ;;
+    *)
+      if test "$CFLAGS" = ''; then
+        CFLAGS="-g"
+      else
+        CFLAGS="-g $CFLAGS"
+      fi
+      ;;
+  esac
+  AC_MSG_RESULT([after tweak CFLAGS=$CFLAGS])
+fi
+
 dnl Torque's own largefile support
 TAC_SYS_LARGEFILE
 
@@ -198,7 +304,24 @@ if test "x$GCC" = "xyes" ;then
   fi
 fi
 
+dnl check if we should use high availability mode
+AC_ARG_ENABLE(high_availability, [
+  --enable-high-availability  Enables advanced high availability mode (multi-threaded)])
+if test "x$GCC" = "xyes" ;then
+  AC_MSG_CHECKING([whether to use threaded high availability])
+  if test "${enable_high_availability}" == "yes" ; then
+    AC_MSG_RESULT([yes])
+    PTHREAD_LIBS=-lpthread
+    LIBS="$LIBS $PTHREAD_LIBS"
+    CFLAGS="$CFLAGS -DUSE_HA_THREADS"
+  else
+    AC_MSG_RESULT([no])
+    high_availability=yes
+  fi
+fi
+
 dnl
+
 dnl If hpux and gcc, force the XOPEN interface.
 AC_MSG_CHECKING([whether to force XOPEN networking stack])
 AC_ARG_ENABLE(xopen_networking, [
@@ -321,6 +444,25 @@ fi
 AM_CONDITIONAL([BUILD_L26_CPUSETS], test "$build_l26_cpuset" = yes)
 
 
+dnl turn on the new feature to request a specific geometry for a process
+dnl this uses cpusets to bind the job to that geometry
+dnl --enable-geometry-request
+AC_ARG_ENABLE(geometry_requests, [
+  --enable-geometry-requests  Enables the user to request a specific geometry using a cpuset implementation])
+if test "x$GCC" = "xyes" ;then
+  AC_MSG_CHECKING([whether to allow geometry requests])
+  if test "${enable_geometry_requests}" = "yes" ; then
+    AC_MSG_RESULT([yes])
+    build_l26_cpuset=yes
+    AC_DEFINE(PENABLE_LINUX26_CPUSETS, 1, [Define to enable Linux 2.6 cpusets])
+dnl    AC_DEFINE(GEOMETRY_REQUESTS, 1, [Define to allow job specific geometry requests])
+    CFLAGS="$CFLAGS -DGEOMETRY_REQUESTS"
+  else
+    AC_MSG_RESULT([no])
+  fi
+fi
+AM_CONDITIONAL([BUILD_L26_CPUSETS], test "$build_l26_cpuset" = yes)
+
 dnl  irix6 can be changed to irix6array explicitly with an
 dnl  --enable-array and irix6array can be made into irix6 with a
 dnl  --disable-array.
@@ -357,6 +499,20 @@ case "$BLCR" in
   yes) AC_DEFINE([ENABLE_BLCR], 1, [Define to enable BLCR support]) ;;
   no) : ;;
   *) AC_MSG_ERROR([--enable-blcr should be yes or no]) ;;
+esac
+
+dnl
+dnl enable logging of x attributes for accounting
+dnl
+AC_MSG_CHECKING([whether to add x attributes to accounting])
+AC_ARG_ENABLE(acct-x,
+    [  --enable-acct-x         enable adding x attributes to accounting log],
+    ACCTX=$enableval,ACCTX=no)
+AC_MSG_RESULT($ACCTX)
+case "$ACCTX" in
+  yes) AC_DEFINE([ATTR_X_ACCT], 1, [Define to add x attributes to accounting log]) ;;
+  no) : ;;
+  *) AC_MSG_ERROR([--enable-acct-x should be yes or no]) ;;
 esac
 
 dnl
@@ -401,6 +557,24 @@ case "$CPA" in
 esac
 AM_CONDITIONAL([BUILDCPA], test "$buildcpa" = yes)
 LDFLAGS="$LDFLAGS_cpasave"
+
+
+dnl
+dnl enable Cray's CSA support
+dnl
+AC_MSG_CHECKING([whether to build Cray's CSA support])
+AC_ARG_ENABLE(csa,
+    [  --enable-csa            enable Cray's CSA support],
+    CSA=$enableval,CSA=no)   
+AC_MSG_RESULT($CSA)
+
+case "$CSA" in
+  yes) AC_DEFINE([ENABLE_CSA], 1, [Define to enable Cray's CSA support])
+      MOMLIBS="$MOMLIBS -L/opt/cray/job/default/lib64 -ljob -lcsa"
+      ;;
+  no) : ;;
+  *) AC_MSG_ERROR([--enable-csa should be yes or no]) ;;
+esac
 
 
 
@@ -756,6 +930,17 @@ esac],[SHELL_USE_ARGV=0])dnl
 AC_DEFINE_UNQUOTED(SHELL_USE_ARGV, ${SHELL_USE_ARGV}, [job script name passed as the shell's arg])
 
 
+AC_ARG_ENABLE(posixmemlock, [
+  --disable-posixmemlock  disable the moms use of mlockall.  
+                          Some versions of OSs seem to have buggy POSIX MEMLOCK.],
+[case "${enableval}" in
+  yes)  ;;
+  no)  NOPOSIXMEMLOCK=1; AC_DEFINE(NOPOSIXMEMLOCK, 1, [Define to disable mlockall]) ;;
+  *)   AC_MSG_ERROR(--enable-posixmemlock cannot take a value) ;;
+esac])dnl
+
+
+
 AC_ARG_ENABLE(privports, [
   --disable-privports     disable the use of privileged ports for authentication.  
                           Some versions of OSX have a buggy bind() and cannot
@@ -773,7 +958,7 @@ AC_ARG_ENABLE(mom-checkspool, [
 [case "${enableval}" in
   yes) MOMCHECKLOCALSPOOL=1 ;;
   no)  MOMCHECKLOCALSPOOL=0;;
-  *)   AC_MSG_ERROR(--enable-privports cannot take a value) ;;
+  *)   AC_MSG_ERROR(--enable-mom-checkspool cannot take a value) ;;
 esac],[MOMCHECKLOCALSPOOL=1])dnl
 AC_DEFINE_UNQUOTED(MOMCHECKLOCALSPOOL, ${MOMCHECKLOCALSPOOL}, [Define to error if spool is full on MOM])
 
@@ -844,7 +1029,7 @@ AC_ARG_WITH(server_name_file, [
                           the default server for clients to use. If this
                           is not an absolute pathname, it will be evaluated
                           relative to the server home directory that either
-                          defaults to /usr/spool/PBS or is set using
+                          defaults to /usr/spool/torque or is set using
                           the --with-server-home option to configure. If this
                           option is not specified, the default name for
                           this file will be set to "server_name".],
@@ -1353,6 +1538,7 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/lib/Libnet/Makefile
 	  src/lib/Libpbs/Makefile
 	  src/lib/Libsite/Makefile
+    src/lib/Libutils/Makefile
 	  src/mom_rcp/Makefile
 	  src/momctl/Makefile
 	  src/resmom/Makefile

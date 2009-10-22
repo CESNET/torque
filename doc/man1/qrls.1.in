@@ -82,7 +82,7 @@
 qrls \- release hold on pbs batch jobs
 .SH SYNOPSIS
 qrls
-[-h\ hold_list]
+[\-h\ hold_list]
 job_identifier ...
 .SH DESCRIPTION
 The
@@ -109,7 +109,7 @@ An Attempt to release a hold for which the user does not have the
 correct privilege is an error and no holds will be released for that job.
 .LP
 If no
-.Ar -h
+.Ar \-h
 option is specified, the 
 .Av USER 
 hold will be released.
@@ -142,8 +142,7 @@ Defines the types of hold to be released from the jobs.
 The
 .Ar hold_list
 option argument is a string consisting of one or more of the letters "\fBu\fP",
-"\fBo\fP", an "\fBs\fP" in any combination, or one or more of the letters
-"\fBn\fP.
+"\fBo\fP", an "\fBs\fP" in any combination.
 The hold type associated with each letter is:
 .RS
 .IP "u \- " 4
@@ -152,13 +151,10 @@ The hold type associated with each letter is:
 .Av OTHER
 .IP "s \- " 4
 .Av SYSTEM
-.IP "n \- " 4
-.Av None
 .RE
 .if !\n(Pb .ig Ig
 .IP
-Repetition of characters is permitted, but "n" may not appear in the same
-option argument with the other three characters.
+Repetition of characters is permitted.
 .Ig
 .LP
 .SH  OPERANDS

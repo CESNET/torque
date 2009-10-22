@@ -1,6 +1,6 @@
 include $(top_srcdir)/buildutils/config.mk
 
-AM_CPPFLAGS += -I../Libdis -DIFF_PATH=\"$(IFF_PATH)\" -DPBS_DEFAULT_FILE=\"$(PBS_DEFAULT_FILE)\"
+AM_CPPFLAGS += -I$(top_srcdir)/src/lib/Libdis -DIFF_PATH=\"$(IFF_PATH)\" -DPBS_DEFAULT_FILE=\"$(PBS_DEFAULT_FILE)\"
 
 EXTRA_DIST = ../Libdis/dis_.h
 
@@ -32,6 +32,7 @@ libtorque_la_SOURCES = ../Libcsv/csv.c ../Libdis/dis.c \
 		    ../Libifl/dec_MsgJob.c ../Libifl/dec_QueueJob.c \
 		    ../Libifl/dec_Reg.c ../Libifl/dec_ReqExt.c \
 		    ../Libifl/dec_ReqHdr.c ../Libifl/dec_Resc.c \
+		    ../Libifl/dec_ReturnFile.c \
 		    ../Libifl/dec_rpyc.c ../Libifl/dec_rpys.c \
 		    ../Libifl/dec_RunJob.c ../Libifl/dec_Shut.c \
 		    ../Libifl/dec_Sig.c ../Libifl/dec_Status.c \
@@ -42,7 +43,8 @@ libtorque_la_SOURCES = ../Libcsv/csv.c ../Libdis/dis.c \
 		    ../Libifl/enc_JobObit.c ../Libifl/enc_Manage.c \
 		    ../Libifl/enc_MoveJob.c ../Libifl/enc_MsgJob.c \
 		    ../Libifl/enc_QueueJob.c ../Libifl/enc_Reg.c \
-		    ../Libifl/enc_reply.c ../Libifl/enc_ReqExt.c \
+		    ../Libifl/enc_reply.c ../Libifl/enc_ReturnFile.c \
+		    ../Libifl/enc_ReqExt.c \
 		    ../Libifl/enc_ReqHdr.c ../Libifl/enc_RunJob.c \
 		    ../Libifl/enc_Shut.c ../Libifl/enc_Sig.c \
 		    ../Libifl/enc_Status.c ../Libifl/enc_svrattrl.c \

@@ -9,8 +9,8 @@ ulimit -n 32768
 # Source the library functions
 . /etc/rc.d/init.d/functions
 
-PBS_DAEMON=/usr/sbin/pbs_mom
-PBS_HOME=/usr/spool/PBS
+PBS_DAEMON=/usr/local/sbin/pbs_mom
+PBS_HOME=/var/spool/torque
 export PBS_DAEMON PBS_HOME
 
 if [ -f /etc/sysconfig/pbs_mom ];then
@@ -21,6 +21,8 @@ args=""
 if [ -z "$previous" ];then
    # being run manually, don't disturb jobs
    args="-p"
+elif
+   args="-q"
 fi
 
 pidof_pbs_mom() {
@@ -50,6 +52,7 @@ kill_pbs_mom() {
 case "$1" in
 	start)
 		echo -n "Starting TORQUE Mom: "
+                # ulimit -c unlimited  # Uncomment this to preserve core files
 		daemon $PBS_DAEMON $args
 		RET=$?
 		touch /var/lock/subsys/pbs_mom

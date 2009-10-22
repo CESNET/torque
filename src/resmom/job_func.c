@@ -1,45 +1,45 @@
 /*
 *         OpenPBS (Portable Batch System) v2.3 Software License
-* 
+*
 * Copyright (c) 1999-2000 Veridian Information Solutions, Inc.
 * All rights reserved.
-* 
+*
 * ---------------------------------------------------------------------------
 * For a license to use or redistribute the OpenPBS software under conditions
 * other than those described below, or to purchase support for this software,
 * please contact Veridian Systems, PBS Products Department ("Licensor") at:
-* 
+*
 *    www.OpenPBS.org  +1 650 967-4675                  sales@OpenPBS.org
 *                        877 902-4PBS (US toll-free)
 * ---------------------------------------------------------------------------
-* 
+*
 * This license covers use of the OpenPBS v2.3 software (the "Software") at
 * your site or location, and, for certain users, redistribution of the
 * Software to other sites and locations.  Use and redistribution of
 * OpenPBS v2.3 in source and binary forms, with or without modification,
 * are permitted provided that all of the following conditions are met.
 * After December 31, 2001, only conditions 3-6 must be met:
-* 
+*
 * 1. Commercial and/or non-commercial use of the Software is permitted
 *    provided a current software registration is on file at www.OpenPBS.org.
 *    If use of this software contributes to a publication, product, or
 *    service, proper attribution must be given; see www.OpenPBS.org/credit.html
-* 
+*
 * 2. Redistribution in any form is only permitted for non-commercial,
 *    non-profit purposes.  There can be no charge for the Software or any
 *    software incorporating the Software.  Further, there can be no
 *    expectation of revenue generated as a consequence of redistributing
 *    the Software.
-* 
+*
 * 3. Any Redistribution of source code must retain the above copyright notice
 *    and the acknowledgment contained in paragraph 6, this list of conditions
 *    and the disclaimer contained in paragraph 7.
-* 
+*
 * 4. Any Redistribution in binary form must reproduce the above copyright
 *    notice and the acknowledgment contained in paragraph 6, this list of
 *    conditions and the disclaimer contained in paragraph 7 in the
 *    documentation and/or other materials provided with the distribution.
-* 
+*
 * 5. Redistributions in any form must be accompanied by information on how to
 *    obtain complete source code for the OpenPBS software and any
 *    modifications and/or additions to the OpenPBS software.  The source code
@@ -47,23 +47,23 @@
 *    than the cost of distribution plus a nominal fee, and all modifications
 *    and additions to the Software must be freely redistributable by any party
 *    (including Licensor) without restriction.
-* 
+*
 * 6. All advertising materials mentioning features or use of the Software must
 *    display the following acknowledgment:
-* 
+*
 *     "This product includes software developed by NASA Ames Research Center,
-*     Lawrence Livermore National Laboratory, and Veridian Information 
+*     Lawrence Livermore National Laboratory, and Veridian Information
 *     Solutions, Inc.
 *     Visit www.OpenPBS.org for OpenPBS software support,
 *     products, and information."
-* 
+*
 * 7. DISCLAIMER OF WARRANTY
-* 
+*
 * THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. ANY EXPRESS
 * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
 * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT
 * ARE EXPRESSLY DISCLAIMED.
-* 
+*
 * IN NO EVENT SHALL VERIDIAN CORPORATION, ITS AFFILIATED COMPANIES, OR THE
 * U.S. GOVERNMENT OR ANY OF ITS AGENCIES BE LIABLE FOR ANY DIRECT OR INDIRECT,
 * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
@@ -72,7 +72,7 @@
 * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-* 
+*
 * This license will be governed by the laws of the Commonwealth of Virginia,
 * without reference to its choice of law rules.
 */
@@ -81,11 +81,11 @@
  *
  * Included public functions are:
  *
- *   job_abt	  abort (remove from server) a job
+ *   job_abt   abort (remove from server) a job
  *   job_alloc    allocate job struct and initialize defaults
- *   job_free	  free space allocated to the job structure and its
- *		  childern structures.
- *   job_purge	  purge job from server
+ *   job_free   free space allocated to the job structure and its
+ *    childern structures.
+ *   job_purge   purge job from server
  *
  *   job_clone    clones a job (for use with job_arrays)
  *   job_clone_wt work task for cloning a job
@@ -126,7 +126,7 @@
 #include "server_limits.h"
 #include "server.h"
 #include "queue.h"
-#include "job.h"
+#include "pbs_job.h"
 #include "log.h"
 #include "pbs_error.h"
 #include "svrfunc.h"
@@ -140,16 +140,19 @@
 #define FALSE 0
 #endif
 
-int conn_qsub(char *,long,char *);
+int conn_qsub(char *, long, char *);
 void job_purge(job *);
 
 /* External functions */
 extern void mom_checkpoint_delete_files(job *pjob);
- 
-#if IBM_SP2==2		/* IBM SP PSSP 3.1 */
-void unload_sp_switch A_((job *pjob));
-#endif			/* IBM SP */
 
+#if IBM_SP2==2  /* IBM SP PSSP 3.1 */
+void unload_sp_switch A_((job *pjob));
+#endif   /* IBM SP */
+
+#ifdef PENABLE_LINUX26_CPUSETS
+extern int use_cpusets(job *);
+#endif /* PENABLE_LINUX26_CPUSETS */
 /* Local Private Functions */
 
 static void job_init_wattr A_((job *));
@@ -170,7 +173,7 @@ extern tlist_head svr_alljobs;
 
 
 void nodes_free A_((job *));
-int TTmpDirName A_((job *,char *));
+int TTmpDirName A_((job *, char *));
 
 
 void tasks_free(
@@ -178,15 +181,15 @@ void tasks_free(
   job *pj)
 
   {
-  task	*tp = (task *)GET_NEXT(pj->ji_tasks);
-  obitent	*op;
+  task *tp = (task *)GET_NEXT(pj->ji_tasks);
+  obitent *op;
   infoent *ip;
 
-  while (tp != NULL) 
+  while (tp != NULL)
     {
     op = (obitent *)GET_NEXT(tp->ti_obits);
 
-    while (op != NULL) 
+    while (op != NULL)
       {
       delete_link(&op->oe_next);
 
@@ -197,7 +200,7 @@ void tasks_free(
 
     ip = (infoent *)GET_NEXT(tp->ti_info);
 
-    while (ip != NULL) 
+    while (ip != NULL)
       {
       delete_link(&ip->ie_next);
 
@@ -227,8 +230,8 @@ void tasks_free(
 /*
  * remtree - remove a tree (or single file)
  *
- *	returns	 0 on success
- *		-1 on failure
+ * returns  0 on success
+ *  -1 on failure
  */
 
 int remtree(
@@ -236,109 +239,133 @@ int remtree(
   char *dirname)
 
   {
-  static	char	id[] = "remtree";
-  DIR		*dir;
-  struct dirent	*pdir;
-  char		namebuf[MAXPATHLEN], *filnam;
-  int		i;
-  int		rtnv = 0;
+  static char id[] = "remtree";
+  DIR  *dir;
+
+  struct dirent *pdir;
+  char  namebuf[MAXPATHLEN], *filnam;
+  int  i;
+  int  rtnv = 0;
 #if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64)
-  struct stat64	sb;
+
+  struct stat64 sb;
 #else
-  struct stat	sb;
+
+  struct stat sb;
 #endif
 
 #if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64)
-  if (lstat64(dirname,&sb) == -1) 
+
+  if (lstat64(dirname, &sb) == -1)
 #else
-  if (lstat(dirname,&sb) == -1) 
+  if (lstat(dirname, &sb) == -1)
 #endif
     {
-  if (errno != ENOENT)
-    log_err(errno,id,"stat");
 
-  return(-1);
-  }
+    if (errno != ENOENT)
+      log_err(errno, id, "stat");
 
-  if (S_ISDIR(sb.st_mode)) 
+    return(-1);
+    }
+
+  if (S_ISDIR(sb.st_mode))
     {
-    if ((dir = opendir(dirname)) == NULL) 
+    if ((dir = opendir(dirname)) == NULL)
       {
       if (errno != ENOENT)
-        log_err(errno,id,"opendir");
+        log_err(errno, id, "opendir");
 
       return(-1);
       }
 
-    strcpy(namebuf,dirname);
-    strcat(namebuf,"/");
+    strcpy(namebuf, dirname);
+
+    strcat(namebuf, "/");
 
     i = strlen(namebuf);
 
     filnam = &namebuf[i];
 
-    while ((pdir = readdir(dir)) != NULL) 
+    while ((pdir = readdir(dir)) != NULL)
       {
       if ((pdir->d_name[0] == '.') &&
-         ((pdir->d_name[1] == '\0') || (pdir->d_name[1] == '.')))
+          ((pdir->d_name[1] == '\0') || (pdir->d_name[1] == '.')))
         continue;
 
-      strcpy(filnam,pdir->d_name);
+      strcpy(filnam, pdir->d_name);
 
 #if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64)
-      if (lstat64(namebuf,&sb) == -1) 
+      if (lstat64(namebuf, &sb) == -1)
 #else
-      if (lstat(namebuf,&sb) == -1) 
+      if (lstat(namebuf, &sb) == -1)
 #endif
         {
-        log_err(errno,id,"stat");
- 
+        log_err(errno, id, "stat");
+
         rtnv = -1;
- 
+
         continue;
         }
 
-      if (S_ISDIR(sb.st_mode)) 
+      if (S_ISDIR(sb.st_mode))
         {
         rtnv = remtree(namebuf);
         }
-      else if (unlink(namebuf) < 0) 
+      else if (unlink(namebuf) < 0)
         {
-        if (errno != ENOENT) 
+        if (errno != ENOENT)
           {
-          sprintf(log_buffer,"unlink failed on %s", 
-            namebuf);
+          sprintf(log_buffer, "unlink failed on %s",
+                  namebuf);
 
-          log_err(errno,id,log_buffer);
+          log_err(errno, id, log_buffer);
 
           rtnv = -1;
           }
+        }
+      else if (LOGLEVEL >= 7)
+        {
+        sprintf(log_buffer, "unlink(1) succeeded on %s", namebuf);
+
+        log_ext(-1, id, log_buffer, LOG_DEBUG);
         }
       }    /* END while ((pdir = readdir(dir)) != NULL) */
 
     closedir(dir);
 
-    if (rmdir(dirname) < 0) 
+    if (rmdir(dirname) < 0)
       {
-      if ((errno != ENOENT) && (errno != EINVAL)) 
+      if ((errno != ENOENT) && (errno != EINVAL))
         {
-        sprintf(log_buffer,"rmdir failed on %s", 
-          dirname);
+        sprintf(log_buffer, "rmdir failed on %s",
+                dirname);
 
-        log_err(errno,id,log_buffer);
+        log_err(errno, id, log_buffer);
 
         rtnv = -1;
         }
       }
-    } 
-  else if (unlink(dirname) < 0) 
-    {
-    sprintf(log_buffer,"unlink failed on %s", 
-      dirname);
+    else if (LOGLEVEL >= 7)
+      {
+      sprintf(log_buffer, "rmdir succeeded on %s", dirname);
 
-    log_err(errno,id,log_buffer);
+      log_ext(-1, id, log_buffer, LOG_DEBUG);
+      }
+    }
+  else if (unlink(dirname) < 0)
+    {
+    sprintf(log_buffer, "unlink failed on %s",
+            dirname);
+
+    log_err(errno, id, log_buffer);
 
     rtnv = -1;
+    }
+  else if (LOGLEVEL >= 7)
+    {
+    sprintf(log_buffer, "unlink(2) succeeded on %s", dirname);
+
+    log_ext(-1, id, log_buffer, LOG_DEBUG);
     }
 
   return(rtnv);
@@ -371,7 +398,7 @@ int conn_qsub(
 
   if ((hostaddr = get_hostaddr(hostname)) == (pbs_net_t)0)
     {
-#if !defined(H_ERRNO_DECLARED)
+#if !defined(H_ERRNO_DECLARED) && !defined(_AIX)
     extern int h_errno;
 #endif
 
@@ -379,15 +406,15 @@ int conn_qsub(
 
     if (EMsg != NULL)
       {
-      snprintf(EMsg,1024,"cannot get address for host '%s', h_errno=%d",
-        hostname,
-        h_errno);
+      snprintf(EMsg, 1024, "cannot get address for host '%s', h_errno=%d",
+               hostname,
+               h_errno);
       }
 
     return(-1);
     }
 
-  s = client_to_svr(hostaddr,(unsigned int)port,0,EMsg);
+  s = client_to_svr(hostaddr, (unsigned int)port, 0, EMsg);
 
   /* NOTE:  client_to_svr() can return 0 for SUCCESS */
 
@@ -405,11 +432,11 @@ int conn_qsub(
 
   /* this socket should be blocking */
 
-  flags = fcntl(s,F_GETFL);
+  flags = fcntl(s, F_GETFL);
 
   flags &= ~O_NONBLOCK;
 
-  fcntl(s,F_SETFL,flags);
+  fcntl(s, F_SETFL, flags);
 
   return(s);
   }  /* END conn_qsub() */
@@ -419,21 +446,22 @@ int conn_qsub(
 
 /*
  * job_alloc - allocate space for a job structure and initialize working
- *	attribute to "unset"
+ * attribute to "unset"
  *
- *	Returns: pointer to structure or null is space not available.
+ * Returns: pointer to structure or null is space not available.
  */
 
-job *job_alloc()
+job *
+job_alloc(void)
 
   {
   job *pj;
 
-  pj = (job *)calloc(1,sizeof(job));
+  pj = (job *)calloc(1, sizeof(job));
 
-  if (pj == NULL) 
+  if (pj == NULL)
     {
-    log_err(errno,"job_alloc","no memory");
+    log_err(errno, "job_alloc", "no memory");
 
     return(NULL);
     }
@@ -458,7 +486,7 @@ job *job_alloc()
   pj->ji_stdout = 0;
   pj->ji_stderr = 0;
 
-  pj->ji_momhandle = -1;		/* mark mom connection invalid */
+  pj->ji_momhandle = -1;  /* mark mom connection invalid */
 
   /* set the working attributes to "unspecified" */
 
@@ -480,21 +508,21 @@ void job_free(
   job *pj)  /* I (modified) */
 
   {
-  int			 i;
+  int    i;
 
   if (LOGLEVEL >= 8)
     {
-    sprintf(log_buffer,"freeing job");
+    sprintf(log_buffer, "freeing job");
 
     log_record(PBSEVENT_DEBUG,
-      PBS_EVENTCLASS_JOB,
-      pj->ji_qs.ji_jobid,
-      log_buffer);
+               PBS_EVENTCLASS_JOB,
+               pj->ji_qs.ji_jobid,
+               log_buffer);
     }
 
   /* remove any malloc working attribute space */
 
-  for (i = 0;i < (int)JOB_ATR_LAST;i++) 
+  for (i = 0;i < (int)JOB_ATR_LAST;i++)
     {
     job_attr_def[i].at_free(&pj->ji_wattr[i]);
     }
@@ -505,6 +533,7 @@ void job_free(
   assert(pj->ji_preq == NULL);
 
   nodes_free(pj);
+
   tasks_free(pj);
 
   if (pj->ji_resources)
@@ -519,11 +548,11 @@ void job_free(
 
   return;
   }  /* END job_free() */
-  
+
 
 /*
  * job_init_wattr - initialize job working attribute array
- *	set the types and the "unspecified value" flag
+ * set the types and the "unspecified value" flag
  */
 static void job_init_wattr(
 
@@ -532,13 +561,13 @@ static void job_init_wattr(
   {
   int i;
 
-  for (i = 0;i < (int)JOB_ATR_LAST;i++) 
+  for (i = 0;i < (int)JOB_ATR_LAST;i++)
     {
-    clear_attr(&pj->ji_wattr[i],&job_attr_def[i]);
+    clear_attr(&pj->ji_wattr[i], &job_attr_def[i]);
     }
 
   return;
-  }   /* END job_init_wattr() */ 
+  }   /* END job_init_wattr() */
 
 
 
@@ -563,25 +592,27 @@ void job_purge(
   char          namebuf[MAXPATHLEN + 1];
   extern char  *msg_err_purgejob;
   int           rc;
+
   extern void MOMCheckRestart A_((void));
 
   if (pjob->ji_flags & MOM_HAS_TMPDIR)
     {
-    if (TTmpDirName(pjob,namebuf))
+    if (TTmpDirName(pjob, namebuf))
       {
-      sprintf(log_buffer,"removing transient job directory %s",
+      sprintf(log_buffer, "removing transient job directory %s",
         namebuf);
-      
-      log_record(PBSEVENT_DEBUG,
+
+      log_record(
+        PBSEVENT_DEBUG,
         PBS_EVENTCLASS_JOB,
         pjob->ji_qs.ji_jobid,
         log_buffer);
-      
+
       if ((setegid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1) ||
           (seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) == -1))
         {
         /* FAILURE */
- 
+
         return;
         }
 
@@ -595,23 +626,25 @@ void job_purge(
         sprintf(log_buffer,
           "recursive remove of job transient tmpdir %s failed",
           namebuf);
-    
-        log_err(errno, "recursive (r)rmdir",log_buffer);
+
+        log_err(errno, "recursive (r)rmdir",
+          log_buffer);
         }
-         
+
       pjob->ji_flags &= ~MOM_HAS_TMPDIR;
       }
     }
 
-#ifdef PENABLE_LINUX26_CPUSETS 
+#ifdef PENABLE_LINUX26_CPUSETS
 
-  {
-  extern void cpuset_delete(char *);
+  if (use_cpusets(pjob) == TRUE)
+    {
+    extern void cpuset_delete(char *);
 
-  /* Delete the cpuset for the job. */
+    /* Delete the cpuset for the job. */
 
-  cpuset_delete(pjob->ji_qs.ji_jobid);
-  }
+    cpuset_delete(pjob->ji_qs.ji_jobid);
+    }
 
 #endif /* PENABLE_LINUX26_CPUSETS */
 
@@ -631,32 +664,36 @@ void job_purge(
     }
 
   delete_link(&pjob->ji_jobque);
+
   delete_link(&pjob->ji_alljobs);
 
   if (LOGLEVEL >= 6)
     {
     sprintf(log_buffer,"removing job");
 
-    log_record(PBSEVENT_DEBUG,
+    log_record(
+      PBSEVENT_DEBUG,
       PBS_EVENTCLASS_JOB,
       pjob->ji_qs.ji_jobid,
       log_buffer);
     }
 
-  strcpy(namebuf,path_jobs);	/* delete script file */
+  strcpy(namebuf,path_jobs); /* delete script file */
+
   strcat(namebuf,pjob->ji_qs.ji_fileprefix);
   strcat(namebuf,JOB_SCRIPT_SUFFIX);
 
   if (unlink(namebuf) < 0)
     {
     if (errno != ENOENT)
-      log_err(errno,id,msg_err_purgejob);
+      log_err(errno, id, msg_err_purgejob);
     }
   else if (LOGLEVEL >= 6)
     {
-    sprintf(log_buffer,"removed job script");
+    sprintf(log_buffer, "removed job script");
 
-    log_record(PBSEVENT_DEBUG,
+    log_record(
+      PBSEVENT_DEBUG,
       PBS_EVENTCLASS_JOB,
       pjob->ji_qs.ji_jobid,
       log_buffer);
@@ -665,28 +702,35 @@ void job_purge(
 
 #if IBM_SP2==2        /* IBM SP PSSP 3.1 */
   unload_sp_switch(pjob);
-#endif			/* IBM SP */
-  strcpy(namebuf,path_jobs);      /* job directory path */
-  strcat(namebuf,pjob->ji_qs.ji_fileprefix);
-  strcat(namebuf,JOB_TASKDIR_SUFFIX);
+
+#endif   /* IBM SP */
+  strcpy(namebuf, path_jobs);     /* job directory path */
+
+  strcat(namebuf, pjob->ji_qs.ji_fileprefix);
+
+  strcat(namebuf, JOB_TASKDIR_SUFFIX);
+
   remtree(namebuf);
 
   mom_checkpoint_delete_files(pjob);
 
-  strcpy(namebuf,path_jobs);	/* delete job file */
-  strcat(namebuf,pjob->ji_qs.ji_fileprefix);
-  strcat(namebuf,JOB_FILE_SUFFIX);
-    
+  strcpy(namebuf, path_jobs); /* delete job file */
+
+  strcat(namebuf, pjob->ji_qs.ji_fileprefix);
+
+  strcat(namebuf, JOB_FILE_SUFFIX);
+
   if (unlink(namebuf) < 0)
     {
     if (errno != ENOENT)
-      log_err(errno,id,msg_err_purgejob);
+      log_err(errno, id, msg_err_purgejob);
     }
   else if (LOGLEVEL >= 6)
     {
-    sprintf(log_buffer,"removed job file");
+    sprintf(log_buffer, "removed job file");
 
-    log_record(PBSEVENT_DEBUG,
+    log_record(
+      PBSEVENT_DEBUG,
       PBS_EVENTCLASS_JOB,
       pjob->ji_qs.ji_jobid,
       log_buffer);
@@ -709,8 +753,8 @@ void job_purge(
 /*
  * find_job() - find job by jobid
  *
- *	Search list of all server jobs for one with same job id
- *	Return NULL if not found or pointer to job struct if found
+ * Search list of all server jobs for one with same job id
+ * Return NULL if not found or pointer to job struct if found
  */
 
 job *find_job(
@@ -721,24 +765,24 @@ job *find_job(
   char *at;
   job  *pj;
 
-  if ((at = strchr(jobid,(int)'@')) != NULL)
-    *at = '\0';	/* strip off @server_name */
+  if ((at = strchr(jobid, (int)'@')) != NULL)
+    * at = '\0'; /* strip off @server_name */
 
   pj = (job *)GET_NEXT(svr_alljobs);
 
-  while (pj != NULL) 
+  while (pj != NULL)
     {
-    if (!strcmp(jobid,pj->ji_qs.ji_jobid))
+    if (!strcmp(jobid, pj->ji_qs.ji_jobid))
       break;
 
     pj = (job *)GET_NEXT(pj->ji_alljobs);
     }
 
   if (at)
-    *at = '@';	/* restore @server_name */
+    *at = '@'; /* restore @server_name */
 
   return(pj);  /* may be NULL */
-  }   /* END find_job() */ 
+  }   /* END find_job() */
 
 /* END job_func.c */
 
