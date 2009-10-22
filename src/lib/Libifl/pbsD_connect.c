@@ -887,8 +887,6 @@ int pbs_original_connect(
 
     } /* END !useunix */
 
-<<<<<<< .working
-=======
   DIS_tcp_setup(connection[out].ch_socket);
 
   if ((ptr = getenv("PBSAPITIMEOUT")) != NULL)
@@ -905,7 +903,6 @@ int pbs_original_connect(
     pbs_tcp_timeout = 10800;      /* set for 3 hour time out */
     }
 
->>>>>>> .merge-right.r3183
   return(out);
   }  /* END pbs_original_connect() */
 
@@ -964,13 +961,9 @@ int pbs_disconnect(
 
   close(sock);
 
-<<<<<<< .working
   DIS_tcp_release(sock);
 
   if (connection[connect].ch_errtxt != (char *)NULL) 
-=======
-  if (connection[connect].ch_errtxt != (char *)NULL)
->>>>>>> .merge-right.r3183
     free(connection[connect].ch_errtxt);
 
   connection[connect].ch_errno = 0;
