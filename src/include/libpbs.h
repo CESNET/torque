@@ -219,12 +219,6 @@ struct batch_reply
 
     struct brp_cmdstat *brp_statc;  /* status (cmd) replies) */
 
-#if 0  /* left over from 2.3 days... how is this put back in? FIXME */
-#ifdef GSSAPI
-  PBS_BATCH_GSSAuthenUser = 46,
-  PBS_BATCH_ForwardCreds = 47,
-#endif
-#endif
     struct
       {
       size_t   brp_txtlen;

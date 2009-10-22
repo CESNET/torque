@@ -2267,6 +2267,7 @@ int manager_oper_chk(
   int    err = 0;
   char    hostname[PBS_MAXHOSTNAME + 1];
   int      i;
+  struct array_strings *pstr;
 
   /* with gssapi, the entries in the list are probably kerberos principals,
      and there's no quick way to verify them.  So just return 0.
@@ -2275,7 +2276,6 @@ int manager_oper_chk(
   return 0;
 #endif
 
-  struct array_strings *pstr;
 
   if (actmode == ATR_ACTION_FREE)
     {

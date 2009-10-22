@@ -211,8 +211,6 @@ static int tcp_readbuf(
   struct timeval    timeout;
 #endif
 
-  struct tcpdisbuf *tp;
-
   /* must compact any uncommitted data into bottom of buffer */
 
   tcp_pack_buff(tp);
@@ -1038,10 +1036,19 @@ void DIS_tcp_setup(
     tcp->unwrapped.length = 0;
     tcp->unwrapped.value = NULL;
     tcp->gssctx = GSS_C_NO_CONTEXT;
-    tcp->gssrdbuf.bufsize = THE_BUF_SIZE;
+
+    tp = &tcp->gssrdbuf;
+
+    tp->tdis_thebuf = (char *)malloc(THE_BUF_SIZE);
+    if(tp->tdis_thebuf == NULL)
+      {
+      log_err(errno,"DIS_tcp_setup","malloc failure");
+
+      return;
+      }
+    tp->tdis_bufsize = THE_BUF_SIZE;
+
 #endif
-    tcp->readbuf.bufsize = THE_BUF_SIZE;
-    tcp->writebuf.bufsize = THE_BUF_SIZE;
     }
 
   /* initialize read and write buffers */
@@ -1096,6 +1103,7 @@ void DIS_tcp_set_gss(
 
   {
   OM_uint32 major, minor, bufsize;
+  struct tcpdisbuf *tp;
 
   assert (fd >= 0 && fd < tcparraymax && tcparray[fd]);
   assert (tcparray[fd]->gssctx == GSS_C_NO_CONTEXT);
@@ -1105,7 +1113,19 @@ void DIS_tcp_set_gss(
   major = gss_wrap_size_limit (&minor, ctx, (flags & GSS_C_CONF_FLAG),
                              GSS_C_QOP_DEFAULT, THE_BUF_SIZE, &bufsize);
   if (major == GSS_S_COMPLETE)
-    tcparray[fd]->writebuf.bufsize = bufsize;
+    {
+    tp = &tcparray[fd]->writebuf;
+
+    tp->tdis_thebuf = (char *)malloc(THE_BUF_SIZE);
+    if(tp->tdis_thebuf == NULL)
+      {
+      log_err(errno,"DIS_tcp_set_gss","malloc failure");
+
+      return;
+      }
+    tp->tdis_bufsize = THE_BUF_SIZE;
+
+    }
   } /* END DIS_tcp_set_gss */
 #endif
 

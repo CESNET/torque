@@ -1244,7 +1244,6 @@ int InitUserEnv(
 
 	/* PBS_NNODES */
 
-<<<<<<< .working
 #ifdef GSSAPI
   /* set krb5 credentials cache filename */
   tmp = ccname_for_job(pjob->ji_qs.ji_jobid,path_creds);
@@ -1258,9 +1257,7 @@ int InitUserEnv(
 #endif
 
   /* passed-in environment for tasks */
-=======
 	pattr = &pjob->ji_wattr[(int)JOB_ATR_resource];
->>>>>>> .merge-right.r3183
 
 	prd = find_resc_def(svr_resc_def, "size", svr_resc_size);
 
@@ -1801,7 +1798,6 @@ int TMomFinalizeJob2(
 		{
 		/* CHILD:  handle child activities */
 
-<<<<<<< .working
 #ifdef GSSAPI
     ccname = ccname_for_job(((job *)TJE->pjob)->ji_qs.ji_jobid,path_creds);
     if (ccname) {
@@ -1812,10 +1808,7 @@ int TMomFinalizeJob2(
     }
 
 #endif
-    TMomFinalizeChild(TJE);
-=======
 		TMomFinalizeChild(TJE);
->>>>>>> .merge-right.r3183
 
 		/*NOTREACHED*/
 		}

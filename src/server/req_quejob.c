@@ -223,14 +223,6 @@ void req_quejob(
   int   rc;
   int   sock = preq->rq_conn;
 
-  int		 i;
-  char		 buf[256];
-  int		 fds;
-  char		 jidbuf[PBS_MAXSVRJOBID + 1];
-  char		*pc;
-  pbs_queue	*pque;
-  char		*qname;
-  attribute	 tempattr;
 #ifdef GSSAPI
   char          *jobidcopy;
   char          *ccname;
@@ -377,8 +369,8 @@ void req_quejob(
     }
 #ifdef GSSAPI
   /* save gssapi/krb5 creds for this job */
-  sprintf(log_buffer,"saving creds.  conn is %d, creds %p, princ %s",
-	  preq->rq_conn, svr_conn[preq->rq_conn].creds, svr_conn[preq->rq_conn].principal);
+  sprintf(log_buffer,"saving creds.  conn is %d, princ %s",
+	  preq->rq_conn, svr_conn[preq->rq_conn].principal);
   log_event(PBSEVENT_DEBUG, 
 	    PBS_EVENTCLASS_SERVER,"req_quejob",log_buffer);
   ccname = ccname_for_job(jid,path_creds);

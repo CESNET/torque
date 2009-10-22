@@ -43,8 +43,8 @@ PbsBatchReqType(PBS_BATCH_ReserveResc,          "ReserveResource")
 PbsBatchReqType(PBS_BATCH_ReleaseResc,          "ReleaseResource")
 PbsBatchReqType(PBS_BATCH_CheckpointJob,        "CheckpointJob")
 PbsBatchReqType(PBS_BATCH_AsyModifyJob,         "AsyncModifyJob")
-PbsBatchReqType(PBS_BATCH_GAP029,               "NONE")
-PbsBatchReqType(PBS_BATCH_GAP030,               "NONE")               /* = 30 */
+PbsBatchReqType(PBS_BATCH_GSSAuthenUser,        "GSSAuthenUser")
+PbsBatchReqType(PBS_BATCH_ForwardCreds,         "ForwardCreds")       /* = 30 */
 PbsBatchReqType(PBS_BATCH_GAP031,               "NONE")
 PbsBatchReqType(PBS_BATCH_GAP032,               "NONE")
 PbsBatchReqType(PBS_BATCH_GAP033,               "NONE")
