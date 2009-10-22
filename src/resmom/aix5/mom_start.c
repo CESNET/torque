@@ -1,45 +1,45 @@
 /*
 *         OpenPBS (Portable Batch System) v2.3 Software License
-*
+* 
 * Copyright (c) 1999-2000 Veridian Information Solutions, Inc.
 * All rights reserved.
-*
+* 
 * ---------------------------------------------------------------------------
 * For a license to use or redistribute the OpenPBS software under conditions
 * other than those described below, or to purchase support for this software,
 * please contact Veridian Systems, PBS Products Department ("Licensor") at:
-*
+* 
 *    www.OpenPBS.org  +1 650 967-4675                  sales@OpenPBS.org
 *                        877 902-4PBS (US toll-free)
 * ---------------------------------------------------------------------------
-*
+* 
 * This license covers use of the OpenPBS v2.3 software (the "Software") at
 * your site or location, and, for certain users, redistribution of the
 * Software to other sites and locations.  Use and redistribution of
 * OpenPBS v2.3 in source and binary forms, with or without modification,
 * are permitted provided that all of the following conditions are met.
 * After December 31, 2001, only conditions 3-6 must be met:
-*
+* 
 * 1. Commercial and/or non-commercial use of the Software is permitted
 *    provided a current software registration is on file at www.OpenPBS.org.
 *    If use of this software contributes to a publication, product, or
 *    service, proper attribution must be given; see www.OpenPBS.org/credit.html
-*
+* 
 * 2. Redistribution in any form is only permitted for non-commercial,
 *    non-profit purposes.  There can be no charge for the Software or any
 *    software incorporating the Software.  Further, there can be no
 *    expectation of revenue generated as a consequence of redistributing
 *    the Software.
-*
+* 
 * 3. Any Redistribution of source code must retain the above copyright notice
 *    and the acknowledgment contained in paragraph 6, this list of conditions
 *    and the disclaimer contained in paragraph 7.
-*
+* 
 * 4. Any Redistribution in binary form must reproduce the above copyright
 *    notice and the acknowledgment contained in paragraph 6, this list of
 *    conditions and the disclaimer contained in paragraph 7 in the
 *    documentation and/or other materials provided with the distribution.
-*
+* 
 * 5. Redistributions in any form must be accompanied by information on how to
 *    obtain complete source code for the OpenPBS software and any
 *    modifications and/or additions to the OpenPBS software.  The source code
@@ -47,23 +47,23 @@
 *    than the cost of distribution plus a nominal fee, and all modifications
 *    and additions to the Software must be freely redistributable by any party
 *    (including Licensor) without restriction.
-*
+* 
 * 6. All advertising materials mentioning features or use of the Software must
 *    display the following acknowledgment:
-*
+* 
 *     "This product includes software developed by NASA Ames Research Center,
-*     Lawrence Livermore National Laboratory, and Veridian Information
+*     Lawrence Livermore National Laboratory, and Veridian Information 
 *     Solutions, Inc.
 *     Visit www.OpenPBS.org for OpenPBS software support,
 *     products, and information."
-*
+* 
 * 7. DISCLAIMER OF WARRANTY
-*
+* 
 * THIS SOFTWARE IS PROVIDED "AS IS" WITHOUT WARRANTY OF ANY KIND. ANY EXPRESS
 * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
 * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT
 * ARE EXPRESSLY DISCLAIMED.
-*
+* 
 * IN NO EVENT SHALL VERIDIAN CORPORATION, ITS AFFILIATED COMPANIES, OR THE
 * U.S. GOVERNMENT OR ANY OF ITS AGENCIES BE LIABLE FOR ANY DIRECT OR INDIRECT,
 * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
@@ -72,7 +72,7 @@
 * LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
 * NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
 * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*
+* 
 * This license will be governed by the laws of the Commonwealth of Virginia,
 * without reference to its choice of law rules.
 */
@@ -433,249 +433,203 @@ struct sig_tbl sig_tbl[] =
  */
 
 static int name_to_sw_num(nn)
-char *nn;
-  {
-  int   i;
-  char *pa;
-  char *pb;
+	char *nn;
+{
+	int   i;
+	char *pa;
+	char *pb;
+	extern struct swtbl_num swtbl_num[];
+	extern int    ibm_sp2_num_nodes;
 
-  extern struct swtbl_num swtbl_num[];
-  extern int    ibm_sp2_num_nodes;
-
-  for (i = 0; i < ibm_sp2_num_nodes; i++)
-    {
-    pa = nn;
-    pb = swtbl_num[i].sw_name;
-
-    while (*pa && *pb && (*pa == *pb))
-      {
-      pa++;
-      pb++;
-      }
-
-    if (((*pa == '\0') && (*pb == '\0')) ||
-        ((*pa == '\0') && (*pb == '.'))  ||
-        ((*pa == '.')  && (*pb == '\0')))
-      return swtbl_num[i].sw_num;
-    }
-
-  return -1;
-  }
-
-
+	for (i=0; i<ibm_sp2_num_nodes; i++) {
+		pa = nn;
+		pb = swtbl_num[i].sw_name;
+		while (*pa && *pb && (*pa == *pb)) {
+			pa++;
+			pb++;
+		}
+		if ( ((*pa == '\0') && (*pb == '\0')) ||
+		     ((*pa == '\0') && (*pb == '.'))  ||
+		     ((*pa == '.')  && (*pb == '\0')) )
+			return swtbl_num[i].sw_num;
+	}
+	return -1;
+}
+	
+	
 static int build_swtbl_array(pjob, psa)
-job       *pjob;
+	job		     *pjob;
+	struct ST_NODE_INFO **psa;
+{
+	int			 i;
+	int			 j;
+	struct ST_NODE_INFO *swtbl;
 
-struct ST_NODE_INFO **psa;
-  {
-  int    i;
-  int    j;
+	swtbl = (struct ST_NODE_INFO *)calloc(pjob->ji_numvnod, 
+			sizeof(struct ST_NODE_INFO));
+	if (swtbl == NULL)
+		return PBSE_SYSTEM;
 
-  struct ST_NODE_INFO *swtbl;
+	for (i=0; i<pjob->ji_numvnod; i++) {
+		/* pull node name out of vnodent/hnodent struct */
+		(void)strcpy((swtbl+i)->st_node_name, 
+				pjob->ji_vnods[i].vn_host->hn_host);
 
-  swtbl = (struct ST_NODE_INFO *)calloc(pjob->ji_numvnod,
-                                        sizeof(struct ST_NODE_INFO));
+		/* now find switch node number that matches name */
 
-  if (swtbl == NULL)
-    return PBSE_SYSTEM;
+		if ((j = name_to_sw_num((swtbl+i)->st_node_name)) == -1) {
+			(void)free(swtbl);
+			return PBSE_UNKNODE;
+		}
 
-  for (i = 0; i < pjob->ji_numvnod; i++)
-    {
-    /* pull node name out of vnodent/hnodent struct */
-    (void)strcpy((swtbl + i)->st_node_name,
-                 pjob->ji_vnods[i].vn_host->hn_host);
+		(swtbl+i)->st_virtual_task_id = i;
+		(swtbl+i)->st_switch_node_num = j;
+		(swtbl+i)->st_window_id = pjob->ji_vnods[i].vn_index;
+	}
 
-    /* now find switch node number that matches name */
-
-    if ((j = name_to_sw_num((swtbl + i)->st_node_name)) == -1)
-      {
-      (void)free(swtbl);
-      return PBSE_UNKNODE;
-      }
-
-    (swtbl + i)->st_virtual_task_id = i;
-    (swtbl + i)->st_switch_node_num = j;
-    (swtbl + i)->st_window_id = pjob->ji_vnods[i].vn_index;
-    }
-
-  *psa = swtbl;
-
-  return PBSE_NONE;
-  }
+	*psa = swtbl;
+	return PBSE_NONE;
+}
 
 /*
  * load_sp_switch - load the IBM SP switch table with the nodes/window_id
- * to be used by this job.  Also write a file into the "aux" directory
- * with the array of window_ids in task order.  This file is used by
- * pbspd.c to place the correct window_id into the environment based on
- * the value of MP_CHILD passed by IBM's poe.
+ *	to be used by this job.  Also write a file into the "aux" directory
+ *	with the array of window_ids in task order.  This file is used by
+ *	pbspd.c to place the correct window_id into the environment based on
+ *	the value of MP_CHILD passed by IBM's poe.
  */
 
 int load_sp_switch(pjob)
-job *pjob;
-  {
-  int       i;
-  int       rc = 0;
+	job	*pjob;
+{
+	int		     i;
+	int		     rc = 0;
+	struct ST_NODE_INFO *pswa;
+	static char *id = "load_sp_switch";
+	char buf[MAXPATHLEN+1];
+	FILE *fwin;
+	extern int internal_state;
 
-  struct ST_NODE_INFO *pswa;
-  static char *id = "load_sp_switch";
-  char buf[MAXPATHLEN+1];
-  FILE *fwin;
-  extern int internal_state;
+	
+	sscanf(pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str,"%x",&job_key);
 
+	if (job_key < 0)
+		job_key = -job_key;
+	if ((rc = build_swtbl_array(pjob, &pswa)) != PBSE_NONE) {
+		sprintf(log_buffer, "build swtbl node array failed %d", rc);
+		log_record(PBSEVENT_DEBUG, 0, id, log_buffer);
+		return -1;
+	}
 
-  sscanf(pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str, "%x", &job_key);
+	rc = swtbl_load_table(ST_VERSION, pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+			      getpid(), job_key, mom_host, pjob->ji_numvnod,
+			      pjob->ji_qs.ji_jobid, pswa);
+	if (rc != ST_SUCCESS) {
+		sprintf(log_buffer, "swtbl_load_table failed with %d", rc);
+		log_record(PBSEVENT_SYSTEM|PBSEVENT_ADMIN|PBSEVENT_JOB,
+			   PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid,log_buffer);
+		internal_state |= INUSE_DOWN;
+/* FIXME: need to send state to all servers, not just index 0 */
+		state_to_server(0,1);	/* tell server we are down */
+	} else {
 
-  if (job_key < 0)
-    job_key = -job_key;
-
-  if ((rc = build_swtbl_array(pjob, &pswa)) != PBSE_NONE)
-    {
-    sprintf(log_buffer, "build swtbl node array failed %d", rc);
-    log_record(PBSEVENT_DEBUG, 0, id, log_buffer);
-    return -1;
-    }
-
-  rc = swtbl_load_table(ST_VERSION, pjob->ji_qs.ji_un.ji_momt.ji_exuid,
-
-                        getpid(), job_key, mom_host, pjob->ji_numvnod,
-                        pjob->ji_qs.ji_jobid, pswa);
-
-  if (rc != ST_SUCCESS)
-    {
-    sprintf(log_buffer, "swtbl_load_table failed with %d", rc);
-    log_record(PBSEVENT_SYSTEM | PBSEVENT_ADMIN | PBSEVENT_JOB,
-               PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, log_buffer);
-    internal_state |= INUSE_DOWN;
-    /* FIXME: need to send state to all servers, not just index 0 */
-    state_to_server(0, 1); /* tell server we are down */
-    }
-  else
-    {
-
-    /* success */
-    (void)sprintf(buf, "%s/aux/%s.SW", path_home, pjob->ji_qs.ji_jobid);
-
-    if ((fwin = fopen(buf, "w")) == NULL)
-      {
-      sprintf(log_buffer, "cannot open %s", buf);
-      log_err(errno, id, log_buffer);
-      return -1;
-      }
-
-    (void)fchmod(fileno(fwin), 0644);
-
-    for (i = 0; i < pjob->ji_numvnod; i++)
-      fprintf(fwin, "%d\n", pjob->ji_vnods[i].vn_index);
-
-    (void)fclose(fwin);
-    }
-
-  (void)free(pswa);
-  return rc;
-  }
+	    /* success */
+	    (void)sprintf(buf, "%s/aux/%s.SW", path_home, pjob->ji_qs.ji_jobid);
+	    if ((fwin = fopen(buf, "w")) == NULL) {
+		sprintf(log_buffer, "cannot open %s", buf);
+		log_err(errno, id, log_buffer);
+		return -1;
+	    }
+	    (void)fchmod(fileno(fwin), 0644);
+	    for (i=0; i<pjob->ji_numvnod; i++)
+		fprintf(fwin, "%d\n", pjob->ji_vnods[i].vn_index);
+	    (void)fclose(fwin);
+	}
+	(void)free(pswa);
+	return rc;
+}
 
 /*
  * unload_sp_switch - unload the job/node information from the switch
- * Also remove the aux *.SW file created when the switch is loaded above.
+ *	Also remove the aux *.SW file created when the switch is loaded above.
  */
 
 void unload_sp_switch(pjob)
-job *pjob;
-  {
-  int       i;
-  int       rc = 0;
-  char       buf[MAXPATHLEN+1];
+	job	*pjob;
+{
+	int		     i;
+	int		     rc = 0;
+	char		     buf[MAXPATHLEN+1];
+	struct vnodent	    *pvp;
+	extern int 	     internal_state;
 
-  struct vnodent     *pvp;
-  extern int       internal_state;
+	for (i=0; i<pjob->ji_numvnod; ++i) {
+	    pvp = &pjob->ji_vnods[i];
+	    if (pvp->vn_host->hn_node == pjob->ji_nodeid) {
+		rc = swtbl_unload_table(ST_VERSION, "css0",
+				    pjob->ji_qs.ji_un.ji_momt.ji_exuid, 
+				    pvp->vn_index);
+		DBPRT(("Unloading switch window %d\n", pvp->vn_index))
 
-  for (i = 0; i < pjob->ji_numvnod; ++i)
-    {
-    pvp = &pjob->ji_vnods[i];
+		if (rc != ST_SUCCESS) {
+		    sprintf(log_buffer,"error %d unloading switch table window %d for job %s", rc, pvp->vn_index, pjob->ji_qs.ji_jobid);
+		    log_err(PBSE_SYSTEM, "unload_sp_switch", log_buffer);
 
-    if (pvp->vn_host->hn_node == pjob->ji_nodeid)
-      {
-      rc = swtbl_unload_table(ST_VERSION, "css0",
-                              pjob->ji_qs.ji_un.ji_momt.ji_exuid,
-                              pvp->vn_index);
-      DBPRT(("Unloading switch window %d\n", pvp->vn_index))
+		    if (rc != ST_SWITCH_NOT_LOADED) {
+			rc = swtbl_clean_table(ST_VERSION, "css0",
+					       ST_ALWAYS_KILL,pvp->vn_index);
+		    } else if (rc != ST_SUCCESS) {
+			sprintf(log_buffer,"error %d cleaning switch table window %d for job %s", rc, pvp->vn_index, pjob->ji_qs.ji_jobid);
+			log_err(PBSE_SYSTEM, "unload_sp_switch", log_buffer);
+			internal_state |= INUSE_DOWN;
+/* FIXME: need to send state to all servers, not just index 0 */
+			state_to_server(0,1);	/* tell server we are down */
+		    }
+		}
+	    }
+	}
 
-      if (rc != ST_SUCCESS)
-        {
-        sprintf(log_buffer, "error %d unloading switch table window %d for job %s", rc, pvp->vn_index, pjob->ji_qs.ji_jobid);
-        log_err(PBSE_SYSTEM, "unload_sp_switch", log_buffer);
+	(void)sprintf(buf, "%s/aux/%s.SW", path_home, pjob->ji_qs.ji_jobid);
+	(void)unlink(buf);
+	return;
+} 
 
-        if (rc != ST_SWITCH_NOT_LOADED)
-          {
-          rc = swtbl_clean_table(ST_VERSION, "css0",
-                                 ST_ALWAYS_KILL, pvp->vn_index);
-          }
-        else if (rc != ST_SUCCESS)
-          {
-          sprintf(log_buffer, "error %d cleaning switch table window %d for job %s", rc, pvp->vn_index, pjob->ji_qs.ji_jobid);
-          log_err(PBSE_SYSTEM, "unload_sp_switch", log_buffer);
-          internal_state |= INUSE_DOWN;
-          /* FIXME: need to send state to all servers, not just index 0 */
-          state_to_server(0, 1); /* tell server we are down */
-          }
-        }
-      }
-    }
-
-  (void)sprintf(buf, "%s/aux/%s.SW", path_home, pjob->ji_qs.ji_jobid);
-  (void)unlink(buf);
-  return;
-  }
-
-/*
+/* 
  * query_adp - query the SP switch adaptor, are we on line
  */
 
 void query_adp()
-  {
-  int  rc;
-  enum ST_ADAPTER_STATUS st;
-  extern int internal_state;
-  static char *id = "query_adp";
+{
+	int  rc;
+	enum ST_ADAPTER_STATUS st;
+	extern int internal_state;
+	static char *id = "query_adp";
 
-  if ((rc = swtbl_query_adapter(ST_VERSION, "css0", &st)) != ST_SUCCESS)
-    {
-    if ((internal_state & INUSE_DOWN) == 0)
-      {
-      log_record(PBSEVENT_SYSTEM, rc, id,
-                 "cannot query adaptor");
-      internal_state |= INUSE_DOWN | UPDATE_MOM_STATE;
-      }
-
-    return;
-    }
-
-  switch (st)
-    {
-
-    case ADAPTER_READY:
-
-      if (internal_state & INUSE_DOWN)
-        {
-        internal_state &= ~INUSE_DOWN; /* we are not down */
-        internal_state |=  UPDATE_MOM_STATE;
-        log_record(PBSEVENT_SYSTEM, 0, id, "adaptor up");
-        }
-
-      break;
-
-    case ADAPTER_NOTREADY:
-
-      if ((internal_state & INUSE_DOWN) == 0)
-        {
-        /* mark that we are down */
-        internal_state |= INUSE_DOWN | UPDATE_MOM_STATE;
-        log_record(PBSEVENT_SYSTEM, 0, id, "adaptor down");
-        }
-
-      break;
-    }
-  }
-
-#endif /* IBM SP */
+	if ((rc = swtbl_query_adapter(ST_VERSION, "css0", &st)) != ST_SUCCESS) {
+		if ((internal_state & INUSE_DOWN) == 0) {
+			log_record(PBSEVENT_SYSTEM, rc, id, 
+							"cannot query adaptor");
+			internal_state |= INUSE_DOWN|UPDATE_MOM_STATE;
+		}
+		return;
+	}
+	switch (st) {
+	    case ADAPTER_READY:
+		if (internal_state & INUSE_DOWN) {
+			internal_state &= ~INUSE_DOWN;	/* we are not down */
+			internal_state |=  UPDATE_MOM_STATE;
+			log_record(PBSEVENT_SYSTEM, 0, id, "adaptor up");
+		}
+		break;
+		
+	    case ADAPTER_NOTREADY:
+		if ((internal_state & INUSE_DOWN) == 0) {
+			/* mark that we are down */
+			internal_state |= INUSE_DOWN|UPDATE_MOM_STATE;
+			log_record(PBSEVENT_SYSTEM, 0, id, "adaptor down");
+		}
+		break;
+	}
+}
+	
+#endif	/* IBM SP */
