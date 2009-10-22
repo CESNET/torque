@@ -1410,7 +1410,7 @@ void ping_nodes(
 
   /* change RPP to report node state quickly */
 
-  RPPConfigure(2,2); /* (timeout,retry) retry must be at least 2 */
+  RPPConfigure(4,2); /* (timeout,retry) retry must be at least 2 */
 
   for (i = startcount;i < svr_totnodes;i++) 
     {

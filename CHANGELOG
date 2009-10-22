@@ -2,6 +2,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.1.12
   b - close empty acl files
+  e - slight increase to initial node probing timeout
 
 2.1.11
   b - nqs2pbs is now a generated script
