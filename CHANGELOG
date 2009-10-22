@@ -18,6 +18,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix so after* dependencies are handled correctly for exiting / completed
       jobs
   b - fix tracejob so it handles multiple server and mom logs for the same day
+  b - fix building with a seperate srcdir
 
 2.3.7
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 
