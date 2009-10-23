@@ -14,6 +14,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       version of the job_qs struct
   c - check filename for NULL to prevent crash
   b - close empty ACL files
+  b - fix pbs_server to correctly timeout stale connections from MOMs
 
 2.2.1
   b - fixed a bug where pbs_server never delete files from the "jobs" directory
