@@ -79,7 +79,7 @@
 .TH pbs_server_attributes 7B "" Local PBS
 .so ../ers/ers.macros
 .SH NAME
-pbs_server_attributes - pbs server attributes
+pbs_server_attributes \- pbs server attributes
 .SH DESCRIPTION
 .Iq
 .if !\n(Pb .ig Ig
@@ -217,13 +217,12 @@ resources_default/min/max.  Format: list; default value: none.
 [internal type: list]
 .Ig
 .Al job_nanny
-Enables the experimental "job deletion nanny" feature.  All job cancels will
+Enables the "job deletion nanny" feature.  All job cancels will
 create a repeating task that will resend KILL signals if the initial job cancel
 failed.  Further job cancels will be rejected with the message "job cancel in
 progress." This is useful for temporary failures with a job's execution node
 during a job delete request.  It is possible that the job nanny might interfere
-with job restarts, migrations, and checkpointing.  This is an EXPERIMENTAL
-feature and may be removed in the future.  Format: boolean; default value: false.
+with job restarts, migrations, and checkpointing.  Format: boolean; default value: false.
 .if !\n(Pb .ig Ig
 [internal type: boolean]
 .Ig
@@ -240,7 +239,7 @@ Minimum value: 4 seconds  (PBS_JOBSTAT_MIN in server_limits.h)
 .Ig
 .Al keep_completed
 Number of seconds to retain completed jobs in the C state.  This is overriden
-by the execution queue attribute of the same name.   EXPERIMENTAL
+by the execution queue attribute of the same name.
 Format: integer; default value: 0.
 .if !\n(Pb .ig Ig
 [internal type: integer]
@@ -280,10 +279,99 @@ minimum verbosity.
 .if !\n(Pb .ig Ig
 [internal type: integer]
 .Ig
+.Al mail_body_fmt
+Override the default format for the body of outgoing mail messages. A number 
+of printf-like format specifiers and escape sequences can be used:
+.TP
+\en
+new line
+.TP
+\et
+horizontal tab
+.TP
+\e\e
+backslash
+.TP
+\e'
+single quote
+.TP
+\e"
+double quote
+.TP
+%d
+details concerning the message
+.TP
+%h
+PBS host name
+.TP
+%i
+PBS job identifier
+.TP
+%j
+PBS job name
+.TP
+%m
+long reason for message
+.TP
+%r
+short reason for message
+.TP
+%%
+a single %
+.PP
+Format: a printf-like format string; Default value: 
+"PBS Job Id: %i\enJob Name:   %j\enExec host:  %h\en%m\en%d\en".
+.if !\n(Pb .ig Ig
+[internal type: string]
+.Ig
 .Al mail_domain
 Override the default domain for outgoing mail messages.  If set, emails will be
 addressed to "euser@mail_domain".  If unset, the job's Job_Owner attribute will
 be used.  Format: a domain name; Default value: none.
+.if !\n(Pb .ig Ig
+[internal type: string]
+.Ig
+.Al mail_subject_fmt
+Override the default format for the subject of outgoing mail messages. A number 
+of printf-like format specifiers and escape sequences can be used:
+.TP
+\en
+new line
+.TP
+\et
+horizontal tab
+.TP
+\e\e
+backslash
+.TP
+\e'
+single quote
+.TP
+\e"
+double quote
+.TP
+%d
+details concerning the message
+.TP
+%h
+PBS host name
+.TP
+%i
+PBS job identifier
+.TP
+%j
+PBS job name
+.TP
+%m
+long reason for message
+.TP
+%r
+short reason for message
+.TP
+%%
+a single %
+.PP
+Format: a printf-like format string; Default value: "PBS JOB %i".
 .if !\n(Pb .ig Ig
 [internal type: string]
 .Ig
@@ -331,10 +419,9 @@ Format: integer; default value: none.
 [internal type: integer]
 .Ig
 .Al mom_job_sync
-Enables the experimental "job sync on MOM" feature.   When MOMs send a status
+Enables the "job sync on MOM" feature.   When MOMs send a status
 update, and it includes a list of jobs, server will issue job deletes for any
-jobs that don't actually exist.  This is an EXPERIMENTAL feature and may be
-removed in the future.  Format: boolean; default value: false.
+jobs that don't actually exist.  Format: boolean; default value: true.
 .if !\n(Pb .ig Ig
 [internal type: boolean]
 .Ig
@@ -408,7 +495,7 @@ The setting of this attribute controls if general users, other than the
 job owner, are allowed to query the status of or select the job.
 Format: boolean (see acl_host_enable);
 Requires full manager privilege to set or alter.
-default value: false - users may not query or select jobs owned by other users.
+default value: false \- users may not query or select jobs owned by other users.
 .if !\n(Pb .ig Ig
 [internal type: boolean]
 .Ig
@@ -485,7 +572,7 @@ For more information, see the section
 in the PBS Administrator Guide.
 Format: boolean (see
 acl_host_enable);
-default value: value of -a option when server is invoked, if -a is not
+default value: value of \-a option when server is invoked, if \-a is not
 specified, the value is recovered from the prior server run.  If it has never
 been set, the value is "false".
 .if !\n(Pb .ig Ig

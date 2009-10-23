@@ -79,7 +79,7 @@
 .TH pbs_queue_attributes 7B "" Local PBS
 .so ../ers/ers.macros
 .SH NAME
-pbs_queue_attributes - pbs queue attributes
+pbs_queue_attributes \- pbs queue attributes
 .SH DESCRIPTION
 .Iq
 .if !\n(Pb .ig Ig
@@ -173,7 +173,7 @@ default value: all users allowed.
 [internal type:  access control list]
 .Ig
 .Al disallowed_types
-List of job "types" (interactive,batch,rerunable) that are not allowed in this queue.
+List of job "types" (interactive,batch,rerunable,nonrerunable,fault_tolerant,fault_intolerant) that are not allowed in this queue.
 
 default value: all types allowed.
 .if !\n(Pb .ig Ig
@@ -191,6 +191,13 @@ When true, this queue will not accept jobs except when being routed by
 the server from a local routing queue.  This is used to force user to
 submit jobs into a routing queue used to distribute jobs to other queues
 based on job resource limits.  Format: boolean; default value: disabled.
+.if !\n(Pb .ig Ig
+[internal type: boolean]
+.Ig
+.Al is_transit
+When true, jobs will be allowed into this queue that do not fit server 
+resource limitations. This is to allow the jobs to be routed to a server that 
+does have the appropriate resources.  Any queue limits are checked.
 .if !\n(Pb .ig Ig
 [internal type: boolean]
 .Ig

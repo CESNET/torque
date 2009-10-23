@@ -3,6 +3,12 @@
 #ifndef _PBS_CONFIG_H_
 #define _PBS_CONFIG_H_
 
+/* Define to add x attributes to accounting log */
+#undef ATTR_X_ACCT
+
+/* turns on the compilation of AUTORUN_JOBS code */
+#undef AUTORUN_JOBS
+
 /* 1234 = LIL_ENDIAN, 4321 = BIGENDIAN */
 #undef BYTEORDER
 
@@ -20,6 +26,9 @@
 
 /* Define to enable Cray's CPA support */
 #undef ENABLE_CPA
+
+/* Define to enable Cray's CSA support */
+#undef ENABLE_CSA
 
 /* Define to enable unix domain sockets */
 #undef ENABLE_UNIX_SOCKETS
@@ -310,8 +319,14 @@
 /* use nodemask-based scheduling on O2k */
 #undef NODEMASK
 
+/* Define to disable mlockall */
+#undef NOPOSIXMEMLOCK
+
 /* Define to disable privileged ports */
 #undef NOPRIVPORTS
+
+/* turns on the compilation of NO_SIGCHLD code */
+#undef NO_SIGCHLD
 
 /* directly use homedirs instead of $TORQUEHOME/spool */
 #undef NO_SPOOL_OUTPUT
@@ -385,6 +400,15 @@
 
 /* Define to the path of the qstat init file */
 #undef QSTATRC_PATH
+
+/* turns on the QSUB_KEEP_NO_OVERRIDE flag */
+#undef QSUB_KEEP_NO_OVERRIDE
+
+/* turns on the compilation of QUICKCOMMIT code */
+#undef QUICKCOMMIT
+
+/* turns on the compilation of RESOURCEMAXNOTDEFAULT code */
+#undef RESOURCEMAXNOTDEFAULT
 
 /* Define to enable RPP resource queries */
 #undef RPP

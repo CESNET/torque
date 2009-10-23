@@ -3,7 +3,7 @@ include $(top_srcdir)/buildutils/config.mk
 SUBDIRS = src doc
 
 EXTRA_DIST = CHANGELOG INSTALL.GNU README.configure README.mpiexec \
-             README.torque Release_Notes torque.setup buildutils/torque.spec.in \
+             README.torque README.cygwin Release_Notes torque.setup buildutils/torque.spec.in \
              DEVELOPMENT PBS_License.txt torque.spec \
 	     buildutils/self-extract-head-sh.in \
 	     buildutils/pbs_mkdirs.in buildutils/pbs_mach_type \
@@ -15,9 +15,12 @@ EXTRA_DIST = CHANGELOG INSTALL.GNU README.configure README.mpiexec \
 	     contrib/README.pbs_ganglia_jobmonarch contrib/pam_authuser.tar.gz \
 	     contrib/README.pam_authuser contrib/pbstop \
 	     contrib/README.pbs_python contrib/README.pbs_weblite \
-	     contrib/qpeek \
-	     contrib/init.d/pbs_mom contrib/init.d/pbs_server contrib/init.d/pbs_sched \
-	     contrib/init.d/suse.pbs_mom contrib/init.d/suse.pbs_server contrib/init.d/suse.pbs_sched
+	     contrib/qpeek contrib/init.d/pbs_mom contrib/init.d/pbs_server \
+	     contrib/init.d/pbs_sched contrib/init.d/suse.pbs_mom \
+	     contrib/init.d/suse.pbs_server contrib/init.d/suse.pbs_sched \
+			 contrib/init.d/debian.pbs_mom contrib/init.d/debian.pbs_server \
+			 contrib/init.d/debian.pbs_sched \
+	     contrib/blcr/checkpoint_script contrib/blcr/restart_script
 
 bin_SCRIPTS = pbs-config
 
