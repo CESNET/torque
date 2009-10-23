@@ -545,11 +545,15 @@ void recov_acl(
 
   if (fstat(fds, &sb) < 0)
     {
+    close(fds);
+
     return;
     }
 
   if (sb.st_size == 0)
     {
+    close(fds);
+
     return;  /* no data */
     }
 
