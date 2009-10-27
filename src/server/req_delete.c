@@ -172,11 +172,11 @@ void remove_stagein(
     preq->rq_extra = NULL;
 
     addr = pjob->ji_qs.ji_un.ji_exect.ji_momaddr;
-    addr += pjob->ji_qs.ji_un.ji_exect.ji_mom_rmport;
-    addr += pjob->ji_qs.ji_un.ji_exect.ji_momport;
+/*    addr += pjob->ji_qs.ji_un.ji_exect.ji_mom_rmport;
+    addr += pjob->ji_qs.ji_un.ji_exect.ji_momport;*/
 
     if (relay_to_mom(
-          addr,
+          pjob,
           preq,
           release_req) == 0)
       {

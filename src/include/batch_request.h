@@ -363,6 +363,8 @@ struct batch_request
   };
 
 
+#include "job.h"
+
 extern struct batch_request *alloc_br A_((int type));
 extern void  reply_ack A_((struct batch_request *));
 extern void  req_reject A_((int code, int aux, struct batch_request *, char *, char *));
@@ -399,7 +401,7 @@ extern void  req_delfile A_((struct batch_request *req));
 #endif
 
 #ifdef SERVER_LIMITS_H
-extern int   relay_to_mom A_((pbs_net_t, struct batch_request *, void (*)()));
+extern int   relay_to_mom A_((job *, struct batch_request *, void (*)()));
 #endif  /* SERVER_LIMITS_H */
 
 /* PBS Batch Request Decode/Encode routines */

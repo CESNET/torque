@@ -433,7 +433,7 @@ static int svr_stagein(
   strcpy(momreq->rq_extra, pjob->ji_qs.ji_jobid);
 
   rc = relay_to_mom(
-         pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+         pjob,
          momreq,
          post_stagein);
 

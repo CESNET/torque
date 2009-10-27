@@ -135,7 +135,7 @@ req_messagejob(struct batch_request *preq)
 
   /* pass the request on to MOM */
 
-  if ((rc = relay_to_mom(pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+  if ((rc = relay_to_mom(pjob,
                          preq, post_message_req)))
     req_reject(rc, 0, preq, NULL, NULL); /* unable to get to MOM */
 

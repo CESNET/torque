@@ -352,7 +352,7 @@ static int shutdown_chkpt(
     return(PBSE_SYSTEM);
     }
 
-  if (relay_to_mom(pjob->ji_qs.ji_un.ji_exect.ji_momaddr, phold, post_chkpt) != 0)
+  if (relay_to_mom(pjob, phold, post_chkpt) != 0)
     {
     /* FAILURE */
 

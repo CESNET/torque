@@ -599,7 +599,7 @@ int mom_comm(
     if (pjob->ji_qs.ji_un.ji_exect.ji_momaddr == 0)
       {
       pjob->ji_qs.ji_un.ji_exect.ji_momaddr = get_hostaddr(
-                                                parse_servername(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str, &dummy));
+                                        parse_servername(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str, &dummy));
       }
 
     pjob->ji_momhandle = svr_connect(

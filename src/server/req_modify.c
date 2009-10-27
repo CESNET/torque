@@ -365,7 +365,7 @@ void req_modifyjob(
   if (sendmom)
     {
     if ((rc = relay_to_mom(
-                pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+                pjob,
                 preq,
                 post_modify_req)))
       {

@@ -170,6 +170,7 @@
 #define PBSE_UNKARRAYID 15080  /* unknown array id */
 #define PBSE_BAD_ARRAY_REQ   15081      /* bad array request */
 #define PBSE_TIMEOUT 15082  /* Time out */
+#define PBSE_JOBNOTFOUND 15083 /* Could not find job in batch request */
 /*
 **  Resource monitor specific
 */

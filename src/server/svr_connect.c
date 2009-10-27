@@ -397,9 +397,9 @@ int socket_to_handle(
     return(i);
     }  /* END for (i) */
 
-  sprintf(log_buffer,"internal socket table full (%d) - num_connections is %d",
-    i,
-    get_num_connections());
+	sprintf(log_buffer,"internal socket table full (%d) - num_connections is %d",
+					i,
+					get_num_connections());
 
   log_ext(-1,id,log_buffer,LOG_ALERT);
 

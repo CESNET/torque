@@ -195,7 +195,7 @@ void req_signaljob(
   /* pass the request on to MOM */
 
   if ((rc = relay_to_mom(
-              pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+              pjob,
               preq,
               post_signal_req)))
     {
@@ -247,7 +247,7 @@ int issue_signal(
   strncpy(newreq->rq_ind.rq_signal.rq_signame, signame, PBS_SIGNAMESZ);
 
   rc = relay_to_mom(
-         pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+         pjob,
          newreq,
          func);
 
