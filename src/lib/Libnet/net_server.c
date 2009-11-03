@@ -351,7 +351,7 @@ int wait_request(
 
     cp = &svr_conn[i];
 
-    if (cp->cn_active != FromClientDIS)
+    if ((cp->cn_active != ToServerDIS) && (cp->cn_active != FromClientDIS))
       continue;
 
     if ((now - cp->cn_lasttime) <= PBS_NET_MAXCONNECTIDLE)
