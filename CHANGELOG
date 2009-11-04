@@ -1,6 +1,9 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.4.2
+  b - Changed predicate in pbsd_main.c for the two locations where 
+      daemonize_server is called to check for the value of high_availability_mode 
+      to determine when to put the server process in the background.
   b - Added pbs_error_db.h to src/include/Makefile.am and src/include/Makefile.in. 
       pbs_error_db.h now needed for install.
   e - Modified pbs_get_server_list so the $TORQUE_HOME/server_name file will work with 
