@@ -1533,7 +1533,7 @@ int main(
 
   /* handle running in the background or not if we're debugging */
 
-  if(server_init_type != RECOV_CREATE)
+  if(high_availability_mode)
     {
     if (daemonize_server(TDoBackground,&sid) == FAILURE)
       {
@@ -1667,7 +1667,7 @@ int main(
 
   /* handle running in the background or not if we're debugging */
 
-  if(server_init_type == RECOV_CREATE)
+  if(!high_availability_mode)
     {
     if (daemonize_server(TDoBackground,&sid) == FAILURE)
       {
