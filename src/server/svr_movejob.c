@@ -122,10 +122,10 @@
 
 /* External functions called */
 
-extern void stat_mom_job A_((job *));
+extern void stat_mom_job(job *);
 extern void remove_stagein(job *);
 extern void remove_checkpoint(job *);
-extern int  job_route A_((job *));
+extern int  job_route(job *);
 
 extern struct pbsnode *PGetNodeFromAddr(pbs_net_t);
 
@@ -133,12 +133,12 @@ extern struct pbsnode *PGetNodeFromAddr(pbs_net_t);
 
 /* Private Functions local to this file */
 
-static int  local_move A_((job *, struct batch_request *));
-static void net_move_die A_((int sig));
-static void post_movejob A_((struct work_task *));
-static void post_routejob A_((struct work_task *));
-static int should_retry_route A_((int err));
-static int move_job_file A_((int con, job *pjob, enum job_file which));
+static int  local_move(job *, struct batch_request *);
+static void net_move_die(int sig);
+static void post_movejob(struct work_task *);
+static void post_routejob(struct work_task *);
+static int should_retry_route(int err);
+static int move_job_file(int con, job *pjob, enum job_file which);
 
 /* Global Data */
 
@@ -165,7 +165,7 @@ extern int      LOGLEVEL;
 extern char    *path_creds;
 #endif
 
-int net_move A_((job *, struct batch_request *));
+int net_move(job *, struct batch_request *);
 
 /*
  * svr_movejob
@@ -567,7 +567,7 @@ int send_job(
   pbs_net_t  hostaddr, /* host address, host byte order */
   int        port, /* service port, host byte order */
   int        move_type, /* move, route, or execute */
-  void (*post_func) A_((struct work_task *)),     /* after move */
+  void (*post_func)(struct work_task *),     /* after move */
   void      *data)  /* ptr to optional batch_request to be put */
                     /* in the work task structure */
 
@@ -1165,7 +1165,7 @@ int net_move(
   char  *hostname;
   int   move_type;
   unsigned int  port = pbs_server_port_dis;
-  void (*post_func) A_((struct work_task *));
+  void (*post_func)(struct work_task *);
   char  *toserver;
   char  *id = "net_move";
 

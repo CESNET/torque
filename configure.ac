@@ -25,7 +25,7 @@ dnl by David Beer (dbeer@adaptivecomputing.com)
 dnl
 
 AC_PREREQ(2.53)
-AC_INIT([torque], [2.4.1b1], [torqueusers@supercluster.org])
+AC_INIT([torque], [2.5.0], [torqueusers@supercluster.org])
 AC_REVISION($Revision$)
 AC_CONFIG_SRCDIR([src/cmds/qrun.c])
 AC_CONFIG_AUX_DIR([buildutils])
@@ -951,6 +951,14 @@ AC_ARG_ENABLE(privports, [
   *)   AC_MSG_ERROR(--enable-privports cannot take a value) ;;
 esac])dnl
 
+AC_ARG_ENABLE(daemons, [
+  --disable-daemons       disable the use of background daemons.],
+[case "${enableval}" in
+  yes)  ;;
+  no)  DISABLE_DAEMONS=1; AC_DEFINE(DISABLE_DAEMONS, 1, [Define to disable daemons]) ;;
+  *)   AC_MSG_ERROR(--enable-daemons cannot take a value) ;;
+esac])dnl
+
 
 AC_ARG_ENABLE(mom-checkspool, [
   --disable-mom-checkspool
@@ -1486,6 +1494,19 @@ AH_BOTTOM([
 #ifndef __GNUC__
 #       define __attribute__ /* nothing */
 #endif
+
+#ifdef __CYGWIN__
+/* sys/types.h from cygwin fails to define uid_t and gid_t */
+#ifndef uid_t
+#define uid_t int
+#endif
+#ifndef gid_t
+#define gid_t int
+#endif
+#endif  /* __CYGWIN__  */
+])
+
+AH_BOTTOM([
 #endif /* _PBS_CONFIG_H_ */
 ])
 
@@ -1538,12 +1559,13 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/lib/Libnet/Makefile
 	  src/lib/Libpbs/Makefile
 	  src/lib/Libsite/Makefile
-    src/lib/Libutils/Makefile
+	  src/lib/Libutils/Makefile
 	  src/mom_rcp/Makefile
 	  src/momctl/Makefile
 	  src/resmom/Makefile
 	  src/resmom/aix4/Makefile
 	  src/resmom/aix5/Makefile
+	  src/resmom/cygwin/Makefile
 	  src/resmom/darwin/Makefile
 	  src/resmom/digitalunix/Makefile
 	  src/resmom/freebsd/Makefile

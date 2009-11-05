@@ -183,8 +183,8 @@ static char   rcperr[MAXPATHLEN]; /* file to contain rcp error */
 extern char PBSNodeMsgBuf[1024];
 extern int  LOGLEVEL;
 
-extern int im_compose A_((int, char *, char *, int, tm_event_t, tm_task_id));
-extern int mom_open_socket_to_jobs_server A_((job *, char *, void (*) A_((int))));
+extern int im_compose(int, char *, char *, int, tm_event_t, tm_task_id);
+extern int mom_open_socket_to_jobs_server(job *, char *, void (*)(int));
 #ifdef GSSAPI
 /* used when server forwards creds to us */
 extern        char          *path_creds;
@@ -309,6 +309,17 @@ static pid_t fork_to_user(
 
       return(-PBSE_BADUSER);
       }
+
+#ifdef __CYGWIN__
+    /* printf("TRY IAMADMIN FOR %s ", preq->rq_ind.rq_cpyfile.rq_user); */
+
+    if (IAmAdmin())
+    {
+      log_err(errno, id, "Can`t run job with Administrator privileges");
+
+      return(-PBSE_BADUSER);
+    }
+#endif  /* __CYGWIN__ */
 
     useruid = pwdp->pw_uid;
 
@@ -2188,7 +2199,8 @@ void req_signaljob(
 
   numprocs = kill_job(pjob, sig, id, "killing job");
 
-  if ((numprocs == 0) && ((sig == 0)||(sig == SIGKILL)))
+  if ((numprocs == 0) && ((sig == 0)||(sig == SIGKILL)) &&
+    (pjob->ji_qs.ji_substate != JOB_SUBSTATE_OBIT))
     {
     /* SIGNUL and no procs found, force job to exiting */
     /* force issue of (another) job obit */
@@ -2504,10 +2516,26 @@ static int del_files(
    * or as user in user homedir.  Let's determine if we will
    * be permitted to run setXid()/setgroup calls.
    */
-  if (getuid() != 0)
+ 
+#ifndef __CYGWIN__
+ if (getuid() != 0)
+    {
+#else
+  if (!IAmAdmin())
+    {
+#endif  /* __CYGWIN__ */
     UID0 = FALSE;
-  if (geteuid() != 0)
+    }
+
+#ifndef __CYGWIN__
+ if (geteuid() != 0)
+    {
+#else
+  if (!IAmAdmin())
+    {
+#endif  /* __CYGWIN__ */
     EUID0 = FALSE;
+    }
 
   /*
    * Build up path of file using local name only, then unlink it.

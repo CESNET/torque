@@ -231,8 +231,8 @@ static int num_var_else = tveLAST;
 
 /* prototypes */
 
-static void starter_return A_((int, int, int, struct startjob_rtn *));
-static void catchinter A_((int));
+static void starter_return(int, int, int, struct startjob_rtn *);
+static void catchinter(int);
 
 #ifdef PENABLE_LINUX26_CPUSETS
 extern int use_cpusets(job *);
@@ -347,6 +347,11 @@ struct passwd *check_pwd(
 
 		return(NULL);
 		}
+
+#ifdef __CYGWIN__
+	if (!IAmUser(ptr))
+    		return(NULL);
+#endif  /* __CYGWIN__ */
 
 	if (pjob->ji_grpcache != NULL)
 		{
@@ -547,7 +552,7 @@ int open_demux(
 
 		switch (errno)
 			{
-			
+
 			case EINTR:
 
 			case ETIMEDOUT:
@@ -971,7 +976,7 @@ int TMakeTmpDir(
 
 		switch (rc)
 			{
-			
+
 			case ENOENT:
 
 				sprintf(log_buffer,
@@ -1479,7 +1484,7 @@ int TMomFinalizeJob1(
 				if ((pjob->ji_qs.ji_stime == 0) &&
 						(pjob->ji_wattr[(int)JOB_ATR_start_time].at_flags & ATR_VFLAG_SET))
 					{
-					pjob->ji_qs.ji_stime = 
+					pjob->ji_qs.ji_stime =
 					(time_t)pjob->ji_wattr[(int)JOB_ATR_start_time].at_val.at_long;
 					}
 				pjob->ji_qs.ji_stime = time_now - (sb.st_mtime - pjob->ji_qs.ji_stime);
@@ -1960,7 +1965,7 @@ int determine_umask(
 
 
 
-#ifdef PENABLE_LINUX26_CPUSETS 
+#ifdef PENABLE_LINUX26_CPUSETS
 /**
  * indicates whether or not cpusets should be used to run this job
  *
@@ -1985,7 +1990,7 @@ int use_cpusets(
 	presc = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],prd);
 
 	/* don't create a cpuset unless one was specifically requested */
-	if ((presc == NULL) || 
+	if ((presc == NULL) ||
 			(presc->rs_value.at_flags & ATR_VFLAG_SET) == FALSE)
 		{
 		return(FALSE);
@@ -2530,7 +2535,7 @@ int TMomFinalizeChild(
 			if ((presc != NULL))
 			  if((presc->rs_value.at_flags & ATR_VFLAG_SET) && (presc->rs_value.at_val.at_str))
 				{
-				
+
 				path_prologuserjob = get_local_script_path(pjob, presc->rs_value.at_val.at_str);
 
 				if(path_prologuserjob)
@@ -2544,7 +2549,7 @@ int TMomFinalizeChild(
 					log_err(-1, id, "batch job local user prolog failed");
 					free(path_prologuserjob);
 					starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
-					
+
 
 					/*NOTREACHED*/
 					}
@@ -2771,7 +2776,7 @@ int TMomFinalizeChild(
 		  	/* permanent failure - abort job */
 
 		  	starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
-		  	} 
+		  	}
 		  else
 		  	{
 		  	/* retry - requeue job */
@@ -2810,7 +2815,7 @@ int TMomFinalizeChild(
 			  /* permanent failure - abort job */
 
 			  starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
-			  } 
+			  }
 			else
 			  {
 			  /* retry - requeue job */
@@ -2825,7 +2830,7 @@ int TMomFinalizeChild(
 							&pjob->ji_wattr[(int)JOB_ATR_resource],
 							find_resc_def(svr_resc_def, "prologue", svr_resc_size));
 
-		if (presc != NULL) 
+		if (presc != NULL)
 		  if((presc->rs_value.at_flags & ATR_VFLAG_SET) && (presc->rs_value.at_val.at_str != NULL))
 		  {
 
@@ -2840,22 +2845,22 @@ int TMomFinalizeChild(
 								  PE_IO_TYPE_ASIS)) != 0)
 			  {
 			  log_err(-1, id, "batch job user prolog failed");
-  
+
 			  if (j == 1)
 				{
 				/* permanent failure - abort job */
-  
+
 				free(path_prologuserjob);
 				starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
-				} 
+				}
 			  else
 				{
 				/* retry - requeue job */
-  
+
 				free(path_prologuserjob);
 				starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_RETRY, &sjr);
 				}
-  
+
 				  /*NOTREACHED*/
 			  }
 			free(path_prologuserjob);
@@ -3613,7 +3618,7 @@ int TMomFinalizeJob3(
 
 		switch (sjr.sj_code)
 			{
-			
+
 			case JOB_EXEC_OK:	 /* 0 */
 
 				strcpy(tmpLine, "no failure");
@@ -3958,7 +3963,7 @@ int start_process(
 			return(-1);
 			}
 
-		/* This write to the pipe is redundant and leads to a sigpipe because of a 
+		/* This write to the pipe is redundant and leads to a sigpipe because of a
 		 * race condition with the child
 		 */
 /*    if (write(parent_write, &sjr, sizeof(sjr)) == -1) {} */
@@ -3978,7 +3983,7 @@ int start_process(
 
 			switch (sjr.sj_code)
 				{
-				
+
 				case JOB_EXEC_OK:	 /* 0 */
 
 					/* NO-OP */
@@ -4645,7 +4650,7 @@ void nodes_free(
 							 job *pj)	 /* I */
 
 {
-	void arrayfree A_((char **));
+	void arrayfree (char **);
 
 	hnodent *np;
 
@@ -4901,13 +4906,13 @@ void start_exec(
 
 	torque_socklen_t slen;
 
-	void im_compose A_((
+	void im_compose (
 										 int         stream,
 										 char       *jobid,
 										 char       *cookie,
 										 int  command,
 										 tm_event_t  event,
-										 tm_task_id  taskid));
+										 tm_task_id  taskid);
 
 	/* Step 1.0 Generate Cookie */
 
@@ -5507,7 +5512,7 @@ char *std_file_name(
 
 	switch (which)
 		{
-		
+
 		case StdOut:
 
 			key    = 'o';
@@ -6526,7 +6531,7 @@ int check_csa_status(
 
 		switch (chk_action)
 			{
-			
+
 			case IS_INSTALLED:
 				csa_stat = csa_installed;
 				break;

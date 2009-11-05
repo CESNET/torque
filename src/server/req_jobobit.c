@@ -137,12 +137,12 @@ extern const char *PJobState[];
 
 /* External Functions called */
 
-extern void set_resc_assigned A_((job *, enum batch_op));
+extern void set_resc_assigned(job *, enum batch_op);
 extern void cleanup_restart_file(job *);
 
 /* Local public functions  */
 
-void req_jobobit A_((struct batch_request *));
+void req_jobobit(struct batch_request *);
 
 
 
@@ -632,7 +632,7 @@ struct batch_request *cpy_stage(
 int mom_comm(
 
   job *pjob,
-  void (*func) A_((struct work_task *)))
+  void (*func)(struct work_task *))
 
   {
   unsigned int dummy;
@@ -909,7 +909,14 @@ void on_job_exit(
             {
             strcpy(namebuf2, namebuf);
             strcat(namebuf2, ".SAV");
-            link(namebuf, namebuf2);
+            if (link(namebuf, namebuf2) == -1)
+              {
+              LOG_EVENT(
+                PBSEVENT_ERROR | PBSEVENT_SECURITY,
+                PBS_EVENTCLASS_JOB,
+                pjob->ji_qs.ji_jobid,
+                "Link(1) in on_job_exit failed");
+              }
             }
 
 
@@ -926,7 +933,14 @@ void on_job_exit(
             {
             strcpy(namebuf2, namebuf);
             strcat(namebuf2, ".SAV");
-            link(namebuf, namebuf2);
+            if (link(namebuf, namebuf2) == -1)
+              {
+              LOG_EVENT(
+                PBSEVENT_ERROR | PBSEVENT_SECURITY,
+                PBS_EVENTCLASS_JOB,
+                pjob->ji_qs.ji_jobid,
+                "Link(2) in on_job_exit failed");
+              }
             }
 
           free(namebuf2);
@@ -1212,7 +1226,14 @@ void on_job_exit(
 
       if (spool_file_exists == 0)
         {
-        link(namebuf2, namebuf);
+        if (link(namebuf2, namebuf) == -1)
+          {
+          LOG_EVENT(
+            PBSEVENT_ERROR | PBSEVENT_SECURITY,
+            PBS_EVENTCLASS_JOB,
+            pjob->ji_qs.ji_jobid,
+            "Link(3) in on_job_exit failed");
+          }
         unlink(namebuf2);
         }
 
@@ -1229,7 +1250,14 @@ void on_job_exit(
       if (spool_file_exists == 0)
         {
 
-        link(namebuf2, namebuf);
+        if (link(namebuf2, namebuf) == -1)
+          {
+          LOG_EVENT(
+            PBSEVENT_ERROR | PBSEVENT_SECURITY,
+            PBS_EVENTCLASS_JOB,
+            pjob->ji_qs.ji_jobid,
+            "Link(4) in on_job_exit failed");
+          }
         unlink(namebuf2);
         }
 

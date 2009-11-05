@@ -101,9 +101,9 @@ char       restart_script_name[MAXPATHLEN + 1];
 char       checkpoint_run_exe_name[MAXPATHLEN + 1];
 int        default_checkpoint_interval = 10; /* minutes */
 
-extern char *mk_dirs A_((char *));
-extern int mom_open_socket_to_jobs_server A_((job *, char *, void (*) A_((int))));
-extern void set_attr A_((struct attrl **, char *, char *));
+extern char *mk_dirs(char *);
+extern int mom_open_socket_to_jobs_server(job *, char *, void (*)(int));
+extern void set_attr(struct attrl **, char *, char *);
 
 int create_missing_files(job *pjob);
 
@@ -1731,7 +1731,7 @@ int mom_restart_job(job  *pjob)
   tm_task_id taskid;
   task         *ptask;
   int  tcount = 0;
-  long  mach_restart A_((task *, char *path));
+  long  mach_restart(task *, char *path);
 
   get_jobs_default_checkpoint_dir(pjob, namebuf);
 
@@ -2084,8 +2084,10 @@ int create_missing_files(job *pjob)
       {
       if ((fd = creat(namebuf, S_IRUSR | S_IWUSR)) > 0)
         {
-        /* TODO check return value of fchown */
-        fchown(fd,  pjob->ji_qs.ji_un.ji_momt.ji_exuid, pjob->ji_qs.ji_un.ji_momt.ji_exgid);
+        if (fchown(fd,  pjob->ji_qs.ji_un.ji_momt.ji_exuid, pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1)
+          {
+          log_err(errno, "create_missing_files", "cannot change file owner");
+          }
         close(fd);
         ++files_created;
         }
@@ -2118,8 +2120,10 @@ int create_missing_files(job *pjob)
       {
       if ((fd = creat(namebuf, S_IRUSR | S_IWUSR)) > 0)
         {
-        /* TODO check return value of fchown */
-        fchown(fd,  pjob->ji_qs.ji_un.ji_momt.ji_exuid, pjob->ji_qs.ji_un.ji_momt.ji_exgid);
+        if (fchown(fd,  pjob->ji_qs.ji_un.ji_momt.ji_exuid, pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1)
+          {
+          log_err(errno, "create_missing_files", "cannot change file ownership");
+          }
         close(fd);
         ++files_created;
         }

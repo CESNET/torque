@@ -119,7 +119,7 @@
 
 #define IS_VALID_STR(STR)  (((STR) != NULL) && ((STR)[0] != '\0'))
 
-extern void DIS_rpp_reset A_((void));
+extern void DIS_rpp_reset(void);
 
 extern int LOGLEVEL;
 
@@ -148,7 +148,7 @@ extern int  has_nodes;
 
 extern time_t    time_now;
 
-extern int ctnodes A_((char *));
+extern int ctnodes(char *);
 extern char *path_home;
 extern char *path_nodes;
 extern char *path_nodes_new;
@@ -1244,7 +1244,25 @@ int is_stat_get(
           }
         }
       }
+    else if(server.sv_attr[(int)SRV_ATR_NPDefault].at_val.at_long)
+      {
+        struct pbsnode *pnode;
+        int i;
+        long max_np;
+        long nsnfreediff;
 
+        max_np = server.sv_attr[(int)SRV_ATR_NPDefault].at_val.at_long;
+
+        for(i = 0; i < svr_totnodes; i++)
+          {
+          pnode = pbsndlist[i];
+
+          nsnfreediff = pnode->nd_nsn - pnode->nd_nsnfree;
+          pnode->nd_nsn = max_np;
+          pnode->nd_nsnfree = max_np - nsnfreediff;
+
+          }
+      }
     free(ret_info);
     }    /* END while (rc != DIS_EOD) */
 

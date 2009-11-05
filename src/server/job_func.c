@@ -145,8 +145,8 @@
 #define FALSE 0
 #endif
 
-int conn_qsub A_((char *, long, char *));
-void job_purge A_((job *));
+int conn_qsub(char *, long, char *);
+void job_purge(job *);
 
 /* External functions */
 
@@ -154,7 +154,7 @@ extern void cleanup_restart_file(job *);
 
 /* Local Private Functions */
 
-static void job_init_wattr A_((job *));
+static void job_init_wattr(job *);
 
 /* Global Data items */
 
@@ -884,7 +884,7 @@ job *job_clone(
   /* set PBS_ARRAYID var */
   clear_attr(&tempattr, &job_attr_def[(int)JOB_ATR_variables]);
 
-  sprintf(buf, ",PBS_ARRAYID=%d", taskid);
+  sprintf(buf, "PBS_ARRAYID=%d", taskid);
 
   job_attr_def[(int)JOB_ATR_variables].at_decode(&tempattr,
       NULL,

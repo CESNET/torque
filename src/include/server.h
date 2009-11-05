@@ -168,6 +168,7 @@ enum srv_atr
   SRV_ATR_checkpoint_dir,
   SRV_ATR_MailSubjectFmt,
   SRV_ATR_MailBodyFmt,
+  SRV_ATR_NPDefault,
 #include "site_svr_attr_enum.h"
   /* This must be last */
   SRV_ATR_LAST
@@ -231,8 +232,8 @@ extern struct server server;
 
 /* function prototypes */
 
-extern int svr_recov A_((char *, int));
-extern int svr_save A_((struct server *, int));
+extern int svr_recov(char *, int);
+extern int svr_save(struct server *, int);
 
 
 /*

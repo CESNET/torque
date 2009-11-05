@@ -109,6 +109,7 @@
 #include "batch_request.h"
 #include "array.h"
 #include "csv.h"
+#include "pbs_nodes.h"
 
 
 /*#ifndef SIGKILL*/
@@ -200,31 +201,31 @@ extern struct server server;
 
 /* External Functions Called */
 
-extern void   on_job_exit A_((struct work_task *));
-extern void   on_job_rerun A_((struct work_task *));
-extern void   set_resc_assigned A_((job *, enum batch_op));
-extern void   set_old_nodes A_((job *));
-extern void   acct_close A_((void));
+extern void   on_job_exit(struct work_task *);
+extern void   on_job_rerun(struct work_task *);
+extern void   set_resc_assigned(job *, enum batch_op);
+extern void   set_old_nodes(job *);
+extern void   acct_close(void);
 
-extern struct work_task *apply_job_delete_nanny A_((struct job *, int));
-extern int     net_move A_((job *, struct batch_request *));
-extern void  job_clone_wt A_((struct work_task *));
+extern struct work_task *apply_job_delete_nanny(struct job *, int);
+extern int     net_move(job *, struct batch_request *);
+extern void  job_clone_wt(struct work_task *);
 
 /* Private functions in this file */
 
-static void  init_abt_job A_((job *));
-static char *build_path A_((char *, char *, char *));
-static void  catch_child A_((int));
-static void  catch_abort A_((int));
-static void  change_logs A_((int));
-static void  change_log_level A_((int));
-static int   chk_save_file A_((char *));
-static void  need_y_response A_((int));
-static int   pbsd_init_job A_((job *, int));
-static void  pbsd_init_reque A_((job *, int));
-static void  resume_net_move A_((struct work_task *));
-static void  rm_files A_((char *));
-static void  stop_me A_((int));
+static void  init_abt_job(job *);
+static char *build_path(char *, char *, char *);
+static void  catch_child(int);
+static void  catch_abort(int);
+static void  change_logs(int);
+static void  change_log_level(int);
+static int   chk_save_file(char *);
+static void  need_y_response(int);
+static int   pbsd_init_job(job *, int);
+static void  pbsd_init_reque(job *, int);
+static void  resume_net_move(struct work_task *);
+static void  rm_files(char *);
+static void  stop_me(int);
 
 /* private data */
 
@@ -356,6 +357,31 @@ static int SortPrioAscend(
   } /*END SortPrioAscend */
 
 
+void  update_default_np()
+{
+  struct pbsnode *pnode;
+  int i;
+  long default_np;
+  long npfreediff;
+
+  default_np = server.sv_attr[(int)SRV_ATR_NPDefault].at_val.at_long;
+
+
+  if(default_np > 0)
+    {
+    for(i = 0; i < svr_totnodes; i++)
+      {
+      pnode = pbsndlist[i];
+
+       npfreediff = pnode->nd_nsn - pnode->nd_nsnfree;
+       pnode->nd_nsn = default_np;
+       pnode->nd_nsnfree = default_np - npfreediff;
+
+      }
+    }
+
+  return;
+}
 
 /* Add the server names from /var/spool/torque/server_name to the trusted hosts list. */
 
@@ -838,6 +864,7 @@ int pbsd_init(
     }
 
   add_server_names_to_acl_hosts();
+  update_default_np();
 
   /*
    * 8. If not a "create" initialization, recover queues.

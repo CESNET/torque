@@ -89,32 +89,32 @@
 
 /* External Functions Referenced */
 
-extern int manager_oper_chk A_((attribute *pattr, void *pobject, int actmode));
-extern int servername_chk A_((attribute *pattr, void *pobject, int actmode));
-extern int schiter_chk A_((attribute *pattr, void *pobject, int actmode));
+extern int manager_oper_chk (attribute *pattr, void *pobject, int actmode);
+extern int servername_chk (attribute *pattr, void *pobject, int actmode);
+extern int schiter_chk (attribute *pattr, void *pobject, int actmode);
 
-extern int nextjobnum_chk A_((attribute *pattr, void *pobject, int actmode));
-extern int set_nextjobnum A_((attribute *attr, attribute *new, enum batch_op op));
+extern int nextjobnum_chk (attribute *pattr, void *pobject, int actmode);
+extern int set_nextjobnum (attribute *attr, attribute *new, enum batch_op op);
 
-extern int poke_scheduler A_((attribute *pattr, void *pobject, int actmode));
+extern int poke_scheduler (attribute *pattr, void *pobject, int actmode);
 
-extern int encode_svrstate A_((attribute *pattr, tlist_head *phead, char *aname,
-                                 char *rsname, int mode));
+extern int encode_svrstate (attribute *pattr, tlist_head *phead, char *aname,
+                                 char *rsname, int mode);
 
-extern int decode_rcost A_((attribute *patr, char *name, char *rn, char *val));
-extern int encode_rcost A_((attribute *attr, tlist_head *phead, char *atname,
-                              char *rsname, int mode));
-extern int set_rcost A_((attribute *attr, attribute *new, enum batch_op));
-extern void free_rcost A_((attribute *attr));
-extern int decode_null A_((attribute *patr, char *name, char *rn, char *val));
-extern int set_null A_((attribute *patr, attribute *new, enum batch_op op));
+extern int decode_rcost (attribute *patr, char *name, char *rn, char *val);
+extern int encode_rcost (attribute *attr, tlist_head *phead, char *atname,
+                              char *rsname, int mode);
+extern int set_rcost (attribute *attr, attribute *new, enum batch_op);
+extern void free_rcost (attribute *attr);
+extern int decode_null (attribute *patr, char *name, char *rn, char *val);
+extern int set_null (attribute *patr, attribute *new, enum batch_op op);
 
-extern int token_chk A_((attribute *pattr, void *pobject, int actmode));
-extern int set_tokens A_((struct attribute *attr, struct attribute *new, enum batch_op op));
+extern int token_chk (attribute *pattr, void *pobject, int actmode);
+extern int set_tokens (struct attribute *attr, struct attribute *new, enum batch_op op);
 
-extern int extra_resc_chk A_((attribute *pattr, void *pobject, int actmode));
-extern void free_extraresc A_((attribute *attr));
-extern void restore_attr_default A_((struct attribute *));
+extern int extra_resc_chk (attribute *pattr, void *pobject, int actmode);
+extern void free_extraresc (attribute *attr);
+extern void restore_attr_default (struct attribute *);
 
 /* DIAGTODO: write diag_attr_def.c */
 
@@ -1035,6 +1035,18 @@ attribute_def svr_attr_def[] =
     MGR_ONLY_SET,
     ATR_TYPE_STR,
     PARENT_TYPE_SERVER
+  },
+    /* SRV_ATR_NPDefault */
+  {   ATTR_npdefault,          /* "np_default" */
+      decode_l,
+      encode_l,
+      set_l,
+      comp_l,
+      free_null,
+      NULL_FUNC,
+      MGR_ONLY_SET,
+      ATR_TYPE_LONG,
+      PARENT_TYPE_SERVER
   },
 
   /* site supplied server attribute definitions if any, see site_svr_attr_*.h  */
