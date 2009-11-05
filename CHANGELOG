@@ -87,7 +87,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       2.3.8)
   f - new fifo scheduler config option. ignore_queue: queue_name
       allows the scheduler to be instructed to ignore up to 16 queues on the server
-      (Simon Toth, muni.cz)
+      (Simon Toth, CESNET z.s.p.o.)
   e - add administrator customizable email notifications (see manpage for
       pbs_server_attributes) - (Roland Haas, Georgia Tech)
   e - moving jobs can now trigger a scheduling iteration (merged from 2.3.8)
@@ -100,11 +100,11 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix to prevent some jobs from getting deleted on startup.
   f - add qpool.gz to contrib directory
   e - improve how error constants and text messages are represented (Simon Toth,
-      muni.cz)
+      CESNET z.s.p.o)
   f - new boolean queue attribute "is_transit" that allows jobs to exceede 
       server resource limits (queue limits are respected). This allows routing 
       queues to route jobs that would be rejected for exceeding local resources
-      even when the job won't be run locally. (Simon Toth, muni.cz)
+      even when the job won't be run locally. (Simon Toth, CESNET z.s.p.o)
   e - add support for "job_array" as a type for queue disallowed_types attribute
   e - added pbs_mom config option ignmem to ignore mem/pmem limit enforcement
   e - added pbs_mom config option igncput to ignore pcput limit enforcement
