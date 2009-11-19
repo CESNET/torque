@@ -1,5 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
+2.4.3
+
 2.4.2
   b - Changed predicate in pbsd_main.c for the two locations where 
       daemonize_server is called to check for the value of high_availability_mode 
