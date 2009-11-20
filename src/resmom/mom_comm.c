@@ -805,6 +805,7 @@ int send_sisters(
       {
       char EMsg[1024];
 
+	  EMsg[0] = 0;
       np->hn_stream = rpp_open(np->hn_host, pbs_rm_port, EMsg);
 
       if (np->hn_stream == -1)
@@ -821,6 +822,18 @@ int send_sisters(
           pjob->ji_qs.ji_jobid,
           log_buffer);
         }
+
+	  if(LOGLEVEL >= 6)
+	    {
+	    if(EMsg[0] != 0)
+		  {
+		  log_record(
+			PBSEVENT_ERROR,
+			PBS_EVENTCLASS_JOB,
+			pjob->ji_qs.ji_jobid,
+			EMsg);
+		  }
+	    }
 
       continue;
       }
@@ -1279,7 +1292,7 @@ void node_bailout(
 
         tm_reply(ptask->ti_fd, TM_ERROR, ep->ee_event);
 
-        diswsi(ptask->ti_fd, TM_ESYSTEM);
+        tcp_diswsi(ptask->ti_fd, TM_ESYSTEM);
 
         DIS_tcp_wflush(ptask->ti_fd);
 
@@ -1343,7 +1356,7 @@ void node_bailout(
           TM_ERROR,
           ep->ee_forward.fe_event);
 
-        diswsi(ptask->ti_fd, TM_ESYSTEM);
+        tcp_diswsi(ptask->ti_fd, TM_ESYSTEM);
 
         DIS_tcp_wflush(ptask->ti_fd);
 
@@ -3704,7 +3717,7 @@ void im_request(
 
           tm_reply(ptask->ti_fd, TM_OKAY, event);
 
-          diswsi(ptask->ti_fd, taskid);
+          tcp_diswsi(ptask->ti_fd, taskid);
 
           DIS_tcp_wflush(ptask->ti_fd);
 
@@ -3754,7 +3767,7 @@ void im_request(
 
           DIS_tcp_funcs();
 
-          diswsi(ptask->ti_fd, TM_NULL_TASK);
+          tcp_diswsi(ptask->ti_fd, TM_NULL_TASK);
 
           DIS_tcp_wflush(ptask->ti_fd);
 
@@ -3812,7 +3825,7 @@ void im_request(
 
           tm_reply(ptask->ti_fd, TM_OKAY, event);
 
-          diswsi(ptask->ti_fd, exitval);
+          tcp_diswsi(ptask->ti_fd, exitval);
 
           DIS_tcp_wflush(ptask->ti_fd);
 
@@ -3849,7 +3862,7 @@ void im_request(
 
           tm_reply(ptask->ti_fd, TM_OKAY, event);
 
-          diswcs(ptask->ti_fd, info, len);
+          tcp_diswcs(ptask->ti_fd, info, len);
 
           DIS_tcp_wflush(ptask->ti_fd);
 
@@ -3884,7 +3897,7 @@ void im_request(
 
           tm_reply(ptask->ti_fd, TM_OKAY, event);
 
-          diswst(ptask->ti_fd, info);
+          tcp_diswst(ptask->ti_fd, info);
 
           DIS_tcp_wflush(ptask->ti_fd);
 
@@ -4094,7 +4107,7 @@ void im_request(
             (ret == -1) ? TM_ERROR : TM_OKAY,
             efwd.fe_event);
 
-          diswsi(
+          tcp_diswsi(
             ptask->ti_fd,
             (int)(ret == -1 ?  TM_ESYSTEM : taskid));
 
@@ -4231,7 +4244,7 @@ void im_request(
 
           tm_reply(ptask->ti_fd, TM_ERROR, event);
 
-          diswsi(ptask->ti_fd, errcode);
+          tcp_diswsi(ptask->ti_fd, errcode);
 
           DIS_tcp_wflush(ptask->ti_fd);
 
@@ -4288,7 +4301,7 @@ void im_request(
 
           tm_reply(ptask->ti_fd, TM_ERROR, efwd.fe_event);
 
-          diswsi(ptask->ti_fd, errcode);
+          tcp_diswsi(ptask->ti_fd, errcode);
 
           DIS_tcp_wflush(ptask->ti_fd);
 
@@ -4448,7 +4461,8 @@ void tm_eof(
 **  event   int
 **  from taskid  int
 ** )
-**
+** 
+** tm_requests only use tcp. No rpp.
 */
 
 int tm_request(

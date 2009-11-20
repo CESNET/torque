@@ -4034,5 +4034,19 @@ int RPPReset(void)
   return(0);
   }
 
+int rpp_get_stream_state(int index)
+{
+  struct stream *sp;
+
+  sp = &stream_array[index];
+
+  if(sp)
+    {
+    return(sp->state);
+    }
+
+  return(-1);
+}
+
 /* END rpp.c */
 

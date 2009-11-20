@@ -143,12 +143,14 @@ unsigned  ndigs;
   char  *cp;
   char  *ocp;
   dis_long_double_t ldval;
+  char  scratch[DIS_BUFSIZ+1];
 
   assert(ndigs > 0 && ndigs <= LDBL_DIG);
   assert(stream >= 0);
   assert(dis_puts != NULL);
   assert(disw_commit != NULL);
 
+  memset(scratch, 0, DIS_BUFSIZ+1);
   /* Make zero a special case.  If we don't it will blow exponent  */
   /* calculation.        */
 
@@ -217,7 +219,7 @@ unsigned  ndigs;
 
   /* Starting in the middle of the buffer, convert coefficient digits, */
   /* most significant first.      */
-  ocp = cp = &dis_buffer[DIS_BUFSIZ - ndigs];
+  ocp = cp = &scratch[DIS_BUFSIZ - ndigs];
 
   do
     {
