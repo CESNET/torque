@@ -71,7 +71,7 @@ SKIP:
   # Submit Jobs
     {
     my $walltime = 1.1 * $Joblength;
-    my $baseid   = `su $Testuser -c 'echo "sleep $Joblength" | qsub -k oe -l nodes=1,walltime=$walltime -t $Jobcount'` || undef;
+    my $baseid   = `su $Testuser -c 'echo "sleep $Joblength" | qsub -k oe -l nodes=1,walltime=$walltime -t 0-$Jobcount'` || undef;
        $baseid   =~ s/\D//g if defined $baseid;
     ok(defined $baseid, "Job Submission") or
       BAIL_OUT("Unable to submit job to TORQUE as '$Testuser' - see TORQUE docs, Section 2.1");
@@ -82,7 +82,7 @@ SKIP:
 
   # Jobs In Queue
     {
-    sleep 5;
+    sleep 1;
     my %data = qstat_info;
     for my $i (0..($Jobcount-1))
       {
@@ -118,7 +118,7 @@ sub check_jobs ($$)
   # Wait up to $waittime seconds for job to start
   ROUND: for my $second (0..($waittime - 1))
     {
-    sleep 1;
+    sleep 5;
     my %data = qstat_info;
     # Check Information
     my $allcomplete = 1;
