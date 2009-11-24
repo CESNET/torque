@@ -5316,7 +5316,8 @@ void start_exec(
 
       /* rpp_open() will succeed even if MOM is down */
 
-      np->hn_stream = rpp_open(np->hn_host, np->port, log_buffer);
+      log_buffer[0] = 0;
+      np->hn_stream = rpp_open(np->hn_host, pbs_rm_port, log_buffer);
 
       if (np->hn_stream < 0)
         {
@@ -5334,7 +5335,20 @@ void start_exec(
 
         return;
         }
+
+      if(LOGLEVEL >= 6)
+        {
+        if(log_buffer[0] != 0)
+          log_record(
+            PBSEVENT_ERROR,
+            PBS_EVENTCLASS_JOB,
+            pjob->ji_qs.ji_jobid,
+            log_buffer);
+        }
+
       }    /* END for (i) */
+
+
 
     /* Open two sockets for use by demux program later. */
 

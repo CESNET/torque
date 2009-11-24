@@ -311,7 +311,7 @@ int main(
     /* FAILURE */
 
     fprintf(stderr, "pbs_iff: cannot get account info for uid %d, errno=%d (%s)\n",
-            myrealuid,
+            (int)myrealuid,
             errno,
             strerror(errno));
 
@@ -341,9 +341,9 @@ int main(
 
   /* send authentication information */
 
-  if ((rc = encode_DIS_ReqHdr(sock, PBS_BATCH_AuthenUser, pwent->pw_name)) ||
-      (rc = diswui(sock, parentport)) ||
-      (rc = encode_DIS_ReqExtend(sock, NULL)))
+  if ((rc = tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_AuthenUser, pwent->pw_name)) ||
+      (rc = tcp_diswui(sock, parentport)) ||
+      (rc = tcp_encode_DIS_ReqExtend(sock, NULL)))
     {
     /* FAILURE */
 

@@ -154,7 +154,6 @@ extern char *PJobState[];
 
 
 
-
 /*
  * req_register - process the Register Dependency Request
  *

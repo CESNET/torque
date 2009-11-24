@@ -19,6 +19,13 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix so after* dependencies are handled correctly for exiting / completed
       jobs
   b - fix tracejob so it handles multiple server and mom logs for the same day
+  e - add qpool.gz to contrib directory
+  b - all the user to turn off credential lifetimes so they don't have to lose
+      iterations while credentials are renewed.
+  b - fix so after* dependencies are handled correctly for exiting / completed
+      jobs
+  b - fix tracejob so it handles multiple server and mom logs for the same day
+  b - close empty ACL files
 
 2.3.7 Transition
   f - Added new job attribute ATTR_service. Allows job to run as a pseudo

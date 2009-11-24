@@ -2040,7 +2040,8 @@ void req_signaljob(
 
   numprocs = kill_job(pjob, sig, id, "killing job");
 
-  if ((numprocs == 0) && ((sig == 0)||(sig == SIGKILL)))
+  if ((numprocs == 0) && ((sig == 0)||(sig == SIGKILL)) &&
+    (pjob->ji_qs.ji_substate != JOB_SUBSTATE_OBIT))
     {
     /* SIGNUL and no procs found, force job to exiting */
     /* force issue of (another) job obit */
@@ -2717,6 +2718,10 @@ static int sys_copy(
   static char *id = "sys_copy";
   int loop;
   int rc;
+#ifdef UofU
+  int cpid;
+  int cp_timeout = 0;
+#endif
 
   sprintf(rcperr, "%srcperr.%ld",
           path_spool,
@@ -2752,7 +2757,89 @@ static int sys_copy(
       {
       /* Parent - wait for copy to complete */
 
+#ifdef UofU
+      cpid = rc;
+      while (TRUE)
+        {
+        i = waitpid(-1, &rc, WNOHANG);
+        if (i > 0)
+          {      
+          /* for a cp command there should only be one pid that we see */
+
+          if (LOGLEVEL >= 8)
+            {
+            sprintf(log_buffer, "waitpid returned for pid (%d) rc (%d)",
+                  i, rc);
+            log_err(-1, id, log_buffer);
+            }
+          break;
+          }
+        else if (i == 0)
+          {
+          cp_timeout++;
+          if ((cp_timeout % 30 == 0) && (LOGLEVEL >= 8))
+            {
+            sprintf(log_buffer, "waitpid cp_timeout (%d)",
+                  cp_timeout);
+            log_err(-1, id, log_buffer);
+            }
+
+          /* check if the cp command pid is still active */
+
+          if (kill(cpid,0) == -1)
+            {
+            sprintf(log_buffer, "pid (%d) no longer active after waitpid, cp_timeout (%d)",
+                  cpid, cp_timeout);
+            log_err(-1, id, log_buffer);
+           
+            /* do we assume it is a failure? */
+
+            /* set to trigger error on wait failure */
+
+            i = -1;
+            break;         
+            }
+
+          /* If we eventually timeout does it mean we succeeded or failed? */
+
+          if (cp_timeout > 900)
+            {
+            sprintf(log_buffer, "giving up on waitpid after %d seconds",
+                  cp_timeout);
+            log_err(-1, id, log_buffer);
+
+            /* set to trigger error on wait failure */
+
+            i = -1;
+            break;         
+            }
+
+          sleep(1);
+          continue;
+          }
+        else if (errno == EINTR)
+          {
+          if (LOGLEVEL >= 8)
+            {
+            sprintf(log_buffer, "EINTR from waitpid");
+            log_err(-1, id, log_buffer);
+            }
+          continue;
+          }
+        else
+          {
+          sprintf(log_buffer, "errno (%d) returned from waitpid",
+                errno);
+          log_err(-1, id, log_buffer);
+
+          /* set to trigger error on wait failure */
+          i = -1;
+          break;
+          }
+        } 
+#else
       while (((i = wait(&rc)) < 0) && (errno == EINTR));
+#endif
 
       if (i == -1)
         {
@@ -2762,6 +2849,16 @@ static int sys_copy(
         {
         if ((rc = WEXITSTATUS(rc)) == 0)
           {
+          if (LOGLEVEL >= 8)
+            {
+            sprintf(log_buffer, "return code (%d) from copy: %s %s %s %s",
+                  rc,
+                  ag0,
+                  ag1,
+                  ag2,
+                  ag3);
+            log_err(-1, id, log_buffer);
+            }
           return(rc);          /* good,  stop now */
           }
         }
@@ -2773,10 +2870,23 @@ static int sys_copy(
         {
         rc = (40000 + WTERMSIG(rc)); /* 400xx is signaled */
         }
+      if (LOGLEVEL >= 8)
+        {
+        sprintf(log_buffer, "return code (%d) from copy: %s %s %s %s",
+              rc,
+              ag0,
+              ag1,
+              ag2,
+              ag3);
+        log_err(-1, id, log_buffer);
+        }
       }
     else if (rc < 0)
       {
       rc = errno + 10000; /* error on fork (100xx), retry */
+      sprintf(log_buffer,"%s: fork failure (%d) AG2 (%s) AG3 (%s)\n",
+        id, errno, ag2, ag3);
+      log_err(errno, id, log_buffer);
       }
     else
       {
@@ -2810,6 +2920,16 @@ static int sys_copy(
         }
 
       /* NOTE:  arg2 should be source, arg3 should be destination */
+      if (LOGLEVEL >= 8)
+        {
+        sprintf(log_buffer, "execling copy command pid (%d): %s %s %s %s",
+              getpid(),
+              ag0,
+              ag1,
+              ag2,
+              ag3);
+        log_err(-1, id, log_buffer);
+        }
 
       execl(ag0, ag0, ag1, ag2, ag3, NULL);
 
@@ -3001,12 +3121,6 @@ void req_cpyfile(
   /* child */
 
   /* now running as user in the user's home directory */
-  if (LOGLEVEL >= 8)
-    {
-    sprintf(log_buffer,"%s: %s after fork_to_user, running as user in the user's home directory\n",
-      id, preq->rq_ind.rq_cpyfile.rq_jobid);
-    log_err(-1, id, log_buffer);
-    }
 
 #if NO_SPOOL_OUTPUT == 1
   snprintf(homespool, sizeof(homespool), "%s/.pbs_spool/",
@@ -3021,12 +3135,6 @@ void req_cpyfile(
   else
     {
     havehomespool = 0;
-    }
-  if (LOGLEVEL >= 8)
-    {
-    sprintf(log_buffer,"%s: havehomespool = %d (%s)\n",
-      id, havehomespool, homespool);
-    log_err(-1, id, log_buffer);
     }
 
 #else  /* NO_SPOOL_OUTPUT == 1 */
@@ -3065,12 +3173,6 @@ void req_cpyfile(
           {
           havehomespool = 1;
 
-          if (LOGLEVEL >= 8)
-            {
-            sprintf(log_buffer,"%s: %s reseting homespool to (%s)\n",
-              id, preq->rq_ind.rq_cpyfile.rq_jobid, wdir);
-            log_err(-1, id, log_buffer);
-            }
           strncpy(homespool, wdir, sizeof(homespool));
 
           break;
@@ -3080,12 +3182,6 @@ void req_cpyfile(
           {
           havehomespool = 1;
 
-          if (LOGLEVEL >= 8)
-            {
-            sprintf(log_buffer,"%s:%s reseting homespool to (%s)\n",
-              id, preq->rq_ind.rq_cpyfile.rq_jobid, wdir);
-            log_err(-1, id, log_buffer);
-            }
           strncpy(homespool, wdir, sizeof(homespool));
 
           break;
@@ -3095,12 +3191,6 @@ void req_cpyfile(
     }      /* END if ((havehomespool == 0) && (TNoSpoolDirList != NULL)) */
 
 #ifdef HAVE_WORDEXP
-  if (LOGLEVEL >= 8)
-    {
-    sprintf(log_buffer,"%s:%s using HAVE_WORDEXP\n",
-      id, preq->rq_ind.rq_cpyfile.rq_jobid);
-    log_err(-1, id, log_buffer);
-    }
   faketmpdir[0] = '\0';
 
   if ((pjob = find_job(preq->rq_ind.rq_cpyfile.rq_jobid)) == NULL)
@@ -3109,12 +3199,6 @@ void req_cpyfile(
      * This limits the available variables we can use.  fork_to_user()
      * has already set PBS_JOBID and HOME for us.  Now just fake a TMPDIR
      * if we need it. */
-    if (LOGLEVEL >= 8)
-      {
-      sprintf(log_buffer,"%s: stage in for job %s\n",
-        id, preq->rq_ind.rq_cpyfile.rq_jobid);
-      log_err(-1, id, log_buffer);
-      }
 
     pjob = job_alloc();
 
@@ -3226,12 +3310,6 @@ void req_cpyfile(
       if (pair->fp_flag == STDJOBFILE)
         {
 #if NO_SPOOL_OUTPUT == 0
-        if (LOGLEVEL >= 8)
-          {
-          sprintf(log_buffer,"%s:%s NO_SPOOL_OUTPUT is 0\n",
-            id, preq->rq_ind.rq_cpyfile.rq_jobid);
-          log_err(-1, id, log_buffer);
-          }
 
         if (havehomespool == 1)
           {
@@ -3375,12 +3453,6 @@ void req_cpyfile(
 #ifdef HAVE_WORDEXP
 
     /* Expand and verify arg2 (source path) */
-    if (LOGLEVEL >= 8)
-      {
-      sprintf(log_buffer,"%s: %s verifying arg2 (%s)\n",
-        id, preq->rq_ind.rq_cpyfile.rq_jobid, arg2);
-      log_err(-1, id, log_buffer);
-      }
 
     switch (wordexp(arg2, &arg2exp, WRDE_NOCMD | WRDE_UNDEF))
       {
@@ -3416,12 +3488,6 @@ void req_cpyfile(
       }  /* END switch () */
 
     /* Expand and verify arg3 (destination path) */
-    if (LOGLEVEL >= 8)
-      {
-      sprintf(log_buffer,"%s: %s verifying arg3 (%s)\n",
-        id, preq->rq_ind.rq_cpyfile.rq_jobid, arg3);
-      log_err(-1, id, log_buffer);
-      }
 
     switch (wordexp(arg3,&arg3exp,WRDE_NOCMD | WRDE_UNDEF))
 
@@ -3512,8 +3578,8 @@ nextword:
       }
     if (LOGLEVEL >= 8)
       {
-      sprintf(log_buffer,"%s: %s doing sys_copy ARG2 (%s) remote (%d) ARG3 (%s)\n",
-        id, preq->rq_ind.rq_cpyfile.rq_jobid, arg2, rmtflag, arg3);
+      sprintf(log_buffer,"%s: %s doing sys_copy (%d) ARG2 (%s) remote (%d) ARG3 (%s)\n",
+        id, preq->rq_ind.rq_cpyfile.rq_jobid, getpid(), arg2, rmtflag, arg3);
       log_err(-1, id, log_buffer);
       }
 
@@ -3608,6 +3674,12 @@ error:
     else
       {
       /* Copy in/out succeeded */
+    if (LOGLEVEL >= 8)
+      {
+      sprintf(log_buffer,"%s: %s sys_copy suceeded ARG2 (%s) ARG3 (%s)\n",
+        id, preq->rq_ind.rq_cpyfile.rq_jobid, arg2, arg3);
+      log_err(-1, id, log_buffer);
+      }
 
       if (dir == STAGE_DIR_OUT)
         {
@@ -3646,6 +3718,12 @@ error:
 
 #endif
 
+  if (LOGLEVEL >= 8)
+    {
+    sprintf(log_buffer,"%s: %s replying with %s\n",
+      id, preq->rq_ind.rq_cpyfile.rq_jobid, bad_files == 1? "Failure":"ACK");
+    log_err(-1, id, log_buffer);
+    }
   if (bad_files)
     {
     reply_text(preq, PBSE_NOCOPYFILE, bad_list);
@@ -3653,6 +3731,12 @@ error:
   else
     {
     reply_ack(preq);
+    }
+  if (LOGLEVEL >= 8)
+    {
+    sprintf(log_buffer,"%s: %s reply complete\n",
+      id, preq->rq_ind.rq_cpyfile.rq_jobid);
+    log_err(-1, id, log_buffer);
     }
 
   /* we are the child, exit not return */

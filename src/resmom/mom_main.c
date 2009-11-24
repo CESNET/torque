@@ -5362,19 +5362,27 @@ void do_rpp(
   void is_request A_((int, int, int *));
   void im_eof     A_((int, int));
 
+  int state;
+
   DIS_rpp_reset();
   proto = disrsi(stream, &ret);                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
 
   if (ret != DIS_SUCCESS)
     {
-    DBPRT(("%s: cannot get protocol %s\n",
+
+    state = rpp_get_stream_state(stream);
+    DBPRT(("%s: cannot get protocol %s: stream %d state: %d\n",
            id,
-           dis_emsg[ret]))
+           dis_emsg[ret],
+           stream,
+           state))
 
     if (LOGLEVEL >= 6)
       {
-      sprintf(log_buffer, "cannot get protocol %s",
-              dis_emsg[ret]);
+      sprintf(log_buffer, "cannot get protocol %s: stream %d state: %d",
+              dis_emsg[ret],
+              stream,
+              state);
 
       log_err(errno, id, log_buffer);
       }
@@ -5388,12 +5396,17 @@ void do_rpp(
 
   if (ret != DIS_SUCCESS)
     {
-    DBPRT(("%s: no protocol version number %s\n",
+    state = rpp_get_stream_state(stream);
+    DBPRT(("%s: no protocol version number %s: stream %d state: %d\n",
            id,
-           dis_emsg[ret]))
+           dis_emsg[ret],
+           stream,
+           state))
 
-    sprintf(log_buffer, "no protocol version number %s",
-            dis_emsg[ret]);
+    sprintf(log_buffer, "no protocol version number %s: stream %d state: %d",
+            dis_emsg[ret],
+            stream,
+            state);
 
     log_err(errno, id, log_buffer);
 
@@ -5625,6 +5638,7 @@ int do_tcp(
       ret = tm_request(fd, version);
 
       break;
+
 
     default:
 
@@ -6034,6 +6048,14 @@ int job_over_limit(
           break;
 
         case SISTER_EOF:
+
+          sprintf(log_buffer, "node %d (%s) requested job terminate, '%s' (code %d) - received SISTER_EOF attempting to communicate with sister MOM's",
+                  pjob->ji_nodekill,
+                  pnode->hn_host,
+                  "EOF",
+                  pnode->hn_sister);
+
+          break;
 
         default:
 

@@ -425,13 +425,21 @@ scan_for_terminated(void)
       continue;
       }  /* END if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_SUSPEND) */
 
+    if (WIFEXITED(statloc))
+      exiteval = WEXITSTATUS(statloc);
+    else if (WIFSIGNALED(statloc))
+      exiteval = WTERMSIG(statloc) + 0x100;
+    else
+      exiteval = 1;
+
     if (pjob == NULL)
       {
       if (LOGLEVEL >= 1)
         {
-        sprintf(log_buffer, "pid %d not tracked, exitcode=%d",
+        sprintf(log_buffer, "pid %d not tracked, statloc=%d, exitval=%d",
                 pid,
-                statloc);
+                statloc,
+                exiteval);
 
         log_record(
           PBSEVENT_JOB,
@@ -442,13 +450,6 @@ scan_for_terminated(void)
 
       continue;
       }  /* END if (pjob == NULL) */
-
-    if (WIFEXITED(statloc))
-      exiteval = WEXITSTATUS(statloc);
-    else if (WIFSIGNALED(statloc))
-      exiteval = WTERMSIG(statloc) + 0x100;
-    else
-      exiteval = 1;
 
     if (pid == pjob->ji_momsubt)
       {
