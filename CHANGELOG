@@ -19,6 +19,11 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       jobs
   b - fix tracejob so it handles multiple server and mom logs for the same day
   b - close empty ACL files
+  b - Removed the use of the global buffer dis_buffer. All of the DIS function calls
+      now use their own scratch buffer which is allocated on the stack at run time.
+  b - The tm calls use tcp for their transport. However, the tm calls were still using
+      the RPP based DIS functions instead of the TCP. I changed them so all tm functions
+      now use the tcp based DIS functions.
 
 2.3.7
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 
