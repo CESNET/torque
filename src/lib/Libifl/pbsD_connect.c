@@ -448,7 +448,7 @@ static int PBSD_authenticate(
 
       if ((ptr = getenv("PATH")) != NULL)
         {
-        ptr = strtok(ptr, ";");
+        ptr = strtok(ptr, ":");
 
         while (ptr != NULL)
           {
@@ -460,7 +460,7 @@ static int PBSD_authenticate(
           if (rc != -1)
             break;
 
-          ptr = strtok(NULL, ";");
+          ptr = strtok(NULL, ":");
           }  /* END while (ptr != NULL) */
         }    /* END if ((ptr = getenv("PATH")) != NULL) */
 

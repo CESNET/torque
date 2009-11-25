@@ -24,6 +24,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - The tm calls use tcp for their transport. However, the tm calls were still using
       the RPP based DIS functions instead of the TCP. I changed them so all tm functions
       now use the tcp based DIS functions.
+  b - pbsD_authenticate() correctly splits PATH on : instead of ; if pbs_iif is not
+      in the expected location
 
 2.3.7
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 
