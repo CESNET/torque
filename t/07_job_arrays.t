@@ -77,14 +77,14 @@ SKIP:
       BAIL_OUT("Unable to submit job to TORQUE as '$Testuser' - see TORQUE docs, Section 2.1");
     ok($baseid =~ /^\d+\S*\s*$/, "Job Submission") or
       BAIL_OUT("Unable to submit job to TORQUE as '$Testuser' - see TORQUE docs, Section 2.1");
-    @Jobs = map { "$baseid-$_" } (1..$Jobcount);
+    @Jobs = map { "$baseid-$_" } (0..$Jobcount);
     }
 
   # Jobs In Queue
     {
     sleep 5;
     my %data = qstat_info;
-    for my $i (1..$Jobcount)
+    for my $i (0..$Jobcount)
       {
       ok(exists $data{$Jobs[$i]}, "Job in Queue ($Jobs[$i])") or
         BAIL_OUT("Submitted job ($Jobs[$i]) does not appear in the TORQUE queue");
