@@ -191,8 +191,8 @@ void insert_link(
 void append_link(
 
   tlist_head *head, /* ptr to head of list */
-  list_link *new,  /* ptr to new entry */
-  void      *pobj) /* ptr to object to link in */
+  list_link  *new,  /* ptr to new entry */
+  void       *pobj) /* ptr to object to link in */
 
   {
 #ifndef NDEBUG
@@ -229,7 +229,7 @@ void append_link(
    * entry appear to be the head, so we never let that happen
    */
 
-  if (pobj)
+  if (pobj != NULL)
     {
     new->ll_struct = pobj;
     }
@@ -290,9 +290,8 @@ delete_link(
  * swap_link - swap the positions of members of a list
  */
 
-void swap_link(pone, ptwo)
-list_link *pone;
-list_link *ptwo;
+void
+swap_link(list_link *pone, list_link *ptwo)
   {
   list_link *p1p;
   list_link *p2p;
@@ -326,9 +325,8 @@ list_link *ptwo;
  *     0 if not in list
  */
 
-int is_linked(head, entry)
-list_link *head;
-list_link *entry;
+int
+is_linked(list_link *head, list_link *entry)
   {
   list_link *pl;
 
@@ -405,9 +403,8 @@ void *get_prior(
  * list_move - move an entire list from one head to another
  */
 
-void list_move(from, to)
-tlist_head *from;
-tlist_head *to;
+void
+list_move(tlist_head *from, tlist_head *to)
   {
   if (from->ll_next == from)
     {

@@ -99,7 +99,8 @@
 #include "batch_request.h"
 #include "dis.h"
 
-int decode_DIS_JobCred(int sock, struct batch_request *preq)
+int
+decode_DIS_JobCred(int sock, struct batch_request *preq)
   {
   int rc;
   size_t rqsize;

@@ -449,8 +449,8 @@ proc_stat_t *get_proc_stat(
 
 
 
-proc_mem_t *
-get_proc_mem(void)
+
+proc_mem_t *get_proc_mem(void)
 
   {
   static proc_mem_t   mm;
@@ -458,21 +458,21 @@ get_proc_mem(void)
   char                str[32];
   unsigned long long  bfsz, casz;
 
-  if ((fp = fopen("/proc/meminfo", "r")) == NULL)
+  if ((fp = fopen("/proc/meminfo","r")) == NULL)
     {
     return(NULL);
     }
 
-  if (fscanf(fp, "%30s", str) != 1)
+  if (fscanf(fp,"%30s",str) != 1)
     {
     return(NULL);
     }
 
-  if (!strncmp(str, "total:", sizeof(str)))
+  if (!strncmp(str,"total:",sizeof(str)))
     {
     /* old format */
 
-    if (fscanf(fp, "%*[^\n]%*c") != 0)     /* remove text header */
+    if (fscanf(fp,"%*[^\n]%*c") != 0)     /* remove text header */
       {
       return(NULL);
       }
@@ -628,8 +628,7 @@ get_proc_mem(void)
 
 
 
-void
-dep_initialize(void)
+void dep_initialize(void)
 
   {
   char *id = "dep_initialize";
@@ -977,6 +976,7 @@ static unsigned long long mem_sum(
 
   return(segadd);
   }  /* END mem_sum() */
+
 
 
 

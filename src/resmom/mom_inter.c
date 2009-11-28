@@ -552,7 +552,7 @@ int x11_create_display(
     return(-1);
     }
 
-  sprintf(homeenv,"HOME=%s", 
+  sprintf(homeenv, "HOME=%s",
     homedir);
 
   putenv(homeenv);
@@ -569,7 +569,7 @@ int x11_create_display(
                   x11data,
                   &x11screen)) != 3)
     {
-    fprintf(stderr,"sscanf(%s)=%d failed: %s\n",
+    fprintf(stderr, "sscanf(%s)=%d failed: %s\n",
       x11authstr,
       n,
       strerror(errno));
@@ -583,18 +583,18 @@ int x11_create_display(
     {
     port = 6000 + display_number;
 
-    memset(&hints,0,sizeof(hints));
+    memset(&hints, 0, sizeof(hints));
 
     hints.ai_family = IPv4or6;
     hints.ai_flags = x11_use_localhost ? 0 : AI_PASSIVE;
     hints.ai_socktype = SOCK_STREAM;
 
-    snprintf(strport,sizeof(strport),"%d",
+    snprintf(strport, sizeof(strport), "%d",
       port);
 
-    if ((gaierr = getaddrinfo(NULL,strport,&hints,&aitop)) != 0)
+    if ((gaierr = getaddrinfo(NULL, strport, &hints, &aitop)) != 0)
       {
-      fprintf(stderr,"getaddrinfo: %.100s\n",
+      fprintf(stderr, "getaddrinfo: %.100s\n",
         gai_strerror(gaierr));
 
       free(socks);
@@ -615,12 +615,12 @@ int x11_create_display(
         {
         if ((errno != EINVAL) && (errno != EAFNOSUPPORT))
           {
-          fprintf(stderr, "socket: %.100s\n", 
+          fprintf(stderr, "socket: %.100s\n",
             strerror(errno));
 
           free(socks);
 
-          return(-1);
+          return (-1);
           }
         else
           {
@@ -655,7 +655,7 @@ int x11_create_display(
         if (ai->ai_next)
           continue;
 
-        for (n = 0;n < num_socks;n++)
+        for (n = 0; n < num_socks; n++)
           {
           close(socks[n].sock);
           }
@@ -683,6 +683,7 @@ int x11_create_display(
         {
         break;
         }
+
 #endif
       }
 
@@ -725,26 +726,26 @@ int x11_create_display(
 
   /* setup local xauth */
 
-  sprintf(display,"localhost:%u.%u",
+  sprintf(display, "localhost:%u.%u",
     display_number,
     x11screen);
 
-  snprintf(auth_display,sizeof(auth_display),"unix:%u.%u",
+  snprintf(auth_display, sizeof(auth_display), "unix:%u.%u",
     display_number,
     x11screen);
 
-  snprintf(cmd,sizeof(cmd),"%s %s -",
+  snprintf(cmd, sizeof(cmd), "%s %s -",
     xauth_path,
     DEBUGMODE ? "-v" : "-q");
 
-  f = popen(cmd,"w");
+  f = popen(cmd, "w");
 
   if (f != NULL)
     {
     fprintf(f, "remove %s\n",
       auth_display);
 
-    fprintf(f,"add %s %s %s\n",
+    fprintf(f, "add %s %s %s\n",
       auth_display,
       x11proto,
       x11data);
@@ -753,7 +754,7 @@ int x11_create_display(
     }
   else
     {
-    fprintf(stderr,"could not run %s\n",
+    fprintf(stderr, "could not run %s\n",
       cmd);
 
     free(socks);
@@ -773,7 +774,7 @@ int x11_create_display(
 
   if (childpid < 0)
     {
-    fprintf(stderr,"failed x11 init fork\n");
+    fprintf(stderr, "failed x11 init fork\n");
 
     free(socks);
 
@@ -782,7 +783,7 @@ int x11_create_display(
 
   DBPRT(("entering port_forwarder\n"));
 
-  port_forwarder(socks,conn_qsub,phost,pport,NULL);
+  port_forwarder(socks, conn_qsub, phost, pport, NULL);
 
   exit(EXIT_FAILURE);
   }  /* END x11_create_display() */

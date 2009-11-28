@@ -960,10 +960,10 @@ hnodent *find_node(
 
   if (i == pjob->ji_numvnod)
     {
-    sprintf(log_buffer,"node %d not found",
+    sprintf(log_buffer, "node %d not found",
       nodeid);
 
-    log_err(-1,id,log_buffer);
+    log_err(-1, id, log_buffer);
 
     return(NULL);
     }
@@ -1033,14 +1033,14 @@ hnodent *find_node(
 
     addr2 = strdup(netaddr(node_addr));
 
-    sprintf(log_buffer,"stream id %d does not match %d to node %d (stream=%s node=%s)",
+    sprintf(log_buffer, "stream id %d does not match %d to node %d (stream=%s node=%s)",
       stream,
       hp->hn_stream,
       nodeid,
       (addr1 != NULL) ? addr1 : "",
       (addr2 != NULL) ? addr2 : "");
 
-    log_err(-1,id,log_buffer);
+    log_err(-1, id, log_buffer);
 
     free(addr1);
     free(addr2);
@@ -1431,11 +1431,11 @@ void im_eof(
   int ret)     /* I */
 
   {
-  static char  id[] = "im_eof";
+  static char           id[] = "im_eof";
 
-  int      num = -1;
-  job     *pjob = NULL;
-  hnodent *np = NULL;
+  int                   num = -1;
+  job                  *pjob = NULL;
+  hnodent              *np = NULL;
 
   struct sockaddr_in   *addr;
 
@@ -1641,9 +1641,7 @@ u_long resc_used(
 ** Find named info for a task.
 */
 infoent *
-task_findinfo(ptask, name)
-task *ptask;
-char *name;
+task_findinfo(task *ptask, char *name)
   {
   infoent  *ip;
 
@@ -1744,7 +1742,7 @@ char *resc_string(
     return(NULL);
     }
 
-  strcpy(res_str,ch);
+  strcpy(res_str, ch);
 
   used += len;
 
@@ -1842,7 +1840,7 @@ void im_request(
   int stream,   /* I */
   int version)  /* I */
 
-  {
+{
   char   *id = "im_request";
 
   int   command = 0;
@@ -1939,10 +1937,10 @@ void im_request(
 
   if (ret != DIS_SUCCESS)
     {
-    sprintf(log_buffer, "request for failed - %s (jobid)",
-            dis_emsg[ret]);
+    sprintf(log_buffer,"request for failed - %s (jobid)",
+      dis_emsg[ret]);
 
-    log_err(-1, id, log_buffer);
+    log_err(-1,id,log_buffer);
 
     goto err;
     }
@@ -1951,11 +1949,11 @@ void im_request(
 
   if (ret != DIS_SUCCESS)
     {
-    sprintf(log_buffer, "request for job %s failed - %s (cookie)",
-            jobid,
-            dis_emsg[ret]);
+    sprintf(log_buffer,"request for job %s failed - %s (cookie)",
+      jobid,
+      dis_emsg[ret]);
 
-    log_err(-1, id, log_buffer);
+    log_err(-1,id,log_buffer);
 
     goto err;
     }
@@ -1964,11 +1962,11 @@ void im_request(
 
   if (ret != DIS_SUCCESS)
     {
-    sprintf(log_buffer, "request for job %s failed - %s (command)",
-            jobid,
-            dis_emsg[ret]);
+    sprintf(log_buffer,"request for job %s failed - %s (command)",
+      jobid,
+      dis_emsg[ret]);
 
-    log_err(-1, id, log_buffer);
+    log_err(-1,id,log_buffer);
 
     goto err;
     }
@@ -1977,12 +1975,12 @@ void im_request(
 
   if (ret != DIS_SUCCESS)
     {
-    sprintf(log_buffer, "%s request for job %s failed - %s (event)",
-            PMOMCommand[MIN(command,IM_MAX)],
-            jobid,
-            dis_emsg[ret]);
+    sprintf(log_buffer,"%s request for job %s failed - %s (event)",
+      PMOMCommand[MIN(command,IM_MAX)],
+      jobid,
+      dis_emsg[ret]);
 
-    log_err(-1, id, log_buffer);
+    log_err(-1,id,log_buffer);
 
     goto err;
     }
@@ -1991,22 +1989,22 @@ void im_request(
 
   if (ret != DIS_SUCCESS)
     {
-    sprintf(log_buffer, "%s request for job %s failed - %s (fromtask)",
-            PMOMCommand[MIN(command,IM_MAX)],
-            jobid,
-            dis_emsg[ret]);
+    sprintf(log_buffer,"%s request for job %s failed - %s (fromtask)",
+      PMOMCommand[MIN(command,IM_MAX)],
+      jobid,
+      dis_emsg[ret]);
 
-    log_err(-1, id, log_buffer);
+    log_err(-1,id,log_buffer);
 
     goto err;
     }
 
   if (LOGLEVEL >= 3)
     {
-    sprintf(log_buffer, "received request '%s' for job %s from %s",
-            PMOMCommand[MIN(command,IM_MAX)],
-            jobid,
-            netaddr(addr));
+    sprintf(log_buffer,"received request '%s' for job %s from %s",
+      PMOMCommand[MIN(command,IM_MAX)],
+      jobid,
+      netaddr(addr));
 
     LOG_EVENT(
       PBSEVENT_JOB,
@@ -2046,7 +2044,7 @@ void im_request(
 
       if (ret != DIS_SUCCESS)
         {
-        sprintf(log_buffer, "join_job request for job %s failed - %s (nodeid)",
+        sprintf(log_buffer,"join_job request for job %s failed - %s (nodeid)",
                 jobid,
                 dis_emsg[ret]);
 
@@ -2418,7 +2416,7 @@ void im_request(
 
       job_save(pjob, SAVEJOB_FULL);
 
-      sprintf(log_buffer,"JOIN JOB as node %d",
+      sprintf(log_buffer, "JOIN JOB as node %d",
         nodeid);
 
       log_record(
@@ -2628,7 +2626,7 @@ void im_request(
 
       reply = 0;
 
-      kill_job(pjob,SIGKILL,id,"kill_job message received");
+      kill_job(pjob, SIGKILL, id, "kill_job message received");
 
       pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
@@ -2672,12 +2670,12 @@ void im_request(
         break;
         }
 
-      taskid = disrsi(stream,&ret);
+      taskid = disrsi(stream, &ret);
 
       if (ret != DIS_SUCCESS)
         goto err;
 
-      globid = disrst(stream,&ret);
+      globid = disrst(stream, &ret);
 
       if (ret != DIS_SUCCESS)
         goto err;
@@ -2791,7 +2789,7 @@ void im_request(
           {
           num *= 2;
 
-          envp = (char **)realloc(envp,num * sizeof(char **));
+          envp = (char **)realloc(envp, num * sizeof(char **));
 
           assert(envp);
           }
@@ -3338,7 +3336,6 @@ void im_request(
         break;
 
       /* get fresh resource usage */
-
       mom_set_use(pjob);
 
       /* ** Send the information tallied for the job.  */
@@ -4461,6 +4458,7 @@ void tm_eof(
 **  event   int
 **  from taskid  int
 ** )
+**
 ** 
 ** tm_requests only use tcp. No rpp.
 */
@@ -4798,7 +4796,11 @@ int tm_request(
 
       DBPRT(("%s: POSTINFO %s task %d sent info %s:%s(%d)\n",
         id,
-        jobid, fromtask, name, info, (int)len))
+        jobid,
+        fromtask,
+        name,
+        info,
+        (int)len))
 
       if (prev_error)
         goto done;
@@ -4818,9 +4820,9 @@ int tm_request(
       sprintf(log_buffer, "REGISTER - NOT IMPLEMENTED %s",
         jobid);
 
-      tm_reply(fd,TM_ERROR,event);
+      tm_reply(fd, TM_ERROR, event);
 
-      tcp_diswsi(fd,TM_ENOTIMPLEMENTED);
+      tcp_diswsi(fd, TM_ENOTIMPLEMENTED);
 
       DIS_tcp_wflush(fd);
 
@@ -4893,7 +4895,9 @@ int tm_request(
       */
 
       DBPRT(("%s: TASKS %s on node %d\n",
-        id, jobid, nodeid))
+        id,
+        jobid,
+        nodeid))
 
       if (prev_error)
         goto done;
@@ -4973,7 +4977,9 @@ int tm_request(
       */
 
       DBPRT(("%s: SPAWN %s on node %d\n",
-        id, jobid, nodeid))
+        id,
+        jobid,
+        nodeid))
 
       numele = tcp_disrui(fd, &ret);
 
@@ -5038,7 +5044,7 @@ int tm_request(
           {
           numele *= 2;
 
-          envp = (char **)realloc(envp,numele * sizeof(char **));
+          envp = (char **)realloc(envp, numele * sizeof(char **));
 
           assert(envp);
           }
@@ -5066,7 +5072,7 @@ int tm_request(
         goto done;
         }
 
-      sprintf(envp[i],"PBS_VNODENUM=%d", 
+      sprintf(envp[i], "PBS_VNODENUM=%d",
         nodeid);
 
       i++;
@@ -5125,7 +5131,7 @@ int tm_request(
 
         arrayfree(envp);
 
-        ret = tm_reply(fd,i,event);
+        ret = tm_reply(fd, i, event);
 
         if (ret != DIS_SUCCESS)
           goto done;

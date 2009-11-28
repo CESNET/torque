@@ -85,9 +85,8 @@
 #include "dis.h"
 #include "dis_.h"
 
-int diswui_(stream, value)
-int   stream;
-unsigned  value;
+int
+diswui_(int stream, unsigned value)
   {
   unsigned ndigs;
   char  *cp;

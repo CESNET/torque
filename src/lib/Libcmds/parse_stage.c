@@ -107,7 +107,8 @@
  *
  */
 
-int parse_stage_name(char *pair, char **local, char **host, char **remote)
+int
+parse_stage_name(char *pair, char **local, char **host, char **remote)
   {
   int i;
   char *c;

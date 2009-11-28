@@ -829,7 +829,7 @@ void DIS_tcp_setup(
 
       tcparray = tmpTA;
 
-      memset(&tcparray[hold],'\0',(tcparraymax - hold) * sizeof(struct tcp_chan *));
+      memset(&tcparray[hold], '\0', (tcparraymax - hold) * sizeof(struct tcp_chan *));
       }
     }    /* END if (fd >= tcparraymax) */
 
@@ -843,7 +843,7 @@ void DIS_tcp_setup(
 
     if (tcp == NULL)
       {
-      log_err(errno,"DIS_tcp_setup","malloc failure");
+      log_err(errno, "DIS_tcp_setup", "malloc failure");
 
       return;
       }
@@ -1084,7 +1084,6 @@ overflow:
 
 
 
-/* END tcp_dis.c */
 
 unsigned tcp_disrui(
 
@@ -1880,3 +1879,4 @@ int tcp_diswui(int stream, unsigned value)
           DIS_NOCOMMIT : retval);
   } /* end tcp_diswui */
 
+/* END tcp_dis.c */

@@ -111,9 +111,8 @@
 #include "attribute.h"
 #include "dis.h"
 
-int decode_DIS_svrattrl(sock, phead)
-int     sock;
-tlist_head *phead;
+int
+decode_DIS_svrattrl(int sock, tlist_head *phead)
   {
   unsigned int i;
   unsigned int hasresc;

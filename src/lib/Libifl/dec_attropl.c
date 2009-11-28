@@ -108,10 +108,8 @@
 #include "libpbs.h"
 #include "dis.h"
 
-int decode_DIS_attropl(sock, ppatt)
-int   sock;
-
-struct attropl **ppatt;
+int
+decode_DIS_attropl(int sock, struct attropl **ppatt)
   {
   int   hasresc;
   unsigned int  i;

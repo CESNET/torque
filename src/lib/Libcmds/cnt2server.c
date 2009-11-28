@@ -140,11 +140,11 @@ int cnt2server(
     firsttime = time(NULL);
     }
 
-  memset(Server,0,sizeof(Server));
+  memset(Server, 0, sizeof(Server));
 
   if ((SpecServer != NULL) && (SpecServer[0] != '\0'))
     {
-    strncpy(Server,SpecServer,sizeof(Server));
+    strncpy(Server, SpecServer, sizeof(Server));
     Server[sizeof(Server) - 1] = '\0';
     }
 

@@ -130,10 +130,8 @@
 #endif
 
 
-int diswl_(stream, value, ndigs)
-int   stream;
-dis_long_double_t  value;
-unsigned  ndigs;
+int
+diswl_(int stream, dis_long_double_t value, unsigned ndigs)
   {
   int  c;
   int  expon;

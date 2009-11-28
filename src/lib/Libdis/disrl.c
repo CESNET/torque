@@ -150,7 +150,7 @@ dis_long_double_t disrl(
   assert(retval != NULL);
   assert(disr_commit != NULL);
 
-  ldval = 0.0L;                   
+  ldval = 0.0L;
   locret = disrl_(stream, &ldval, &ndigs, &nskips, LDBL_DIG, 1);
 
   if (locret == DIS_SUCCESS)

@@ -83,9 +83,8 @@
 #include <stdlib.h>
 #include "libpbs.h"
 
-int PBS_val_al(alp)
-
-struct attrl *alp;
+int
+PBS_val_al(struct attrl *alp)
   {
   while (alp)
     {

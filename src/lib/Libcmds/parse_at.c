@@ -100,7 +100,8 @@
  *
  */
 
-int parse_at_item(char *at_item, char **at_name_out, char **host_name_out)
+int
+parse_at_item(char *at_item, char **at_name_out, char **host_name_out)
   {
   int i;
   char *c;
