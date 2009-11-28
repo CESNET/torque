@@ -71,7 +71,7 @@ SKIP:
   # Submit Jobs
     {
     my $walltime = 1.1 * $Joblength;
-    my $baseid   = `su $Testuser -c 'echo "sleep $Joblength" | qsub -k oe -l nodes=1,walltime=$walltime -t 1-$Jobcount'` || undef;
+    my $baseid   = `su $Testuser -c 'echo "sleep $Joblength" | qsub -k oe -l nodes=1,walltime=$walltime -t 0-$Jobcount'` || undef;
        $baseid   =~ s/\D//g if defined $baseid;
     ok(defined $baseid, "Job Submission") or
       BAIL_OUT("Unable to submit job to TORQUE as '$Testuser' - see TORQUE docs, Section 2.1");
