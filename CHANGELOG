@@ -3,6 +3,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 2.4.3
   b - fix PBSD_authenticate so it correctly splits PATH with : instead of ;
       (bugzilla #33)
+  e - Refactored tcp_dis function calls. With the removal of the global variable
+      dis_buffer the seperation of dis calls was no longer needed. the tcp_dis
+      function calls have been removed and all calls go to the dis functions
+      whether using tcp or rpp.
 
 2.4.2
   b - Changed predicate in pbsd_main.c for the two locations where 
