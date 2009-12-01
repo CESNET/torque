@@ -114,9 +114,9 @@ char * extend;
 
   DIS_tcp_setup(sock);
 
-  if ((rc = tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_LocateJob, pbs_current_user)) ||
-      (rc = tcp_encode_DIS_JobId(sock, jobid))    ||
-      (rc = tcp_encode_DIS_ReqExtend(sock, extend)))
+  if ((rc = encode_DIS_ReqHdr(sock, PBS_BATCH_LocateJob, pbs_current_user)) ||
+      (rc = encode_DIS_JobId(sock, jobid))    ||
+      (rc = encode_DIS_ReqExtend(sock, extend)))
     {
     connection[c].ch_errtxt = strdup(dis_emsg[rc]);
     pbs_errno = PBSE_PROTOCOL;

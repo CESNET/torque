@@ -106,11 +106,3 @@ int decode_DIS_Authen(int sock, struct batch_request *preq)
   return rc;
   }
 
-int tcp_decode_DIS_Authen(int sock, struct batch_request *preq)
-  {
-  int rc;
-
-  preq->rq_ind.rq_authen.rq_port = tcp_disrui(sock, &rc);
-  return rc;
-  }
-
