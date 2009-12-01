@@ -105,7 +105,7 @@ static char *resc_nodes = "nodes";
  *     string resource query
  */
 
-/*static int encode_DIS_Resc(sock, rlist, ct, rh)
+static int encode_DIS_Resc(sock, rlist, ct, rh)
 int       sock;
 char     **rlist;
 int       ct;
@@ -114,17 +114,17 @@ resource_t    rh;
   int    i;
   int    rc;
 
-  if (rc = diswsi(sock, rh)) == 0)*/     /* resource reservation handle */
-    /*{	*/
+  if ((rc = diswsi(sock, rh)) == 0)     /* resource reservation handle */
+    {
 
     /* next send the number of resource strings */
 
-    /*if ((rc = diswui(sock, ct)) == 0)
-      {*/
+    if ((rc = diswui(sock, ct)) == 0)
+      {
 
       /* now send each string (if any) */
 
-     /* for (i = 0; i < ct; ++i)
+      for (i = 0; i < ct; ++i)
         {
         if ((rc = diswst(sock, *(rlist + i))) != 0)
           break;
@@ -133,46 +133,7 @@ resource_t    rh;
     }
 
   return rc;
-  }*/
-
-static int tcp_encode_DIS_Resc(sock, rlist, ct, rh)
-int       sock;
-char     **rlist;
-int       ct;
-resource_t    rh;
-  {
-  int    i;
-  int    rc;
-
-  if ((rc = tcp_diswsi(sock, rh)) == 0)     /* resource reservation handle */
-    {
-
-    /* next send the number of resource strings */
-
-    if ((rc = tcp_diswui(sock, ct)) == 0)
-      {
-
-      /* now send each string (if any) */
-
-      for (i = 0; i < ct; ++i)
-        {
-        if ((rc = tcp_diswst(sock, *(rlist + i))) != 0)
-          break;
-        }
-      }
-    }
-
-  return rc;
   }
-
-
-/*
- * PBS_resc() - internal common code for sending resource requests
- *
- * Formats and sends the requests for pbs_rescquery(), pbs_rescreserve(),
- * and pbs_rescfree().   Note, while the request is overloaded for all
- * three, each has its own expected reply format.
- */
 
 static int PBS_resc(c, reqtype, rescl, ct, rh)
 int    c;
@@ -190,9 +151,9 @@ resource_t rh;
 
   DIS_tcp_setup(sock);
 
-  if ((rc = tcp_encode_DIS_ReqHdr(sock, reqtype, pbs_current_user)) ||
-      (rc = tcp_encode_DIS_Resc(sock, rescl, ct, rh)) ||
-      (rc = tcp_encode_DIS_ReqExtend(sock, (char *)0)))
+  if ((rc = encode_DIS_ReqHdr(sock, reqtype, pbs_current_user)) ||
+      (rc = encode_DIS_Resc(sock, rescl, ct, rh)) ||
+      (rc = encode_DIS_ReqExtend(sock, (char *)0)))
     {
     connection[c].ch_errtxt = strdup(dis_emsg[rc]);
     return (pbs_errno = PBSE_PROTOCOL);

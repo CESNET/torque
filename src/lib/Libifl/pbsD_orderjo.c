@@ -109,9 +109,9 @@ char *extend;
 
   DIS_tcp_setup(sock);
 
-  if ((rc = tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_OrderJob, pbs_current_user)) ||
-      (rc = tcp_encode_DIS_MoveJob(sock, job1, job2)) ||
-      (rc = tcp_encode_DIS_ReqExtend(sock, extend)))
+  if ((rc = encode_DIS_ReqHdr(sock, PBS_BATCH_OrderJob, pbs_current_user)) ||
+      (rc = encode_DIS_MoveJob(sock, job1, job2)) ||
+      (rc = encode_DIS_ReqExtend(sock, extend)))
     {
     connection[c].ch_errtxt = strdup(dis_emsg[rc]);
     return (pbs_errno = PBSE_PROTOCOL);

@@ -136,7 +136,7 @@ int dis_request_read(
 
   /* Decode the Request Header, that will tell the request type */
 
-  if ((rc = tcp_decode_DIS_ReqHdr(sfds, request, &proto_type, &proto_ver)))
+  if ((rc = decode_DIS_ReqHdr(sfds, request, &proto_type, &proto_ver)))
     {
     if (rc == DIS_EOF)
       {
@@ -207,13 +207,13 @@ int dis_request_read(
 
       CLEAR_HEAD(request->rq_ind.rq_queuejob.rq_attr);
 
-      rc = tcp_decode_DIS_QueueJob(sfds, request);
+      rc = decode_DIS_QueueJob(sfds, request);
 
       break;
 
     case PBS_BATCH_JobCred:
 
-      rc = tcp_decode_DIS_JobCred(sfds, request);
+      rc = decode_DIS_JobCred(sfds, request);
 
       break;
 
@@ -221,7 +221,7 @@ int dis_request_read(
 
     case PBS_BATCH_MvJobFile:
 
-      rc = tcp_decode_DIS_JobFile(sfds, request);
+      rc = decode_DIS_JobFile(sfds, request);
 
       break;
 
@@ -231,7 +231,7 @@ int dis_request_read(
 
     case PBS_BATCH_Rerun:
 
-      rc = tcp_decode_DIS_JobId(sfds, request->rq_ind.rq_commit);
+      rc = decode_DIS_JobId(sfds, request->rq_ind.rq_commit);
 
       break;
 
@@ -241,31 +241,31 @@ int dis_request_read(
 
     case PBS_BATCH_ModifyJob:
 
-      rc = tcp_decode_DIS_Manage(sfds, request);
+      rc = decode_DIS_Manage(sfds, request);
 
       break;
 
     case PBS_BATCH_MessJob:
 
-      rc = tcp_decode_DIS_MessageJob(sfds, request);
+      rc = decode_DIS_MessageJob(sfds, request);
 
       break;
 
     case PBS_BATCH_Shutdown:
 
-      rc = tcp_decode_DIS_ShutDown(sfds, request);
+      rc = decode_DIS_ShutDown(sfds, request);
 
       break;
 
     case PBS_BATCH_SignalJob:
 
-      rc = tcp_decode_DIS_SignalJob(sfds, request);
+      rc = decode_DIS_SignalJob(sfds, request);
 
       break;
 
     case PBS_BATCH_StatusJob:
 
-      rc = tcp_decode_DIS_Status(sfds, request);
+      rc = decode_DIS_Status(sfds, request);
 
       break;
 
@@ -273,7 +273,7 @@ int dis_request_read(
 
     case PBS_BATCH_LocateJob:
 
-      rc = tcp_decode_DIS_JobId(sfds, request->rq_ind.rq_locate);
+      rc = decode_DIS_JobId(sfds, request->rq_ind.rq_locate);
 
       break;
 
@@ -281,7 +281,7 @@ int dis_request_read(
 
     case PBS_BATCH_ReleaseJob:
 
-      rc = tcp_decode_DIS_Manage(sfds, request);
+      rc = decode_DIS_Manage(sfds, request);
 
       break;
 
@@ -289,7 +289,7 @@ int dis_request_read(
 
     case PBS_BATCH_OrderJob:
 
-      rc = tcp_decode_DIS_MoveJob(sfds, request);
+      rc = decode_DIS_MoveJob(sfds, request);
 
       break;
 
@@ -299,7 +299,7 @@ int dis_request_read(
 
     case PBS_BATCH_StageIn:
 
-      rc = tcp_decode_DIS_RunJob(sfds, request);
+      rc = decode_DIS_RunJob(sfds, request);
 
       break;
 
@@ -309,7 +309,7 @@ int dis_request_read(
 
       CLEAR_HEAD(request->rq_ind.rq_select);
 
-      rc = tcp_decode_DIS_svrattrl(sfds, &request->rq_ind.rq_select);
+      rc = decode_DIS_svrattrl(sfds, &request->rq_ind.rq_select);
 
       break;
 
@@ -320,13 +320,13 @@ int dis_request_read(
     case PBS_BATCH_StatusSvr:
       /* DIAGTODO: add PBS_BATCH_StatusDiag */
 
-      rc = tcp_decode_DIS_Status(sfds, request);
+      rc = decode_DIS_Status(sfds, request);
 
       break;
 
     case PBS_BATCH_TrackJob:
 
-      rc = tcp_decode_DIS_TrackJob(sfds, request);
+      rc = decode_DIS_TrackJob(sfds, request);
 
       break;
 
@@ -336,25 +336,25 @@ int dis_request_read(
 
     case PBS_BATCH_ReleaseResc:
 
-      rc = tcp_decode_DIS_Rescl(sfds, request);
+      rc = decode_DIS_Rescl(sfds, request);
 
       break;
 
     case PBS_BATCH_RegistDep:
 
-      rc = tcp_decode_DIS_Register(sfds, request);
+      rc = decode_DIS_Register(sfds, request);
 
       break;
 
     case PBS_BATCH_AuthenUser:
 
-      rc = tcp_decode_DIS_Authen(sfds, request);
+      rc = decode_DIS_Authen(sfds, request);
 
       break;
 
     case PBS_BATCH_JobObit:
 
-      rc = tcp_decode_DIS_JobObit(sfds, request);
+      rc = decode_DIS_JobObit(sfds, request);
 
       break;
 
@@ -366,7 +366,7 @@ int dis_request_read(
 
     case PBS_BATCH_DelFiles:
 
-      rc = tcp_decode_DIS_CopyFiles(sfds, request);
+      rc = decode_DIS_CopyFiles(sfds, request);
 
       break;
 
@@ -394,7 +394,7 @@ int dis_request_read(
     {
     /* Decode the Request Extension, if present */
 
-    if ((rc = tcp_decode_DIS_ReqExtend(sfds, request)))
+    if ((rc = decode_DIS_ReqExtend(sfds, request)))
       {
       sprintf(log_buffer, "req extension bad, dis error %d (%s), type=%s",
               rc,
@@ -446,7 +446,7 @@ int DIS_reply_read(
   {
   DIS_tcp_setup(sock);
 
-  return(tcp_decode_DIS_replySvr(sock, preply));
+  return(decode_DIS_replySvr(sock, preply));
   }
 
 /* END dis_read.c */
