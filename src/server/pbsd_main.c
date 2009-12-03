@@ -1083,6 +1083,13 @@ int main(
         }
       }
 
+	if ((sid = setsid()) == -1)
+      {
+      log_err(errno, msg_daemonname, "setsid failed");
+
+      exit(2);
+      }
+
     while (try_lock_out(lockfds, F_WRLCK))
       sleep(TSERVER_HA_CHECK_TIME); /* Relinquish */
     }
