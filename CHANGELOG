@@ -7,6 +7,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       dis_buffer the seperation of dis calls was no longer needed. the tcp_dis
       function calls have been removed and all calls go to the dis functions
       whether using tcp or rpp.
+  b - pbs_mom now sets resource limits for tasks started with tm_spawn (Chris 
+      Samuel, VPAC)
+  c - fix assumption about size of unsocname.sun_path in Libnet/net_server.c
 
 2.4.2
   b - Changed predicate in pbsd_main.c for the two locations where 
@@ -178,6 +181,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       removed OS specific CACHEOBITFAILURES code.
   b - fix so after* dependencies are handled correctly for exiting / completed
       jobs
+
 
 2.3.7
   b - fixed a bug where UNIX domain socket communication was failing when 
