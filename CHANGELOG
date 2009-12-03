@@ -28,6 +28,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       in the expected location
   b - pbs_mom now sets resource limits for tasks started with tm_spawn (Chris 
       Samuel, VPAC)
+  c - fix assumption about size of unsocname.sun_path in Libnet/net_server.c
 
 2.3.7
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 
