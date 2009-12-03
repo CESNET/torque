@@ -10,6 +10,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - pbs_mom now sets resource limits for tasks started with tm_spawn (Chris 
       Samuel, VPAC)
   c - fix assumption about size of unsocname.sun_path in Libnet/net_server.c
+  b - Fix for Bugzilla bug 34. "torque 2.4.X breaks OSC's mpiexec". fix in src/server
+      src/server/stat_job.c revision 3268.
 
 2.4.2
   b - Changed predicate in pbsd_main.c for the two locations where 
