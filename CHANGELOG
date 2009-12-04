@@ -12,6 +12,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   c - fix assumption about size of unsocname.sun_path in Libnet/net_server.c
   b - Fix for Bugzilla bug 34. "torque 2.4.X breaks OSC's mpiexec". fix in src/server
       src/server/stat_job.c revision 3268.
+  b - Fix for Bugzilla bug 35 - printing the wrong pid (normal mode) and not printing
+      any pid for high availability mode.
 
 2.4.2
   b - Changed predicate in pbsd_main.c for the two locations where 
