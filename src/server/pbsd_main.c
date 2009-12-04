@@ -2317,8 +2317,31 @@ int start_update_ha_lock_thread()
   pthread_attr_t HALockThreadAttr;
 
   int rc;
+  int fds;
 
+  char smallBuf[MAX_LINE];
   char id[] = "start_update_ha_lock_thread";
+
+  /* write the pid to the lockfile for correctness */
+  fds = open(HALockFile,O_TRUNC|O_WRONLY,0600);
+
+  if (fds < 0)
+    {
+    log_err(-1,id,"Couldn't write the pid to the lockfile\n");
+
+    return(FAILURE);
+    }
+
+  snprintf(smallBuf,sizeof(smallBuf),"%ld\n",(long)sid); 
+  if (write(fds,smallBuf,strlen(smallBuf)) != (ssize_t)strlen(smallBuf))
+    {
+    log_err(-1,id,"Couldn't write the pid to the lockfile\n");
+
+    return(FAILURE);
+    }
+
+  /* we don't need an open handle on the lockfile, just correct update times */
+  close(fds);
 
   pthread_attr_init(&HALockThreadAttr);
 
@@ -2328,7 +2351,7 @@ int start_update_ha_lock_thread()
     {
     /* error creating thread */
 
-    log_err(-1,id,"Could not create HA Lock Thread");
+    log_err(-1,id,"Could not create HA Lock Thread\n");
 
     return(FAILURE);
     }
@@ -2337,7 +2360,7 @@ int start_update_ha_lock_thread()
     PBSEVENT_SYSTEM,
     PBS_EVENTCLASS_SERVER,
     id,
-    "HA Lock update thread is now created");
+    "HA Lock update thread is now created\n");
 #endif /* ifndef USE_HA_THREADS */
 
   return(SUCCESS);
@@ -2527,7 +2550,7 @@ static void lock_out_ha()
  * figures out, based on the mode, whether or not to run in the background and does so
  *
  * @param DoBackground - (I) indicates whether or not we should run in the background
- * @param sid - (O) set to the session id if we're running in the background, pid otherwise
+ * @param sid - (O) set to the correct pid
  * @return success unless we could not run in the background and we're supposed to
  */
 static int daemonize_server(
@@ -2589,46 +2612,50 @@ static int daemonize_server(
 
   /* disconnect stdin,stdout,stderr */
 
-    fclose(stdin);
-    fclose(stdout);
-    fclose(stderr);
+  fclose(stdin);
+  fclose(stdout);
+  fclose(stderr);
     
-    dummyfile = fopen("/dev/null","r");
-    assert((dummyfile != 0) && (fileno(dummyfile) == 0));
+  dummyfile = fopen("/dev/null","r");
+  assert((dummyfile != 0) && (fileno(dummyfile) == 0));
     
-    dummyfile = fopen("/dev/null","w");
-    assert((dummyfile != 0) && (fileno(dummyfile) == 1));
+  dummyfile = fopen("/dev/null","w");
+  assert((dummyfile != 0) && (fileno(dummyfile) == 1));
 
-    dummyfile = fopen("/dev/null","w");
-    assert((dummyfile != 0) && (fileno(dummyfile) == 2));
+  dummyfile = fopen("/dev/null","w");
+  assert((dummyfile != 0) && (fileno(dummyfile) == 2));
     
-    if ((pid = fork()) == -1)
-      {
-      log_err(errno,id,"cannot fork into background");
+  if ((pid = fork()) == -1)
+    {
+    log_err(errno,id,"cannot fork into background");
       
-      return(FAILURE);
-      }
+    return(FAILURE);
+    }
     
-    if (pid != 0)
-      {
-      /* exit if parent */
+  if (pid != 0)
+    {
+    /* exit if parent */
 
-      log_event(
-        PBSEVENT_SYSTEM,
-        PBS_EVENTCLASS_SERVER,
-        id,
-        "INFO:      parent is exiting");
-      
-      exit(0);
-      }
-    
     log_event(
       PBSEVENT_SYSTEM,
       PBS_EVENTCLASS_SERVER,
       id,
-      "INFO:      child process in background");
+      "INFO:      parent is exiting");
+      
+    exit(0);
+    }
+  
+  /* update the sid (pid written to the lock file) so that
+   * the correct pid is present */
+  *sid = getpid();
+
+  log_event(
+    PBSEVENT_SYSTEM,
+    PBS_EVENTCLASS_SERVER,
+    id,
+    "INFO:      child process in background");
     
-    return(SUCCESS);
+  return(SUCCESS);
   } /* END daemonize_server() */
 
 
