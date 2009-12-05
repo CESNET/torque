@@ -29,6 +29,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - pbs_mom now sets resource limits for tasks started with tm_spawn (Chris 
       Samuel, VPAC)
   c - fix assumption about size of unsocname.sun_path in Libnet/net_server.c
+  f - added a diagnostic script (contrib/diag/tdiag.sh).  This script grabs the log 
+      files for the server and the mom, records the output of qmgr -c 'p s' and the
+      nodefile, and creates a tarfile containing these.
+
 
 2.3.7
   e - pbs_mom sisters can now tolerate an explicit group ID instead of only a 
