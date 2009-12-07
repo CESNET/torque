@@ -32,6 +32,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   f - added a diagnostic script (contrib/diag/tdiag.sh).  This script grabs the log 
       files for the server and the mom, records the output of qmgr -c 'p s' and the
       nodefile, and creates a tarfile containing these.
+ b - Changed momctl -s to use exit(EXIT_FAILURE) instead of return(-1) if a mom is not running.
+
 
 
 2.3.7
