@@ -71,6 +71,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix so find_resc_entry still works after setting server extra_resc
   b - change so set_jobexid() gets called if JOB_ATR_egroup is not set
   b - fixed memory issue (underallocated array for a string)
+  e - added a diagnostic script (contrib/diag/tdiag.sh). This script grabs the log
+      files for the server and mom daemons, records the output of qmgr -c 'p s'
+      and the nodefile and then creates a tarfile containing the output.
 
 2.3.6
   e - in Linux, a pbs_mom will now "kill" a job's task, even if that task can no
