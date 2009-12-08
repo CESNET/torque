@@ -26,6 +26,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       jobs
   b - fix tracejob so it handles multiple server and mom logs for the same day
   b - close empty ACL files
+  b - Fix for Bugzilla bug 36. "qsub crashes with long dependency list".
 
 2.3.7 Transition
   f - Added new job attribute ATTR_service. Allows job to run as a pseudo
