@@ -1,17 +1,12 @@
 #!/usr/bin/perl
-
 use strict;
 use warnings;
 
 use FindBin;
 use lib "$FindBin::Bin/../../../../../lib/";
 
-
 use CRI::Test;
-
-use Torque::Ctrl        qw( 
-                            startPbsserver 
-                          );
+use Torque::Ctrl;
 use Torque::Job::Ctrl   qw(
                             submitSleepJob
                             runJobs
@@ -25,9 +20,15 @@ use Torque::Test::Utils qw(
 plan('no_plan');
 setDesc('qterm -t delay');
 
+my @remote_moms = split ',', $props->get_property('Torque.Remote.Nodes');
+my $sync_href   = { 'mom_hosts' => [ $props->get_property('Test.Host') ] };
+push @{ $sync_href->{mom_hosts} }, @remote_moms if scalar @remote_moms > 0;
+
 # Make sure pbs_server is running
 diag("Restarting the pbs_server");
+stopPbsserver();
 startPbsserver();
+syncServerMom($sync_href);
 
 # Submit a job
 my $job_params = {
@@ -39,7 +40,6 @@ my $job_params = {
 # Submit rerunnable jobs
 $job_params->{ 'add_args' } = '-r y';
 my $job_id1 = submitSleepJob($job_params);
-my $job_id2 = submitSleepJob($job_params);
 
 # Submit jobs that are not rerunnable
 $job_params->{ 'add_args' } = '-r n';
@@ -47,11 +47,10 @@ my $job_id3 = submitSleepJob($job_params);
 
 die("Unable to submit jobs")
   if (   $job_id1 eq '-1' 
-      or $job_id2 eq '-1' 
       or $job_id3 eq '-1');
 
 # Run the jobs
-runJobs($job_id2, $job_id3);
+runJobs($job_id3);
 
 # sleep for a few seconds
 sleep 2;
@@ -65,16 +64,16 @@ sleep 2;
 
 # Restart pbs_server
 diag("Restarting the pbs_server");
+stopPbsserver();
 startPbsserver();
+syncServerMom($sync_href);
 
 # Test the jobs and their states
 my %job_info = job_info();
 ok(exists $job_info{ $job_id1 }, "Checking for job '$job_id1'");
 cmp_ok($job_info{ $job_id1 }{ 'job_state' }, 'eq', 'Q', "Checking state of job '$job_id1'");
-ok(exists $job_info{ $job_id2 }, "Checking for job '$job_id2'");
-cmp_ok($job_info{ $job_id2 }{ 'job_state' }, 'eq', 'Q', "Checking state of job '$job_id2'");
 ok(exists $job_info{ $job_id3 }, "Checking for job '$job_id3'");
 cmp_ok($job_info{ $job_id3 }{ 'job_state' }, 'eq', 'C', "Checking state of job '$job_id3'");
 
 # Delete Jobs
-delJobs($job_id1, $job_id2, $job_id3);
+delJobs($job_id1, $job_id3);

@@ -25,7 +25,7 @@ execute_tests(
               "$testbase/pbs_server_cL.t",
               "$testbase/pbs_server_cM.t",
               "$testbase/pbs_server_p.t",
-              "$testbase/pbs_server_cR.t",
+# RT6440              "$testbase/pbs_server_cR.t",
               "$testbase/pbs_server_cS.t",
 #              "$testbase/pbs_server_t_create.t",
 #              "$testbase/rerunable/pbs_server_t_hot.t",
