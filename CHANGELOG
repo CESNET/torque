@@ -1,5 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
+2.3.9
+
 2.3.8
   b - fix return value of cpuset_delete() for Linux (Chris Samuel - VPAC)
   c - keep pbs_server from trying to free empty attrlist after recieving 
