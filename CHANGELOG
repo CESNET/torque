@@ -3,6 +3,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
       /etc/sysconfig/pbs_mom
+  b - when spool_as_final_name is configured for the mom, no longer send email 
+      messages about not being able to copy the spool file
 
 2.4.3
   b - fix PBSD_authenticate so it correctly splits PATH with : instead of ;
