@@ -3166,6 +3166,14 @@ void req_cpyfile(
     return;
     }
 
+  /* there is nothing to copy */
+  if (spoolasfinalname == TRUE)
+    {
+    reply_ack(preq);
+
+    return;
+    }
+
   if (LOGLEVEL >= 3)
     {
     pair = (struct rqfpair *)GET_NEXT(preq->rq_ind.rq_cpyfile.rq_pair);
