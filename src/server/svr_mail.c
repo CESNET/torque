@@ -85,6 +85,7 @@
 
 #include "pbs_ifl.h"
 #include <sys/types.h>
+#include <sys/wait.h>
 #include <unistd.h>
 #include <errno.h>
 #include <stdio.h>
@@ -223,7 +224,7 @@ void svr_mailowner(
       snprintf(tmpBuf,sizeof(tmpBuf),
         "Updated mailto from user list: '%s'\n",
         mailto);
-      logevent(PBSEVENT_ERROR | PBSEVENT_ADMIN | PBSEVENT_JOB,
+      log_event(PBSEVENT_ERROR | PBSEVENT_ADMIN | PBSEVENT_JOB,
         PBS_EVENTCLASS_JOB,
         pjob->ji_qs.ji_jobid,
         tmpBuf);
@@ -269,8 +270,8 @@ void svr_mailowner(
         char tmpBuf[LOG_BUF_SIZE];
 
         snprintf(tmpBuf,sizeof(tmpBuf),
-          "Updated mailto from job owner and mail domain: '%s'\n,
-          mailto");
+          "Updated mailto from job owner and mail domain: '%s'\n",
+          mailto);
         log_event(PBSEVENT_ERROR | PBSEVENT_ADMIN | PBSEVENT_JOB,
           PBS_EVENTCLASS_JOB,
           pjob->ji_qs.ji_jobid,
@@ -295,7 +296,7 @@ void svr_mailowner(
           "Updated mailto from job owner: '%s'\n",
           mailto);
         log_event(PBSEVENT_ERROR | PBSEVENT_ADMIN | PBSEVENT_JOB,
-          PBSEVENTCLASS_JOB,
+          PBS_EVENTCLASS_JOB,
           pjob->ji_qs.ji_jobid,
           tmpBuf);
         }
