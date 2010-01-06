@@ -7050,8 +7050,6 @@ int expand_path(
 #else
 
   wordexp_t  exp;
-/*  char      *envstr;
-  char      *id = "expand_path";*/
 
   if ((path_in == NULL) ||
       (pjob == NULL) ||
@@ -7067,28 +7065,6 @@ int expand_path(
   *(vtable.v_envp + vtable.v_used) = NULL;
   
   environ = vtable.v_envp;
-
-  /* make sure that PBS_JOBID is defined in the job's environment */
-/*  envstr = malloc(
-             (strlen("PBS_JOBID=") + 
-              strlen(pjob->ji_qs.ji_jobid) + 1) 
-             * sizeof(char));
-
-  if (envstr == NULL)
-    {
-    sprintf(log_buffer, "malloc failed, errno=%d (%s)",
-      errno,
-      strerror(errno));
-
-    log_err(-1, id, log_buffer);
-    
-    return(-PBSE_SYSTEM);
-    }
-
-  sprintf(envstr, "PBS_JOBID=%s",
-      pjob->ji_qs.ji_jobid);
-  
-  putenv(envstr);*/
 
   /* initialize the path to empty */
   path[0] = '\0';
