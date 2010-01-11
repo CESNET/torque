@@ -1,6 +1,14 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.9
+   b - Made a fix to svr_get_privilege(). On some architectures a non-root user
+       name would be set to null after the line " host_no_port[num_host_chars] = 0;"
+       because num_host_chars was = 1024 which was the size of hot_no_port. 
+       The null termination needed to happen at 1023. There were other problems
+       with this function so code was added to  validate the incoming
+       variables before they were used. The symptom of this bug was that non-root
+       managers and operators could not perform operations where they should 
+       have had rights.
 
 2.3.8
   b - fix return value of cpuset_delete() for Linux (Chris Samuel - VPAC)
