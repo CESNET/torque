@@ -138,6 +138,7 @@ extern void  post_resume  A_((job *, int));
 #endif /* _CRAY */
 
 extern void  bld_env_variables A_((struct var_table *, char *, char *));
+extern int   expand_path (job *,char *,int,char *);
 extern pid_t fork_me A_((int sock));
 extern int   get_la A_((double *));
 extern void  init_abort_jobs A_((int));
