@@ -1,6 +1,9 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.3.10
+   b - Fixed a bug in run_pelog (src/resmom/prolog.c) where epilogue.user 
+       was given the argument list for prologue scripts and not 
+       epilogue scripts. Ticket 6296.
 
 2.3.9
    b - Made a fix to svr_get_privilege(). On some architectures a non-root user
