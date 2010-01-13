@@ -31,11 +31,11 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       jobs
   b - fix tracejob so it handles multiple server and mom logs for the same day
   b - close empty ACL files
-  b - Removed the use of the global buffer dis_buffer. All of the DIS function calls
+  e - Removed the use of the global buffer dis_buffer. All of the DIS function calls
       now use their own scratch buffer which is allocated on the stack at run time.
   b - The tm calls use tcp for their transport. However, the tm calls were still using
-      the RPP based DIS functions instead of the TCP. I changed them so all tm functions
-      now use the tcp based DIS functions.
+      the RPP based DIS functions instead of the TCP. Now all tm functions
+      use the tcp-based DIS functions.
   b - pbsD_authenticate() correctly splits PATH on : instead of ; if pbs_iif is not
       in the expected location
   b - pbs_mom now sets resource limits for tasks started with tm_spawn (Chris 
@@ -46,7 +46,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       nodefile, and creates a tarfile containing these.
   b - Changed momctl -s to use exit(EXIT_FAILURE) instead of return(-1) if a mom
       is not running.
-  b - Fix for Bugzilla bug 36. "qsub crashes with long dependency list".
+  c - Fix for Bugzilla bug 36. "qsub crashes with long dependency list".
   b - Fix for Bugzilla bug 41. "tracejob creates a file in the local directory".
 
 
