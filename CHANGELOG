@@ -12,6 +12,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       option to start pbs_mom. This is similar to the -p option except the -P
       option will only delete any left over jobs from the queue and will not
       attempt to adopt and running processes.
+  e - Modified man page for pbs_mom. Added new -P option plus edited -p, -q
+      and -r options to hopefully make them more understandable.
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
