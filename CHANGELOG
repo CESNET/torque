@@ -1,6 +1,17 @@
 c - crash     b - bug fix    e - enhancement    f - new feature
 
 2.4.5
+  b - epilogue.user scripts were being run with prologue argments. Fixed
+      bug in run_pelog() to include PE_EPILOGUSER so epilogue arguments get
+      passed to eplilogue.user script.
+
+  b - Ticket 6665. pbs_mom and job recovery. Fixed a bug where the -q option 
+      would terminate running processes as well as requeue jobs. This made the
+      -q option the same as the -r option for pbs_mom. -q will now only reque 
+      jobs and will not attempt to kill running processes. I also added a -P
+      option to start pbs_mom. This is similar to the -p option except the -P
+      option will only delete any left over jobs from the queue and will not
+      attempt to adopt and running processes.
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
