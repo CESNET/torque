@@ -391,7 +391,7 @@ static int PBSD_authenticate(
 
       if ((ptr = getenv("PATH")) != NULL)
         {
-        ptr = strtok(ptr, ";");
+        ptr = strtok(ptr, ":");
 
         while (ptr != NULL)
           {
@@ -403,7 +403,7 @@ static int PBSD_authenticate(
           if (rc != -1)
             break;
 
-          ptr = strtok(NULL, ";");
+          ptr = strtok(NULL, ":");
           }  /* END while (ptr != NULL) */
         }    /* END if ((ptr = getenv("PATH")) != NULL) */
 
@@ -924,7 +924,7 @@ int pbs_disconnect(
 
   DIS_tcp_setup(sock);
 
-  if ((tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_Disconnect, pbs_current_user) == 0) &&
+  if ((encode_DIS_ReqHdr(sock, PBS_BATCH_Disconnect, pbs_current_user) == 0) &&
       (DIS_tcp_wflush(sock) == 0))
     {
     int atime;

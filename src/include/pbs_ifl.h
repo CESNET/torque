@@ -175,6 +175,7 @@
 #define ATTR_acluser    "acl_users"
 #define ATTR_altrouter  "alt_router"
 #define ATTR_checkpoint_min  "checkpoint_min"
+#define ATTR_checkpoint_defaults  "checkpoint_defaults"
 #define ATTR_enable     "enabled"
 #define ATTR_fromroute  "from_route_only"
 #define ATTR_hostlist    "hostlist"         /* TORQUE only */
@@ -267,6 +268,8 @@
 #define ATTR_LockfileUpdateTime "lock_file_update_time"
 #define ATTR_LockfileCheckTime "lock_file_check_time"
 #define ATTR_npdefault  "np_default"
+#define ATTR_clonebatchsize "clone_batch_size"
+#define ATTR_clonebatchdelay "clone_batch_delay"
 
 /* additional node "attributes" names */
 

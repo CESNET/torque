@@ -206,7 +206,6 @@ int diswui (int stream, unsigned value);
 #endif
 #define diswus(stream, value) diswui(stream, (unsigned)(value))
 #define diswuc(stream, value) diswui(stream, (unsigned)(value))
-#define tcp_diswuc(stream, value) tcp_diswui(stream, (unsigned)(value))
 
 int diswsl (int stream, long value);
 /*#if INT_MIN == LONG_MIN && INT_MAX == LONG_MAX*/
@@ -227,7 +226,6 @@ int diswsi (int stream, int value);
 
 int diswcs (int stream, const char *value, size_t nchars);
 #define diswst(stream, value) diswcs(stream, value, strlen(value))
-#define tcp_diswst(stream, value) tcp_diswcs(stream, value, strlen(value))
 
 int diswl_ (int stream, dis_long_double_t value, unsigned int ndigs);
 #define diswl(stream, value) diswl_(stream, (value), LDBL_DIG)
@@ -254,21 +252,6 @@ extern void DIS_tcp_release A_((int fd));
 extern void DIS_tcp_set_gss A_((int fd, gss_ctx_id_t ctx, OM_uint32 flags));
 #endif
 
-extern unsigned tcp_disrui(int stream, int *retval);
-extern int tcp_disrsi(int stream, int *retval);
-extern int tcp_disrfst(int stream, size_t  achars, char *value);
-extern char *tcp_disrcs(int stream, size_t *nchars, int *retval);
-extern char *tcp_disrst(int  stream, int *retval);
-extern long tcp_disrsl(int  stream, int *retval);
-extern int tcp_disrfcs(int stream, size_t  *nchars, size_t  achars, char  *value);
-extern unsigned char tcp_disruc(int stream, int *retval);
-
-extern int tcp_diswui_(int stream, unsigned value, char *buf);
-extern int tcp_diswcs(int stream, const char *value, size_t nchars);
-extern int tcp_diswul(int stream, unsigned long value);
-extern int tcp_diswsi(int stream, int value);
-extern int tcp_diswsl(int stream, long value);
-extern int tcp_diswui(int stream, unsigned value);
 
 extern int  PConnTimeout(int);
 

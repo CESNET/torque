@@ -142,6 +142,7 @@ extern int mkdirtree(
     mode_t mode);
 
 extern int TTmpDirName(job*, char *);
+
 #endif /* HAVE_WORDEXP */
 
 /* External Global Data Items */
@@ -159,6 +160,7 @@ extern char            *msg_jobmod;
 extern char            *msg_manager;
 extern time_t  time_now;
 extern int  resc_access_perm; /* see encode_resc() */
+extern int spoolasfinalname;
 /* in attr_fn_resc.c */
 
 extern char             MOMUNameMissing[];
@@ -313,7 +315,7 @@ static pid_t fork_to_user(
 #ifdef __CYGWIN__
     /* printf("TRY IAMADMIN FOR %s ", preq->rq_ind.rq_cpyfile.rq_user); */
 
-    if (IAmAdmin())
+    if (IamUser() == 0)
     {
       log_err(errno, id, "Can`t run job with Administrator privileges");
 
@@ -679,9 +681,9 @@ static int return_file(
 
     DIS_tcp_setup(sock);
 
-    if ((rc = tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_MvJobFile, pbs_current_user)) ||
-        (rc = tcp_encode_DIS_JobFile(sock, seq++, buf, amt, pjob->ji_qs.ji_jobid, which)) ||
-        (rc = tcp_encode_DIS_ReqExtend(sock, NULL)))
+    if ((rc = encode_DIS_ReqHdr(sock, PBS_BATCH_MvJobFile, pbs_current_user)) ||
+        (rc = encode_DIS_JobFile(sock, seq++, buf, amt, pjob->ji_qs.ji_jobid, which)) ||
+        (rc = encode_DIS_ReqExtend(sock, NULL)))
       {
       break;
       }
@@ -807,6 +809,21 @@ static int told_to_cp(
       {
       if (wchost_match(host, pcphosts[nh].cph_hosts))
         {
+
+        if (LOGLEVEL >= 5)
+          {
+          sprintf(log_buffer, "host '%s' pcphosts[%d].cph_hosts: %s",
+                  host,
+                  nh,
+                  pcphosts[nh].cph_hosts);
+
+          log_record(
+            PBSEVENT_SYSTEM,
+            PBS_EVENTCLASS_SERVER,
+            (char *)id,
+            log_buffer);
+          }
+
         i = strlen(pcphosts[nh].cph_from);
 
         if (strncmp(pcphosts[nh].cph_from, oldpath, i) == 0)
@@ -2521,7 +2538,7 @@ static int del_files(
  if (getuid() != 0)
     {
 #else
-  if (!IAmAdmin())
+  if (IamUser() == 1)
     {
 #endif  /* __CYGWIN__ */
     UID0 = FALSE;
@@ -2531,7 +2548,7 @@ static int del_files(
  if (geteuid() != 0)
     {
 #else
-  if (!IAmAdmin())
+  if (IamUser() == 1)
     {
 #endif  /* __CYGWIN__ */
     EUID0 = FALSE;
@@ -3705,7 +3722,7 @@ void req_cpyfile(
           wordfree(&arg3exp);
 
           wordexperr = 0;
-
+          
           break; /* Successful */
           }
 

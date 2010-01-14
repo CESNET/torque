@@ -183,6 +183,7 @@ int    ignwalltime = 0;
 int    ignmem = 0;
 int    igncput = 0;
 int    ignvmem = 0; 
+int    spoolasfinalname = 0;
 /* end policies */
 int    lockfds = -1;
 time_t loopcnt;  /* used for MD5 calc */
@@ -378,6 +379,7 @@ static unsigned long setmomhost(char *);
 static unsigned long setrreconfig(char *);
 static unsigned long setsourceloginbatch(char *);
 static unsigned long setsourcelogininteractive(char *);
+static unsigned long setspoolasfinalname(char *);
 static unsigned long setremchkptdirlist(char *);
 static unsigned long setmaxconnecttimeout(char *);
 
@@ -437,6 +439,7 @@ static struct specials
   { "preexec",             setpreexec },
   { "source_login_batch",  setsourceloginbatch },
   { "source_login_interactive", setsourcelogininteractive },
+  { "spool_as_final_name", setspoolasfinalname },
   { "remote_checkpoint_dirs", setremchkptdirlist },
   { "max_conn_timeout_micro_sec",   setmaxconnecttimeout },
   { NULL,                  NULL }
@@ -3251,6 +3254,29 @@ static unsigned long setnospooldirlist(
 
 
 
+
+static unsigned long setspoolasfinalname(
+
+  char *value)  /* I */
+
+  {
+  log_record(
+    PBSEVENT_SYSTEM,
+    PBS_EVENTCLASS_SERVER,
+    "spoolasfinalname",
+    value);
+
+  if (!strncasecmp(value,"t",1) || (value[0] == '1') || !strcasecmp(value,"on") )
+    spoolasfinalname = 1;
+  else
+    spoolasfinalname = 0;
+
+  return(1);
+  }  /* END setspoolasfinalname() */
+
+
+
+
 static unsigned long setremchkptdirlist(
 
   char *value)  /* I */
@@ -4314,10 +4340,7 @@ int rm_request(
 
   /* looks okay, find out what command it is */
 
-  if(tcp)
-    command = tcp_disrsi(iochan, &ret);
-  else
-    command = disrsi(iochan, &ret);
+  command = disrsi(iochan, &ret);
 
   if (ret != DIS_SUCCESS)
     {
@@ -4345,10 +4368,8 @@ int rm_request(
 
       reqnum++;
 
-      if(tcp)
-        ret = tcp_diswsi(iochan, RM_RSP_OK);
-      else
-        ret = diswsi(iochan, RM_RSP_OK);
+
+      ret = diswsi(iochan, RM_RSP_OK);
 
       if (ret != DIS_SUCCESS)
         {
@@ -4360,10 +4381,7 @@ int rm_request(
 
       for (;;)
         {
-        if(tcp)
-          cp = tcp_disrst(iochan, &ret);
-        else
-          cp = disrst(iochan, &ret);
+        cp = disrst(iochan, &ret);
 
         if (ret == DIS_EOD)
           {
@@ -5006,10 +5024,7 @@ int rm_request(
 
         free(cp);
 
-        if(tcp)
-          ret = tcp_diswst(iochan, output);
-        else
-          ret = diswst(iochan, output);
+        ret = diswst(iochan, output);
 
 
         if (ret != DIS_SUCCESS)
@@ -5045,10 +5060,7 @@ int rm_request(
 
       log_record(PBSEVENT_SYSTEM, 0, id, "configure");
 
-      if(tcp)
-        body = tcp_disrst(iochan, &ret);
-      else
-        body = disrst(iochan, &ret);
+      body = disrst(iochan, &ret);
 
       /* FORMAT:  FILE:<FILENAME> or <FILEDATA> (NYI) */
 
@@ -5101,10 +5113,7 @@ int rm_request(
 
       len = read_config(body);
 
-      if(tcp)
-        ret = tcp_diswsi(iochan, len ? RM_RSP_ERROR : RM_RSP_OK);
-      else
-        ret = diswsi(iochan, len ? RM_RSP_ERROR : RM_RSP_OK);
+      ret = diswsi(iochan, len ? RM_RSP_ERROR : RM_RSP_OK);
 
       if (ret != DIS_SUCCESS)
         {
@@ -5128,10 +5137,7 @@ int rm_request(
 
       log_record(PBSEVENT_SYSTEM, 0, id, "shutdown");
 
-      if(tcp)
-        ret = tcp_diswsi(iochan, RM_RSP_OK);
-      else
-        ret = diswsi(iochan, RM_RSP_OK);
+      ret = diswsi(iochan, RM_RSP_OK);
 
       if (ret != DIS_SUCCESS)
         {
@@ -5164,10 +5170,7 @@ int rm_request(
 
       log_err(-1, id, log_buffer);
 
-      if(tcp)
-        ret = tcp_diswsi(iochan, RM_RSP_ERROR);
-      else
-        ret = diswsi(iochan, RM_RSP_ERROR);
+      ret = diswsi(iochan, RM_RSP_ERROR);
 
       if (ret != DIS_SUCCESS)
         {
@@ -5177,10 +5180,7 @@ int rm_request(
         goto bad;
         }
 
-      if(tcp)
-        ret = tcp_diswst(iochan, log_buffer);
-      else
-        ret = diswst(iochan, log_buffer);
+      ret = diswst(iochan, log_buffer);
 
       if (ret != DIS_SUCCESS)
         {
@@ -5410,7 +5410,7 @@ int do_tcp(
 
   pbs_tcp_timeout = 0;
 
-  proto = tcp_disrsi(fd, &ret);
+  proto = disrsi(fd, &ret);
 
   if (tmpT > 0)
     {
@@ -5457,7 +5457,7 @@ int do_tcp(
       break;
     }  /* END switch (ret) */
 
-  version = tcp_disrsi(fd, &ret);
+  version = disrsi(fd, &ret);
 
   if (ret != DIS_SUCCESS)
     {
@@ -6785,18 +6785,9 @@ int setup_program_environment(void)
 
   /* must be started with real and effective uid of 0 */
 
-#ifndef __CYGWIN__
-  if ((getuid() != 0) || (geteuid() != 0))
+  if (IamRoot() == 0)
     {
-    /* FAILURE */
-
-    fprintf(stderr, "must be run as root\n");
-
-#else
-  if (!IAmAdmin())
-    {
-#endif  /* __CYGWIN__ */
-    return(1);
+        return(1);
     }
 
   /* The following is code to reduce security risks                */

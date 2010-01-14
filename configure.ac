@@ -588,6 +588,9 @@ case $PBS_MACH in
   irix6array) MOMLIBS="$MOMLIBS -larray"
     ;;
 
+  cygwin) MOMLIBS="$MOMLIBS -liphlpapi"
+    ;;
+
   linux)
     AC_CHECK_FUNC(openpty, ,
       AC_CHECK_LIB(util, openpty, MOMLIBS="$MOMLIBS -lutil"),
@@ -952,7 +955,8 @@ AC_ARG_ENABLE(privports, [
 esac])dnl
 
 AC_ARG_ENABLE(daemons, [
-  --disable-daemons       disable the use of background daemons.],
+  --disable-daemons       disable the use of background daemons.
+                          For Cygwin, disable daemons to run as Windows services],
 [case "${enableval}" in
   yes)  ;;
   no)  DISABLE_DAEMONS=1; AC_DEFINE(DISABLE_DAEMONS, 1, [Define to disable daemons]) ;;

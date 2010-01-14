@@ -3,23 +3,93 @@ c - crash     b - bug fix    e - enhancement    f - new feature
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus, uiip.bas-net.by)
   f - architecture and build system changes to support Cygwin (Igor Ilyenko, uiip.bas-net.by)
-  b - fixed EINPROGRESS in net_client.c. This signal appears in every time of connect
+  b - fixed EINPROGRESS in net_client.c. This signal appears every time of connecting
       and requires individual processing. The old erroneous processing brought to 
       big network delay, especially on Cygwin.
-  e - added own implementation of bindresvport for OS which doesn't it, improved signal
-      processing after connect (Igor Ilyenko, uiip.bas-net.by)
-  f - created checking permissions of Windows (Cygwin) users, using mkpasswd, mkgroup and
-      own functions IAmAdmin, IAmUser (Yauheni Charniauski, uiip.bas-net.by)
-  f - created checking permissions of submit jobs (Vikentsi Lapa, uiip.bas-net.by)
-  f - Added the --disable-daemons configure option for start server-shed-mom as Windows
+  e - improved signal processing after connecting in client_to_svr and added own
+      implementation of bindresvport for OS which lack it (Igor Ilyenko, uiip.bas-net.by)
+  f - created permission checking of Windows (Cygwin) users, using mkpasswd, mkgroup and
+      own functions IamRoot, IamUser (Yauheni Charniauski, uiip.bas-net.by)
+  f - created permission checking of submited jobs (Vikentsi Lapa, uiip.bas-net.by)
+  f - Added the --disable-daemons configure option for start server-sched-mom as Windows
       services, cygrunsrv.exe goes its into background independently.
-  e - Adapted output of Cygwin diagnostic information (Yauheni Charniauski, uiip.bas-net.by)
+  e - Adapted output of Cygwin's diagnostic information (Yauheni Charniauski, uiip.bas-net.by)
   b - Changed pbsd_main to call daemonize_server early only if high_availability_mode
       is set.
   e - removed the very old A_ macros (patch provided by Simon Toth, CESNET z.s.p.o.)
+  e - added new qmgr server attributes (clone_batch_size, clone_batch_delay) for 
+      controlling job cloning (Bugzilla #4)
+  e - added new qmgr attribute (checkpoint_defaults) for setting default
+      checkpoint values on Execution queues (Bugzilla #1)
+  b - PBSD_authenticate correctly splits PATH on : instead of ; (bugzilla #33)
+  b - Merged revision 3268 from 2.4-fixes. removed block of code that broke pbs_statjob 
+      for requested attributes
+  f - added a diagnostic script (contrib/diag/tdiag.sh).  This script grabs the log 
+      files for the server and the mom, records the output of qmgr -c 'p s' and the
+      nodefile, and creates a tarfile containing these.
+  b - Merged fix for bugzilla bug 35 from 2.4.3 
+  b - Changed momctl -s to use exit(EXIT_FAILURE) instead of return(-1) if a mom
+      is not running.
+  b - Fix for Bugzilla bug 36. "qsub crashes with long dependency list".
+  b - Fix for Bugzilla bug 41. "tracejob creates a file in the local directory".
+  b - Made a fix to svr_get_privilege(). On some architectures a non-root user
+      name would be set to null after the line " host_no_port[num_host_chars] = 0;"
+      because num_host_chars was = 1024 which was the size of host_no_port. 
+      The null termination needed to happen at 1023. There were other problems
+      with this function so code was added to  validate the incoming
+      variables before they were used. The symptom of this bug was that non-root
+      managers and operators could not perform operations where they should 
+      have had rights.
+
+2.4.4
+  b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
+      /etc/sysconfig/pbs_mom
+  f - added logging for email events, allows the admin to check if emails are 
+      being sent correctly
+  b - when spool_as_final_name is configured for the mom, no longer send email 
+      messages about not being able to copy the spool file
+  b - when spool_as_final_name is configured for the mom, correctly substitue 
+      job environment variables
+  b - Missed a format statement in an sprintf statement for the bug fix above.
+  b - Fixed a way that a file descriptor (for the server lockfile) could be used without 
+      initialization. RT 6756
+
+2.4.3
+  b - fix PBSD_authenticate so it correctly splits PATH with : instead of ;
+      (bugzilla #33)
+  b - pbs_mom now sets resource limits for tasks started with tm_spawn (Chris 
+      Samuel, VPAC)
+  c - fix assumption about size of unsocname.sun_path in Libnet/net_server.c
+  b - pbs_mom now sets resource limits for tasks started with tm_spawn (Chris 
+      Samuel, VPAC)
+  c - fix assumption about size of unsocname.sun_path in Libnet/net_server.c
+  b - Fix for Bugzilla bug 34. "torque 2.4.X breaks OSC's mpiexec". fix in src/server
+      src/server/stat_job.c revision 3268.
+  b - Fix for Bugzilla bug 35 - printing the wrong pid (normal mode) and not printing
+      any pid for high availability mode.
+  f - added a diagnostic script (contrib/diag/tdiag.sh).  This script grabs the log 
+      files for the server and the mom, records the output of qmgr -c 'p s' and the
+      nodefile, and creates a tarfile containing these.
+  b - pbs_mom now sets resource limits for tasks started with tm_spawn (Chris 
+      Samuel, VPAC)
+  c - fix assumption about size of unsocname.sun_path in Libnet/net_server.c
+  b - Fix for Bugzilla bug 34. "torque 2.4.X breaks OSC's mpiexec". fix in src/server
+      src/server/stat_job.c revision 3268.
+  b - Fix for Bugzilla bug 35 - printing the wrong pid (normal mode) and not printing
+      any pid for high availability mode.
+  f - added a diagnostic script (contrib/diag/tdiag.sh).  This script grabs the log 
+      files for the server and the mom, records the output of qmgr -c 'p s' and the
+      nodefile, and creates a tarfile containing these.
+  b - Changed momctl -s to use exit(EXIT_FAILURE) instead of return(-1) if a mom
+      is not running.
+  b - Fix for Bugzilla bug 36. "qsub crashes with long dependency list".
+  b - Fix for Bugzilla bug 41. "tracejob creates a file in the local directory".
 
 
 2.4.2
+  b - Changed predicate in pbsd_main.c for the two locations where 
+      daemonize_server is called to check for the value of high_availability_mode 
+      to determine when to put the server process in the background.
   b - Added pbs_error_db.h to src/include/Makefile.am and src/include/Makefile.in. 
       pbs_error_db.h now needed for install.
   e - Modified pbs_get_server_list so the $TORQUE_HOME/server_name file will work with 
@@ -103,7 +173,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       2.3.8)
   f - new fifo scheduler config option. ignore_queue: queue_name
       allows the scheduler to be instructed to ignore up to 16 queues on the server
-      (Simon Toth, muni.cz)
+      (Simon Toth, CESNET z.s.p.o.)
   e - add administrator customizable email notifications (see manpage for
       pbs_server_attributes) - (Roland Haas, Georgia Tech)
   e - moving jobs can now trigger a scheduling iteration (merged from 2.3.8)
@@ -116,11 +186,11 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix to prevent some jobs from getting deleted on startup.
   f - add qpool.gz to contrib directory
   e - improve how error constants and text messages are represented (Simon Toth,
-      muni.cz)
+      CESNET z.s.p.o)
   f - new boolean queue attribute "is_transit" that allows jobs to exceede 
       server resource limits (queue limits are respected). This allows routing 
       queues to route jobs that would be rejected for exceeding local resources
-      even when the job won't be run locally. (Simon Toth, muni.cz)
+      even when the job won't be run locally. (Simon Toth, CESNET z.s.p.o)
   e - add support for "job_array" as a type for queue disallowed_types attribute
   e - added pbs_mom config option ignmem to ignore mem/pmem limit enforcement
   e - added pbs_mom config option igncput to ignore pcput limit enforcement
@@ -186,6 +256,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       removed OS specific CACHEOBITFAILURES code.
   b - fix so after* dependencies are handled correctly for exiting / completed
       jobs
+
 
 2.3.7
   b - fixed a bug where UNIX domain socket communication was failing when 
