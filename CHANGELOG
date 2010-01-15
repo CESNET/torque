@@ -1,4 +1,4 @@
-c - crash     b - bug fix    e - enhancement    f - new feature
+c - crash     b - bug fix    e - enhancement    f - new feature n - note
 
 2.3.10
    b - Fixed a bug in run_pelog (src/resmom/prolog.c) where epilogue.user 
@@ -9,6 +9,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature
        it should not try and terminate any running processes. The bug fix
        made it so the MOM would stop terminating running jobs and only
        terminate them.
+   n - 01/15/2010 snapshot torque-2.3.10-snap.201001151340.tar.gz created.
+   
 2.3.9
    b - Made a fix to svr_get_privilege(). On some architectures a non-root user
        name would be set to null after the line " host_no_port[num_host_chars] = 0;"
