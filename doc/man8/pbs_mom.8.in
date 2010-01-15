@@ -177,7 +177,7 @@ try and preserve or recover running jobs. All jobs are terminated and removed
 from the queue.
 The \-q option is mutually exclusive with the \-p, \-q and \-r options.
 .IP "\-q" 16
-(Requeue all jobs - This was the default behavior in all versions prior
+(Requeue all jobs - This is the default behavior in versions prior
 to 2.4.0) -- Specifies the impact on jobs which were in execution when 
 the mini-servershut-down. Do not terminate running processes.
 With the \-q option, it is assumed that either the entire system
