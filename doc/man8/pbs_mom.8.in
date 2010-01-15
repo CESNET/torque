@@ -157,30 +157,32 @@ Specifies the port number on which the mini-server (MOM) will
 listen for resource monitor requests, task manager requests and inter-MOM
 messages.  Both a UDP and a TCP port of this number will be used.
 .IP "\-p" 16
-Specifies the impact on jobs which were in execution when the mini-server
-shut down.  On any restart of MOM, the new mini-server will not be the
-parent of any running jobs, MOM has lost control of her offspring (not a new
-situation for a mother).
-With the \-p option, Mom will allow the jobs to continue to run and
-monitor them indirectly via polling.
-The \-p option is mutually exclusive with the \-r option.
+(Preserve running jobs) -- Specifies the 
+impact on jobs which were in execution when the	mini-server shut-down. 
+The -p option tries to preserve any running jobs when the MOM restarts. 
+The new mini-server will not be the parent of any running jobs, MOM 
+has lost control of her	offspring (not a new situation for a mother). 
+The MOM will allow the jobs to continue to run and monitor them 
+indirectly via polling. All recovered jobs will report an exit code 
+of 0 when they are complete. The \-p option is mutually exclusive with 
+the \-r, \-P and \-q options.The \-p option is mutually exclusive with the \-r option.
 .IP "\-r" 16
-Specifies the impact on jobs which were in execution when the mini-server
-shut down.  With the \-r option,
-MOM will kill any processes belonging to jobs, mark the jobs as terminated,
-and notify the batch server which owns the job.
-The \-r option is mutual exclusive with the \-p option.
+(Terminate running processes and requeue all jobs) -- Specifies the impact on jobs 
+which were in execution when the mini-server shut-down. With the \-r option,
+MOM will kill any processes belonging to running jobs, mark the jobs as 
+terminated and notify the batch server that owns the job. Rerunnable jobs are reset 
+to a queued state so they can be run again. The \-r option is mutual exclusive with the \-p option.
 .IP
-Normally the mini-server is started from the system boot file
+When the mini-server is started from the system boot file
 without the 
 .At \-p
 or the 
 .At \-r
-option.  The mini-server will make no attempt to signal the
+option the mini-server will make no attempt to signal the
 former session of any job which may have been running when the mini-server
 terminated.  It is assumed that on reboot, all processes have been killed.
 The MOM will mark the jobs as terminated and notify the batch server which
-owns the job.
+owns the job. Re-runnable jobs will be requeued.
 .IP
 If the \-r option is used following a reboot,
 process IDs (pids) may be reused and

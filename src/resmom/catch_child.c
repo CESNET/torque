@@ -667,7 +667,7 @@ scan_for_exiting(void)
     ** in any state other than EXITING continue on.
     */
 
-    if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_EXITING)
+    if ((pjob->ji_qs.ji_substate != JOB_SUBSTATE_EXITING) && (pjob->ji_qs.ji_substate != JOB_SUBSTATE_NOTERM_REQUE))
       {
       if (LOGLEVEL >= 3)
         {
@@ -708,7 +708,8 @@ scan_for_exiting(void)
 
       if (stream == -1)
         {
-        kill_job(pjob, SIGKILL, id, "connection to server lost - no obit sent");
+        if(pjob->ji_qs.ji_substate != JOB_SUBSTATE_NOTERM_REQUE)
+          kill_job(pjob, SIGKILL, id, "connection to server lost - no obit sent");
 
         job_purge(pjob);
 
@@ -836,7 +837,8 @@ scan_for_exiting(void)
      */
     pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_Suspend;
 
-    kill_job(pjob, SIGKILL, id, "local task termination detected");
+    if(pjob->ji_qs.ji_substate != JOB_SUBSTATE_NOTERM_REQUE)
+      kill_job(pjob, SIGKILL, id, "local task termination detected");
 
 #ifdef ENABLE_CPA
     if (CPADestroyPartition(pjob) != 0)
@@ -1857,6 +1859,7 @@ void init_abort_jobs(
          (pj->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN) ||
          (pj->ji_qs.ji_substate == JOB_SUBSTATE_SUSPEND) ||
          (pj->ji_qs.ji_substate == JOB_SUBSTATE_EXITED) ||
+         (pj->ji_qs.ji_substate == JOB_SUBSTATE_NOTERM_REQUE) ||
          (pj->ji_qs.ji_substate == JOB_SUBSTATE_EXITING)))
       {
       if (LOGLEVEL >= 2)
@@ -1956,7 +1959,10 @@ void init_abort_jobs(
         continue;
         }
 
-      pj->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+      /* If mom was initialized with a -r any running processes have already
+         been killed. We set substate to JOB_SUBSTATE_NOTERM_REQUE so scan_for_exiting
+         will not try to kill the running processes for this job */
+      pj->ji_qs.ji_substate = JOB_SUBSTATE_NOTERM_REQUE;
 
       job_save(pj, SAVEJOB_QUICK);
 

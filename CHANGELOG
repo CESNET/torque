@@ -4,7 +4,11 @@ c - crash     b - bug fix    e - enhancement    f - new feature
    b - Fixed a bug in run_pelog (src/resmom/prolog.c) where epilogue.user 
        was given the argument list for prologue scripts and not 
        epilogue scripts. Ticket 6296.
-
+   b - Fixed pbs_mom's default restart behavior. On a restart the MOM is
+       suppose to terminate jobs and report them to the batch server. But 
+       it should not try and terminate any running processes. The bug fix
+       made it so the MOM would stop terminating running jobs and only
+       terminate them.
 2.3.9
    b - Made a fix to svr_get_privilege(). On some architectures a non-root user
        name would be set to null after the line " host_no_port[num_host_chars] = 0;"
