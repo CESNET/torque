@@ -157,14 +157,15 @@ Specifies the port number on which the mini-server (MOM) will
 listen for resource monitor requests, task manager requests and inter-MOM
 messages.  Both a UDP and a TCP port of this number will be used.
 .IP "\-p" 16
-(Default) (Preserve running jobs) -- Specifies the impact on jobs which were in execution when the 
-mini-server shut-down. The -p option tries to 
-preserve any running jobs when the MOM restarts. The new mini-server 
-will not be the parent of any running jobs, MOM has lost control of her 
-offspring (not a new situation for a mother). The MOM will allow the jobs 
-to continue to run and monitor them indirectly via polling. All recovered 
-jobs will report an exit code of 0 when they are complete.
-The \-p option is mutually exclusive with the \-r, \-P and \-q options.
+(Default after version 2.4.0) (Preserve running jobs) -- Specifies the 
+impact on jobs which were in execution when the	mini-server shut-down. 
+The -p option tries to preserve any running jobs when the MOM restarts. 
+The new mini-server will not be the parent of any running jobs, MOM 
+has lost control of her	offspring (not a new situation for a mother). 
+The MOM will allow the jobs to continue to run and monitor them 
+indirectly via polling. All recovered jobs will report an exit code 
+of 0 when they are complete. The \-p option is mutually exclusive with 
+the \-r, \-P and \-q options.
 .IP "\-P" 16
 (Terminate all jobs and remove them from the queue) -- Specifies the impact 
 on jobs which were in execution when the mini-server shut-down.  
@@ -176,19 +177,21 @@ try and preserve or recover running jobs. All jobs are terminated and removed
 from the queue.
 The \-q option is mutually exclusive with the \-p, \-q and \-r options.
 .IP "\-q" 16
-(Requeue all jobs) -- Specifies the impact on jobs which were in execution when the mini-server
-shut-down.   Do not terminate running processes.
+(Requeue all jobs - This was the default behavior in all versions prior
+to 2.4.0) -- Specifies the impact on jobs which were in execution when 
+the mini-servershut-down. Do not terminate running processes.
 With the \-q option, it is assumed that either the entire system
 has been restarted or the MOM has been down so long that it can no longer
 guarantee that the pid of any running process is the same as the recorded job
 process pid of a recovering job. No attempt is made to kill job processes. 
-Jobs are reset to a queued state so they can be run again.
+The MOM will mark the jobs as terminated and notify the batch server which 
+owns the job. Re-runnable jobs will be requeued.
 The \-q option is mutually exclusive with the \-p, \-P and \-r options.
 .IP "\-r" 16
 (Terminate running processes and requeue all jobs) -- Specifies the impact on jobs 
 which were in execution when the mini-server shut-down. With the \-r option,
 MOM will kill any processes belonging to running jobs, mark the jobs as 
-terminated and notify the batch server that owns the job. Jobs are reset 
+terminated and notify the batch server that owns the job. Re-runnable jobs are reset 
 to a queued state so they can be run again.
 The \-r option is mutually exclusive with the \-p, \-P and \-q options.
 .IP
