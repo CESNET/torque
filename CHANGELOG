@@ -1,4 +1,4 @@
-c - crash     b - bug fix    e - enhancement    f - new feature
+c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
 2.4.5
   b - epilogue.user scripts were being run with prologue argments. Fixed
@@ -14,6 +14,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       attempt to adopt and running processes.
   e - Modified man page for pbs_mom. Added new -P option plus edited -p, -q
       and -r options to hopefully make them more understandable.
+  n - 01/15/2010 created snapshot torque-2.4.5-snap201001151416.tar.gz.
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
