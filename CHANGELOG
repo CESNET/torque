@@ -15,6 +15,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - Modified man page for pbs_mom. Added new -P option plus edited -p, -q
       and -r options to hopefully make them more understandable.
   n - 01/15/2010 created snapshot torque-2.4.5-snap201001151416.tar.gz.
+  b - now checks secondary groups (as well as primary) for creating a file
+      when spooling.  Before it wouldn't create the spool file if a user had 
+      permission through a secondary group.
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
