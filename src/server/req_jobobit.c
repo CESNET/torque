@@ -90,6 +90,7 @@
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <errno.h>
 #include "libpbs.h"
 #include "server_limits.h"
 #include "list_link.h"
@@ -754,6 +755,7 @@ void on_job_exit(
   int  PurgeIt = FALSE;
   int MustReport = FALSE;
   pbs_queue *pque;
+  char *id = "on_job_exit";
   char namebuf[MAXPATHLEN + 1];
   char *namebuf2;
   int spool_file_exists;
@@ -790,14 +792,16 @@ void on_job_exit(
 
   if (pj == NULL)
     {
-    sprintf(log_buffer, "on_job_exit called with INVALID pjob: %p",
-            pjob);
+    sprintf(log_buffer, "%s called with INVALID pjob: %p",
+      id,
+      pjob);
     }
   else
     {
-    sprintf(log_buffer, "on_job_exit valid pjob: %p (substate=%d)",
-            pjob,
-            pjob->ji_qs.ji_substate);
+    sprintf(log_buffer, "%s valid pjob: %p (substate=%d)",
+      id,
+      pjob,
+      pjob->ji_qs.ji_substate);
     }
 
   log_event(
@@ -909,7 +913,10 @@ void on_job_exit(
             {
             strcpy(namebuf2, namebuf);
             strcat(namebuf2, ".SAV");
-            link(namebuf, namebuf2);
+            if (link(namebuf, namebuf2))
+              {
+              log_err(errno,id,strerror(errno));
+              }
             }
 
 
@@ -926,7 +933,10 @@ void on_job_exit(
             {
             strcpy(namebuf2, namebuf);
             strcat(namebuf2, ".SAV");
-            link(namebuf, namebuf2);
+            if (link(namebuf, namebuf2))
+              {
+              log_err(errno,id,strerror(errno));
+              }
             }
 
           free(namebuf2);
@@ -1212,7 +1222,10 @@ void on_job_exit(
 
       if (spool_file_exists == 0)
         {
-        link(namebuf2, namebuf);
+        if (link(namebuf2, namebuf))
+          {
+          log_err(errno,id,strerror(errno));
+          }
         unlink(namebuf2);
         }
 
@@ -1229,7 +1242,10 @@ void on_job_exit(
       if (spool_file_exists == 0)
         {
 
-        link(namebuf2, namebuf);
+        if (link(namebuf2, namebuf))
+          {
+          log_err(errno,id,strerror(errno));
+          }
         unlink(namebuf2);
         }
 
