@@ -2039,6 +2039,7 @@ int create_missing_files(job *pjob)
   int bufsize;
   int files_created = 0;
   int fd;
+  char *id = "create_missing_files";
 
 
   should_have_stderr = TRUE;
@@ -2086,13 +2087,18 @@ int create_missing_files(job *pjob)
       if ((fd = creat(namebuf, S_IRUSR | S_IWUSR)) > 0)
         {
         /* TODO check return value of fchown */
-        fchown(fd,  pjob->ji_qs.ji_un.ji_momt.ji_exuid, pjob->ji_qs.ji_un.ji_momt.ji_exgid);
+        if (fchown(fd,pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+              pjob->ji_qs.ji_un.ji_momt.ji_exgid))
+          {
+          log_err(errno,id,strerror(errno));
+          }
         close(fd);
         ++files_created;
         }
       else
         {
         /* couldn't create the file, why could this happen, TODO: what should we do? */
+        log_err(errno,id,strerror(errno));
         }
 
       }
@@ -2120,13 +2126,18 @@ int create_missing_files(job *pjob)
       if ((fd = creat(namebuf, S_IRUSR | S_IWUSR)) > 0)
         {
         /* TODO check return value of fchown */
-        fchown(fd,  pjob->ji_qs.ji_un.ji_momt.ji_exuid, pjob->ji_qs.ji_un.ji_momt.ji_exgid);
+        if (fchown(fd,pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+              pjob->ji_qs.ji_un.ji_momt.ji_exgid))
+          {
+          log_err(errno,id,strerror(errno));
+          }
         close(fd);
         ++files_created;
         }
       else
         {
         /* couldn't create the file, why could this happen, TODO: what should we do? */
+        log_err(errno,id,strerror(errno));
         }
 
       }
