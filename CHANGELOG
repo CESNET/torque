@@ -20,6 +20,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       permission through a secondary group.
   b - fixed a file descriptor error with high availability. Before it was possible
       to try to regain a file descriptor which was never held, now this is fixed.
+  b - updated to a newer gcc and fixed warnings related to disregarded return values.
+      Logging was added.
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
