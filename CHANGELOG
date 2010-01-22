@@ -10,6 +10,11 @@ c - crash     b - bug fix    e - enhancement    f - new feature n - note
        made it so the MOM would stop terminating running jobs and only
        terminate them.
    n - 01/15/2010 snapshot torque-2.3.10-snap.201001151340.tar.gz created.
+   b - Made changes to source files and configure.ac to enable TORQUE to
+       compile on Solaris5 platform with gcc-warnings enabled. Currently
+       TORQUE must be compiled with the --disable-gui option because
+       X11 support on Solaris is not working with the current TORQUE 
+       build scripts.
    
 2.3.9
    b - Made a fix to svr_get_privilege(). On some architectures a non-root user
