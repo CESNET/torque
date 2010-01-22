@@ -97,6 +97,9 @@
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <netinet/in.h>
+#ifdef sun
+#include <sys/byteorder.h>
+#endif
 #include <netdb.h>
 #ifdef _AIX
 #include <arpa/inet.h>
