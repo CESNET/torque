@@ -28,6 +28,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       would successfully compile on sun system. Tcl still does not successfully
       compile. configure needs to be done with the --disable-gui option.
       01/21/2010.
+  e - Moved the function prepare_child_tasks_for_delete() from the mom_mach.c
+      files for Linux and Solaris5. This routine is not platform dependent. 
+      No other platform had the function yet.
+      01/22/2010
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
