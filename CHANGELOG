@@ -20,6 +20,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       permission through a secondary group.
   b - fixed a file descriptor error with high availability. Before it was possible
       to try to regain a file descriptor which was never held, now this is fixed.
+  e - Added the function prepare_child_tasks_for_delete() to src/resmom/solaris5
+      /mom_mach.c. This is required for new -P functionality.
   b - updated to a newer gcc and fixed warnings related to disregarded return values.
       Logging was added.
   b - Modified code specific to Solaris5 platform. Changes were made so TORQUE
