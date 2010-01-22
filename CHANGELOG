@@ -34,6 +34,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       01/22/2010
   e - Commited changes that will allow TORQUE to compile on the Solaris5 platform
       with gcc-warnings enabled.
+  b - No longer overwrites the user's environment when spoolasfinalname is set.
+      Now the environment is handled correctly.
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
