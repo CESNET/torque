@@ -22,6 +22,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       to try to regain a file descriptor which was never held, now this is fixed.
   b - updated to a newer gcc and fixed warnings related to disregarded return values.
       Logging was added.
+  b - Modified code specific to Solaris5 platform. Changes were made so TORQUE
+      would successfully compile on sun system. Tcl still does not successfully
+      compile. configure needs to be done with the --disable-gui option.
+      01/21/2010.
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
