@@ -413,7 +413,7 @@ int run_pelog(
           (pelog != NULL) ? pelog : "NULL",
           (pjob != NULL) ? pjob->ji_qs.ji_jobid : "NULL",
           getcwd(tmpBuf, sizeof(tmpBuf)),
-          getpid());
+          (int)getpid());
 
         log_record(PBSEVENT_SYSTEM, 0, id, log_buffer);
         }

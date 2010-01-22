@@ -32,6 +32,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       files for Linux and Solaris5. This routine is not platform dependent. 
       No other platform had the function yet.
       01/22/2010
+  e - Commited changes that will allow TORQUE to compile on the Solaris5 platform
+      with gcc-warnings enabled.
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in

@@ -8207,7 +8207,7 @@ void prepare_child_tasks_for_delete()
       extern int exiting_tasks;
 
       sprintf(buf, "preparing exited session %d for task %d in job %s for deletion",
-              task->ti_qs.ti_sid,
+              (int)task->ti_qs.ti_sid,
               task->ti_qs.ti_task,
               job->ji_qs.ji_jobid);
 
