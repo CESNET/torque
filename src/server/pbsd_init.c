@@ -1826,7 +1826,7 @@ static void catch_child(
         msg_daemonname,
         log_buffer);
 #else
-      DBPRT(("catch_child caught pid %d\n", pid));
+      DBPRT(("catch_child caught pid %d\n", (int)pid));
 #endif
       }
 
@@ -1857,7 +1857,7 @@ static void catch_child(
             msg_daemonname,
             log_buffer);
 #else
-          DBPRT(("catch_child found work task found for pid %d\n", pid));
+          DBPRT(("catch_child found work task found for pid %d\n", (int)pid));
 #endif
           }
 
@@ -1874,7 +1874,7 @@ static void catch_child(
 
       log_err(-1, "catch_child", log_buffer);
 #else
-      DBPRT(("catch_child no work task found for pid %d\n", pid));
+      DBPRT(("catch_child no work task found for pid %d\n", (int)pid));
 #endif
       }
     }    /* END while (1) */

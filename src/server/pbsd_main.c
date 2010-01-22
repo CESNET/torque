@@ -196,7 +196,7 @@ extern int    get_svr_attr (int);
 /* Local Private Functions */
 
 static int    get_port A_((char *, unsigned int *, pbs_net_t *));
-static int    daemonize_server A_((int,int *));
+static int    daemonize_server A_((int, pid_t *));
 int mutex_lock A_((mutex_t *));
 int mutex_unlock A_((mutex_t *));
 int get_file_info A_((char *,unsigned long *,long *,bool_t *,bool_t *));
@@ -1535,7 +1535,7 @@ int main(
 
   if(high_availability_mode)
     {
-    if (daemonize_server(TDoBackground,&sid) == FAILURE)
+    if (daemonize_server(TDoBackground, &sid) == FAILURE)
       {
       exit(2);
       }
@@ -2560,7 +2560,7 @@ static void lock_out_ha()
 static int daemonize_server(
 
   int  DoBackground,  /* I */
-  int *sid)           /* O */
+  pid_t *sid)           /* O */
 
   {
   int    pid;          
