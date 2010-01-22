@@ -92,5 +92,12 @@ static char ident[] = "@(#) $RCSfile$ $Revision$";
 int
 pe_input(char *jobid)
   {
+  char *message;
+
+  message = ident;
+
+  if(message)
+    return (open("/dev/null", O_RDONLY, 0));
+
   return (open("/dev/null", O_RDONLY, 0));
   }
