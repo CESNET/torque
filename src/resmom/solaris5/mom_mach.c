@@ -99,10 +99,8 @@
 #include <sys/systeminfo.h>
 #include <sys/time.h>
 #include <sys/types.h>
-#ifdef sun
 #include <sys/ctype.h>
 #include <signal.h>
-#endif
 #include <sys/procfs.h>
 #include <sys/proc.h>
 #include <sys/resource.h>
