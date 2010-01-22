@@ -99,6 +99,10 @@
 #include <sys/systeminfo.h>
 #include <sys/time.h>
 #include <sys/types.h>
+#ifdef sun
+#include <sys/ctype.h>
+#include <signal.h>
+#endif
 #include <sys/procfs.h>
 #include <sys/proc.h>
 #include <sys/resource.h>
@@ -369,8 +373,8 @@ cput_sum(job *pjob)
     if (pi->pr_state == SZOMB)
       {
       cputime += tv(pi->pr_time);
-      DBPRT(("%s: ses %d pid %d (zombie) cputime %d\n",
-             id, pi->pr_sid, pi->pr_pid, cputime))
+      DBPRT(("%s: ses %d pid %d (zombie) cputime %ld\n",
+             id, (int)pi->pr_sid, (int)pi->pr_pid, cputime))
       continue;
       }
 
@@ -380,8 +384,8 @@ cput_sum(job *pjob)
               tv(ps->pr_cutime) + tv(ps->pr_cstime);
 
     cputime += addtime;
-    DBPRT(("%s: ses %d pid %d cputime %d\n",
-           id, pi->pr_sid, ps->pr_pid, cputime))
+    DBPRT(("%s: ses %d pid %d cputime %ld\n",
+           id, (int)pi->pr_sid, (int)ps->pr_pid, cputime))
     }
 
   if (nps == 0)
@@ -399,7 +403,6 @@ cput_sum(job *pjob)
 static int
 overcput_proc(job *pjob, unsigned long limit)
   {
-  char  *id = "overcput_proc";
   ulong  memsize;
   ulong  cputime;
   int  i;
@@ -434,7 +437,6 @@ overcput_proc(job *pjob, unsigned long limit)
 static unsigned long
 mem_sum(job *pjob)
   {
-  char  *id = "mem_sum";
   ulong  memsize;
   int  i;
   prpsinfo_t *pi;
@@ -460,7 +462,6 @@ mem_sum(job *pjob)
 static unsigned long
 resi_sum(job *pjob)
   {
-  char  *id = "resi_sum";
   ulong  resisize;
   int  i;
   prpsinfo_t *pi;
@@ -493,6 +494,8 @@ error(char *string, int value)
   assert(string != NULL);
   assert(*string != '\0');
 
+  message = ident; /* this is here to only make the compiler not give a warning
+                      for an unused variable ident */
   message = pbse_to_txt(value);
 
   assert(message != NULL);
@@ -940,7 +943,7 @@ mom_over_limit(job *pjob)
       if (num > value)
         {
         sprintf(log_buffer,
-                "walltime %d exceeded limit %d",
+                "walltime %ld exceeded limit %ld",
                 num, value);
         return (TRUE);
         }
@@ -962,7 +965,6 @@ mom_over_limit(job *pjob)
 int
 mom_set_use(job *pjob)
   {
-  char   *id = "mom_set_use";
   resource  *pres;
   attribute  *at;
   resource_def  *rd;
@@ -1048,7 +1050,6 @@ mom_set_use(job *pjob)
 int
 kill_task(task *ptask, int sig, int pg)
   {
-  char  *id = "kill_task";
   int  ct = 0;
   prpsinfo_t *pi;
   int  i, sesid;
@@ -1145,7 +1146,6 @@ int
 getprocs(void)
   {
   static unsigned int lastproc = 0;
-  static char  id[] = "getprocs";
 
   if (lastproc == reqnum)  /* don't need new proc table */
     return 1;
@@ -1162,7 +1162,7 @@ double
 dsecs(t)
 timestruc_t     *t;
   {
-  DBPRT(("\tsecs: %d\tnsecs: %d\n", t->tv_sec, t->tv_nsec))
+  DBPRT(("\tsecs: %d\tnsecs: %ld\n", (int)t->tv_sec, t->tv_nsec))
   return ((double)t->tv_sec + ((double)t->tv_nsec * 1.0e-9));
   }
 
@@ -1201,7 +1201,7 @@ pid_t jobid;
     cputime += addtime;
 
     DBPRT(("%s: total %.2f pid %d %.2f\n", id, cputime,
-           ps->pr_pid, addtime))
+           (int)ps->pr_pid, addtime))
 
     }
 
@@ -1220,10 +1220,9 @@ char *
 cput_proc(pid)
 pid_t pid;
   {
-  char   *id = "cput_pid";
   double   cputime;
   int   i;
-  prstatus_t  *ps;
+  prstatus_t  *ps = NULL;
 
   if (getprocs() == 0)
     {
@@ -1324,13 +1323,13 @@ pid_t jobid;
 
     memsize += pi->pr_size;
 
-    DBPRT(("%s: total %d pid %d %d\n", id, memsize*page_size,
-           pi->pr_pid, pi->pr_size*page_size))
+    DBPRT(("%s: total %ld pid %d %ld\n", id, memsize*page_size,
+           (int)pi->pr_pid, pi->pr_size*page_size))
     }
 
   if (found)
     {
-    sprintf(ret_string, "%ukb", (memsize*page_size) >> 10); /* KB */
+    sprintf(ret_string, "%ldkb", (memsize*page_size) >> 10); /* KB */
     return ret_string;
     }
 
@@ -1343,8 +1342,7 @@ char *
 mem_proc(pid)
 pid_t pid;
   {
-  char   *id = "mem_proc";
-  prpsinfo_t  *pi;
+  prpsinfo_t  *pi = NULL;
   int   i;
 
   if (getprocs() == 0)
@@ -1367,7 +1365,7 @@ pid_t pid;
     return NULL;
     }
 
-  sprintf(ret_string, "%ukb", (pi->pr_size * page_size) >> 10); /* KB */
+  sprintf(ret_string, "%ldkb", (pi->pr_size * page_size) >> 10); /* KB */
 
   return ret_string;
   }
@@ -1415,7 +1413,6 @@ static char *
 resi_job(jobid)
 pid_t jobid;
   {
-  char   *id = "resi_job";
   int   resisize;
   int   i;
   int   found = 0;
@@ -1443,7 +1440,7 @@ pid_t jobid;
 
   if (found)
     {
-    sprintf(ret_string, "%ukb", (resisize*page_size) >> 10); /* KB */
+    sprintf(ret_string, "%ldkb", (resisize*page_size) >> 10); /* KB */
     return ret_string;
     }
 
@@ -1456,8 +1453,7 @@ static char *
 resi_proc(pid)
 pid_t pid;
   {
-  char   *id = "resi_proc";
-  prpsinfo_t  *pi;
+  prpsinfo_t  *pi = NULL;
   int   i;
 
   if (getprocs() == 0)
@@ -1480,7 +1476,7 @@ pid_t pid;
     return NULL;
     }
 
-  sprintf(ret_string, "%ukb", (pi->pr_rssize * page_size) >> 10); /* KB */
+  sprintf(ret_string, "%ldkb", (pi->pr_rssize * page_size) >> 10); /* KB */
 
   return ret_string;
   }
@@ -1488,7 +1484,7 @@ pid_t pid;
 static char *
 resi(struct rm_attribute *attrib)
   {
-  char   *id = "resi";
+  char  *id = "resi";
   int   value;
 
   if (attrib == NULL)
@@ -1527,7 +1523,7 @@ resi(struct rm_attribute *attrib)
 char *
 sessions(struct rm_attribute *attrib)
   {
-  char   *id = "sessions";
+  char *id = "sessions";
   int   i, j;
   prpsinfo_t  *pi;
   char   *fmt;
@@ -1570,7 +1566,7 @@ sessions(struct rm_attribute *attrib)
       continue;
 
     DBPRT(("%s[%d]: pid %d sid %d\n",
-           id, njids, pi->pr_pid, jobid))
+           id, (int)njids, (int)pi->pr_pid, (int)jobid))
 
     for (j = 0; j < njids; j++)
       {
@@ -1644,7 +1640,7 @@ pids(struct rm_attribute *attrib)
   {
   char  *id = "pids";
   pid_t  jobid;
-  int  i, j;
+  int  i;
   prpsinfo_t *pi;
   char  *fmt;
   int  num_pids;
@@ -1695,12 +1691,12 @@ pids(struct rm_attribute *attrib)
     pi = &proc_info[i];
 
     DBPRT(("%s[%d]: pid: %d sid %d\n",
-           id, num_pids, pi->pr_pid, pi->pr_sid))
+           id, num_pids, (int)pi->pr_pid, (int)pi->pr_sid))
 
     if (jobid != pi->pr_sid)
       continue;
 
-    sprintf(fmt, "%d ", pi->pr_pid);
+    sprintf(fmt, "%d ", (int)pi->pr_pid);
 
     fmt += strlen(fmt);
 
@@ -1755,7 +1751,7 @@ nusers(struct rm_attribute *attrib)
       continue;
 
     DBPRT(("%s[%d]: pid %d uid %d\n",
-           id, nuids, pi->pr_pid, uid))
+           id, nuids, (int)pi->pr_pid, uid))
 
     for (j = 0; j < nuids; j++)
       {
@@ -1803,7 +1799,7 @@ ncpus(struct rm_attribute *attrib)
     return NULL;
     }
 
-  sprintf(ret_string, "%d", sysconf(_SC_NPROCESSORS_ONLN));
+  sprintf(ret_string, "%ld", sysconf(_SC_NPROCESSORS_ONLN));
 
   system_ncpus = sysconf(_SC_NPROCESSORS_ONLN);
   return ret_string;
@@ -1832,9 +1828,7 @@ char *
 size_fs(char *param)
   {
   char  *id = "size_fs";
-  FILE  *mf;
 
-  struct mntent *mp;
 
   struct statvfs fsbuf;
 
@@ -1883,7 +1877,7 @@ size_file(char *param)
     return NULL;
     }
 
-  sprintf(ret_string, "%ukb", sbuf.st_size >> 10); /* KB */
+  sprintf(ret_string, "%ldkb", sbuf.st_size >> 10); /* KB */
 
   return ret_string;
   }
@@ -2078,20 +2072,25 @@ walltime(struct rm_attribute *attrib)
   return NULL;
   }
 
+
 int
 get_la(double *rv)
   {
   char *id = "get_la";
   kvm_t *kd;
   long load;
+  char *avenrun = "avenrun";
 
-  static struct nlist nl[] =
-    {
-      { "avenrun"
-      },
+  static struct nlist nl[2];
 
-    { "" }
-    };
+  nl[0].n_name = avenrun;
+  nl[0].n_value = 0;
+  nl[0].n_scnum = 0;
+  nl[0].n_type = 0;
+  nl[0].n_sclass = NULL;
+  nl[0].n_numaux = NULL;
+
+  nl[1].n_name = NULL;
 
   kd = kvm_open(NULL, NULL, NULL, O_RDONLY, NULL);
 

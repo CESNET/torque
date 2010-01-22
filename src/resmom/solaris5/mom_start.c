@@ -202,7 +202,7 @@ scan_for_terminated(void)
   int  exiteval;
   pid_t  pid;
   job  *pjob;
-  task  *ptask;
+  task  *ptask = NULL;
   int  statloc;
 
   /* update the latest intelligence about the running jobs;         */
@@ -266,7 +266,7 @@ scan_for_terminated(void)
     if (pjob == NULL)
       {
       DBPRT(("%s: pid %d not tracked, exit %d\n",
-             id, pid, exiteval))
+             id, (int)pid, (int)exiteval))
       continue;
       }
 
@@ -285,8 +285,8 @@ scan_for_terminated(void)
       }
 
     DBPRT(("%s: task %d pid %d exit value %d\n", id,
+           (int)ptask->ti_qs.ti_task, (int)pid, exiteval))
 
-           ptask->ti_qs.ti_task, pid, exiteval))
     kill_task(ptask, SIGKILL, 0);
     ptask->ti_qs.ti_exitstat = exiteval;
     ptask->ti_qs.ti_status = TI_STATE_EXITED;
@@ -321,6 +321,8 @@ open_master(
   static char pty_name[PTY_SIZE+1]; /* "/dev/[pt]tyXY" */
 
   (void)strncpy(pty_name, "/dev/ptyXY", PTY_SIZE);
+
+  pc1 = ident; /* this is to remove unused ident warning in compiler */
 
   for (pc1 = ptcchar1; *pc1 != '\0'; ++pc1)
     {
