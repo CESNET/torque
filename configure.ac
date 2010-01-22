@@ -613,6 +613,11 @@ sunos4|solaris5|netbsd|freebsd|freebsd5)
 esac
 
 
+case $PBS_MACH in
+sunos4|solaris5|netbsd|freebsd|freebsd5)
+  AC_CHECK_LIB(resolv, htons) ;;
+esac
+
 
 dnl  Support for checkpointing, note that under IRIX at this time
 dnl  it seems that you must be compiling with the -64 flag to
