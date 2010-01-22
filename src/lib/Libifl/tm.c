@@ -98,6 +98,9 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#ifdef sun
+#include <sys/byteorder.h>
+#endif
 #ifdef _AIX
 #include <arpa/inet.h>
 #endif /* _AIX */

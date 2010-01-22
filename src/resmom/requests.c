@@ -2893,7 +2893,7 @@ static int sys_copy(
       if (LOGLEVEL >= 8)
         {
         sprintf(log_buffer, "execling copy command pid (%d): %s %s %s %s",
-              getpid(),
+              (int)getpid(),
               ag0,
               ag1,
               ag2,
@@ -3549,7 +3549,7 @@ nextword:
     if (LOGLEVEL >= 8)
       {
       sprintf(log_buffer,"%s: %s doing sys_copy (%d) ARG2 (%s) remote (%d) ARG3 (%s)\n",
-        id, preq->rq_ind.rq_cpyfile.rq_jobid, getpid(), arg2, rmtflag, arg3);
+        id, preq->rq_ind.rq_cpyfile.rq_jobid, (int)getpid(), arg2, rmtflag, arg3);
       log_err(-1, id, log_buffer);
       }
 

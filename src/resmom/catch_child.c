@@ -1380,7 +1380,7 @@ static void preobit_reply(
     if (LOGLEVEL >= 7)
       {
       snprintf(log_buffer, 1024, "epilog subtask created with pid %d - substate set to JOB_SUBSTATE_OBIT - registered post_epilogue",
-               cpid);
+               (int)cpid);
 
       log_record(
         PBSEVENT_DEBUG,

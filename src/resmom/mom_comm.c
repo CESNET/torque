@@ -5868,7 +5868,7 @@ static int adoptSession(pid_t sid, char *id, int command, char *cookie)
 
   /* next_sample_time = 45; */
 
-  (void)sprintf(log_buffer, "Task adopted. id=%1.30s, sid = %d", id, sid);
+  (void)sprintf(log_buffer, "Task adopted. id=%1.30s, sid = %d", id, (int)sid);
 
   DBPRT(("%s\n", log_buffer));
 

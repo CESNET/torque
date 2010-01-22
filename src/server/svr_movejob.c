@@ -663,7 +663,7 @@ int send_job(
     if (LOGLEVEL >= 7)
       {
       sprintf(log_buffer, "send_job child job pid is %d",
-              pid);
+              (int)pid);
 
       log_event(
         PBSEVENT_JOB,
