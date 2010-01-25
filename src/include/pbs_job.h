@@ -839,7 +839,7 @@ extern int   init_chkmom(job *);
 extern void  issue_track(job *);
 extern int   job_abt(job **, char *);
 extern job  *job_alloc();
-extern job  *job_clone(job *, int);
+extern job  *job_clone(job *,job_array *, int);
 extern void  job_free(job *);
 extern void  job_purge(job *);
 extern job  *job_recov(char *);
