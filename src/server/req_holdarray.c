@@ -29,6 +29,7 @@ void req_holdarray(struct batch_request *preq)
   long *hold_val;
   int newstate;
   int newsub;
+  int i;
   long old_hold;
 
   job *pjob;
@@ -86,10 +87,12 @@ void req_holdarray(struct batch_request *preq)
     return;
     }
 
-  pjob = (job*)GET_NEXT(pa->array_alljobs);
-
-  while (pjob != NULL)
+  for (i = 0;i < pa->ai_qs.array_size;i++)
     {
+    if (pa->jobs[i] == NULL)
+      continue;
+
+    pjob = (job *)pa->jobs[i];
 
     hold_val = &pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long;
     old_hold = *hold_val;
@@ -119,8 +122,6 @@ void req_holdarray(struct batch_request *preq)
       svr_setjobstate(pjob, newstate, newsub);
       }
 
-
-    pjob = (job*)GET_NEXT(pjob->ji_arrayjobs);
     }
 
   reply_ack(preq);

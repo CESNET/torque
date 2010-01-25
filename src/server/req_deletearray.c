@@ -43,7 +43,6 @@ void req_deletearray(struct batch_request *preq)
   {
   job_array *pa;
   job *pjob;
-  job *next;
 
   struct work_task *pwtold;
 
@@ -52,6 +51,7 @@ void req_deletearray(struct batch_request *preq)
   struct work_task *pwtnew;
 
   int num_skipped;
+  int i;
   char  owner[PBS_MAXUSER + 1];
 
   pa = get_array(preq->rq_ind.rq_delete.rq_objname);
@@ -87,22 +87,17 @@ void req_deletearray(struct batch_request *preq)
     return;
     }
 
-
-
   /* iterate over list of jobs and delete each one */
-  pjob = (job*)GET_NEXT(pa->array_alljobs);
-
-  while (pjob != NULL)
+  for (i = 0; i < pa->ai_qs.array_size; i++)
     {
+    if (pa->jobs[i] == NULL)
+      continue;
 
-    /* grab the pointer to the next job now so when we call job_abt
-     * on the current job we will still have the pointer to the next */
-    next = (job*)GET_NEXT(pjob->ji_arrayjobs);
+    pjob = (job *)pa->jobs[i];
 
     if (pjob->ji_qs.ji_state >= JOB_STATE_EXITING)
       {
       /* invalid state for request,  skip */
-      pjob = next;
       continue;
       }
 
@@ -165,8 +160,6 @@ void req_deletearray(struct batch_request *preq)
         /* job has restart file at mom, change restart comment if failed */
         change_restart_comment_if_needed(pjob);
         }
-
-      pjob = next;
 
       continue;
       }  /* END if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING) */
@@ -233,7 +226,6 @@ void req_deletearray(struct batch_request *preq)
         }
       }
 
-    pjob = next;
     }
 
   if ((pa = get_array(preq->rq_ind.rq_delete.rq_objname)) != NULL)
@@ -278,6 +270,7 @@ void array_delete_wt(struct work_task *ptask)
 
   struct work_task *pwtnew;
 
+  int i;
 
   static int last_check = 0;
   static char *last_id = NULL;
@@ -312,19 +305,18 @@ void array_delete_wt(struct work_task *ptask)
     int num_jobs;
     int num_prerun;
     job *pjob;
-    job *next;
 
     num_jobs = 0;
     num_prerun = 0;
 
-    pjob = (job*)GET_NEXT(pa->array_alljobs);
-
-    while (pjob != NULL)
+    for (i = 0; i < pa->ai_qs.array_size; i++)
       {
+      if (pa->jobs[i] == NULL)
+        continue;
+
+      pjob = (job *)pa->jobs[i];
+
       num_jobs++;
-      /* grab the pointer to the next job now so when we call job_abt
-              * on the current job we will still have the pointer to the next */
-      next = (job*)GET_NEXT(pjob->ji_arrayjobs);
 
       if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
         {
@@ -366,7 +358,6 @@ void array_delete_wt(struct work_task *ptask)
 
         }
 
-      pjob = next;
       }
 
     if (num_jobs == num_prerun)

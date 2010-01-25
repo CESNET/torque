@@ -36,9 +36,10 @@ typedef struct
 struct job_array
   {
   list_link all_arrays;      /* node in server's linked list of all arrays */
-  tlist_head array_alljobs;  /* head of linked list of all jobs in this array */
   tlist_head request_tokens; /* head of linked list of request tokens, used 
                                 during cloning */
+
+  void **jobs; /* a pointer to the job pointers in this array */
 
   int jobs_recovered; /* on server restart we track the number of array tasks
                          that have been recovered */
@@ -48,6 +49,8 @@ struct job_array
     {
     int  struct_version;
     int  array_size;
+    int  num_jobs;
+    int  jobs_done; /* number of jobs that have been deleted, etc. */
     int  num_cloned;
     /* max user name, server name, 1 for the @, and one for the NULL */
     char owner[PBS_MAXUSER + PBS_MAXSERVERNAME + 2];

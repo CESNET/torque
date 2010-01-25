@@ -1199,7 +1199,7 @@ int pbsd_init(
 
   while (pa != NULL)
     {
-    if (pa->ai_qs.num_cloned != pa->ai_qs.array_size)
+    if (pa->ai_qs.num_cloned != pa->ai_qs.num_jobs)
       {
 
       job *pjob = find_job(pa->ai_qs.parent_id);
@@ -1223,7 +1223,7 @@ int pbsd_init(
         }
 
       }
-    else if (GET_NEXT(pa->array_alljobs) == pa->array_alljobs.ll_struct)
+    else if (pa->ai_qs.jobs_done == pa->ai_qs.num_jobs)
       {
       job_array *temp = (job_array*)GET_NEXT(pa->all_arrays);
       array_delete(pa);

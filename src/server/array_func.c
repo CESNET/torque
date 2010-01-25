@@ -254,9 +254,9 @@ job_array *array_recov(char *path)
   /* initialize the linked list nodes */
   CLEAR_LINK(pa->all_arrays);
 
-  CLEAR_HEAD(pa->array_alljobs);
-
   CLEAR_HEAD(pa->request_tokens);
+
+  pa->jobs = NULL;
 
   fd = open(path, O_RDONLY, 0);
 
@@ -410,6 +410,8 @@ int array_delete(job_array *pa)
     rn = (array_request_node*)GET_NEXT(pa->request_tokens);
     }
 
+  /* free the memory for the job pointers */
+  free(pa->jobs);
 
   /* free the memory allocated for the struct */
   free(pa);
@@ -423,7 +425,9 @@ int setup_array_struct(job *pjob)
   job_array *pa;
 
   struct work_task *wt;
+  array_request_node *rn;
   int bad_token_count;
+  int array_size;
 
 
   /* setup a link to this job array in the servers all_arrays list */
@@ -440,7 +444,6 @@ int setup_array_struct(job *pjob)
 
   pa->ai_qs.num_cloned = 0;
   CLEAR_LINK(pa->all_arrays);
-  CLEAR_HEAD(pa->array_alljobs);
   CLEAR_HEAD(pa->request_tokens);
   append_link(&svr_jobarrays, &pa->all_arrays, (void*)pa);
 
@@ -464,6 +467,30 @@ int setup_array_struct(job *pjob)
   bad_token_count =
 
     parse_array_request(pjob->ji_wattr[(int)JOB_ATR_job_array_request].at_val.at_str, pa);
+
+  /* get the number of elements that should be allocated in the array */
+  rn = (array_request_node *)GET_NEXT(pa->request_tokens);
+  array_size = 0;
+  pa->ai_qs.num_jobs = 0;
+  while (rn != NULL) 
+    {
+    if (rn->end > array_size)
+      array_size = rn->end;
+    /* calculate the actual number of jobs (different from array size) */
+    pa->ai_qs.num_jobs += rn->end - rn->start + 1;
+
+    rn = (array_request_node *)GET_NEXT(rn->request_tokens_link);
+    }
+
+  /* size of array is the biggest index + 1 */
+  array_size++; 
+
+  /* initialize the array */
+  pa->jobs = (void **)malloc(array_size * sizeof(job *));
+  memset(pa->jobs,0,array_size * sizeof(job *));
+
+  /* remember array_size */
+  pa->ai_qs.array_size = array_size;
 
   array_save(pa);
 
@@ -632,8 +659,6 @@ static int parse_array_request(char *request, job_array *pa)
   array_request_node *rn;
   array_request_node *rn2;
 
-  pa->ai_qs.array_size = 0;
-
   temp_str = strdup(request);
   num_tokens = array_request_token_count(request);
   num_bad_tokens = 0;
@@ -710,7 +735,6 @@ static int parse_array_request(char *request, job_array *pa)
         num_bad_tokens++;
         }
 
-      pa->ai_qs.array_size += end - start + 1;
       }
     }
 

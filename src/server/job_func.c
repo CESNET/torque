@@ -592,7 +592,6 @@ job_alloc(void)
 
   CLEAR_HEAD(pj->ji_svrtask);
   CLEAR_HEAD(pj->ji_rejectdest);
-  CLEAR_LINK(pj->ji_arrayjobs);
   pj->ji_arraystruct = NULL;
   pj->ji_isparent = FALSE;
 
@@ -677,8 +676,9 @@ void job_free(
 
 job *job_clone(
 
-  job *template_job, /* I */  /* job to clone */
-  int  taskid)  /* I */
+  job       *template_job, /* I */  /* job to clone */
+  job_array *pa,           /* I */  /* array which the job is a part of */
+  int        taskid)       /* I */
 
   {
   static char   id[] = "job_clone";
@@ -697,8 +697,6 @@ job *job_clone(
 
   int   i;
   int           slen;
-
-  job_array *pa;
 
   if (taskid > PBS_MAXJOBARRAY)
     {
@@ -892,12 +890,20 @@ job *job_clone(
 
   job_attr_def[(int)JOB_ATR_variables].at_free(&tempattr);
 
-  /* we need to link the cloned job into the array task list */
-  pa = get_array(template_job->ji_qs.ji_jobid);
+  /* we need to put the cloned job into the array */
+  if (pa == NULL)
+    {
+    pa = get_array(template_job->ji_qs.ji_jobid);
+    }
 
-  CLEAR_LINK(pnewjob->ji_arrayjobs);
+  /* sometimes, on restart, pa->jobs might not be alloc'd */
+  if (pa->jobs == NULL)
+    {
+    pa->jobs = (void **)malloc(sizeof(job *) * pa->ai_qs.array_size);
+    memset(pa->jobs,0,sizeof(job *) * pa->ai_qs.array_size);
+    }
 
-  append_link(&pa->array_alljobs, &pnewjob->ji_arrayjobs, (void*)pnewjob);
+  pa->jobs[i] = (void *)pnewjob;
 
   pnewjob->ji_arraystruct = pa;
 
@@ -989,7 +995,7 @@ void job_clone_wt(
 
     for (i = start; i <= end; i++)
       {
-      pjobclone = job_clone(pjob, i);
+      pjobclone = job_clone(pjob, pa, i);
 
       if (pjobclone == NULL)
         {
@@ -1017,6 +1023,8 @@ void job_clone_wt(
 
       rn->start++;
 
+      pa->jobs[i] = (void *)pjobclone;
+
       array_save(pa);
       num_cloned++;
       }  /* END for (i) */
@@ -1041,15 +1049,20 @@ void job_clone_wt(
     }
   else
     {
+    int i;
     /* this is the last batch of jobs, we can purge the "parent" job */
 
     job_purge(pjob);
 
     /* scan over all the jobs in the array and unset the hold */
-    pjob = GET_NEXT(pa->array_alljobs);
 
-    while (pjob != NULL)
+    for (i = 0;i < pa->ai_qs.array_size;i++)
       {
+      if (pa->jobs[i] == NULL)
+        continue;
+
+      pjob = (job *)pa->jobs[i];
+
       pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long &= ~HOLD_a;
 
       if (pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long == 0)
@@ -1066,8 +1079,6 @@ void job_clone_wt(
       svr_setjobstate(pjob, newstate, newsub);
 
       job_save(pjob, SAVEJOB_FULL);
-
-      pjob = (job*)GET_NEXT(pjob->ji_arrayjobs);
       }
     }
 
@@ -1483,12 +1494,11 @@ void job_purge(
   if (pjob->ji_arraystruct != NULL &&
       pjob->ji_isparent == FALSE)
     {
+    job_array *pa = pjob->ji_arraystruct;
 
-    delete_link(&pjob->ji_arrayjobs);
-    /* if the only thing in the array alljobs list is the head, then we can
-       clean that up too */
-
-    if (GET_NEXT(pjob->ji_arraystruct->array_alljobs) == pjob->ji_arraystruct->array_alljobs.ll_struct)
+    /* if there are no more jobs in the array, 
+     * then we can clean that up too */
+    if (++pa->ai_qs.jobs_done == pa->ai_qs.num_jobs)
       {
       array_delete(pjob->ji_arraystruct);
       }

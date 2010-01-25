@@ -474,7 +474,6 @@ struct job
   int  ji_lastdest; /* last destin tried by route */
   int  ji_retryok; /* ok to retry, some reject was temp */
   tlist_head ji_rejectdest; /* list of rejected destinations */
-  list_link ji_arrayjobs; /* links to all jobs in same array */
   job_array      *ji_arraystruct; /* pointer to job_array for this array */
   int  ji_isparent;    /* set to TRUE if this is a "parent job"*/
 #endif/* PBS_MOM */   /* END SERVER ONLY */

@@ -1,5 +1,10 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
+Array Changes
+  e - TORQUE job arrays now use arrays to hold the job pointers and not linked 
+      lists.  This should improve performance as well as make it easier to 
+      implement future features we will add.
+
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,
       uiip.bas-net.by)
