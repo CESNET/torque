@@ -38,6 +38,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       Now the environment is handled correctly.
   b - No longer will segfault if pbs_mom restarts in a bad state (user environment 
       not initialized)
+  e - added qmgr server attribute job_start_timeout, specifies timeout to be
+      used for sending job to mom. If not set, tcp_timeout is used.
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
