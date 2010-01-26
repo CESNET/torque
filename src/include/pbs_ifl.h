@@ -286,6 +286,7 @@
 #define ATTR_LockfileUpdateTime "lock_file_update_time"
 #define ATTR_LockfileCheckTime "lock_file_check_time"
 #define ATTR_npdefault  "np_default"
+#define ATTR_jobstarttimeout "job_start_timeout"
 
 /* additional node "attributes" names */
 
