@@ -4,6 +4,8 @@ Array Changes
   e - TORQUE job arrays now use arrays to hold the job pointers and not linked 
       lists.  This should improve performance as well as make it easier to 
       implement future features we will add.
+  b - remove the pointer to a job from the job array after it has died.
+  f - Allow users to delete a range of jobs from the job array
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,

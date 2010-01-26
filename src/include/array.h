@@ -71,5 +71,8 @@ void array_get_parent_id(char *job_id, char *parent_id);
 job_array *get_array(char *id);
 job_array *array_recov(char *path);
 
+int delete_array_range(job_array *,char *);
+int delete_whole_array(job_array *);
+int attempt_delete(void *);
 
 #endif

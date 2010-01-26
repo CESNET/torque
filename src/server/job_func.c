@@ -1496,6 +1496,9 @@ void job_purge(
     {
     job_array *pa = pjob->ji_arraystruct;
 
+    /* erase the pointer to this job in the job array */
+    pa->jobs[(int)pjob->ji_wattr[JOB_ATR_job_array_id].at_val.at_long] = NULL;
+
     /* if there are no more jobs in the array, 
      * then we can clean that up too */
     if (++pa->ai_qs.jobs_done == pa->ai_qs.num_jobs)

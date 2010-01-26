@@ -21,7 +21,7 @@
 
 #include "array.h"
 
-extern int svr_authorize_req(struct batch_request *preq, char *owner, char *submit_host);
+extern int  svr_authorize_req(struct batch_request *preq, char *owner, char *submit_host);
 extern void job_purge(job *pjob);
 
 extern struct work_task *apply_job_delete_nanny(struct job *, int);
@@ -38,26 +38,163 @@ static void post_delete(struct work_task *pwt);
 void array_delete_wt(struct work_task *ptask);
 
 
+/**
+ * attempt_delete()
+ * deletes a job differently depending on the job's state
+ *
+ * @return TRUE if the job was deleted, FALSE if skipped
+ * @param pjob - a pointer to the job being handled
+ */
+int attempt_delete(
+
+  void *j) /* I */
+
+  {
+  int skipped = FALSE;
+  struct work_task *pwtold;
+  struct work_task *pwtnew;
+  job *pjob;
+
+  /* job considered deleted if null */
+  if (j == NULL)
+    return(TRUE);
+
+  pjob = (job *)j;
+
+  if (pjob->ji_qs.ji_state == JOB_STATE_TRANSIT)
+    {
+    /*
+     * Find pid of router from existing work task entry,
+     * then establish another work task on same child.
+     * Next, signal the router and wait for its completion;
+     */
+    
+    pwtold = (struct work_task *)GET_NEXT(pjob->ji_svrtask);
+    
+    while (pwtold != NULL)
+      {
+      if ((pwtold->wt_type == WORK_Deferred_Child) ||
+          (pwtold->wt_type == WORK_Deferred_Cmp))
+        {
+        kill((pid_t)pwtold->wt_event, SIGTERM);
+        
+        pjob->ji_qs.ji_substate = JOB_SUBSTATE_ABORT;
+        }
+      
+      pwtold = (struct work_task *)GET_NEXT(pwtold->wt_linkobj);
+      }
+
+    skipped = TRUE;
+    
+    return(!skipped);
+    }  /* END if (pjob->ji_qs.ji_state == JOB_SUBSTATE_TRANSIT) */
+
+  else if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
+    {
+    /* we'll wait for the mom to get this job, then delete it */
+    skipped = TRUE;
+    }  /* END if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN) */
+
+  else if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING)
+    {
+    /* set up nanny */
+    
+    if (!has_job_delete_nanny(pjob))
+      {
+      apply_job_delete_nanny(pjob, time_now + 60);
+      
+      /* need to issue a signal to the mom, but we don't want to sent an ack to the
+       * client when the mom replies */
+      issue_signal(pjob, "SIGTERM", post_delete, NULL);
+      }
+
+    if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_CHECKPOINT_FILE) != 0)
+      {
+      /* job has restart file at mom, change restart comment if failed */
+      change_restart_comment_if_needed(pjob);
+      }
+    
+    return(!skipped);
+    }  /* END if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING) */
+
+  if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_CHECKPOINT_FILE) != 0)
+    {
+    /* job has restart file at mom, change restart comment if failed */    
+    change_restart_comment_if_needed(pjob);
+    
+    /* job has restart file at mom, do end job processing */
+    svr_setjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_EXITING);
+
+    pjob->ji_momhandle = -1;
+    
+    /* force new connection */
+    pwtnew = set_task(WORK_Immed, 0, on_job_exit, (void *)pjob);
+    
+    if (pwtnew)
+      {
+      append_link(&pjob->ji_svrtask, &pwtnew->wt_linkobj, pwtnew);
+      }
+   
+    }
+  else if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_StagedIn) != 0)
+    {
+    /* job has staged-in file, should remove them */
+    
+    remove_stagein(pjob);
+    
+    job_abt(&pjob, NULL);
+    }
+  else
+    {
+    /*
+     * the job is not transitting (though it may have been) and
+     * is not running, so put in into a complete state.
+     */
+
+    struct work_task *ptask;
+    struct pbs_queue *pque;
+    int  KeepSeconds = 0;
+
+    svr_setjobstate(pjob, JOB_STATE_COMPLETE, JOB_SUBSTATE_COMPLETE);
+    
+    if ((pque = pjob->ji_qhdr) && (pque != NULL))
+      {
+      pque->qu_numcompleted++;
+      }
+    
+    KeepSeconds = attr_ifelse_long(
+        &pque->qu_attr[(int)QE_ATR_KeepCompleted],
+        &server.sv_attr[(int)SRV_ATR_KeepCompleted],
+        0);
+    ptask = set_task(WORK_Timed, time_now + KeepSeconds, on_job_exit, pjob);
+    
+    if (ptask != NULL)
+      {
+      append_link(&pjob->ji_svrtask, &ptask->wt_linkobj, ptask);
+      }
+    }
+
+  return(!skipped);
+  } /* END attempt_delete() */
+
+
+
+
+
+
 
 void req_deletearray(struct batch_request *preq)
   {
   job_array *pa;
-  job *pjob;
 
-  struct work_task *pwtold;
+  char *range;
 
   struct work_task *ptask;
 
-  struct work_task *pwtnew;
-
   int num_skipped;
-  int i;
   char  owner[PBS_MAXUSER + 1];
 
   pa = get_array(preq->rq_ind.rq_delete.rq_objname);
-  num_skipped = 0;
-
-
 
   if (pa == NULL)
     {
@@ -87,147 +224,28 @@ void req_deletearray(struct batch_request *preq)
     return;
     }
 
-  /* iterate over list of jobs and delete each one */
-  for (i = 0; i < pa->ai_qs.array_size; i++)
+  /* get the range of jobs to iterate over */
+  range = preq->rq_extend;
+  if ((range != NULL) &&
+      (strstr(range,ARRAY_RANGE) != NULL))
     {
-    if (pa->jobs[i] == NULL)
-      continue;
+    /* parse the array range */
+    num_skipped = delete_array_range(pa,range);
 
-    pjob = (job *)pa->jobs[i];
-
-    if (pjob->ji_qs.ji_state >= JOB_STATE_EXITING)
+    if (num_skipped < 0)
       {
-      /* invalid state for request,  skip */
-      continue;
+      /* ERROR */
+
+      req_reject(PBSE_IVALREQ,0,preq,NULL,"Error in specified array range");
+      return;
       }
-
-
-    if (pjob->ji_qs.ji_state == JOB_STATE_TRANSIT)
-      {
-      /*
-       * Find pid of router from existing work task entry,
-       * then establish another work task on same child.
-       * Next, signal the router and wait for its completion;
-       */
-
-      pwtold = (struct work_task *)GET_NEXT(pjob->ji_svrtask);
-
-      while (pwtold != NULL)
-        {
-        if ((pwtold->wt_type == WORK_Deferred_Child) ||
-            (pwtold->wt_type == WORK_Deferred_Cmp))
-          {
-
-
-
-          kill((pid_t)pwtold->wt_event, SIGTERM);
-
-          pjob->ji_qs.ji_substate = JOB_SUBSTATE_ABORT;
-
-
-          }
-
-        pwtold = (struct work_task *)GET_NEXT(pwtold->wt_linkobj);
-        }
-
-      num_skipped++;
-
-      continue;
-      }  /* END if (pjob->ji_qs.ji_state == JOB_SUBSTATE_TRANSIT) */
-
-    else if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
-      {
-      /* we'll wait for the mom to get this job, then delete it */
-      num_skipped++;
-      }  /* END if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN) */
-
-    else if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING)
-      {
-      /* set up nanny */
-
-      if (!has_job_delete_nanny(pjob))
-        {
-
-        apply_job_delete_nanny(pjob, time_now + 60);
-
-        /* need to issue a signal to the mom, but we don't want to sent an ack to the
-         * client when the mom replies */
-        issue_signal(pjob, "SIGTERM", post_delete, NULL);
-        }
-
-      if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_CHECKPOINT_FILE) != 0)
-        {
-        /* job has restart file at mom, change restart comment if failed */
-        change_restart_comment_if_needed(pjob);
-        }
-
-      continue;
-      }  /* END if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING) */
-
-
-    if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_CHECKPOINT_FILE) != 0)
-      {
-      /* job has restart file at mom, change restart comment if failed */
-
-      change_restart_comment_if_needed(pjob);
-
-      /* job has restart file at mom, do end job processing */
-      
-      svr_setjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_EXITING);
-
-      pjob->ji_momhandle = -1;
-
-      /* force new connection */
-
-      pwtnew = set_task(WORK_Immed, 0, on_job_exit, (void *)pjob);
-
-      if (pwtnew)
-        {
-        append_link(&pjob->ji_svrtask, &pwtnew->wt_linkobj, pwtnew);
-        }
-
-
-      }
-    else if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_StagedIn) != 0)
-      {
-      /* job has staged-in file, should remove them */
-
-      remove_stagein(pjob);
-
-      job_abt(&pjob, NULL);
-      }
-    else
-      {
-      /*
-       * the job is not transitting (though it may have been) and
-       * is not running, so put in into a complete state.
-       */
-
-      struct work_task *ptask;
-      struct pbs_queue *pque;
-      int  KeepSeconds = 0;
-
-      svr_setjobstate(pjob, JOB_STATE_COMPLETE, JOB_SUBSTATE_COMPLETE);
-
-      if ((pque = pjob->ji_qhdr) && (pque != NULL))
-        {
-        pque->qu_numcompleted++;
-        }
-
-      KeepSeconds = attr_ifelse_long(
-                      &pque->qu_attr[(int)QE_ATR_KeepCompleted],
-                      &server.sv_attr[(int)SRV_ATR_KeepCompleted],
-                      0);
-      ptask = set_task(WORK_Timed, time_now + KeepSeconds, on_job_exit, pjob);
-
-      if (ptask != NULL)
-        {
-        append_link(&pjob->ji_svrtask, &ptask->wt_linkobj, ptask);
-        }
-      }
-
+    }
+  else
+    {
+    num_skipped = delete_whole_array(pa);
     }
 
+  /* check if the array is gone */
   if ((pa = get_array(preq->rq_ind.rq_delete.rq_objname)) != NULL)
     {
     /* some jobs were not deleted.  They must have been running or had
@@ -238,7 +256,6 @@ void req_deletearray(struct batch_request *preq)
       return;
       }
     }
-
 
   /* now that the whole array is deleted, we should mail the user if necessary */
 

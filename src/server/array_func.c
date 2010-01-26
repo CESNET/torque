@@ -63,7 +63,7 @@ extern char *pbs_o_host;
 static int is_num(char *);
 static int array_request_token_count(char *);
 static int array_request_parse_token(char *, int *, int *);
-static int parse_array_request(char *request, job_array *pa);
+static int parse_array_request(char *request, tlist_head *tl);
 
 
 
@@ -466,7 +466,8 @@ int setup_array_struct(job *pjob)
 
   bad_token_count =
 
-    parse_array_request(pjob->ji_wattr[(int)JOB_ATR_job_array_request].at_val.at_str, pa);
+    parse_array_request(pjob->ji_wattr[(int)JOB_ATR_job_array_request].at_val.at_str,
+                        &(pa->request_tokens));
 
   /* get the number of elements that should be allocated in the array */
   rn = (array_request_node *)GET_NEXT(pa->request_tokens);
@@ -644,7 +645,7 @@ static int array_request_parse_token(char *str, int *start, int *end)
   }
 
 
-static int parse_array_request(char *request, job_array *pa)
+static int parse_array_request(char *request, tlist_head *tl)
   {
   char *temp_str;
   int num_tokens;
@@ -697,7 +698,7 @@ static int parse_array_request(char *request, job_array *pa)
       rn->end = end;
       CLEAR_LINK(rn->request_tokens_link);
 
-      rn2 = GET_NEXT(pa->request_tokens);
+      rn2 = GET_NEXT(*tl);
       searching = TRUE;
 
       while (searching)
@@ -705,7 +706,7 @@ static int parse_array_request(char *request, job_array *pa)
 
         if (rn2 == NULL)
           {
-          append_link(&pa->request_tokens, &rn->request_tokens_link, (void*)rn);
+          append_link(tl, &rn->request_tokens_link, (void*)rn);
           searching = FALSE;
           }
         else if (rn->start < rn2->start)
@@ -744,4 +745,126 @@ static int parse_array_request(char *request, job_array *pa)
 
   return num_bad_tokens;
   }
+
+
+
+
+
+
+/*
+ * delete_array_range()
+ *
+ * deletes a range from a specific array
+ *
+ * @param pa - the array whose jobs are deleted
+ * @param range_str - the user-given range to delete 
+ * @return - the number of jobs skipped, -1 if range error 
+ */
+int delete_array_range(
+
+  job_array *pa,
+  char      *range_str)
+
+  {
+  tlist_head tl;
+  array_request_node *rn;
+  array_request_node *to_free;
+  job *pjob;
+  char *range;
+
+  int i;
+  int num_skipped = 0;
+
+  /* get just the numeric range specified, '=' should
+   * always be there since we put it there in qdel */
+  range = strchr(range_str,'=');
+  range++; /* move past the '=' */
+
+  CLEAR_HEAD(tl);
+  if (parse_array_request(range,&tl) > 0)
+    {
+    /* don't delete jobs if range error */
+
+    return(-1);
+    }
+
+  rn = (array_request_node*)GET_NEXT(tl);
+
+  while (rn != NULL)
+    {
+    for (i = rn->start; i <= rn->end; i++)
+      {
+      if (pa->jobs[i] == NULL)
+        continue;
+
+      /* don't stomp on other memory */
+      if (i >= pa->ai_qs.array_size)
+        continue;
+
+      pjob = pa->jobs[i];
+
+      if (pjob->ji_qs.ji_state >= JOB_STATE_EXITING)
+        {
+        /* invalid state for request,  skip */
+        continue;
+        }
+
+      if (attempt_delete((void *)pjob) == FALSE)
+        num_skipped++;
+      }
+
+    to_free = rn;
+    rn = (array_request_node*)GET_NEXT(rn->request_tokens_link);
+
+    /* release mem */
+    free(to_free);
+    }
+
+  return(num_skipped);
+  }
+
+
+
+
+
+/* 
+ * delete_whole_array()
+ *
+ * iterates over the array and deletes the whole thing
+ * @param pa - the array to be deleted
+ * @return - the number of jobs skipped
+ */
+int delete_whole_array(
+
+  job_array *pa) /* I */
+
+  {
+  int i;
+  int num_skipped = 0;
+
+  job *pjob;
+
+  for (i = 0; i < pa->ai_qs.array_size; i++)
+    {
+    if (pa->jobs[i] == NULL)
+      continue;
+
+    pjob = (job *)pa->jobs[i];
+
+    if (pjob->ji_qs.ji_state >= JOB_STATE_EXITING)
+      {
+      /* invalid state for request,  skip */
+      continue;
+      }
+
+    if (attempt_delete((void *)pjob) == FALSE)
+      num_skipped++;
+    }
+
+  return(num_skipped);
+  }
+
+
+
+/* END array_func.c */
 

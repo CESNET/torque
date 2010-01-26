@@ -295,6 +295,7 @@
 #define MAIL_AT_ABORT "a"
 
 
+#define ARRAY_RANGE "array_range=" /* see qdel.c */
 #define DELDELAY  "deldelay=" /* see qdel.c */
 #define DELPURGE  "delpurge="   /* see qdel.c */
 #define PURGECOMP  "purgecomplete="   /* see req_delete.c */
