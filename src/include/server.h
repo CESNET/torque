@@ -158,6 +158,7 @@ enum srv_atr
   SRV_ATR_lockfile,
   SRV_ATR_CredentialLifetime,
   SRV_ATR_JobMustReport,
+  SRV_ATR_JobStartTimeout,
 #include "site_svr_attr_enum.h"
   /* This must be last */
   SRV_ATR_LAST

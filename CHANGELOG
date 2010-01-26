@@ -1,30 +1,32 @@
 c - crash     b - bug fix    e - enhancement    f - new feature n - note
 
 2.3.10
-   b - Fixed a bug in run_pelog (src/resmom/prolog.c) where epilogue.user 
-       was given the argument list for prologue scripts and not 
-       epilogue scripts. Ticket 6296.
-   b - Fixed pbs_mom's default restart behavior. On a restart the MOM is
-       suppose to terminate jobs and report them to the batch server. But 
-       it should not try and terminate any running processes. The bug fix
-       made it so the MOM would stop terminating running jobs and only
-       terminate them.
-   n - 01/15/2010 snapshot torque-2.3.10-snap.201001151340.tar.gz created.
-   b - Made changes to source files and configure.ac to enable TORQUE to
-       compile on Solaris5 platform with gcc-warnings enabled. Currently
-       TORQUE must be compiled with the --disable-gui option because
-       X11 support on Solaris is not working with the current TORQUE 
-       build scripts.
-   
+  b - Fixed a bug in run_pelog (src/resmom/prolog.c) where epilogue.user 
+      was given the argument list for prologue scripts and not 
+      epilogue scripts. Ticket 6296.
+  b - Fixed pbs_mom's default restart behavior. On a restart the MOM is
+      suppose to terminate jobs and report them to the batch server. But 
+      it should not try and terminate any running processes. The bug fix
+      made it so the MOM would stop terminating running jobs and only
+      terminate them.
+  n - 01/15/2010 snapshot torque-2.3.10-snap.201001151340.tar.gz created.
+  b - Made changes to source files and configure.ac to enable TORQUE to
+      compile on Solaris5 platform with gcc-warnings enabled. Currently
+      TORQUE must be compiled with the --disable-gui option because
+      X11 support on Solaris is not working with the current TORQUE 
+      build scripts.
+  e - added qmgr server attribute job_start_timeout, specifies timeout to be
+      used for sending job to mom. If not set, tcp_timeout is used.
+      
 2.3.9
-   b - Made a fix to svr_get_privilege(). On some architectures a non-root user
-       name would be set to null after the line " host_no_port[num_host_chars] = 0;"
-       because num_host_chars was = 1024 which was the size of hot_no_port. 
-       The null termination needed to happen at 1023. There were other problems
-       with this function so code was added to  validate the incoming
-       variables before they were used. The symptom of this bug was that non-root
-       managers and operators could not perform operations where they should 
-       have had rights.
+  b - Made a fix to svr_get_privilege(). On some architectures a non-root user
+      name would be set to null after the line " host_no_port[num_host_chars] = 0;"
+      because num_host_chars was = 1024 which was the size of hot_no_port. 
+      The null termination needed to happen at 1023. There were other problems
+      with this function so code was added to  validate the incoming
+      variables before they were used. The symptom of this bug was that non-root
+      managers and operators could not perform operations where they should 
+      have had rights.
 
 2.3.8
   b - fix return value of cpuset_delete() for Linux (Chris Samuel - VPAC)
