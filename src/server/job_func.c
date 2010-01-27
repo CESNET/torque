@@ -449,6 +449,18 @@ int job_abt(
         depend_on_term(pjob);
         }
 
+      /* decrease array running job count */
+      if ((pjob->ji_arraystruct != NULL) &&
+          (pjob->ji_isparent == FALSE))
+        {
+        job_array *pa = pjob->ji_arraystruct;
+        if (pa->ai_qs.jobs_running > 0)
+          {
+          pa->ai_qs.jobs_running--;
+          array_save(pa);
+          }
+        }
+
       job_purge(pjob);
 
       *pjobp = NULL;

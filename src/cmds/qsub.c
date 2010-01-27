@@ -4236,12 +4236,13 @@ int main(
       [-C directive_prefix] [-d path] [-D path]\n\
       [-e path] [-h] [-I] [-j oe] [-k {oe}] [-l resource_list] [-m n|{abe}]\n\
       [-M user_list] [-N jobname] [-o path] [-p priority] [-q queue] [-r y|n]\n\
-      [-S path] [-t number_to_submit] [-T type]  [-u user_list] [-X] [-w] path\n";
+      [-S path] [-t number_to_submit[%slot_limit]] ";
 
     /* need secondary usage since there appears to be a 512 byte size limit */
 
     static char usage2[] =
-      "      [-W otherattributes=value...] [-v variable_list] [-V ] [-z] [script]\n";
+     "[-T type]  [-u user_list] [-X] [-w] path\n\
+      [-W otherattributes=value...] [-v variable_list] [-V ] [-z] [script]\n";
       
     fprintf(stderr,"%s%s", usage, usage2);
 

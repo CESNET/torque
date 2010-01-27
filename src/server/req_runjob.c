@@ -226,6 +226,31 @@ void req_runjob(
     preq = NULL;  /* cleared so we don't try to reuse */
     }
 
+  /* if the job is part of an array, check the slot limit */
+  if ((pjob->ji_arraystruct != NULL) &&
+      (pjob->ji_isparent == FALSE))
+    {
+    job_array *pa = pjob->ji_arraystruct;
+    
+    if ((pa->ai_qs.slot_limit) &&
+        (pa->ai_qs.slot_limit > pa->ai_qs.jobs_running))
+      {
+      pa->ai_qs.jobs_running++;
+      array_save(pa);
+      }
+    else
+      {
+      snprintf(log_buffer,sizeof(log_buffer),
+        "Cannot run job. Array slot limit is %d and there are already %d jobs running\n",
+        pa->ai_qs.slot_limit,
+        pa->ai_qs.slot_limit);
+      
+      req_reject(PBSE_IVALREQ,0,preq,NULL,log_buffer);
+
+      return;
+      }
+    }
+
   /* NOTE:  nodes assigned to job in svr_startjob() */
 
   rc = svr_startjob(pjob, preq, failhost, emsg);

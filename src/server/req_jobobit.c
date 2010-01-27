@@ -2524,6 +2524,18 @@ void req_jobobit(
 
     ptask = set_task(WORK_Immed, 0, on_job_exit, (void *)pjob);
 
+    /* decrease array running job count */
+    if ((pjob->ji_arraystruct != NULL) &&
+        (pjob->ji_isparent == FALSE))
+      {
+      job_array *pa = pjob->ji_arraystruct;
+      if (pa->ai_qs.jobs_running > 0) 
+        {
+        pa->ai_qs.jobs_running--;
+        array_save(pa);
+        }
+      }
+
     if (ptask != NULL)
       {
       append_link(&pjob->ji_svrtask, &ptask->wt_linkobj, ptask);

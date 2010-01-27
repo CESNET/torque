@@ -420,6 +420,42 @@ int array_delete(job_array *pa)
   }
 
 
+/* 
+ * set_slot_limit()
+ * sets how many jobs can be run from this array at once
+ */
+void set_slot_limit(
+
+  char      *request, /* I */
+  job_array *pa)      /* O */
+
+  {
+  char *pcnt;
+
+  if ((pcnt = strchr(request,'%')) != NULL)
+    {
+    /* remove '%' from the request, or else it can't be parsed */
+    *pcnt = '\0';
+
+    /* read the number if one is given */
+    pcnt++;
+    if (strlen(pcnt) > 0)
+      {
+      pa->ai_qs.slot_limit = atoi(pcnt);
+      }
+    else
+      {
+      pa->ai_qs.slot_limit = NO_SLOT_LIMIT;
+      }
+    }
+  else
+    {
+    pa->ai_qs.slot_limit = NO_SLOT_LIMIT;
+    }
+
+  } /* END set_slot_limit() */
+
+
 int setup_array_struct(job *pjob)
   {
   job_array *pa;
@@ -463,6 +499,11 @@ int setup_array_struct(job *pjob)
 
     return 1;
     }
+
+  set_slot_limit(pjob->ji_wattr[JOB_ATR_job_array_request].at_val.at_str,
+    pa);
+
+  pa->ai_qs.jobs_running = 0;
 
   bad_token_count =
 

@@ -16,6 +16,7 @@
 #define FALSE 0
 #endif
 
+#define NO_SLOT_LIMIT 0
 
 #define ARRAY_FILE_SUFFIX ".AR"
 
@@ -50,6 +51,8 @@ struct job_array
     int  struct_version;
     int  array_size;
     int  num_jobs;
+    int  slot_limit;
+    int  jobs_running;
     int  jobs_done; /* number of jobs that have been deleted, etc. */
     int  num_cloned;
     /* max user name, server name, 1 for the @, and one for the NULL */
