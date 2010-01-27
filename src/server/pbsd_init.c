@@ -117,14 +117,6 @@
 #include <signal.h>
 /*#endif*/
 
-#ifndef SUCCESS
-#define SUCCESS 1
-#endif /* SUCCESS */
-
-#ifndef FAILURE
-#define FAILURE 0
-#endif /* FAILURE */
-
 #ifndef TRUE
 #define TRUE 1
 #endif /* TRUE */

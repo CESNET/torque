@@ -44,8 +44,6 @@
 #include "array.h"
 
 
-
-
 extern void  job_clone_wt(struct work_task *);
 extern int array_upgrade(job_array *, int, int, int *);
 
@@ -905,6 +903,66 @@ int delete_whole_array(
   return(num_skipped);
   }
 
+
+/*
+ * hold_array_range()
+ * 
+ * holds just a specified range from an array
+ * @param pa - the array to be acted on
+ * @param range_str - string specifying the range 
+ */
+int hold_array_range(
+
+  job_array *pa,         /* O */
+  char      *range_str,  /* I */
+  attribute *temphold)   /* I */
+
+  {
+  tlist_head tl;
+  int i;
+
+  array_request_node *rn;
+  array_request_node *to_free;
+  
+  char *range = strchr(range_str,'=');
+  range++; /* move past the '=' */
+  
+  CLEAR_HEAD(tl);
+  
+  if (parse_array_request(range,&tl) > 0)
+    {
+    /* don't hold the jobs if range error */
+    
+    return(FAILURE);
+    }
+  else 
+    {
+    /* hold just that range from the array */
+    rn = (array_request_node*)GET_NEXT(tl);
+    
+    while (rn != NULL)
+      {
+      for (i = rn->start; i <= rn->end; i++)
+        {
+        if (pa->jobs[i] == NULL)
+          continue;
+        
+        /* don't stomp on other memory */
+        if (i >= pa->ai_qs.array_size)
+          continue;
+        
+        hold_job(temphold,pa->jobs[i]);
+        }
+      
+      /* release mem */
+      to_free = rn;
+      rn = (array_request_node*)GET_NEXT(rn->request_tokens_link);
+      free(to_free);
+      }
+    }
+
+  return(SUCCESS);
+  } /* END hold_array_range() */
 
 
 /* END array_func.c */

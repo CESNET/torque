@@ -78,4 +78,7 @@ int delete_array_range(job_array *,char *);
 int delete_whole_array(job_array *);
 int attempt_delete(void *);
 
+int hold_array_range(job_array *,char *,attribute *);
+void hold_job(attribute *,void *);
+
 #endif

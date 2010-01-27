@@ -11,6 +11,8 @@ Array Changes
   e - added qmgr server attribute job_start_timeout, specifies timeout to be
       used for sending job to mom. If not set, tcp_timeout is used. (ported
       from trunk)
+  f - added support for holding ranges of jobs from an array with a single 
+      qhold (using the -t option). 
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,

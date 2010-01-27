@@ -166,12 +166,6 @@ extern void check_children();
 #ifndef bool_t
 #define bool_t unsigned char
 #endif
-#ifndef SUCCESS
-#define SUCCESS 1
-#endif 
-#ifndef FAILURE
-#define FAILURE 0
-#endif
 #define ISEMPTYSTR(STR)  ((STR)[0] == '\0')
 #ifndef MAX_CMD_ARGS
 #define MAX_CMD_ARGS 10

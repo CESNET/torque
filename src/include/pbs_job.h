@@ -90,6 +90,13 @@
 #ifndef PBS_JOB_H
 #define PBS_JOB_H 1
 
+#ifndef SUCCESS
+#define SUCCESS 1
+#endif 
+#ifndef FAILURE
+#define FAILURE 0
+#endif
+
 /* anything including job.h also needs array.h so lets just include it this way*/
 #include "array.h"
 
