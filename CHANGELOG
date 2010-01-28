@@ -40,6 +40,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       not initialized)
   e - added qmgr server attribute job_start_timeout, specifies timeout to be
       used for sending job to mom. If not set, tcp_timeout is used.
+  e - added -DUSESAVEDRESOURCES code that uses servers saved resources used
+      for accounting end record instead of current resources used for jobs that
+      stopped running while mom was not up.
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
