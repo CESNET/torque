@@ -43,6 +43,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - added -DUSESAVEDRESOURCES code that uses servers saved resources used
       for accounting end record instead of current resources used for jobs that
       stopped running while mom was not up.
+  e - Changing MAXNOTDEFAULT behavior.  Now, by default, max is not default and max
+      can be configured as default with --enable-maxdefault.
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
