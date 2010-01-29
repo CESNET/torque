@@ -10,6 +10,7 @@
 #include "attribute.h"
 #include "server_limits.h"
 #include "pbs_error.h"
+#include "batch_request.h"
 
 #ifndef TRUE
 #define TRUE 1
@@ -80,5 +81,8 @@ int attempt_delete(void *);
 
 int hold_array_range(job_array *,char *,attribute *);
 void hold_job(attribute *,void *);
+
+int modify_array_range(job_array *,char *,svrattrl *,struct batch_request *,int);
+int modify_job(void *,svrattrl *,struct batch_request *,int);
 
 #endif

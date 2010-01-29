@@ -7,12 +7,16 @@ Array Changes
   b - remove the pointer to a job from the job array after it has died.
   f - Allow users to delete a range of jobs from the job array
   f - Added a slot limit to the job arrays - this restricts the number of jobs
-      that can concurrently run from one job array.
+      that can concurrently run from one job array. (add %<limit> to the end
+      of the array request)
   e - added qmgr server attribute job_start_timeout, specifies timeout to be
       used for sending job to mom. If not set, tcp_timeout is used. (ported
       from trunk)
   f - added support for holding ranges of jobs from an array with a single 
       qhold (using the -t option). 
+  f - now arrays can be modified through qalter (using the -t option).  Arrays
+      can be modified using ranges (-t) or as a whole array.  Slot limits can
+      also be modified
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,

@@ -965,5 +965,56 @@ int hold_array_range(
   } /* END hold_array_range() */
 
 
+
+int modify_array_range(
+
+  job_array *pa,              /* I/O */
+  char      *range,           /* I */
+  svrattrl  *plist,           /* I */
+  struct batch_request *preq, /* I */
+  int        checkpoint_req)  /* I */
+
+  {
+  tlist_head tl;
+  int i;
+
+  array_request_node *rn;
+  array_request_node *to_free;
+  
+  CLEAR_HEAD(tl);
+  
+  if (parse_array_request(range,&tl) > 0)
+    {
+    /* don't hold the jobs if range error */
+    
+    return(FAILURE);
+    }
+  else 
+    {
+    /* hold just that range from the array */
+    rn = (array_request_node*)GET_NEXT(tl);
+    
+    while (rn != NULL)
+      {
+      for (i = rn->start; i <= rn->end; i++)
+        {
+        if ((i >= pa->ai_qs.array_size) ||
+            (pa->jobs[i] == NULL))
+          continue;
+        
+        modify_job(pa->jobs[i],plist,preq,checkpoint_req);
+        }
+      
+      /* release mem */
+      to_free = rn;
+      rn = (array_request_node*)GET_NEXT(rn->request_tokens_link);
+      free(to_free);
+      }
+    }
+
+  return(SUCCESS);
+  } /* END modify_array_range() */
+
+
 /* END array_func.c */
 
