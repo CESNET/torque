@@ -15,7 +15,7 @@ extern char *path_arrays;
 
 /* an example prototpe of an upgrade function for a specific version of the struct
    each upgrade function should upgrade a specific version of the struct to the 
-   current version! */
+   current version!
 int array_upgrade_v1(job_array *pa, int fds, int version, int *old_version);
  */
 
