@@ -31,7 +31,7 @@ typedef struct
 
 
 
-#define ARRAY_QS_STRUCT_VERSION 2
+#define ARRAY_QS_STRUCT_VERSION 3
 
 /* pbs_server will keep a list of these structs, with one struct per job array*/
 
@@ -39,7 +39,9 @@ struct job_array
   {
   list_link all_arrays;      /* node in server's linked list of all arrays */
   tlist_head request_tokens; /* head of linked list of request tokens, used 
-                                during cloning */
+                                during cloning (cloning is the process of 
+                                copying the "parent" job to generate all of the 
+                                jobs in the array)*/
 
   void **jobs; /* a pointer to the job pointers in this array */
 
@@ -49,13 +51,15 @@ struct job_array
   /* this info is saved in the array file */
   struct array_info
     {
-    int  struct_version;
-    int  array_size;
-    int  num_jobs;
+    /* NOTE, struct_version _must_ come first in the struct */
+    int  struct_version; /* version of this struct */
+    int  array_size;     /* size of the array used to track the jobs */
+    int  num_jobs;       /* total number of jobs in the array */
     int  slot_limit;
-    int  jobs_running;
-    int  jobs_done; /* number of jobs that have been deleted, etc. */
-    int  num_cloned;
+    int  jobs_running;   /* number of jobs in the array currently running */
+    int  jobs_done;      /* number of jobs that have been deleted, etc. */
+    int  num_cloned;     /* number of jobs out of the array that have been created */
+    
     /* max user name, server name, 1 for the @, and one for the NULL */
     char owner[PBS_MAXUSER + PBS_MAXSERVERNAME + 2];
     char parent_id[PBS_MAXSVRJOBID + 1];
