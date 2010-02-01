@@ -877,12 +877,10 @@ job *job_clone(
   /* put a system hold on the job.  we'll take the hold off once the
    * entire array is cloned */
   pnewjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_a;
-
   pnewjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
 
   /* set JOB_ATR_job_array_id */
   pnewjob->ji_wattr[(int)JOB_ATR_job_array_id].at_val.at_long = taskid;
-
   pnewjob->ji_wattr[(int)JOB_ATR_job_array_id].at_flags |= ATR_VFLAG_SET;
 
   /* set PBS_ARRAYID var */
@@ -906,13 +904,6 @@ job *job_clone(
   if (pa == NULL)
     {
     pa = get_array(template_job->ji_qs.ji_jobid);
-    }
-
-  /* sometimes, on restart, pa->jobs might not be alloc'd */
-  if (pa->jobs == NULL)
-    {
-    pa->jobs = (void **)malloc(sizeof(job *) * pa->ai_qs.array_size);
-    memset(pa->jobs,0,sizeof(job *) * pa->ai_qs.array_size);
     }
 
   pa->jobs[i] = (void *)pnewjob;

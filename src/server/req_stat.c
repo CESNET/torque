@@ -173,6 +173,7 @@ enum TJobStatTypeEnum
   tjstServer,
   tjstTruncatedQueue,
   tjstTruncatedServer,
+  tjstCollapseArray,
   tjstLAST
   };
 
@@ -209,6 +210,10 @@ void req_stat_job(
       /* truncate response by 'max_report' */
 
       type = tjstTruncatedServer;
+      }
+    else if (!strncasecmp(preq->rq_extend, "collapse_array", strlen("collapse_array")))
+      {
+      type = tjstCollapseArray;
       }
     }    /* END if (preq->rq_extend != NULL) */
 

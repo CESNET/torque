@@ -552,12 +552,6 @@ job *job_recov(
         }
       else
         {
-        if (pa->jobs == NULL)
-          {
-          pa->jobs = (void **)malloc(sizeof(job *) * pa->ai_qs.array_size);
-          memset(pa->jobs,0,sizeof(job *) * pa->ai_qs.array_size);
-          }
-
         pa->jobs[(int)pj->ji_wattr[JOB_ATR_job_array_id].at_val.at_long] = (void *)pj;
         pj->ji_arraystruct = pa;
         pa->jobs_recovered++;

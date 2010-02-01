@@ -38,7 +38,6 @@
 #include "pbs_job.h"
 #include "pbs_error.h"
 #include "svrfunc.h"
-
 #include "work_task.h"
 
 #include "array.h"
@@ -147,15 +146,9 @@ int array_save(job_array *pa)
     }
 
   /* count number of request tokens left */
-  num_tokens = 0;
-
-  rn = (array_request_node*)GET_NEXT(pa->request_tokens);
-
-  while (rn != NULL)
-    {
-    num_tokens++;
-    rn = (array_request_node*)GET_NEXT(rn->request_tokens_link);
-    }
+  for (rn = (array_request_node*)GET_NEXT(pa->request_tokens), num_tokens = 0;
+       rn != NULL;
+       rn = (array_request_node*)GET_NEXT(rn->request_tokens_link), num_tokens++);
 
 
   if (write(fds, &num_tokens, sizeof(num_tokens)) == -1)
@@ -168,9 +161,8 @@ int array_save(job_array *pa)
   if (num_tokens > 0)
     {
 
-    rn = (array_request_node*)GET_NEXT(pa->request_tokens);
-
-    while (rn != NULL)
+    for (rn = (array_request_node*)GET_NEXT(pa->request_tokens); rn != NULL;
+         rn = (array_request_node*)GET_NEXT(rn->request_tokens_link))
       {
       if (write(fds, rn, sizeof(array_request_node)) == -1)
         {
@@ -178,10 +170,7 @@ int array_save(job_array *pa)
         close(fds);
         return -1;
         }
-
-      rn = (array_request_node*)GET_NEXT(rn->request_tokens_link);
       }
-
     }
 
   close(fds);
@@ -254,8 +243,6 @@ job_array *array_recov(char *path)
 
   CLEAR_HEAD(pa->request_tokens);
 
-  pa->jobs = NULL;
-
   fd = open(path, O_RDONLY, 0);
 
 
@@ -276,6 +263,9 @@ job_array *array_recov(char *path)
     close(fd);
     return NULL;
     }
+
+  pa->jobs = (void **)malloc(sizeof(job *) * pa->ai_qs.array_size);
+  memset(pa->jobs,0,sizeof(job *) * pa->ai_qs.array_size);
 
   /* check to see if there is any additional info saved in the array file */
   /* check if there are any array request tokens that haven't been fully
@@ -305,13 +295,12 @@ job_array *array_recov(char *path)
 
         free(rn);
 
-        rn = (array_request_node*)GET_NEXT(pa->request_tokens);
-
-        while (rn != NULL)
+        for (rn = (array_request_node*)GET_NEXT(pa->request_tokens);
+             rn != NULL;
+             rn = (array_request_node*)GET_NEXT(pa->request_tokens))
           {
           delete_link(&rn->request_tokens_link);
           free(rn);
-          rn = (array_request_node*)GET_NEXT(pa->request_tokens);
           }
 
         free(pa);
@@ -326,17 +315,14 @@ job_array *array_recov(char *path)
 
       }
 
-
-
     }
-
-
 
 
   close(fd);
 
   if (old_version != ARRAY_QS_STRUCT_VERSION)
     {
+    /* resave the array struct if the version on disk is older than the current */
     array_save(pa);
     }
 
@@ -399,13 +385,12 @@ int array_delete(job_array *pa)
 
   /* clear array request linked list */
 
-  rn = (array_request_node*)GET_NEXT(pa->request_tokens);
-
-  while (rn != NULL)
+  for (rn = (array_request_node*)GET_NEXT(pa->request_tokens);
+       rn != NULL;
+       rn = (array_request_node*)GET_NEXT(pa->request_tokens))
     {
     delete_link(&rn->request_tokens_link);
     free(rn);
-    rn = (array_request_node*)GET_NEXT(pa->request_tokens);
     }
 
   /* free the memory for the job pointers */
@@ -498,8 +483,7 @@ int setup_array_struct(job *pjob)
     return 1;
     }
 
-  set_slot_limit(pjob->ji_wattr[JOB_ATR_job_array_request].at_val.at_str,
-    pa);
+  set_slot_limit(pjob->ji_wattr[JOB_ATR_job_array_request].at_val.at_str, pa);
 
   pa->ai_qs.jobs_running = 0;
 
@@ -542,8 +526,6 @@ int setup_array_struct(job *pjob)
     }
 
   wt = set_task(WORK_Timed, time_now + 1, job_clone_wt, (void*)pjob);
-
-  /* svr_setjobstate(pj,JOB_STATE_HELD,JOB_SUBSTATE_HELD);*/
 
   return 0;
 

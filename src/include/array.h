@@ -55,7 +55,7 @@ struct job_array
     int  struct_version; /* version of this struct */
     int  array_size;     /* size of the array used to track the jobs */
     int  num_jobs;       /* total number of jobs in the array */
-    int  slot_limit;
+    int  slot_limit;     /* number of jobs in the array that can be run at one time */
     int  jobs_running;   /* number of jobs in the array currently running */
     int  jobs_done;      /* number of jobs that have been deleted, etc. */
     int  num_cloned;     /* number of jobs out of the array that have been created */
