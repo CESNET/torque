@@ -1,5 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature n - note
 
+2.3.11
+
 2.3.10
   b - Fixed a bug in run_pelog (src/resmom/prolog.c) where epilogue.user 
       was given the argument list for prologue scripts and not 
@@ -17,6 +19,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature n - note
       build scripts.
   e - added qmgr server attribute job_start_timeout, specifies timeout to be
       used for sending job to mom. If not set, tcp_timeout is used.
+  n - 2.3.10 released on 02/02/10 (Groundhog Day!)
       
 2.3.9
   b - Made a fix to svr_get_privilege(). On some architectures a non-root user
