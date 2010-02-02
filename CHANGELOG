@@ -1,5 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
+2.4.6
+
 2.4.5
   b - epilogue.user scripts were being run with prologue argments. Fixed
       bug in run_pelog() to include PE_EPILOGUSER so epilogue arguments get
@@ -45,6 +47,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       stopped running while mom was not up.
   e - Changing MAXNOTDEFAULT behavior.  Now, by default, max is not default and max
       can be configured as default with --enable-maxdefault.
+  n - TORQUE 2.4.5 released on 02/02/10 (Groundhog day!)
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
