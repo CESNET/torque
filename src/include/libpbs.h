@@ -281,6 +281,9 @@ int
 PBSD_sig_put A_((int connect, char *jobid, char *signal, char *extend));
 
 int
+PBSD_async_sig_put A_((int connect, char *jobid, char *signal, char *extend));
+
+int
 PBSD_term_put A_((int connect, int manner, char *extend));
 
 int
