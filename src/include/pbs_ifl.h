@@ -564,6 +564,9 @@ extern char **
 extern int
   pbs_sigjob A_((int connect, char *job_id, char *signal, char *extend));
 
+extern int
+  pbs_sigjobasync A_((int connect, char *job_id, char *signal, char *extend));
+
 extern void
   pbs_statfree A_((struct batch_status *stat));
 
