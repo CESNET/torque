@@ -233,11 +233,10 @@ void req_runjob(
     {
     job_array *pa = pjob->ji_arraystruct;
     
-    if ((pa->ai_qs.slot_limit) &&
+    if ((pa->ai_qs.slot_limit >= 0) &&
         (pa->ai_qs.slot_limit > pa->ai_qs.jobs_running))
       {
-      pa->ai_qs.jobs_running++;
-      array_save(pa);
+      update_array_values(pa,pjob,pjob->ji_qs.ji_state,aeRun);
       }
     else
       {

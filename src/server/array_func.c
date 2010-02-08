@@ -67,10 +67,24 @@ static int parse_array_request(char *request, tlist_head *tl);
 /* search job array list to determine if id is a job array */
 int is_array(char *id)
   {
+  char  goodId[PBS_MAXSVRJOBID];
+  char *bracket_open;
+  char *bracket_close;
 
   job_array *pa;
 
+  if ((bracket_open = strchr(id,'[')) != NULL)
+    {
+    *bracket_open = '\0';
+    strcpy(goodId,id);
 
+    if ((bracket_close = strchr(bracket_open+1,']')) != NULL)
+      {
+      strcat(goodId,bracket_close+1);
+      id = goodId;
+      }
+    *bracket_open = '[';
+    }
 
   pa = (job_array*)GET_NEXT(svr_jobarrays);
 
@@ -317,8 +331,9 @@ job_array *array_recov(char *path)
 
     }
 
-
   close(fd);
+
+  CLEAR_HEAD(pa->ai_qs.deps);
 
   if (old_version != ARRAY_QS_STRUCT_VERSION)
     {
@@ -486,7 +501,10 @@ int setup_array_struct(job *pjob)
   set_slot_limit(pjob->ji_wattr[JOB_ATR_job_array_request].at_val.at_str, pa);
 
   pa->ai_qs.jobs_running = 0;
-
+  pa->ai_qs.num_started = 0;
+  pa->ai_qs.num_failed = 0;
+  pa->ai_qs.num_successful = 0;
+  
   bad_token_count =
 
     parse_array_request(pjob->ji_wattr[(int)JOB_ATR_job_array_request].at_val.at_str,
@@ -515,6 +533,8 @@ int setup_array_struct(job *pjob)
 
   /* remember array_size */
   pa->ai_qs.array_size = array_size;
+
+  CLEAR_HEAD(pa->ai_qs.deps);
 
   array_save(pa);
 
@@ -996,6 +1016,77 @@ int modify_array_range(
 
   return(SUCCESS);
   } /* END modify_array_range() */
+
+
+
+/**
+ * update_array_values()
+ *
+ * updates internal bookeeping values for job arrays
+ * @param pa - array to update
+ * @param pjob - the pjob that an event happened on
+ * @param event - code for what event just happened
+ */
+void update_array_values(
+
+  job_array            *pa,        /* I */
+  void                 *j,         /* I */
+  int                   old_state, /* I */
+  enum ArrayEventsEnum  event)     /* I */
+
+  {
+  job *pjob = (job *)j;
+  int exit_status;
+
+  switch (event)
+    {
+    case aeQueue:
+
+      /* NYI, nothing needs to be done for this yet */
+
+      break;
+
+    case aeRun:
+
+      if (old_state != JOB_STATE_RUNNING)
+        {
+        pa->ai_qs.jobs_running++;
+        pa->ai_qs.num_started++;
+        }
+
+      break;
+
+    case aeTerminate:
+
+      exit_status = pjob->ji_qs.ji_un.ji_exect.ji_exitstat;
+      if (old_state == JOB_STATE_RUNNING)
+        {
+        if (pa->ai_qs.jobs_running > 0)
+          pa->ai_qs.jobs_running--;
+        }
+
+      if (exit_status == 0)
+        {
+        pa->ai_qs.num_successful++;
+        }
+      else
+        {
+        pa->ai_qs.num_failed++;
+        }
+
+      break;
+
+    default:
+
+      /* log error? */
+
+      break;
+    }
+
+  set_array_depend_holds(pa);
+  array_save(pa);
+
+  } /* END update_array_values() */
 
 
 /* END array_func.c */

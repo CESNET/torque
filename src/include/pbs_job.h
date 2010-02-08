@@ -136,6 +136,22 @@ struct depend_job
   char dc_svr[PBS_MAXSERVERNAME+1]; /* server owning job  */
   };
 
+struct array_depend
+  {
+  list_link  dp_link;
+  short      dp_type;
+  tlist_head dp_jobs;
+  };
+
+struct array_depend_job
+  {
+  list_link dc_link;
+  /* in this case, the child is the job depending on the array */
+  char dc_child[PBS_MAXSVRJOBID+1];
+  char dc_svr[PBS_MAXSERVERNAME+1];
+  int  dc_num;
+  };
+
 /*
  * Warning: the relation between the numbers assigned to after* and before*
  * is critical.
@@ -151,7 +167,15 @@ struct depend_job
 #define JOB_DEPEND_TYPE_ON   8
 #define JOB_DEPEND_TYPE_SYNCWITH  9
 #define JOB_DEPEND_TYPE_SYNCCT  10
-#define JOB_DEPEND_NUMBER_TYPES  11
+#define JOB_DEPEND_TYPE_AFTERSTARTARRAY 11
+#define JOB_DEPEND_TYPE_AFTEROKARRAY 12
+#define JOB_DEPEND_TYPE_AFTERNOTOKARRAY 13
+#define JOB_DEPEND_TYPE_AFTERANYARRAY 14
+#define JOB_DEPEND_TYPE_BEFORESTARTARRAY 15
+#define JOB_DEPEND_TYPE_BEFOREOKARRAY 16
+#define JOB_DEPEND_TYPE_BEFORENOTOKARRAY 17
+#define JOB_DEPEND_TYPE_BEFOREANYARRAY 18
+#define JOB_DEPEND_NUMBER_TYPES  19
 
 #define JOB_DEPEND_OP_REGISTER  1
 #define JOB_DEPEND_OP_RELEASE  2

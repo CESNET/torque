@@ -17,6 +17,13 @@ Array Changes
   f - now arrays can be modified through qalter (using the -t option).  Arrays
       can be modified using ranges (-t) or as a whole array.  Slot limits can
       also be modified
+  f - jobs can now depend on arrays using these dependencies: afterstartarray, 
+      afterokarray, afternotokarray, afteranyarray, beforestartarray, 
+      beforeokarray, beforenotokarray, and beforeanyarray. This uses the same
+      syntax as normal dependencies except the array name is used in place of a 
+      job name, and a number of jobs for that dependency type can be specified 
+      using brackets after the array name, i.e. afterokarray:<array_name>[2] 
+      would mean run after 2 jobs from that array finished ok.
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,

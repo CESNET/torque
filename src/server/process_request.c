@@ -974,7 +974,14 @@ void dispatch_request(
 
     case PBS_BATCH_RegistDep:
 
-      req_register(request);
+      if (is_array(request->rq_ind.rq_register.rq_parent))
+        {
+        req_registerarray(request);
+        }
+      else
+        {
+        req_register(request);
+        }
 
       break;
 

@@ -1578,17 +1578,12 @@ static int pbsd_init_job(
 
       pbsd_init_reque(pjob, KEEP_STATE);
 
-      /* decrease array running job count */
+      /* do array bookeeping */
       if ((pjob->ji_arraystruct != NULL) &&
           (pjob->ji_isparent == FALSE))
         {
-        job_array *pa = pjob->ji_arraystruct;
-        
-        if (pa->ai_qs.jobs_running > 0)
-          {
-          pa->ai_qs.jobs_running--;
-          array_save(pa);
-          }
+        update_array_values(pjob->ji_arraystruct,
+          pjob,JOB_STATE_RUNNING,aeTerminate);
         }
 
       break;

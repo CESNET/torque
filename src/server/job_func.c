@@ -449,16 +449,12 @@ int job_abt(
         depend_on_term(pjob);
         }
 
-      /* decrease array running job count */
+      /* update internal array bookeeping values */
       if ((pjob->ji_arraystruct != NULL) &&
           (pjob->ji_isparent == FALSE))
         {
-        job_array *pa = pjob->ji_arraystruct;
-        if (pa->ai_qs.jobs_running > 0)
-          {
-          pa->ai_qs.jobs_running--;
-          array_save(pa);
-          }
+        update_array_values(pjob->ji_arraystruct,
+          pjob,old_state,aeTerminate);
         }
 
       job_purge(pjob);
@@ -491,6 +487,14 @@ int job_abt(
     if (pjob->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET)
       {
       depend_on_term(pjob);
+      }
+
+    /* do array bookkeeping */
+    if ((pjob->ji_arraystruct != NULL) &&
+        (pjob->ji_isparent == FALSE))
+      {
+      update_array_values(pjob->ji_arraystruct,
+        pjob,old_state,aeTerminate);
       }
 
     job_purge(pjob);

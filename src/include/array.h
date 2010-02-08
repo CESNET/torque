@@ -21,6 +21,12 @@
 
 #define ARRAY_FILE_SUFFIX ".AR"
 
+enum ArrayEventsEnum {
+  aeQueue = 0,
+  aeRun,
+  aeTerminate
+}; /* END ArrayEventsEnum */
+
 typedef struct
   {
   list_link request_tokens_link;
@@ -59,6 +65,12 @@ struct job_array
     int  jobs_running;   /* number of jobs in the array currently running */
     int  jobs_done;      /* number of jobs that have been deleted, etc. */
     int  num_cloned;     /* number of jobs out of the array that have been created */
+    int  num_started;    /* number of jobs that have begun execution */
+    int  num_failed;     /* number of jobs that exited with status != 0 */
+    int  num_successful; /* number of jobs that exited with status == 0 */
+
+    /* dependency info */
+    tlist_head deps;
     
     /* max user name, server name, 1 for the @, and one for the NULL */
     char owner[PBS_MAXUSER + PBS_MAXSERVERNAME + 2];
@@ -88,5 +100,11 @@ void hold_job(attribute *,void *);
 
 int modify_array_range(job_array *,char *,svrattrl *,struct batch_request *,int);
 int modify_job(void *,svrattrl *,struct batch_request *,int);
+
+void update_array_values(job_array *,void *,int,enum ArrayEventsEnum);
+
+int register_array_depend(job_array*,struct batch_request *,int,int);
+void set_array_depend_holds(job_array *);
+
 
 #endif

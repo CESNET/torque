@@ -2528,12 +2528,8 @@ void req_jobobit(
     if ((pjob->ji_arraystruct != NULL) &&
         (pjob->ji_isparent == FALSE))
       {
-      job_array *pa = pjob->ji_arraystruct;
-      if (pa->ai_qs.jobs_running > 0) 
-        {
-        pa->ai_qs.jobs_running--;
-        array_save(pa);
-        }
+      update_array_values(pjob->ji_arraystruct,
+        pjob,pjob->ji_qs.ji_state,aeTerminate);
       }
 
     if (ptask != NULL)
