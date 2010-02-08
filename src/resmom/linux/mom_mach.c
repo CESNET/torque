@@ -3675,7 +3675,26 @@ void scan_non_child_tasks(void)
       /* only check on tasks that we think should still be around */
 
       if (task->ti_qs.ti_status != TI_STATE_RUNNING)
+#ifdef USESAVEDRESOURCES
+        {
+        if ((first_time) && (LOGLEVEL >= 7) && (task->ti_qs.ti_sid != 0))
+          {
+          sprintf(log_buffer, "found non-running (%d) task %d for session %d",
+            task->ti_qs.ti_status,
+            task->ti_qs.ti_task,
+            task->ti_qs.ti_sid);
+
+          LOG_EVENT(
+            PBSEVENT_DEBUG,
+            PBS_EVENTCLASS_JOB,
+            job->ji_qs.ji_jobid,
+            log_buffer);
+          }
         continue;
+        }
+#else
+        continue;
+#endif
 
       /* look for processes with this session id */
 
@@ -3686,6 +3705,20 @@ void scan_non_child_tasks(void)
       if (kill(task->ti_qs.ti_sid, 0) != -1)
         {
         found = 1;
+#ifdef USESAVEDRESOURCES
+        if ((first_time) && (LOGLEVEL >= 7))
+          {
+          sprintf(log_buffer, "found session master %d for task %d",
+            task->ti_qs.ti_sid,
+            task->ti_qs.ti_task);
+
+          LOG_EVENT(
+            PBSEVENT_DEBUG,
+            PBS_EVENTCLASS_JOB,
+            job->ji_qs.ji_jobid,
+            log_buffer);
+          }
+#endif
         }
       else
         {
@@ -3708,6 +3741,20 @@ void scan_non_child_tasks(void)
           if (ps->session == task->ti_qs.ti_sid)
             {
             found = 1;
+#ifdef USESAVEDRESOURCES
+            if ((first_time) && (LOGLEVEL >= 7))
+              {
+              sprintf(log_buffer, "found other pid for session %d for task %d",
+                task->ti_qs.ti_sid,
+                task->ti_qs.ti_task);
+
+              LOG_EVENT(
+                PBSEVENT_DEBUG,
+                PBS_EVENTCLASS_JOB,
+                job->ji_qs.ji_jobid,
+                log_buffer);
+              }
+#endif
 
             break;
             }
