@@ -2529,7 +2529,7 @@ void req_jobobit(
         (pjob->ji_isparent == FALSE))
       {
       update_array_values(pjob->ji_arraystruct,
-        pjob,pjob->ji_qs.ji_state,aeTerminate);
+        pjob,JOB_STATE_RUNNING,aeTerminate);
       }
 
     if (ptask != NULL)

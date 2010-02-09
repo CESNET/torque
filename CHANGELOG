@@ -26,6 +26,9 @@ Array Changes
       would mean run after 2 jobs from that array finished ok.
   b - fixed an off-by-one error with the before dependencies, holds need to be set
       if >= not if >.
+  b - fixed a problem with jobs_running not decrementing (for arrays)
+  b - also fixed a problem with a slot limit being applied when no slot limit was 
+      specified
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,

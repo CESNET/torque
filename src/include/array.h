@@ -17,7 +17,7 @@
 #define FALSE 0
 #endif
 
-#define NO_SLOT_LIMIT 0
+#define NO_SLOT_LIMIT -1
 
 #define ARRAY_FILE_SUFFIX ".AR"
 

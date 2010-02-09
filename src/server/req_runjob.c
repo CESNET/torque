@@ -233,7 +233,7 @@ void req_runjob(
     {
     job_array *pa = pjob->ji_arraystruct;
     
-    if ((pa->ai_qs.slot_limit >= 0) &&
+    if ((pa->ai_qs.slot_limit < 0) ||
         (pa->ai_qs.slot_limit > pa->ai_qs.jobs_running))
       {
       update_array_values(pa,pjob,pjob->ji_qs.ji_state,aeRun);
@@ -243,7 +243,7 @@ void req_runjob(
       snprintf(log_buffer,sizeof(log_buffer),
         "Cannot run job. Array slot limit is %d and there are already %d jobs running\n",
         pa->ai_qs.slot_limit,
-        pa->ai_qs.slot_limit);
+        pa->ai_qs.jobs_running);
       
       req_reject(PBSE_IVALREQ,0,preq,NULL,log_buffer);
 
