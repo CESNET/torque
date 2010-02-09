@@ -24,6 +24,8 @@ Array Changes
       job name, and a number of jobs for that dependency type can be specified 
       using brackets after the array name, i.e. afterokarray:<array_name>[2] 
       would mean run after 2 jobs from that array finished ok.
+  b - fixed an off-by-one error with the before dependencies, holds need to be set
+      if >= not if >.
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,

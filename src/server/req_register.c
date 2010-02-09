@@ -908,7 +908,7 @@ void set_array_depend_holds(
         {
         if (((compareNumber < pdj->dc_num) &&
              (pdep->dp_type < JOB_DEPEND_TYPE_BEFORESTARTARRAY)) ||
-            ((compareNumber > pdj->dc_num) && 
+            ((compareNumber >= pdj->dc_num) && 
              (pdep->dp_type > JOB_DEPEND_TYPE_AFTERANYARRAY)))
           {
           /* hold */
