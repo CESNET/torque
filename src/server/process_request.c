@@ -893,7 +893,14 @@ void dispatch_request(
 
     case PBS_BATCH_ReleaseJob:
 
-      req_releasejob(request);
+      if (is_array(request->rq_ind.rq_delete.rq_objname))
+        {
+        req_releasearray(request);
+        }
+      else
+        {
+        req_releasejob(request);
+        }
 
       break;
 

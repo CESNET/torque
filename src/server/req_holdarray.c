@@ -138,9 +138,9 @@ void req_holdarray(struct batch_request *preq)
   if ((range_str != NULL) &&
       (strstr(range_str,ARRAY_RANGE) != NULL))
     {
-    if (hold_array_range(pa,range_str,&temphold) == FAILURE)
+    if ((rc = hold_array_range(pa,range_str,&temphold)) != 0)
       {
-      req_reject(PBSE_IVALREQ,0,preq,NULL,
+      req_reject(rc,0,preq,NULL,
         "Error in specified array range");
       }
     }

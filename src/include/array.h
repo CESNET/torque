@@ -106,5 +106,9 @@ void update_array_values(job_array *,void *,int,enum ArrayEventsEnum);
 int register_array_depend(job_array*,struct batch_request *,int,int);
 void set_array_depend_holds(job_array *);
 
+int release_job(struct batch_request *,void *);
+int release_array_range(job_array *,struct batch_request *,char *);
+
+int first_job_index(job_array *);
 
 #endif

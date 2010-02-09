@@ -866,6 +866,28 @@ int delete_array_range(
 
 
 
+/* 
+ * first_job_index()
+ *
+ * @param pa - the array
+ * @return the index of the first job in the array
+ */
+int first_job_index(
+
+  job_array *pa)
+
+  {
+  int i;
+
+  for (i = 0; i < pa->ai_qs.array_size; i++)
+    {
+    if (pa->jobs[i] != NULL)
+      return i;
+    }
+
+  return -1;
+  } /* END first_job_index() */
+
 
 
 /* 
@@ -927,6 +949,9 @@ int hold_array_range(
   array_request_node *to_free;
   
   char *range = strchr(range_str,'=');
+  if (range == NULL)
+    return(PBSE_IVALREQ);
+
   range++; /* move past the '=' */
   
   CLEAR_HEAD(tl);
@@ -935,7 +960,7 @@ int hold_array_range(
     {
     /* don't hold the jobs if range error */
     
-    return(FAILURE);
+    return(PBSE_IVALREQ);
     }
   else 
     {
@@ -963,8 +988,69 @@ int hold_array_range(
       }
     }
 
-  return(SUCCESS);
+  return(0);
   } /* END hold_array_range() */
+
+
+
+
+int release_array_range(
+
+  job_array            *pa,
+  struct batch_request *preq,
+  char                 *range_str)
+
+  {
+  tlist_head tl;
+  int i;
+  int rc;
+
+  array_request_node *rn;
+  array_request_node *to_free;
+  
+  char *range = strchr(range_str,'=');
+  if (range == NULL)
+    return(PBSE_IVALREQ);
+
+  range++; /* move past the '=' */
+  
+  CLEAR_HEAD(tl);
+  
+  if (parse_array_request(range,&tl) > 0)
+    {
+    /* don't hold the jobs if range error */
+    
+    return(PBSE_IVALREQ);
+    }
+  
+  /* hold just that range from the array */
+  rn = (array_request_node*)GET_NEXT(tl);
+  
+  while (rn != NULL)
+    {
+    for (i = rn->start; i <= rn->end; i++)
+      {
+      if (pa->jobs[i] == NULL)
+        continue;
+      
+      /* don't stomp on other memory */
+      if (i >= pa->ai_qs.array_size)
+        continue;
+      
+      if ((rc = release_job(preq,pa->jobs[i])))
+        return(rc);
+      }
+    
+    /* release mem */
+    to_free = rn;
+    rn = (array_request_node*)GET_NEXT(rn->request_tokens_link);
+    free(to_free);
+    }
+
+  return(0);
+
+  } /* END release_array_range() */
+
 
 
 
