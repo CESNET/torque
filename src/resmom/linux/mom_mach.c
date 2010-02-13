@@ -3647,7 +3647,6 @@ char *size(
   }  /* END size() */
 
 
-
 /*
  * For a recovering (-p) mom, look through existing tasks in existing
  * jobs for things that have exited that are not owned by us through a

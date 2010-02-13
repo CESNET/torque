@@ -712,7 +712,7 @@ job *job_clone(
   int  fds;
 
   int   i;
-  int           slen;
+  int   slen;
 
   if (taskid > PBS_MAXJOBARRAY)
     {
@@ -879,7 +879,10 @@ job *job_clone(
     }
 
   /* put a system hold on the job.  we'll take the hold off once the
-   * entire array is cloned */
+   * entire array is cloned. We don't want any of the jobs to run and 
+   * complete before the whole thing is cloned.  This is in case we run into a
+   * problem during setting up the array and want to abort before any of the
+   * jobs run */
   pnewjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_a;
   pnewjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
 
@@ -887,7 +890,7 @@ job *job_clone(
   pnewjob->ji_wattr[(int)JOB_ATR_job_array_id].at_val.at_long = taskid;
   pnewjob->ji_wattr[(int)JOB_ATR_job_array_id].at_flags |= ATR_VFLAG_SET;
 
-  /* set PBS_ARRAYID var */
+  /* set PBS_ARRAYID environment variable */
   clear_attr(&tempattr, &job_attr_def[(int)JOB_ATR_variables]);
 
   sprintf(buf, "PBS_ARRAYID=%d", taskid);
@@ -985,12 +988,12 @@ void job_clone_wt(
     }
   else
     {
+    /* default to one second */
     clone_delay = 1;
     }
 
-  loop = TRUE;
 
-  while (loop)
+  for (loop = TRUE; loop;)
     {
     start = rn->start;
     end = rn->end;

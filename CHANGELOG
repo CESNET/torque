@@ -75,6 +75,9 @@ Array Changes
   e - print a more informative error if pbs_iff isn't found when trying to
       authenticate a client
   n - 01/18/2010. Merged 2.4.5 revisions 3268-3375. 
+  e - added -DUSESAVEDRESOURCES code that uses servers saved resources used
+      for accounting end record instead of current resources used for jobs that
+      stopped running while mom was not up.
 
 2.4.6
   f - added an asynchronous option for qsig, specified with -a.
@@ -105,6 +108,8 @@ Array Changes
       Now the environment is handled correctly.
   b - No longer will segfault if pbs_mom restarts in a bad state (user environment 
       not initialized)
+  e - Changing MAXNOTDEFAULT behavior.  Now, by default, max is not default and max
+      can be configured as default with --enable-maxdefault.
 
 2.4.4
   b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
