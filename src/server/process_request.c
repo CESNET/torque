@@ -935,6 +935,8 @@ void dispatch_request(
 
     case PBS_BATCH_SignalJob:
 
+    case PBS_BATCH_AsySignalJob:
+
       req_signaljob(request);
 
       break;

@@ -4,19 +4,15 @@ Array Changes
   e - TORQUE job arrays now use arrays to hold the job pointers and not linked 
       lists.  This should improve performance as well as make it easier to 
       implement future features we will add.
-  b - remove the pointer to a job from the job array after it has died.
   f - Allow users to delete a range of jobs from the job array
   f - Added a slot limit to the job arrays - this restricts the number of jobs
       that can concurrently run from one job array. (add %<limit> to the end
       of the array request)
-  e - added qmgr server attribute job_start_timeout, specifies timeout to be
-      used for sending job to mom. If not set, tcp_timeout is used. (ported
-      from trunk)
   f - added support for holding ranges of jobs from an array with a single 
       qhold (using the -t option). 
-  f - now arrays can be modified through qalter (using the -t option).  Arrays
-      can be modified using ranges (-t) or as a whole array.  Slot limits can
-      also be modified
+  f - now jobs in an array can be modified through qalter (using the -t option).  
+      Arrays can be modified using ranges (-t) or as a whole array.  Slot 
+      limits can also be modified
   f - jobs can now depend on arrays using these dependencies: afterstartarray, 
       afterokarray, afternotokarray, afteranyarray, beforestartarray, 
       beforeokarray, beforenotokarray, and beforeanyarray. This uses the same
@@ -24,11 +20,6 @@ Array Changes
       job name, and a number of jobs for that dependency type can be specified 
       using brackets after the array name, i.e. afterokarray:<array_name>[2] 
       would mean run after 2 jobs from that array finished ok.
-  b - fixed an off-by-one error with the before dependencies, holds need to be set
-      if >= not if >.
-  b - fixed a problem with jobs_running not decrementing (for arrays)
-  b - also fixed a problem with a slot limit being applied when no slot limit was 
-      specified
   f - added support for using qrls on arrays, and specifying ranges with the -t 
       syntax
 
@@ -84,6 +75,10 @@ Array Changes
   e - print a more informative error if pbs_iff isn't found when trying to
       authenticate a client
   n - 01/18/2010. Merged 2.4.5 revisions 3268-3375. 
+
+2.4.6
+  f - added an asynchronous option for qsig, specified with -a.
+  b - fix to cleanup job that is left in running state after mom restart
 
 2.4.5
   b - epilogue.user scripts were being run with prologue argments. Fixed
