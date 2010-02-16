@@ -15,18 +15,18 @@ my $testbase = $FindBin::Bin;
 
 execute_tests(
               "$testbase/momctl/release.bat",
-              "$testbase/qalter/release.bat",
+# RT7048              "$testbase/qalter/release.bat",
               "$testbase/qchkpt/release.bat",
               "$testbase/qdel/release.bat",
-              "$testbase/qhold/release.bat",
+# RT7048              "$testbase/qhold/release.bat",
               "$testbase/qmgr/release.bat",
               "$testbase/qrerun/release.bat",
               "$testbase/qrls/release.bat",
               "$testbase/qrun/release.bat",
-              "$testbase/qsig/release.bat",
-              "$testbase/qstat/release.bat",
+# RT7048              "$testbase/qsig/release.bat",
+# RT7049              "$testbase/qstat/release.bat",
               "$testbase/qsub/release.bat",
-              "$testbase/qterm/release.bat",
+# RT7048              "$testbase/qterm/release.bat",
               "$testbase/tracejob/release.bat",
              ); 
 
@@ -34,7 +34,7 @@ execute_tests(
 # their impact on the test suite
 execute_tests(
               "$testbase/pbsnodes/release.bat",
-              "$testbase/pbs_sched/release.bat",
+# RT7049              "$testbase/pbs_sched/release.bat",
               "$testbase/pbs_mom/release.bat",
-              "$testbase/pbs_server/release.bat",
+# RT7049              "$testbase/pbs_server/release.bat",
              );

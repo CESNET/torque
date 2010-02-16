@@ -17,7 +17,7 @@ execute_tests("$testbase/setup.t")
   or die("Couldn't setup for qmgr tests!");
 
 execute_tests(
-              "$testbase/qmgr_c_scheduling.t",
+# RT7049              "$testbase/qmgr_c_scheduling.t",
               "$testbase/qmgr_c_queue.t",
 );
 
