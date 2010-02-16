@@ -301,30 +301,33 @@ int status_attrib(
           int found = 0;
           unsigned long remaining;
 
-          pres = (resource *)GET_NEXT((pattr + JOB_ATR_resource)->at_val.at_list);
-
-          /* find the walltime resource */
-          for (;pres != NULL;pres = (resource *)GET_NEXT(pres->rs_link))
+          if ((pattr + JOB_ATR_resource)->at_flags & ATR_VFLAG_SET)
             {
-            pname = pres->rs_defin->rs_name;
-
-            if (strcmp(pname, "walltime") == 0)
+            pres = (resource *)GET_NEXT((pattr + JOB_ATR_resource)->at_val.at_list);
+            
+            /* find the walltime resource */
+            for (;pres != NULL;pres = (resource *)GET_NEXT(pres->rs_link))
               {
-              /* found walltime */
-              unsigned long value = (unsigned long)pres->rs_value.at_val.at_long;
-              if (((pattr+index)->at_flags & ATR_VFLAG_SET) != FALSE)
+              pname = pres->rs_defin->rs_name;
+              
+              if (strcmp(pname, "walltime") == 0)
                 {
-                remaining = value - (time_now - (pattr + index)->at_val.at_long);
+                /* found walltime */
+                unsigned long value = (unsigned long)pres->rs_value.at_val.at_long;
+                if (((pattr+index)->at_flags & ATR_VFLAG_SET) != FALSE)
+                  {
+                  remaining = value - (time_now - (pattr + index)->at_val.at_long);
+                  }
+                else
+                  {
+                  remaining = value;
+                  }
+                found = TRUE;
+                break;
                 }
-              else
-                {
-                remaining = value;
-                }
-              found = TRUE;
-              break;
               }
             }
-
+         
           if (found == TRUE)
             {
             snprintf(buf,sizeof(buf),"%ld",remaining);
