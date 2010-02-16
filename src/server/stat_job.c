@@ -312,7 +312,14 @@ int status_attrib(
               {
               /* found walltime */
               unsigned long value = (unsigned long)pres->rs_value.at_val.at_long;
-              remaining = value - (time_now - (pattr + index)->at_val.at_long);
+              if (((pattr+index)->at_flags & ATR_VFLAG_SET) != FALSE)
+                {
+                remaining = value - (time_now - (pattr + index)->at_val.at_long);
+                }
+              else
+                {
+                remaining = value;
+                }
               found = TRUE;
               break;
               }
