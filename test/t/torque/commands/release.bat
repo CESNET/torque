@@ -24,7 +24,7 @@ execute_tests(
               "$testbase/qrls/release.bat",
               "$testbase/qrun/release.bat",
 # RT7048              "$testbase/qsig/release.bat",
-# RT7049              "$testbase/qstat/release.bat",
+              "$testbase/qstat/release.bat",# RT7049
               "$testbase/qsub/release.bat",
 # RT7048              "$testbase/qterm/release.bat",
               "$testbase/tracejob/release.bat",
@@ -34,7 +34,7 @@ execute_tests(
 # their impact on the test suite
 execute_tests(
               "$testbase/pbsnodes/release.bat",
-# RT7049              "$testbase/pbs_sched/release.bat",
+              "$testbase/pbs_sched/release.bat",# RT7049
               "$testbase/pbs_mom/release.bat",
-# RT7049              "$testbase/pbs_server/release.bat",
+              "$testbase/pbs_server/release.bat",# RT7049
              );
