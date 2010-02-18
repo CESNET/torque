@@ -1425,9 +1425,9 @@ const char *TJobAttr[] =
   "reported",
   "job_type",
   "inter_cmd",
-#ifdef ENABLE_CSA
+#ifdef USEJOBCREATE
   "pagg_id",
-#endif /* ENABLE_CSA */
+#endif /* USEJOBCREATE */
   NULL
   };
 

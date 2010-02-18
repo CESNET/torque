@@ -180,9 +180,9 @@
 #define ATTR_reported    "reported"
 #define ATTR_intcmd      "inter_cmd"
 
-#ifdef ENABLE_CSA
+#ifdef USEJOBCREATE
 #define ATTR_pagg         "pagg_id"
-#endif /* ENABLE_CSA */
+#endif /* USEJOBCREATE */
 
 /* additional queue attributes names */
 
