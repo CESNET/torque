@@ -295,9 +295,9 @@ enum job_atr
   JOB_ATR_reported, /* tracks whether job has been reported to scheduler */
   JOB_ATR_jobtype,     /* opaque job type string */
   JOB_ATR_inter_cmd,      /* command for interactive job */
-#ifdef ENABLE_CSA
+#ifdef USEJOBCREATE
   JOB_ATR_pagg_id,
-#endif /* ENABLE_CSA */
+#endif /* USEJOBCREATE */
 #include "site_job_attr_enum.h"
 
   JOB_ATR_UNKN,  /* the special "unknown" type    */
