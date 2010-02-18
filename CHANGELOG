@@ -12,6 +12,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - fixed erroneous display of walltime when start time hasn't been set
   b - fixed possible segfault when finding remaining walltime (if the 
       job's resources haven't been defined)
+  e - altered the display of walltime remaining so that the xml produced by
+      qstat -f stays consistent. Also updated the man page.
 
 2.4.5
   b - epilogue.user scripts were being run with prologue argments. Fixed
