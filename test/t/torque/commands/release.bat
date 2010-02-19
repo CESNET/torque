@@ -15,18 +15,18 @@ my $testbase = $FindBin::Bin;
 
 execute_tests(
               "$testbase/momctl/release.bat",
-# RT7048              "$testbase/qalter/release.bat",
+              "$testbase/qalter/release.bat",
               "$testbase/qchkpt/release.bat",
               "$testbase/qdel/release.bat",
-# RT7048              "$testbase/qhold/release.bat",
+              "$testbase/qhold/release.bat",
               "$testbase/qmgr/release.bat",
               "$testbase/qrerun/release.bat",
               "$testbase/qrls/release.bat",
               "$testbase/qrun/release.bat",
-# RT7048              "$testbase/qsig/release.bat",
+              "$testbase/qsig/release.bat",
               "$testbase/qstat/release.bat",# RT7049
               "$testbase/qsub/release.bat",
-# RT7048              "$testbase/qterm/release.bat",
+              "$testbase/qterm/release.bat",
               "$testbase/tracejob/release.bat",
              ); 
 
