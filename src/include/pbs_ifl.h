@@ -296,6 +296,8 @@
 
 #define ATTR_NODE_state         "state"
 #define ATTR_NODE_np            "np"
+#define ATTR_NODE_npfree        "npfree"
+#define ATTR_NODE_npshared      "npshared"
 #define ATTR_NODE_properties    "properties"
 #define ATTR_NODE_ntype         "ntype"
 #define ATTR_NODE_jobs          "jobs"

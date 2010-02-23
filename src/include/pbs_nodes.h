@@ -250,6 +250,8 @@ enum nodeattr
   {
   ND_ATR_state,
   ND_ATR_np,
+  ND_ATR_npfree,
+  ND_ATR_npshared,
   ND_ATR_properties,
   ND_ATR_ntype,
   ND_ATR_jobs,

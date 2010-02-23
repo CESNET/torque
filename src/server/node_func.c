@@ -630,6 +630,10 @@ int status_nodeattrib(
       atemp[i].at_val.at_jinfo = pnode;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_np))
       atemp[i].at_val.at_long = pnode->nd_nsn;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_npfree))
+      atemp[i].at_val.at_long = pnode->nd_nsnfree;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_npshared))
+      atemp[i].at_val.at_long = pnode->nd_nsnshared;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_note))
       atemp[i].at_val.at_str  = pnode->nd_note;
     else
