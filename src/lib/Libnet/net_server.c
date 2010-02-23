@@ -669,6 +669,7 @@ void add_conn(
   svr_conn[sock].cn_func     = func;
   svr_conn[sock].cn_oncl     = 0;
   svr_conn[sock].cn_socktype = socktype;
+  svr_conn[sock].cn_schlock  = 0;
 
 #ifndef NOPRIVPORTS
 
@@ -755,6 +756,7 @@ void close_conn(
 
   free(svr_conn[sd].principal);
   svr_conn[sd].principal = NULL;
+  svr_conn[sd].cn_schlock = 0;
 
   num_connections--;
 
