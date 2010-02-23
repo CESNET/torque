@@ -485,6 +485,8 @@ struct job
   int  ji_isparent;    /* set to TRUE if this is a "parent job"*/
 #endif/* PBS_MOM */   /* END SERVER ONLY */
 
+  char *ji_expanded_spec; /* pre-parsed nodespec */
+
   /*
    * fixed size internal data - maintained via "quick save"
    * some of the items are copies of attributes, if so this

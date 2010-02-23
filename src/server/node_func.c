@@ -431,6 +431,9 @@ static short  old_ntype = (short)0xdead; /*node's   ntype   */
 static int  old_nprops = 0xdead;  /*node's   nprops  */
 static int             old_nstatus = 0xdead;            /*node's   nstatus */
 static char           *old_note    = NULL;              /*node's   note    */
+static char     *old_queue = NULL;
+static int old_np = 0;
+static struct attribute *old_resources = (struct attribute*)0;
 
 
 
@@ -439,7 +442,6 @@ static char           *old_note    = NULL;              /*node's   note    */
  * save_characteristic() -  save the characteristic values of the node along
  *       with the address of the node
  */
-
 void save_characteristic(
 
   struct pbsnode *pnode)
@@ -458,6 +460,7 @@ void save_characteristic(
   old_nstatus = pnode->nd_nstatus;
   old_first =   pnode->nd_first;
   old_f_st =    pnode->nd_f_st;
+  old_np =    pnode->nd_nsn;
 
   /* if there was a previous note stored here, free it first */
 
@@ -471,6 +474,24 @@ void save_characteristic(
     {
     old_note = strdup(pnode->nd_note);
     }
+
+  if (old_resources == NULL)
+    old_resources = malloc(sizeof(struct attribute));
+
+  if (old_resources == NULL)
+    return; /* XXX silent death */
+
+  if (old_queue != NULL)
+    {
+    free(old_queue);
+    old_queue = NULL;
+    }
+
+  if (pnode->queue != NULL)
+    old_queue = strdup(pnode->queue);
+
+  clear_attr(old_resources,&node_attr_def[ND_ATR_resources_total]);
+  node_attr_def[ND_ATR_resources_total].at_set(old_resources,&pnode->attributes[0],SET);
 
   return;
   }  /* END save_characteristic() */
@@ -488,8 +509,6 @@ void save_characteristic(
  *       bit(s) set depending on the results of the check.
  *       The "returned" bits get used by the caller.
  */
-
-
 int chk_characteristic(
 
   struct pbsnode *pnode,      /* I */
@@ -498,6 +517,10 @@ int chk_characteristic(
   {
   short tmp;
   char  tmpLine[1024];
+/*  extern int comp_resc_eq;*/
+  extern int comp_resc_gt;
+  extern int comp_resc_lt;
+  extern int comp_resc_nc;
 
   if ((pnode != old_address) || (pnode == NULL))
     {
@@ -575,6 +598,31 @@ int chk_characteristic(
 
   old_address = NULL;
 
+
+  if (node_attr_def[ND_ATR_resources_total].at_comp(&pnode->attributes[0],old_resources) == 0)
+    {
+    if (count_resc(&pnode->attributes[0]) != count_resc(old_resources))
+      *pneed_todo |= WRITE_NEW_NODESFILE;
+
+    if (comp_resc_lt != 0 || comp_resc_gt != 0 || comp_resc_nc != 0)
+      *pneed_todo |= WRITE_NEW_NODESFILE;
+    }
+
+  if (pnode->queue != old_queue)
+    {
+    if (pnode->queue == NULL || old_queue == NULL)
+      {
+      *pneed_todo |= WRITE_NEW_NODESFILE;
+      }
+    else if (strcmp(pnode->queue,old_queue))
+      {
+      *pneed_todo |= WRITE_NEW_NODESFILE;
+      }
+    }
+
+  if (pnode->nd_nsn != old_np)
+    *pneed_todo |= WRITE_NEW_NODESFILE;
+
   return(0);
   }  /* END chk_characteristic() */
 
@@ -635,7 +683,19 @@ int status_nodeattrib(
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_npshared))
       atemp[i].at_val.at_long = pnode->nd_nsnshared;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_note))
-      atemp[i].at_val.at_str  = pnode->nd_note;
+      atemp[i].at_val.at_str = pnode->nd_note;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_queue))
+      atemp[i].at_val.at_str = pnode->queue;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_total))
+	  {
+      clear_attr(&atemp[i],(padef+i));
+      (padef+i)->at_set(&atemp[i],&pnode->attributes[0],SET);
+	  }
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_used))
+      {
+      clear_attr(&atemp[i],(padef+i));
+      (padef+i)->at_set(&atemp[i],&pnode->attributes[1],SET);
+      }
     else
       {
       /*we don't ever expect this*/
@@ -773,6 +833,7 @@ static void initialize_pbsnode(
   pnode->nd_nprops  = 0;
   pnode->nd_nstatus = 0;
   pnode->nd_warnbad = 0;
+  pnode->queue = 0;
 
   for (i = 0;pul[i];i++)
     {
@@ -791,6 +852,10 @@ static void initialize_pbsnode(
 
     tinsert(pul[i], pnode, &ipaddrs);
     }  /* END for (i) */
+
+  /* clear the resource atributes */
+  clear_attr(&pnode->attributes[0], &node_attr_def[ND_ATR_resources_total]);
+  clear_attr(&pnode->attributes[1], &node_attr_def[ND_ATR_resources_used]);
 
   return;
   }  /* END initialize_pbsnode() */
@@ -890,10 +955,12 @@ void effective_node_delete(
   pnode->nd_nsn     = 0;
   pnode->nd_nsnfree = 0;
 
+  /* free resource attributes */
+  node_attr_def[ND_ATR_resources_total].at_free(&pnode->attributes[0]);
+  node_attr_def[ND_ATR_resources_used].at_free(&pnode->attributes[1]);
+
   return;
   }  /* END effective_node_delete() */
-
-
 
 
 
@@ -1168,6 +1235,8 @@ update_nodes_file(void)
 #endif
 
   struct pbsnode  *np;
+  tlist_head  head;
+  resource    *res;
   int i, j;
   FILE *nin;
 
@@ -1225,6 +1294,29 @@ update_nodes_file(void)
       fprintf(nin, " %s=%d",
               ATTR_NODE_np,
               np->nd_nsn);
+
+    /* write out resources */
+    head = np->attributes[0].at_val.at_list;
+    while ((res = (resource*)GET_NEXT(head)))
+      {
+      if (res != 0 && (res->rs_value.at_flags & ATR_VFLAG_FORCED))
+        {
+        tlist_head head;
+        svrattrl *patlist;
+
+        CLEAR_HEAD(head);
+        res->rs_defin->rs_encode(&res->rs_value,&head,"resources_total",
+            res->rs_defin->rs_name,ATR_ENCODE_CLIENT);
+        patlist = (svrattrl *)GET_NEXT(head);
+        fprintf(nin," resources_total.%s=%s", patlist->al_atopl.resource,
+            patlist->al_atopl.value);
+        }
+      head = *head.ll_next;
+      }
+
+    /* write out queue */
+    if (np->queue != NULL)
+      fprintf(nin, " queue=%s", np->queue);
 
     /* write out properties */
 
@@ -1330,6 +1422,7 @@ struct prop *init_prop(
   if ((pp = (struct prop *)malloc(sizeof(struct prop))) != NULL)
     {
     pp->name    = pname;
+    pp->value   = 0;
     pp->mark    = 0;
     pp->next    = 0;
     }
@@ -1419,8 +1512,10 @@ int create_pbs_node(
   int              ntype; /* node type; time-shared, not */
   char            *pname; /* node name w/o any :ts       */
   u_long          *pul;  /* 0 terminated host adrs array*/
-  int              rc;
+  int              rc, rc2;
   int              iht;
+  tlist_head       head;
+  resource         *res;
 
   if ((rc = process_host_name_part(
               objname,        /* I */
@@ -1539,21 +1634,43 @@ int create_pbs_node(
     }
 
   rc = mgr_set_node_attr(
-
          pnode,
          node_attr_def,
-         ND_ATR_LAST,
+         ND_ATR_resources_total,
          plist,
          perms,
          bad,
          (void *)pnode,
          ATR_ACTION_ALTER);
 
+  if (rc == 0)
+    rc2 = mgr_set_attr(
+            pnode->attributes,
+            &node_attr_def[ND_ATR_LAST-2],
+            2,
+            plist,
+            perms,
+            bad,
+            (void *)pnode,
+            ATR_ACTION_ALTER,
+            1);
+
+  if (rc == 0 && rc2 != 0) rc = rc2;
+
   if (rc != 0)
     {
     effective_node_delete(pnode);
 
     return(rc);
+    }
+
+  /* for all set resources, mark the force flag ATR_VFLAG_FORCED */
+  head = pnode->attributes[0].at_val.at_list;
+  while ((res = (resource*)GET_NEXT(head)))
+    {
+    if (res != 0)
+      res->rs_value.at_flags |= ATR_VFLAG_FORCED;
+    head = *head.ll_next;
     }
 
   recompute_ntype_cnts();
@@ -1656,9 +1773,9 @@ int setup_nodes(void)
   char   note[MAX_NOTE+1];
   char  *nodename;
   char   propstr[256];
-  char  *token;
+  char  *token, *token2;
   int   bad, i, num, linenum;
-  int   err;
+  int   err, is_resource;
 
   struct pbsnode *np;
   char     *val;
@@ -1742,6 +1859,7 @@ int setup_nodes(void)
 
     /* now process remaining tokens (if any), they may be either */
     /* attributes (keyword=value) or old style properties        */
+    /* or total resources (resources_total.res_name=value)       */
 
     while (1)
       {
@@ -1762,7 +1880,25 @@ int setup_nodes(void)
         if ((val == NULL) || (err != 0) || (xchar == '='))
           goto errtoken1;
 
-        pal = attrlist_create(token, 0, strlen(val) + 1);
+        is_resource = strncmp(token,ATTR_NODE_resources_total,
+                        strlen(ATTR_NODE_resources_total));
+
+        if (is_resource == 0 || is_resource == 15)
+          is_resource = (strchr(token,'.')!=NULL)?1:0;
+        else
+          is_resource = 0;
+
+        if (is_resource)
+          {
+          token[15] = '\0';
+          token2 = token+strlen(ATTR_NODE_resources_total)+1;
+          }
+        else
+          {
+          token2 = 0;
+          }
+
+        pal = attrlist_create(token, token2, strlen(val) + 1);
 
         if (pal == NULL)
           {
@@ -2015,10 +2151,6 @@ static void delete_a_subnode(
 
   return;
   }  /* END delete_a_subnode() */
-
-
-
-
 
 
 /*

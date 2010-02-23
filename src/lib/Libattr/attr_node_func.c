@@ -1100,6 +1100,78 @@ int node_status_list(
   return(rc);
   }  /* END node_status_list() */
 
+/** Either derive a queue attribute from the node or update node's queue
+ *  from attribute's list
+ *
+ *  @new derive queue into this attribute
+ *  @pnode pointer to a pbsnode struct
+ *  @actmode NEW or ALTER
+ */
+int node_queue(attribute *new, void *pnode, int actmode)
+  {
+  int              rc = 0;
+
+  struct pbsnode  *np;
+  attribute        temp;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+
+      /* if node has a queue, then copy string into temp  */
+      /* to use to setup a copy, otherwise setup empty   */
+
+      if (np->queue != NULL)
+        {
+        /* setup temporary attribute with the string from the node */
+
+        temp.at_val.at_str = np->queue;
+        temp.at_flags = ATR_VFLAG_SET;
+        temp.at_type  = ATR_TYPE_STR;
+
+        rc = set_note_str(new, &temp, SET); /* TODO change */
+        }
+      else
+        {
+        /* node has no properties, setup empty attribute */
+
+        new->at_val.at_str  = NULL;
+        new->at_flags       = 0;
+        new->at_type        = ATR_TYPE_STR;
+        }
+
+      break;
+
+    case ATR_ACTION_ALTER:
+
+      if (np->queue != NULL)
+        {
+        free(np->queue);
+
+        np->queue = NULL;
+        }
+
+      /* update node with new string */
+
+      np->queue = new->at_val.at_str;
+
+      new->at_val.at_str = NULL;
+
+      break;
+
+    default:
+
+      rc = PBSE_INTERNAL;
+
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
+
 /*
  * node_note - Either derive a note attribute from the node
  *             or update node's note from attribute's list.
@@ -1175,6 +1247,55 @@ int node_note(
   return(rc);
   }  /* END node_note() */
 
+
+int set_queue_str(
+    struct attribute *attr,
+    struct attribute *new,
+    enum batch_op     op)
+  {
+  static char id[] = "set_queue_str";
+  size_t nsize;
+  int rc = 0;
+
+  assert(attr && new && new->at_val.at_str && (new->at_flags & ATR_VFLAG_SET));
+  nsize = strlen(new->at_val.at_str);    /* length of new note */
+
+  if (nsize > PBS_MAXQUEUENAME)
+    {
+    sprintf(log_buffer, "Warning: Client attempted to set queue with len (%d) > PBS_MAXQUEUENAME (%d)",
+            (int)nsize,
+            MAX_NOTE);
+
+    log_record(
+      PBSEVENT_SECURITY,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    rc = PBSE_BADNDATVAL;
+    }
+
+  if (strchr(new->at_val.at_str, '\n') != NULL)
+    {
+    sprintf(log_buffer, "Warning: Client attempted to set queue with a newline char");
+
+    log_record(
+      PBSEVENT_SECURITY,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    rc = PBSE_BADNDATVAL;
+    }
+
+  if (rc != 0)
+    return(rc);
+
+  rc = set_str(attr, new, op);
+
+  return(rc);
+
+  }
 
 
 /*

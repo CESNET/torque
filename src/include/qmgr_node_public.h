@@ -96,3 +96,6 @@ ATTR_NODE_np,
 ATTR_NODE_ntype,
 ATTR_NODE_status,
 ATTR_NODE_note,
+ATTR_NODE_queue,
+ATTR_NODE_resources_total,
+

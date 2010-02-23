@@ -152,7 +152,13 @@ int attr_atomic_set(
         }
       else
         {
-        index = unkn;  /* if unknown attr are allowed */
+        if (unkn != 0)
+          index = unkn;  /* if unknown attr are allowed */
+        else /* simply jump over unknown */
+          {
+          plist = (struct svrattrl *)GET_NEXT(plist->al_link);
+          continue;
+          }
         }
       }
 
@@ -291,6 +297,7 @@ attr_atomic_node_set(
   attribute temp;
 
   listidx = 0;
+  resc_access_perm = privil; /* set privilege for decode_resc() */
 
   while (plist)
     {
@@ -306,7 +313,12 @@ attr_atomic_node_set(
         break;
         }
       else
-        index = unkn;  /*if unknown attr are allowed*/
+        {
+        /*index = unkn;*/  /*if unknown attr are allowed*/
+        /* if unknown enabled, then simply ignore it */
+        plist = (struct svrattrl *)GET_NEXT(plist->al_link);
+        continue;
+        }
       }
 
 

@@ -122,6 +122,7 @@ enum queueattr
   QA_ATR_AclGroupSloppy,
   QA_ATR_MTime,
   QA_ATR_DisallowedTypes,
+  QA_ATR_RequiredProperty,
 
   /* The following attributes apply only to execution queues */
 

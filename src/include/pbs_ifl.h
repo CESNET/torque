@@ -215,6 +215,7 @@
 #define ATTR_routewait   "route_waiting_jobs"
 #define ATTR_routeretry  "route_retry_time"
 #define ATTR_routelife   "route_lifetime"
+#define ATTR_required_property "required_property"
 #define ATTR_rsvexpdt    "reserved_expedite"
 #define ATTR_rsvsync     "reserved_sync"
 #define ATTR_start       "started"
@@ -303,6 +304,9 @@
 #define ATTR_NODE_jobs          "jobs"
 #define ATTR_NODE_status        "status"
 #define ATTR_NODE_note          "note"
+#define ATTR_NODE_resources_total "resources_total"
+#define ATTR_NODE_resources_used "resources_used"
+#define ATTR_NODE_queue         "queue"
 
 /* notification email formating */
 #define ATTR_mailsubjectfmt "mail_subject_fmt"

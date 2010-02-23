@@ -96,3 +96,4 @@
 ATTR_NODE_jobs,
 ATTR_NODE_npfree,
 ATTR_NODE_npshared,
+ATTR_NODE_resources_used,
