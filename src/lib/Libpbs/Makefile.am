@@ -84,4 +84,3 @@ libtorque_la_SOURCES = ../Libcsv/csv.c ../Libdis/dis.c \
                     ../Libnet/net_server.c ../Libnet/net_set_clse.c \
 		    ../Libnet/rm.c ../Libnet/port_forwarding.c
 
-
