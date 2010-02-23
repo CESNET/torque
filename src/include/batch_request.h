@@ -370,6 +370,8 @@ struct batch_request
     struct rq_returnfiles rq_returnfiles;
 
     struct rq_jobobit rq_jobobit;
+
+    int    rq_lock;
     } rq_ind;
   };
 
@@ -434,6 +436,7 @@ extern int decode_DIS_Rescl A_((int socket, struct batch_request *));
 extern int decode_DIS_Rescq A_((int socket, struct batch_request *));
 extern int decode_DIS_RunJob A_((int socket, struct batch_request *));
 extern int decode_DIS_ShutDown A_((int socket, struct batch_request *));
+extern int decode_DIS_SchedLock (int socket, struct batch_request *);
 extern int decode_DIS_SignalJob A_((int socket, struct batch_request *));
 extern int decode_DIS_Status A_((int socket, struct batch_request *));
 extern int decode_DIS_TrackJob A_((int socket, struct batch_request *));

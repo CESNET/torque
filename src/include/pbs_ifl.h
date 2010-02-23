@@ -531,6 +531,8 @@ extern int pbs_holdjob A_((int connect, char *job_id, char *hold_type, char *ext
 extern int pbs_checkpointjob A_((int connect, char *job_id, char *extend));
 extern char *pbs_locjob A_((int connect, char *job_id, char *extend));
 
+extern int pbs_lock(int connect, int action, char *extend);
+
 extern int
   pbs_manager A_((int connect, int command, int obj_type, char *obj_name,
                   struct attropl *attrib, char *extend));

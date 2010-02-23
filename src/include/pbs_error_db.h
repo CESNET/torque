@@ -201,6 +201,12 @@ PbsErrClient(PBSE_POSTCONDITION,     "Routine postcondition failed.")
 PbsErrClient(PBSE_CONSISTENCY,       "Routine consistency check failed.")
 PbsErrClient(PBSE_KERBEROS_USER, "Effective user name does not match kerberos principal")
 PbsErrClient(PBSE_KERBEROS_TICKET, "Getting kerberos ticket for user failed")
+/* scheduler lock is active */
+PbsErrClient(PBSE_SCHLOCKACTIVE,     "Scheduler lock is active on this server")
+/* bad command received in scheduler lock request */
+PbsErrClient(PBSE_SCHLOCKBADCOMM,    "Bad command for scheduler lock management")
+/* the lock was broken (timeout, or breaking command) */
+PbsErrClient(PBSE_SCHLOCKBROKEN,     "Scheduler lock was broken or timed out")
 /* pbs client errors ceiling (max_client_err + 1) */
 PbsErrClient(PBSE_CEILING,           (char*)0)
 #endif

@@ -73,6 +73,7 @@ PbsBatchReqType(PBS_BATCH_DelFiles,             "DeleteFiles")
 PbsBatchReqType(PBS_BATCH_JobObit,              "JobObituary")
 PbsBatchReqType(PBS_BATCH_MvJobFile,            "MoveJobFile")
 PbsBatchReqType(PBS_BATCH_StatusNode,           "StatusNode")
+PbsBatchReqType(PBS_BATCH_SchedulerLock,        "SchedulerLock")
 PbsBatchReqType(PBS_BATCH_Disconnect,           "Disconnect")
 PbsBatchReqType(PBS_BATCH_AsySignalJob,         "AsyncSignalJob")     /* = 60 */
 #endif

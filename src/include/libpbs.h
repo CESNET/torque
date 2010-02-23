@@ -323,6 +323,8 @@ extern int encode_DIS_Status A_((int socket, char *objid, struct attrl *));
 extern int encode_DIS_attrl A_((int socket, struct attrl *));
 extern int encode_DIS_attropl A_((int socket, struct attropl *));
 
+extern int encode_DIS_SchedLock(int socket, int action);
+
 extern int DIS_reply_read A_((int socket, struct batch_reply *preply));
 
 #endif /* LIBPBS_H */

@@ -260,6 +260,12 @@ int dis_request_read(
 
       break;
 
+    case PBS_BATCH_SchedulerLock:
+
+      rc = decode_DIS_SchedLock(sfds, request);
+
+      break;
+
     case PBS_BATCH_SignalJob:
 
       rc = decode_DIS_SignalJob(sfds, request);
