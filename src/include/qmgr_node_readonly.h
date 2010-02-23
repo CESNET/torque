@@ -94,3 +94,5 @@
  */
 
 ATTR_NODE_jobs,
+ATTR_NODE_npfree,
+ATTR_NODE_npshared,

@@ -146,6 +146,28 @@ attribute_def node_attr_def[] =
     ATR_TYPE_LONG,
     PARENT_TYPE_NODE,
   },
+  { ATTR_NODE_npfree, /* "npfree" */
+    decode_null,
+    encode_l,
+    set_null,
+    comp_null,
+    free_null,
+    NULL_FUNC,
+    READ_ONLY,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_NODE,
+  },
+  { ATTR_NODE_npshared, /* "npshared" */
+    decode_null,
+    encode_l,
+    set_null,
+    comp_null,
+    free_null,
+    NULL_FUNC,
+    READ_ONLY,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_NODE,
+  },
   /* ND_ATR_properties */
   { ATTR_NODE_properties, /* "properties" */
     decode_arst,
