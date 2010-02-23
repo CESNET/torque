@@ -117,6 +117,8 @@
 #include "mcom.h"
 #include "utils.h"
 
+#include "assertions.h"
+
 #define IS_VALID_STR(STR)  (((STR) != NULL) && ((STR)[0] != '\0'))
 
 extern void DIS_rpp_reset A_((void));
@@ -2951,72 +2953,6 @@ done:
   }  /* END listelem() */
 
 
-
-
-
-/*
-** Add the "global" spec to every sub-spec in "spec".
-**      RETURNS:  allocated string buffer (must be freed externally)
-*/
-
-static char *mod_spec(
-
-  char *spec,    /* I */
-  char *global)  /* I */
-
-  {
-  char  *line;
-  char *cp;
-  int    len;
-  int    nsubspec;
-
-  nsubspec = 1;
-
-  for (cp = spec;*cp != '\0';cp++)
-    {
-    if (*cp == '+')
-      {
-      nsubspec++;
-      }
-    }
-
-  len = strlen(global);
-
-  line = malloc(nsubspec * (len + 1) + strlen(spec) + 1);
-
-  if (line == NULL)
-    {
-    /* FAILURE */
-
-    return(NULL);
-    }
-
-  cp = line;
-
-  while (*spec)
-    {
-    if (*spec == '+')
-      {
-      *cp++ = ':';
-
-      strcpy(cp, global);
-
-      cp += len;
-      }
-
-    *cp++ = *spec++;
-    }
-
-  *cp++ = ':';
-
-  strcpy(cp, global);
-
-  return(line);
-  }  /* END mod_spec() */
-
-
-
-
 /* cntjons - count jobs on (shared) nodes */
 
 static int cntjons(
@@ -3176,7 +3112,159 @@ int MSNPrintF(
   }  /* END MSNPrintF() */
 
 
+/** Count the parts in a nodespec
+ *
+ * (Only works for local specs)
+ *
+ * @param spec Nodespec to parse
+ * @return Count of parts
+ */
+static int nodespec_part_count(const char *spec)
+  {
+  int result = 1;
 
+  dbg_precondition(spec != NULL, "This function does not accept NULL");
+
+  while (*spec != '\0')
+    {
+    if (*spec == '+')
+      result++;
+    spec++;
+    }
+
+  return result;
+  }
+
+/** Append requirements to each part of a spec
+ *
+ * @param spec the spec to be modified
+ * @param app requirements to be appended
+ * @return Modified nodespec
+ */
+static char *nodespec_app(const char *spec, const char *app)
+  {
+  char *cp;
+  char *result;
+
+  result = malloc(nodespec_part_count(spec) * strlen(app+1) + strlen(spec) + 1);
+  if (result == NULL) /* alloc fail */
+    return NULL;
+
+  cp = result;
+
+  while (*spec)
+    {
+    if (*spec == '+') /* add the requirements before each '+' */
+      {
+      *cp++ = ':';
+
+      strcpy(cp, app);
+
+      cp += strlen(app);
+      }
+
+    *cp++ = *spec++;
+    }
+
+  *cp++ = ':'; /* and also after the last part of the spec */
+
+  strcpy(cp, app);
+
+  return(result);
+  }  /* END nodespec_app() */
+
+/** Expand nodespec
+ *
+ * Add the global nodespec part to local parts of nodespec and determine exclusivity.
+ *
+ * @param spec The spec to be parsed
+ * @param exclusive 0 if shared, 1 if exclusive, 2 if node exclusive
+ * @return NULL on failure or allocated modified spec
+ */
+static char *nodespec_expand(const char *spec, int *exclusive)
+  {
+  char *result, *globs, *cp, *tmp;
+  static char shared[] = "shared"; /* shared */
+  static char excl[] = "excl"; /* node exclusive */
+
+  result = strdup(spec);
+  if (result == NULL) /* alloc failure */
+    return NULL;
+
+  if ((globs = strchr(result, '#')) != NULL)
+    /*find the first #, everything behind is global nodespec */
+    {
+    *globs++ = '\0';
+
+    globs = strdup(globs);
+    if (globs == NULL) /* alloc failure */
+      {
+      free(result);
+      return NULL;
+      }
+
+    /* glob now stores the global part of the nodespec
+     * - go thru each part of the global spec and append
+     */
+    while ((cp = strrchr(globs, '#')) != NULL)
+      {
+      *cp++ = '\0';
+
+      if (!strcmp(cp, shared)) /* #shared */
+        {
+        *exclusive = 0;
+        continue;
+        }
+
+      if (!strcmp(cp, excl)) /* #excl */
+        {
+        *exclusive = 1;
+        continue;
+        }
+
+      tmp = nodespec_app(result, cp);
+      if (tmp == NULL) /* alloc failure */
+        {
+        free(result);
+        free(globs);
+        return NULL;
+        }
+
+      free(result);
+      result = tmp;
+      }
+
+    /* now parse the first part of the global nodespec */
+    if (!strcmp(globs, shared)) /* #shared */
+      {
+      *exclusive = 0;
+      free(globs);
+      return result;
+      }
+
+    if (!strcmp(globs, excl)) /* #excl */
+      {
+      *exclusive = 1;
+      free(globs);
+      return result;
+      }
+
+    tmp = nodespec_app(result, globs);
+    if (tmp == NULL) /* alloc failure */
+      {
+      free(result);
+      free(globs);
+      return NULL;
+      }
+
+    free(result);
+    result = tmp;
+
+    free(globs);
+    }  /* END if ((globs = strchr(spec,'#')) != NULL) */
+
+  return result;
+  }
 
 
 /*
@@ -3204,10 +3292,9 @@ static int node_spec(
   struct pbsnode *pnode;
 
   struct pbssubn *snp;
-  char *str, *globs, *cp, *hold;
+  char *str;
   int  i, num;
   int  rv;
-  static char shared[] = "shared";
 
   extern int PNodeStateToString(int, char *, int);
 
@@ -3233,8 +3320,7 @@ static int node_spec(
     }
 
   exclusive = 1; /* by default, nodes (VPs) are requested exclusively */
-
-  spec = strdup(spec);
+  spec = nodespec_expand(spec,&exclusive);
 
   if (spec == NULL)
     {
@@ -3258,46 +3344,6 @@ static int node_spec(
 
     return(-1);
     }
-
-  if ((globs = strchr(spec, '#')) != NULL)
-    {
-    *globs++ = '\0';
-
-    globs = strdup(globs);
-
-    while ((cp = strrchr(globs, '#')) != NULL)
-      {
-      *cp++ = '\0';
-
-      if (strcmp(cp, shared) != 0)
-        {
-        hold = mod_spec(spec, cp);
-
-        free(spec);
-
-        spec = hold;
-        }
-      else
-        {
-        exclusive = 0;
-        }
-      }
-
-    if (strcmp(globs, shared) != 0)
-      {
-      hold = mod_spec(spec, globs);
-
-      free(spec);
-
-      spec = hold;
-      }
-    else
-      {
-      exclusive = 0;
-      }
-
-    free(globs);
-    }  /* END if ((globs = strchr(spec,'#')) != NULL) */
 
   str = spec;
 
@@ -3943,7 +3989,7 @@ int add_job_to_node(
     pnode->nd_nsnfree--;            /* reduce free count */
 
     /* if no free VPs, set node state */
-    if (pnode->nd_nsnfree <= 0)     
+    if (pnode->nd_nsnfree <= 0)
       pnode->nd_state = newstate;
 
     if (snp->inuse == INUSE_FREE)
