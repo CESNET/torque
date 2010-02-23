@@ -85,6 +85,9 @@
 
 /* NOTE:  requires server_limits.h */
 
+#include "attribute.h"
+
+
 #define BM_ERROR    -20
 
 enum psit
@@ -98,6 +101,7 @@ enum psit
 struct prop
   {
   char *name;
+  char *value; /* for resources */
   short mark;
 
   struct prop *next;
@@ -107,23 +111,21 @@ struct jobinfo
   {
 
   struct job *job;
+  int order;
 
   struct jobinfo *next;
   };
 
 struct pbssubn
   {
-
   struct pbsnode *host;
-
   struct pbssubn *next;
-
-  struct jobinfo *jobs;     /* list of jobs allocating resources within subnode */
-  /* does this include suspended jobs? */
+  struct jobinfo *jobs;    /* list of jobs allocating resources within subnode */
+                           /* TODO does this include suspended jobs? */
   resource_t      allocto;
-  enum psit      flag;  /* XXX */
+  enum psit       flag;    /* XXX */
   unsigned short  inuse;
-  short           index;  /* subnode index */
+  short           index;   /* subnode index */
   };
 
 struct pbsnode
@@ -158,6 +160,9 @@ struct pbsnode
   short    nd_order; /* order of user's request */
   time_t                 nd_warnbad;
   time_t                 nd_lastupdate; /* time of last update. */
+
+  struct attribute attributes[2]; /* resources_total, resources_used */
+  char *queue;
   };
 
 struct howl
@@ -257,6 +262,9 @@ enum nodeattr
   ND_ATR_jobs,
   ND_ATR_status,
   ND_ATR_note,
+  ND_ATR_queue,
+  ND_ATR_resources_total,
+  ND_ATR_resources_used,
   ND_ATR_LAST
   }; /* WARNING: Must be the highest valued enum */
 
@@ -289,7 +297,8 @@ extern void free_prop_list A_((struct prop*));
 extern void     free_prop_attr  A_((attribute*));
 extern void recompute_ntype_cnts A_(());
 extern  int     create_pbs_node A_((char *, svrattrl *, int, int *));
-extern  int     mgr_set_node_attr A_((struct pbsnode *, attribute_def *, int, svrattrl *, int, int *, void *, int));
+extern  int mgr_set_node_attr(struct pbsnode *, attribute_def *, int, svrattrl *, int, int *, void *, int);
+extern  int mgr_set_attr(attribute *pattr, attribute_def*, int, svrattrl*, int, int*, void*, int, int);
 
 struct prop  *init_prop A_((char *pname));
 #endif /* BATCH_REQUEST_H */

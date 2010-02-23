@@ -362,7 +362,7 @@ mgr_log_attr(
  * attributes must be successfully set, or none are modified.
  */
 
-static int mgr_set_attr(
+int mgr_set_attr(
 
   attribute *pattr,  /* current attributes */
   attribute_def *pdef,
@@ -371,7 +371,8 @@ static int mgr_set_attr(
   int   privil,
   int  *bad,
   void  *parent,
-  int   mode)
+  int   mode,
+  int   skip_unknown)
 
   {
   int   index;
@@ -398,7 +399,7 @@ static int mgr_set_attr(
    * and update it with the newly decoded value
    */
 
-  if ((rc = attr_atomic_set(plist, pattr, new, pdef, limit, -1, privil, bad)) != 0)
+  if ((rc = attr_atomic_set(plist, pattr, new, pdef, limit, skip_unknown?0:-1, privil, bad)) != 0)
     {
     attr_atomic_kill(new, pdef, limit);
 
@@ -733,7 +734,7 @@ int mgr_set_node_attr(
    * return code (rc) shapes caller's reply
    */
 
-  if ((rc = attr_atomic_node_set(plist, unused, new, pdef, limit, -1, privil, bad)) != 0)
+  if ((rc = attr_atomic_node_set(plist, unused, new, pdef, limit, 0, privil, bad)) != 0)
     {
     attr_atomic_kill(new, pdef, limit);
 
@@ -968,7 +969,8 @@ void mgr_queue_create(
          preq->rq_perm,
          &bad,
          (void *)pque,
-         ATR_ACTION_NEW);
+         ATR_ACTION_NEW,
+         0);
 
   if (rc != 0)
     {
@@ -1189,7 +1191,8 @@ void mgr_server_set(
          preq->rq_perm,
          &bad_attr,
          (void *) & server,
-         ATR_ACTION_ALTER);
+         ATR_ACTION_ALTER,
+         0);
 
   /* PBSE_BADACLHOST - lets show the user the first bad host in the ACL  */
 
@@ -1446,7 +1449,8 @@ void mgr_queue_set(
            preq->rq_perm,
            &bad,
            (void *)pque,
-           ATR_ACTION_ALTER);
+           ATR_ACTION_ALTER,
+           0);
 
 
     if (rc != 0)
@@ -1590,7 +1594,96 @@ void mgr_queue_unset(
   }
 
 
+/*
+ * mgr_node_unset - Unset (clear)  Node Attribute Values
+ *
+ * Finds the node, clears the requested attributes and returns a reply
+ */
 
+void mgr_node_unset(
+
+  struct batch_request *preq)
+
+  {
+  int    allnodes;
+  int    bad_attr = 0;
+  svrattrl  *plist;
+  struct pbsnode **pnode;
+  char      *nname;
+  int    rc;
+
+  int   total_count;
+  int   position;
+
+  if ((*preq->rq_ind.rq_manager.rq_objname == '\0') ||
+      (*preq->rq_ind.rq_manager.rq_objname == '@'))
+    {
+    allnodes = TRUE;
+    nname = "all";
+
+    pnode = pbsndlist;
+    total_count = svr_totnodes;
+    }
+  else
+    {
+    allnodes = FALSE;
+    nname   = preq->rq_ind.rq_manager.rq_objname;
+
+    pnode = malloc(sizeof(struct pbsnode*)*1);
+    pnode[0] = find_nodebyname(nname);
+    total_count = 1;
+    }
+
+  if (pnode == NULL)
+    {
+    req_reject(PBSE_UNKQUE, 0, preq, NULL, NULL);
+
+    return;
+    }
+
+  sprintf(log_buffer, msg_manager,
+
+          msg_man_uns,
+          preq->rq_user,
+          preq->rq_host);
+
+  log_event(
+    PBSEVENT_ADMIN,
+    PBS_EVENTCLASS_QUEUE,
+    nname,
+    log_buffer);
+
+  plist = (svrattrl *)GET_NEXT(preq->rq_ind.rq_manager.rq_attr);
+
+  for (position = 0; position < total_count; position++)
+    {
+    rc = mgr_unset_attr(
+           pnode[0]->attributes,
+           &node_attr_def[ND_ATR_LAST-2],
+           2,
+           plist,
+           preq->rq_perm,
+           &bad_attr);
+
+    if (rc != 0)
+      {
+      reply_badattr(rc, bad_attr, plist, preq);
+
+      return;
+      }
+
+    update_nodes_file();
+
+    mgr_log_attr(msg_man_uns, plist, PBS_EVENTCLASS_NODE, pnode[0]->nd_name);
+    }
+
+  if (total_count == 1)
+    free(pnode);
+
+  reply_ack(preq);
+
+  return;
+  }
 
 
 /*
@@ -1614,7 +1707,7 @@ void mgr_node_set(
 
   struct pbsnode  *pnode;
   char  *nodename = NULL;
-  int  rc;
+  int  rc, rc2;
 
   int  i, len;
   int  problem_cnt = 0;
@@ -1642,6 +1735,7 @@ void mgr_node_set(
         propnodes = 1;
         nodename = preq->rq_ind.rq_manager.rq_objname;
         props.name = nodename + 1;
+        props.value = 0;
         props.mark = 1;
         props.next = NULL;
         }
@@ -1701,12 +1795,27 @@ void mgr_node_set(
     rc = mgr_set_node_attr(
            pnode,
            node_attr_def,
-           ND_ATR_LAST,
+           ND_ATR_resources_total,
            plist,
            preq->rq_perm,
            &bad,
            (void *)pnode,
            ATR_ACTION_ALTER);
+
+    if (rc == 0)
+    rc2 = mgr_set_attr(
+            pnode->attributes,
+            &node_attr_def[ND_ATR_LAST-2],
+            2,
+            plist,
+            preq->rq_perm,
+            &bad,
+            (void*)pnode,
+            ATR_ACTION_ALTER,
+            1);
+
+    if (rc == 0 && rc2 != 0)
+      rc = rc2;
 
     if (rc != 0)
       {
@@ -2285,17 +2394,11 @@ void req_manager(
 
           break;
 
-#if 0
-
-          /* "unsetting" nodes isn't currently supported */
-
         case MGR_OBJ_NODE:
 
           mgr_node_unset(preq);
 
           break;
-
-#endif /* 0 */
 
         default:
 

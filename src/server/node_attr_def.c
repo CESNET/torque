@@ -233,4 +233,43 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE,
   },
 
+  /* ND_ATR_queue */
+  { ATTR_NODE_queue,
+    decode_str,
+    encode_str,
+    set_str,
+    comp_str,
+    free_str,
+    node_queue,
+    MGR_ONLY_SET,
+    ATR_TYPE_STR,
+    PARENT_TYPE_NODE,
+  },
+
+  /* ND_ATR_resources_total */
+  { ATTR_NODE_resources_total,
+    decode_resc,
+    encode_resc,
+    set_resc,
+    comp_resc,
+    free_resc,
+    NULL_FUNC,
+    MGR_ONLY_SET,
+    ATR_TYPE_RESC,
+    PARENT_TYPE_NODE,
+  },
+
+  /* ND_ATR_resources_used */
+  { ATTR_NODE_resources_used,
+    decode_resc,
+    encode_resc,
+    set_resc,
+    comp_resc,
+    free_resc,
+    NULL_FUNC,
+    READ_ONLY,
+    ATR_TYPE_RESC,
+    PARENT_TYPE_NODE,
+  },
+
   };

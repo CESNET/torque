@@ -207,10 +207,11 @@ static void prt_node_attr(
         continue;
       }
 
-    printf("     %s = %s\n",
+    if (pat->resource != NULL && (strcmp(pat->resource,"") != 0))
+      printf("\t%s.%s = %s\n", pat->name, pat->resource, pat->value);
+    else
+      printf("\t%s = %s\n", pat->name, pat->value);
 
-           pat->name,
-           pat->value);
     }  /* END for (pat) */
 
   return;
@@ -406,7 +407,17 @@ void addxmlnode(
     if (pat->value == NULL)
       continue;
 
-    MXMLCreateE(&AE, pat->name);
+    if (pat->resource != NULL && (strcmp(pat->resource,"") != 0))
+      {
+      char *buffer = malloc(strlen(pat->name)+strlen(pat->resource)+2);
+      strcpy(buffer,pat->name);
+      strcat(buffer,".");
+      strcat(buffer,pat->resource);
+      MXMLCreateE(&AE, buffer);
+      free(buffer);
+      }
+    else
+      MXMLCreateE(&AE, pat->name);
 
     MXMLSetVal(AE, pat->value, mdfString);
 

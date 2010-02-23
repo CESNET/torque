@@ -182,6 +182,8 @@ int add_job_to_node(struct pbsnode *,struct pbssubn *,short,job *,int);
 int node_satisfies_request(struct pbsnode *,char *);
 int reserve_node(struct pbsnode *,short,job *,char *,struct howl **);
 int build_host_list(struct howl **,struct pbssubn *,struct pbsnode *);
+void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp,
+       enum batch_op op);
 
 /*
 
@@ -1265,6 +1267,31 @@ int is_stat_get(
 
           }
       }
+    else
+      {
+      resource_def *def;
+      resource *res;
+      char *c = strchr(ret_info,'=');
+      if (c != NULL)
+        *c = '\0';
+
+      def = find_resc_def(svr_resc_def,ret_info,svr_resc_size);
+      if (def != 0)
+        {
+        res = find_resc_entry(&np->attributes[0],def);
+        if (res != 0)
+          {
+          if ((res->rs_value.at_flags & ATR_VFLAG_FORCED) == 0)
+            def->rs_decode(&res->rs_value,0,0,c+1);
+          }
+        else
+          {
+          res = add_resource_entry(&np->attributes[0],def);
+          def->rs_decode(&res->rs_value,0,0,c+1);
+          res->rs_value.at_flags &= ~ATR_VFLAG_FORCED;
+          }
+        }
+      }
     free(ret_info);
     }    /* END while (rc != DIS_EOD) */
 
@@ -2316,6 +2343,10 @@ static void free_prop(
     prop = pp->next;
 
     free(pp->name);
+
+    if (pp->value)
+      free(pp->value);
+
     free(pp);
     }  /* END for (pp) */
 
@@ -2795,6 +2826,18 @@ static int proplist(
           return(1);
           }
         }
+      /* check if it is a known resource */
+      else if (find_resc_def(svr_resc_def,pname,svr_resc_size) != NULL)
+        {
+        pequal++;
+
+        pp = (struct prop *)malloc(sizeof(struct prop));
+        pp->mark = 0; /* TODO for now resources are marked not to be checked */
+        pp->name = strdup(pname);
+        pp->value = strdup(pequal);
+        pp->next = *plist;
+        *plist = pp;
+        }
       else
         {
         return(1); /* not recognized - error */
@@ -2806,6 +2849,7 @@ static int proplist(
 
       pp->mark = 1;
       pp->name = strdup(pname);
+      pp->value = NULL;
       pp->next = *plist;
 
       *plist = pp;
@@ -3283,6 +3327,7 @@ static int node_spec(
   int    early,      /* I (boolean) */
   int    exactmatch, /* I (boolean) - NOT USED */
   char  *ProcBMStr,  /* I */
+  job   *pjob,       /* O (optional) */
   char  *FailNode,   /* O (optional,minsize=1024) */
   char  *EMsg)       /* O (optional,minsize=1024) */
 
@@ -3306,91 +3351,62 @@ static int node_spec(
 
   if (LOGLEVEL >= 6)
     {
-    sprintf(log_buffer, "entered spec=%.4000s",
-      spec);
-
-    log_record(
-      PBSEVENT_SCHED,
-      PBS_EVENTCLASS_REQUEST,
-      id,
-      log_buffer);
-
-    DBPRT(("%s\n",
-      log_buffer));
+    sprintf(log_buffer, "entered spec=%.4000s", spec);
+    log_record(PBSEVENT_SCHED, PBS_EVENTCLASS_REQUEST, id, log_buffer);
+    DBPRT(("%s\n", log_buffer));
     }
 
   exclusive = 1; /* by default, nodes (VPs) are requested exclusively */
+  /* expand the global reqs into the local parts */
   spec = nodespec_expand(spec,&exclusive);
 
-  if (spec == NULL)
+  if (pjob != NULL) /* store the expanded nodespec */
     {
-    /* FAILURE */
+    if (pjob->ji_expanded_spec != NULL)
+      free(pjob->ji_expanded_spec);
+    pjob->ji_expanded_spec = strdup(spec);
+    }
 
+  if (spec == NULL) /* memory alloc fail */
+    {
     sprintf(log_buffer,"cannot alloc memory");
-
     if (LOGLEVEL >= 1)
-      {
-      log_record(
-        PBSEVENT_SCHED,
-        PBS_EVENTCLASS_REQUEST,
-        id,
-        log_buffer);
-      }
+      log_record(PBSEVENT_SCHED, PBS_EVENTCLASS_REQUEST, id, log_buffer);
 
     if (EMsg != NULL)
-      {
       strncpy(EMsg,log_buffer,1024);
-      }
 
     return(-1);
     }
 
   str = spec;
-
+  /* count total nodes in the request */
   num = ctnodes(str);
 
-  if (num > svr_clnodes)
+  if (num > svr_clnodes) /* the request is for more nodes then the server has */
     {
-    /* FAILURE */
-
     free(spec);
 
-    sprintf(log_buffer, "job allocation request exceeds available cluster nodes, %d requested, %d available",
-      num,
-      svr_clnodes);
+    sprintf(log_buffer, "job allocation request exceeds available cluster"
+            " nodes, %d requested, %d available", num, svr_clnodes);
 
     if (LOGLEVEL >= 6)
-      {
-      log_record(
-        PBSEVENT_SCHED,
-        PBS_EVENTCLASS_REQUEST,
-        id,
-        log_buffer);
-      }
+      log_record(PBSEVENT_SCHED, PBS_EVENTCLASS_REQUEST, id, log_buffer);
 
     if (EMsg != NULL)
-      {
       strncpy(EMsg, log_buffer, 1024);
-      }
 
     return(-1);
     }
 
   if (LOGLEVEL >= 6)
     {
-    sprintf(log_buffer, "job allocation debug: %d requested, %d svr_clnodes, %d svr_totnodes",
-      num,
-      svr_clnodes,
-      svr_totnodes);
+    sprintf(log_buffer, "job allocation debug: %d requested, %d svr_clnodes,"
+            " %d svr_totnodes", num, svr_clnodes, svr_totnodes);
 
-    log_record(
-      PBSEVENT_SCHED,
-      PBS_EVENTCLASS_REQUEST,
-      id,
-      log_buffer);
+    log_record(PBSEVENT_SCHED, PBS_EVENTCLASS_REQUEST, id, log_buffer);
 
-    DBPRT(("%s\n",
-      log_buffer));
+    DBPRT(("%s\n", log_buffer));
     }
 
   /*
@@ -3928,8 +3944,6 @@ int reserve_node(
 #endif /* GEOMETRY_REQUESTS */
 
 
-
-
 /**
  * adds this job to the node's list of jobs
  * checks to be sure not to add duplicates
@@ -3986,7 +4000,10 @@ int add_job_to_node(
     jp->next = snp->jobs;
     snp->jobs = jp;
     jp->job = pjob;
+    jp->order = pnode->nd_order;
+
     pnode->nd_nsnfree--;            /* reduce free count */
+    adjust_resources_use(pnode,jp,INCR);
 
     /* if no free VPs, set node state */
     if (pnode->nd_nsnfree <= 0)
@@ -4113,7 +4130,7 @@ int set_nodes(
 
   /* allocate nodes */
 
-  if ((i = node_spec(spec, 1, 1, ProcBMStr, FailHost, EMsg)) == 0) /* check spec */
+  if ((i = node_spec(spec, 1, 1, ProcBMStr, pjob, FailHost, EMsg)) == 0) /* check spec */
     {
     /* no resources located, request failed */
 
@@ -4321,7 +4338,7 @@ int node_avail_complex(
 
   holdnum = svr_numnodes;
 
-  ret = node_spec(spec, 1, 0, NULL, NULL, NULL);
+  ret = node_spec(spec, 1, 0, NULL, NULL, NULL, NULL);
 
   svr_numnodes = holdnum;
 
@@ -4509,7 +4526,7 @@ int node_reserve(
     return(-1);
     }
 
-  if ((ret_val = node_spec(nspec, 0, 0, NULL, NULL, NULL)) >= 0)
+  if ((ret_val = node_spec(nspec, 0, 0, NULL, NULL, NULL, NULL)) >= 0)
     {
     /*
     ** Zero or more of the needed Nodes are available to be
@@ -4637,8 +4654,114 @@ find_ts_node(void)
   return(NULL);
   }  /* END find_ts_node() */
 
+/** Adjust the resources use on a node
+ *
+ * @param pnode Node with the resources
+ * @param jp Job info
+ * @param op Operation to do (increment, decrement)
+ */
+void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp,
+       enum batch_op op)
+  {
+  struct prop *prop = NULL, *iter = NULL;
+  char *str, *spec, *token;
+  int i,count,num;
 
+  if (jp->job->ji_expanded_spec == NULL)
+    return;
 
+  spec = strdup(jp->job->ji_expanded_spec);
+  token = spec;
+
+  /* determine the count of nodespec parts */
+  for (i = 1; token != NULL; i++)
+    {
+    token = strchr(token,'+');
+    if (token != NULL)
+      token++;
+    }
+
+  count = i;
+
+  token = spec;
+
+  /* record the starts of the node specs */
+  for (i = 1; token != NULL; i++)
+    {
+    if (i == jp->order)
+      {
+      str = token;
+      }
+
+    token = strchr(token,'+');
+    if (token != NULL)
+      {
+      *token = '\0';
+      token++;
+      }
+    }
+
+  if ((i = number(&str, &num)) == -1) /* get number */
+    return;
+
+  if (i == 0)
+    {
+    /* number exists */
+    if (*str == ':')
+      {
+      /* there are properties */
+      (str)++;
+
+      if (proplist(&str, &prop, &num))
+        return;
+      }
+    }
+  else
+    {
+    /* no number */
+    if (proplist(&str, &prop, &num))
+      return;
+    }
+
+  iter = prop;
+  while (iter != NULL)
+    {
+    resource_def *defin;
+    resource *val;
+    resource decoded;
+    int ret;
+
+    if (iter->value != NULL)
+    /* it is a resource */
+      if ((defin = find_resc_def(svr_resc_def,iter->name,svr_resc_size)))
+      /* it is a known resource */
+        {
+        ret = defin->rs_decode(&decoded.rs_value,0,iter->name,iter->value);
+        if (ret != 0)
+          continue; /* ignore if cannot decode */
+        if ((val = find_resc_entry(&pnode->attributes[1],defin)))
+        /* some value already present */
+          {
+          ret = defin->rs_set(&val->rs_value,&decoded.rs_value,op);
+          if (ret != 0)
+            continue; /* ignore if cannot set */
+          }
+        else
+          {
+          if (op == INCR) /* add new record only if increasing */
+            {
+            if ((val = add_resource_entry(&pnode->attributes[1],defin)))
+              {
+              ret = defin->rs_set(&val->rs_value,&decoded.rs_value,SET);
+              if (ret != 0)
+                continue; /* ignore if cannot set */
+              }
+            }
+          }
+        }
+    iter = iter->next;
+    }
+  }
 
 
 /*
@@ -4710,6 +4833,8 @@ void free_nodes(
           np->jobs = jp->next;
         else
           prev->next = jp->next;
+
+        adjust_resources_use(pnode,jp,DECR);
 
         free(jp);
 

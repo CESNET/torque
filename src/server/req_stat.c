@@ -1195,6 +1195,7 @@ void req_stat_node(
       {
       type = 2;
       props.name = name + 1;
+      props.value = NULL;
       props.mark = 1;
       props.next = NULL;
       }
