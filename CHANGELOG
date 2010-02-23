@@ -22,6 +22,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       will be appended at the end of the jobid, i.e. jobid.job_suffix_alias.
   f - added -l option to qstat so that it will display a server name and an
       alias if both are used. If these aren't used, -l has no effect.
+  b - fixed an off by one error for a case in get_correct_jobname
+  e - altered the display_job_server_suffix parameter and the job_suffix_alias
+      parameter so that they don't interfere with FQDN.
 
 2.4.5
   b - epilogue.user scripts were being run with prologue argments. Fixed

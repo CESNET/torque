@@ -1616,10 +1616,10 @@ void job_purge(
  */
 char *get_correct_jobname(
 
-  char *jobid) /* I */
+  const char *jobid) /* I */
 
   {
-  char *correct;
+  char *correct = NULL;
   char *dot;
   /* first suffix could be the server name or the alias */
   char *first_suffix = NULL;
@@ -1704,7 +1704,7 @@ char *get_correct_jobname(
       int len;
       /* dot is still at the second '.' */
       *dot = '\0';
-      len = strlen(jobid);
+      len = strlen(jobid) + 1 ;
 
       correct = malloc(len);
 
@@ -1790,7 +1790,7 @@ char *get_correct_jobname(
 
   return(correct);
 
-  } /* END get_correct_job_name() */
+  } /* END get_correct_jobname() */
 
 
 
@@ -1810,6 +1810,7 @@ job *find_job(
   {
   char *at;
   char *comp;
+  int   different = FALSE;
 
   job  *pj;
 
@@ -1818,9 +1819,19 @@ job *find_job(
 
   pj = (job *)GET_NEXT(svr_alljobs);
 
-  comp = get_correct_jobname(jobid);
-  if (comp == NULL)
-    return NULL;
+  if ((server.sv_attr[SRV_ATR_display_job_server_suffix].at_flags & ATR_VFLAG_SET) ||
+      (server.sv_attr[SRV_ATR_job_suffix_alias].at_flags & ATR_VFLAG_SET))
+    {
+    comp = get_correct_jobname(jobid);
+    different = TRUE;
+
+    if (comp == NULL)
+      return NULL;
+    }
+  else
+    {
+    comp = jobid;
+    }
 
   while (pj != NULL)
     {
@@ -1833,7 +1844,8 @@ job *find_job(
   if (at)
     *at = '@'; /* restore @server_name */
 
-  free(comp);
+  if (different)
+    free(comp);
 
   return(pj);  /* may be NULL */
   }   /* END find_job() */
