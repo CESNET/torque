@@ -672,8 +672,6 @@ case "$build" in
   *) ;;
 esac
 
-
-
 dnl
 dnl  ######################################################################
 dnl  Scheduler settings
@@ -742,7 +740,6 @@ fi
 
 AC_SUBST(SCHD_CODE)
 
-dnl
 dnl ######################################################################
 dnl GSSAPI/Krb5
 dnl 
@@ -1579,6 +1576,7 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/scheduler.cc/samples/msic_cluster/Makefile
 	  src/scheduler.cc/samples/sgi_origin/Makefile
 	  src/scheduler.cc/samples/umn_cluster/Makefile
+	  src/scheduler.cc/samples/world/Makefile
 	  src/scheduler.tcl/Makefile
 	  src/server/Makefile
 	  src/tools/Makefile
