@@ -5867,12 +5867,14 @@ int open_std_file(
 	int   keeping;	/* boolean:  1=TRUE, 0=FALSE */
 	char *path;
 	int   old_umask = 0;
+
+  char *id = "open_std_file";
 	
 	struct stat statbuf;
 	
 	if ((path = std_file_name(pjob, which, &keeping)) == NULL)
 		{
-		log_err(-1, "open_std_file", "cannot determine filename");
+		log_err(-1, id, "cannot determine filename");
 	
 		/* FAILURE - cannot determine filename */
 	
@@ -5895,7 +5897,7 @@ int open_std_file(
 	
 			if (S_ISLNK(statbuf.st_mode))
 				{
-				log_err(-1, "open_std_file", "std file is symlink, someone is doing something fishy");
+				log_err(-1, id, "std file is symlink, someone is doing something fishy");
 	
 				return(-1);
 				}
@@ -5904,7 +5906,7 @@ int open_std_file(
 				{
 				if (statbuf.st_uid != pjob->ji_qs.ji_un.ji_momt.ji_exuid)
 					{
-					log_err(-1, "open_std_file", "std file exists with the wrong owner, someone is doing something fishy");
+					log_err(-1, id, "std file exists with the wrong owner, someone is doing something fishy");
 	
 					return(-1);
 					}
@@ -5918,12 +5920,15 @@ int open_std_file(
 					for (i = 0; i < pjob->ji_grpcache->gc_ngroup; i++)
 						{
 						if (statbuf.st_gid == (gid_t)pjob->ji_grpcache->gc_groups[i])
+              {
 							equal = TRUE;
+              break;
+              }
 						}
 	
 					if (equal == FALSE)
 						{
-						log_err(-1, "open_std_file", "std file exists with the wrong group, someone is doing something fishy");
+						log_err(-1, id, "std file exists with the wrong group, someone is doing something fishy");
 	
 						return(-1);
 						}
@@ -5946,7 +5951,7 @@ int open_std_file(
 								path);
 	
 				if (LOGLEVEL >= 6)
-					log_err(errno, "open_std_file", log_buffer);
+					log_err(errno, id, log_buffer);
 	
 				/* fail on timeout */
 	
@@ -5958,20 +5963,47 @@ int open_std_file(
 								path);
 	
 				if (LOGLEVEL >= 6)
-					log_ext(errno, "open_std_file", log_buffer, LOG_DEBUG);
+					log_ext(errno, id, log_buffer, LOG_DEBUG);
 				}
 			}
 		}		 /* END else (keeping) */
 	
 	/* become user to create file */
 	
-	if (setgroups(pjob->ji_grpcache->gc_ngroup,(gid_t *)pjob->ji_grpcache->gc_groups) != 0 ||
-			(seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) == -1))
-		{
-		log_err(errno, "open_std_file", "cannot set user/group permissions on stdout/stderr file");
-	
+  if (setgroups(pjob->ji_grpcache->gc_ngroup,(gid_t *)pjob->ji_grpcache->gc_groups) != 0)
+    {
+    snprintf(log_buffer,sizeof(log_buffer),
+      "setgroups failed for UID = %lu, error: %s\n",
+      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+      strerror(errno));
+    
+    log_err(errno,id,log_buffer);
+    }
+
+  if (setegid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) != 0)
+    {
+    snprintf(log_buffer,sizeof(log_buffer),
+      "setegid(%lu) failed for UID = %lu, error: %s\n",
+      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exgid,
+      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+      strerror(errno));
+
+    log_err(errno,id,log_buffer);
+
 		return(-1);
 		}
+
+  if (seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) != 0)
+    {
+    snprintf(log_buffer,sizeof(log_buffer),
+      "seteuid(%lu) failed, error: %s\n",
+      (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
+      strerror(errno));
+
+    log_err(errno,id,log_buffer);
+
+		return(-1);
+    }
 	
 	if (pjob->ji_wattr[(int)JOB_ATR_umask].at_flags & ATR_VFLAG_SET)
 		{
@@ -5989,7 +6021,7 @@ int open_std_file(
 						mode,
 						(keeping == 0) ? "FALSE" : "TRUE");
 	
-		log_err(errno, "open_std_file", log_buffer);
+		log_err(errno, id, log_buffer);
 	
 		if (errno == ENOENT)
 			{
@@ -6055,7 +6087,7 @@ int open_std_file(
 			sprintf(log_buffer, "successfully created/opened stdout/stderr file '%s'",
 							path);
 	
-			log_ext(-1, "open_std_file", log_buffer, LOG_DEBUG);
+			log_ext(-1, id, log_buffer, LOG_DEBUG);
 			}
 		}
 	
