@@ -1,5 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
+2.4.7
+
 2.4.6
   f - added an asynchronous option for qsig, specified with -a.
   b - fix to cleanup job that is left in running state after a mom restart
@@ -27,6 +29,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       parameter so that they don't interfere with FQDN.
   b - fixed open_std_file to setegid as well, this caused a problem with 
       epilogue.user scripts.
+  n - 2.4.6 officially released on 02/24/2010
 
 2.4.5
   b - epilogue.user scripts were being run with prologue argments. Fixed
