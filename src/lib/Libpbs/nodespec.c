@@ -1,5 +1,6 @@
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "assertions.h"
 #include "nodespec.h"
@@ -227,6 +228,7 @@ static pars_spec_node *parse_spec_node(char *node)
   if (result == NULL)
     return NULL;
 
+  result->node_count = count;
   delim = iter;
 
   while (delim != NULL)
@@ -269,7 +271,12 @@ pars_spec *parse_nodespec(const char *nodespec)
     return NULL;
 
   if ((parsed = init_pars_spec()) == NULL)
+  {
+    free(expanded);
     return NULL;
+  }
+
+  parsed->is_exclusive = is_exclusive;
 
   iter = expanded;
   delim = iter;
@@ -286,6 +293,7 @@ pars_spec *parse_nodespec(const char *nodespec)
     node = parse_spec_node(iter);
     if (node == NULL)
       {
+      free(expanded);
       free_parsed_nodespec(parsed);
       return NULL;
       }
@@ -295,6 +303,7 @@ pars_spec *parse_nodespec(const char *nodespec)
     iter = delim;
     }
 
+  free(expanded);
   return parsed;
   }
 
