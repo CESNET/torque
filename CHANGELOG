@@ -1,6 +1,9 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
 2.4.7
+  b - fixed a bug for when a resource_list has been set, but isn't completely
+      initialized, causing a segfault
+  b - stop counting down walltime remaining after a job is completed
 
 2.4.6
   f - added an asynchronous option for qsig, specified with -a.
