@@ -301,7 +301,8 @@ int status_attrib(
           int found = 0;
           unsigned long remaining;
 
-          if ((pattr + JOB_ATR_resource)->at_flags & ATR_VFLAG_SET)
+          if (((pattr + JOB_ATR_resource)->at_val.at_list.ll_next != NULL) &&
+              ((pattr + JOB_ATR_resource)->at_flags & ATR_VFLAG_SET))
             {
             pres = (resource *)GET_NEXT((pattr + JOB_ATR_resource)->at_val.at_list);
             
