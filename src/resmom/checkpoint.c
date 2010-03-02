@@ -2086,7 +2086,6 @@ int create_missing_files(job *pjob)
       {
       if ((fd = creat(namebuf, S_IRUSR | S_IWUSR)) > 0)
         {
-        /* TODO check return value of fchown */
         if (fchown(fd,pjob->ji_qs.ji_un.ji_momt.ji_exuid,
               pjob->ji_qs.ji_un.ji_momt.ji_exgid))
           {
@@ -2125,7 +2124,6 @@ int create_missing_files(job *pjob)
       {
       if ((fd = creat(namebuf, S_IRUSR | S_IWUSR)) > 0)
         {
-        /* TODO check return value of fchown */
         if (fchown(fd,pjob->ji_qs.ji_un.ji_momt.ji_exuid,
               pjob->ji_qs.ji_un.ji_momt.ji_exgid))
           {
