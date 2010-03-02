@@ -79,9 +79,29 @@ Array Changes
       for accounting end record instead of current resources used for jobs that
       stopped running while mom was not up.
 
+2.4.7
+  b - fixed a bug for when a resource_list has been set, but isn't completely
+      initialized, causing a segfault
+  b - stop counting down walltime remaining after a job is completed
+  b - correctly display the number for tasks as used in TORQUE in qstat -a output
+
 2.4.6
   f - added an asynchronous option for qsig, specified with -a.
   b - fix to cleanup job that is left in running state after mom restart
+  f - added two server parameters: display_job_server_suffix and job_suffix_alias.
+      The first defaults to true and is whether or not jobs should be appended
+      by .server_name. The second defaults to NULL, but if it is defined it
+      will be appended at the end of the jobid, i.e. jobid.job_suffix_alias.
+  f - added -l option to qstat so that it will display a server name and an
+      alias if both are used. If these aren't used, -l has no effect.
+  e - qstat -f now includes an extra field "Walltime Remaining" that tells 
+      the remaining walltime in seconds. This field is does not account for
+      weighted walltime.
+  b - fixed open_std_file to setegid as well, this caused a problem with 
+      epilogue.user scripts.
+  e - qsub's -W can now parse attributes with quoted lists, for example: 
+      qsub script -W attr="foo,foo1,foo2,foo3" will set foo,foo1,foo2,foo3
+      as attr's value.
 
 2.4.5
   b - epilogue.user scripts were being run with prologue argments. Fixed
