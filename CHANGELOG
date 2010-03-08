@@ -1,6 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature n - note
 
 2.3.11
+  b - no longer ignoring fread return values in linux cpuset code (gcc 4.3.3)
 
 2.3.10
   b - Fixed a bug in run_pelog (src/resmom/prolog.c) where epilogue.user 

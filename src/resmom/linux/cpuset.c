@@ -154,7 +154,14 @@ initialize_root_cpuset(void)
 
     if (fd)    /* FIXME: need proper error checking and response */
       {
-      fread(cpuset_buf, sizeof(char), 1023, fd);
+      if (fread(cpuset_buf, sizeof(char), sizeof(cpuset_buf), fd) != sizeof(cpuset_buf))
+        {
+        if (ferror(fd) != 0)
+          {
+          log_err(-1,id,
+            "An error occurred while creating the root cpuset, attempting to continue");
+          }
+        }
       fclose(fd);
       strcpy(path, TCPUSET_PATH);
       strcat(path, "/cpus");
@@ -180,7 +187,15 @@ initialize_root_cpuset(void)
 
     if (fd)
       {
-      fread(cpuset_buf, sizeof(char), 1023, fd);
+      if (fread(cpuset_buf, sizeof(char), sizeof(cpuset_buf), fd) != sizeof(cpuset_buf))
+        {
+        if (ferror(fd) != 0)
+          {
+          log_err(-1,id,
+            "An error occurred while creating the root cpuset, attempting to continue");
+          }
+        }
+
       fclose(fd);
       strcpy(path, TCPUSET_PATH);
       strcat(path, "/mems");
@@ -291,7 +306,15 @@ int create_jobset(
 
     if (fd)
       {
-      fread(cpusbuf, sizeof(char), 1023, fd);
+      if (fread(cpusbuf, sizeof(char), sizeof(cpusbuf), fd) != sizeof(cpusbuf))
+        {
+        if (ferror(fd) != 0)
+          {
+          log_err(-1,id,
+            "An error occurred while reading the memory for the cpuset, attempting to continue\n");
+          }
+        }
+
       fclose(fd);
       strcpy(tmppath, path);
       strcat(tmppath, "/mems");
@@ -375,7 +398,14 @@ int create_jobset(
 
       if (fd)
         {
-        fread(tasksbuf, sizeof(char), 1023, fd);
+        if (fread(tasksbuf, sizeof(char), sizeof(tasksbuf), fd) != sizeof(tasksbuf))
+          {
+          if (ferror(fd) != 0)
+            {
+            log_err(-1,id,
+              "An error occurred while reading the cpuset's memory, attempting to continue\n");
+            }
+          }
         fclose(fd);
         }
 
@@ -392,7 +422,6 @@ int create_jobset(
         }
 
       memset(tasksbuf, '\0', sizeof(tasksbuf));
-
 
       }
     }
