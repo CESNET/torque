@@ -78,12 +78,20 @@ Array Changes
   e - added -DUSESAVEDRESOURCES code that uses servers saved resources used
       for accounting end record instead of current resources used for jobs that
       stopped running while mom was not up.
+  f - added -P to qsub. When submitting a job as root, the root user may add -P
+      <username> to submit the job as the proxy user specified by <usermname>
 
 2.4.7
   b - fixed a bug for when a resource_list has been set, but isn't completely
       initialized, causing a segfault
   b - stop counting down walltime remaining after a job is completed
   b - correctly display the number for tasks as used in TORQUE in qstat -a output
+  b - no longer ignoring fread return values in linux cpuset code (gcc 4.3.3)
+  b - fixed a bug where job was added to obit retry list multiple times, causing
+      a segfault
+  b - Fix for Bugzilla bug 43. "configure ignores with-modulefiles=no"
+  b - no longer try to decide when to start with -t create in init.d scripts, 
+      -t creates should be done manually by the user
 
 2.4.6
   f - added an asynchronous option for qsig, specified with -a.
