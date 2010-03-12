@@ -11,6 +11,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - Fix for Bugzilla bug 43. "configure ignores with-modulefiles=no"
   b - no longer try to decide when to start with -t create in init.d scripts, 
       -t creates should be done manually by the user
+  b - no longer let qsub determine the PBS_O_HOST. This work is done on the server
+      and the server code accounts for the connection interface as well as aliasing.
+      Code to set PBS_O_HOST on the server is already there, but now will be active.
 
 2.4.6
   f - added an asynchronous option for qsig, specified with -a.
