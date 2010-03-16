@@ -14,6 +14,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - no longer let qsub determine the PBS_O_HOST. This work is done on the server
       and the server code accounts for the connection interface as well as aliasing.
       Code to set PBS_O_HOST on the server is already there, but now will be active.
+  f - added -P to qsub. When submitting a job as root, the root user may add -P
+      <username> to submit the job as the proxy user specified by <usermname>
 
 2.4.6
   f - added an asynchronous option for qsig, specified with -a.
