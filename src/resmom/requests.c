@@ -1422,9 +1422,10 @@ const char *TJobAttr[] =
   "restartname",
   "faulttol",
   "comp_time",
-  "reported",
+  "reported",      /* 60 */
   "job_type",
   "inter_cmd",
+  "proxy_user",
 #ifdef USEJOBCREATE
   "pagg_id",
 #endif /* USEJOBCREATE */

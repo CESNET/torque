@@ -179,6 +179,7 @@
 #define ATTR_comp_time   "comp_time"
 #define ATTR_reported    "reported"
 #define ATTR_intcmd      "inter_cmd"
+#define ATTR_P           "proxy_user"
 
 #ifdef USEJOBCREATE
 #define ATTR_pagg         "pagg_id"

@@ -2828,7 +2828,7 @@ int process_opts(
   char search_string[256];
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
-#define GETOPT_ARGS "a:A:b:c:C:d:D:e:fhIj:k:l:m:M:N:o:p:q:r:S:t:T:u:v:Vw:W:Xz-:"
+#define GETOPT_ARGS "a:A:b:c:C:d:D:e:fhIj:k:l:m:M:N:o:p:P:q:r:S:t:T:u:v:Vw:W:Xz-:"
 #else
 #define GETOPT_ARGS "a:A:c:C:e:hj:k:l:m:M:N:o:p:q:r:S:u:v:VW:z"
 #endif /* PBS_NO_POSIX_VIOLATION */
@@ -3498,6 +3498,33 @@ int process_opts(
           }
 
         break;
+
+#if !defined(PBS_NO_POSIX_VIOLATION)
+
+      case 'P':
+
+        if (strlen(optarg) > 0)
+          {
+          set_attr(&attrib, ATTR_P, optarg);
+
+          /* make sure this is the super user */
+          if (geteuid() != (uid_t)0)
+            {
+            fprintf(stderr, "qsub: Must be the super user to submit a proxy job\n");
+
+            errflg++;
+            }
+          }
+        else
+          {
+          fprintf(stderr, "qsub: -P requires a user name\n");
+
+          errflg++;
+          }
+
+        break;
+
+#endif /* PBS_NO_POSIX_VIOLATION */
 
       case 'q':
 
@@ -4529,8 +4556,8 @@ int main(
       depth=<int> | dir=<path> | interval=<minutes>}... ]\n\
       [-C directive_prefix] [-d path] [-D path]\n\
       [-e path] [-h] [-I] [-j oe] [-k {oe}] [-l resource_list] [-m n|{abe}]\n\
-      [-M user_list] [-N jobname] [-o path] [-p priority] [-q queue] [-r y|n]\n\
-      [-S path] [-t number_to_submit] [-T type]  [-u user_list] [-X] [-w] path\n";
+      [-M user_list] [-N jobname] [-o path] [-p priority] [-P proxy_user] [-q queue] \n\
+      [-r y|n] [-S path] [-t number_to_submit] [-T type]  [-u user_list] [-X] [-w] path\n";
 
     /* need secondary usage since there appears to be a 512 byte size limit */
 
