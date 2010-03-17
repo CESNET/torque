@@ -527,7 +527,6 @@ int check_nodes(int pbs_sd, job_info *jinfo, node_info **ninfo_arr)
   int al, res, down;  /* unused variables passed into pbs_rescquery */
   char *node_str;  /* pointer to node string */
   char *tmp;   /* needed to make buf a char ** the call */
-  char errbuf[256];
   int rc;   /* return code */
 
   nodes = find_resource_req(jinfo -> resreq, "nodes");
@@ -550,8 +549,8 @@ int check_nodes(int pbs_sd, job_info *jinfo, node_info **ninfo_arr)
     if ((rc = pbs_rescquery(pbs_sd, &tmp, 1, &av, &al, &res, &down)) != 0)
       {
       free(node_str);
-      sprintf(errbuf, "pbs_resquery error: %d", rc);
-      sched_log(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, jinfo -> name, errbuf);
+      sched_log(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, jinfo -> name,
+          "pbs_resquery error: %d", rc);
       return SCHD_ERROR;
       }
     else

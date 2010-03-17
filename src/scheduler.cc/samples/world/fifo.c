@@ -356,8 +356,7 @@ int schedule(
   {
   world_init(&cluster);
 
-  sprintf(log_buffer,"No. %d",cmd);
-  sched_log(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Woken up by command",log_buffer);
+  sched_log(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Woken up by command","No. %d",cmd);
     
   switch (cmd)
     {

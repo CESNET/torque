@@ -111,7 +111,6 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
   struct batch_status *cur_node; /* used to cycle through nodes */
   node_info **ninfo_arr;  /* array of nodes for scheduler's use */
   node_info *ninfo;   /* used to set up a node */
-  char errbuf[256];
   char *err;    /* used with pbs_geterrmsg() */
   int num_nodes = 0;   /* the number of nodes */
   int i;
@@ -119,8 +118,7 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
   if ((nodes = pbs_statnode(pbs_sd, NULL, NULL, NULL)) == NULL)
     {
     err = pbs_geterrmsg(pbs_sd);
-    sprintf(errbuf, "Error getting nodes: %s", err);
-    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, "", errbuf);
+    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, "", "Error getting nodes: %s", err);
     return NULL;
     }
 
@@ -401,8 +399,6 @@ void free_node_info(node_info *ninfo)
  */
 int set_node_type(node_info *ninfo, char *ntype)
   {
-  char errbuf[256];
-
   if (ntype != NULL && ninfo != NULL)
     {
     if (!strcmp(ntype, ND_timeshared))
@@ -415,8 +411,7 @@ int set_node_type(node_info *ninfo, char *ntype)
       ninfo -> type = NodeVirtual;
     else
       {
-      sprintf(errbuf, "Unknown node type: %s", ntype);
-      sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo -> name, errbuf);
+      sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo -> name, "Unknown node type: %s", ntype);
       return 1;
       }
 
@@ -438,7 +433,6 @@ int set_node_type(node_info *ninfo, char *ntype)
  */
 int set_node_state(node_info *ninfo, char *state)
   {
-  char errbuf[256];
   char *tok;    /* used with strtok() */
 
   printf(state);
@@ -470,8 +464,7 @@ int set_node_state(node_info *ninfo, char *state)
         ninfo -> is_busy = 1;
       else
         {
-        sprintf(errbuf, "Unknown Node State: %s", tok);
-        sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo -> name, errbuf);
+        sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo -> name, "Unknown Node State: %s", tok);
         }
 
       tok = strtok(NULL, ",");
@@ -506,7 +499,6 @@ int talk_with_mom(
   char *endp;   /* used with strtol() */
   double testd;   /* used to convert string -> double */
   int testi;   /* used to convert string -> int */
-  char errbuf[256];
   int i;
 
   if ((ninfo != NULL) && !ninfo->is_down && !ninfo->is_offline)
@@ -575,8 +567,8 @@ int talk_with_mom(
         }
       else
         {
-        sprintf(errbuf, "Unknown resource value[%d]: %s", i, mom_ans);
-        sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo -> name, errbuf);
+        sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo -> name,
+                  "Unknown resource value[%d]: %s", i, mom_ans);
         }
       }
 

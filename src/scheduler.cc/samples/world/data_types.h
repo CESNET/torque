@@ -314,9 +314,6 @@ unsigned is_sharing:
 unsigned is_busy:
   1;  /* load on node is too high to schedule */
 
-unsigned is_job_suitable:
-  1; /* TODO implement */
-
 unsigned no_multinode_jobs:
   1; /* no multinode jobs on this node */
 
@@ -353,11 +350,8 @@ unsigned is_bootable:
 
   struct repository_alternatives ** alternatives;
 
-  pars_spec_node *temp_assign;
-#if 0
-  char *temp_assign; /**< Temporary job assignment
-                          (@see is_ok_to_run() and nodes_pre_assign()) */
-#endif
+  pars_spec_node *temp_assign; /**< Temporary job assignment */
+  repository_alternatives *temp_assign_alternative; /**< Alternative assignment */
   };
 
 struct resource
