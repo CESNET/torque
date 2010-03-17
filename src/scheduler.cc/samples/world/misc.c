@@ -93,6 +93,7 @@
 #include "utility.h"
 #include "site_pbs_cache.h"
 #include "assertions.h"
+#include <stdarg.h>
 
 /*
  *
@@ -193,23 +194,27 @@ int skip_line(char *line)
   return skip;
   }
 
-/*
+/** Write a log entry to the scheduler log file using log_record
  *
- * log - write a log entry to the scheduler log file using log_record
- *
- *   event - the event type
- *   class - the event class
- *   name  - the name of the object
- *   text  - the text of the message
+ * @param event The event type
+ * @param class The event class
+ * @param name The name of the object
+ * @param text The text of the message
  *
  * returns nothing
  *
  */
-
-void sched_log(int event, int class, char *name, char *text)
+void sched_log(int event, int class, const char *name, const char *text,...)
   {
   if (!(conf.log_filter & event) && text[0] != '\0')
-    log_record(event, class, name, text);
+    {
+    va_list extras;
+    va_start(extras,text);
+    vsprintf(log_buffer,text,extras);
+    log_record(event, class, (char*)name, (char*)log_buffer);
+    /* TODO quick fix, log_record doesn't take const */
+    va_end(extras);
+    }
   }
 
 /*
