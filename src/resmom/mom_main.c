@@ -163,6 +163,10 @@
 #define MAX_RESEND_JOBS     512
 #define DUMMY_JOB_PTR       1
 
+#ifndef MAX_LINE
+#define MAX_LINE 1024
+#endif
+
 /* Global Data Items */
 
 char  *program_name;
@@ -178,13 +182,22 @@ unsigned int default_server_port = 0;
 int    exiting_tasks = 0;
 float  ideal_load_val = -1.0;
 int    internal_state = 0;
+
+/* mom data items */
+char          *cpus_str;
+int            num_cpus;
+char          *mem_str;
+int            num_mems;
+char          *memsize_str;
+unsigned long  memsize;
+
 /* by default, enforce these policies */
 int    ignwalltime = 0; 
 int    ignmem = 0;
 int    igncput = 0;
 int    ignvmem = 0; 
-int    spoolasfinalname = 0;
 /* end policies */
+int    spoolasfinalname = 0;
 int    lockfds = -1;
 time_t loopcnt;  /* used for MD5 calc */
 float  max_load_val = -1.0;
@@ -209,6 +222,7 @@ char        *path_aux;
 char        *path_server_name;
 char        *path_home = PBS_SERVER_HOME;
 char        *mom_home;
+char        *path_layout;
 extern char *msg_daemonname;          /* for logs     */
 extern char *msg_info_mom; /* Mom information message   */
 extern int pbs_errno;
@@ -6890,6 +6904,7 @@ int setup_program_environment(void)
   path_epiloguserp = mk_dirs("mom_priv/epilogue.user.parallel");
   path_prologuserp = mk_dirs("mom_priv/prologue.user.parallel");
   path_epilogpdel  = mk_dirs("mom_priv/epilogue.precancel");
+  path_layout      = mk_dirs("mom_priv/mom.layout");
 
 #ifndef DEFAULT_MOMLOGDIR
 
@@ -8249,6 +8264,168 @@ void restart_mom(
 
 
 
+/* finds the number of elements in a comma separated string
+ * count is the number of commas + 1
+ */
+int get_comma_count(
+
+  char *str) /* I */
+
+{
+  int   count = 1;
+  char *comma;
+
+  /* check for error */
+  if (str == NULL)
+    return -1;
+
+  comma = str;
+
+  while ((comma = strchr(comma,',')) != NULL)
+    {
+    count++;
+    comma++;
+    }
+  
+  return(count);
+  } /* END get_comma_count() */
+
+
+
+
+int read_layout_file()
+
+  {
+  FILE *read_layout;
+  char  line[MAX_LINE];
+  char *delims = " \t\n\r=";
+  char *tok = NULL;
+  char *val = NULL;
+  char *id = "read_layout_file";
+
+  int line_found = FALSE;
+  
+  if ((read_layout = fopen(path_layout, "r")) == NULL)
+    {
+    snprintf(log_buffer,sizeof(log_buffer),
+      "Unable to read the layout file in %s\n",
+      path_layout);
+    log_err(errno,id,log_buffer);
+
+    exit(-505);
+    }
+
+  /* search for the line with our hostname on it 
+   * file in this format:
+   * hostname cpus=<X> mem=<Y> memsize=<Z> */
+  while (fgets(line, sizeof(line), read_layout) != NULL)
+    {
+    /* skip comments */
+    if (line[0] == '#')
+      continue;
+
+    tok = strtok(line,delims);
+
+    if (strcmp(tok,mom_host) == 0)
+      {
+      /* hostname found */
+      line_found = TRUE;
+      break;
+      }
+    }
+
+  if (line_found == FALSE)
+    {
+    snprintf(log_buffer,sizeof(log_buffer),
+      "Unable to find hostname %s in layout file %s\n",
+      mom_host,
+      path_layout);
+
+    exit(-505);
+    }
+
+  /* find the specifications */
+  while ((tok = strtok(NULL,delims)) != NULL)
+    {
+    /* do general error checking on each pair, should be in 
+     * the format name=val, spacing optional */
+    val = strtok(NULL,delims);
+
+    if (val == NULL)
+      {
+      snprintf(log_buffer,sizeof(log_buffer),
+        "Malformed mom.layout file, line:\n%s\n",
+        line);
+      log_err(-1,id,log_buffer);
+      
+      exit(-505);
+      }
+    
+    if (strcmp(tok,"cpus") == 0)
+      {
+      /* handle cpus */
+      cpus_str = val;
+      num_cpus = get_comma_count(val);
+      }
+    else if (strcmp(tok,"mem") == 0)
+      {
+      /* handle mem */
+      mem_str = val;
+      num_mems = get_comma_count(val);
+      }
+    else if (strcmp(tok,"memsize") == 0)
+      {
+      /* handle memsize */
+      memsize_str = val;
+      memsize = atoi(val);
+      /* default to KB, keeping with TORQUE tradition */
+      if ((strstr(val,"gb")) ||
+          (strstr(val,"GB")))
+        {
+        memsize *= 1024 * 1024;
+        }
+      else if ((strstr(val,"mb")) ||
+               (strstr(val,"MB")))
+        {
+        memsize *= 1024;
+        }
+      }
+    else
+      {
+      /* ignore other stuff for now */
+      }
+    } /* END while (parsing line) */
+ 
+  return(0);
+  } /* END read_layout_file() */
+
+
+
+
+
+
+/* handles everything for binding a specific mom to a nodeboard
+ *
+ * parses mom.layout, registers procs/mem
+ * @return nonzero if there's a problem
+ */
+int bind_to_nodeboard()
+
+  {
+  char *id = "bind_to_nodeboard";
+
+  if (read_layout_file() != 0)
+    {
+    log_err(-1,id,"Could not read layout file!\n");
+    exit(-505);
+    } 
+
+  return(0);
+  } /* END bind_to_nodeboard */
+
+
+
+
 
 /*
  * main - the main program of MOM
@@ -8279,6 +8456,11 @@ int main(
   parse_command_line(argc, argv); /* Calls exit on command line error */
 
   if ((rc = setup_program_environment()) != 0)
+    {
+    return(rc);
+    }
+
+  if ((rc = bind_to_nodeboard()) != 0)
     {
     return(rc);
     }

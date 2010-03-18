@@ -1,5 +1,9 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
+NUMA
+  e - Now parsing the file located in $TORQUE_HOME/mom_priv/mom.layout and storing 
+      the values. Mom looks for the line starting with its hostname
+
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,
       uiip.bas-net.by)
