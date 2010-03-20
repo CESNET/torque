@@ -135,6 +135,7 @@
 #include "net_connect.h"
 #include "portability.h"
 #include "array.h"
+#include "pbs_job.h"
 
 
 #ifndef TRUE
@@ -171,7 +172,7 @@ extern tlist_head svr_newjobs;
 extern tlist_head svr_alljobs;
 extern char *path_checkpoint;
 
-
+extern struct batch_request *setup_cpyfiles(struct batch_request *, job *, char *, char *, int, int);
 
 void send_qsub_delmsg(
 
@@ -1008,7 +1009,7 @@ void job_clone_wt(
         job_purge(pjobclone);
         }
 
-      if (job_save(pjobclone, SAVEJOB_FULL) != 0)
+     if (job_save(pjobclone, SAVEJOB_FULL, 0) != 0)
         {
         job_purge(pjobclone);
         }
@@ -1065,7 +1066,7 @@ void job_clone_wt(
 
       svr_setjobstate(pjob, newstate, newsub);
 
-      job_save(pjob, SAVEJOB_FULL);
+     job_save(pjob, SAVEJOB_FULL, 0);
 
       pjob = (job*)GET_NEXT(pjob->ji_arrayjobs);
       }
@@ -1294,7 +1295,7 @@ void remove_checkpoint(
     preq->rq_extra = NULL;
 
     if (relay_to_mom(
-          pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+          pjob,
           preq,
           release_req) == 0)
       {
@@ -1375,7 +1376,7 @@ static void post_restartfilecleanup(
       pjob->ji_wattr[(int)JOB_ATR_restart_name].at_flags &= ~ATR_VFLAG_SET;
       pjob->ji_modified = 1;
       
-      job_save(pjob, SAVEJOB_FULL);
+     job_save(pjob, SAVEJOB_FULL, 0);
 
       if (LOGLEVEL >= 7)
         {
@@ -1428,7 +1429,7 @@ void cleanup_restart_file(
     preq->rq_extra = NULL;
 
     if (relay_to_mom(
-          pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+          pjob,
           preq,
           post_restartfilecleanup) == 0)
       {

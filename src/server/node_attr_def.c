@@ -121,7 +121,7 @@
 attribute_def node_attr_def[] =
   {
 
-  /* ND_ATR_state */
+	/* ND_ATR_state */
     { ATTR_NODE_state, /* "state" */
     decode_state,
     encode_state,
@@ -134,81 +134,104 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE,
     },
 
-  /* ND_ATR_np */
-  { ATTR_NODE_np,  /* "np" */
-    decode_l,
-    encode_l,
-    set_l,
-    comp_null,
-    free_null,
-    node_np_action,
-    NO_USER_SET,
-    ATR_TYPE_LONG,
-    PARENT_TYPE_NODE,
-  },
-  /* ND_ATR_properties */
-  { ATTR_NODE_properties, /* "properties" */
-    decode_arst,
-    encode_arst,
-    set_arst,
-    comp_null,
-    free_arst,
-    node_prop_list,
-    MGR_ONLY_SET,
-    ATR_TYPE_ARST,
-    PARENT_TYPE_NODE,
-  },
-
-  /* ND_ATR_ntype */
-  { ATTR_NODE_ntype, /* "ntype" */
-    decode_ntype,
-    encode_ntype,
-    set_node_ntype,
-    comp_null,
-    free_null,
-    node_ntype,
-    NO_USER_SET,
-    ATR_TYPE_SHORT,
-    PARENT_TYPE_NODE,
-  },
-
-  /* ND_ATR_jobs */
-  {   ATTR_NODE_jobs,         /* "jobs" */
-      decode_null,
-      encode_jobs,
-      set_null,
-      comp_null,
-      free_null,
-      NULL_FUNC,
-      ATR_DFLAG_RDACC,
-      ATR_TYPE_JINFOP,
-      PARENT_TYPE_NODE,
-  },
-
-  /* ND_ATR_status */
-  {  ATTR_NODE_status,
-     decode_arst,
-     encode_arst,
-     set_arst,
-     comp_null,
-     free_arst,
-     node_status_list,
-     MGR_ONLY_SET,
-     ATR_TYPE_ARST,
-     PARENT_TYPE_NODE,
-  },
-
-  /* ND_ATR_note */
-  { ATTR_NODE_note, /* "note" */
-    decode_str,
-    encode_str,
-    set_note_str,
-    comp_str,
-    free_str,
-    node_note,
-    NO_USER_SET,
-    ATR_TYPE_STR,
-    PARENT_TYPE_NODE,
-  },
-
+	/* ND_ATR_np */
+	{ ATTR_NODE_np,  /* "np" */
+	  decode_l,
+	  encode_l,
+	  set_l,
+	  comp_null,
+	  free_null,
+	  node_np_action,
+	  NO_USER_SET,
+	  ATR_TYPE_LONG,
+	  PARENT_TYPE_NODE,
+	},
+	/* ND_ATR_properties */
+	{ ATTR_NODE_properties, /* "properties" */
+	  decode_arst,
+	  encode_arst,
+	  set_arst,
+	  comp_null,
+	  free_arst,
+	  node_prop_list,
+	  MGR_ONLY_SET,
+	  ATR_TYPE_ARST,
+	  PARENT_TYPE_NODE,
+	},
+  
+	/* ND_ATR_ntype */
+	{ ATTR_NODE_ntype, /* "ntype" */
+	  decode_ntype,
+	  encode_ntype,
+	  set_node_ntype,
+	  comp_null,
+	  free_null,
+	  node_ntype,
+	  NO_USER_SET,
+	  ATR_TYPE_SHORT,
+	  PARENT_TYPE_NODE,
+	},
+  
+	/* ND_ATR_jobs */
+	{   ATTR_NODE_jobs,         /* "jobs" */
+		decode_null,
+		encode_jobs,
+		set_null,
+		comp_null,
+		free_null,
+		NULL_FUNC,
+		ATR_DFLAG_RDACC,
+		ATR_TYPE_JINFOP,
+		PARENT_TYPE_NODE,
+	},
+  
+	/* ND_ATR_status */
+	{  ATTR_NODE_status,
+	   decode_arst,
+	   encode_arst,
+	   set_arst,
+	   comp_null,
+	   free_arst,
+	   node_status_list,
+	   MGR_ONLY_SET,
+	   ATR_TYPE_ARST,
+	   PARENT_TYPE_NODE,
+	},
+  
+	/* ND_ATR_note */
+	{ ATTR_NODE_note, /* "note" */
+	  decode_str,
+	  encode_str,
+	  set_note_str,
+	  comp_str,
+	  free_str,
+	  node_note,
+	  NO_USER_SET,
+	  ATR_TYPE_STR,
+	  PARENT_TYPE_NODE,
+	},
+	/* ND_ATR_port */
+	{ ATTR_NODE_mom_port,  /* "port" */
+	  decode_l,
+	  encode_l,
+	  set_l,
+	  comp_null,
+	  free_null,
+	  node_mom_port_action,
+	  NO_USER_SET,
+	  ATR_TYPE_LONG,
+	  PARENT_TYPE_NODE,
+	},
+	/* ND_ATR_port */
+	{ ATTR_NODE_mom_rm_port,  /* "port" */
+	  decode_l,
+	  encode_l,
+	  set_l,
+	  comp_null,
+	  free_null,
+	  node_mom_rm_port_action,
+	  NO_USER_SET,
+	  ATR_TYPE_LONG,
+	  PARENT_TYPE_NODE,
+	},
   };

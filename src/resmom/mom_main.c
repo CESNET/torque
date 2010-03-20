@@ -145,6 +145,7 @@
 #include "dis.h"
 #include "csv.h"
 #include "utils.h"
+#include "u_tree.h"
 
 #include "mcom.h"
 
@@ -160,6 +161,8 @@
 #define DEFAULT_SERVER_STAT_UPDATES 45
 
 #define PMAX_PORT           32000
+#define MAX_PORT_STRING_LEN         6
+#define MAX_LOCK_FILE_NAME_LEN      15
 #define MAX_RESEND_JOBS     512
 #define DUMMY_JOB_PTR       1
 
@@ -199,6 +202,7 @@ int    ignvmem = 0;
 /* end policies */
 int    spoolasfinalname = 0;
 int    lockfds = -1;
+int    multi_mom = 0;
 time_t loopcnt;  /* used for MD5 calc */
 float  max_load_val = -1.0;
 int    hostname_specified = 0;
@@ -222,6 +226,9 @@ char        *path_aux;
 char        *path_server_name;
 char        *path_home = PBS_SERVER_HOME;
 char        *mom_home;
+
+extern int  multi_mom;
+extern unsigned int pbs_rm_port;
 char        *path_layout;
 extern char *msg_daemonname;          /* for logs     */
 extern char *msg_info_mom; /* Mom information message   */
@@ -307,6 +314,7 @@ extern void     mom_checkpoint_check_periodic_timer(job *pjob);
 extern void     mom_checkpoint_set_directory_path(char *str);
 
 void prepare_child_tasks_for_delete();
+static void mom_lock(int fds, int op);
 
 #define PMOMTCPTIMEOUT 60  /* duration in seconds mom TCP requests will block */
 
@@ -508,7 +516,8 @@ int   port_care = TRUE; /* secure connecting ports */
 uid_t   uid = 0;  /* uid we are running with */
 unsigned int   alarm_time = 10; /* time before alarm */
 
-extern tree            *okclients;  /* accept connections from */
+/*extern tree            *okclients;*/  /* accept connections from */
+extern AvlTree            okclients;  /* accept connections from */
 char                  **maskclient = NULL; /* wildcard connections */
 int   mask_num = 0;
 int   mask_max = 0;
@@ -1628,8 +1637,9 @@ u_long addclient(
 
   ipaddr = ntohl(saddr.s_addr);
 
-  tinsert(ipaddr, NULL, &okclients);
-
+/*  tinsert(ipaddr, NULL, &okclients); */
+  okclients = AVL_insert(ipaddr, 0, NULL, okclients);
+  
   return(ipaddr);
   }  /* END addclient() */
 
@@ -4266,8 +4276,6 @@ int bad_restrict(
 
 
 
-
-
 /*
 ** Process a request for the resource monitor.  The i/o
 ** will take place using DIS over a tcp fd or an rpp stream.
@@ -4335,7 +4343,8 @@ int rm_request(
     }
 
   if (((port_care != FALSE) && (port >= IPPORT_RESERVED)) ||
-      (tfind(ipadd, &okclients) == NULL))
+      /*(tfind(ipadd, &okclients) == NULL))*/
+      (AVL_is_in_tree(ipadd, 0, okclients) == 0 ))
     {
     if (bad_restrict(ipadd))
       {
@@ -4851,10 +4860,11 @@ int rm_request(
 
               tmpLine[0] = '\0';
 
-              tlist(okclients, tmpLine, sizeof(tmpLine));
+              /* tlist(okclients, tmpLine, sizeof(tmpLine)); */
+              ret = AVL_list(okclients, tmpLine, sizeof(tmpLine));
 
-              MUSNPrintF(&BPtr, &BSpace, "Trusted Client List:    %s\n",
-                         tmpLine);
+              MUSNPrintF(&BPtr, &BSpace, "Trusted Client List:  %s:  %d\n",
+                         tmpLine, ret);
               }
 
             if (verbositylevel >= 1)
@@ -5163,6 +5173,9 @@ int rm_request(
 
       close_io(iochan);
 
+      mom_lock(lockfds, F_UNLCK);
+      close(lockfds);
+
       cleanup();
 
       log_close(1);
@@ -5355,7 +5368,7 @@ void do_rpp(
           PBSEVENT_JOB,
           PBS_EVENTCLASS_JOB,
           id,
-          "got an inter-server request");
+          log_buffer);
         }
 
       rpp_close(stream);
@@ -5581,7 +5594,8 @@ void tcp_request(
 
   DIS_tcp_setup(fd);
 
-  if (tfind(ipadd, &okclients) == NULL)
+/*  if (tfind(ipadd, &okclients) == NULL) */
+  if (AVL_is_in_tree(ipadd, 0, okclients) == 0)
     {
     sprintf(log_buffer, "bad connect from %s",
             address);
@@ -5730,16 +5744,11 @@ int kill_job(
   return(ct);
   }  /* END kill_job() */
 
-
-
-
-
 /*
  * mom_lock - lock out other MOMs from this directory.
  */
 
 static void mom_lock(
-
   int fds,
   int op)   /* F_WRLCK or F_UNLCK */
 
@@ -5774,9 +5783,6 @@ static void mom_lock(
 
   return;
   }  /* END mom_lock() */
-
-
-
 
 
 /*
@@ -6534,7 +6540,7 @@ void parse_command_line(
 
   errflg = 0;
 
-  while ((c = getopt(argc, argv, "a:c:C:d:DhH:l:L:M:pPqrR:s:S:vx-:")) != -1)
+  while ((c = getopt(argc, argv, "a:c:C:d:DhH:l:L:mM:pPqrR:s:S:vx-:")) != -1)
     {
     switch (c)
       {
@@ -6658,6 +6664,11 @@ void parse_command_line(
           exit(1);
           }
 
+        break;
+
+      case 'm':
+
+        multi_mom = 1;
         break;
 
       case 'p':
@@ -6802,6 +6813,8 @@ int setup_program_environment(void)
 #if !defined(DEBUG) && !defined(DISABLE_DAEMONS)
   FILE         *dummyfile;
 #endif
+  char logSuffix[MAX_PORT_STRING_LEN];
+  char momLock[MAX_LOCK_FILE_NAME_LEN];
   int  tryport;
   int  rppfd;  /* fd for rm and im comm */
   int  privfd = 0; /* fd for sending job info */
@@ -6832,6 +6845,8 @@ int setup_program_environment(void)
 
     DOBACKGROUND = 0;
     }
+
+  memset(TMOMStartInfo, 0, sizeof(pjobexec_t)*TMAX_JE);
 
   /* modify program environment */
 
@@ -6968,8 +6983,16 @@ int setup_program_environment(void)
     hostc = gethostname(mom_host, PBS_MAXHOSTNAME);
     }
 
+  if(!multi_mom)
+    {
   log_init(NULL, mom_host);
-
+    }
+  else
+    {
+    sprintf(logSuffix, "%d", pbs_mom_port);
+    log_init(logSuffix, mom_host);
+    }
+ 
   /* open log file while std in,out,err still open, forces to fd 4 */
 
   if ((c = log_open(log_file, path_log)) != 0)
@@ -6983,7 +7006,12 @@ int setup_program_environment(void)
 
   check_log(); /* see if this log should be rolled */
 
-  lockfds = open("mom.lock", O_CREAT | O_WRONLY, 0644);
+  if(!multi_mom)
+    sprintf(momLock,"mom.lock");
+  else
+    sprintf(momLock, "mom%d.lock", pbs_mom_port);
+
+  lockfds = open(momLock, O_CREAT | O_WRONLY, 0644);
 
   if (lockfds < 0)
     {
@@ -7632,7 +7660,8 @@ int TMOMScanForStarting(void)
 
           if (LOGLEVEL >= 3)
             {
-            sprintf(log_buffer, "job %s reported successful start",
+            sprintf(log_buffer, "%s:job %s reported successful start",
+                    id,
                     pjob->ji_qs.ji_jobid);
 
             LOG_EVENT(
@@ -7904,6 +7933,7 @@ kill_all_running_jobs(void)
 
   {
   job *pjob;
+  unsigned int momport = 0;
 
   for (pjob = (job *)GET_NEXT(svr_alljobs);
        pjob != NULL;
@@ -7915,7 +7945,11 @@ kill_all_running_jobs(void)
 
       pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-      job_save(pjob, SAVEJOB_QUICK);
+      if(multi_mom)
+        {
+        momport = pbs_rm_port;
+        }
+      job_save(pjob, SAVEJOB_QUICK, momport);
       }
     else
       {

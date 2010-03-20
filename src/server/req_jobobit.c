@@ -115,6 +115,7 @@
 /* External Global Data Items */
 
 extern unsigned int   pbs_mom_port;
+extern unsigned int   pbs_rm_port;
 extern char *path_spool;
 extern int   server_init_type;
 extern pbs_net_t pbs_server_addr;
@@ -652,7 +653,7 @@ int mom_comm(
     pjob->ji_momhandle = svr_connect(
 
                            pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
-                           pbs_mom_port,
+                           pjob->ji_qs.ji_un.ji_exect.ji_momport,
                            process_Dreply,
                            ToServerDIS);
 
@@ -1556,7 +1557,8 @@ void on_job_exit(
 
           pjob->ji_wattr[(int)JOB_ATR_reported].at_flags =
             ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
-          job_save(pjob,SAVEJOB_FULL);
+
+          job_save(pjob,SAVEJOB_FULL, 0);
           }
         }
       else if (((pjob->ji_wattr[(int)JOB_ATR_reported].at_flags & ATR_VFLAG_SET) != 0)
@@ -1607,7 +1609,7 @@ void on_job_exit(
           pjob->ji_wattr[(int)JOB_ATR_comp_time].at_flags |= ATR_VFLAG_SET;
 
           ptask = set_task(WORK_Timed, time_now + KeepSeconds, on_job_exit, pjob);
-          job_save(pjob, SAVEJOB_FULL);
+          job_save(pjob, SAVEJOB_FULL, 0);
           }
 
         if (ptask != NULL)

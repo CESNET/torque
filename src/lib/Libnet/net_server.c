@@ -110,8 +110,7 @@
 #include "net_connect.h"
 #include "log.h"
 
-extern int LOGLEVEL;
-
+extern int  LOGLEVEL;
 
 /* External Functions Called */
 

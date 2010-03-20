@@ -121,25 +121,25 @@ int IamRoot()
 
   if (getuid() == 18)
     {
-	return 1;
+		return 1;
     }
   if ((p = getpwuid(getuid())) == NULL)
     {
-	fprintf(stderr, "No password entry for current user. Check your /etc/passwd file.\n");
+		fprintf(stderr, "No password entry for current user. Check your /etc/passwd file.\n");
   	return 0;
     }
   if ((gr=getgrgid(544)) != NULL)
     {
-	for (t = gr->gr_mem; t && *t; t++)
-	{
-	    if (!strcmp (p->pw_name, *t)) 
-		return 1;
-	}
-	fprintf(stderr, "Must be run as user with Administrator privileges\n");
+		for (t = gr->gr_mem; t && *t; t++)
+			{
+					if (!strcmp (p->pw_name, *t)) 
+				return 1;
+			}
+		fprintf(stderr, "Must be run as user with Administrator privileges\n");
     }
   else
     {
-	fprintf(stderr, "No group entry. Check your /etc/group file.\n");
+		fprintf(stderr, "No group entry. Check your /etc/group file.\n");
     }
 #endif  /* __CYGWIN__ */
   return 0;

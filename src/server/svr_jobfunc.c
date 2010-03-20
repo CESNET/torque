@@ -155,7 +155,6 @@ extern int    DEBUGMODE;
 
 int           SvrNodeCt = 0;  /* cfg nodes or num nodes specified via resources_available */
 
-
 /* External Functions */
 
 extern int node_avail_complex(char *, int *, int *, int *, int *);
@@ -668,12 +667,12 @@ int svr_setjobstate(
 
   if (pjob->ji_modified)
     {
-    return(job_save(pjob, SAVEJOB_FULL));
+    return(job_save(pjob, SAVEJOB_FULL, 0));
     }
 
   if (changed)
     {
-    return(job_save(pjob, SAVEJOB_QUICK));
+    return(job_save(pjob, SAVEJOB_QUICK, 0));
     }
 
   return(0);

@@ -116,6 +116,7 @@
 #include "resmon.h"
 #include "mcom.h"
 #include "utils.h"
+#include "u_tree.h"
 
 #define IS_VALID_STR(STR)  (((STR) != NULL) && ((STR)[0] != '\0'))
 
@@ -164,6 +165,8 @@ extern struct server server;
 extern tlist_head svr_newnodes;
 extern attribute_def  node_attr_def[];   /* node attributes defs */
 extern int            SvrNodeCt;
+
+extern int multi_mom;
 
 #define SKIP_NONE 0
 #define SKIP_EXCLUSIVE 1
@@ -216,8 +219,10 @@ funcs_dis(void)  /* The equivalent of DIS_tcp_funcs() */
 **      Modified by Tom Proett <proett@nas.nasa.gov> for PBS.
 */
 
-tree *ipaddrs = NULL; /* tree of ip addrs */
-tree *streams = NULL; /* tree of stream numbers */
+/* tree *ipaddrs = NULL; */ /* tree of ip addrs */
+AvlTree ipaddrs = NULL;
+/* tree *streams = NULL; */ /* tree of stream numbers */
+AvlTree streams = NULL;
 
 
 /**
@@ -228,10 +233,11 @@ tree *streams = NULL; /* tree of stream numbers */
 
 struct pbsnode *tfind_addr(
 
-        const u_long key)
+        const u_long key,
+        uint16_t port)
 
   {
-  return tfind(key, &ipaddrs);
+  return AVL_find(key, port, ipaddrs);
   }
 
 
@@ -1010,7 +1016,8 @@ void send_cluster_addrs(
 
     rpp_close(np->nd_stream);
 
-    tdelete((u_long)np->nd_stream, &streams);
+    /* tdelete((u_long)np->nd_stream, &streams);*/
+    streams = AVL_delete_node((u_long)np->nd_stream, 0, streams);
 
     np->nd_stream = -1;
     }  /* END for (i) */
@@ -1407,9 +1414,10 @@ done:
 
 void stream_eof(
 
-  int  stream,  /* I (optional) */
-  u_long addr,  /* I (optional) */
-  int  ret)     /* I (ignored) */
+  int       stream,  /* I (optional) */
+  u_long    addr,  /* I (optional) */
+  uint16_t  port,  /* I (optional) */
+  int       ret)     /* I (ignored) */
 
   {
   static char     id[] = "stream_eof";
@@ -1424,12 +1432,14 @@ void stream_eof(
     {
     /* find who the stream belongs to and mark down */
 
-    np = tfind((u_long)stream, &streams);
+/*    np = tfind((u_long)stream, &streams); */
+    np = AVL_find(stream, 0, streams);
     }
 
   if ((np == NULL) && (addr != 0))
     {
-    np = tfind((u_long)addr, &ipaddrs);
+/*    np = tfind((u_long)addr, &ipaddrs); */
+    np = AVL_find(addr, port, ipaddrs);
     }
 
   if (np == NULL)
@@ -1439,7 +1449,7 @@ void stream_eof(
     return;
     }
 
-  sprintf(log_buffer, "connection to %s is bad, remote service may be down, message may be corrupt, or connection may have been dropped remotely (%s).  setting node state to down",
+  sprintf(log_buffer, "connection to %s is no longer valid, connection may have been closed remotely, remote service may be down, or message may be corrupt (%s).  setting node state to down",
 
           np->nd_name,
           dis_emsg[ret]);
@@ -1454,7 +1464,8 @@ void stream_eof(
 
   if (np->nd_stream >= 0)
     {
-    tdelete((u_long)np->nd_stream, &streams);
+/*    tdelete((u_long)np->nd_stream, &streams); */
+    streams = AVL_delete_node(np->nd_stream, 0, streams);
 
     np->nd_stream = -1;
     }
@@ -1488,7 +1499,6 @@ void ping_nodes(
 
   struct  sockaddr_in *addr;
   int                    i, ret, com;
-  extern  int            pbs_rm_port;
 
   static  int            startcount = 0;
 
@@ -1547,7 +1557,7 @@ void ping_nodes(
 
       /* open new stream */
 
-      np->nd_stream = rpp_open(np->nd_name, pbs_rm_port, NULL);
+      np->nd_stream = rpp_open(np->nd_name, np->nd_mom_rm_port, NULL);
 
       if (np->nd_stream == -1)
         {
@@ -1559,7 +1569,9 @@ void ping_nodes(
         continue;
         }
 
-      tinsert((u_long)np->nd_stream, np, &streams);
+      /* tinsert((u_long)np->nd_stream, np, &streams); */
+      streams = AVL_insert((u_long)np->nd_stream, 0, np, streams);
+        
       }  /* END if (np->nd_stream < 0) */
 
     if (LOGLEVEL >= 6)
@@ -1615,7 +1627,8 @@ void ping_nodes(
 
     rpp_close(np->nd_stream);
 
-    tdelete((u_long)np->nd_stream, &streams);
+    /* tdelete((u_long)np->nd_stream, &streams); */
+    streams = AVL_delete_node((u_long)np->nd_stream, 0, streams);
 
     np->nd_stream = -1;
     }  /* END for (i) */
@@ -1744,7 +1757,7 @@ void check_nodes(
     if (np->nd_state & (INUSE_DELETED | INUSE_DOWN))
       continue;
 
-    if (np->nd_lastupdate < (time_now - chk_len))
+    if (np->nd_lastupdate < (time_now - chk_len) && (pbsndlist[i]->nd_nsn > pbsndlist[i]->nd_nsnfree))
       {
       if (LOGLEVEL >= 0)
         {
@@ -1811,16 +1824,23 @@ void is_request(
   struct hostent *hp;      
 
   unsigned long ipaddr;
+  unsigned short  mom_port;
+  unsigned short  rm_port;
   unsigned long tmpaddr;
 
-  struct sockaddr_in *addr;
+  struct sockaddr_in *addr = NULL;
 
-  struct pbsnode *node;
+  struct pbsnode *node = NULL;
 
-  struct pbssubn *sp;
+  struct pbssubn *sp = NULL;
 
   if (cmdp != NULL)
     *cmdp = 0;
+
+  command = disrsi(stream, &ret);
+
+  if (ret != DIS_SUCCESS)
+    goto err;
 
   if (LOGLEVEL >= 4)
     {
@@ -1836,6 +1856,9 @@ void is_request(
     }
 
   addr = rpp_getaddr(stream);
+
+  mom_port = disrsi(stream, &ret);
+  rm_port = disrsi(stream, &ret);
 
   if (version != IS_PROTOCOL_VER)
     {
@@ -1854,8 +1877,8 @@ void is_request(
 
   if (LOGLEVEL >= 3)
     {
-    sprintf(log_buffer, "message received from stream %s",
-            netaddr(addr));
+    sprintf(log_buffer, "message received from stream %s: mom_port %d  - rm_port %d",
+            netaddr(addr), mom_port, rm_port);
 
     log_event(
       PBSEVENT_ADMIN,
@@ -1864,21 +1887,24 @@ void is_request(
       log_buffer);
     }
 
-  if ((node = tfind((u_long)stream, &streams)) != NULL)
+/*  if ((node = tfind((u_long)stream, &streams)) != NULL) */
+  if ((node = AVL_find((u_long)stream, 0, streams)) != NULL)
     goto found;
 
   ipaddr = ntohl(addr->sin_addr.s_addr);
 
-  if ((node = tfind(ipaddr, &ipaddrs)) != NULL)
+/*  if ((node = tfind(ipaddr, &ipaddrs)) != NULL) */
+  if ((node = AVL_find(ipaddr, mom_port, ipaddrs)) != NULL)
     {
     if (node->nd_stream >= 0)
       {
       if (LOGLEVEL >= 3)
         {
-        sprintf(log_buffer, "stream %d from node %s already open on %d (marking node state 'unknown')",
+        sprintf(log_buffer, "stream %d from node %s already open on %d (marking node state 'unknown', current state: %d)",
                 stream,
                 node->nd_name,
-                node->nd_stream);
+                node->nd_stream,
+                node->nd_state);
 
         log_event(
           PBSEVENT_ADMIN,
@@ -1891,7 +1917,8 @@ void is_request(
 
       rpp_close(node->nd_stream);
 
-      tdelete((u_long)node->nd_stream, &streams);
+      /* tdelete((u_long)node->nd_stream, &streams); */
+      streams = AVL_delete_node((u_long)node->nd_stream, 0, streams);
 
       if (node->nd_state & INUSE_OFFLINE)
         {
@@ -1916,8 +1943,9 @@ void is_request(
 
     node->nd_stream = stream;
 
-    tinsert((u_long)stream, node, &streams);
-
+    /* tinsert((u_long)stream, node, &streams); */
+    streams = AVL_insert((u_long)stream, 0, node, streams);
+      
     goto found;
     }  /* END if ((node = tfind(ipaddr,&ipaddrs)) != NULL) */
     else if (allow_any_mom)                                           
@@ -1938,7 +1966,7 @@ void is_request(
                                                                       
           if(err == PBSE_NONE)                                        
             {   
-            node = tfind(ipaddr, &ipaddrs);                           
+            node = AVL_find(ipaddr, 0, ipaddrs);                           
             goto found;                                               
             }                                                         
         }                                                             
@@ -1965,11 +1993,6 @@ void is_request(
   return;
 
 found:
-
-  command = disrsi(stream, &ret);
-
-  if (ret != DIS_SUCCESS)
-    goto err;
 
   if (cmdp != NULL)
     *cmdp = command;
@@ -2016,6 +2039,13 @@ found:
       if (ret != DIS_SUCCESS)
         goto err;
 
+      if (LOGLEVEL >= 6)
+        {
+        sprintf(log_buffer, "Add cluster addrs to %s",
+                node->nd_name);
+
+        log_event(PBSEVENT_ADMIN, PBS_EVENTCLASS_SERVER, id, log_buffer);
+        }
       if (add_cluster_addrs(stream) != DIS_SUCCESS)
         goto err;
 
@@ -4017,6 +4047,9 @@ int add_job_to_node(
   /* decrement the amount of nodes needed */
   --pnode->nd_needed;
 
+  pjob->ji_qs.ji_un.ji_exect.ji_momport = pnode->nd_mom_port;
+  pjob->ji_qs.ji_un.ji_exect.ji_mom_rmport = pnode->nd_mom_rm_port;
+
   return(SUCCESS);
   }
 
@@ -4044,6 +4077,7 @@ int build_host_list(
   curr->order = pnode->nd_order;
   curr->name  = pnode->nd_name;
   curr->index = snp->index;
+  curr->port = pnode->nd_mom_rm_port;
 
   /* find the proper place in the list */
   for (prev = NULL, hp = *hlistptr;hp;prev = hp, hp = hp->next)
@@ -4073,12 +4107,12 @@ int build_host_list(
  */
 
 int set_nodes(
-
-  job   *pjob,      /* I */
-  char *spec,      /* I */
-  char **rtnlist,   /* O */
-  char  *FailHost,  /* O (optional,minsize=1024) */
-  char  *EMsg)      /* O (optional,minsize=1024) */
+  job  *pjob,
+  char *spec,       /* I */
+  char **rtnlist,      /* O */
+  char **rtnportlist,  /* O */
+  char  *FailHost,     /* O (optional,minsize=1024) */
+  char  *EMsg)         /* O (optional,minsize=1024) */
 
   {
 
@@ -4086,7 +4120,7 @@ int set_nodes(
   struct howl *hlist;
   struct howl *nxt;
 
-  int     i;
+  int     i, count;
   short   newstate;
 
   int     NCount;
@@ -4097,6 +4131,7 @@ int set_nodes(
 
   struct pbssubn *snp;
   char           *nodelist;
+  char           *portlist;
 
   char   ProcBMStr[MAX_BM];
 
@@ -4240,10 +4275,12 @@ int set_nodes(
   /* build list of allocated nodes */
 
   i = 1;  /* first, size list */
+  count = 1; /* count the number of nodes to be used */
 
   for (hp = hlist;hp != NULL;hp = hp->next)
     {
     i += (strlen(hp->name) + 6);
+    count++;
     }
 
   nodelist = malloc(++i);
@@ -4267,6 +4304,28 @@ int set_nodes(
 
   *nodelist = '\0';
 
+  /* port list will have a string of sister port addresses */
+  portlist = malloc((count * PBS_MAXPORTNUM) + count);
+  if (portlist == NULL)
+    {
+    sprintf(log_buffer, "no nodes can be allocated to job %s - no memory",
+      pjob->ji_qs.ji_jobid);
+
+    log_record(
+      PBSEVENT_SCHED,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    if (EMsg != NULL)
+      sprintf(EMsg,"no nodes can be allocated to job");
+
+    return(PBSE_RESCUNAV);
+    }
+
+  *portlist = '\0';
+
+
   /* now copy in name+name+... */
 
   NCount = 0;
@@ -4279,14 +4338,18 @@ int set_nodes(
       hp->name,
       hp->index);
 
+    sprintf(portlist + strlen(portlist), "%d+", hp->port);
+
     nxt = hp->next;
 
     free(hp);
     }
 
   *(nodelist + strlen(nodelist) - 1) = '\0'; /* strip trailing + */
+  *(portlist + strlen(portlist) - 1) = 0;
 
   *rtnlist = nodelist;
+  *rtnportlist = portlist;
 
   if (LOGLEVEL >= 3)
     {
