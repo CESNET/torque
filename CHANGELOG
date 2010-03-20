@@ -3,6 +3,12 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 NUMA
   e - Now parsing the file located in $TORQUE_HOME/mom_priv/mom.layout and storing 
       the values. Mom looks for the line starting with its hostname
+  e - Added code to support multiple MOMs on a single host. 3/19/2010 Ken Nielson
+      Adaptive Computing
+  e - Replaced the simple binary tree tinsert, tfind, tdelete, tlist etc with a
+      balanced binary AVL tree. New functions are in src/lib/Libutils/u_tree.c.
+      Calls start with AVL_ such as AVL_insert, AVL_find, AVL_delete etc.
+      3/19/2010  Ken Nielson  Adaptive Computing.
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,
