@@ -316,7 +316,7 @@ extern void     mom_checkpoint_set_directory_path(char *str);
 
 void prepare_child_tasks_for_delete();
 static void mom_lock(int fds, int op);
-
+int bind_to_nodeboard();
 #define PMOMTCPTIMEOUT 60  /* duration in seconds mom TCP requests will block */
 
 
@@ -6819,6 +6819,7 @@ int setup_program_environment(void)
   int  tryport;
   int  rppfd;  /* fd for rm and im comm */
   int  privfd = 0; /* fd for sending job info */
+  int  rc;
 
   struct sigaction act;
   char         *ptr;            /* local tmp variable */
@@ -7424,6 +7425,13 @@ int setup_program_environment(void)
 
     return(3);
     }
+
+#ifdef SGI4700
+  if ((rc = bind_to_nodeboard()) != 0)
+    {
+    return(rc);
+    }
+#endif /* END SGI4700 */
 
   /* recover & abort jobs which were under MOM's control */
 
@@ -8494,13 +8502,6 @@ int main(
     {
     return(rc);
     }
-
-#ifdef SGI4700
-  if ((rc = bind_to_nodeboard()) != 0)
-    {
-    return(rc);
-    }
-#endif /* END SGI4700 */
 
   main_loop();
 
