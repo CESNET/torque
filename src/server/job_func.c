@@ -451,7 +451,7 @@ int job_abt(
 
       /* update internal array bookeeping values */
       if ((pjob->ji_arraystruct != NULL) &&
-          (pjob->ji_isparent == FALSE))
+          (pjob->ji_is_array_template == FALSE))
         {
         update_array_values(pjob->ji_arraystruct,
           pjob,old_state,aeTerminate);
@@ -491,7 +491,7 @@ int job_abt(
 
     /* do array bookkeeping */
     if ((pjob->ji_arraystruct != NULL) &&
-        (pjob->ji_isparent == FALSE))
+        (pjob->ji_is_array_template == FALSE))
       {
       update_array_values(pjob->ji_arraystruct,
         pjob,old_state,aeTerminate);
@@ -605,11 +605,12 @@ job_alloc(void)
 
   CLEAR_LINK(pj->ji_alljobs);
   CLEAR_LINK(pj->ji_jobque);
+  CLEAR_LINK(pj->ji_jobs_array_sum);
 
   CLEAR_HEAD(pj->ji_svrtask);
   CLEAR_HEAD(pj->ji_rejectdest);
   pj->ji_arraystruct = NULL;
-  pj->ji_isparent = FALSE;
+  pj->ji_is_array_template = FALSE;
 
   pj->ji_momhandle = -1;  /* mark mom connection invalid */
 
@@ -737,6 +738,7 @@ job *job_clone(
 
   CLEAR_LINK(pnewjob->ji_alljobs);
   CLEAR_LINK(pnewjob->ji_jobque);
+  CLEAR_LINK(pnewjob->ji_jobs_array_sum);
   CLEAR_LINK(pnewjob->ji_svrtask);
   CLEAR_HEAD(pnewjob->ji_rejectdest);
   pnewjob->ji_modified = 1;   /* struct changed, needs to be saved */
@@ -745,7 +747,6 @@ job *job_clone(
 
   memcpy(&pnewjob->ji_qs, &template_job->ji_qs, sizeof(struct jobfix));
 
-  /* pnewjob->ji_qs.ji_arrayid = taskid; */
 
   /* find the job id for the cloned job */
 
@@ -1021,11 +1022,13 @@ void job_clone_wt(
 
       if ((rc = svr_enquejob(pjobclone)))
         {
+        /* XXX need more robust error handling */
         job_purge(pjobclone);
         }
 
       if (job_save(pjobclone, SAVEJOB_FULL) != 0)
         {
+        /* XXX need more robust error handling */
         job_purge(pjobclone);
         }
 
@@ -1062,7 +1065,7 @@ void job_clone_wt(
     int i;
     /* this is the last batch of jobs, we can purge the "parent" job */
 
-    job_purge(pjob);
+    
 
     /* scan over all the jobs in the array and unset the hold */
 
@@ -1502,7 +1505,7 @@ void job_purge(
 
   /* if part of job array then remove from array's job list */
   if (pjob->ji_arraystruct != NULL &&
-      pjob->ji_isparent == FALSE)
+      pjob->ji_is_array_template == FALSE)
     {
     job_array *pa = pjob->ji_arraystruct;
 
@@ -1517,13 +1520,14 @@ void job_purge(
       }
     }
 
-  if (pjob->ji_isparent == TRUE)
+  if (pjob->ji_is_array_template == TRUE || pjob->ji_arraystruct == NULL)
     {
-    delete_link(&pjob->ji_alljobs);
+    delete_link(&pjob->ji_jobs_array_sum);
     }
 
 
-  if (!(pjob->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET))
+  /* delete the script file */
+  if (pjob->ji_arraystruct == NULL)
     {
     strcpy(namebuf, path_jobs); /* delete script file */
     strcat(namebuf, pjob->ji_qs.ji_fileprefix);
@@ -1620,7 +1624,7 @@ void job_purge(
 
   strcat(namebuf, pjob->ji_qs.ji_fileprefix);
 
-  if (pjob->ji_isparent == TRUE)
+  if (pjob->ji_is_array_template == TRUE)
     {
     strcat(namebuf, JOB_FILE_TMP_SUFFIX);
     }

@@ -172,6 +172,7 @@ extern char  server_name[];
 extern int  svr_delay_entry;
 extern tlist_head svr_newjobs;
 extern tlist_head svr_alljobs;
+extern tlist_head svr_jobs_array_sum;
 extern tlist_head svr_queues;
 extern tlist_head svr_requests;
 extern tlist_head svr_newnodes;
@@ -710,6 +711,8 @@ int pbsd_init(
 
   CLEAR_HEAD(svr_alljobs);
 
+  CLEAR_HEAD(svr_jobs_array_sum);
+
   CLEAR_HEAD(svr_newjobs);
 
   CLEAR_HEAD(svr_newnodes);
@@ -1051,7 +1054,7 @@ int pbsd_init(
           if ((pjob = job_recov(pdirent->d_name)) != NULL)
             {
             append_link(&svr_alljobs, &pjob->ji_alljobs, pjob);
-            pjob->ji_isparent = TRUE;
+            pjob->ji_is_array_template = TRUE;
             }
           else
             {
@@ -1580,7 +1583,7 @@ static int pbsd_init_job(
 
       /* do array bookeeping */
       if ((pjob->ji_arraystruct != NULL) &&
-          (pjob->ji_isparent == FALSE))
+          (pjob->ji_is_array_template == FALSE))
         {
         update_array_values(pjob->ji_arraystruct,
           pjob,JOB_STATE_RUNNING,aeTerminate);

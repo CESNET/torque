@@ -139,6 +139,7 @@ static void eval_checkpoint(attribute *j, attribute *q);
 extern struct server server;
 
 extern tlist_head svr_alljobs;
+extern tlist_head svr_jobs_array_sum;
 extern tlist_head svr_jobarrays;
 extern char  *msg_badwait;  /* error message */
 extern char  *msg_daemonname;
@@ -336,6 +337,35 @@ int svr_enquejob(
   server.sv_qs.sv_numjobs++;
 
   server.sv_jobstates[pjob->ji_qs.ji_state]++;
+  
+  /* place into svr_jobs_array_sum if necessary */
+  if (pjob->ji_is_array_template || pjob->ji_arraystruct == NULL)
+    {
+    pjcur = (job *)GET_PRIOR(svr_jobs_array_sum);
+    
+    while (pjcur != NULL)
+      {
+      if ((unsigned long)pjob->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long >=
+          (unsigned long)pjcur->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long)
+        break;
+
+      pjcur = (job *)GET_PRIOR(pjcur->ji_alljobs);
+      }  /* END while (pjcur != NULL) */
+      
+    if (pjcur == 0)
+      {
+      /* link first in server's list */
+      insert_link(&svr_jobs_array_sum, &pjob->ji_jobs_array_sum, pjob, LINK_INSET_AFTER);
+      }
+    else
+      {
+      /* link after 'current' job in server's list */
+
+      insert_link(&pjcur->ji_jobs_array_sum, &pjob->ji_jobs_array_sum,
+                  pjob,LINK_INSET_AFTER);
+      }
+      
+    }
 
   /* place into queue in order of queue rank starting at end */
 

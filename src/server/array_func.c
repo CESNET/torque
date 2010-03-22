@@ -278,7 +278,7 @@ job_array *array_recov(char *path)
     return NULL;
     }
 
-  pa->jobs = (void **)malloc(sizeof(job *) * pa->ai_qs.array_size);
+  pa->jobs = malloc(sizeof(job *) * pa->ai_qs.array_size);
   memset(pa->jobs,0,sizeof(job *) * pa->ai_qs.array_size);
 
   /* check to see if there is any additional info saved in the array file */
@@ -377,6 +377,7 @@ int array_delete(job_array *pa)
     log_err(errno, "array_delete", log_buffer);
     }
 
+#if 0
   strcpy(path, path_jobs); /* delete script file */
 
   strcat(path, pa->ai_qs.fileprefix);
@@ -397,6 +398,7 @@ int array_delete(job_array *pa)
                pa->ai_qs.parent_id,
                log_buffer);
     }
+#endif
 
   /* clear array request linked list */
 
@@ -410,6 +412,10 @@ int array_delete(job_array *pa)
 
   /* free the memory for the job pointers */
   free(pa->jobs);
+
+  /* purge the "template" job, 
+     this also deletes the shared script file for the array*/
+  job_purge(pa->template_job);
 
   /* free the memory allocated for the struct */
   free(pa);
@@ -468,6 +474,8 @@ int setup_array_struct(job *pjob)
   pa = (job_array *)calloc(1,sizeof(job_array));
 
   pa->ai_qs.struct_version = ARRAY_QS_STRUCT_VERSION;
+  
+  pa->template_job = pjob;
 
   /*pa->ai_qs.array_size  = pjob->ji_wattr[(int)JOB_ATR_job_array_size].at_val.at_long;*/
 
@@ -528,7 +536,7 @@ int setup_array_struct(job *pjob)
   array_size++; 
 
   /* initialize the array */
-  pa->jobs = (void **)malloc(array_size * sizeof(job *));
+  pa->jobs = malloc(array_size * sizeof(job *));
   memset(pa->jobs,0,array_size * sizeof(job *));
 
   /* remember array_size */

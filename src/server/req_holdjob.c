@@ -103,6 +103,7 @@
 #include "acct.h"
 #include "svrfunc.h"
 #include "csv.h"
+#include "array.h"
 
 /* Private Functions Local to this file */
 

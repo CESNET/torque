@@ -97,8 +97,9 @@
 #define FAILURE 0
 #endif
 
-/* anything including job.h also needs array.h so lets just include it this way*/
-#include "array.h"
+#ifndef PBS_MOM
+struct job_array;
+#endif
 
 /*
  * Dependent Job Structures
@@ -474,6 +475,9 @@ struct job
 
   list_link       ji_alljobs; /* link to next job in server job list */
   list_link       ji_jobque;  /* SVR: link to next job in queue list */
+#ifndef PBS_MOM
+  list_link       ji_jobs_array_sum; /*linked list of jobs with arrays summarized as a single "placeholder" job */
+#endif
   /* MOM: links to polled jobs */
   time_t  ji_momstat; /* SVR: time of last status from MOM */
   /* MOM: time job suspend (Cray) */
@@ -511,8 +515,8 @@ struct job
   int  ji_lastdest; /* last destin tried by route */
   int  ji_retryok; /* ok to retry, some reject was temp */
   tlist_head ji_rejectdest; /* list of rejected destinations */
-  job_array      *ji_arraystruct; /* pointer to job_array for this array */
-  int  ji_isparent;    /* set to TRUE if this is a "parent job"*/
+  struct job_array      *ji_arraystruct; /* pointer to job_array for this array */
+  int  ji_is_array_template;    /* set to TRUE if this is a "template job" for a job array*/
 #endif/* PBS_MOM */   /* END SERVER ONLY */
 
   /*
@@ -889,7 +893,9 @@ extern int   init_chkmom(job *);
 extern void  issue_track(job *);
 extern int   job_abt(job **, char *);
 extern job  *job_alloc();
-extern job  *job_clone(job *,job_array *, int);
+#ifndef PBS_MOM
+extern job  *job_clone(job *,struct job_array *, int);
+#endif
 extern void  job_free(job *);
 extern void  job_purge(job *);
 extern job  *job_recov(char *);

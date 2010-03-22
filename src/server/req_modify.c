@@ -106,6 +106,7 @@
 #include "pbs_error.h"
 #include "log.h"
 #include "svrfunc.h"
+#include "array.h"
 
 #define CHK_HOLD 1
 #define CHK_CONT 2

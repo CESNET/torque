@@ -11,6 +11,7 @@
 #include "server_limits.h"
 #include "pbs_error.h"
 #include "batch_request.h"
+#include "pbs_job.h"
 
 #ifndef TRUE
 #define TRUE 1
@@ -46,13 +47,16 @@ struct job_array
   list_link all_arrays;      /* node in server's linked list of all arrays */
   tlist_head request_tokens; /* head of linked list of request tokens, used 
                                 during cloning (cloning is the process of 
-                                copying the "parent" job to generate all of the 
+                                copying the "template" job to generate all of the 
                                 jobs in the array)*/
 
-  void **jobs; /* a pointer to the job pointers in this array */
+  job **jobs; /* a pointer to the job pointers in this array */
 
   int jobs_recovered; /* on server restart we track the number of array tasks
-                         that have been recovered */
+                         that have been recovered. this is incase the server is 
+                         restarted (cleanly) before the array is completely setup */
+                         
+  job *template_job; /* pointer to the template job */
 
   /* this info is saved in the array file */
   struct array_info

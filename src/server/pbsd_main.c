@@ -255,6 +255,7 @@ int  svr_delay_entry = 0;
 int  svr_do_schedule = SCH_SCHEDULE_NULL;
 tlist_head svr_queues;            /* list of queues                   */
 tlist_head svr_alljobs;           /* list of all jobs in server       */
+tlist_head svr_jobs_array_sum;    /* list of jobs in server, arrays summarized as single "placeholder" job */
 tlist_head svr_newjobs;           /* list of incoming new jobs        */
 tlist_head svr_newnodes;          /* list of newly created nodes      */
 tlist_head svr_jobarrays;         /* list of all job arrays           */

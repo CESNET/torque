@@ -109,6 +109,7 @@
 #include "svrfunc.h"
 #include "net_connect.h"
 #include "pbs_proto.h"
+#include "array.h"
 
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -229,7 +230,7 @@ void req_runjob(
 
   /* if the job is part of an array, check the slot limit */
   if ((pjob->ji_arraystruct != NULL) &&
-      (pjob->ji_isparent == FALSE))
+      (pjob->ji_is_array_template == FALSE))
     {
     job_array *pa = pjob->ji_arraystruct;
     

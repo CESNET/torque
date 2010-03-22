@@ -98,6 +98,7 @@
 #include "pbs_error.h"
 #include "log.h"
 #include "svrfunc.h"
+#include "array.h"
 
 #define SYNC_SCHED_HINT_NULL 0
 #define SYNC_SCHED_HINT_FIRST 1

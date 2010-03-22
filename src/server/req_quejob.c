@@ -140,6 +140,7 @@ extern struct server server;
 extern char  server_name[];
 extern int   queue_rank;
 extern tlist_head svr_jobarrays;
+extern tlist_head svr_jobs_array_sum;
 
 extern const char *PJobSubState[];
 
@@ -1319,9 +1320,15 @@ void req_rdytocommit(
   pj->ji_wattr[(int)JOB_ATR_state].at_val.at_char = 'T';
   pj->ji_wattr[(int)JOB_ATR_state].at_flags |= ATR_VFLAG_SET;
 
+  /* if this is a job array template then we'll delete the .JB file that 
+     was created for this job since we are going to save it with a different 
+     suffix here. 
+     XXX: not sure why the .JB file already exists before we do the SAVEJOB_NEW
+     save below
+   */
   if (pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET)
     {
-    pj->ji_isparent = TRUE;
+    pj->ji_is_array_template = TRUE;
 
     strcpy(namebuf, path_jobs);
     strcat(namebuf, pj->ji_qs.ji_fileprefix);
@@ -1520,6 +1527,8 @@ void req_commit(
       req_reject(PBSE_BAD_ARRAY_REQ, 0, preq, NULL, NULL);
       return;
       }
+      
+    insert_link(&svr_jobs_array_sum, &pj->ji_jobs_array_sum, pj, LINK_INSET_AFTER);
 
     reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Commit);
 

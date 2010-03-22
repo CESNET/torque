@@ -183,7 +183,7 @@ int job_save(
   strcat(namebuf1, JOB_FILE_SUFFIX);
 #else
 
-  if (pjob->ji_isparent == TRUE)
+  if (pjob->ji_is_array_template == TRUE)
     {
     strcat(namebuf1, JOB_FILE_TMP_SUFFIX);
     }
@@ -539,7 +539,7 @@ job *job_recov(
 
     if (strcmp(parent_id, pj->ji_qs.ji_jobid) == 0)
       {
-      pj->ji_isparent = TRUE;
+      pj->ji_is_array_template = TRUE;
       }
     else
       {
