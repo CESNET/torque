@@ -7433,6 +7433,14 @@ int setup_program_environment(void)
     {
     return(rc);
     }
+  
+  snprintf(path_meminfo,sizeof(path_meminfo),"%s%d%s",
+    "/sys/devices/system/node/node",
+    nodenum,
+    "/meminfo");
+#else
+  snprintf(path_meminfo,sizeof(path_meminfo),"%s",
+    "/proc/meminfo");
 #endif /* END SGI4700 */
 
   /* recover & abort jobs which were under MOM's control */
@@ -8541,16 +8549,6 @@ int main(
     {
     return(rc);
     }
-
-#ifdef SGI4700
-  snprintf(path_meminfo,sizeof(path_meminfo),"%s%d%s",
-    "/sys/devices/system/node/node",
-    nodenum,
-    "/meminfo");
-#else
-  snprintf(path_meminfo,sizeof(path_meminfo),"%s",
-    "/proc/meminfo");
-#endif
 
   main_loop();
 
