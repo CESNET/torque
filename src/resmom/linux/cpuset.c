@@ -73,7 +73,11 @@ int cpuset_delete(
   if (cpusetname[0] == '/')
     strcpy(path, cpusetname);
   else
+#ifdef SGI4700
+    sprintf(path, "%s/%s/%s", TTORQUECPUSET_PATH, mom_host, cpusetname);
+#else
     sprintf(path, "%s/%s", TTORQUECPUSET_PATH, cpusetname);
+#endif  /* end SGI4700 */
 
   if ((dir = opendir(path)) == NULL)
     {
@@ -175,9 +179,14 @@ void remove_defunct_cpusets()
 
   /* Find all the job cpusets. */
 
-  if ((dir = opendir(TTORQUECPUSET_PATH)) == NULL)
+  strcpy(path, TTORQUECPUSET_PATH);
+#ifdef SGI4700
+  strcat(path, "/");
+  strcat(path, mom_host);
+#endif  /* end SGI4700 */
+  if ((dir = opendir(path)) == NULL)
     {
-    sprintf(log_buffer, "opendir(%s) failed.\n",TTORQUECPUSET_PATH);
+    sprintf(log_buffer, "opendir(%s) failed.\n",path);
 
     log_err(-1, id, log_buffer);
     }
@@ -190,6 +199,10 @@ void remove_defunct_cpusets()
 
     /* Prepend directory name to file name for lstat. */
     strcpy(path, TTORQUECPUSET_PATH);
+#ifdef SGI4700
+    strcat(path, "/");
+    strcat(path, mom_host);
+#endif  /* end SGI4700 */
 
     if (path[strlen(path)-1] != '/') 
       strcat(path, "/");
@@ -224,6 +237,249 @@ void remove_defunct_cpusets()
 
   closedir(dir);
   } /* END remove_defunct_cpusets() */
+
+
+
+
+/*
+ * Create the mom cpuset for Torque if it doesn't already exist.
+ * clear out any job cpusets for jobs that no longer exist.
+ *
+ * @see remove_defunct_cpusets() - child
+ */
+
+#ifdef SGI4700
+void
+initialize_mom_cpuset(void)
+
+  {
+  static char    id[] = "initialize_mom_cpuset";
+
+  char           path[MAXPATHLEN + 1];
+
+  struct stat    statbuf;
+
+  char           cpuset_buf[MAXPATHLEN];
+  FILE           *fp;
+
+  sprintf(log_buffer, "Init TORQUE MOM cpuset %s/%s.",
+          TTORQUECPUSET_PATH,
+          mom_host);
+
+  log_event(PBSEVENT_SYSTEM,
+    PBS_EVENTCLASS_SERVER,
+    id,
+    log_buffer);
+
+  /* make sure cpusets are available */
+
+  sprintf(path, "%s/cpus",
+          TTORQUECPUSET_PATH);
+
+  if (lstat(path, &statbuf) != 0)
+    {
+    sprintf(log_buffer, "cannot locate %s - cpusets not configured/enabled on host\n",
+            path);
+
+    log_err(-1, id, log_buffer);
+
+    /* FAILURE */
+
+    return;
+    }
+
+  sprintf(path, "%s/%s",
+          TTORQUECPUSET_PATH,
+          mom_host);
+
+  if (lstat(path, &statbuf) != 0)
+    {
+    sprintf(log_buffer, "TORQUE cpuset %s does not exist, creating it now.\n",
+            path);
+
+    log_event(PBSEVENT_SYSTEM,
+      PBS_EVENTCLASS_SERVER,
+      id,
+      log_buffer);
+
+    mkdir(path, 0755);
+
+    /* load all cpus in main TORQUE set */
+
+    sprintf(path, "%s/cpus",
+            TTORQUECPUSET_PATH);
+
+    fp = fopen(path, "r");
+
+    if (fp != NULL)
+      {
+      char *cptr;
+      char *dptr;
+
+      char *ptr;
+
+      int   maxindex;
+      int   mindex;
+
+      char  tmpBuf[MAXPATHLEN];
+
+      /* FORMAT:  <CPU#>[<CPU#>][,<CPU#>[<CPU#>]]... */
+
+      /* read cpus from root cpuset */
+
+      if (fread(cpuset_buf, sizeof(char), sizeof(cpuset_buf), fp) != sizeof(cpuset_buf))
+        {
+        if (ferror(fp) != 0)
+          {
+          log_err(-1,id,
+            "An error occurred while reading the TORQUE cpuset, attempting to continue.\n");
+          }
+        }
+
+      /* Replace trailing newline with NULL */
+      *(index(cpuset_buf, '\n')) = '\0';
+
+      fclose(fp);
+
+      sprintf(log_buffer, "TORQUE cpuset %s loaded with value '%s'\n",
+              path,
+              cpuset_buf);
+
+      log_event(PBSEVENT_SYSTEM,
+        PBS_EVENTCLASS_SERVER,
+        id,
+        log_buffer);
+
+      /* convert string to lookup table */
+
+      strncpy(tmpBuf, cpuset_buf, sizeof(tmpBuf));
+
+      /* extract last cpu index value */
+
+      cptr = strchr(cpuset_buf, ',');
+      dptr = strchr(cpuset_buf, '-');
+
+      ptr = MAX(cptr, dptr);
+
+      if (ptr == NULL)
+        ptr = cpuset_buf;
+      else
+        ptr++;
+
+      maxindex = strtol(ptr, NULL, 10);
+
+      VPToCPUMap = (int *)calloc(1, sizeof(int) * maxindex);
+
+      strncpy(tmpBuf, cpuset_buf, sizeof(tmpBuf));
+
+      mindex = 0;
+
+      ptr = strtok(tmpBuf, ",");
+
+      /* Commented out as currently results in an infinite loop */
+#if 0
+      while (ptr != NULL)
+        {
+        ptr = strtok(ptr, "-");
+
+        while (ptr != NULL)
+          {
+          /* What was meant to be here ? - csamuel@vpac.org */
+          }
+        }
+
+#endif
+
+      /* create new TORQUE MOM set */
+
+      sprintf(path, "%s/%s/cpus",
+              TTORQUECPUSET_PATH,
+              mom_host);
+
+      fp = fopen(path, "w");
+
+      if (fp != NULL)
+        {
+        /* write all TORQUE cpus into TORQUE MOM cpuset */
+
+        sprintf(log_buffer, "adding cpus %s to %s",
+                cpuset_buf,
+                path);
+
+        log_event(PBSEVENT_SYSTEM,
+          PBS_EVENTCLASS_SERVER,
+          id,
+          log_buffer);
+
+        fwrite(cpuset_buf, sizeof(char), strlen(cpuset_buf), fp);
+
+        fclose(fp);
+        }
+
+      memset(cpuset_buf, '\0', sizeof(cpuset_buf));
+      }  /* END if (fp != NULL) */
+
+    /* add all mems to torque mom set */
+
+    sprintf(path, "%s/mems",
+            TTORQUECPUSET_PATH);
+
+    fp = fopen(path, "r");
+
+    if (fp != NULL)
+      {
+      /* what is format of data? */
+
+      /* read all mems from root cpuset */
+
+      if (fread(cpuset_buf, sizeof(char), sizeof(cpuset_buf), fp) != sizeof(cpuset_buf))
+        {
+        if (ferror(fp) != 0)
+          {
+          log_err(-1,id,
+            "An error occurred while reading the root cpuset, attempting to continue.\n");
+          }
+        }
+
+      fclose(fp);
+
+      sprintf(path, "%s/%s/mems",
+              TTORQUECPUSET_PATH,
+              mom_host);
+
+      fp = fopen(path, "w");
+
+      if (fp != NULL)
+        {
+        /* write all TORQUE mems into TORQUE MOM cpuset */
+
+        sprintf(log_buffer, "adding mems %s to %s",
+                cpuset_buf,
+                path);
+
+        log_event(PBSEVENT_SYSTEM,
+          PBS_EVENTCLASS_SERVER,
+          id,
+          log_buffer);
+
+        fwrite(cpuset_buf, sizeof(char), strlen(cpuset_buf), fp);
+
+        fclose(fp);
+        }
+
+      memset(cpuset_buf, '\0', sizeof(cpuset_buf));
+      }  /* END if (fp != NULL) */
+    }    /* END if (lstat(path,&statbuf) != 0) */
+  else
+    {
+    /* The cpuset already exists, delete any cpusets for jobs that no longer exist. */
+
+    remove_defunct_cpusets();
+    }
+
+  return;
+  }  /* END initialize_mom_cpuset() */
+#endif  /* end SGI4700 */
 
 
 
@@ -274,7 +530,6 @@ initialize_root_cpuset(void)
     }
 
   sprintf(path, "%s",
-
           TTORQUECPUSET_PATH);
 
   if (lstat(path, &statbuf) != 0)
@@ -488,12 +743,16 @@ initialize_root_cpuset(void)
       memset(cpuset_buf, '\0', sizeof(cpuset_buf));
       }  /* END if (fp != NULL) */
     }    /* END if (lstat(path,&statbuf) != 0) */
+#ifdef SGI4700
+  initialize_mom_cpuset();
+#else
   else
     {
     /* The cpuset already exists, delete any cpusets for jobs that no longer exist. */
 
     remove_defunct_cpusets();
     }
+#endif  /* end SGI4700 */
 
   return;
   }  /* END initialize_root_cpuset() */
@@ -593,14 +852,20 @@ int init_jobset(
   /* don't "else return(FAILURE);" because the directory doesn't necessarily exist */
 
   /* create the directory and copy the relevant memory data */
+#ifdef SGI4700
+  snprintf(tmppath,sizeof(tmppath),"%s/%s/mems",TTORQUECPUSET_PATH,mom_host);
+  if ((access(TTORQUECPUSET_PATH, F_OK) == 0) &&
+      (access(tmppath, F_OK) ==0))
+#else
+  snprintf(tmppath,sizeof(tmppath),"%s/mems",TTORQUECPUSET_PATH);
   if (access(TTORQUECPUSET_PATH, F_OK) == 0)
+#endif  /* end SGI4700 */
     {
 
     /* create the jobset */
     mkdir(path, 0755);
 
     /* add all mems to jobset */
-    snprintf(tmppath,sizeof(tmppath),"%s/mems",TTORQUECPUSET_PATH);
     fd = fopen(tmppath, "r");
 
     if (fd)
@@ -785,7 +1050,12 @@ int create_jobset(
 
   savemask = (umask(0022));
 
-  snprintf(path,sizeof(path),"%s/%s",TTORQUECPUSET_PATH,pjob->ji_qs.ji_jobid);
+#ifdef SGI4700
+  snprintf(path,sizeof(path), "%s/%s/%s", TTORQUECPUSET_PATH, mom_host,
+    pjob->ji_qs.ji_jobid);
+#else
+  snprintf(path,sizeof(path), "%s/%s", TTORQUECPUSET_PATH, pjob->ji_qs.ji_jobid);
+#endif  /* end SGI4700 */
 
   if (init_jobset(path,pjob,savemask,membuf) == FAILURE)
     {
@@ -824,7 +1094,12 @@ int move_to_jobset(
   savemask = (umask(0022));
 
   sprintf(pidbuf, "%d", pid);
+#ifdef SGI4700
+  sprintf(taskspath, "%s/%s/%s/tasks", TTORQUECPUSET_PATH, mom_host,
+    pjob->ji_qs.ji_jobid);
+#else
   sprintf(taskspath, "%s/%s/tasks", TTORQUECPUSET_PATH, pjob->ji_qs.ji_jobid);
+#endif  /* end SGI4700 */
   sprintf(log_buffer, "CPUSET MOVE: %s  %s\n", taskspath, pidbuf);
   log_event(PBSEVENT_SYSTEM,
     PBS_EVENTCLASS_SERVER,
@@ -864,7 +1139,13 @@ int move_to_taskset(
   savemask = (umask(0022));
 
   sprintf(pidbuf, "%d", pid);
+#ifdef SGI4700
+  sprintf(taskspath, "%s/%s/%s/%s/tasks", TTORQUECPUSET_PATH, mom_host,
+    pjob->ji_qs.ji_jobid,
+    vnodeid);
+#else
   sprintf(taskspath, "%s/%s/%s/tasks", TTORQUECPUSET_PATH, pjob->ji_qs.ji_jobid, vnodeid);
+#endif  /* end SGI4700 */
   sprintf(log_buffer, "TASKSET MOVE: %s  %s\n", taskspath, pidbuf);
   log_event(PBSEVENT_SYSTEM,
     PBS_EVENTCLASS_SERVER,

@@ -9,6 +9,8 @@ NUMA
       balanced binary AVL tree. New functions are in src/lib/Libutils/u_tree.c.
       Calls start with AVL_ such as AVL_insert, AVL_find, AVL_delete etc.
       3/19/2010  Ken Nielson  Adaptive Computing.
+  e - Changed hierarchy from /dev/cpuset/torque to /dev/cpuset/torque/'hostname'
+      to allow each pbs_mom to have it's own directory.
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,
