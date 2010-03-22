@@ -194,6 +194,8 @@ char          *mem_str;
 int            num_mems;
 char          *memsize_str;
 unsigned long  memsize;
+int            nodenum;
+char           path_meminfo[MAX_LINE];
 
 /* by default, enforce these policies */
 int    ignwalltime = 0; 
@@ -8307,7 +8309,37 @@ void restart_mom(
 
 
 
-/* finds the number of elements in a comma separated string
+/* 
+ * finds the number of elements in a range in this form: num-num
+ */
+int parse_range(
+
+  char *str) /* I */
+
+  {
+  int low;
+  int high;
+  char *dash;
+
+  if (str == NULL)
+    return(-1);
+
+  dash = strchr(str,'-');
+  if (dash == NULL)
+    return(-1);
+
+  low = atoi(str);
+  high = atoi(dash+1);
+
+  return(high-low+1);
+  } /* END parse_range() */
+
+
+
+
+
+/* 
+ * finds the number of elements in a comma separated string
  * count is the number of commas + 1
  */
 int get_comma_count(
@@ -8320,7 +8352,7 @@ int get_comma_count(
 
   /* check for error */
   if (str == NULL)
-    return -1;
+    return(-1);
 
   comma = str;
 
@@ -8408,7 +8440,10 @@ int read_layout_file()
       {
       /* handle cpus */
       cpus_str = val;
-      num_cpus = get_comma_count(val);
+      if (strchr(val,'-') != NULL)
+        num_cpus = parse_range(val);
+      else
+        num_cpus = get_comma_count(val);
       }
     else if (strcmp(tok,"mem") == 0)
       {
@@ -8432,6 +8467,10 @@ int read_layout_file()
         {
         memsize *= 1024;
         }
+      }
+    else if (strcmp(tok,"nodenum") == 0)
+      {
+      nodenum = atoi(val);
       }
     else
       {
@@ -8502,6 +8541,16 @@ int main(
     {
     return(rc);
     }
+
+#ifdef SGI4700
+  snprintf(path_meminfo,sizeof(path_meminfo),"%s%d%s",
+    "/sys/devices/system/node/node",
+    nodenum,
+    "/meminfo");
+#else
+  snprintf(path_meminfo,sizeof(path_meminfo),"%s",
+    "/proc/meminfo");
+#endif
 
   main_loop();
 

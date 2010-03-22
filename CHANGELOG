@@ -11,6 +11,9 @@ NUMA
       3/19/2010  Ken Nielson  Adaptive Computing.
   e - Changed hierarchy from /dev/cpuset/torque to /dev/cpuset/torque/'hostname'
       to allow each pbs_mom to have it's own directory.
+  e - mom.layout now also can read nodenum, specifying which nodeboard this mom is.
+  e - Using the nodenum value, will now read the correct memory information for the
+      nodeboard
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,

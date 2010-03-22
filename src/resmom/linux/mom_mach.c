@@ -146,6 +146,10 @@
 **              netload         number of bytes transferred for all interfaces
 */
 
+#ifndef MAX_LINE
+#define MAX_LINE 1024
+#endif
+
 #ifndef TRUE
 #define FALSE 0
 #define TRUE 1
@@ -165,6 +169,7 @@ extern  int     LOGLEVEL;
 extern  char    PBSNodeMsgBuf[1024];
 
 #define TBL_INC 200            /* initial proc table */
+#define PMEMBUF_SIZE  2048
 
 static proc_stat_t   *proc_array = NULL;
 static int            nproc = 0;
@@ -204,6 +209,7 @@ mbool_t ProcIsChild(char *,char *,char *);
 
 extern char *loadave(struct rm_attribute *);
 extern char *nullproc(struct rm_attribute *);
+extern char  path_meminfo[MAX_LINE];
 
 time_t wait_time = 10;
 
@@ -452,7 +458,7 @@ proc_mem_t *get_proc_mem(void)
   char                str[32];
   unsigned long long  bfsz, casz;
 
-  if ((fp = fopen("/proc/meminfo","r")) == NULL)
+  if ((fp = fopen(path_meminfo,"r")) == NULL)
     {
     return(NULL);
     }
@@ -592,7 +598,7 @@ get_proc_mem(void)
   unsigned long m_tot, m_use, m_free;
   unsigned long s_tot, s_use, s_free;
 
-  if ((fp = fopen("/proc/meminfo", "r")) == NULL)
+  if ((fp = fopen(path_meminfo, "r")) == NULL)
     {
     return(NULL);
     }
@@ -3422,10 +3428,6 @@ static char *ncpus(
 
 
 
-#define PMEMBUF_SIZE  2048
-
-
-static const char path_meminfo[] = "/proc/meminfo";
 
 static char *physmem(
 
