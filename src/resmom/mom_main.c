@@ -157,6 +157,7 @@
 #include <sys/mman.h>
 #endif /* _POSIX_MEMLOCK */
 
+#define NO_LAYOUT_FILE      -10
 #define CHECK_POLL_TIME     45
 #define DEFAULT_SERVER_STAT_UPDATES 45
 
@@ -8346,7 +8347,7 @@ int read_layout_file()
       path_layout);
     log_err(errno,id,log_buffer);
 
-    exit(-505);
+    return(NO_LAYOUT_FILE);
     }
 
   /* search for the line with our hostname on it 
@@ -8494,10 +8495,12 @@ int main(
     return(rc);
     }
 
+#ifdef SGI4700
   if ((rc = bind_to_nodeboard()) != 0)
     {
     return(rc);
     }
+#endif /* END SGI4700 */
 
   main_loop();
 
