@@ -188,9 +188,9 @@ float  ideal_load_val = -1.0;
 int    internal_state = 0;
 
 /* mom data items */
-char          *cpus_str;
+char           cpus_str[100];
 int            num_cpus;
-char          *mem_str;
+char           mem_str[100];
 int            num_mems;
 char          *memsize_str;
 unsigned long  memsize;
@@ -8447,7 +8447,7 @@ int read_layout_file()
     if (strcmp(tok,"cpus") == 0)
       {
       /* handle cpus */
-      cpus_str = val;
+      strcpy(cpus_str, val);
       if (strchr(val,'-') != NULL)
         num_cpus = parse_range(val);
       else
@@ -8456,8 +8456,11 @@ int read_layout_file()
     else if (strcmp(tok,"mem") == 0)
       {
       /* handle mem */
-      mem_str = val;
-      num_mems = get_comma_count(val);
+      strcpy(mem_str, val);
+      if (strchr(val,'-') != NULL)
+        num_mems = parse_range(val);
+      else
+        num_mems = get_comma_count(val);
       }
     else if (strcmp(tok,"memsize") == 0)
       {

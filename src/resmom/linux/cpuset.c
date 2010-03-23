@@ -35,12 +35,19 @@
 int           *VPToCPUMap = NULL;  /* map of virtual processors to cpus (alloc) */
 
 extern char    mom_host[];
+extern char    cpus_str[];
+extern char    mem_str[];
+extern int     num_cpus;
+extern int     num_mems;
+extern int     LOGLEVEL;
+
 extern char    mom_short_name[];
 
 
 /* private functions */
 void remove_defunct_cpusets();
 int get_cpu_string(job *pjob,char *);
+int get_cpuset_strings(job *pjob,char *,char *);
 int create_vnodesets(job *,char *path,char *,mode_t);
 int init_jobset(char *,job *,mode_t,char *);
 /* end private functions */
@@ -259,7 +266,6 @@ initialize_mom_cpuset(void)
 
   struct stat    statbuf;
 
-  char           cpuset_buf[MAXPATHLEN];
   FILE           *fp;
 
   sprintf(log_buffer, "Init TORQUE MOM cpuset %s/%s.",
@@ -304,122 +310,52 @@ initialize_mom_cpuset(void)
 
     mkdir(path, 0755);
 
-    /* load all cpus in main TORQUE set */
+    /* load in only cpuset for this MOM */
+    /* use cpus from mom.layout file */
 
-    sprintf(path, "%s/cpus",
-            TTORQUECPUSET_PATH);
+    sprintf(log_buffer, "TORQUE cpuset %s loaded with value '%s'\n",
+            path,
+            cpus_str);
 
-    fp = fopen(path, "r");
+    log_event(PBSEVENT_SYSTEM,
+      PBS_EVENTCLASS_SERVER,
+      id,
+      log_buffer);
+
+    /* create new TORQUE MOM set */
+
+    sprintf(path, "%s/%s/cpus",
+            TTORQUECPUSET_PATH,
+            mom_host);
+
+    fp = fopen(path, "w");
 
     if (fp != NULL)
       {
-      char *cptr;
-      char *dptr;
+      /* write all TORQUE cpus into TORQUE MOM cpuset */
 
-      char *ptr;
-
-      int   maxindex;
-      int   mindex;
-
-      char  tmpBuf[MAXPATHLEN];
-
-      /* FORMAT:  <CPU#>[<CPU#>][,<CPU#>[<CPU#>]]... */
-
-      /* read cpus from root cpuset */
-
-      if (fread(cpuset_buf, sizeof(char), sizeof(cpuset_buf), fp) != sizeof(cpuset_buf))
-        {
-        if (ferror(fp) != 0)
-          {
-          log_err(-1,id,
-            "An error occurred while reading the TORQUE cpuset, attempting to continue.\n");
-          }
-        }
-
-      /* Replace trailing newline with NULL */
-      *(index(cpuset_buf, '\n')) = '\0';
-
-      fclose(fp);
-
-      sprintf(log_buffer, "TORQUE cpuset %s loaded with value '%s'\n",
-              path,
-              cpuset_buf);
+      sprintf(log_buffer, "adding cpus %s to %s",
+              cpus_str,
+              path);
 
       log_event(PBSEVENT_SYSTEM,
         PBS_EVENTCLASS_SERVER,
         id,
         log_buffer);
 
-      /* convert string to lookup table */
-
-      strncpy(tmpBuf, cpuset_buf, sizeof(tmpBuf));
-
-      /* extract last cpu index value */
-
-      cptr = strchr(cpuset_buf, ',');
-      dptr = strchr(cpuset_buf, '-');
-
-      ptr = MAX(cptr, dptr);
-
-      if (ptr == NULL)
-        ptr = cpuset_buf;
-      else
-        ptr++;
-
-      maxindex = strtol(ptr, NULL, 10);
-
-      VPToCPUMap = (int *)calloc(1, sizeof(int) * maxindex);
-
-      strncpy(tmpBuf, cpuset_buf, sizeof(tmpBuf));
-
-      mindex = 0;
-
-      ptr = strtok(tmpBuf, ",");
-
-      /* Commented out as currently results in an infinite loop */
-#if 0
-      while (ptr != NULL)
+      if (fwrite(cpus_str, sizeof(char), strlen(cpus_str), fp) < strlen(cpus_str))
         {
-        ptr = strtok(ptr, "-");
-
-        while (ptr != NULL)
-          {
-          /* What was meant to be here ? - csamuel@vpac.org */
-          }
-        }
-
-#endif
-
-      /* create new TORQUE MOM set */
-
-      sprintf(path, "%s/%s/cpus",
-              TTORQUECPUSET_PATH,
-              mom_host);
-
-      fp = fopen(path, "w");
-
-      if (fp != NULL)
-        {
-        /* write all TORQUE cpus into TORQUE MOM cpuset */
-
-        sprintf(log_buffer, "adding cpus %s to %s",
-                cpuset_buf,
+        /* FAILURE */
+        sprintf(log_buffer, "failed to write cpus cpuset to %s\n",
                 path);
-
-        log_event(PBSEVENT_SYSTEM,
-          PBS_EVENTCLASS_SERVER,
-          id,
-          log_buffer);
-
-        fwrite(cpuset_buf, sizeof(char), strlen(cpuset_buf), fp);
-
-        fclose(fp);
+        log_err(-1, id, log_buffer);
+        return;
         }
 
-      memset(cpuset_buf, '\0', sizeof(cpuset_buf));
-      }  /* END if (fp != NULL) */
+      fclose(fp);
+      }
 
-    /* add all mems to torque mom set */
+    /* use mems from mom.layout file */
 
     sprintf(path, "%s/mems",
             TTORQUECPUSET_PATH);
@@ -428,19 +364,6 @@ initialize_mom_cpuset(void)
 
     if (fp != NULL)
       {
-      /* what is format of data? */
-
-      /* read all mems from root cpuset */
-
-      if (fread(cpuset_buf, sizeof(char), sizeof(cpuset_buf), fp) != sizeof(cpuset_buf))
-        {
-        if (ferror(fp) != 0)
-          {
-          log_err(-1,id,
-            "An error occurred while reading the root cpuset, attempting to continue.\n");
-          }
-        }
-
       fclose(fp);
 
       sprintf(path, "%s/%s/mems",
@@ -454,7 +377,7 @@ initialize_mom_cpuset(void)
         /* write all TORQUE mems into TORQUE MOM cpuset */
 
         sprintf(log_buffer, "adding mems %s to %s",
-                cpuset_buf,
+                mem_str,
                 path);
 
         log_event(PBSEVENT_SYSTEM,
@@ -462,12 +385,17 @@ initialize_mom_cpuset(void)
           id,
           log_buffer);
 
-        fwrite(cpuset_buf, sizeof(char), strlen(cpuset_buf), fp);
+        if (fwrite(mem_str, sizeof(char), strlen(mem_str), fp) < strlen(mem_str))
+          {
+          /* FAILURE */
+          sprintf(log_buffer, "failed to write mems cpuset to %s\n",
+                  path);
+          log_err(-1, id, log_buffer);
+          return;
+          }
 
         fclose(fp);
         }
-
-      memset(cpuset_buf, '\0', sizeof(cpuset_buf));
       }  /* END if (fp != NULL) */
     }    /* END if (lstat(path,&statbuf) != 0) */
   else
@@ -807,6 +735,74 @@ int get_cpu_string(
 
 
 /**
+ * get_cpuset_strings
+ * @see add_cpus_to_jobset() - parent
+ *
+ * @param pjob - (I) the job whose cpu string we're building
+ * @param CpuStr - (O) the cpu string
+ * @param MemStr - (O) the mem string
+ * @return 1 if the cpu string is built, 0 otherwise
+ */
+
+int get_cpuset_strings(
+
+  job  *pjob,   /* I */
+  char *CpuStr, /* O */
+  char *MemStr) /* O */
+
+  {
+  vnodent *np = pjob->ji_vnods;
+  int     j;
+  int     lastmem = -1;
+  int     ratio = num_cpus / num_mems;
+  char    tmpStr[MAXPATHLEN];
+
+  if ((pjob == NULL) || 
+      (CpuStr == NULL) ||
+      (MemStr == NULL))
+    return(FAILURE);
+
+  CpuStr[0] = '\0';
+  MemStr[0] = '\0';
+
+  for (j = 0;j < pjob->ji_numvnod;++j, np++)
+    {
+    if (pjob->ji_nodeid == np->vn_host->hn_node)
+      {
+      if (CpuStr[0] != '\0')
+        strcat(CpuStr, ",");
+
+      sprintf(tmpStr, "%d", np->vn_index);
+
+      strcat(CpuStr, tmpStr);
+
+      if (lastmem != np->vn_index / ratio)
+        {
+        lastmem = np->vn_index / ratio;
+        sprintf(tmpStr, "%d", lastmem);
+
+        if (MemStr[0] != '\0')
+          strcat(MemStr, ",");
+
+        strcat(MemStr, tmpStr);
+        }
+      }
+    }
+
+  if (LOGLEVEL >= 7)
+    {
+    sprintf(log_buffer, "found cpus (%s) mems (%s) ratio = %d",
+      CpuStr, MemStr, ratio);
+    log_ext(-1, "get_cpuset_strings", log_buffer, LOG_DEBUG);
+    }
+
+  return(SUCCESS);
+  }
+
+
+
+
+/**
  * initializes the cpuset for the job
  * 
  * deletes any existing cpuset
@@ -829,7 +825,9 @@ int init_jobset(
   {
   char *id = "init_jobset";
   char  tmppath[MAXPATHLEN+1];
+#ifndef SGI4700
   FILE *fd;
+#endif  /* end SGI4700 */
 
   if ((path == NULL) ||
       (pjob == NULL) ||
@@ -852,10 +850,10 @@ int init_jobset(
   /* don't "else return(FAILURE);" because the directory doesn't necessarily exist */
 
   /* create the directory and copy the relevant memory data */
-#ifdef SGI4700
+#ifndef SGI4700
   snprintf(tmppath,sizeof(tmppath),"%s/%s/mems",TTORQUECPUSET_PATH,mom_host);
   if ((access(TTORQUECPUSET_PATH, F_OK) == 0) &&
-      (access(tmppath, F_OK) ==0))
+      (access(tmppath, F_OK) == 0))
 #else
   snprintf(tmppath,sizeof(tmppath),"%s/mems",TTORQUECPUSET_PATH);
   if (access(TTORQUECPUSET_PATH, F_OK) == 0)
@@ -865,6 +863,7 @@ int init_jobset(
     /* create the jobset */
     mkdir(path, 0755);
 
+#ifndef SGI4700
     /* add all mems to jobset */
     fd = fopen(tmppath, "r");
 
@@ -891,6 +890,9 @@ int init_jobset(
         }
       return(SUCCESS);
       }
+#else
+    return(SUCCESS);
+#endif  /* end SGI4700 */
     }
 
   return(FAILURE);
@@ -959,7 +961,7 @@ int create_vnodesets(
       memset(tasksbuf, '\0', sizeof(tasksbuf));
 
       /* add all mems to torqueset - membuf has info stored */
-      sprintf(tmppath, "%s/%d/%s",path,np->vn_node,"/mems");
+      sprintf(tmppath, "%s/%d/%s",path,np->vn_node,"mems");
       fd = fopen(tmppath, "w");
 
       if (fd)
@@ -1004,6 +1006,9 @@ int add_cpus_to_jobset(
   char *id = "add_cpus_to_jobset";
   char  cpusbuf[MAXPATHLEN+1];
   char  tmppath[MAXPATHLEN+1];
+#ifdef SGI4700
+  char  memsbuf[MAXPATHLEN+1];
+#endif  /* end SGI4700 */
 
   if ((pjob == NULL) ||
       (path == NULL))
@@ -1012,7 +1017,11 @@ int add_cpus_to_jobset(
     }
 
   /* Make the string defining the CPUs to add into the jobset */
+#ifdef SGI4700
+  get_cpuset_strings(pjob,cpusbuf,memsbuf);
+#else
   get_cpu_string(pjob,cpusbuf);
+#endif  /* end SGI4700 */
 
   snprintf(tmppath,sizeof(tmppath),"%s/cpus",path);
 
@@ -1026,9 +1035,30 @@ int add_cpus_to_jobset(
   fd = fopen(tmppath, "w");
   if (fd)
     {
+    if (LOGLEVEL >= 7)
+      {
+      sprintf(log_buffer, "adding cpus %s to %s", cpusbuf, tmppath);
+      log_ext(-1, id, log_buffer, LOG_DEBUG);
+      }
     fwrite(cpusbuf, sizeof(char), strlen(cpusbuf), fd);
     fclose(fd);
+#ifdef SGI4700
+    snprintf(tmppath,sizeof(tmppath),"%s/mems",path);
+    fd = fopen(tmppath, "w");
+    if (fd)
+      {
+      if (LOGLEVEL >= 7)
+        {
+        sprintf(log_buffer, "adding mems %s to %s", memsbuf, tmppath);
+        log_ext(-1, id, log_buffer, LOG_DEBUG);
+        }
+      fwrite(memsbuf, sizeof(char), strlen(memsbuf), fd);
+      fclose(fd);
+      return(SUCCESS);
+      }
+#else
     return(SUCCESS);
+#endif  /* end SGI4700 */
     }
     
   return(FAILURE);
@@ -1068,11 +1098,13 @@ int create_jobset(
     return(FAILURE);
     }
 
+#ifndef SGI4700
   /* Create the vnodesets */
   if (create_vnodesets(pjob,path,membuf,savemask) == FAILURE)
     {
     return(FAILURE);
     }
+#endif /* end SGI4700 */
 
   return(SUCCESS);
   }  /* END create_jobset() */
