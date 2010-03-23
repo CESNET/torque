@@ -15,6 +15,7 @@ NUMA
   e - Using the nodenum value, will now read the correct memory information for the
       nodeboard
   e - added code to fill in cpuset cpus and mems files based on assigned cpus
+  e - account for the cpu's offset for the different moms
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,

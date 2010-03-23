@@ -39,6 +39,7 @@ extern char    cpus_str[];
 extern char    mem_str[];
 extern int     num_cpus;
 extern int     num_mems;
+extern int     cpu_offset;
 extern int     LOGLEVEL;
 
 extern char    mom_short_name[];
@@ -772,7 +773,7 @@ int get_cpuset_strings(
       if (CpuStr[0] != '\0')
         strcat(CpuStr, ",");
 
-      sprintf(tmpStr, "%d", np->vn_index);
+      sprintf(tmpStr, "%d", np->vn_index+cpu_offset);
 
       strcat(CpuStr, tmpStr);
 

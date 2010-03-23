@@ -195,6 +195,7 @@ int            num_mems;
 char          *memsize_str;
 unsigned long  memsize;
 int            nodenum;
+int            cpu_offset;
 char           path_meminfo[MAX_LINE];
 
 /* by default, enforce these policies */
@@ -8484,6 +8485,10 @@ int read_layout_file()
     else if (strcmp(tok,"nodenum") == 0)
       {
       nodenum = atoi(val);
+      }
+    else if (strcmp(tok,"cpuoffset") == 0)
+      {
+      cpu_offset = atoi(val);
       }
     else
       {
