@@ -6821,7 +6821,9 @@ int setup_program_environment(void)
   int  tryport;
   int  rppfd;  /* fd for rm and im comm */
   int  privfd = 0; /* fd for sending job info */
+#ifdef SGI4700
   int  rc;
+#endif /* END SGI4700 */
 
   struct sigaction act;
   char         *ptr;            /* local tmp variable */
