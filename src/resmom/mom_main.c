@@ -211,6 +211,9 @@ time_t loopcnt;  /* used for MD5 calc */
 float  max_load_val = -1.0;
 int    hostname_specified = 0;
 char   mom_host[PBS_MAXHOSTNAME + 1];
+#ifdef SGI4700
+char   mom_name[PBS_MAXHOSTNAME + 1];
+#endif /* SGI4700 */
 char   TMOMRejectConn[1024];   /* most recent rejected connection */
 char   mom_short_name[PBS_MAXHOSTNAME + 1];
 int    num_var_env;
@@ -6625,6 +6628,9 @@ void parse_command_line(
         hostname_specified = 1;
 
         strncpy(mom_host, optarg, PBS_MAXHOSTNAME); /* remember name */
+#ifdef SGI4700
+        strncpy(mom_name, optarg, PBS_MAXHOSTNAME);
+#endif /* ifdef SGI4700 */
 
         break;
 
@@ -8320,6 +8326,7 @@ void restart_mom(
 
 
 
+#ifdef SGI4700
 /* 
  * finds the number of elements in a range in this form: num-num
  */
@@ -8412,7 +8419,7 @@ int read_layout_file()
 
     tok = strtok(line,delims);
 
-    if (strcmp(tok,mom_host) == 0)
+    if (strcmp(tok,mom_name) == 0)
       {
       /* hostname found */
       line_found = TRUE;
@@ -8424,7 +8431,7 @@ int read_layout_file()
     {
     snprintf(log_buffer,sizeof(log_buffer),
       "Unable to find hostname %s in layout file %s\n",
-      mom_host,
+      mom_name,
       path_layout);
 
     exit(-505);
@@ -8522,7 +8529,7 @@ int bind_to_nodeboard()
 
   return(0);
   } /* END bind_to_nodeboard */
-
+#endif /* ifdef SGI4700 */
 
 
 

@@ -34,7 +34,7 @@
 
 int           *VPToCPUMap = NULL;  /* map of virtual processors to cpus (alloc) */
 
-extern char    mom_host[];
+extern char    mom_name[];
 extern char    cpus_str[];
 extern char    mem_str[];
 extern int     num_cpus;
@@ -82,7 +82,7 @@ int cpuset_delete(
     strcpy(path, cpusetname);
   else
 #ifdef SGI4700
-    sprintf(path, "%s/%s/%s", TTORQUECPUSET_PATH, mom_host, cpusetname);
+    sprintf(path, "%s/%s/%s", TTORQUECPUSET_PATH, mom_name, cpusetname);
 #else
     sprintf(path, "%s/%s", TTORQUECPUSET_PATH, cpusetname);
 #endif  /* end SGI4700 */
@@ -190,7 +190,7 @@ void remove_defunct_cpusets()
   strcpy(path, TTORQUECPUSET_PATH);
 #ifdef SGI4700
   strcat(path, "/");
-  strcat(path, mom_host);
+  strcat(path, mom_name);
 #endif  /* end SGI4700 */
   if ((dir = opendir(path)) == NULL)
     {
@@ -209,7 +209,7 @@ void remove_defunct_cpusets()
     strcpy(path, TTORQUECPUSET_PATH);
 #ifdef SGI4700
     strcat(path, "/");
-    strcat(path, mom_host);
+    strcat(path, mom_name);
 #endif  /* end SGI4700 */
 
     if (path[strlen(path)-1] != '/') 
@@ -271,7 +271,7 @@ initialize_mom_cpuset(void)
 
   sprintf(log_buffer, "Init TORQUE MOM cpuset %s/%s.",
           TTORQUECPUSET_PATH,
-          mom_host);
+          mom_name);
 
   log_event(PBSEVENT_SYSTEM,
     PBS_EVENTCLASS_SERVER,
@@ -297,7 +297,7 @@ initialize_mom_cpuset(void)
 
   sprintf(path, "%s/%s",
           TTORQUECPUSET_PATH,
-          mom_host);
+          mom_name);
 
   if (lstat(path, &statbuf) != 0)
     {
@@ -327,7 +327,7 @@ initialize_mom_cpuset(void)
 
     sprintf(path, "%s/%s/cpus",
             TTORQUECPUSET_PATH,
-            mom_host);
+            mom_name);
 
     fp = fopen(path, "w");
 
@@ -369,7 +369,7 @@ initialize_mom_cpuset(void)
 
       sprintf(path, "%s/%s/mems",
               TTORQUECPUSET_PATH,
-              mom_host);
+              mom_name);
 
       fp = fopen(path, "w");
 
@@ -853,7 +853,7 @@ int init_jobset(
 
   /* create the directory and copy the relevant memory data */
 #ifndef SGI4700
-  snprintf(tmppath,sizeof(tmppath),"%s/%s/mems",TTORQUECPUSET_PATH,mom_host);
+  snprintf(tmppath,sizeof(tmppath),"%s/%s/mems",TTORQUECPUSET_PATH,mom_name);
   if ((access(TTORQUECPUSET_PATH, F_OK) == 0) &&
       (access(tmppath, F_OK) == 0))
 #else
@@ -1083,7 +1083,7 @@ int create_jobset(
   savemask = (umask(0022));
 
 #ifdef SGI4700
-  snprintf(path,sizeof(path), "%s/%s/%s", TTORQUECPUSET_PATH, mom_host,
+  snprintf(path,sizeof(path), "%s/%s/%s", TTORQUECPUSET_PATH, mom_name,
     pjob->ji_qs.ji_jobid);
 #else
   snprintf(path,sizeof(path), "%s/%s", TTORQUECPUSET_PATH, pjob->ji_qs.ji_jobid);
@@ -1129,7 +1129,7 @@ int move_to_jobset(
 
   sprintf(pidbuf, "%d", pid);
 #ifdef SGI4700
-  sprintf(taskspath, "%s/%s/%s/tasks", TTORQUECPUSET_PATH, mom_host,
+  sprintf(taskspath, "%s/%s/%s/tasks", TTORQUECPUSET_PATH, mom_name,
     pjob->ji_qs.ji_jobid);
 #else
   sprintf(taskspath, "%s/%s/tasks", TTORQUECPUSET_PATH, pjob->ji_qs.ji_jobid);
@@ -1174,7 +1174,7 @@ int move_to_taskset(
 
   sprintf(pidbuf, "%d", pid);
 #ifdef SGI4700
-  sprintf(taskspath, "%s/%s/%s/%s/tasks", TTORQUECPUSET_PATH, mom_host,
+  sprintf(taskspath, "%s/%s/%s/%s/tasks", TTORQUECPUSET_PATH, mom_name,
     pjob->ji_qs.ji_jobid,
     vnodeid);
 #else
