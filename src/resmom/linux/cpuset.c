@@ -780,7 +780,7 @@ int get_cpuset_strings(
       if (lastmem != np->vn_index / ratio)
         {
         lastmem = np->vn_index / ratio;
-        sprintf(tmpStr, "%d", lastmem);
+        sprintf(tmpStr, "%d", lastmem + atoi(mem_str));
 
         if (MemStr[0] != '\0')
           strcat(MemStr, ",");
@@ -792,8 +792,9 @@ int get_cpuset_strings(
 
   if (LOGLEVEL >= 7)
     {
-    sprintf(log_buffer, "found cpus (%s) mems (%s) ratio = %d",
-      CpuStr, MemStr, ratio);
+    sprintf(log_buffer,
+      "found cpus (%s) mems (%s) ratio = %d cpu_offset = %d mem_offset = %d",
+      CpuStr, MemStr, ratio, cpu_offset, atoi(mem_str));
     log_ext(-1, "get_cpuset_strings", log_buffer, LOG_DEBUG);
     }
 
