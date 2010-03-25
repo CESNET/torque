@@ -35,6 +35,7 @@
 #include "list_link.h"
 #include "attribute.h"
 #include "server_limits.h"
+#include "server.h"
 #include "pbs_job.h"
 #include "pbs_error.h"
 #include "svrfunc.h"
@@ -45,11 +46,14 @@
 
 extern void  job_clone_wt(struct work_task *);
 extern int array_upgrade(job_array *, int, int, int *);
+extern char *get_correct_jobname(const char *jobid);
 
 /* global data items used */
 
 /* list of job arrays */
+extern struct server   server;
 extern tlist_head svr_jobarrays;
+extern tlist_head svr_jobs_array_sum;
 extern char *path_arrays;
 extern char *path_jobs;
 extern time_t time_now;
@@ -229,6 +233,57 @@ void array_get_parent_id(char *job_id, char *parent_id)
   }
 
 
+/*
+ * find_array_template_job() - find an array template job by jobid
+ *
+ * Return NULL if not found or pointer to job struct if found
+ */
+
+job *find_array_placeholder(char *arrayid)
+  {
+  char *at;
+  char *comp;
+  int   different = FALSE;
+
+  job  *pj;
+
+  if ((at = strchr(arrayid, (int)'@')) != NULL)
+    * at = '\0'; /* strip off @server_name */
+
+  pj = (job *)GET_NEXT(svr_jobs_array_sum);
+
+  if ((server.sv_attr[SRV_ATR_display_job_server_suffix].at_flags & ATR_VFLAG_SET) ||
+      (server.sv_attr[SRV_ATR_job_suffix_alias].at_flags & ATR_VFLAG_SET))
+    {
+    comp = get_correct_jobname(arrayid);
+    different = TRUE;
+
+    if (comp == NULL)
+      return NULL;
+    }
+  else
+    {
+    comp = arrayid;
+    }
+
+  while (pj != NULL)
+    {
+    if (!strcmp(comp, pj->ji_qs.ji_jobid))
+      break;
+
+    pj = (job *)GET_NEXT(pj->ji_jobs_array_sum);
+    }
+
+  if (at)
+    *at = '@'; /* restore @server_name */
+
+  if (different)
+    free(comp);
+
+  return(pj);  /* may be NULL */
+  }   /* END find_job() */
+
+
 
 /* array_recov reads in  an array struct saved to disk and inserts it into
    the servers list of arrays */
@@ -377,28 +432,6 @@ int array_delete(job_array *pa)
     log_err(errno, "array_delete", log_buffer);
     }
 
-#if 0
-  strcpy(path, path_jobs); /* delete script file */
-
-  strcat(path, pa->ai_qs.fileprefix);
-  strcat(path, JOB_SCRIPT_SUFFIX);
-
-  if (unlink(path) < 0)
-    {
-    sprintf(log_buffer, "unable to delete %s", path);
-    log_err(errno, "array_delete", log_buffer);
-    }
-
-  else if (LOGLEVEL >= 6)
-    {
-    sprintf(log_buffer, "removed job script");
-
-    log_record(PBSEVENT_DEBUG,
-               PBS_EVENTCLASS_JOB,
-               pa->ai_qs.parent_id,
-               log_buffer);
-    }
-#endif
 
   /* clear array request linked list */
 
@@ -415,8 +448,11 @@ int array_delete(job_array *pa)
 
   /* purge the "template" job, 
      this also deletes the shared script file for the array*/
-  job_purge(pa->template_job);
-
+  if (pa->template_job)
+    {
+    job_purge(pa->template_job);
+    }
+    
   /* free the memory allocated for the struct */
   free(pa);
 
@@ -464,7 +500,7 @@ int setup_array_struct(job *pjob)
   {
   job_array *pa;
 
-  struct work_task *wt;
+  /* struct work_task *wt; */
   array_request_node *rn;
   int bad_token_count;
   int array_size;
@@ -552,8 +588,6 @@ int setup_array_struct(job *pjob)
     array_delete(pa);
     return 2;
     }
-
-  wt = set_task(WORK_Timed, time_now + 1, job_clone_wt, (void*)pjob);
 
   return 0;
 

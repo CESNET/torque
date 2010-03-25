@@ -1330,6 +1330,7 @@ void req_rdytocommit(
     {
     pj->ji_is_array_template = TRUE;
 
+
     strcpy(namebuf, path_jobs);
     strcat(namebuf, pj->ji_qs.ji_fileprefix);
     strcat(namebuf, JOB_FILE_SUFFIX);
@@ -1518,21 +1519,17 @@ void req_commit(
 
   delete_link(&pj->ji_alljobs);
 
-  /* job array, setup cloning work task and reply with placeholder job id
+  /* job array, setup the array task
      *** job array under development */
-  if (pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET)
+  if (pj->ji_is_array_template)
     {
+    
     if (setup_array_struct(pj))
       {
       req_reject(PBSE_BAD_ARRAY_REQ, 0, preq, NULL, NULL);
       return;
       }
-      
-    insert_link(&svr_jobs_array_sum, &pj->ji_jobs_array_sum, pj, LINK_INSET_AFTER);
 
-    reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Commit);
-
-    return;
     }  /* end if (pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET) */
 
   svr_evaljobstate(pj, &newstate, &newsub, 1);
@@ -1655,7 +1652,13 @@ void req_commit(
   /* acknowledge the request with the job id */
 
   reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Commit);
-
+  
+  /* if job array, setup the cloning work task */
+  if (pj->ji_is_array_template)
+    {
+    set_task(WORK_Timed, time_now + 1, job_clone_wt, (void*)pj);
+    }
+    
   LOG_EVENT(
     PBSEVENT_JOB,
     PBS_EVENTCLASS_JOB,

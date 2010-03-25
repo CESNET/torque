@@ -1053,8 +1053,13 @@ int pbsd_init(
           {
           if ((pjob = job_recov(pdirent->d_name)) != NULL)
             {
-            append_link(&svr_alljobs, &pjob->ji_alljobs, pjob);
             pjob->ji_is_array_template = TRUE;
+            
+            if (DArrayAppend(&Array,pjob) == FAILURE)
+              {
+              log_err(ENOMEM,"main","out of memory reloading jobs");
+              exit(-1);
+              }
             }
           else
             {
@@ -1187,19 +1192,21 @@ int pbsd_init(
       }
     }
 
-  /* look for empty arrays and delete them
+  /* finish setting up array structs
+     look for empty arrays and delete them
      also look for arrays that weren't fully built and setup a work task to
      continue the cloning process*/
   pa = (job_array*)GET_NEXT(svr_jobarrays);
 
   while (pa != NULL)
     {
+    pa->template_job = find_array_placeholder(pa->ai_qs.parent_id);
+    
     if (pa->ai_qs.num_cloned != pa->ai_qs.num_jobs)
       {
 
-      job *pjob = find_job(pa->ai_qs.parent_id);
 
-      if (pjob == NULL)
+      if (pa->template_job == NULL)
         {
         /* TODO, we need to so something here, we can't finish cloning the 
            array! */
@@ -1213,7 +1220,7 @@ int pbsd_init(
            array_info struct. we probably should delete that last job and start
            the cloning process off at num_cloned. Someone must have been 
            naughty and did a kill -9 on pbs_server  */
-        wt = set_task(WORK_Timed, time_now + 1, job_clone_wt, (void*)pjob);
+        wt = set_task(WORK_Timed, time_now + 1, job_clone_wt, (void*)pa->template_job);
 
         }
 

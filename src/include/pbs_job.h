@@ -477,6 +477,7 @@ struct job
   list_link       ji_jobque;  /* SVR: link to next job in queue list */
 #ifndef PBS_MOM
   list_link       ji_jobs_array_sum; /*linked list of jobs with arrays summarized as a single "placeholder" job */
+  list_link       ji_jobque_array_sum;
 #endif
   /* MOM: links to polled jobs */
   time_t  ji_momstat; /* SVR: time of last status from MOM */
@@ -781,7 +782,7 @@ task *task_find(
 #define JOB_CHECKPOINT_SUFFIX   ".CK"    /* job checkpoint file */
 #define JOB_TASKDIR_SUFFIX      ".TK"    /* job task directory */
 #define JOB_BAD_SUFFIX          ".BD"    /* save bad job file */
-#define JOB_FILE_TMP_SUFFIX     ".TA"    /* temporary job array parent file suffix */
+#define JOB_FILE_TMP_SUFFIX     ".TA"    /* job array template file suffix */
 /*
  * Job states are defined by POSIX as:
  */

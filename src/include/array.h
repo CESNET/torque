@@ -88,15 +88,17 @@ typedef struct job_array job_array;
 
 int  is_array(char *id);
 int  array_delete(job_array *pa);
-int  array_save(job_array *);
+int  array_save(job_array *pa);
 int  array_save(job_array *pa);
 void array_get_parent_id(char *job_id, char *parent_id);
+
+job *find_array_placeholder(char *arrayid);
 
 job_array *get_array(char *id);
 job_array *array_recov(char *path);
 
-int delete_array_range(job_array *,char *);
-int delete_whole_array(job_array *);
+int delete_array_range(job_array *pa, char *range);
+int delete_whole_array(job_array *pa);
 int attempt_delete(void *);
 
 int hold_array_range(job_array *,char *,attribute *);

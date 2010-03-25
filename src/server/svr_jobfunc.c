@@ -306,37 +306,36 @@ int svr_enquejob(
 
 #endif /* NDEBUG */
 
-  pjcur = (job *)GET_PRIOR(svr_alljobs);
-
-  while (pjcur != NULL)
+  if (!pjob->ji_is_array_template)
     {
-    if ((unsigned long)pjob->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long >=
-        (unsigned long)pjcur->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long)
-      break;
+    pjcur = (job *)GET_PRIOR(svr_alljobs);
 
-    pjcur = (job *)GET_PRIOR(pjcur->ji_alljobs);
-    }  /* END while (pjcur != NULL) */
+    while (pjcur != NULL)
+      {
+      if ((unsigned long)pjob->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long >=
+          (unsigned long)pjcur->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long)
+        break;
 
-  if (pjcur == 0)
-    {
-    /* link first in server's list */
+      pjcur = (job *)GET_PRIOR(pjcur->ji_alljobs);
+      }  /* END while (pjcur != NULL) */
 
-    insert_link(&svr_alljobs, &pjob->ji_alljobs, pjob, LINK_INSET_AFTER);
-    }
-  else
-    {
-    /* link after 'current' job in server's list */
+    if (pjcur == 0)
+      {
+      /* link first in server's list */
 
-    insert_link(
-      &pjcur->ji_alljobs,
-      &pjob->ji_alljobs,
-      pjob,
-      LINK_INSET_AFTER);
+      insert_link(&svr_alljobs, &pjob->ji_alljobs, pjob, LINK_INSET_AFTER);
+      }
+    else
+      {
+      /* link after 'current' job in server's list */
+
+      insert_link(&pjcur->ji_alljobs, &pjob->ji_alljobs, pjob, LINK_INSET_AFTER);
     }
 
-  server.sv_qs.sv_numjobs++;
+    server.sv_qs.sv_numjobs++;
 
-  server.sv_jobstates[pjob->ji_qs.ji_state]++;
+    server.sv_jobstates[pjob->ji_qs.ji_state]++;
+    }
   
   /* place into svr_jobs_array_sum if necessary */
   if (pjob->ji_is_array_template || pjob->ji_arraystruct == NULL)
@@ -348,7 +347,7 @@ int svr_enquejob(
       if ((unsigned long)pjob->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long >=
           (unsigned long)pjcur->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long)
         break;
-
+      
       pjcur = (job *)GET_PRIOR(pjcur->ji_alljobs);
       }  /* END while (pjcur != NULL) */
       
@@ -371,35 +370,67 @@ int svr_enquejob(
 
   pjob->ji_qhdr = pque;
 
-  pjcur = (job *)GET_PRIOR(pque->qu_jobs);
-
-  while (pjcur != NULL)
+  if (!pjob->ji_is_array_template)
     {
-    if ((unsigned long)pjob->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long >=
-        (unsigned long)pjcur->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long)
-      break;
+    pjob->ji_qhdr = pque;
 
-    pjcur = (job *)GET_PRIOR(pjcur->ji_jobque);
+    pjcur = (job *)GET_PRIOR(pque->qu_jobs);
+
+    while (pjcur != NULL)
+      {
+      if ((unsigned long)pjob->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long >=
+          (unsigned long)pjcur->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long)
+        break;
+
+      pjcur = (job *)GET_PRIOR(pjcur->ji_jobque);
+      }
+
+    if (pjcur == NULL)
+      {
+      /* link first in list */
+
+      insert_link(&pque->qu_jobs, &pjob->ji_jobque, pjob, LINK_INSET_AFTER);
+      }
+    else
+      {
+      /* link after 'current' job in list */
+
+      insert_link(&pjcur->ji_jobque, &pjob->ji_jobque, pjob, LINK_INSET_AFTER);
+      }
+
+    /* update counts: queue and queue by state */
+
+    pque->qu_numjobs++;
+
+    pque->qu_njstate[pjob->ji_qs.ji_state]++;
     }
-
-  if (pjcur == NULL)
+  
+  if (pjob->ji_is_array_template || pjob->ji_arraystruct == NULL)
     {
-    /* link first in list */
+    pjcur = (job *)GET_PRIOR(pque->qu_jobs_array_sum);
 
-    insert_link(&pque->qu_jobs, &pjob->ji_jobque, pjob, LINK_INSET_AFTER);
+    while (pjcur != NULL)
+      {
+      if ((unsigned long)pjob->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long >=
+          (unsigned long)pjcur->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long)
+        break;
+
+      pjcur = (job *)GET_PRIOR(pjcur->ji_jobque_array_sum);
+      }
+
+    if (pjcur == NULL)
+      {
+      /* link first in list */
+
+      insert_link(&pque->qu_jobs_array_sum, &pjob->ji_jobque_array_sum, pjob, LINK_INSET_AFTER);
+      }
+    else
+      {
+      /* link after 'current' job in list */
+
+      insert_link(&pjcur->ji_jobque_array_sum, &pjob->ji_jobque_array_sum, pjob, LINK_INSET_AFTER);
+      }
     }
-  else
-    {
-    /* link after 'current' job in list */
-
-    insert_link(&pjcur->ji_jobque, &pjob->ji_jobque, pjob, LINK_INSET_AFTER);
-    }
-
-  /* update counts: queue and queue by state */
-
-  pque->qu_numjobs++;
-
-  pque->qu_njstate[pjob->ji_qs.ji_state]++;
 
   /* update the current location and type attribute */
 
@@ -522,11 +553,14 @@ void svr_dequejob(
     {
     delete_link(&pjob->ji_alljobs);
 
-    if (--server.sv_qs.sv_numjobs < 0)
-      bad_ct = 1;
+    if (!pjob->ji_is_array_template)
+      {
+      if (--server.sv_qs.sv_numjobs < 0)
+        bad_ct = 1;
 
-    if (--server.sv_jobstates[pjob->ji_qs.ji_state] < 0)
-      bad_ct = 1;
+      if (--server.sv_jobstates[pjob->ji_qs.ji_state] < 0)
+        bad_ct = 1;
+      }
     }
 
 
@@ -547,7 +581,11 @@ void svr_dequejob(
         if (--pque->qu_numcompleted < 0)
           bad_ct = 1;
       }
-
+    
+    if (is_linked(&pque->qu_jobs_array_sum, &pjob->ji_jobque_array_sum))
+      {
+      delete_link(&pjob->ji_jobque_array_sum);
+      }
     pjob->ji_qhdr = (pbs_queue *)0;
     }
 

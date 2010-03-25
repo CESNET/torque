@@ -606,6 +606,7 @@ job_alloc(void)
   CLEAR_LINK(pj->ji_alljobs);
   CLEAR_LINK(pj->ji_jobque);
   CLEAR_LINK(pj->ji_jobs_array_sum);
+  CLEAR_LINK(pj->ji_jobque_array_sum);
 
   CLEAR_HEAD(pj->ji_svrtask);
   CLEAR_HEAD(pj->ji_rejectdest);
@@ -1507,7 +1508,9 @@ void job_purge(
   if (pjob->ji_arraystruct != NULL &&
       pjob->ji_is_array_template == FALSE)
     {
+  
     job_array *pa = pjob->ji_arraystruct;
+
 
     /* erase the pointer to this job in the job array */
     pa->jobs[(int)pjob->ji_wattr[JOB_ATR_job_array_id].at_val.at_long] = NULL;
