@@ -17,6 +17,7 @@ NUMA
   e - added code to fill in cpuset cpus and mems files based on assigned cpus
   e - account for the cpu's offset for the different moms
   b - corrected the mom's name. mom_host gets overwritten, so mom_name is used instead.
+  e - added code to remove boot cpusets, if any, from the the Torque cpusets.
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,
