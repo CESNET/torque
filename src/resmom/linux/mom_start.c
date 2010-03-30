@@ -167,7 +167,8 @@ int set_job(
 #ifdef USEJOBCREATE
 
     if ((pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_flags & ATR_VFLAG_SET) &&
-      (pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_val.at_ll != (long)JOB_FAIL))
+      (pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_val.at_ll != (long)JOB_FAIL) &&
+      (pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_val.at_ll > 0x00000000ffffffff))
       {
       snprintf(tmpLine, sizeof(tmpLine), "%s --confirm -p %s -j %s -a %lld",
                AllocParCmd,

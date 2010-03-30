@@ -6589,13 +6589,9 @@ int TMomCheckJobChild(
 uint64_t get_jobid(
 	char*    pbs_jobid)
 {
-#ifndef FORCESID
 	static char *id = "get_jobid";
-#endif  /* FORCESID */
 	
 	uint64_t job_id;
-
-#ifndef FORCESID
 
 #ifndef JOBFAKE
   job_id = job_create(0, getuid(), 0);
@@ -6617,7 +6613,7 @@ uint64_t get_jobid(
 		return(job_id);
 		}
 
-	if (LOGLEVEL >= 3)
+	if (LOGLEVEL >= 7)
 		{
 		sprintf(log_buffer, "Got system job id = %lx(%ld) for pbs job %s",
 						job_id,
@@ -6626,10 +6622,6 @@ uint64_t get_jobid(
 
 		log_ext(-1, id, log_buffer, LOG_DEBUG);
 		}
-#else
-  /* return -1 so sid gets used for partition.create.xt4.pl script */
-  job_id = JOB_FAIL;
-#endif  /* FORCESID */
 
 	return(job_id);
 }	 /* END get_jobid() */
@@ -6946,7 +6938,6 @@ void add_wkm_start(
 		
 		if (job_id == JOB_FAIL)
   		{
-#ifndef FORCESID
       if (LOGLEVEL >= 2)
   			{
   			sprintf(log_buffer,
@@ -6957,7 +6948,6 @@ void add_wkm_start(
 
   			log_err(-1, id, log_buffer);
   			}
-#endif  /* FORCESID */
   		return;
   		}
 
@@ -7036,7 +7026,6 @@ void add_wkm_end(
 		
 		if (job_id == JOB_FAIL)
   		{
-#ifndef FORCESID
       if (LOGLEVEL >= 2)
   			{
   			sprintf(log_buffer,
@@ -7047,7 +7036,6 @@ void add_wkm_end(
 
   			log_err(-1, id, log_buffer);
   			}
-#endif  /* FORCESID */
   		return;
   		}
 
