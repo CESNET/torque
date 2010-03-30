@@ -21,6 +21,7 @@ NUMA
   b - relay_to_mom makes a call to svr_connect. The second parameter to svr_connect was
       using a hard coded value for the port. The value was changed to the mom port value
       indicated by the job structure.  3/29/2010  Ken Nielson
+  b - ji_momport didn't have the mother superior before, but it now sets correctly
 
 
 2.5.0

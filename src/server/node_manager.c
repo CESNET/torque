@@ -119,6 +119,7 @@
 #include "u_tree.h"
 
 #define IS_VALID_STR(STR)  (((STR) != NULL) && ((STR)[0] != '\0'))
+#define PORT_UNSET 0
 
 extern void DIS_rpp_reset(void);
 
@@ -4047,8 +4048,13 @@ int add_job_to_node(
   /* decrement the amount of nodes needed */
   --pnode->nd_needed;
 
-  pjob->ji_qs.ji_un.ji_exect.ji_momport = pnode->nd_mom_port;
-  pjob->ji_qs.ji_un.ji_exect.ji_mom_rmport = pnode->nd_mom_rm_port;
+  /* only write these values for the first node in the list --
+   * mother superior */
+  if (pjob->ji_qs.ji_un.ji_exect.ji_momport == PORT_UNSET)
+    {
+    pjob->ji_qs.ji_un.ji_exect.ji_momport = pnode->nd_mom_port;
+    pjob->ji_qs.ji_un.ji_exect.ji_mom_rmport = pnode->nd_mom_rm_port;
+    }
 
   return(SUCCESS);
   }
@@ -4196,6 +4202,11 @@ int set_nodes(
   hlist = NULL;
 
   newstate = exclusive ? INUSE_JOB : INUSE_JOBSHARE;
+
+  /* initialize the mom port values to unset so that they're only
+   * set once */
+  pjob->ji_qs.ji_un.ji_exect.ji_momport = PORT_UNSET;
+  pjob->ji_qs.ji_un.ji_exect.ji_mom_rmport = PORT_UNSET;
 
   for (i = 0;i < svr_totnodes;i++)
     {
