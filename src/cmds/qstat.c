@@ -127,6 +127,8 @@ int   linesize = 77;
 
 int   tasksize;
 
+static char *summarize_arrays_extend_opt = "summarize_arrays";
+
 /* END globals */
 
 
@@ -2040,7 +2042,7 @@ int main(
 
   char operand[PBS_MAXCLTJOBID + 1];
   int alt_opt;
-  int f_opt, B_opt, Q_opt;
+  int f_opt, B_opt, Q_opt, t_opt, E_opt;
   int p_header = TRUE;
   int stat_single_job = 0;
   enum { JOBS, QUEUES, SERVERS } mode;
@@ -2062,11 +2064,11 @@ int main(
 #endif /* !TRUE */
 
 #ifndef FALSE
-#define FALSE 1
+#define FALSE 0
 #endif /* !FALSE */
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
-#define GETOPT_ARGS "aeE:filn1qrsu:xGMQRBW:-:"
+#define GETOPT_ARGS "aeE:filn1qrstu:xGMQRBW:-:"
 #else
 #define GETOPT_ARGS "flQBW:"
 #endif /* PBS_NO_POSIX_VIOLATION */
@@ -2076,6 +2078,8 @@ int main(
   f_opt = 0;
   B_opt = 0;
   Q_opt = 0;
+  t_opt = 0;
+  E_opt = 0;
 
   tcl_init();
   tcl_addarg(flags, argv[0]);
@@ -2118,8 +2122,10 @@ int main(
       case 'E':
 
         if (optarg != NULL)
+          {
           ExtendOpt = strdup(optarg);
-
+          E_opt = TRUE;
+          }
         break;
 
       case 'i':
@@ -2156,6 +2162,11 @@ int main(
 
         alt_opt |= ALT_DISPLAY_s;
 
+        break;
+      case 't':
+      
+        t_opt = 1;
+        
         break;
 
       case 'u':
@@ -2424,6 +2435,11 @@ int main(
     exit(2);
     }
 
+  if (!t_opt && !E_opt)
+    {
+    ExtendOpt = summarize_arrays_extend_opt;
+    }
+
   def_server = pbs_default();
 
   if (def_server == NULL)
@@ -2605,7 +2621,14 @@ job_no_args:
           }
         else
           {
-          p_status = pbs_selstat(connect, p_atropl, exec_only ? EXECQUEONLY : NULL);
+          if (t_opt)
+            {
+            p_status = pbs_selstat(connect, p_atropl, exec_only ? EXECQUEONLY : NULL);
+            }
+          else
+            {
+            p_status = pbs_selstat(connect, p_atropl, exec_only ? EXECQUEONLY : summarize_arrays_extend_opt);
+            }
           }
 
         if (p_status == NULL)

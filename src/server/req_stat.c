@@ -110,6 +110,7 @@
 
 extern struct server   server;
 extern tlist_head      svr_alljobs;
+extern tlist_head      svr_jobs_array_sum;
 extern tlist_head      svr_queues;
 extern char            server_name[];
 extern attribute_def   svr_attr_def[];
@@ -173,6 +174,8 @@ enum TJobStatTypeEnum
   tjstServer,
   tjstTruncatedQueue,
   tjstTruncatedServer,
+  tjstSummarizeArraysServer,
+  tjstSummarizeArraysQueue,
   tjstLAST
   };
 
@@ -210,6 +213,11 @@ void req_stat_job(
 
       type = tjstTruncatedServer;
       }
+    else if (!strncasecmp(preq->rq_extend, "summarize_arrays", strlen("summarize_arrays")))
+      {
+      type = tjstSummarizeArraysServer;
+      }
+
     }    /* END if (preq->rq_extend != NULL) */
 
   if (isdigit((int)*name))
@@ -227,6 +235,8 @@ void req_stat_job(
     {
     if (type == tjstNONE)
       type = tjstQueue;
+    else if (type == tjstSummarizeArraysServer)
+      type = tjstSummarizeArraysQueue;
     else
       type = tjstTruncatedQueue;
 
@@ -314,7 +324,6 @@ static void req_stat_job_step2(
   {
   svrattrl        *pal;
   job         *pjob;
-  job                  *cpjob;
 
   struct batch_request *preq;
 
@@ -473,6 +482,10 @@ static void req_stat_job_step2(
     pjob = find_job(preq->rq_ind.rq_status.rq_id);
   else if (type == tjstQueue)
     pjob = (job *)GET_NEXT(cntl->sc_pque->qu_jobs);
+  else if (type == tjstSummarizeArraysQueue)
+    pjob = (job *)GET_NEXT(cntl->sc_pque->qu_jobs_array_sum);
+  else if (type == tjstSummarizeArraysServer)
+    pjob = (job *)GET_NEXT(svr_jobs_array_sum);
   else
     pjob = (job *)GET_NEXT(svr_alljobs);
 
@@ -638,44 +651,17 @@ nextjob:
 
     if (type == tjstQueue)
       pjob = (job *)GET_NEXT(pjob->ji_jobque);
+    else if (type == tjstSummarizeArraysQueue)
+      pjob = (job *)GET_NEXT(pjob->ji_jobque_array_sum);
+    else if (type == tjstSummarizeArraysServer)
+      pjob = (job *)GET_NEXT(pjob->ji_jobs_array_sum);
     else
       pjob = (job *)GET_NEXT(pjob->ji_alljobs);
 
     rc = 0;
     }  /* END while (pjob != NULL) */
 
-  /* add completed jobs */
-
-  cpjob = NULL;  /* disable completed job display for now */
-
-  while (cpjob != NULL)
-    {
-    /* go ahead and build the status reply for this job */
-
-    pal = (svrattrl *)GET_NEXT(preq->rq_ind.rq_status.rq_attr);
-
-    rc = status_job(pjob, preq, pal, &preply->brp_un.brp_status, &bad);
-
-    if (rc && (rc != PBSE_PERM))
-      {
-      req_reject(rc, bad, preq, NULL, NULL);
-
-      return;
-      }
-
-    /* get next job */
-
-    if (type == tjstJob)
-      break;
-
-    if (type == tjstQueue)
-      pjob = (job *)GET_NEXT(pjob->ji_jobque);
-    else
-      pjob = (job *)GET_NEXT(pjob->ji_alljobs);
-
-    rc = 0;
-    }  /* END while (cpjob != NULL) */
-
+ 
   reply_send(preq);
 
   return;
