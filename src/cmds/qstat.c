@@ -2089,7 +2089,7 @@ int main(
 
   if (getenv("PBS_QSTAT_EXECONLY") != NULL)
     exec_only = 1;
-
+    
   while ((c = getopt(argc, argv, GETOPT_ARGS)) != EOF)
     {
     option[1] = (char)c;
@@ -2425,7 +2425,7 @@ int main(
     {
     static char usage[] = "usage: \n\
                           qstat [-f [-1]] [-W site_specific] [-x] [ job_identifier... | destination... ]\n\
-                          qstat [-a|-i|-r|-e] [-u user] [-n [-1]] [-s] [-G|-M] [-R] [job_id... | destination...]\n\
+                          qstat [-a|-i|-r|-e] [-u user] [-n [-1]] [-s] [-t] [-G|-M] [-R] [job_id... | destination...]\n\
                           qstat -Q [-f [-1]] [-W site_specific] [ destination... ]\n\
                           qstat -q [-G|-M] [ destination... ]\n\
                           qstat -B [-f [-1]] [-W site_specific] [ server_name... ]\n";
@@ -2435,7 +2435,7 @@ int main(
     exit(2);
     }
 
-  if (!t_opt && !E_opt)
+  if (!t_opt && !E_opt && !exec_only)
     {
     ExtendOpt = summarize_arrays_extend_opt;
     }
