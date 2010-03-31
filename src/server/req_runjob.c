@@ -100,6 +100,7 @@
 #include "credential.h"
 #include "batch_request.h"
 #include "pbs_job.h"
+#include "pbs_nodes.h"
 #include "queue.h"
 #include "work_task.h"
 #include "pbs_error.h"
@@ -1533,6 +1534,45 @@ static job *chk_job_torun(
 
 
 
+/* set_mother_superior_ports - The first host in list is the host
+   of Mother Superior. Find the mom manager and service ports
+   from the pbsndlist and then set the pjob mom ports accordingly */
+int set_mother_superior_ports(job *pjob, char *list)
+  {
+  char ms[PBS_MAXHOSTNAME];
+  char *ptr;
+  int  i;
+  struct pbsnode *pnode;
+
+  if(list == NULL)
+    {
+    return(PBSE_UNKNODEATR);
+    }
+
+  memset(ms, 0, PBS_MAXHOSTNAME);
+  ptr = list;
+
+  /* get the first name in list. This is Mother Superior */
+  for(i = 0; ptr && (*ptr != '/') && (i < PBS_MAXHOSTNAME); i++)
+    {
+    ms[i] = *ptr;
+    ptr++;
+    }
+
+  for(i = 0; i < svr_totnodes; i++)
+    {
+    pnode = pbsndlist[i];
+
+    if(!strcasecmp(pnode->nd_name, ms))
+      {
+      pjob->ji_qs.ji_un.ji_exect.ji_momport = pnode->nd_mom_port;
+      pjob->ji_qs.ji_un.ji_exect.ji_mom_rmport = pnode->nd_mom_rm_port;
+      return(PBSE_NONE);
+      }
+    }
+
+  return(PBSE_UNKNODEATR);
+  }
 
 
 /*
@@ -1727,6 +1767,9 @@ static int assign_hosts(
       }
 
     pjob->ji_qs.ji_un.ji_exect.ji_momaddr = momaddr;
+
+    rc = set_mother_superior_ports(pjob, list);
+
     }  /* END if (rc == 0) */
 
   if (list != NULL)
