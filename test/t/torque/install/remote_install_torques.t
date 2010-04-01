@@ -48,3 +48,4 @@ foreach my $node (@nodes)
 
   } # END foreach my $node (@nodes)
 
+pass "No Remote Nodes Configured" unless scalar @nodes;
