@@ -79,5 +79,5 @@ tmp.job.walltime = 01:00:00
 tmp.job.nodes    = 0
 
 blcr.get.src     = url|http://hala/archive/blcr/blcr-latest.tar.gz
-blcr.build.dir   = /usr/test/src/blcr/
-blcr.home.dir    = /usr/test/blcr/
+blcr.build.dir   = /usr/test/src/blcr
+blcr.home.dir    = /usr/test/blcr
