@@ -211,9 +211,9 @@ time_t loopcnt;  /* used for MD5 calc */
 float  max_load_val = -1.0;
 int    hostname_specified = 0;
 char   mom_host[PBS_MAXHOSTNAME + 1];
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
 char   mom_name[PBS_MAXHOSTNAME + 1];
-#endif /* SGI4700 */
+#endif /* NUMA_SUPPORT */
 char   TMOMRejectConn[1024];   /* most recent rejected connection */
 char   mom_short_name[PBS_MAXHOSTNAME + 1];
 int    num_var_env;
@@ -6628,9 +6628,9 @@ void parse_command_line(
         hostname_specified = 1;
 
         strncpy(mom_host, optarg, PBS_MAXHOSTNAME); /* remember name */
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
         strncpy(mom_name, optarg, PBS_MAXHOSTNAME);
-#endif /* ifdef SGI4700 */
+#endif /* ifdef NUMA_SUPPORT */
 
         break;
 
@@ -6828,9 +6828,9 @@ int setup_program_environment(void)
   int  tryport;
   int  rppfd;  /* fd for rm and im comm */
   int  privfd = 0; /* fd for sending job info */
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
   int  rc;
-#endif /* END SGI4700 */
+#endif /* END NUMA_SUPPORT */
 
   struct sigaction act;
   char         *ptr;            /* local tmp variable */
@@ -7437,7 +7437,7 @@ int setup_program_environment(void)
     return(3);
     }
 
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
   if ((rc = bind_to_nodeboard()) != 0)
     {
     return(rc);
@@ -7450,7 +7450,7 @@ int setup_program_environment(void)
 #else
   snprintf(path_meminfo,sizeof(path_meminfo),"%s",
     "/proc/meminfo");
-#endif /* END SGI4700 */
+#endif /* END NUMA_SUPPORT */
 
   /* recover & abort jobs which were under MOM's control */
 
@@ -8326,7 +8326,7 @@ void restart_mom(
 
 
 
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
 /* 
  * finds the number of elements in a range in this form: num-num
  */
@@ -8529,7 +8529,7 @@ int bind_to_nodeboard()
 
   return(0);
   } /* END bind_to_nodeboard */
-#endif /* ifdef SGI4700 */
+#endif /* ifdef NUMA_SUPPORT */
 
 
 

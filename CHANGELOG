@@ -1,28 +1,37 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
 NUMA
-  e - Now parsing the file located in $TORQUE_HOME/mom_priv/mom.layout and storing 
-      the values. Mom looks for the line starting with its hostname
-  e - Added code to support multiple MOMs on a single host. 3/19/2010 Ken Nielson
-      Adaptive Computing
-  e - Replaced the simple binary tree tinsert, tfind, tdelete, tlist etc with a
-      balanced binary AVL tree. New functions are in src/lib/Libutils/u_tree.c.
-      Calls start with AVL_ such as AVL_insert, AVL_find, AVL_delete etc.
-      3/19/2010  Ken Nielson  Adaptive Computing.
-  e - Changed hierarchy from /dev/cpuset/torque to /dev/cpuset/torque/'hostname'
-      to allow each pbs_mom to have it's own directory.
-  e - mom.layout now also can read nodenum, specifying which nodeboard this mom is.
-  e - Using the nodenum value, will now read the correct memory information for the
-      nodeboard
-  e - added code to fill in cpuset cpus and mems files based on assigned cpus
+  e - Now parsing the file located in $TORQUE_HOME/mom_priv/mom.layout and 
+      storing the values. Mom looks for the line starting with its hostname
+  e - Added code to support multiple MOMs on a single host. 
+      3/19/2010 Ken Nielson Adaptive Computing
+  e - Replaced the simple binary tree tinsert, tfind, tdelete, tlist etc 
+      with a balanced binary AVL tree. New functions are in 
+      src/lib/Libutils/u_tree.c. Calls start with AVL_ such as AVL_insert, 
+      AVL_find, AVL_delete etc. 3/19/2010  Ken Nielson  Adaptive Computing.
+  e - Changed hierarchy from /dev/cpuset/torque to 
+      /dev/cpuset/torque/'hostname' to allow each pbs_mom to have it's 
+      own directory.
+  e - mom.layout now also can read nodenum, specifying which nodeboard 
+      this mom is.
+  e - Using the nodenum value, will now read the correct memory 
+      information for the nodeboard
+  e - added code to fill in cpuset cpus and mems files based on assigned 
+      cpus
   e - account for the cpu's offset for the different moms
-  b - corrected the mom's name. mom_host gets overwritten, so mom_name is used instead.
+  b - corrected the mom's name. mom_host gets overwritten, so mom_name is 
+      used instead.
   e - added code to remove boot cpusets, if any, from the the Torque cpusets.
-  b - relay_to_mom makes a call to svr_connect. The second parameter to svr_connect was
-      using a hard coded value for the port. The value was changed to the mom port value
-      indicated by the job structure.  3/29/2010  Ken Nielson
-  b - ji_momport didn't have the mother superior before, but it now sets correctly
-
+  b - relay_to_mom makes a call to svr_connect. The second parameter to 
+      svr_connect was using a hard coded value for the port. The value was 
+      changed to the mom port value indicated by the job structure.  
+      3/29/2010  Ken Nielson
+  b - ji_momport didn't have the mother superior before, but it now sets 
+      correctly
+  e - added configure option --enable-numa-support. this allows cpuset usage
+      with multi-mom systems, as well as creating memory fences for jobs.
+  e - added configure option --enable-align-memory. this adds compile flags
+      that get rid unaligned access errors
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,

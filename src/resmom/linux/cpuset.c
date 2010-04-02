@@ -81,11 +81,11 @@ int cpuset_delete(
   if (cpusetname[0] == '/')
     strcpy(path, cpusetname);
   else
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
     sprintf(path, "%s/%s/%s", TTORQUECPUSET_PATH, mom_name, cpusetname);
 #else
     sprintf(path, "%s/%s", TTORQUECPUSET_PATH, cpusetname);
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
 
   if ((dir = opendir(path)) == NULL)
     {
@@ -188,10 +188,10 @@ void remove_defunct_cpusets()
   /* Find all the job cpusets. */
 
   strcpy(path, TTORQUECPUSET_PATH);
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
   strcat(path, "/");
   strcat(path, mom_name);
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
   if ((dir = opendir(path)) == NULL)
     {
     sprintf(log_buffer, "opendir(%s) failed.\n",path);
@@ -207,10 +207,10 @@ void remove_defunct_cpusets()
 
     /* Prepend directory name to file name for lstat. */
     strcpy(path, TTORQUECPUSET_PATH);
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
     strcat(path, "/");
     strcat(path, mom_name);
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
 
     if (path[strlen(path)-1] != '/') 
       strcat(path, "/");
@@ -256,7 +256,7 @@ void remove_defunct_cpusets()
  * @see remove_defunct_cpusets() - child
  */
 
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
 void
 initialize_mom_cpuset(void)
 
@@ -408,7 +408,7 @@ initialize_mom_cpuset(void)
 
   return;
   }  /* END initialize_mom_cpuset() */
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
 
 
 
@@ -830,7 +830,7 @@ initialize_root_cpuset(void)
       memset(cpuset_buf, '\0', sizeof(cpuset_buf));
       }  /* END if (fp != NULL) */
     }    /* END if (lstat(path,&statbuf) != 0) */
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
   initialize_mom_cpuset();
 #else
   else
@@ -839,7 +839,7 @@ initialize_root_cpuset(void)
 
     remove_defunct_cpusets();
     }
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
 
   return;
   }  /* END initialize_root_cpuset() */
@@ -985,9 +985,9 @@ int init_jobset(
   {
   char *id = "init_jobset";
   char  tmppath[MAXPATHLEN+1];
-#ifndef SGI4700
+#ifndef NUMA_SUPPORT
   FILE *fd;
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
 
   if ((path == NULL) ||
       (pjob == NULL) ||
@@ -1010,20 +1010,20 @@ int init_jobset(
   /* don't "else return(FAILURE);" because the directory doesn't necessarily exist */
 
   /* create the directory and copy the relevant memory data */
-#ifndef SGI4700
+#ifndef NUMA_SUPPORT
   snprintf(tmppath,sizeof(tmppath),"%s/%s/mems",TTORQUECPUSET_PATH,mom_name);
   if ((access(TTORQUECPUSET_PATH, F_OK) == 0) &&
       (access(tmppath, F_OK) == 0))
 #else
   snprintf(tmppath,sizeof(tmppath),"%s/mems",TTORQUECPUSET_PATH);
   if (access(TTORQUECPUSET_PATH, F_OK) == 0)
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
     {
 
     /* create the jobset */
     mkdir(path, 0755);
 
-#ifndef SGI4700
+#ifndef NUMA_SUPPORT
     /* add all mems to jobset */
     fd = fopen(tmppath, "r");
 
@@ -1052,7 +1052,7 @@ int init_jobset(
       }
 #else
     return(SUCCESS);
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
     }
 
   return(FAILURE);
@@ -1166,9 +1166,9 @@ int add_cpus_to_jobset(
   char *id = "add_cpus_to_jobset";
   char  cpusbuf[MAXPATHLEN+1];
   char  tmppath[MAXPATHLEN+1];
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
   char  memsbuf[MAXPATHLEN+1];
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
 
   if ((pjob == NULL) ||
       (path == NULL))
@@ -1177,11 +1177,11 @@ int add_cpus_to_jobset(
     }
 
   /* Make the string defining the CPUs to add into the jobset */
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
   get_cpuset_strings(pjob,cpusbuf,memsbuf);
 #else
   get_cpu_string(pjob,cpusbuf);
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
 
   snprintf(tmppath,sizeof(tmppath),"%s/cpus",path);
 
@@ -1202,7 +1202,7 @@ int add_cpus_to_jobset(
       }
     fwrite(cpusbuf, sizeof(char), strlen(cpusbuf), fd);
     fclose(fd);
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
     snprintf(tmppath,sizeof(tmppath),"%s/mems",path);
     fd = fopen(tmppath, "w");
     if (fd)
@@ -1218,7 +1218,7 @@ int add_cpus_to_jobset(
       }
 #else
     return(SUCCESS);
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
     }
     
   return(FAILURE);
@@ -1240,12 +1240,12 @@ int create_jobset(
 
   savemask = (umask(0022));
 
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
   snprintf(path,sizeof(path), "%s/%s/%s", TTORQUECPUSET_PATH, mom_name,
     pjob->ji_qs.ji_jobid);
 #else
   snprintf(path,sizeof(path), "%s/%s", TTORQUECPUSET_PATH, pjob->ji_qs.ji_jobid);
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
 
   if (init_jobset(path,pjob,savemask,membuf) == FAILURE)
     {
@@ -1258,13 +1258,13 @@ int create_jobset(
     return(FAILURE);
     }
 
-#ifndef SGI4700
+#ifndef NUMA_SUPPORT
   /* Create the vnodesets */
   if (create_vnodesets(pjob,path,membuf,savemask) == FAILURE)
     {
     return(FAILURE);
     }
-#endif /* end SGI4700 */
+#endif /* end NUMA_SUPPORT */
 
   return(SUCCESS);
   }  /* END create_jobset() */
@@ -1286,12 +1286,12 @@ int move_to_jobset(
   savemask = (umask(0022));
 
   sprintf(pidbuf, "%d", pid);
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
   sprintf(taskspath, "%s/%s/%s/tasks", TTORQUECPUSET_PATH, mom_name,
     pjob->ji_qs.ji_jobid);
 #else
   sprintf(taskspath, "%s/%s/tasks", TTORQUECPUSET_PATH, pjob->ji_qs.ji_jobid);
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
   sprintf(log_buffer, "CPUSET MOVE: %s  %s\n", taskspath, pidbuf);
   log_event(PBSEVENT_SYSTEM,
     PBS_EVENTCLASS_SERVER,
@@ -1331,13 +1331,13 @@ int move_to_taskset(
   savemask = (umask(0022));
 
   sprintf(pidbuf, "%d", pid);
-#ifdef SGI4700
+#ifdef NUMA_SUPPORT
   sprintf(taskspath, "%s/%s/%s/%s/tasks", TTORQUECPUSET_PATH, mom_name,
     pjob->ji_qs.ji_jobid,
     vnodeid);
 #else
   sprintf(taskspath, "%s/%s/%s/tasks", TTORQUECPUSET_PATH, pjob->ji_qs.ji_jobid, vnodeid);
-#endif  /* end SGI4700 */
+#endif  /* end NUMA_SUPPORT */
   sprintf(log_buffer, "TASKSET MOVE: %s  %s\n", taskspath, pidbuf);
   log_event(PBSEVENT_SYSTEM,
     PBS_EVENTCLASS_SERVER,
