@@ -226,7 +226,6 @@ void set_resc_assigned(
     }
   else
     {
-    assert(pjob->ji_qhdr->qu_qs.qu_type == QTYPE_Execution);
     snprintf(log_buffer,sizeof(log_buffer),
       "job %s isn't in an execution queue, can't modify resources\njob is in queue %s",
       pjob->ji_qs.ji_jobid,
