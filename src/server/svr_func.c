@@ -206,6 +206,7 @@ void set_resc_assigned(
   attribute    *queru;
   resource_def *rscdef;
   attribute    *sysru;
+  char         *id = "set_resc_assigned";
 
   if ((pjob == NULL) || (pjob->ji_qhdr == NULL))
     {
