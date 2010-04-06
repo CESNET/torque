@@ -4,6 +4,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - Bugzilla bug 22. HIGH_PRECISION_FAIRSHARE for fifo scheduling.
   c - no longer sigabrt with "running" jobs not in an execution queue. log
       an error. 
+  b - fixed kill_delay. In order to fix and not change behavior, added 
+      the parameter $kill_delay to mom's config. Activate by setting to true
 
 2.4.7
   b - fixed a bug for when a resource_list has been set, but isn't completely

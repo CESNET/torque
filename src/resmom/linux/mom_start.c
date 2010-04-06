@@ -109,6 +109,7 @@ extern int  exiting_tasks;
 extern char  mom_host[];
 extern tlist_head svr_alljobs;
 extern int  termin_child;
+extern int  killdelay;
 
 extern int       LOGLEVEL;
 
@@ -525,7 +526,8 @@ void scan_for_terminated(void)
 
     /* where is job purged?  How do we keep job from progressing in state until the obit is sent? */
 
-    kill_task(ptask, SIGKILL, 0);
+    if (killdelay == 0)
+      kill_task(ptask, SIGKILL, 0);
 
     ptask->ti_qs.ti_exitstat = exiteval;
 
