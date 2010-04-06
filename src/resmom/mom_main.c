@@ -184,6 +184,7 @@ int    ignmem = 0;
 int    igncput = 0;
 int    ignvmem = 0; 
 int    spoolasfinalname = 0;
+int    killdelay = 0;
 /* end policies */
 int    lockfds = -1;
 time_t loopcnt;  /* used for MD5 calc */
@@ -380,6 +381,7 @@ static unsigned long setsourcelogininteractive(char *);
 static unsigned long setspoolasfinalname(char *);
 static unsigned long setremchkptdirlist(char *);
 static unsigned long setmaxconnecttimeout(char *);
+static unsigned long setkilldelay(char *);
 
 
 static struct specials
@@ -440,6 +442,7 @@ static struct specials
   { "spool_as_final_name", setspoolasfinalname },
   { "remote_checkpoint_dirs", setremchkptdirlist },
   { "max_conn_timeout_micro_sec",   setmaxconnecttimeout },
+  { "kill_delay",          setkilldelay },
   { NULL,                  NULL }
   };
 
@@ -3271,6 +3274,30 @@ static unsigned long setspoolasfinalname(
 
   return(1);
   }  /* END setspoolasfinalname() */
+
+
+
+static unsigned long setkilldelay(
+
+  char *value)
+
+  {
+  log_record(
+    PBSEVENT_SYSTEM,
+    PBS_EVENTCLASS_SERVER,
+    "setkilldelay",
+    value);
+
+  if ((!strncasecmp(value,"t",1)) || 
+      (value[0] == '1') ||
+      (!strcasecmp(value,"on")))
+    killdelay = 1;
+  else
+    killdelay = 0;
+
+  return(1);
+  } /* END setkilldelay() */
+
 
 
 

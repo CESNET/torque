@@ -2353,18 +2353,19 @@ static void correct_ct(
 
     server.sv_jobstates[pjob->ji_qs.ji_state]++;
 
-    (pjob->ji_qhdr)->qu_numjobs++;
-    (pjob->ji_qhdr)->qu_njstate[pjob->ji_qs.ji_state]++;
+    pque = pjob->ji_qhdr;
+    if (pque == NULL)
+      pque = find_queuebyname(pjob->ji_qs.ji_queue);
 
-    if (pjob->ji_qs.ji_state == JOB_STATE_COMPLETE)
+    if (pque != NULL)
       {
-      pque = pjob->ji_qhdr;
-      if (pque == NULL)
-        {
-        pque = find_queuebyname(pjob->ji_qs.ji_queue);
-        }
-      if (pque != NULL)
+      pque->qu_numjobs++;
+      pque->qu_njstate[pjob->ji_qs.ji_state]++;
+
+      if (pjob->ji_qs.ji_state == JOB_STATE_COMPLETE)
         pque->qu_numcompleted++;
+
+      pjob->ji_qhdr = pque;
       }
 
     }  /* END for (pjob) */
