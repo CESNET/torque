@@ -28,7 +28,7 @@ case "$1" in
 		daemon $PBS_DAEMON
 #		else
 #			daemon $PBS_DAEMON -t create
-		fi
+#		fi
 		RET=$?
 		touch /var/lock/subsys/pbs_server
 		echo
