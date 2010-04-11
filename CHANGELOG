@@ -22,6 +22,10 @@ Array Changes
       would mean run after 2 jobs from that array finished ok.
   f - added support for using qrls on arrays, and specifying ranges with the -t 
       syntax
+  e - complte overhaul of job array submission code
+  f - by default show only a single entry in qstat output for the whole array
+      (qstat -t expands the job array)
+      
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,
