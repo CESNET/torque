@@ -851,6 +851,8 @@ task *task_find(
 stdout / stderr files to server spool
 dir so that job can be restarted */
 
+#define JOB_SUBSTATE_ARRAY_TEMP 75  /* job is an array template */
+
 /* decriminator for ji_un union type */
 
 #define JOB_UNION_TYPE_NEW   0

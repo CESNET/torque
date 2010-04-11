@@ -117,4 +117,6 @@ int release_array_range(job_array *,struct batch_request *,char *);
 
 int first_job_index(job_array *);
 
+void update_array_statuses();
+
 #endif

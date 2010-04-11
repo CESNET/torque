@@ -258,6 +258,11 @@ const char *PJobSubState[] =
   "SUBSTATE68",
   "SUBSTATE69",
   "RETURNSTD",             /* returning stderr/stdout files to server spool */
+  "SUBSTATE71",
+  "SUBSTATE72",
+  "SUBSTATE73",
+  "SUBSTATE74",
+  "ARRAY",
   NULL
   };
 
@@ -751,7 +756,8 @@ int svr_setjobstate(
 
 
 /*
- * svr_evaljobstate - evaluate and return the job state and substate
+ * 
+ - evaluate and return the job state and substate
  * according to the the values of the hold, execution time, and
  * dependency attributes.  This is typically called after the job has been
  * enqueued or the (hold, execution-time) attributes have been modified.
@@ -808,6 +814,10 @@ void svr_evaljobstate(
     *newsub   = JOB_SUBSTATE_QUEUED;
     }
 
+  if (pjob->ji_is_array_template)
+    {
+    *newsub = JOB_SUBSTATE_ARRAY_TEMP;
+    }
   return;
   }  /* END svr_evaljobstate() */
 

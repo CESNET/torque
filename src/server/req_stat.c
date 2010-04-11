@@ -105,6 +105,7 @@
 #include "net_connect.h"
 #include "pbs_nodes.h"
 #include "log.h"
+#include "array.h"
 
 /* Global Data Items: */
 
@@ -477,6 +478,11 @@ static void req_stat_job_step2(
    * now ready for part 3, building the status reply,
    * loop through again
    */
+
+  if (type == tjstSummarizeArraysQueue || type == tjstSummarizeArraysServer)
+    {
+    update_array_statuses();
+    }
 
   if (type == tjstJob)
     pjob = find_job(preq->rq_ind.rq_status.rq_id);

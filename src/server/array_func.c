@@ -234,7 +234,7 @@ void array_get_parent_id(char *job_id, char *parent_id)
 
 
 /*
- * find_array_template_job() - find an array template job by jobid
+ * find_array_placeholder() - find an array template job by jobid
  *
  * Return NULL if not found or pointer to job struct if found
  */
@@ -1216,6 +1216,72 @@ void update_array_values(
 
   } /* END update_array_values() */
 
+
+void update_array_statuses()
+  {
+  job_array *pa;
+  job *pj;
+  int i;
+  unsigned int running;
+  unsigned int queued;
+  unsigned int held;
+  unsigned int complete;
+  
+  pa = (job_array*)GET_NEXT(svr_jobarrays);
+
+  while (pa != NULL)
+    {
+    running = 0;
+    queued = 0;
+    held = 0;
+    complete = 0;
+    
+    for (i = 0; i < pa->ai_qs.array_size; i++)
+      {
+      pj = pa->jobs[i];
+      
+      if (pj != NULL)
+        {
+        if (pj->ji_qs.ji_state == JOB_STATE_RUNNING)
+          {
+          running++;
+          }
+        else if (pj->ji_qs.ji_state == JOB_STATE_QUEUED)
+          {
+          queued++;
+          }
+        else if (pj->ji_qs.ji_state == JOB_STATE_HELD)
+          {
+          held++;
+          }
+        else if (pj->ji_qs.ji_state == JOB_STATE_COMPLETE)
+          {
+          complete++;
+          }
+        }
+      }
+    
+    if (running > 0)
+      {
+      svr_setjobstate(pa->template_job, JOB_STATE_RUNNING, pa->template_job->ji_qs.ji_substate);
+      }
+    else if (held > 0 && queued == 0 && complete == 0)
+      {
+      svr_setjobstate(pa->template_job, JOB_STATE_HELD, pa->template_job->ji_qs.ji_substate);
+      }
+    else if (complete > 0 && queued == 0 && held == 0)
+      {
+      svr_setjobstate(pa->template_job, JOB_STATE_COMPLETE, pa->template_job->ji_qs.ji_substate);
+      }
+    else 
+      {
+      /* default to just calling the array queued */
+      svr_setjobstate(pa->template_job, JOB_STATE_QUEUED, pa->template_job->ji_qs.ji_substate);
+      }
+      
+    pa = (job_array*)GET_NEXT(pa->all_arrays);
+    }
+  }
 
 /* END array_func.c */
 

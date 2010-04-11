@@ -1479,8 +1479,8 @@ void req_commit(
 
   if (pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET)
     {
-    pj->ji_isparent = TRUE;
-
+    pj->ji_is_array_template = TRUE;
+    
     strcpy(namebuf, path_jobs);
     strcat(namebuf, pj->ji_qs.ji_fileprefix);
     strcat(namebuf, JOB_FILE_SUFFIX);
