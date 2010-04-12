@@ -492,7 +492,7 @@ AC_ARG_ENABLE(align_memory, [
 if test "x$GCC" = "xyes" ;then
   AC_MSG_CHECKING([whether add memory alignment flags])
   if test "${enable_align_memory}" = "yes" ; then
-    AS_MSG_RESULT([yes])
+    AC_MSG_RESULT([yes])
     CFLAGS="$CFLAGS -fstack-protector -Wformat -Wformat-security -DFORTIFY_SOURCE=2"
   else
     AC_MSG_RESULT([no])
