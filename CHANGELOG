@@ -7,6 +7,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - fixed kill_delay. In order to fix and not change behavior, added 
       the parameter $kill_delay to mom's config. Activate by setting to true
   b - commented out a 'fi' left uncommented in contrib/init/pbs_server
+  e - mapped 'qsub -P user:group' to qsub -P user -W group_list=group
 
 2.4.7
   b - fixed a bug for when a resource_list has been set, but isn't completely

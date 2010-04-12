@@ -3505,7 +3505,9 @@ int process_opts(
 
         if (strlen(optarg) > 0)
           {
-          set_attr(&attrib, ATTR_P, optarg);
+          char *user;
+          char *group;
+          char *colon;
 
           /* make sure this is the super user */
           if (geteuid() != (uid_t)0)
@@ -3514,6 +3516,17 @@ int process_opts(
 
             errflg++;
             }
+          user = optarg;
+          colon = strchr(user,':');
+
+          if (colon != NULL)
+            {
+            group = colon+1;
+            *colon = '\0';
+            set_attr(&attrib, ATTR_g, group);
+            }
+
+          set_attr(&attrib, ATTR_P, user);
           }
         else
           {
