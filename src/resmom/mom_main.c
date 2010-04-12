@@ -8433,6 +8433,7 @@ int read_layout_file()
       "Unable to find hostname %s in layout file %s\n",
       mom_name,
       path_layout);
+    log_err(-1,id,log_buffer);
 
     exit(-505);
     }
