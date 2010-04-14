@@ -9,6 +9,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - commented out a 'fi' left uncommented in contrib/init/pbs_server
   e - mapped 'qsub -P user:group' to qsub -P user -W group_list=group
   e - added -DQSUBHOSTNAME to allow qsub to determine PBS_O_HOST
+  b - fixed segfault for when TORQUE thinks there's a nanny but there isn't
 
 2.4.7
   b - fixed a bug for when a resource_list has been set, but isn't completely
