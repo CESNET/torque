@@ -506,7 +506,13 @@ int check_nodespec(job_info *jinfo, int nodecount, node_info **ninfo_arr, int pr
   if (res != NULL)
     node_spec = res->res_str;
 
+  /* TODO provide better fix (with respect to resource requests) */
+  if (res == NULL || node_spec == NULL || node_spec[0] == '\0')
+    node_spec = "1"; /* if there is no nodespec,
+                        then assume its a request for one node */
+#if 0
   if (res != NULL && node_spec != NULL)
+#endif
     {
     pars_spec *spec;
     pars_spec_node *iter;
@@ -543,6 +549,7 @@ int check_nodespec(job_info *jinfo, int nodecount, node_info **ninfo_arr, int pr
       return NODESPEC_NOT_ENOUGH_NODES_TOTAL;
       }
     }
+
 
   return SUCCESS; /* if we reached this point, we are done */
   }
