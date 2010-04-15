@@ -194,16 +194,7 @@ int skip_line(char *line)
   return skip;
   }
 
-/** Write a log entry to the scheduler log file using log_record
- *
- * @param event The event type
- * @param class The event class
- * @param name The name of the object
- * @param text The text of the message
- *
- * returns nothing
- *
- */
+/* Write a log entry to the scheduler log file using log_record */
 void sched_log(int event, int class, const char *name, const char *text,...)
   {
   if (!(conf.log_filter & event) && text[0] != '\0')
