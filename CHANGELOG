@@ -12,6 +12,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - fixed segfault for when TORQUE thinks there's a nanny but there isn't
   b - reverted to old behavior where interactive scripts are checked for 
       directives and not run without a parameter.
+  e - setting a queue's resource_max.nodes now actually restricts things,
+      although so far it only limits based on the number of nodes (i.e. not
+      ppn)
 
 2.4.7
   b - fixed a bug for when a resource_list has been set, but isn't completely
