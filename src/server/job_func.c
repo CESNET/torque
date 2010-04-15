@@ -1064,7 +1064,7 @@ void job_clone_wt(
   else
     {
     int i;
-    /* this is the last batch of jobs, we can purge the "parent" job */
+    /* this is the last batch of jobs */
 
     
 

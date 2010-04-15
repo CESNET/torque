@@ -1514,6 +1514,8 @@ static int pbsd_init_job(
     case JOB_SUBSTATE_WAITING:
 
     case JOB_SUBSTATE_PRERUN:
+    
+    case JOB_SUBSTATE_ARRAY_TEMP:
 
       pbsd_init_reque(pjob, CHANGE_STATE);
 

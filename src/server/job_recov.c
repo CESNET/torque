@@ -540,14 +540,14 @@ job *job_recov(
     if (strcmp(parent_id, pj->ji_qs.ji_jobid) == 0)
       {
       pj->ji_is_array_template = TRUE;
+      pj->ji_arraystruct = pa;
       }
     else
       {
       if (pa == NULL)
         {
-        /* couldn't find array struct, it must not have been recovered,
-        treat job as indepentent job?  perhaps we should delete the job
-        XXX_JOB_ARRAY: should I unset this?*/
+        /* FIXME: couldn't find array struct, it must not have been recovered,
+        for now treat job as indepentent job not part of an array*/
         pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags &= ~ATR_VFLAG_SET;
         }
       else
