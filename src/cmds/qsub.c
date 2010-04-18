@@ -1197,6 +1197,7 @@ int S_opt = FALSE;
 int V_opt = FALSE;
 int Depend_opt    = FALSE;
 int Interact_opt  = FALSE;
+int Run_Inter_opt = FALSE;
 int Stagein_opt   = FALSE;
 int Stageout_opt  = FALSE;
 int Grouplist_opt = FALSE;
@@ -2820,7 +2821,7 @@ int process_opts(
   char search_string[256];
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
-#define GETOPT_ARGS "a:A:b:c:C:d:D:e:fhIj:k:l:m:M:N:o:p:P:q:r:S:t:T:u:v:Vw:W:Xz-:"
+#define GETOPT_ARGS "a:A:b:c:C:d:D:e:fhIj:k:l:m:M:N:o:p:P:q:r:S:t:T:u:v:Vw:W:Xxz-:"
 #else
 #define GETOPT_ARGS "a:A:c:C:e:hj:k:l:m:M:N:o:p:q:r:S:u:v:VW:z"
 #endif /* PBS_NO_POSIX_VIOLATION */
@@ -3497,7 +3498,9 @@ int process_opts(
 
         if (strlen(optarg) > 0)
           {
-          set_attr(&attrib, ATTR_P, optarg);
+          char *user;
+          char *group;
+          char *colon;
 
           /* make sure this is the super user */
           if (geteuid() != (uid_t)0)
@@ -3506,6 +3509,17 @@ int process_opts(
 
             errflg++;
             }
+          user = optarg;
+          colon = strchr(user,':');
+
+          if (colon != NULL)
+            {
+            group = colon+1;
+            *colon = '\0';
+            set_attr(&attrib, ATTR_g, group);
+            }
+
+          set_attr(&attrib, ATTR_P, user);
           }
         else
           {
@@ -3929,6 +3943,16 @@ int process_opts(
           }
 
         break;
+
+      case 'x':
+
+        if_cmd_line(Run_Inter_opt)
+          {
+          Run_Inter_opt = passet;
+          }
+
+        break;
+        
 #endif
 
       case 'z':
@@ -4551,10 +4575,11 @@ int main(
       [-M user_list] [-N jobname] [-o path] [-p priority] [-P proxy_user] [-q queue] \n\
       [-r y|n] [-S path] [-t array_specification[%slot_limit]] [-T type]  [-u user_list] [-X] [-w] path\n";
 
+
     /* need secondary usage since there appears to be a 512 byte size limit */
 
     static char usage2[] =
-      "      [-W otherattributes=value...] [-v variable_list] [-V ] [-z] [script]\n";
+      "      [-W otherattributes=value...] [-v variable_list] [-V ] [-x] [-X] [-z] [script]\n";
       
     fprintf(stderr,"%s%s", usage, usage2);
 
@@ -4645,11 +4670,13 @@ int main(
         }
       }
     }    /* END if (!strcmp(script,"") || !strcmp(script,"-")) */
-  else if (Interact_opt != FALSE)
+  else if ((Interact_opt != FALSE) && (Run_Inter_opt))
+    
     {
-      set_attr(&attrib, ATTR_intcmd, script);
-      have_intr_cmd = TRUE;
+    set_attr(&attrib, ATTR_intcmd, script);
+    have_intr_cmd = TRUE;
     }
+
   else
     {
     /* non-empty script, read it for directives */
@@ -4719,7 +4746,7 @@ int main(
       exit(8);
       }
     }    /* END else (!strcmp(script,"") || !strcmp(script,"-")) */
-
+  
   /* interactive job can not be job array */
 
   if (Interact_opt && t_opt)

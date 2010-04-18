@@ -8213,7 +8213,6 @@ void prepare_child_tasks_for_delete()
   {
   char *id = "prepare_child_tasks_for_delete";
   job *job;
-  extern tlist_head svr_alljobs;
 
 
   for (job = GET_NEXT(svr_alljobs);job != NULL;job = GET_NEXT(job->ji_alljobs))
@@ -8251,6 +8250,21 @@ void prepare_child_tasks_for_delete()
 
 
 
+/* handles everything for binding a specific mom to a nodeboard
+ *
+ * parses mom.layout, registers procs/mem
+ * @return nonzero if there's a problem
+ */
+int bind_to_nodeboard()
+  {
+
+  return(0);
+  } /* END bind_to_nodeboard */
+
+
+
+
+
 /*
  * main - the main program of MOM
  *
@@ -8280,6 +8294,11 @@ int main(
   parse_command_line(argc, argv); /* Calls exit on command line error */
 
   if ((rc = setup_program_environment()) != 0)
+    {
+    return(rc);
+    }
+
+  if ((rc = bind_to_nodeboard()) != 0)
     {
     return(rc);
     }
