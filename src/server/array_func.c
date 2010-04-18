@@ -234,12 +234,12 @@ void array_get_parent_id(char *job_id, char *parent_id)
 
 
 /*
- * find_array_placeholder() - find an array template job by jobid
+ * find_array_template() - find an array template job by jobid
  *
  * Return NULL if not found or pointer to job struct if found
  */
 
-job *find_array_placeholder(char *arrayid)
+job *find_array_template(char *arrayid)
   {
   char *at;
   char *comp;

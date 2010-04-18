@@ -545,10 +545,10 @@ job *job_recov(
     else
       {
       if (pa == NULL)
-        {
-        /* FIXME: couldn't find array struct, it must not have been recovered,
-        for now treat job as indepentent job not part of an array*/
-        pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags &= ~ATR_VFLAG_SET;
+        {   
+        job_abt(&pj, "Array job missing array struct, aborting job");
+        close(fds);
+        return NULL;
         }
       else
         {
