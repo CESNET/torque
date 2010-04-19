@@ -1,3 +1,8 @@
+/* 
+(c) Simon Toth 2010 for CESNET
+
+Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
+*/
 #ifndef PARSED_NODESPEC_H_
 #define PARSED_NODESPEC_H_
 
