@@ -249,6 +249,74 @@ void remove_defunct_cpusets()
 
 
 
+#ifdef NUMA_SUPPORT
+
+/**
+ * read the root torque cpuset and copy it to the mom's cpuset
+ */
+
+void copy_torque_cpuset(
+     
+  char *suffix)
+
+  {
+  char *id = "copy_torque_cpuset";
+  char  path[MAXPATHLEN+1];
+  char  cpuset_buf[MAXPATHLEN];
+  FILE *fp;
+  
+  /* make sure cpusets are available */
+  sprintf(path, "%s/%s",
+    TROOTCPUSET_PATH,
+    suffix);
+  
+  fp = fopen(path, "r");
+  
+  if (fp != NULL)
+    {
+    /* read from root cpuset and write them to this mom's
+     * cpuset */
+    
+    if (fread(cpuset_buf, sizeof(char), sizeof(cpuset_buf), fp) != sizeof(cpuset_buf))
+      {
+      if (ferror(fp) != 0)
+        {
+        log_err(-1,id,
+          "An error occurred while reading the root cpuset, attempting to continue.\n");
+        }
+      }
+    
+    *(index(cpuset_buf, '\n')) = '\0';
+    
+    fclose(fp);
+    
+    /* now write the info to this mom's cpuset */
+    snprintf(path,sizeof(path),"%s/%s/%s",
+      TTORQUECPUSET_PATH,
+      mom_name,
+      suffix);
+    
+    fp = fopen(path,"w");
+    
+    if (fp != NULL)
+      {
+      if (fwrite(cpuset_buf,sizeof(char),strlen(cpuset_buf),fp) < strlen(cpuset_buf))
+        {
+        /* FAILURE */
+        sprintf(log_buffer, "failed to write cpus cpuset to %s\n",
+          path);
+        log_err(-1, id, log_buffer);
+        return;
+        }
+      
+      /* SUCCESS */
+      }
+    }
+
+  } /* END copy_torque_cpuset */
+
+
+
 /*
  * Create the mom cpuset for Torque if it doesn't already exist.
  * clear out any job cpusets for jobs that no longer exist.
@@ -256,20 +324,22 @@ void remove_defunct_cpusets()
  * @see remove_defunct_cpusets() - child
  */
 
-#ifdef NUMA_SUPPORT
 void
 initialize_mom_cpuset(void)
 
   {
-  static char    id[] = "initialize_mom_cpuset";
+/*  static char    id[] = "initialize_mom_cpuset";
 
   char           path[MAXPATHLEN + 1];
 
   struct stat    statbuf;
 
-  FILE           *fp;
+  FILE           *fp;*/
 
-  sprintf(log_buffer, "Init TORQUE MOM cpuset %s/%s.",
+  copy_torque_cpuset("cpus");
+  copy_torque_cpuset("mems");
+
+/*  sprintf(log_buffer, "Init TORQUE MOM cpuset %s/%s.",
           TTORQUECPUSET_PATH,
           mom_name);
 
@@ -277,9 +347,9 @@ initialize_mom_cpuset(void)
     PBS_EVENTCLASS_SERVER,
     id,
     log_buffer);
-
+*/
   /* make sure cpusets are available */
-
+/*
   sprintf(path, "%s/cpus",
           TTORQUECPUSET_PATH);
 
@@ -289,9 +359,9 @@ initialize_mom_cpuset(void)
             path);
 
     log_err(-1, id, log_buffer);
-
+*/
     /* FAILURE */
-
+/*
     return;
     }
 
@@ -310,10 +380,10 @@ initialize_mom_cpuset(void)
       log_buffer);
 
     mkdir(path, 0755);
-
+*/
     /* load in only cpuset for this MOM */
     /* use cpus from mom.layout file */
-
+/*
     sprintf(log_buffer, "TORQUE cpuset %s loaded with value '%s'\n",
             path,
             cpus_str);
@@ -322,9 +392,9 @@ initialize_mom_cpuset(void)
       PBS_EVENTCLASS_SERVER,
       id,
       log_buffer);
-
+*/
     /* create new TORQUE MOM set */
-
+/*
     sprintf(path, "%s/%s/cpus",
             TTORQUECPUSET_PATH,
             mom_name);
@@ -332,9 +402,9 @@ initialize_mom_cpuset(void)
     fp = fopen(path, "w");
 
     if (fp != NULL)
-      {
-      /* write all TORQUE cpus into TORQUE MOM cpuset */
-
+      {*/
+      /*write all TORQUE cpus into TORQUE MOM cpuset */
+/*
       sprintf(log_buffer, "adding cpus %s to %s",
               cpus_str,
               path);
@@ -345,9 +415,9 @@ initialize_mom_cpuset(void)
         log_buffer);
 
       if (fwrite(cpus_str, sizeof(char), strlen(cpus_str), fp) < strlen(cpus_str))
-        {
+        {*/
         /* FAILURE */
-        sprintf(log_buffer, "failed to write cpus cpuset to %s\n",
+/*        sprintf(log_buffer, "failed to write cpus cpuset to %s\n",
                 path);
         log_err(-1, id, log_buffer);
         return;
@@ -355,9 +425,9 @@ initialize_mom_cpuset(void)
 
       fclose(fp);
       }
-
+*/
     /* use mems from mom.layout file */
-
+/*
     sprintf(path, "%s/mems",
             TTORQUECPUSET_PATH);
 
@@ -374,10 +444,10 @@ initialize_mom_cpuset(void)
       fp = fopen(path, "w");
 
       if (fp != NULL)
-        {
+        {*/
         /* write all TORQUE mems into TORQUE MOM cpuset */
 
-        sprintf(log_buffer, "adding mems %s to %s",
+/*        sprintf(log_buffer, "adding mems %s to %s",
                 mem_str,
                 path);
 
@@ -387,9 +457,9 @@ initialize_mom_cpuset(void)
           log_buffer);
 
         if (fwrite(mem_str, sizeof(char), strlen(mem_str), fp) < strlen(mem_str))
-          {
+          {*/
           /* FAILURE */
-          sprintf(log_buffer, "failed to write mems cpuset to %s\n",
+/*          sprintf(log_buffer, "failed to write mems cpuset to %s\n",
                   path);
           log_err(-1, id, log_buffer);
           return;
@@ -397,16 +467,16 @@ initialize_mom_cpuset(void)
 
         fclose(fp);
         }
-      }  /* END if (fp != NULL) */
-    }    /* END if (lstat(path,&statbuf) != 0) */
-  else
-    {
+      }*/  /* END if (fp != NULL) */
+/*    }*/    /* END if (lstat(path,&statbuf) != 0) */
+/*  else
+    {*/
     /* The cpuset already exists, delete any cpusets for jobs that no longer exist. */
 
-    remove_defunct_cpusets();
+/*    remove_defunct_cpusets();
     }
 
-  return;
+  return;*/
   }  /* END initialize_mom_cpuset() */
 #endif  /* end NUMA_SUPPORT */
 
@@ -912,9 +982,11 @@ int get_cpuset_strings(
   {
   vnodent *np = pjob->ji_vnods;
   int     j;
-  int     lastmem = -1;
   int     ratio = num_cpus / num_mems;
   char    tmpStr[MAXPATHLEN];
+  int     node_offset;
+
+  char   *id = "get_cpuset_strings";
 
   if ((pjob == NULL) || 
       (CpuStr == NULL) ||
@@ -926,25 +998,32 @@ int get_cpuset_strings(
 
   for (j = 0;j < pjob->ji_numvnod;++j, np++)
     {
-    if (pjob->ji_nodeid == np->vn_host->hn_node)
+    char *dash = strchr(np->vn_host->hn_host,'-');
+    if (dash != NULL)
       {
-      if (CpuStr[0] != '\0')
-        strcat(CpuStr, ",");
+      node_offset = atoi(dash+1);
+      }
+    else
+      {
+      log_err(-1,id,"could not parse node number from node name\n");
+      node_offset = 0;
+      }
 
-      sprintf(tmpStr, "%d", np->vn_index+cpu_offset);
+    if (CpuStr[0] != '\0')
+      strcat(CpuStr, ",");
 
-      strcat(CpuStr, tmpStr);
+    sprintf(tmpStr, "%d", np->vn_index + (node_offset*num_cpus));
 
-      if (lastmem != np->vn_index / ratio)
-        {
-        lastmem = np->vn_index / ratio;
-        sprintf(tmpStr, "%d", lastmem + atoi(mem_str));
+    strcat(CpuStr, tmpStr);
 
-        if (MemStr[0] != '\0')
-          strcat(MemStr, ",");
+    sprintf(tmpStr,"%d",node_offset);
 
-        strcat(MemStr, tmpStr);
-        }
+    if (strstr(MemStr,tmpStr) == NULL)
+      {
+      if (MemStr[0] != '\0')
+        strcat(MemStr, ",");
+
+      strcat(MemStr, tmpStr);
       }
     }
 
@@ -953,7 +1032,7 @@ int get_cpuset_strings(
     sprintf(log_buffer,
       "found cpus (%s) mems (%s) ratio = %d cpu_offset = %d mem_offset = %d",
       CpuStr, MemStr, ratio, cpu_offset, atoi(mem_str));
-    log_ext(-1, "get_cpuset_strings", log_buffer, LOG_DEBUG);
+    log_ext(-1, id, log_buffer, LOG_DEBUG);
     }
 
   return(SUCCESS);

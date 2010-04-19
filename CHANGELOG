@@ -32,6 +32,7 @@ NUMA
       with multi-mom systems, as well as creating memory fences for jobs.
   e - added configure option --enable-align-memory. this adds compile flags
       that get rid unaligned access errors
+  e - mother superior now creates the whole cpuset for a job
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,
