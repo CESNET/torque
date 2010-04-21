@@ -173,6 +173,7 @@ int get_node_has_property(node_info *ninfo, const char* property)
     delim++;
 
     amount = res_to_num(delim);
+    /* TODO what about string resources? */
     dbg_consistency(amount > 0,"resource conversion to number should not fail");
 
     if (!(strcmp("ppn",name)))
@@ -198,7 +199,7 @@ int get_node_has_property(node_info *ninfo, const char* property)
 
       if (i == num_res) /* not checking this resource */
         {
-        printf("DEBUG: Resource not set to be checked\n");
+        printf("DEBUG: Resource not in res_to_check\n");
         return 1;
         }
 
@@ -232,6 +233,106 @@ int get_node_has_property(node_info *ninfo, const char* property)
   return 0;
   }
 
+/** Refresh magrathea status for node */
+int refresh_magrathea_status(node_info *ninfo, job_info *jinfo, int preassign_starving)
+  {
+  resource *res_machine, *res_magrathea;
+
+  res_machine = find_resource(ninfo->res, "machine_cluster");
+  res_magrathea = find_resource(ninfo->res, "magrathea");
+
+  if (preassign_starving == 0)
+    {
+    if ((res_magrathea != NULL) && res_magrathea->str_avail != NULL)
+      { /* update magrathea status */
+      int ret;
+      long int m_status, m_count, m_used, m_free, m_possible;
+
+      ret=magrathea_decode(res_magrathea,&m_status,&m_count,&m_used,&m_free,&m_possible);
+      if ((ret) || (strcmp(res_magrathea->str_avail,"external")==0))
+        {
+        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                  "Node %s not used, magrathea state is %s",
+                  ninfo->name,res_magrathea->str_avail);
+        return 0;
+        }
+
+      if ((ninfo->type == NodeVirtual) && (m_possible == 1) && (ninfo->is_down))
+        { ninfo->is_bootable=1; }
+      else
+        { ninfo->is_bootable=0; } /* TODO determine if necessary */
+
+      if (m_status < 1)
+        {
+        if ((jinfo->cluster_mode == ClusterCreate) && ninfo->is_bootable)
+          {
+          /* ok */
+          }
+        else
+          {
+          sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                    "Node %s is not used due to magrathea: %s",
+                    ninfo->name, res_magrathea->str_avail);
+          return 0;
+          }
+        }
+
+      }
+    }
+
+  /* cloud support
+   * should be used also in simulation
+   */
+
+  if (jinfo->cluster_mode == ClusterNone)
+    {
+    /* user does not require cluster */
+    if (res_machine!=NULL)
+      {
+      /* but node already belongs to cluster */
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                "Node %s not used, already belongs to a cluster %s",
+                ninfo->name, res_machine->str_avail);
+      return 0;
+      }
+    }
+  else if (jinfo->cluster_mode == ClusterCreate)
+    {
+    /* cluster creation */
+    if (res_machine != NULL)
+      {
+      /* but node is already in (different cluster) */
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                "Node %s not used, belongs to a (different) cluster %s",
+                ninfo->name, res_machine->str_avail);
+      return 0;
+      }
+    }
+  else if ((jinfo->cluster_mode == ClusterUse) && (jinfo->custom_name != NULL))
+    {
+    /* user requires already running cluster */
+    if ((res_machine == NULL) || (res_machine -> str_avail == NULL))
+      {
+      /* but node is not in cluster */
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                "Node %s not used, it doesn't belong to any cluster",
+                ninfo->name);
+      return 0;
+      }
+
+    if (strcmp(res_machine -> str_avail,jinfo->custom_name)!=0)
+      {
+      /* but node is in different cluster */
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                "Node %s not used, it belongs to different cluster %s",
+                ninfo->name, res_machine->str_avail);
+      return 0;
+      }
+    }
+
+  return 1;
+  }
+
 /** Check basic node suitability for job */
 static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_starving)
   {
@@ -239,20 +340,42 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
     return 0;
 
   if (ninfo->type == NodeTimeshared || ninfo->type == NodeCloud)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Node %s not used, node is Timesharing or Cloud.", ninfo->name);
     return 0;
+    }
 
-  if ((ninfo->type == NodeVirtual && (!jinfo->is_cluster))
-      || (ninfo->type == NodeCluster && jinfo->is_cluster))
-    /* cluster joby jenom na virtualnich uzlech */
+  if (ninfo->type == NodeVirtual && (!jinfo->is_cluster))
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Node %s not used, node is virtual, but job doesn't require virtual cluster.", ninfo->name);
     return 0;
+    }
+
+  if (ninfo->type == NodeCluster && jinfo->is_cluster)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Node %s not used, node is cluster, but job does require virtual cluster.", ninfo->name);
+    return 0;
+    }
 
   if ((ninfo->starving_job != NULL) && /* already assigned to a starving job */
       (strcmp(ninfo->starving_job->name,jinfo->name) != 0) && /* and not this job */
       (ninfo->starving_job->queue->priority >= jinfo->queue->priority)) /* job priority is not higher */
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Node %s not used, node allocated to a higher priority starving job %s.",
+              ninfo->name, ninfo->starving_job->name);
     return 0;
+    }
 
   if (jinfo->is_multinode && ninfo->no_multinode_jobs)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Node %s not used, node does not allow multinode jobs.", ninfo->name);
     return 0;
+    }
 
   if (ninfo->temp_assign != NULL) /* node already assigned */
     return 0;
@@ -260,12 +383,25 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
   if (preassign_starving == 0) /* only for non-starving jobs */
     {
     if ((jinfo->is_exclusive) && (ninfo->npfree != ninfo->np))
+      {
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                "Node %s not used, job is exclusive and node is not fully empty.", ninfo->name);
       return 0; /* skip non-empty nodes for exclusive requests */
+      }
 
     if (ninfo->is_exclusive)
+      {
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                "Node %s not used, node is already running an exclusive job.", ninfo->name);
       return 0;
+      }
     }
 
+  /* refresh and check magrathea status */
+  if (refresh_magrathea_status(ninfo,jinfo,preassign_starving) == 0)
+    return 0;
+
+  /* virtual clusters support */
   if (jinfo->is_cluster && jinfo->cluster_mode == ClusterCreate)
     {
     if (ninfo->type == NodeVirtual) /* always true, checked before */
@@ -286,8 +422,8 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
 
       if (!cloudnode)
         {
-        /* sprintf(logbuf, "Node %s not used, cloud mom is missing, cache = %s", node -> name,cloud_mom);
-        schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf); */
+        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                  "Node %s not used, cloud node reported by cache (%s) was not found.", ninfo->name, cloud_mom);
         free(cloud_mom);
         return 0;
         }
@@ -296,25 +432,23 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
 
       if (!cloudnode -> type == NodeCloud)
         {
-        /* sprintf(logbuf, "Node %s not used, cloud mom %s is not usable", node -> name,cloudnode->name);
-        schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf); */
+        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                  "Node %s not used, cloud node is not known as cloud.", ninfo->name);
         return 0;
         }
 
       if (cloudnode -> is_down)
         {
-        /* sprintf(logbuf, "Node %s not used, cloud mom %s is down", node -> name,cloudnode->name);
-        schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf); */
+        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                  "Node %s not used, cloud node is down.", ninfo->name);
         return 0;
         }
-      }
-    else if (ninfo->type == NodeCloud) /* unreachable */
-      { }
-    else /* unreachable */
-      {
-      /* sprintf(logbuf, "Node %s not used, cloud requires virt mom", node -> name);
-      schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf); */
-      return 0;
+
+      if (cloudnode -> jobs != NULL && cloudnode -> jobs[0] != NULL)
+        {
+        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                  "Node %s not used, cloud node has other jobs", ninfo->name);
+        }
       }
 
 #if 0 /* node states broken right now */
@@ -326,106 +460,18 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
 
     if (ninfo->np != ninfo->npfree)
       {
-      /*sprintf(logbuf, "Node %s not used, cloud cannot share node with job", node -> name);
-      schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf);*/
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                "Node %s not used, cloud requests require whole node, but node already contains a job.", ninfo->name);
       return 0;
       }
 
     if ((ninfo->is_bootable) && ((ninfo->alternatives == NULL) || (ninfo->alternatives[0] == NULL)))
       {
-      /* sprintf(logbuf, "Node %s not used, bootable node without alternatives", node -> name);
-      schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf); */
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                "Node %s not used, bootable node without alternatives.", ninfo->name);
       return 0;
       }
     }
-
-
-#if 0
-    res_machine = find_resource(node -> res,"machine_cluster");
-    res_magrathea = find_resource( node -> res, "magrathea" );
-
-     /* get Magrathea status */
-    if (starving_simulation==0) {
-
-      /* fprintf(stderr,"magrathea test: node=%s, magrathea=%s\n",
-       * node->name,res_magrathea->str_avail); */
-      if ((res_magrathea != NULL) && (res_magrathea -> str_avail != NULL)) {
-        int ret;
-
-
-        ret=magrathea_decode(res_magrathea,&m_status,&m_count,&m_used,&m_free,&m_possible);
-        if ((ret) || (strcmp(res_magrathea -> str_avail,"external")==0)) {
-            sprintf(logbuf, "Node %s not used, magrathea state is %s.", node -> name, res_magrathea -> str_avail);
-            schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf);
-            return 0;
-        }
-
-        if ( (node -> is_virt) && (m_possible==1) &&
-            (node -> is_down)) {
-           is_node_bootable=1;
-        }
-
-        if (m_status < 1) {
-            if ((jinfo->cluster_mode = ClusterCreate) && (ninfo->is_node_bootable)) {
-                /* OK, we can boot virtual machine on this node */
-            } else {
-                sprintf(logbuf, "Node %s not used due to magrathea: %s.",
-                        node -> name, res_magrathea -> str_avail);
-                schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG,
-                        jinfo -> name, logbuf);
-                return 0;
-            }
-        }
-      }
-    }
-
-#endif
-
-
-#if 0
-  if (req_cluster == NULL) {
-
-        /* user does not require cluster */
-        if (res_machine!=NULL) {
-            /* but node already belongs to cluster */
-            sprintf(logbuf, "Node %s not used, it belogs to cluster %s.", node
--> name,
-                    res_machine -> str_avail);
-            schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo ->
-name, logbuf);
-            return 0;
-        }
-    } else if (is_cluster_create) {
-        /* cluster creation */
-        if (res_machine!=NULL) {
-            /* but node is already in (different cluster) */
-            sprintf(logbuf, "Node %s not used, it belogs to (different) cluster %s.",
-                    node -> name, res_machine -> str_avail);
-            schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo ->
-name, logbuf);
-            return 0;
-        }
-    } else if ( (req_cluster !=NULL ) && (req_cluster -> res_str != NULL )) {
-            /* user requires already running cluster */
-        if ((res_machine == NULL) || (res_machine -> str_avail == NULL)) {
-            /* but node is not in cluster */
-            sprintf(logbuf, "Node %s not used, it doesn't belong to any cluster",
-                    node -> name);
-            schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo ->
-name, logbuf);
-            return 0;
-        }
-        if (strcmp(res_machine -> str_avail,req_cluster->res_str)!=0) {
-            /* but node is in different cluster */
-            sprintf(logbuf, "Node %s not used, it belongs to different cluster %s.",
-                    node -> name, res_machine -> str_avail);
-            schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo ->
-name, logbuf);
-            return 0;
-        }
-  }
-
-#endif
 
   return 1;
   }
@@ -437,11 +483,12 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
   pars_prop *iter = spec->properties;
   repository_alternatives* ra;
 
-  for (i = 0; i < avail_nodes; i++)
+  for (i = 0; i < avail_nodes; i++) /* for each node */
     {
-    if (!is_node_suitable(ninfo_arr[i],jinfo,preassign_starving))
+    if (!is_node_suitable(ninfo_arr[i],jinfo,preassign_starving)) /* check node suitability */
       continue;
 
+    /* check nodespec */
     ra = NULL;
     /* has alternatives */
     if (ninfo_arr[i]->alternatives != NULL && ninfo_arr[i]->alternatives[0] != NULL)
