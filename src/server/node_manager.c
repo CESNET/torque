@@ -4468,7 +4468,7 @@ int node_avail(
       if (pn->nd_state & INUSE_DELETED)
         continue;
 
-      if ((pn->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL) && hasprop(pn, prop))
+      if ((pn->nd_ntype == NTYPE_CLUSTER || pn->nd_ntype == NTYPE_VIRTUAL) && hasprop(pn, prop))
         {
         if (pn->nd_state & (INUSE_OFFLINE | INUSE_DOWN))
           ++xdown;
