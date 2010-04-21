@@ -308,7 +308,7 @@ int refresh_magrathea_status(node_info *ninfo, job_info *jinfo, int preassign_st
       return 0;
       }
     }
-  else if ((jinfo->cluster_mode == ClusterUse) && (jinfo->custom_name != NULL))
+  else if ((jinfo->cluster_mode == ClusterUse) && (jinfo->cluster_name != NULL))
     {
     /* user requires already running cluster */
     if ((res_machine == NULL) || (res_machine -> str_avail == NULL))
@@ -320,7 +320,7 @@ int refresh_magrathea_status(node_info *ninfo, job_info *jinfo, int preassign_st
       return 0;
       }
 
-    if (strcmp(res_machine -> str_avail,jinfo->custom_name)!=0)
+    if (strcmp(res_machine -> str_avail,jinfo->cluster_name)!=0)
       {
       /* but node is in different cluster */
       sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
