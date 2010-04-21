@@ -98,10 +98,16 @@ sch_resource_t res_to_num(char * res_str);
  */
 int skip_line(char *line);
 
-/*
- *      sched_log - write a log entry to the scheduler log file using log_record
+/** Write a log entry to the scheduler log file using log_record
+ *
+ * @param event The event type
+ * @param class The event class
+ * @param name The name of the object
+ * @param text The text of the message
+ *
+ * returns nothing
+ *
  */
-
 void sched_log(int event, int class, const char *name, const char *text, ...);
 
 /*
