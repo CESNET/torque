@@ -266,6 +266,7 @@ unsigned is_cluster:
   1; /* cluster request */
 
 enum ClusterMode cluster_mode;
+char *cluster_name; /**< cluster name passed from -l cluster=...*/
 
   char *name;   /* name of job */
   char *comment;  /* comment field of job */

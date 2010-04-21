@@ -103,6 +103,7 @@ const struct rescheck res_to_check[] = {
   { "nodect","Not Running: Not enough nodes available", "Not enough nodes available", ResCheckStat},
   { "cput",  "Not Running: The job time requirement is over the max time limit", "The job time requirement is over the max time limit", ResCheckStat },
   { "vmem", "Not Running: Not enough scratch space available", "Not enough scratch space available", ResCheckCache },
+  { "machine_cluster", " ", " ", ResCheckCache }
   };
 
 /*

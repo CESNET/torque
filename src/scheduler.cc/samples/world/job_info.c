@@ -267,6 +267,7 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
         else
           {
           jinfo->cluster_mode = ClusterUse;
+          jinfo->cluster_name = strdup(attrp->value);
           }
         }
       else
@@ -367,6 +368,7 @@ job_info *new_job_info()
 
   jinfo -> is_cluster = 0;
   jinfo -> cluster_mode = ClusterNone;
+  jinfo -> cluster_name = NULL;
 
   return jinfo;
   }
@@ -455,6 +457,7 @@ void free_job_info(job_info *jinfo)
   free(jinfo -> group);
   free_resource_req_list(jinfo -> resreq);
   free_resource_req_list(jinfo -> resused);
+  free(jinfo -> cluster_name);
   free(jinfo);
   }
 
