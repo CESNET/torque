@@ -120,6 +120,7 @@ extern struct server server;
 extern time_t time_now;
 extern int   LOGLEVEL;
 
+
 /* Private Functions in this file */
 
 static void post_delete_route(struct work_task *);
@@ -144,7 +145,9 @@ static char *delpurgestr = DELPURGE;
 /* Extern Functions */
 
 extern void set_resc_assigned(job *, enum batch_op);
-
+extern job  *chk_job_request(char *, struct batch_request *);
+extern struct batch_request *cpy_stage(struct batch_request *, job *, enum job_atr, int);
+extern int   svr_chk_owner(struct batch_request *, job *);
 
 /*
  * remove_stagein() - request that mom delete staged-in files for a job
@@ -158,6 +161,7 @@ void remove_stagein(
   {
 
   struct batch_request *preq = 0;
+  u_long addr;
 
   preq = cpy_stage(preq, pjob, JOB_ATR_stagein, 0);
 
@@ -171,8 +175,12 @@ void remove_stagein(
 
     preq->rq_extra = NULL;
 
+    addr = pjob->ji_qs.ji_un.ji_exect.ji_momaddr;
+    addr += pjob->ji_qs.ji_un.ji_exect.ji_mom_rmport;
+    addr += pjob->ji_qs.ji_un.ji_exect.ji_momport;
+
     if (relay_to_mom(
-          pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
+          pjob,
           preq,
           release_req) == 0)
       {
@@ -1233,8 +1241,8 @@ void purge_completed_jobs(
       pjob->ji_wattr[(int)JOB_ATR_reported].at_val.at_long = 1;
       pjob->ji_wattr[(int)JOB_ATR_reported].at_flags =
         ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
-          
-      job_save(pjob,SAVEJOB_FULL); 
+      
+     job_save(pjob, SAVEJOB_FULL, 0); 
       }
     }
 

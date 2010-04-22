@@ -373,8 +373,6 @@ int svr_get_privilege(
 
 
 
-
-
 /*
  * authenticate_user - authenticate user by checking name against credential
  *         provided on connection via Authenticate User request.

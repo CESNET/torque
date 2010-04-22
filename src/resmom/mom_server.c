@@ -232,6 +232,7 @@
 #include "server_limits.h"
 #include "pbs_job.h"
 #include "utils.h"
+#include "u_tree.h"
 
 #include        "mcom.h"
 
@@ -262,7 +263,7 @@ typedef struct mom_server
 mom_server     mom_servers[PBS_MAXSERVER];
 int            mom_server_count = 0;
 pbs_net_t      down_svraddrs[PBS_MAXSERVER];
-
+int mom_tickled = 0;
 
 extern unsigned int default_server_port;
 extern char  mom_host[];
@@ -287,7 +288,9 @@ extern int             alarm_time; /* time before alarm */
 extern int             rm_errno;
 extern time_t          time_now;
 extern int             verbositylevel;
-extern tree           *okclients;  /* accept connections from */
+/*extern tree           *okclients; */  /* accept connections from */
+extern AvlTree          okclients;
+extern tlist_head svr_alljobs, mom_polljobs;
 
 extern char *skipwhite(char *str);
 extern char *tokcpy(char *str, char *tok);
@@ -590,7 +593,12 @@ int mom_server_add(
       ipaddr = ntohl(saddr.s_addr);
 
       if (ipaddr != 0)
-        tinsert(ipaddr, NULL, &okclients);
+        {
+  /*        tinsert(ipaddr, NULL, &okclients); */
+        okclients = AVL_insert(ipaddr, 0, NULL, okclients);
+        
+        }
+
       }
     }    /* END BLOCK */
 
@@ -1257,6 +1265,7 @@ void mom_server_update_stat(
   {
   static char *id = "mom_server_update_stat";
   char *cp;
+  int ret;
 
   if (pms->pbs_servername[0] == 0)
     {
@@ -1284,6 +1293,18 @@ void mom_server_update_stat(
     return;
     }
 
+  ret = diswus(pms->SStream, pbs_mom_port);
+  if(ret)
+    {
+    return;
+    }
+  
+  ret = diswus(pms->SStream, pbs_rm_port);
+  if(ret)
+    {
+    return;
+    }
+  
   /* For each string, put it into the message. */
 
   for (cp = status_strings;cp && *cp;cp += strlen(cp) + 1)
@@ -1442,8 +1463,35 @@ int mom_server_send_hello(
 
   {
   static char id[] = "mom_server_send_hello";
+  int ret;
+
+  if (LOGLEVEL >= 6)
+    {
+    sprintf(log_buffer, "%s",
+            id);
+
+    log_record(
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_SERVER,
+      id,
+      log_buffer);
+    }
+
+
 
   if (is_compose(pms, IS_HELLO) == -1)
+    {
+    return(-1);
+    }
+
+  ret = diswus(pms->SStream, pbs_mom_port);
+  if(ret)
+    {
+    return(-1);
+    }
+  
+  ret = diswus(pms->SStream, pbs_rm_port);
+  if(ret)
     {
     return(-1);
     }
@@ -1454,6 +1502,18 @@ int mom_server_send_hello(
     }
 
   pms->sent_hello_count++;
+
+  if (LOGLEVEL >= 6)
+    {
+    sprintf(log_buffer, "%s done. Sent count = %d",
+            id, pms->sent_hello_count);
+
+    log_record(
+      PBSEVENT_JOB,
+      PBS_EVENTCLASS_SERVER,
+      id,
+      log_buffer);
+    }
 
   return(0);
   }  /* END mom_server_send_hello() */
@@ -1482,14 +1542,17 @@ int mom_server_check_connection(
 
   {
   static char id[] = "mom_server_check_connection";
+  job *pjob;
 
   if (pms->pbs_servername[0] == '\0')
     {
     return(0);
     }
 
+  pjob = (job *)GET_NEXT(svr_alljobs); /* If there is no job running do not contact the server */
   if ((pms->SStream != -1) && 
-      (time_now >= (pms->MOMLastSendToServerTime + (ServerStatUpdateInterval*2))))
+      (time_now >= (pms->MOMLastSendToServerTime + (ServerStatUpdateInterval*2)))
+       && pjob != NULL)
     {
     sprintf(log_buffer,"connection to server %s timeout", 
       pms->pbs_servername);
@@ -1802,7 +1865,8 @@ void mom_server_update_receive_time_by_ip(
 ** Modified by Tom Proett <proett@nas.nasa.gov> for PBS.
 */
 
-tree *okclients = NULL; /* tree of ip addrs */
+/*tree *okclients = NULL;*/ /* tree of ip addrs */
+AvlTree okclients = NULL;
 
 
 
@@ -1917,7 +1981,9 @@ mom_server *mom_server_valid_message_source(
 
             if (ipaddr == server_ip)
               {
-              tinsert(ipaddr, NULL, &okclients);
+/*              tinsert(ipaddr, NULL, &okclients); */
+              okclients = AVL_insert(ipaddr, 0, NULL, okclients);
+
               pms->SStream = stream;
               return(pms);
               }
@@ -2059,6 +2125,10 @@ void is_request(
         break;
         }
 
+      diswus(pms->SStream, pbs_mom_port);
+      
+      diswus(pms->SStream, pbs_rm_port);
+
       if (mom_server_flush_io(pms, id, "flush") != DIS_SUCCESS)
         break;
 
@@ -2070,6 +2140,11 @@ void is_request(
 
       break;
 
+    case IS_TICKLE:
+      {
+      mom_tickled = 1;
+      }
+
     case IS_CLUSTER_ADDRS:
       for (;;)
         {
@@ -2078,7 +2153,8 @@ void is_request(
         if (ret != DIS_SUCCESS)
           break;
 
-        tinsert(ipaddr, NULL, &okclients);
+/*        tinsert(ipaddr, NULL, &okclients); */
+        okclients = AVL_insert(ipaddr, 0, NULL, okclients);
 
         if (LOGLEVEL >= 4)
           {
@@ -2498,6 +2574,7 @@ void state_to_server(
   {
   static char id[] = "state_to_server";
   mom_server *pms = &mom_servers[ServerIndex];
+  int ret;
 
   if ((force == 0) && (pms->ReportMomState == 0))
     {
@@ -2505,6 +2582,18 @@ void state_to_server(
     }
 
   if (is_compose(pms, IS_UPDATE) != DIS_SUCCESS)
+    {
+    return;
+    }
+
+  ret = diswus(pms->SStream, pbs_mom_port);
+  if(ret)
+    {
+    return;
+    }
+  
+  ret = diswus(pms->SStream, pbs_rm_port);
+  if(ret)
     {
     return;
     }

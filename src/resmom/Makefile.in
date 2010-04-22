@@ -356,12 +356,14 @@ PBS_MKDIRS = $(SHELL) $(top_builddir)/buildutils/pbs_mkdirs
 AM_CPPFLAGS = -I$(top_srcdir)/src/include \
 	-I$(top_srcdir)/src/resmom/@PBS_MACH@ -DPBS_MOM \
 	-DDEMUX=\"$(program_prefix)$(DEMUX_PATH)$(program_suffix)\" \
+	-DIM_DEMUX=\"$(IM_DEMUX_PATH)\" \
 	-DRCP_PATH=\"$(program_prefix)$(RCP_PATH)$(program_suffix)\" \
 	-DRCP_ARGS=\"$(RCP_ARGS)\" \
 	-DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\" \
 	-DPBS_ENVIRON=\"$(PBS_ENVIRON)\"
 IFF_PATH = $(sbindir)/$(program_prefix)pbs_iff$(program_suffix)
 DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
+IM_DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_im_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter

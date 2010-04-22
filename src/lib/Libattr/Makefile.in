@@ -65,7 +65,7 @@ am_libattr_a_OBJECTS = attr_atomic.$(OBJEXT) attr_fn_acl.$(OBJEXT) \
 	attr_fn_l.$(OBJEXT) attr_fn_ll.$(OBJEXT) \
 	attr_fn_resc.$(OBJEXT) attr_fn_size.$(OBJEXT) \
 	attr_fn_str.$(OBJEXT) attr_fn_time.$(OBJEXT) \
-	attr_fn_unkn.$(OBJEXT) attr_func.$(OBJEXT) \
+	attr_fn_unkn.$(OBJEXT) attr_fn_tv.$(OBJEXT) attr_func.$(OBJEXT) \
 	attr_node_func.$(OBJEXT) Long_.$(OBJEXT) LTostr.$(OBJEXT) \
 	strToL.$(OBJEXT) strTouL.$(OBJEXT) uLTostr.$(OBJEXT) \
 	attr_fn_tokens.$(OBJEXT)
@@ -331,6 +331,7 @@ PBS_MKDIRS = $(SHELL) $(top_builddir)/buildutils/pbs_mkdirs
 AM_CPPFLAGS = -I$(top_srcdir)/src/include
 IFF_PATH = $(sbindir)/$(program_prefix)pbs_iff$(program_suffix)
 DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
+IM_DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_im_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
@@ -340,7 +341,7 @@ libattr_a_SOURCES = attr_atomic.c attr_fn_acl.c attr_fn_arst.c attr_fn_b.c \
 		     attr_fn_ll.c attr_fn_resc.c attr_fn_size.c \
 		     attr_fn_str.c attr_fn_time.c attr_fn_unkn.c \
 		     attr_func.c attr_node_func.c Long_.c LTostr.c strToL.c \
-		     strTouL.c uLTostr.c attr_fn_tokens.c
+		     strTouL.c uLTostr.c attr_fn_tokens.c attr_fn_tv.c
 
 all: all-am
 
@@ -405,6 +406,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/attr_fn_str.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/attr_fn_time.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/attr_fn_tokens.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/attr_fn_tv.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/attr_fn_unkn.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/attr_func.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/attr_node_func.Po@am__quote@

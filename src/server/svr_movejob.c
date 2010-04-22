@@ -314,7 +314,7 @@ static int local_move(
 
   jobp->ji_lastdest = 0; /* reset in case of another route */
 
-  job_save(jobp, SAVEJOB_FULL);
+  job_save(jobp, SAVEJOB_FULL, 0);
 
   return(0);
   }  /* END local_move() */
@@ -873,7 +873,7 @@ int send_job(
         {
         jobp->ji_qs.ji_substate = JOB_SUBSTATE_TRNOUT;
 
-        job_save(jobp, SAVEJOB_QUICK);
+        job_save(jobp, SAVEJOB_QUICK, 0);
         }
 
       pqjatr = &((svrattrl *)GET_NEXT(attrl))->al_atopl;
@@ -951,7 +951,7 @@ int send_job(
 
       jobp->ji_qs.ji_substate = JOB_SUBSTATE_TRNOUTCM;
 
-      job_save(jobp, SAVEJOB_QUICK);
+      job_save(jobp, SAVEJOB_QUICK, 0);
       }
     else
       {

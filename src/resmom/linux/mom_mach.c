@@ -3987,7 +3987,7 @@ static char *walltime(
 
 
 
-
+/* Get the load average for this node */
 
 int get_la(
 

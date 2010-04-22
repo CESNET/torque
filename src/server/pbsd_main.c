@@ -125,6 +125,7 @@
 #include "dis_init.h"
 #include "batch_request.h"
 #include "pbs_proto.h"
+#include "u_tree.h"
 #ifdef USE_HA_THREADS
 #include <pthread.h>
 #endif /* USE_HA_THREADS */
@@ -188,6 +189,7 @@ static int try_lock_out (int,int);
 
 extern int    svr_chngNodesfile;
 extern int    svr_totnodes;
+extern AvlTree streams;
 
 /* External Functions */
 
@@ -196,7 +198,7 @@ extern int    get_svr_attr (int);
 /* Local Private Functions */
 
 static int    get_port (char *, unsigned int *, pbs_net_t *);
-static int    daemonize_server (int,int *);
+static int    daemonize_server (int, pid_t *);
 int mutex_lock (mutex_t *);
 int mutex_unlock (mutex_t *);
 int get_file_info (char *,unsigned long *,long *,bool_t *,bool_t *);
@@ -271,17 +273,18 @@ pid_t    sid;
 
 time_t  time_now = 0;
 
-char           *plogenv = NULL;
-int             LOGLEVEL = 0;
-int             DEBUGMODE = 0;
-int             TDoBackground = 1;  /* background daemon */
-int             TForceUpdate = 0;  /* (boolean) */
+char  *plogenv = NULL;
+int    LOGLEVEL = 0;
+int    DEBUGMODE = 0;
+int    TDoBackground = 1;  /* background daemon */
+int    TForceUpdate = 0;  /* (boolean) */
 
-char           *ProgName;
-char           *NodeSuffix = NULL;
+char  *ProgName;
+char  *NodeSuffix = NULL;
+
+int   MultiMomMode = 0;
 
 int allow_any_mom = FALSE;
-
 
 void
 DIS_rpp_reset(void)
@@ -321,7 +324,7 @@ void do_rpp(
   int  ret, proto, version;
 
   void is_request(int, int, int *);
-  void stream_eof(int, u_long, int);
+  void stream_eof(int, u_long, uint16_t, int);
 
   if (LOGLEVEL >= 4)
     {
@@ -352,25 +355,45 @@ void do_rpp(
 
       struct pbsnode *node;
 
-      extern tree *streams;        /* tree of stream numbers */
+      /* extern tree *streams; */        /* tree of stream numbers */
 
-      node = tfind((u_long)stream, &streams);
+/*      node = tfind((u_long)stream, &streams); */
+      node = AVL_find((u_long)stream, 0, streams);
 
-      sprintf(log_buffer, "corrupt rpp request received on stream %d (node: \"%s\", %s) - invalid protocol - rc=%d (%s)",
-              stream,
-              (node != NULL) ? node->nd_name : "NULL",
-              netaddr(rpp_getaddr(stream)),
-              ret,
-              dis_emsg[ret]);
+      if(ret == DIS_EOF)
+        {
+        sprintf(log_buffer, "stream %d closed.(node: \"%s\", %s) rc=%d (%s)",
+                stream,
+                (node != NULL) ? node->nd_name : "NULL",
+                netaddr(rpp_getaddr(stream)),
+                ret,
+                dis_emsg[ret]);
 
-      log_record(
-        PBSEVENT_SCHED,
-        PBS_EVENTCLASS_REQUEST,
-        id,
-        log_buffer);
+        log_record(
+          PBSEVENT_SCHED,
+          PBS_EVENTCLASS_REQUEST,
+          id,
+          log_buffer);
+
+        }
+      else
+        {
+        sprintf(log_buffer, "corrupt rpp request received on stream %d (node: \"%s\", %s) - invalid protocol - rc=%d (%s)",
+                stream,
+                (node != NULL) ? node->nd_name : "NULL",
+                netaddr(rpp_getaddr(stream)),
+                ret,
+                dis_emsg[ret]);
+  
+        log_record(
+          PBSEVENT_SCHED,
+          PBS_EVENTCLASS_REQUEST,
+          id,
+          log_buffer);
+        }
       }
 
-    stream_eof(stream, 0, ret);
+    stream_eof(stream, 0, 0, ret);
 
     return;
     }  /* END if (ret != DIS_SUCCESS) */
@@ -393,7 +416,7 @@ void do_rpp(
         log_buffer);
       }
 
-    stream_eof(stream, 0, ret);
+    stream_eof(stream, 0, 0, ret);
 
     return;
     }
@@ -447,6 +470,12 @@ void rpp_request(
   {
   static char id[] = "rpp_request";
   int         stream;
+  struct      sockaddr name;
+  socklen_t   len;
+  int ret;
+
+  len = (socklen_t)sizeof(struct sockaddr);
+  ret = getsockname(fd, &name, &len);
 
   for (;;)
     {
@@ -841,6 +870,11 @@ void parse_command_line(int argc, char *argv[])
 
         break;
 
+      case 'm':
+
+        MultiMomMode = 1;
+        break;
+
       case 'M':
 
         if (get_port(optarg, &pbs_mom_port, &pbs_mom_addr))
@@ -1091,7 +1125,7 @@ main_loop(void)
 
   /* Just check the nodes with check_nodes above and don't ping anymore. */
 
-  set_task(WORK_Timed, time_now + 5, ping_nodes, NULL);
+/*  set_task(WORK_Timed, time_now + 5, ping_nodes, NULL); */
 
   set_task(WORK_Timed, time_now + 5, check_log, NULL);
 
@@ -1261,7 +1295,7 @@ main_loop(void)
        pjob = (job *)GET_NEXT(pjob->ji_alljobs))
     {
     if (pjob->ji_modified)
-      job_save(pjob, SAVEJOB_FULL);
+      job_save(pjob, SAVEJOB_FULL, 0);
     }
 
   if (svr_chngNodesfile)
@@ -1449,7 +1483,7 @@ int main(
 
   if (IamRoot() == 0)
     {
-	return(1);
+    return(1);
     }
 
   /*

@@ -120,6 +120,7 @@
 
 #define ATTR_ctime      "ctime"
 #define ATTR_exechost   "exec_host"
+#define ATTR_execport	"exec_port"
 #define ATTR_mtime      "mtime"
 #define ATTR_qtime      "qtime"
 #define ATTR_session    "session_id"
@@ -156,10 +157,13 @@
 #define ATTR_checkpoint_name  "checkpoint_name"   /* user specified name of checkpoint file */
 #define ATTR_checkpoint_time  "checkpoint_time"   /* timestamp of start of last checkpoint */
 #define ATTR_checkpoint_restart_status  "checkpoint_restart_status"   /* checkpoint restart status */
-#define ATTR_restart_name  "restart_name"   /* saved name of checkpoint restart file */
-#define ATTR_comp_time   "comp_time"
-#define ATTR_reported    "reported"
-#define ATTR_intcmd      "inter_cmd"
+#define ATTR_restart_name	"restart_name"   /* saved name of checkpoint restart file */
+#define ATTR_comp_time   	"comp_time"
+#define ATTR_reported    	"reported"
+#define ATTR_intcmd      	"inter_cmd"
+#define ATTR_job_radix		"job_radix"
+#define ATTR_sister_list	"sister_list"
+#define ATTR_total_runtime  "total_runtime"
 #define ATTR_P           "proxy_user"
 
 #ifdef USEJOBCREATE
@@ -284,6 +288,8 @@
 #define ATTR_NODE_jobs          "jobs"
 #define ATTR_NODE_status        "status"
 #define ATTR_NODE_note          "note"
+#define ATTR_NODE_mom_port	  "mom_service_port"
+#define ATTR_NODE_mom_rm_port "mom_manager_port" 
 
 /* notification email formating */
 #define ATTR_mailsubjectfmt "mail_subject_fmt"
@@ -372,6 +378,11 @@
 #ifndef MAXPATHLEN
 #define MAXPATHLEN  1024 /* max path name length */
 #endif
+
+#ifndef MAXPORTLEN
+#define MAXPORTLEN  5
+#endif
+
 #ifndef MAXNAMLEN
 #define MAXNAMLEN  255
 #endif

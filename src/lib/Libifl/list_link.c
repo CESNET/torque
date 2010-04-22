@@ -195,7 +195,7 @@ void append_link(
   void       *pobj) /* ptr to object to link in */
 
   {
-#ifndef NDEBUG
+/*#ifndef NDEBUG*/
   /* first make sure unlinked entries are pointing to themselves     */
 
   if ((pobj == NULL) ||
@@ -222,7 +222,7 @@ void append_link(
     abort();
     }  /* END if ((pobj == NULL) || ...) */
 
-#endif  /* NDEBUG */
+/*#endif*/  /* NDEBUG */
 
   /*
    * its big trouble if ll_struct is null, it would make this

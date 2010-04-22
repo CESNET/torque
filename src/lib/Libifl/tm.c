@@ -192,6 +192,7 @@ find_event(tm_event_t x)
 static void
 del_event(event_info *ep)
   {
+  int ret;
 
   /* unlink event from hash list */
   if (ep->e_prev)
@@ -237,9 +238,50 @@ del_event(event_info *ep)
 
   if (--event_count == 0)
     {
-    close(local_conn);
+    if(local_conn != -1)
+      {
+      ret = diswsi(local_conn, TM_PROTOCOL);
+      if (ret != DIS_SUCCESS)
+        goto done;
+      
+      ret = diswsi(local_conn, TM_PROTOCOL_VER);
+      
+      if (ret != DIS_SUCCESS)
+        goto done;
+      
+      ret = diswcs(local_conn, tm_jobid, tm_jobid_len);
+      
+      if (ret != DIS_SUCCESS)
+        goto done;
+      
+      ret = diswcs(local_conn, tm_jobcookie, tm_jobcookie_len);
+      
+      if (ret != DIS_SUCCESS)
+        goto done;
+      
+      ret = diswsi(local_conn, TM_FINALIZE);
+      
+      if (ret != DIS_SUCCESS)
+        goto done;
+      
+      ret = diswsi(local_conn, 0);
+      
+      if (ret != DIS_SUCCESS)
+        goto done;
+      
+      ret = diswui(local_conn, tm_jobtid);
+      
+      if (ret != DIS_SUCCESS)
+        goto done;
+
+      DIS_tcp_wflush(local_conn);
+
+      close(local_conn);
+      }
     local_conn = -1;
     }
+
+done:
 
   return;
   }

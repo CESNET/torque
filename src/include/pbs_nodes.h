@@ -86,7 +86,6 @@
 /* NOTE:  requires server_limits.h */
 
 #define BM_ERROR    -20
-
 enum psit
   {
   okay,
@@ -147,6 +146,8 @@ struct pbsnode
   char           *nd_note;  /* note set by administrator */
   int     nd_stream; /* RPP stream to Mom on host */
   enum psit   nd_flag;
+  unsigned short nd_mom_port; /* For multi-mom-mode unique port value PBS_MOM_SERVICE_PORT*/
+  unsigned short nd_mom_rm_port; /* For multi-mom-mode unique port value PBS_MANAGER_SERVICE_PORT */
   short     nd_nprops; /* number of properties */
   short                  nd_nstatus;    /* number of status items */
   short     nd_nsn; /* number of VPs  */
@@ -162,9 +163,10 @@ struct pbsnode
 
 struct howl
   {
-  char        *name;
-  int          order;
-  int          index;
+  char   	*name;
+  int     	order;
+  int     	index;
+  unsigned short	port;
 
   struct howl *next;
   };
@@ -181,6 +183,19 @@ typedef struct tree_t
   struct tree_t  *right;
   } tree;
 
+typedef struct newtree_t
+  {
+  u_long	key;			/* value used to be stored and sorted */
+  int		**index;		/* optional. pointer to array of newtree_t structures*/
+  struct pbsnode *nodep;
+
+  struct newtree_t *parent;
+  struct newtree_t *left;
+  struct newtree_t *right;
+  } newtree;
+
+
+
 /* NOTE:  should remove all node references and replace with 'tree' objects (NYI) */
 
 /*
@@ -193,7 +208,6 @@ typedef struct node_t {
 
 struct pbsnode *tfind(const u_long, tree **);
 int tlist(tree *, char *, int);
-
 
 /*
  * The following INUSE_ are used in both subnode.inuse and in node.nd_state
@@ -255,6 +269,8 @@ enum nodeattr
   ND_ATR_jobs,
   ND_ATR_status,
   ND_ATR_note,
+  ND_ATR_mom_port,
+  ND_ATR_mom_rm_port,
   ND_ATR_LAST
   }; /* WARNING: Must be the highest valued enum */
 
@@ -266,9 +282,11 @@ extern int    svr_totnodes;  /* number of nodes (hosts) */
 extern int    svr_tsnodes;  /* number of timeshared nodes */
 extern int    svr_clnodes;  /* number of cluster nodes */
 
-extern struct tree_t  *ipaddrs;
+extern int 	  MultiMomMode; /* moms configured for multiple moms per machine */
 
-extern struct tree_t  *streams;
+/*extern struct tree_t  *ipaddrs;*/
+
+/* extern struct tree_t  *streams; */
 
 extern int update_nodes_file(void);
 
@@ -283,6 +301,7 @@ extern void setup_notification(char *);
 extern struct pbssubn  *find_subnodebyname(char *);
 
 extern struct pbsnode  *find_nodebyname(char *);
+extern struct pbsnode  *find_nodebynameandaltname(char *, char *);
 extern void free_prop_list(struct prop*);
 extern void free_prop_attr(attribute*);
 extern void recompute_ntype_cnts();

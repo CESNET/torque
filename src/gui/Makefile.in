@@ -14,14 +14,13 @@
 
 @SET_MAKE@
 
-
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
 VPATH = @srcdir@
 pkgdatadir = $(datadir)/@PACKAGE@
 pkglibdir = $(libdir)/@PACKAGE@
 pkgincludedir = $(includedir)/@PACKAGE@
-top_builddir = ../..
+top_builddir = ../../..
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
 INSTALL = @INSTALL@
 install_sh_DATA = $(install_sh) -c -m 644
@@ -37,10 +36,10 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-DIST_COMMON = $(dist_xpbs_DATA) $(dist_xpbsbitmap_DATA) \
-	$(dist_xpbshelp_DATA) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in $(top_srcdir)/buildutils/config.mk
-subdir = src/gui
+DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
+	$(top_srcdir)/buildutils/config.mk
+xpbsbin_PROGRAMS = xpbs_datadump$(EXEEXT) xpbs_scriptload$(EXEEXT)
+subdir = src/gui/Ccode
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/buildutils/tcl.m4 \
@@ -57,34 +56,33 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 mkinstalldirs = $(SHELL) $(top_srcdir)/buildutils/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/src/include/pbs_config.h
 CONFIG_CLEAN_FILES =
-am__installdirs = "$(DESTDIR)$(bindir)" "$(DESTDIR)$(xpbsdir)" \
-	"$(DESTDIR)$(xpbsbitmapdir)" "$(DESTDIR)$(xpbshelpdir)" \
-	"$(DESTDIR)$(xpbsdir)"
-binSCRIPT_INSTALL = $(INSTALL_SCRIPT)
-SCRIPTS = $(bin_SCRIPTS)
-SOURCES =
-DIST_SOURCES =
-RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
-	html-recursive info-recursive install-data-recursive \
-	install-exec-recursive install-info-recursive \
-	install-recursive installcheck-recursive installdirs-recursive \
-	pdf-recursive ps-recursive uninstall-info-recursive \
-	uninstall-recursive
-am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
-am__vpath_adj = case $$p in \
-    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
-    *) f=$$p;; \
-  esac;
-am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
-dist_xpbsDATA_INSTALL = $(INSTALL_DATA)
-dist_xpbsbitmapDATA_INSTALL = $(INSTALL_DATA)
-dist_xpbshelpDATA_INSTALL = $(INSTALL_DATA)
-nodist_xpbsDATA_INSTALL = $(INSTALL_DATA)
-DATA = $(dist_xpbs_DATA) $(dist_xpbsbitmap_DATA) $(dist_xpbshelp_DATA) \
-	$(nodist_xpbs_DATA)
+am__installdirs = "$(DESTDIR)$(xpbsbindir)"
+xpbsbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
+PROGRAMS = $(xpbsbin_PROGRAMS)
+am_xpbs_datadump_OBJECTS = xpbs_datadump.$(OBJEXT)
+xpbs_datadump_OBJECTS = $(am_xpbs_datadump_OBJECTS)
+xpbs_datadump_LDADD = $(LDADD)
+am__DEPENDENCIES_1 = ../../lib/Libpbs/libtorque.la
+xpbs_datadump_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am_xpbs_scriptload_OBJECTS = xpbs_scriptload.$(OBJEXT)
+xpbs_scriptload_OBJECTS = $(am_xpbs_scriptload_OBJECTS)
+xpbs_scriptload_LDADD = $(LDADD)
+xpbs_scriptload_DEPENDENCIES = $(am__DEPENDENCIES_1)
+DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/src/include
+depcomp = $(SHELL) $(top_srcdir)/buildutils/depcomp
+am__depfiles_maybe = depfiles
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+LTCOMPILE = $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) \
+	$(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) \
+	$(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(LIBTOOL) --tag=CC --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
+	$(AM_LDFLAGS) $(LDFLAGS) -o $@
+SOURCES = $(xpbs_datadump_SOURCES) $(xpbs_scriptload_SOURCES)
+DIST_SOURCES = $(xpbs_datadump_SOURCES) $(xpbs_scriptload_SOURCES)
 ETAGS = etags
 CTAGS = ctags
-DIST_SUBDIRS = $(SUBDIRS)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
 ACLOCAL = @ACLOCAL@
 AMDEP_FALSE = @AMDEP_FALSE@
@@ -331,52 +329,19 @@ PBS_MKDIRS = $(SHELL) $(top_builddir)/buildutils/pbs_mkdirs
 AM_CPPFLAGS = -I$(top_srcdir)/src/include
 IFF_PATH = $(sbindir)/$(program_prefix)pbs_iff$(program_suffix)
 DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
+IM_DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_im_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
-SUBDIRS = Ccode
-xpbsdir = $(XPBS_DIR)
-xpbsbitmapdir = $(xpbsdir)/bitmaps
-xpbshelpdir = $(xpbsdir)/help
-SUFFIXES = .src
-bin_SCRIPTS = xpbs
-nodist_xpbs_DATA = xpbsrc tclIndex
-CLEANFILES = xpbs xpbsrc tclIndex buildindex
-EXTRA_DIST = xpbs.src xpbsrc.src buildindex.src
-dist_xpbs_DATA = pbs.tcl preferences.tcl acctname.tk after_depend.tk \
-		 auto_upd.tk before_depend.tk bindings.tk box.tk button.tk \
-		 checkpoint.tk common.tk concur.tk datetime.tk email_list.tk \
-		 entry.tk fileselect.tk hold.tk jobname.tk listbox.tk main.tk \
-		 misc.tk owners.tk prefsave.tk pref.tk priority.tk qalter.tk \
-		 qdel.tk qhold.tk qmove.tk qmsg.tk qrls.tk qsig.tk qsub.tk \
-		 qterm.tk qtime.tk rerun.tk res.tk spinbox.tk staging.tk \
-		 state.tk text.tk trackjob.tk wmgr.tk
-
-dist_xpbsbitmap_DATA = bitmaps/curve_down_arrow.bmp \
-		       bitmaps/curve_up_arrow.bmp bitmaps/cyclist-only.xbm \
-		       bitmaps/Downarrow.bmp bitmaps/hourglass.bmp \
-		       bitmaps/iconize.bmp bitmaps/logo.bmp \
-		       bitmaps/maximize.bmp bitmaps/sm_down_arrow.bmp \
-		       bitmaps/sm_up_arrow.bmp bitmaps/Uparrow.bmp
-
-dist_xpbshelp_DATA = help/after_depend.hlp help/auto_update.hlp \
-		     help/before_depend.hlp help/concur.hlp help/datetime.hlp \
-		     help/delete.hlp help/email.hlp help/fileselect.hlp \
-		     help/hold.hlp help/main.hlp help/message.hlp \
-		     help/misc.hlp help/modify.hlp help/move.hlp \
-		     help/notes.hlp help/preferences.hlp help/release.hlp \
-		     help/select.acctname.hlp help/select.checkpoint.hlp \
-		     help/select.hold.hlp help/select.jobname.hlp \
-		     help/select.owners.hlp help/select.priority.hlp \
-		     help/select.qtime.hlp help/select.rerun.hlp \
-		     help/select.resources.hlp help/select.states.hlp \
-		     help/signal.hlp help/staging.hlp help/submit.hlp \
-		     help/terminate.hlp help/trackjob.hlp
-
-all: all-recursive
+PBS_LIBS = ../../lib/Libpbs/libtorque.la
+xpbsbindir = $(XPBS_DIR)/bin
+LDADD = $(PBS_LIBS)
+xpbs_datadump_SOURCES = xpbs_datadump.c
+xpbs_scriptload_SOURCES = xpbs_scriptload.c
+all: all-am
 
 .SUFFIXES:
-.SUFFIXES: .src
+.SUFFIXES: .c .lo .o .obj
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(top_srcdir)/buildutils/config.mk $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -386,9 +351,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(top_srcdir
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  src/gui/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  src/gui/Ccode/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign  src/gui/Makefile
+	  $(AUTOMAKE) --foreign  src/gui/Ccode/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -406,25 +371,70 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
-install-binSCRIPTS: $(bin_SCRIPTS)
+install-xpbsbinPROGRAMS: $(xpbsbin_PROGRAMS)
 	@$(NORMAL_INSTALL)
-	test -z "$(bindir)" || $(mkdir_p) "$(DESTDIR)$(bindir)"
-	@list='$(bin_SCRIPTS)'; for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  if test -f $$d$$p; then \
-	    f=`echo "$$p" | sed 's|^.*/||;$(transform)'`; \
-	    echo " $(binSCRIPT_INSTALL) '$$d$$p' '$(DESTDIR)$(bindir)/$$f'"; \
-	    $(binSCRIPT_INSTALL) "$$d$$p" "$(DESTDIR)$(bindir)/$$f"; \
+	test -z "$(xpbsbindir)" || $(mkdir_p) "$(DESTDIR)$(xpbsbindir)"
+	@list='$(xpbsbin_PROGRAMS)'; for p in $$list; do \
+	  p1=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
+	  if test -f $$p \
+	     || test -f $$p1 \
+	  ; then \
+	    f=`echo "$$p1" | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'`; \
+	   echo " $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(xpbsbinPROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(xpbsbindir)/$$f'"; \
+	   $(INSTALL_PROGRAM_ENV) $(LIBTOOL) --mode=install $(xpbsbinPROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(xpbsbindir)/$$f" || exit 1; \
 	  else :; fi; \
 	done
 
-uninstall-binSCRIPTS:
+uninstall-xpbsbinPROGRAMS:
 	@$(NORMAL_UNINSTALL)
-	@list='$(bin_SCRIPTS)'; for p in $$list; do \
-	  f=`echo "$$p" | sed 's|^.*/||;$(transform)'`; \
-	  echo " rm -f '$(DESTDIR)$(bindir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(bindir)/$$f"; \
+	@list='$(xpbsbin_PROGRAMS)'; for p in $$list; do \
+	  f=`echo "$$p" | sed 's,^.*/,,;s/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
+	  echo " rm -f '$(DESTDIR)$(xpbsbindir)/$$f'"; \
+	  rm -f "$(DESTDIR)$(xpbsbindir)/$$f"; \
 	done
+
+clean-xpbsbinPROGRAMS:
+	@list='$(xpbsbin_PROGRAMS)'; for p in $$list; do \
+	  f=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
+	  echo " rm -f $$p $$f"; \
+	  rm -f $$p $$f ; \
+	done
+xpbs_datadump$(EXEEXT): $(xpbs_datadump_OBJECTS) $(xpbs_datadump_DEPENDENCIES) 
+	@rm -f xpbs_datadump$(EXEEXT)
+	$(LINK) $(xpbs_datadump_LDFLAGS) $(xpbs_datadump_OBJECTS) $(xpbs_datadump_LDADD) $(LIBS)
+xpbs_scriptload$(EXEEXT): $(xpbs_scriptload_OBJECTS) $(xpbs_scriptload_DEPENDENCIES) 
+	@rm -f xpbs_scriptload$(EXEEXT)
+	$(LINK) $(xpbs_scriptload_LDFLAGS) $(xpbs_scriptload_OBJECTS) $(xpbs_scriptload_LDADD) $(LIBS)
+
+mostlyclean-compile:
+	-rm -f *.$(OBJEXT)
+
+distclean-compile:
+	-rm -f *.tab.c
+
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xpbs_datadump.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/xpbs_scriptload.Po@am__quote@
+
+.c.o:
+@am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(COMPILE) -c $<
+
+.c.obj:
+@am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ `$(CYGPATH_W) '$<'`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(COMPILE) -c `$(CYGPATH_W) '$<'`
+
+.c.lo:
+@am__fastdepCC_TRUE@	if $(LTCOMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Plo"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -435,145 +445,6 @@ clean-libtool:
 distclean-libtool:
 	-rm -f libtool
 uninstall-info-am:
-install-dist_xpbsDATA: $(dist_xpbs_DATA)
-	@$(NORMAL_INSTALL)
-	test -z "$(xpbsdir)" || $(mkdir_p) "$(DESTDIR)$(xpbsdir)"
-	@list='$(dist_xpbs_DATA)'; for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  f=$(am__strip_dir) \
-	  echo " $(dist_xpbsDATA_INSTALL) '$$d$$p' '$(DESTDIR)$(xpbsdir)/$$f'"; \
-	  $(dist_xpbsDATA_INSTALL) "$$d$$p" "$(DESTDIR)$(xpbsdir)/$$f"; \
-	done
-
-uninstall-dist_xpbsDATA:
-	@$(NORMAL_UNINSTALL)
-	@list='$(dist_xpbs_DATA)'; for p in $$list; do \
-	  f=$(am__strip_dir) \
-	  echo " rm -f '$(DESTDIR)$(xpbsdir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(xpbsdir)/$$f"; \
-	done
-install-dist_xpbsbitmapDATA: $(dist_xpbsbitmap_DATA)
-	@$(NORMAL_INSTALL)
-	test -z "$(xpbsbitmapdir)" || $(mkdir_p) "$(DESTDIR)$(xpbsbitmapdir)"
-	@list='$(dist_xpbsbitmap_DATA)'; for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  f=$(am__strip_dir) \
-	  echo " $(dist_xpbsbitmapDATA_INSTALL) '$$d$$p' '$(DESTDIR)$(xpbsbitmapdir)/$$f'"; \
-	  $(dist_xpbsbitmapDATA_INSTALL) "$$d$$p" "$(DESTDIR)$(xpbsbitmapdir)/$$f"; \
-	done
-
-uninstall-dist_xpbsbitmapDATA:
-	@$(NORMAL_UNINSTALL)
-	@list='$(dist_xpbsbitmap_DATA)'; for p in $$list; do \
-	  f=$(am__strip_dir) \
-	  echo " rm -f '$(DESTDIR)$(xpbsbitmapdir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(xpbsbitmapdir)/$$f"; \
-	done
-install-dist_xpbshelpDATA: $(dist_xpbshelp_DATA)
-	@$(NORMAL_INSTALL)
-	test -z "$(xpbshelpdir)" || $(mkdir_p) "$(DESTDIR)$(xpbshelpdir)"
-	@list='$(dist_xpbshelp_DATA)'; for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  f=$(am__strip_dir) \
-	  echo " $(dist_xpbshelpDATA_INSTALL) '$$d$$p' '$(DESTDIR)$(xpbshelpdir)/$$f'"; \
-	  $(dist_xpbshelpDATA_INSTALL) "$$d$$p" "$(DESTDIR)$(xpbshelpdir)/$$f"; \
-	done
-
-uninstall-dist_xpbshelpDATA:
-	@$(NORMAL_UNINSTALL)
-	@list='$(dist_xpbshelp_DATA)'; for p in $$list; do \
-	  f=$(am__strip_dir) \
-	  echo " rm -f '$(DESTDIR)$(xpbshelpdir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(xpbshelpdir)/$$f"; \
-	done
-install-nodist_xpbsDATA: $(nodist_xpbs_DATA)
-	@$(NORMAL_INSTALL)
-	test -z "$(xpbsdir)" || $(mkdir_p) "$(DESTDIR)$(xpbsdir)"
-	@list='$(nodist_xpbs_DATA)'; for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  f=$(am__strip_dir) \
-	  echo " $(nodist_xpbsDATA_INSTALL) '$$d$$p' '$(DESTDIR)$(xpbsdir)/$$f'"; \
-	  $(nodist_xpbsDATA_INSTALL) "$$d$$p" "$(DESTDIR)$(xpbsdir)/$$f"; \
-	done
-
-uninstall-nodist_xpbsDATA:
-	@$(NORMAL_UNINSTALL)
-	@list='$(nodist_xpbs_DATA)'; for p in $$list; do \
-	  f=$(am__strip_dir) \
-	  echo " rm -f '$(DESTDIR)$(xpbsdir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(xpbsdir)/$$f"; \
-	done
-
-# This directory's subdirectories are mostly independent; you can cd
-# into them and run `make' without going through this Makefile.
-# To change the values of `make' variables: instead of editing Makefiles,
-# (1) if the variable is set in `config.status', edit `config.status'
-#     (which will cause the Makefiles to be regenerated when you run `make');
-# (2) otherwise, pass the desired values on the `make' command line.
-$(RECURSIVE_TARGETS):
-	@failcom='exit 1'; \
-	for f in x $$MAKEFLAGS; do \
-	  case $$f in \
-	    *=* | --[!k]*);; \
-	    *k*) failcom='fail=yes';; \
-	  esac; \
-	done; \
-	dot_seen=no; \
-	target=`echo $@ | sed s/-recursive//`; \
-	list='$(SUBDIRS)'; for subdir in $$list; do \
-	  echo "Making $$target in $$subdir"; \
-	  if test "$$subdir" = "."; then \
-	    dot_seen=yes; \
-	    local_target="$$target-am"; \
-	  else \
-	    local_target="$$target"; \
-	  fi; \
-	  (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$local_target) \
-	  || eval $$failcom; \
-	done; \
-	if test "$$dot_seen" = "no"; then \
-	  $(MAKE) $(AM_MAKEFLAGS) "$$target-am" || exit 1; \
-	fi; test -z "$$fail"
-
-mostlyclean-recursive clean-recursive distclean-recursive \
-maintainer-clean-recursive:
-	@failcom='exit 1'; \
-	for f in x $$MAKEFLAGS; do \
-	  case $$f in \
-	    *=* | --[!k]*);; \
-	    *k*) failcom='fail=yes';; \
-	  esac; \
-	done; \
-	dot_seen=no; \
-	case "$@" in \
-	  distclean-* | maintainer-clean-*) list='$(DIST_SUBDIRS)' ;; \
-	  *) list='$(SUBDIRS)' ;; \
-	esac; \
-	rev=''; for subdir in $$list; do \
-	  if test "$$subdir" = "."; then :; else \
-	    rev="$$subdir $$rev"; \
-	  fi; \
-	done; \
-	rev="$$rev ."; \
-	target=`echo $@ | sed s/-recursive//`; \
-	for subdir in $$rev; do \
-	  echo "Making $$target in $$subdir"; \
-	  if test "$$subdir" = "."; then \
-	    local_target="$$target-am"; \
-	  else \
-	    local_target="$$target"; \
-	  fi; \
-	  (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) $$local_target) \
-	  || eval $$failcom; \
-	done && test -z "$$fail"
-tags-recursive:
-	list='$(SUBDIRS)'; for subdir in $$list; do \
-	  test "$$subdir" = . || (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) tags); \
-	done
-ctags-recursive:
-	list='$(SUBDIRS)'; for subdir in $$list; do \
-	  test "$$subdir" = . || (cd $$subdir && $(MAKE) $(AM_MAKEFLAGS) ctags); \
-	done
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
@@ -585,23 +456,10 @@ ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
 	mkid -fID $$unique
 tags: TAGS
 
-TAGS: tags-recursive $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
+TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
 		$(TAGS_FILES) $(LISP)
 	tags=; \
 	here=`pwd`; \
-	if ($(ETAGS) --etags-include --version) >/dev/null 2>&1; then \
-	  include_option=--etags-include; \
-	  empty_fix=.; \
-	else \
-	  include_option=--include; \
-	  empty_fix=; \
-	fi; \
-	list='$(SUBDIRS)'; for subdir in $$list; do \
-	  if test "$$subdir" = .; then :; else \
-	    test ! -f $$subdir/TAGS || \
-	      tags="$$tags $$include_option=$$here/$$subdir/TAGS"; \
-	  fi; \
-	done; \
 	list='$(SOURCES) $(HEADERS)  $(LISP) $(TAGS_FILES)'; \
 	unique=`for i in $$list; do \
 	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
@@ -614,7 +472,7 @@ TAGS: tags-recursive $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
 	    $$tags $$unique; \
 	fi
 ctags: CTAGS
-CTAGS: ctags-recursive $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
+CTAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
 		$(TAGS_FILES) $(LISP)
 	tags=; \
 	here=`pwd`; \
@@ -637,7 +495,7 @@ distclean-tags:
 	-rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH tags
 
 distdir: $(DISTFILES)
-	$(mkdir_p) $(distdir)/../../buildutils $(distdir)/bitmaps $(distdir)/help
+	$(mkdir_p) $(distdir)/../../../buildutils
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \
@@ -664,38 +522,22 @@ distdir: $(DISTFILES)
 	    || exit 1; \
 	  fi; \
 	done
-	list='$(DIST_SUBDIRS)'; for subdir in $$list; do \
-	  if test "$$subdir" = .; then :; else \
-	    test -d "$(distdir)/$$subdir" \
-	    || $(mkdir_p) "$(distdir)/$$subdir" \
-	    || exit 1; \
-	    distdir=`$(am__cd) $(distdir) && pwd`; \
-	    top_distdir=`$(am__cd) $(top_distdir) && pwd`; \
-	    (cd $$subdir && \
-	      $(MAKE) $(AM_MAKEFLAGS) \
-	        top_distdir="$$top_distdir" \
-	        distdir="$$distdir/$$subdir" \
-	        distdir) \
-	      || exit 1; \
-	  fi; \
-	done
 check-am: all-am
-check: check-recursive
-all-am: Makefile $(SCRIPTS) $(DATA)
-installdirs: installdirs-recursive
-installdirs-am:
-	for dir in "$(DESTDIR)$(bindir)" "$(DESTDIR)$(xpbsdir)" "$(DESTDIR)$(xpbsbitmapdir)" "$(DESTDIR)$(xpbshelpdir)" "$(DESTDIR)$(xpbsdir)"; do \
+check: check-am
+all-am: Makefile $(PROGRAMS)
+installdirs:
+	for dir in "$(DESTDIR)$(xpbsbindir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
 	done
-install: install-recursive
-install-exec: install-exec-recursive
-install-data: install-data-recursive
-uninstall: uninstall-recursive
+install: install-am
+install-exec: install-exec-am
+install-data: install-data-am
+uninstall: uninstall-am
 
 install-am: all-am
 	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
 
-installcheck: installcheck-recursive
+installcheck: installcheck-am
 install-strip:
 	$(MAKE) $(AM_MAKEFLAGS) INSTALL_PROGRAM="$(INSTALL_STRIP_PROGRAM)" \
 	  install_sh_PROGRAM="$(INSTALL_STRIP_PROGRAM)" INSTALL_STRIP_FLAG=-s \
@@ -704,7 +546,6 @@ install-strip:
 mostlyclean-generic:
 
 clean-generic:
-	-test -z "$(CLEANFILES)" || rm -f $(CLEANFILES)
 
 distclean-generic:
 	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
@@ -712,115 +553,70 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-clean: clean-recursive
+clean: clean-am
 
-clean-am: clean-generic clean-libtool mostlyclean-am
+clean-am: clean-generic clean-libtool clean-xpbsbinPROGRAMS \
+	mostlyclean-am
 
-distclean: distclean-recursive
+distclean: distclean-am
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic distclean-libtool \
-	distclean-tags
+distclean-am: clean-am distclean-compile distclean-generic \
+	distclean-libtool distclean-tags
 
-dvi: dvi-recursive
+dvi: dvi-am
 
 dvi-am:
 
-html: html-recursive
+html: html-am
 
-info: info-recursive
+info: info-am
 
 info-am:
 
-install-data-am: install-dist_xpbsDATA install-dist_xpbsbitmapDATA \
-	install-dist_xpbshelpDATA install-nodist_xpbsDATA
-	@$(NORMAL_INSTALL)
-	$(MAKE) $(AM_MAKEFLAGS) install-data-hook
+install-data-am: install-xpbsbinPROGRAMS
 
-install-exec-am: install-binSCRIPTS
+install-exec-am:
 
-install-info: install-info-recursive
+install-info: install-info-am
 
 install-man:
 
 installcheck-am:
 
-maintainer-clean: maintainer-clean-recursive
+maintainer-clean: maintainer-clean-am
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
-mostlyclean: mostlyclean-recursive
+mostlyclean: mostlyclean-am
 
-mostlyclean-am: mostlyclean-generic mostlyclean-libtool
+mostlyclean-am: mostlyclean-compile mostlyclean-generic \
+	mostlyclean-libtool
 
-pdf: pdf-recursive
+pdf: pdf-am
 
 pdf-am:
 
-ps: ps-recursive
+ps: ps-am
 
 ps-am:
 
-uninstall-am: uninstall-binSCRIPTS uninstall-dist_xpbsDATA \
-	uninstall-dist_xpbsbitmapDATA uninstall-dist_xpbshelpDATA \
-	uninstall-info-am uninstall-nodist_xpbsDATA
-	@$(NORMAL_INSTALL)
-	$(MAKE) $(AM_MAKEFLAGS) uninstall-hook
+uninstall-am: uninstall-info-am uninstall-xpbsbinPROGRAMS
 
-uninstall-info: uninstall-info-recursive
+.PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
+	clean-libtool clean-xpbsbinPROGRAMS ctags distclean \
+	distclean-compile distclean-generic distclean-libtool \
+	distclean-tags distdir dvi dvi-am html html-am info info-am \
+	install install-am install-data install-data-am install-exec \
+	install-exec-am install-info install-info-am install-man \
+	install-strip install-xpbsbinPROGRAMS installcheck \
+	installcheck-am installdirs maintainer-clean \
+	maintainer-clean-generic mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
+	tags uninstall uninstall-am uninstall-info-am \
+	uninstall-xpbsbinPROGRAMS
 
-.PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am check check-am \
-	clean clean-generic clean-libtool clean-recursive ctags \
-	ctags-recursive distclean distclean-generic distclean-libtool \
-	distclean-recursive distclean-tags distdir dvi dvi-am html \
-	html-am info info-am install install-am install-binSCRIPTS \
-	install-data install-data-am install-data-hook \
-	install-dist_xpbsDATA install-dist_xpbsbitmapDATA \
-	install-dist_xpbshelpDATA install-exec install-exec-am \
-	install-info install-info-am install-man \
-	install-nodist_xpbsDATA install-strip installcheck \
-	installcheck-am installdirs installdirs-am maintainer-clean \
-	maintainer-clean-generic maintainer-clean-recursive \
-	mostlyclean mostlyclean-generic mostlyclean-libtool \
-	mostlyclean-recursive pdf pdf-am ps ps-am tags tags-recursive \
-	uninstall uninstall-am uninstall-binSCRIPTS \
-	uninstall-dist_xpbsDATA uninstall-dist_xpbsbitmapDATA \
-	uninstall-dist_xpbshelpDATA uninstall-hook uninstall-info-am \
-	uninstall-nodist_xpbsDATA
-
-
-install_gui: install
-
-xpbs: $(srcdir)/xpbs.src
-	sed -e 's,#\!.*wish.*$$,#\!@WISH_PROG@,;' \
-	    -e 's,set  *libdir.*$$,set libdir $(xpbsdir),' \
-	    -e 's,set  *appdefdir.*$$,set appdefdir $(xpbsdir),' \
-	    -e 's,set  *xpbs_datadump.*$$,set xpbs_datadump $(program_prefix)xpbs_datadump$(program_suffix),' \
-	    -e 's,set  *xpbs_scriptload.*$$,set xpbs_scriptload $(program_prefix)xpbs_scriptload$(program_suffix),' \
-	    -e 's,RSH_PATH,$(RSH_PATH),' \
-	    $? > $@
-
-xpbsrc: $(srcdir)/xpbsrc.src
-	sed -e 's,\*serverHosts:.*$$,\*serverHosts: $(PBS_DEFAULT_SERVER),;' \
-	    -e ' s,\*selectHosts:.*$$,\*selectHosts: $(PBS_DEFAULT_SERVER),' \
-	    $? > $@
-
-buildindex: $(srcdir)/buildindex.src
-	@echo Processing buildindex
-	@sed -e 's,#\!.*tclsh.*$$,#\!@TCLSH_PROG@,' $? > $@
-	@chmod +x $@
-
-tclIndex: $(dist_xpbs_DATA) buildindex
-	@echo Running buildindex \(locally\)
-	@./buildindex $(srcdir) .
-
-install-data-hook:
-	$(INSTALL_SCRIPT) buildindex $(DESTDIR)$(XPBS_DIR)/buildindex
-	rm -f $(DESTDIR)$(XPBS_DIR)/tclIndex
-	cd $(DESTDIR)$(XPBS_DIR) && ./buildindex $(DESTDIR)$(XPBS_DIR) . $(DESTDIR)
-	chmod 644 $(DESTDIR)$(XPBS_DIR)/tclIndex
-
-uninstall-hook:
-	rm -f $(DESTDIR)$(XPBS_DIR)/buildindex
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

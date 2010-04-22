@@ -5,7 +5,8 @@ DIST_SUBDIRS = aix4 aix5 cygwin darwin digitalunix freebsd freebsd5 fujitsu hpux
 	irix5 irix6 irix6array linux netbsd solaris5 solaris7 sunos4 unicos8 unicosmk2
 
 AM_CPPFLAGS += -I$(top_srcdir)/src/resmom/@PBS_MACH@ -DPBS_MOM \
-	       -DDEMUX=\"$(program_prefix)$(DEMUX_PATH)$(program_suffix)\" \
+	       -DDEMUX=\"$(program_prefix)$(DEMUX_PATH)$(program_suffix)\" \ 
+	        -DIM_DEMUX=\"$(IM_DEMUX_PATH)\" \
 	       -DRCP_PATH=\"$(program_prefix)$(RCP_PATH)$(program_suffix)\" \
 	       -DRCP_ARGS=\"$(RCP_ARGS)\" \
 	       -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\" -DPBS_ENVIRON=\"$(PBS_ENVIRON)\"
@@ -16,7 +17,7 @@ PBS_LIBS = ../lib/Libattr/libattr.a \
 	   ../lib/Libpbs/libtorque.la
 
 EXTRA_DIST = rm_dep.h
-sbin_PROGRAMS = pbs_mom pbs_demux
+sbin_PROGRAMS = pbs_mom pbs_demux pbs_im_demux
 
 LDADD = @PBS_MACH@/libmommach.a $(MOMLIBS) $(PBS_LIBS)
 
@@ -34,6 +35,7 @@ pbs_mom_SOURCES += cray_cpa.c
 endif
 
 pbs_demux_SOURCES = pbs_demux.c
+pbs_im_demux_SOURCES = pbs_im_demux.c
 
 install-exec-hook:
 	$(PBS_MKDIRS) aux || :

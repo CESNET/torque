@@ -91,6 +91,7 @@
 #include <stdio.h>
 #include "libpbs.h"
 #include <ctype.h>
+#include <stdint.h>
 #include "server_limits.h"
 #include "list_link.h"
 #include "attribute.h"
@@ -119,8 +120,8 @@ extern attribute_def   node_attr_def[];   /* node attributes defs */
 extern int        pbs_mom_port;
 extern time_t        time_now;
 extern char       *msg_init_norerun;
-
-extern struct pbsnode *tfind_addr(const u_long);
+           
+extern struct pbsnode *tfind_addr(const u_long, uint16_t);
 extern int             LOGLEVEL;
 
 /* Extern Functions */
@@ -704,7 +705,8 @@ int stat_to_mom(
   {
 
   struct batch_request *newrq;
-  int          rc;
+  int      rc;
+  ulong    addr;
 
   struct work_task     *pwt = 0;
 
@@ -728,7 +730,9 @@ int stat_to_mom(
 
   /* if MOM is down just return stale information */
 
-  if (((node = tfind_addr(pjob->ji_qs.ji_un.ji_exect.ji_momaddr)) != NULL) &&
+  addr = pjob->ji_qs.ji_un.ji_exect.ji_momaddr;
+
+  if (((node = tfind_addr(addr, pjob->ji_qs.ji_un.ji_exect.ji_momport)) != NULL) &&
       (node->nd_state & (INUSE_DELETED | INUSE_DOWN)))
     {
     if (LOGLEVEL >= 6)
@@ -751,7 +755,7 @@ int stat_to_mom(
 
   cntl->sc_conn = svr_connect(
                     pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
-                    pbs_mom_port,
+                    pjob->ji_qs.ji_un.ji_exect.ji_momport,
                     process_Dreply,
                     ToServerDIS);
 
@@ -826,7 +830,7 @@ static void stat_update(
           /* first save since running job (or the sid has changed), */
           /* must save session id    */
 
-          job_save(pjob, SAVEJOB_FULL);
+          job_save(pjob, SAVEJOB_FULL, 0);
 
           svr_mailowner(pjob, MAIL_BEGIN, MAIL_NORMAL, NULL);
           }
