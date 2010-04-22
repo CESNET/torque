@@ -1,4 +1,12 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
+3.0-alpha
+  f - Added code to support mulitple MOMs per node. Changed code to support
+      a radix of sister nodes giving mom to mom job communication a hierarchical
+      structure instead of the flat Mother Superior to everyone which is the
+      historical way TORQUE has communicated with sisters in a job. 
+      Replaced the simple binary tree used by the tinsert, tfind, tdelete
+      et. al. utilities with an AVL balanced tree and replaced the previous
+      functions with functions beginning with AVL_.
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,
