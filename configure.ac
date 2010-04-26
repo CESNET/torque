@@ -602,7 +602,7 @@ dnl  Check for job_create function on Cray
 dnl
     AC_CHECK_LIB([job], [job_create],
       [MOMLIBS="-L/opt/cray/job/default/lib64 -ljob $MOMLIBS"
-        CFLAGS="$CFLAGS -DUSEJOBCREATE"])
+        CFLAGS="$CFLAGS -DUSEJOBCREATE -I/opt/cray/job/default/include"])
     ;;
   darwin*) AC_DEFINE(SETCONTROLLINGTTY, 1, [Define to set the controlling tty])
     ;;
