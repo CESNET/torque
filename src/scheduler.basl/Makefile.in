@@ -37,9 +37,10 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(top_srcdir)/buildutils/config.mk
+	$(top_srcdir)/buildutils/config.mk Lexer.c Parser.c Parser.h
 sbin_PROGRAMS = pbs_sched$(EXEEXT)
-subdir = src/scheduler.tcl
+noinst_PROGRAMS = basl2c$(EXEEXT)
+subdir = src/scheduler.basl
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acinclude.m4 \
 	$(top_srcdir)/buildutils/tcl.m4 \
@@ -58,13 +59,21 @@ CONFIG_HEADER = $(top_builddir)/src/include/pbs_config.h
 CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(sbindir)"
 sbinPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
-PROGRAMS = $(sbin_PROGRAMS)
-am_pbs_sched_OBJECTS = pbs_sched.$(OBJEXT) pbs_tclWrap.$(OBJEXT) \
-	site_tclWrap.$(OBJEXT) get_4byte.$(OBJEXT)
+PROGRAMS = $(noinst_PROGRAMS) $(sbin_PROGRAMS)
+am_basl2c_OBJECTS = af.$(OBJEXT) Basl2c.$(OBJEXT) CodeGen.$(OBJEXT) \
+	List.$(OBJEXT) Node.$(OBJEXT) Semantic.$(OBJEXT) \
+	SymTab.$(OBJEXT) Lexer.$(OBJEXT) Parser.$(OBJEXT)
+basl2c_OBJECTS = $(am_basl2c_OBJECTS)
+am__DEPENDENCIES_1 =
+basl2c_DEPENDENCIES = $(am__DEPENDENCIES_1)
+am_pbs_sched_OBJECTS = af.$(OBJEXT) af_cnode.$(OBJEXT) \
+	af_cnodemap.$(OBJEXT) af_config.$(OBJEXT) af_job.$(OBJEXT) \
+	af_que.$(OBJEXT) af_resmom.$(OBJEXT) af_server.$(OBJEXT) \
+	af_system.$(OBJEXT)
 pbs_sched_OBJECTS = $(am_pbs_sched_OBJECTS)
-am__DEPENDENCIES_1 = ../lib/Libpbs/libtorque.la
-am__DEPENDENCIES_2 =
-pbs_sched_DEPENDENCIES = $(am__DEPENDENCIES_1) $(am__DEPENDENCIES_2)
+am__DEPENDENCIES_2 = ../lib/Libpbs/libtorque.la
+pbs_sched_DEPENDENCIES = $(am__DEPENDENCIES_2) $(am__DEPENDENCIES_1) \
+	pbs_sched.o
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)/src/include
 depcomp = $(SHELL) $(top_srcdir)/buildutils/depcomp
 am__depfiles_maybe = depfiles
@@ -76,8 +85,13 @@ LTCOMPILE = $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) \
 CCLD = $(CC)
 LINK = $(LIBTOOL) --tag=CC --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
 	$(AM_LDFLAGS) $(LDFLAGS) -o $@
-SOURCES = $(pbs_sched_SOURCES)
-DIST_SOURCES = $(pbs_sched_SOURCES)
+LEXCOMPILE = $(LEX) $(LFLAGS) $(AM_LFLAGS)
+LTLEXCOMPILE = $(LIBTOOL) --mode=compile $(LEX) $(LFLAGS) $(AM_LFLAGS)
+YACCCOMPILE = $(YACC) $(YFLAGS) $(AM_YFLAGS)
+LTYACCCOMPILE = $(LIBTOOL) --mode=compile $(YACC) $(YFLAGS) \
+	$(AM_YFLAGS)
+SOURCES = $(basl2c_SOURCES) $(pbs_sched_SOURCES)
+DIST_SOURCES = $(basl2c_SOURCES) $(pbs_sched_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -326,21 +340,39 @@ PBS_MKDIRS = $(SHELL) $(top_builddir)/buildutils/pbs_mkdirs
 AM_CPPFLAGS = -I$(top_srcdir)/src/include
 IFF_PATH = $(sbindir)/$(program_prefix)pbs_iff$(program_suffix)
 DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_demux$(program_suffix)
-IM_DEMUX_PATH = $(sbindir)/$(program_prefix)pbs_im_demux$(program_suffix)
 XPBS_DIR = $(libdir)/xpbs
 XPBSMON_DIR = $(libdir)/xpbsmon
 SUBMIT_FILTER_PATH = $(libexecdir)/qsub_filter
 PBS_LIBS = ../lib/Libpbs/libtorque.la
-AM_CFLAGS = -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\" -DPBS_ENVIRON=\"$(PBS_ENVIRON)\" $(MY_TCL_INCS)
-pbs_sched_LDADD = $(PBS_LIBS) $(MY_TCL_LIBS)
-pbs_sched_SOURCES = pbs_sched.c pbs_tclWrap.c site_tclWrap.c \
-		    ../scheduler.cc/get_4byte.c
+AM_CFLAGS = -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\" -DPBS_ENVIRON=\"$(PBS_ENVIRON)\"
+pbs_sched_LDADD = $(PBS_LIBS) $(SCHD_LIBS) pbs_sched.o
+pbs_sched_SOURCES = af.c af_cnode.c af_cnodemap.c af_config.c af_job.c \
+		    af_que.c af_resmom.c af_server.c af_system.c af.h
 
-EXTRA_DIST = sample_scripts/README sample_scripts/loadave
+basl2c_LDADD = $(SCHD_LIBS)
+basl2c_SOURCES = af.c Basl2c.c CodeGen.c List.c Node.c Semantic.c SymTab.c \
+		 Lexer.l Parser.y CodeGen.h
+
+EXTRA_DIST = Lexer.h List.h af_system.h Node.h ParLexGlob.h Semantic.h \
+	     SymTab.h SymTabGlob.h af_cnode.h af_cnodemap.h af_config.h \
+	     af_job.h af_que.h af_resmom.h af_server.h \
+	     sample.programs/af.basl sample.programs/af2.basl \
+	     sample.programs/loadave1.basl sample.programs/loadave2.basl \
+	     sample.programs/loadave3.basl sample.programs/loadave4.basl \
+	     sample.programs/nas.basl sample.programs/nqs.basl \
+	     samples/af.basl samples/af2.basl \
+	     samples/fifo_byqueue.basl samples/loadave1.basl \
+	     samples/loadave2.basl samples/loadave3.basl \
+	     samples/loadave4.basl samples/nas.basl \
+	     samples/nodes.basl samples/nodes2.basl \
+	     samples/nqs.basl
+
+AM_YFLAGS = -d
+MOSTLYCLEANFILES = Parser.c y.tab.h Lexer.c pbs_sched.c
 all: all-am
 
 .SUFFIXES:
-.SUFFIXES: .c .lo .o .obj
+.SUFFIXES: .c .l .lo .o .obj .y
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(top_srcdir)/buildutils/config.mk $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -350,9 +382,9 @@ $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(top_srcdir
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  src/scheduler.tcl/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  src/scheduler.basl/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --foreign  src/scheduler.tcl/Makefile
+	  $(AUTOMAKE) --foreign  src/scheduler.basl/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
@@ -370,6 +402,13 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
+
+clean-noinstPROGRAMS:
+	@list='$(noinst_PROGRAMS)'; for p in $$list; do \
+	  f=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
+	  echo " rm -f $$p $$f"; \
+	  rm -f $$p $$f ; \
+	done
 install-sbinPROGRAMS: $(sbin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	test -z "$(sbindir)" || $(mkdir_p) "$(DESTDIR)$(sbindir)"
@@ -398,6 +437,14 @@ clean-sbinPROGRAMS:
 	  echo " rm -f $$p $$f"; \
 	  rm -f $$p $$f ; \
 	done
+Parser.h: Parser.c
+	@if test ! -f $@; then \
+	  rm -f Parser.c; \
+	  $(MAKE) Parser.c; \
+	else :; fi
+basl2c$(EXEEXT): $(basl2c_OBJECTS) $(basl2c_DEPENDENCIES) 
+	@rm -f basl2c$(EXEEXT)
+	$(LINK) $(basl2c_LDFLAGS) $(basl2c_OBJECTS) $(basl2c_LDADD) $(LIBS)
 pbs_sched$(EXEEXT): $(pbs_sched_OBJECTS) $(pbs_sched_DEPENDENCIES) 
 	@rm -f pbs_sched$(EXEEXT)
 	$(LINK) $(pbs_sched_LDFLAGS) $(pbs_sched_OBJECTS) $(pbs_sched_LDADD) $(LIBS)
@@ -408,10 +455,23 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/get_4byte.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbs_sched.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/pbs_tclWrap.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/site_tclWrap.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Basl2c.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/CodeGen.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Lexer.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/List.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Node.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Parser.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/Semantic.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/SymTab.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/af.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/af_cnode.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/af_cnodemap.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/af_config.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/af_job.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/af_que.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/af_resmom.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/af_server.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/af_system.Po@am__quote@
 
 .c.o:
 @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
@@ -434,19 +494,31 @@ distclean-compile:
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
 
-get_4byte.o: ../scheduler.cc/get_4byte.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT get_4byte.o -MD -MP -MF "$(DEPDIR)/get_4byte.Tpo" -c -o get_4byte.o `test -f '../scheduler.cc/get_4byte.c' || echo '$(srcdir)/'`../scheduler.cc/get_4byte.c; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/get_4byte.Tpo" "$(DEPDIR)/get_4byte.Po"; else rm -f "$(DEPDIR)/get_4byte.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../scheduler.cc/get_4byte.c' object='get_4byte.o' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o get_4byte.o `test -f '../scheduler.cc/get_4byte.c' || echo '$(srcdir)/'`../scheduler.cc/get_4byte.c
+.l.c:
+	$(LEXCOMPILE) $<
+	sed '/^#/ s|$(LEX_OUTPUT_ROOT)\.c|$@|' $(LEX_OUTPUT_ROOT).c >$@
+	rm -f $(LEX_OUTPUT_ROOT).c
 
-get_4byte.obj: ../scheduler.cc/get_4byte.c
-@am__fastdepCC_TRUE@	if $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -MT get_4byte.obj -MD -MP -MF "$(DEPDIR)/get_4byte.Tpo" -c -o get_4byte.obj `if test -f '../scheduler.cc/get_4byte.c'; then $(CYGPATH_W) '../scheduler.cc/get_4byte.c'; else $(CYGPATH_W) '$(srcdir)/../scheduler.cc/get_4byte.c'; fi`; \
-@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/get_4byte.Tpo" "$(DEPDIR)/get_4byte.Po"; else rm -f "$(DEPDIR)/get_4byte.Tpo"; exit 1; fi
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='../scheduler.cc/get_4byte.c' object='get_4byte.obj' libtool=no @AMDEPBACKSLASH@
-@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
-@am__fastdepCC_FALSE@	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o get_4byte.obj `if test -f '../scheduler.cc/get_4byte.c'; then $(CYGPATH_W) '../scheduler.cc/get_4byte.c'; else $(CYGPATH_W) '$(srcdir)/../scheduler.cc/get_4byte.c'; fi`
+.y.c:
+	$(YACCCOMPILE) $<
+	if test -f y.tab.h; then \
+	  to=`echo "$*_H" | sed \
+                -e 'y/abcdefghijklmnopqrstuvwxyz/ABCDEFGHIJKLMNOPQRSTUVWXYZ/' \
+                -e 's/[^ABCDEFGHIJKLMNOPQRSTUVWXYZ]/_/g'`; \
+	  sed -e "/^#/!b" -e "s/Y_TAB_H/$$to/g" -e "s|y\.tab\.h|$*.h|" \
+            y.tab.h >$*.ht; \
+	  rm -f y.tab.h; \
+	  if cmp -s $*.ht $*.h; then \
+	    rm -f $*.ht ;\
+	  else \
+	    mv $*.ht $*.h; \
+	  fi; \
+	fi
+	if test -f y.output; then \
+	  mv y.output $*.output; \
+	fi
+	sed '/^#/ s|y\.tab\.c|$@|' y.tab.c >$@t && mv $@t $@
+	rm -f y.tab.c
 
 mostlyclean-libtool:
 	-rm -f *.lo
@@ -507,7 +579,7 @@ distclean-tags:
 	-rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH tags
 
 distdir: $(DISTFILES)
-	$(mkdir_p) $(distdir)/../../buildutils $(distdir)/sample_scripts
+	$(mkdir_p) $(distdir)/../../buildutils $(distdir)/sample.programs $(distdir)/samples
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \
@@ -534,6 +606,9 @@ distdir: $(DISTFILES)
 	    || exit 1; \
 	  fi; \
 	done
+	$(MAKE) $(AM_MAKEFLAGS) \
+	  top_distdir="$(top_distdir)" distdir="$(distdir)" \
+	  dist-hook
 check-am: all-am
 check: check-am
 all-am: Makefile $(PROGRAMS)
@@ -556,6 +631,7 @@ install-strip:
 	  `test -z '$(STRIP)' || \
 	    echo "INSTALL_PROGRAM_ENV=STRIPPROG='$(STRIP)'"` install
 mostlyclean-generic:
+	-test -z "$(MOSTLYCLEANFILES)" || rm -f $(MOSTLYCLEANFILES)
 
 clean-generic:
 
@@ -565,10 +641,13 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
+	-rm -f Lexer.c
+	-rm -f Parser.c
+	-rm -f Parser.h
 clean: clean-am
 
-clean-am: clean-generic clean-libtool clean-sbinPROGRAMS \
-	mostlyclean-am
+clean-am: clean-generic clean-libtool clean-noinstPROGRAMS \
+	clean-sbinPROGRAMS mostlyclean-am
 
 distclean: distclean-am
 	-rm -rf ./$(DEPDIR)
@@ -621,18 +700,34 @@ uninstall-am: uninstall-info-am uninstall-sbinPROGRAMS
 	$(MAKE) $(AM_MAKEFLAGS) uninstall-hook
 
 .PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
-	clean-libtool clean-sbinPROGRAMS ctags distclean \
-	distclean-compile distclean-generic distclean-libtool \
-	distclean-tags distdir dvi dvi-am html html-am info info-am \
-	install install-am install-data install-data-am install-exec \
-	install-exec-am install-exec-hook install-info install-info-am \
-	install-man install-sbinPROGRAMS install-strip installcheck \
-	installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
-	tags uninstall uninstall-am uninstall-hook uninstall-info-am \
-	uninstall-sbinPROGRAMS
+	clean-libtool clean-noinstPROGRAMS clean-sbinPROGRAMS ctags \
+	dist-hook distclean distclean-compile distclean-generic \
+	distclean-libtool distclean-tags distdir dvi dvi-am html \
+	html-am info info-am install install-am install-data \
+	install-data-am install-exec install-exec-am install-exec-hook \
+	install-info install-info-am install-man install-sbinPROGRAMS \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-compile mostlyclean-generic mostlyclean-libtool \
+	pdf pdf-am ps ps-am tags uninstall uninstall-am uninstall-hook \
+	uninstall-info-am uninstall-sbinPROGRAMS
 
+
+dist-hook:
+	rm -f $(distdir)/Lexer.c $(distdir)/Parser.c
+
+pbs_sched.c: samples/$(SCHD_CODE) basl2c
+	./basl2c $(srcdir)/samples/$(SCHD_CODE)
+
+Lexer.o: Lexer.c y.tab.h
+
+Lexer.c: Lexer.l
+	$(LEXCOMPILE) $< && mv $(LEX_OUTPUT_ROOT).c $@
+
+y.tab.h: Parser.c
+
+Parser.c: Parser.y
+	$(YACCCOMPILE) $< && mv y.tab.c $@
 
 install-exec-hook:
 	rm -f $(DESTDIR)$(sbindir)/$(program_prefix)qschedd$(program_suffix)$(EXEEXT)
