@@ -1,5 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
+2.4.9
+
 2.4.8
   e - Bugzilla bug 22. HIGH_PRECISION_FAIRSHARE for fifo scheduling.
   c - no longer sigabrt with "running" jobs not in an execution queue. log
@@ -20,6 +22,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       the user doesn't exist on the server.
   e - Bugzilla bug 54. Patch submitted by Bas van der Vlies to make pbs_mkdirs
       more robust, provide a help function and new option -C <chk_tree_location> 
+  n - TORQUE 2.4.8 released on 29-04-10
 
 2.4.7
   b - fixed a bug for when a resource_list has been set, but isn't completely
