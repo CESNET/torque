@@ -624,20 +624,17 @@ void nodes_preassign_clean(node_info **ninfo_arr, int count)
     }
   }
 
-/** Construct a full target node specification (hostname:nodespec)
+/** Construct one part of nodespec from assigned node
  *
- * @note Expects a valid node info
+ * @param ninfo Node for which to construct the node part
+ * @param mode Type of operation 0 - normal, 1 - no properties, 2 - only integer resources
+ * @return New constructed nodespec part
  */
-static char *get_target_full(node_info *ninfo)
+static char *get_target(node_info *ninfo, int mode)
   {
   char *str = NULL, *cp;
   pars_prop *iter;
   int len = 0;
-
-  dbg_precondition(ninfo != NULL, "This function does not accept NULL.");
-
-  if (ninfo->temp_assign == NULL)
-    return NULL;
 
   len += strlen(ninfo->name) + 1;
 
@@ -664,17 +661,40 @@ static char *get_target_full(node_info *ninfo)
 
   while (iter != NULL)
     {
-    strcpy(cp,":"); cp++;
-    strcpy(cp,iter->name); cp += strlen(iter->name);
-    if (iter->value != NULL)
+    if (mode == 0 || /* in mode 0 - normal nodespec */
+        (mode == 1 && iter->value != NULL) || /* in mode 1 - properties only */
+        (mode == 2 && iter->value != NULL && atoi(iter->value) > 0)) /* in mode 2 - integer properties only */
       {
-      strcpy(cp,"="); cp++;
-      strcpy(cp,iter->value); cp += strlen(iter->value);
+      strcpy(cp,":"); cp++;
+      strcpy(cp,iter->name); cp += strlen(iter->name);
+      if (iter->value != NULL)
+        {
+        strcpy(cp,"="); cp++;
+        strcpy(cp,iter->value); cp += strlen(iter->value);
+        }
       }
     iter = iter->next;
     }
 
   return str;
+  }
+
+/** Construct a full target node specification (hostname:nodespec)
+ *
+ * @note Expects a valid node info
+ */
+static char *get_target_full(job_info *jinfo, node_info *ninfo)
+  {
+  dbg_precondition(jinfo != NULL, "This function does not accept NULL.");
+  dbg_precondition(ninfo != NULL, "This function does not accept NULL.");
+
+  if (ninfo->temp_assign == NULL)
+    return NULL;
+
+  if (jinfo->cluster_mode == ClusterCreate)
+    return get_target(ninfo,1);
+  else
+    return get_target(ninfo,0);
   }
 
 /** Get the target string from preassigned nodes
@@ -696,7 +716,7 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count)
       {
       if (str == NULL)
         {
-        str = get_target_full(ninfo_arr[i]);
+        str = get_target_full(jinfo, ninfo_arr[i]);
 
         if (str == NULL) /* alloc failure */
           return NULL;
@@ -707,7 +727,7 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count)
         char *append;
 
         /* get the full spec for this node */
-        append = get_target_full(ninfo_arr[i]);
+        append = get_target_full(jinfo,ninfo_arr[i]);
         if (append == NULL)
           {
           free(str);
