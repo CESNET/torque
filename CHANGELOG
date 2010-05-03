@@ -5,6 +5,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature n - note
   b - fixed segfault for when TORQUE thinks there's a nanny but there isn't
   b - Bugzilla bug 57. Check return value of malloc for tracejob for Linux
       (Chris Samuel - VPAC)
+  b - fix so "gres" config gets displayed by pbsnodes
 
 2.3.10
   b - Fixed a bug in run_pelog (src/resmom/prolog.c) where epilogue.user 
