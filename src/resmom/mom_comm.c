@@ -7457,6 +7457,8 @@ void fork_demux(job *pjob)
   routem[im_mom_stdout].r_which = listen_out;
   routem[im_mom_stderr].r_which = listen_err;
 
+  parent = getppid();
+
   cpid = fork();
   if(cpid)
     {
