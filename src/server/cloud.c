@@ -1,7 +1,10 @@
 #include "cloud.h"
-
 #include "resource.h"
 #include "assertions.h"
+#include "nodespec.h"
+
+#include "api.h"
+
 #include <string.h>
 
 /* test resource if it is a cloud create request */
@@ -28,4 +31,40 @@ int is_cloud_job(job *pjob)
   return(0);
 }
 
-char *switch_nodespec_to_cloud(job  *pjob, char *nodespec) { return nodespec; }
+/* switch virtual nodes in the nodespec to their cloud masters
+ * only used for cloud jobs support
+ */
+char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
+  {
+  /* The nodespec is expected in the following format:
+   * node1:res1=val1:res2=val2+node2:res3=val3...
+   */
+  pars_spec * ps;
+  pars_spec_node *iter;
+
+  if ((ps = parse_nodespec(nodespec)) == NULL)
+    return NULL;
+
+  iter = ps->nodes;
+
+  while (iter != NULL)
+    {
+    char *ret; /* XXX ported from original PATCH, needs checking */
+    dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
+    ret=pbs_cache_get_local(iter->properties->name,"host");
+    if (ret!=NULL)
+      {
+      char *c;
+      free(iter->properties->name);
+      c=strchr(ret,'\t');
+      iter->properties->name=strdup(++c);
+      free(ret);
+      c=strchr(iter->properties->name,'\n');
+      if (c)
+        *c = '\0';
+      }
+    iter = iter->next;
+    }
+
+  return concat_nodespec(ps); /* TODO needs fortification */
+  }
