@@ -4,7 +4,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature n - note
   b - no longer ignoring fread return values in linux cpuset code (gcc 4.3.3)
   b - fixed segfault for when TORQUE thinks there's a nanny but there isn't
   b - Bugzilla bug 57. Check return value of malloc for tracejob for Linux
-      (Chris Samuel - VPAC)
+      (Chris Samuel - Univ. of Melbourne)
   b - fix so "gres" config gets displayed by pbsnodes
 
 2.3.10
