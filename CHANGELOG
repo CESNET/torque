@@ -2,7 +2,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
 2.4.9
   b - Bugzilla bug 57. Check return value of malloc for tracejob for Linux
-      (Chris Samuel - VPAC)
+      (Chris Samuel - Univ. of Melbourne)
   b - fix so "gres" config gets displayed by pbsnodes
 
 2.4.8
