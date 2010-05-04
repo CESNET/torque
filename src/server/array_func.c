@@ -571,6 +571,13 @@ int setup_array_struct(job *pjob)
   /* size of array is the biggest index + 1 */
   array_size++; 
 
+  if (server.sv_attr[SRV_ATR_MaxArraySize].at_flags & ATR_VFLAG_SET)
+    {
+    int max_array_size = server.sv_attr[SRV_ATR_MaxArraySize].at_val.at_long;
+    if (max_array_size < pa->ai_qs.num_jobs)
+      return(ARRAY_TOO_LARGE);
+    }
+
   /* initialize the array */
   pa->jobs = malloc(array_size * sizeof(job *));
   memset(pa->jobs,0,array_size * sizeof(job *));

@@ -117,6 +117,7 @@
 #include "log.h"
 #include "svrfunc.h"
 #include "csv.h"
+#include "array.h"
 
 #include "work_task.h"
 extern void  job_clone_wt(struct work_task *);
@@ -1524,9 +1525,20 @@ void req_commit(
   if (pj->ji_is_array_template)
     {
     
-    if (setup_array_struct(pj))
+    if ((rc = setup_array_struct(pj)))
       {
-      req_reject(PBSE_BAD_ARRAY_REQ, 0, preq, NULL, NULL);
+      if (rc == ARRAY_TOO_LARGE)
+        {
+        snprintf(log_buffer,sizeof(log_buffer),
+          "Requested array size too large, limit is %ld",
+          server.sv_attr[SRV_ATR_MaxArraySize].at_val.at_long);
+
+        req_reject(PBSE_BAD_ARRAY_REQ, 0, preq, NULL, log_buffer);
+        }
+      else
+        {
+        req_reject(PBSE_BAD_ARRAY_REQ, 0, preq, NULL, NULL);
+        }
       return;
       }
 

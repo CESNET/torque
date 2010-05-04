@@ -25,6 +25,8 @@ Array Changes
   e - complte overhaul of job array submission code
   f - by default show only a single entry in qstat output for the whole array
       (qstat -t expands the job array)
+  f - server parameter max_job_array_size limits the number of jobs allowed
+      in an array
       
 
 2.5.0

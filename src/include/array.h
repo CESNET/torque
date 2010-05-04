@@ -19,6 +19,7 @@
 #endif
 
 #define NO_SLOT_LIMIT -1
+#define ARRAY_TOO_LARGE -5
 
 #define ARRAY_FILE_SUFFIX ".AR"
 

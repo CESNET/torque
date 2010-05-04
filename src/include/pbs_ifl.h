@@ -274,6 +274,7 @@
 #define ATTR_clonebatchsize "clone_batch_size"
 #define ATTR_clonebatchdelay "clone_batch_delay"
 #define ATTR_jobstarttimeout "job_start_timeout"
+#define ATTR_maxarraysize    "max_job_array_size"
 
 /* additional node "attributes" names */
 
