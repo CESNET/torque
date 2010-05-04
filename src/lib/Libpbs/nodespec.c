@@ -385,6 +385,73 @@ void free_parsed_nodespec(pars_spec *nodespec)
   free(nodespec);
   }
 
+#define CONCAT_BUFF_SIZE (4*1024)
+
+char *concat_nodespec(pars_spec *nodespec)
+  { /* TODO needs polishing and cleanup */
+  pars_spec_node* iter_n;
+  pars_prop* iter_p;
+
+  char *buff;
+  int buff_size;
+
+  if ((buff = (char*)malloc(CONCAT_BUFF_SIZE)) == NULL)
+    {
+    return NULL;
+    }
+
+  iter_n = nodespec->nodes;
+  while (iter_n != NULL)
+    {
+    int node_begin = 1;
+
+    if (buff_size != 0) /* not the first node, add '+' */
+      {
+      /* fast and ugly checking for now */
+      dbg_consistency(buff_size+1 < CONCAT_BUFF_SIZE,"Out of memory in buffer.");
+      strcat(buff,"+");
+      buff_size++;
+      }
+
+    if (iter_n->node_count > 0)
+      {
+      int chars = sprintf(buff,"%d",iter_n->node_count);
+      dbg_consistency(chars < CONCAT_BUFF_SIZE-buff_size,"Out of memory in buffer.");
+      node_begin = 0;
+      }
+
+    iter_p = iter_n->properties;
+    while (iter_p != NULL)
+      {
+      if (node_begin == 0)
+        {
+        dbg_consistency(buff_size+1 < CONCAT_BUFF_SIZE,"Out of memory in buffer.");
+        strcat(buff,":");
+        buff_size++;
+        }
+
+      node_begin = 0;
+      dbg_consistency(buff_size+strlen(iter_p->name) < CONCAT_BUFF_SIZE,"Out of memory in buffer.");
+      strcat(buff,iter_p->name);
+      buff_size+=strlen(iter_p->name);
+
+      if (iter_p->value != NULL)
+        {
+        dbg_consistency(buff_size+strlen(iter_p->value)+1 < CONCAT_BUFF_SIZE,"Out of memory in buffer.");
+        strcat(buff,"=");
+        strcat(buff,iter_p->value);
+        buff_size++;
+        buff_size+=strlen(iter_p->value);
+        }
+
+      iter_p = iter_p->next;
+      }
+    iter_n = iter_n->next;
+    }
+
+  return buff;
+  }
+
 char *expand_nodespec(const char* nodespec, int *is_exclusive)
   {
   char *result, *globs;

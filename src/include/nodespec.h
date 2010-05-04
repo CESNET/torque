@@ -83,4 +83,11 @@ void free_pars_spec_node(pars_spec_node **node);
  */
 pars_spec_node *clone_pars_spec_node(pars_spec_node *node);
 
+/** Concat the parsed nodespec back to the string representation
+ *
+ * @param nodespec Node spec to be concated
+ * @return concated nodespec
+ */
+char *concat_nodespec(pars_spec *nodespec);
+
 #endif /* NODESPEC_H_ */
