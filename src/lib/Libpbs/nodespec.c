@@ -393,7 +393,7 @@ char *concat_nodespec(pars_spec *nodespec)
   pars_prop* iter_p;
 
   char *buff;
-  int buff_size;
+  int buff_size = 0;
 
   if ((buff = (char*)malloc(CONCAT_BUFF_SIZE)) == NULL)
     {
@@ -415,7 +415,7 @@ char *concat_nodespec(pars_spec *nodespec)
 
     if (iter_n->node_count > 0)
       {
-      int chars = sprintf(buff,"%d",iter_n->node_count);
+      int chars = sprintf(buff+strlen(buff),"%d",iter_n->node_count);
       dbg_consistency(chars < CONCAT_BUFF_SIZE-buff_size,"Out of memory in buffer.");
       node_begin = 0;
       }
