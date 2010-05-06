@@ -66,7 +66,7 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
     iter = iter->next;
     }
 
-  sprintf(log_buffer,"from: %s to: %s",nodespec,concat_nodespec(ps));
-  log_record(PBSEVENT_DEBUG2,PBS_EVENTCLASS_SERVER,"Nodespec translated: ",log_buffer);
+  sprintf(log_buffer,"Source: %s Target: %s",nodespec,concat_nodespec(ps));
+  log_record(PBSEVENT_SCHED,PBS_EVENTCLASS_REQUEST,"switch_nodespec_to_cloud",log_buffer);
   return concat_nodespec(ps); /* TODO needs fortification */
   }
