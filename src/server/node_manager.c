@@ -3520,7 +3520,7 @@ static int node_spec(
       }
 
     if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
-        || pnode->nd_type == NTYPE_CLOUD)
+        || pnode->nd_ntype == NTYPE_CLOUD)
       {
       /* configured node located */
 
@@ -3639,7 +3639,7 @@ static int node_spec(
       continue;
 
     if (pnode->nd_ntype != NTYPE_CLUSTER && pnode->nd_ntype != NTYPE_VIRTUAL
-        && pnode->nd_type != NTYPE_CLOUD)
+        && pnode->nd_ntype != NTYPE_CLOUD)
       {
       /* node is ok */
 
@@ -4474,7 +4474,7 @@ int node_avail(
         continue;
 
       if ((pn->nd_ntype == NTYPE_CLUSTER || pn->nd_ntype == NTYPE_VIRTUAL
-          || pnode->nd_ntype == NTYPE_CLOUD) && hasprop(pn, prop))
+          || pn->nd_ntype == NTYPE_CLOUD) && hasprop(pn, prop))
         {
         if (pn->nd_state & (INUSE_OFFLINE | INUSE_DOWN))
           ++xdown;
