@@ -400,6 +400,8 @@ char *concat_nodespec(pars_spec *nodespec)
     return NULL;
     }
 
+  memset(buff,0,CONCAT_BUFF_SIZE);
+
   iter_n = nodespec->nodes;
   while (iter_n != NULL)
     {
