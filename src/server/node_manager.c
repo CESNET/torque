@@ -2597,7 +2597,8 @@ static int search(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL)
+    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+        || pnode->nd_ntype == NTYPE_CLOUD)
       {
       if (pnode->nd_flag != okay)
         {
@@ -2666,7 +2667,8 @@ static int search(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL)
+    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+        || pnode->nd_ntype == NTYPE_CLOUD)
       {
       if (pnode->nd_flag != thinking)
         {
@@ -2978,7 +2980,8 @@ static int listelem(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL)
+    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+        || pnode->nd_ntype == NTYPE_CLOUD)
       {
       if (hasprop(pnode, prop) && hasppn(pnode, node_req, SKIP_NONE))
         hit++;
@@ -3516,7 +3519,8 @@ static int node_spec(
         }
       }
 
-    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL)
+    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+        || pnode->nd_type == NTYPE_CLOUD)
       {
       /* configured node located */
 
@@ -3634,7 +3638,8 @@ static int node_spec(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype != NTYPE_CLUSTER && pnode->nd_ntype != NTYPE_VIRTUAL)
+    if (pnode->nd_ntype != NTYPE_CLUSTER && pnode->nd_ntype != NTYPE_VIRTUAL
+        && pnode->nd_type != NTYPE_CLOUD)
       {
       /* node is ok */
 
@@ -4468,7 +4473,8 @@ int node_avail(
       if (pn->nd_state & INUSE_DELETED)
         continue;
 
-      if ((pn->nd_ntype == NTYPE_CLUSTER || pn->nd_ntype == NTYPE_VIRTUAL) && hasprop(pn, prop))
+      if ((pn->nd_ntype == NTYPE_CLUSTER || pn->nd_ntype == NTYPE_VIRTUAL
+          || pnode->nd_ntype == NTYPE_CLOUD) && hasprop(pn, prop))
         {
         if (pn->nd_state & (INUSE_OFFLINE | INUSE_DOWN))
           ++xdown;
@@ -4960,7 +4966,8 @@ static void set_one_old(
       {
       /* Mark node as being IN USE ...  */
 
-      if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL)
+      if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+          || pnode->nd_ntype == NTYPE_CLOUD)
         {
         for (snp = pnode->nd_psn;snp;snp = snp->next)
           {
