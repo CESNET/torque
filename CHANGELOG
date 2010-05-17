@@ -8,6 +8,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       specified. (RT 7678)
   e - allow users to use cpusets and geometry requests at the same time by
       specifying both at configure time.
+  b - Bugzilla bug 55. Check return value of malloc for pbs_mom for Linux
+      (Chris Samuel - Univ. of Melbourne)
 
 2.4.8
   e - Bugzilla bug 22. HIGH_PRECISION_FAIRSHARE for fifo scheduling.
