@@ -1949,7 +1949,7 @@ int use_cpusets(
   job *pjob)	/* I */
 
   {
-  #ifdef GEOMETRY_REQUESTS
+#ifdef GEOMETRY_REQUESTS
   resource     *presc;
   resource_def *prd;
   
@@ -1962,14 +1962,14 @@ int use_cpusets(
   /* don't create a cpuset unless one was specifically requested */
   if ((presc == NULL) || 
 		  (presc->rs_value.at_flags & ATR_VFLAG_SET) == FALSE)
-	{
-	return(FALSE);
-	} 
+    {
+    return(FALSE);
+    } 
   else
-	return(TRUE);
-  #else
+    return(TRUE);
+#else
   return(TRUE);
-  #endif /* GEOMETRY_REQUESTS */
+#endif /* GEOMETRY_REQUESTS */
   }	/* END use_cpusets() */
 #endif /* PENABLE_LINUX26_CPUSETS */
 
@@ -2180,8 +2180,10 @@ int TMomFinalizeChild(
   bld_env_variables(&vtable, "PBS_VNODENUM", buf);
   
 #ifdef PENABLE_LINUX26_CPUSETS
-  
+
+#ifndef ALWAYS_USE_CPUSETS  
   if (use_cpusets(pjob) == TRUE)
+#endif /* ALWAYS_USE_CPUSETS */
     {
     sprintf(log_buffer, "about to create cpuset for job %s.\n",
       pjob->ji_qs.ji_jobid);
