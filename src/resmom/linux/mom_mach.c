@@ -188,6 +188,13 @@ extern int      ignwalltime;
 extern int      igncput;
 extern int      ignvmem;
 extern int      ignmem;
+#ifdef NUMA_SUPPORT
+extern char **path_meminfo;
+extern int    nodenum;
+extern int    num_mems;
+#else
+extern char  path_meminfo[MAX_LINE];
+#endif /* NUMA_SUPPORT */
 
 /*
 ** local functions and data
@@ -209,7 +216,6 @@ mbool_t ProcIsChild(char *,char *,char *);
 
 extern char *loadave(struct rm_attribute *);
 extern char *nullproc(struct rm_attribute *);
-extern char  path_meminfo[MAX_LINE];
 
 time_t wait_time = 10;
 
@@ -453,135 +459,162 @@ proc_stat_t *get_proc_stat(
 proc_mem_t *get_proc_mem(void)
 
   {
-  static proc_mem_t   mm;
+  static proc_mem_t   ret_mm;
+  proc_mem_t          mm;
   FILE               *fp;
   char                str[32];
   unsigned long long  bfsz, casz;
+#ifdef NUMA_SUPPORT
+  int i;
+#endif
 
-  if ((fp = fopen(path_meminfo,"r")) == NULL)
+#ifdef NUMA_SUPPORT
+  ret_mm.mem_total = 0;
+  ret_mm.mem_used = 0;
+  ret_mm.mem_free = 0;
+  ret_mm.swap_total = 0;
+  ret_mm.swap_used = 0;
+  ret_mm.swap_free = 0;
+
+  for (i = nodenum * num_mems; i < (nodenum * num_mems) + num_mems; i++)
+#endif
     {
-    return(NULL);
-    }
-
-  if (fscanf(fp,"%30s",str) != 1)
-    {
-    return(NULL);
-    }
-
-  if (!strncmp(str,"total:",sizeof(str)))
-    {
-    /* old format */
-
-    if (fscanf(fp,"%*[^\n]%*c") != 0)     /* remove text header */
+#ifdef NUMA_SUPPORT
+    if ((fp = fopen(path_meminfo[i],"r")) == NULL)
+#else
+    if ((fp = fopen(path_meminfo,"r")) == NULL)
+#endif
       {
       return(NULL);
       }
 
-    /* umu vmem patch */
-
-    if (fscanf(fp, "%*s %llu %llu %llu %*u %llu %llu",
-               &mm.mem_total,
-               &mm.mem_used,
-               &mm.mem_free,
-               &bfsz,
-               &casz) != 5)
+    if (fscanf(fp,"%30s",str) != 1)
       {
       return(NULL);
       }
 
-    mm.mem_free += casz + bfsz;
+    if (!strncmp(str,"total:",sizeof(str)))
+      {
+      /* old format */
 
-    /*
-        if (fscanf(fp,"%*s %lu %lu %lu %*[^\n]%*c",
-          &mm.mem_total,
-          &mm.mem_used,
-          &mm.mem_free) != 3)
+      if (fscanf(fp,"%*[^\n]%*c") != 0)     /* remove text header */
+        {
+        return(NULL);
+        }
+
+      /* umu vmem patch */
+
+      if (fscanf(fp, "%*s %llu %llu %llu %*u %llu %llu",
+                 &mm.mem_total,
+                 &mm.mem_used,
+                 &mm.mem_free,
+                 &bfsz,
+                 &casz) != 5)
+        {
+        return(NULL);
+        }
+
+      mm.mem_free += casz + bfsz;
+
+      /*
+          if (fscanf(fp,"%*s %lu %lu %lu %*[^\n]%*c",
+            &mm.mem_total,
+            &mm.mem_used,
+            &mm.mem_free) != 3)
+            {
+            return(NULL);
+            }
+      */
+
+      if (fscanf(fp, "%*s %llu %llu %llu %*[^\n]%*c",
+                 &mm.swap_total,
+                 &mm.swap_used,
+                 &mm.swap_free) != 3)
+        {
+        return(NULL);
+        }
+      }
+    else
+      {
+      do
+        {
+        /* new format (kernel > 2.4) the first 'str' has been read */
+
+        if (!strncmp(str, "MemTotal:", sizeof(str)))
           {
-          return(NULL);
-          }
-    */
+          if (fscanf(fp, "%llu",
+                     &mm.mem_total) != 1)
+            {
+            return(NULL);
+            }
 
-    if (fscanf(fp, "%*s %llu %llu %llu %*[^\n]%*c",
-               &mm.swap_total,
-               &mm.swap_used,
-               &mm.swap_free) != 3)
-      {
-      return(NULL);
-      }
+          mm.mem_total *= 1024; /* the unit is kB */
+          }
+        else if (!strncmp(str, "MemFree:", sizeof(str)))
+          {
+          if (fscanf(fp, "%llu",
+                     &mm.mem_free) != 1)
+            {
+            return(NULL);
+            }
+
+          mm.mem_free *= 1024;
+          }
+        else if (!strncmp(str, "Buffers:", sizeof(str)))
+          {
+          if (fscanf(fp, "%llu",
+                     &bfsz) != 1)
+            {
+            return(NULL);
+            }
+
+          mm.mem_free += bfsz * 1024;
+          }
+        else if (!strncmp(str, "Cached:", sizeof(str)))
+          {
+          if (fscanf(fp, "%llu",
+                     &casz) != 1)
+            {
+            return(NULL);
+            }
+
+          mm.mem_free += casz * 1024;
+          }
+        else if (!strncmp(str, "SwapTotal:", sizeof(str)))
+          {
+          if (fscanf(fp, "%llu",
+                     &mm.swap_total) != 1)
+            {
+            return(NULL);
+            }
+
+          mm.swap_total *= 1024;
+          }
+        else if (!strncmp(str, "SwapFree:", sizeof(str)))
+          {
+          if (fscanf(fp, "%llu",
+                     &mm.swap_free) != 1)
+            {
+            return(NULL);
+            }
+
+          mm.swap_free *= 1024;
+          }
+        }
+      while (fscanf(fp, "%30s", str) == 1);
+      }    /* END else */
+
+    fclose(fp);
+  
+    ret_mm.mem_total += mm.mem_total;
+    ret_mm.mem_used += mm.mem_used;
+    ret_mm.mem_free += mm.mem_free;
+    ret_mm.swap_total += mm.swap_total;
+    ret_mm.swap_used += mm.swap_used;
+    ret_mm.swap_free += mm.swap_free;
     }
-  else
-    {
-    do
-      {
-      /* new format (kernel > 2.4) the first 'str' has been read */
 
-      if (!strncmp(str, "MemTotal:", sizeof(str)))
-        {
-        if (fscanf(fp, "%llu",
-                   &mm.mem_total) != 1)
-          {
-          return(NULL);
-          }
-
-        mm.mem_total *= 1024; /* the unit is kB */
-        }
-      else if (!strncmp(str, "MemFree:", sizeof(str)))
-        {
-        if (fscanf(fp, "%llu",
-                   &mm.mem_free) != 1)
-          {
-          return(NULL);
-          }
-
-        mm.mem_free *= 1024;
-        }
-      else if (!strncmp(str, "Buffers:", sizeof(str)))
-        {
-        if (fscanf(fp, "%llu",
-                   &bfsz) != 1)
-          {
-          return(NULL);
-          }
-
-        mm.mem_free += bfsz * 1024;
-        }
-      else if (!strncmp(str, "Cached:", sizeof(str)))
-        {
-        if (fscanf(fp, "%llu",
-                   &casz) != 1)
-          {
-          return(NULL);
-          }
-
-        mm.mem_free += casz * 1024;
-        }
-      else if (!strncmp(str, "SwapTotal:", sizeof(str)))
-        {
-        if (fscanf(fp, "%llu",
-                   &mm.swap_total) != 1)
-          {
-          return(NULL);
-          }
-
-        mm.swap_total *= 1024;
-        }
-      else if (!strncmp(str, "SwapFree:", sizeof(str)))
-        {
-        if (fscanf(fp, "%llu",
-                   &mm.swap_free) != 1)
-          {
-          return(NULL);
-          }
-
-        mm.swap_free *= 1024;
-        }
-      }
-    while (fscanf(fp, "%30s", str) == 1);
-    }    /* END else */
-
-  fclose(fp);
-
-  return(&mm);
+  return(&ret_mm);
   }  /* END get_proc_mem() */
 
 
@@ -3441,7 +3474,11 @@ static char *physmem(
   int   BSpace;
 
   unsigned long long mem;
+  unsigned long long mem_total;
   FILE *fp;
+#ifdef NUMA_SUPPORT
+  int i;
+#endif
 
   if (attrib != NULL)
     {
@@ -3451,73 +3488,85 @@ static char *physmem(
 
     return(NULL);
     }
+#ifdef NUMA_SUPPORT
+  mem_total = 0;
 
-  if (!(fp = fopen(path_meminfo, "r")))
+  for (i = nodenum * num_mems; i < (nodenum*num_mems) + num_mems; i++)
+#endif /* NUMA_SUPPORT */
     {
-    rm_errno = RM_ERR_SYSTEM;
-
-    return(NULL);
-    }
-
-  BPtr = tmpBuf;
-
-  BSpace = sizeof(tmpBuf);
-
-  BPtr[0] = '\0';
-
-  while (!feof(fp))
-    {
-    if (fgets(BPtr, BSpace, fp) == NULL)
-      {
-      break;
-      }
-
-    BSpace -= strlen(BPtr);
-
-    BPtr   += strlen(BPtr);
-    }
-
-  fclose(fp);
-
-  /* FORMAT:  '...\nMemTotal:   XXX kB\n' */
-
-  if ((BPtr = strstr(tmpBuf, "MemTotal:")) != NULL)
-    {
-    BPtr += strlen("MemTotal:");
-
-    if (sscanf(BPtr, "%llu",
-               &mem) != 1)
+#ifdef NUMA_SUPPORT
+    if (!(fp = fopen(path_meminfo[i],"r")))
+#else
+    if (!(fp = fopen(path_meminfo, "r")))
+#endif
       {
       rm_errno = RM_ERR_SYSTEM;
 
       return(NULL);
       }
 
-    /* value specified in kb */
-    }
-  else
-    {
-    /* attempt to load first numeric value */
+    BPtr = tmpBuf;
 
-    if (sscanf(BPtr, "%*s %llu",
-               &mem) != 1)
+    BSpace = sizeof(tmpBuf);
+
+    BPtr[0] = '\0';
+
+    while (!feof(fp))
       {
-      rm_errno = RM_ERR_SYSTEM;
+      if (fgets(BPtr, BSpace, fp) == NULL)
+        {
+        break;
+        }
 
-      return(NULL);
+      BSpace -= strlen(BPtr);
+
+      BPtr   += strlen(BPtr);
       }
 
-    /* value specified in bytes */
+    fclose(fp);
 
-    mem >>= 10;
+    /* FORMAT:  '...\nMemTotal:   XXX kB\n' */
+
+    if ((BPtr = strstr(tmpBuf, "MemTotal:")) != NULL)
+      {
+      BPtr += strlen("MemTotal:");
+
+      if (sscanf(BPtr, "%llu",
+                 &mem) != 1)
+        {
+        rm_errno = RM_ERR_SYSTEM;
+
+        return(NULL);
+        }
+
+      /* value specified in kb */
+      }
+    else
+      {
+      /* attempt to load first numeric value */
+
+      if (sscanf(BPtr, "%*s %llu",
+                 &mem) != 1)
+        {
+        rm_errno = RM_ERR_SYSTEM;
+
+        return(NULL);
+        }
+
+      /* value specified in bytes */
+
+      mem >>= 10;
+      }
+    mem_total += mem;
     }
 
   sprintf(ret_string, "%llukb",
 
-          mem);
+          mem_total);
 
   return(ret_string);
   }  /* END physmem() */
+
 
 
 

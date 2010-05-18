@@ -300,7 +300,8 @@ void copy_torque_cpuset(
     
     if (fp != NULL)
       {
-      if (fwrite(cpuset_buf,sizeof(char),strlen(cpuset_buf),fp) < strlen(cpuset_buf))
+      unsigned int len = strlen(cpuset_buf);
+      if (fwrite(cpuset_buf,sizeof(char),len,fp) < len)
         {
         /* FAILURE */
         sprintf(log_buffer, "failed to write cpus cpuset to %s\n",
@@ -785,17 +786,23 @@ initialize_root_cpuset(void)
       if (fp != NULL)
         {
         /* write cpus into TORQUE cpuset */
+        unsigned int len = strlen(cpuset_buf);
 
-        sprintf(log_buffer, "adding cpus %s to %s",
-                cpuset_buf,
-                path);
+        if (fwrite(cpuset_buf, sizeof(char), len, fp) != len)
+          {
+          log_err(-1,id,"ERROR:  Unable to write cpus to cpuset\n");
+          }
+        else
+          {
+          sprintf(log_buffer, "adding cpus %s to %s",
+            cpuset_buf,
+            path);
 
-        log_event(PBSEVENT_SYSTEM,
-          PBS_EVENTCLASS_SERVER,
-          id,
-          log_buffer);
-
-        fwrite(cpuset_buf, sizeof(char), strlen(cpuset_buf), fp);
+          log_event(PBSEVENT_SYSTEM,
+            PBS_EVENTCLASS_SERVER,
+            id,
+            log_buffer);
+          }
 
         fclose(fp);
         }
@@ -882,17 +889,24 @@ initialize_root_cpuset(void)
       if (fp != NULL)
         {
         /* write mems into TORQUE cpuset */
+        unsigned int len;
 
-        sprintf(log_buffer, "adding mems %s to %s",
-                cpuset_buf,
-                path);
+        len = strlen(cpuset_buf);
+        if (fwrite(cpuset_buf, sizeof(char), len, fp) != len)
+          {
+          log_err(-1,id,"ERROR:   Unable to write mems to cpuset\n");
+          }
+        else
+          {
+          sprintf(log_buffer, "adding mems %s to %s",
+            cpuset_buf,
+            path);
 
-        log_event(PBSEVENT_SYSTEM,
-          PBS_EVENTCLASS_SERVER,
-          id,
-          log_buffer);
-
-        fwrite(cpuset_buf, sizeof(char), strlen(cpuset_buf), fp);
+          log_event(PBSEVENT_SYSTEM,
+            PBS_EVENTCLASS_SERVER,
+            id,
+            log_buffer);
+          }
 
         fclose(fp);
         }
@@ -998,7 +1012,10 @@ int get_cpuset_strings(
 
   for (j = 0;j < pjob->ji_numvnod;++j, np++)
     {
+    int cpu_index;
+    int mem_index;
     char *dash = strchr(np->vn_host->hn_host,'-');
+
     if (dash != NULL)
       {
       node_offset = atoi(dash+1);
@@ -1012,11 +1029,14 @@ int get_cpuset_strings(
     if (CpuStr[0] != '\0')
       strcat(CpuStr, ",");
 
-    sprintf(tmpStr, "%d", np->vn_index + (node_offset*num_cpus));
+    cpu_index = np->vn_index + (node_offset*num_cpus);
+    mem_index = cpu_index / ratio;
+
+    sprintf(tmpStr, "%d", cpu_index);
 
     strcat(CpuStr, tmpStr);
 
-    sprintf(tmpStr,"%d",node_offset);
+    sprintf(tmpStr,"%d",mem_index);
 
     if (strstr(MemStr,tmpStr) == NULL)
       {
@@ -1124,7 +1144,11 @@ int init_jobset(
       fd = fopen(tmppath, "w");
       if (fd)
         {
-        fwrite(membuf, sizeof(char), strlen(membuf), fd);
+        unsigned int len = strlen(membuf);
+        if (fwrite(membuf, sizeof(char), len, fd) != len)
+          {
+          log_err(-1,id,"ERROR:  Unable to write mems to cpuset\n");
+          }
         fclose(fd);
         }
       return(SUCCESS);
@@ -1191,7 +1215,12 @@ int create_vnodesets(
 
       if (fd)
         {
-        fwrite(tasksbuf, sizeof(char), strlen(tasksbuf), fd);
+        unsigned int len = strlen(tasksbuf);
+        if (fwrite(tasksbuf, sizeof(char), len, fd) != len)
+          {
+          log_err(-1,id,"ERROR:   Unable to write cpus\n");
+          rc = FAILURE;
+          }
         fclose(fd);
         }
       else
@@ -1205,13 +1234,21 @@ int create_vnodesets(
 
       if (fd)
         {
-        sprintf(log_buffer, "adding %s to %s", tasksbuf, tmppath);
-        log_event(PBSEVENT_SYSTEM, 
-          PBS_EVENTCLASS_SERVER,
-          id,
-          log_buffer);
+        unsigned int len = strlen(tasksbuf);
 
-        fwrite(membuf, sizeof(char), strlen(tasksbuf), fd);
+        if (fwrite(membuf, sizeof(char), len, fd) != len)
+          {
+          log_err(-1,id,"ERROR:   Unable to write mems\n");
+          }
+        else
+          {
+          sprintf(log_buffer, "adding %s to %s", tasksbuf, tmppath);
+         
+          log_event(PBSEVENT_SYSTEM, 
+            PBS_EVENTCLASS_SERVER,
+            id,
+            log_buffer);
+          }
         fclose(fd);
         }
       else
@@ -1274,24 +1311,46 @@ int add_cpus_to_jobset(
   fd = fopen(tmppath, "w");
   if (fd)
     {
+    unsigned int len;
+
     if (LOGLEVEL >= 7)
       {
       sprintf(log_buffer, "adding cpus %s to %s", cpusbuf, tmppath);
       log_ext(-1, id, log_buffer, LOG_DEBUG);
       }
-    fwrite(cpusbuf, sizeof(char), strlen(cpusbuf), fd);
+
+    len = strlen(cpusbuf);
+
+    if (fwrite(cpusbuf, sizeof(char), len, fd) != len)
+      {
+      log_err(-1,id,"ERROR:  Unable to write cpus to cpuset\n");
+      fclose(fd);
+      return(FAILURE);
+      }
+
     fclose(fd);
 #ifdef NUMA_SUPPORT
     snprintf(tmppath,sizeof(tmppath),"%s/mems",path);
     fd = fopen(tmppath, "w");
     if (fd)
       {
+      unsigned int len;
+
       if (LOGLEVEL >= 7)
         {
         sprintf(log_buffer, "adding mems %s to %s", memsbuf, tmppath);
         log_ext(-1, id, log_buffer, LOG_DEBUG);
         }
-      fwrite(memsbuf, sizeof(char), strlen(memsbuf), fd);
+
+      len = strlen(memsbuf);
+
+      if (fwrite(memsbuf, sizeof(char), len, fd) != len)
+        {
+        log_err(-1,id,"ERROR:  Unable to write mems to cpuset\n");
+        fclose(fd);
+        return(FAILURE);
+        }
+
       fclose(fd);
       return(SUCCESS);
       }
@@ -1381,7 +1440,14 @@ int move_to_jobset(
 
   if (fd)
     {
-    fwrite(pidbuf, sizeof(char), strlen(pidbuf), fd);
+    unsigned int len = strlen(pidbuf);
+
+    if (fwrite(pidbuf, sizeof(char), len, fd) != len)
+      {
+      log_err(-1,id,"ERROR:   Unable to bind job to cpuset\n");
+      fclose(fd);
+      return(FAILURE);
+      }
     fclose(fd);
     }
   /* ERROR HANDLING - job won't be bound correctly */
@@ -1427,7 +1493,14 @@ int move_to_taskset(
 
   if (fd)
     {
-    fwrite(pidbuf, sizeof(char), strlen(pidbuf), fd);
+    unsigned int len = strlen(pidbuf);
+
+    if (fwrite(pidbuf, sizeof(char), strlen(pidbuf), fd) != len)
+      {
+      log_err(-1,id,"ERROR:   Unable to bind job to cpuset\n");
+      fclose(fd);
+      return(-1);
+      }
     fclose(fd);
     }
   /* ERROR HANDLING - job won't be bound correctly */

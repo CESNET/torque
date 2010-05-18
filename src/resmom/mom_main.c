@@ -196,7 +196,11 @@ char          *memsize_str;
 unsigned long  memsize;
 int            nodenum;
 int            cpu_offset;
-char           path_meminfo[MAX_LINE];
+#ifdef NUMA_SUPPORT
+char         **path_meminfo;
+#else
+char           path_meminfo[MAXLINE];
+#endif
 
 /* by default, enforce these policies */
 int    ignwalltime = 0; 
@@ -6830,6 +6834,9 @@ int setup_program_environment(void)
   int  privfd = 0; /* fd for sending job info */
 #ifdef NUMA_SUPPORT
   int  rc;
+  int  mempath_len;
+  int  i;
+  int  start_mem_index;
 #endif /* END NUMA_SUPPORT */
 
   struct sigaction act;
@@ -7442,11 +7449,22 @@ int setup_program_environment(void)
     {
     return(rc);
     }
-  
-  snprintf(path_meminfo,sizeof(path_meminfo),"%s%d%s",
-    "/sys/devices/system/node/node",
-    nodenum,
-    "/meminfo");
+ 
+  /* make sure to have enough space for the mempath
+   * adding 5 guarantees that we allow up to 999999 numa nodes */
+  mempath_len = strlen("/sys/devices/system/node/node0/meminfo") + 5;
+  path_meminfo = (char **)malloc(num_mems * sizeof(char *));
+  start_mem_index = nodenum * num_mems;
+
+  for (i = start_mem_index; i < start_mem_index + num_mems; i++)
+    {
+    path_meminfo[i] = (char *)malloc(mempath_len);
+
+    snprintf(path_meminfo[i],mempath_len,"%s%d%s",
+      "/sys/devices/system/node/node",
+      i,
+      "/meminfo");
+    }
 #else
   snprintf(path_meminfo,sizeof(path_meminfo),"%s",
     "/proc/meminfo");
