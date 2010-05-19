@@ -933,6 +933,19 @@ attribute_def job_attr_def[] =
     PARENT_TYPE_JOB
   },
 
+  /* JOB_ATR_cloud_mapping */
+  { ATTR_cloudmap,
+    decode_str,
+    encode_str,
+    set_str,
+    comp_str,
+    free_str,
+    NULL_FUNC,
+    READ_ONLY | ATR_DFLAG_MOM,
+    ATR_TYPE_STR,
+    PARENT_TYPE_JOB
+  },
+
 #ifdef USEJOBCREATE
   /* JOB_ATR_pagg_id */
   { ATTR_pagg,  /* "pagg_id" */
