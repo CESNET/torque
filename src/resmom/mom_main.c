@@ -148,6 +148,8 @@
 
 #include "mcom.h"
 
+#include "cloud.h"
+
 #ifdef NOPOSIXMEMLOCK
 #undef _POSIX_MEMLOCK
 #endif /* NOPOSIXMEMLOCK */
@@ -7570,7 +7572,11 @@ int TMOMScanForStarting(void)
           log_buffer);
         }
 
-      /* TODO Cloud Finalize the cloud job start? Switch to state running? */
+      /* XXX Cloud jobs support */
+      if (is_cloud_job(pjob))
+        {
+
+        }
 
       if (TMOMJobGetStartInfo(pjob, &TJE) == FAILURE)
         {

@@ -47,10 +47,13 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
 
   iter = ps->nodes;
 
-  while (iter != NULL)
+  while (iter != NULL) /* for each node */
     {
     char *ret; /* XXX ported from original PATCH, needs checking */
+
+    /* there has to be at least node name */
     dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
+
     ret=pbs_cache_get_local(iter->properties->name,"host");
     if (ret!=NULL)
       {

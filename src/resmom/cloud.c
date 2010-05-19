@@ -1,4 +1,6 @@
 #include "cloud.h"
+#include <string.h>
+#include "resource.h"
 
 /* Test, whether job is cloud job, whether it have -lcluster=create */
 int is_cloud_job(job *pjob)
@@ -17,7 +19,5 @@ int is_cloud_job(job *pjob)
     return 1;
     }
 
-//  if (pjob->ji_wattr[(int)JOB_SITE_ATR_cloud_create].at_val.at_str != NULL)
-//    return 1;
   return 0;
 }
