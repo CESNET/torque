@@ -127,6 +127,7 @@
 #include "pbs_cpuset.h"
 #endif
 
+#include "cloud.h"
 
 /* Global Data Items */
 
@@ -2370,6 +2371,8 @@ void im_request(
 
 #endif  /* (PENABLE_LINUX26_CPUSETS) */
 
+      /* FIXME META We need to do something here to prevent running prolog in case of a cloud job and run cloud prolog instead */
+
       /* run local prolog */
 
       if ((j = run_pelog(
@@ -3523,8 +3526,16 @@ void im_request(
                 "all sisters have reported in, launching job locally");
               }
 
+            /* FIXME META run cloud here */
+            if (is_cloud_job(pjob))
+              {
+              cloud_exec(pjob);
+              cloud_set_running(pjob);
+              return;
+              }
+
             TMOMJobGetStartInfo(NULL, &TJE);
-            /* TODO Cloud: run cloud here */
+
 
             if (TMomFinalizeJob1(pjob, TJE, &SC) == FAILURE)
               {

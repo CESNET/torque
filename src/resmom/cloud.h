@@ -12,4 +12,19 @@
  */
 int is_cloud_job(job *pjob);
 
+
+/** Set job into prerun state
+ *
+ * Used when prologs are running.
+ */
+int cloud_set_prerun(job *pjob);
+
+/** Set job into running state
+ *
+ * Used when cluster is ready for use.
+ */
+int cloud_set_running(job *pjob);
+
+int cloud_exec(job *pjob);
+
 #endif /* CLOUD_H_ */

@@ -2,8 +2,8 @@
 #include "resource.h"
 #include "assertions.h"
 #include "nodespec.h"
-
 #include "api.h"
+#include "pbs_job.h"
 
 #include <string.h>
 
@@ -31,6 +31,14 @@ int is_cloud_job(job *pjob)
   return(0);
 }
 
+static char *construct_mapping(char* old, char* new, char* alternative)
+  {
+  /* cloud=virtual[alternative]; */
+  char *result = malloc(strlen(old)+1+strlen(new)+3+strlen(alternative)+1);
+  sprintf(result,"%s=%s[%s];",old,new,alternative);
+  return result;
+  }
+
 /* switch virtual nodes in the nodespec to their cloud masters
  * only used for cloud jobs support
  */
@@ -49,7 +57,7 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
 
   while (iter != NULL) /* for each node */
     {
-    char *ret; /* XXX ported from original PATCH, needs checking */
+    char *ret; /* FIXME META ported from original PATCH, needs checking */
 
     /* there has to be at least node name */
     dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
@@ -57,19 +65,32 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
     ret=pbs_cache_get_local(iter->properties->name,"host");
     if (ret!=NULL)
       {
-      char *c;
-      free(iter->properties->name);
+      char *c, *cloud, *mapped;
+
+      /* cut out the cloud node name from the cache value */
       c=strchr(ret,'\t');
-      iter->properties->name=strdup(++c);
-      free(ret);
-      c=strchr(iter->properties->name,'\n');
+      cloud = strdup(++c);
+      c=strchr(cloud,'\n');
       if (c)
         *c = '\0';
+      free(ret);
+
+      mapped = construct_mapping(iter->properties->name,cloud,""); /* FIXME META add alternative support */
+      /* store mapping into job attribute */
+      /* FIXME META rewrite into version, that will work for multiple nodes */
+      job_attr_def[(int)JOB_ATR_cloud_mapping].at_decode(&
+          pjob->ji_wattr[(int)JOB_ATR_cloud_mapping],
+          (char *)0, (char *)0, mapped);
+      free(mapped);
+
+      /* interchange virtual node name for its cloud master */
+      free(iter->properties->name);
+      iter->properties->name=cloud;
       }
     iter = iter->next;
     }
 
   sprintf(log_buffer,"Source: %s Target: %s",nodespec,concat_nodespec(ps));
   log_record(PBSEVENT_SCHED,PBS_EVENTCLASS_REQUEST,"switch_nodespec_to_cloud",log_buffer);
-  return concat_nodespec(ps); /* TODO needs fortification */
+  return concat_nodespec(ps); /* FIXME META needs fortification */
   }

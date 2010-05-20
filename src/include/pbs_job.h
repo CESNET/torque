@@ -788,6 +788,7 @@ task *task_find A_((
 #define JOB_SUBSTATE_STARTING   41      /* job sent to MOM - job start finalizing */
 #define JOB_SUBSTATE_RUNNING 42 /* job running */
 #define JOB_SUBSTATE_SUSPEND 43 /* job suspended, CRAY only */
+#define JOB_SUBSTATE_PRERUN_CLOUD 44 /* job sent to MOM, cluster being constructed */
 
 #define JOB_SUBSTATE_EXITING 50 /* Start of job exiting processing */
 #define JOB_SUBSTATE_STAGEOUT 51 /* job staging out (other) files   */

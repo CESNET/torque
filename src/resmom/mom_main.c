@@ -7572,12 +7572,6 @@ int TMOMScanForStarting(void)
           log_buffer);
         }
 
-      /* XXX Cloud jobs support */
-      if (is_cloud_job(pjob))
-        {
-
-        }
-
       if (TMOMJobGetStartInfo(pjob, &TJE) == FAILURE)
         {
         sprintf(log_buffer, "job %s start data lost, server will retry",

@@ -121,6 +121,8 @@
 #include "mcom.h"
 #include "resource.h"
 
+#include "cloud.h"
+
 #ifdef ENABLE_CPA
 	#include "pbs_cpa.h"
 #endif
@@ -5206,6 +5208,12 @@ void start_exec(
 			}
 		}	 /* END for (i) */
 	
+	/* FIXME META make sure this is in correct place */
+	if (is_cloud_job(pjob))
+	  {
+    cloud_set_prerun(pjob);
+	  }
+
 	free_attrlist(&phead);
 	}	 /* END if (nodenum > 1) */
   else
@@ -5246,7 +5254,14 @@ void start_exec(
 		return;
 		}
 	
-	/* TODO Cloud: run cloud here */
+	/* FIXME META run cloud here */
+	if (is_cloud_job(pjob))
+	  {
+    cloud_set_prerun(pjob);
+    cloud_exec(pjob);
+    cloud_set_running(pjob);
+    return;
+	  }
 
 	if (TMomFinalizeJob1(pjob, TJE, &SC) == FAILURE)
 		{
