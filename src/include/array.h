@@ -120,4 +120,6 @@ int first_job_index(job_array *);
 
 void update_array_statuses();
 
+int num_array_jobs(char *);
+
 #endif

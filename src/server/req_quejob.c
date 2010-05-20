@@ -880,6 +880,11 @@ void req_quejob(
    * svr_chkque() is called way down here because it needs to have the
    * job structure and attributes already set up.
    */
+  /* set ji_is_array_template before calling */
+  if (pj->ji_wattr[JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET)
+    {
+    pj->ji_is_array_template = TRUE;
+    }
 
   if ((rc = svr_chkque(pj, pque, preq->rq_host, MOVE_TYPE_Move, EMsg)))
     {
@@ -1258,15 +1263,16 @@ void req_rdytocommit(
   struct batch_request *preq)  /* I */
 
   {
-  job *pj;
-  int  sock = preq->rq_conn;
+  job  *pj;
+  int   sock = preq->rq_conn;
 
-  int  OrigState;
-  int  OrigSState;
-  char OrigSChar;
-  long OrigFlags;
+  int   OrigState;
+  int   OrigSState;
+  char  OrigSChar;
+  long  OrigFlags;
 
-  char namebuf[MAXPATHLEN+1];
+  char *id = "req_rdytocommit";
+  char  namebuf[MAXPATHLEN+1];
 
   pj = locate_new_job(sock, preq->rq_ind.rq_rdytocommit);
 
@@ -1281,7 +1287,7 @@ void req_rdytocommit(
 
   if (pj == NULL)
     {
-    log_err(errno, "req_rdytocommit", "unknown job id");
+    log_err(errno, id, "unknown job id");
 
     req_reject(PBSE_UNKJOBID, 0, preq, NULL, NULL);
 
@@ -1292,7 +1298,7 @@ void req_rdytocommit(
 
   if (pj->ji_qs.ji_substate != JOB_SUBSTATE_TRANSIN)
     {
-    log_err(errno, "req_rdytocommit", "cannot commit job in unexpected state");
+    log_err(errno, id, "cannot commit job in unexpected state");
 
     req_reject(PBSE_IVALREQ, 0, preq, NULL, NULL);
 
@@ -1347,7 +1353,7 @@ void req_rdytocommit(
             errno,
             strerror(errno));
 
-    log_err(errno, "req_rdytocommit", tmpLine);
+    log_err(errno, id, tmpLine);
 
     /* commit failed, backoff state changes */
 
@@ -1373,7 +1379,7 @@ void req_rdytocommit(
             errno,
             strerror(errno));
 
-    log_err(errno, "req_rdytocommit", log_buffer);
+    log_err(errno, id, log_buffer);
 
     close_conn(sock);
 
@@ -1524,7 +1530,6 @@ void req_commit(
      *** job array under development */
   if (pj->ji_is_array_template)
     {
-    
     if ((rc = setup_array_struct(pj)))
       {
       if (rc == ARRAY_TOO_LARGE)
@@ -1541,7 +1546,6 @@ void req_commit(
         }
       return;
       }
-
     }  /* end if (pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET) */
 
   svr_evaljobstate(pj, &newstate, &newsub, 1);

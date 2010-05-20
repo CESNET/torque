@@ -127,6 +127,7 @@
 #include "sched_cmds.h"
 #include "pbs_proto.h"
 #include "csv.h"
+#include "array.h"
 
 
 /* Private Functions */
@@ -1298,6 +1299,49 @@ static void chk_svr_resc_limit(
 
 
 
+
+/*
+ * count_user_queued_jobs
+ *
+ * @return the number of jobs, or -1 on error
+ */
+
+int count_user_queued_jobs(
+
+  pbs_queue *pque, /* I */
+  char      *user) /* I */
+
+  {
+  job *pj;
+
+  int  num_jobs = 0; 
+
+  if ((pque == NULL) ||
+      (user == NULL))
+    {
+    return(-1);
+    }
+
+  pj = (job *)GET_NEXT(pque->qu_jobs);
+
+  while (pj != NULL)
+    {
+    if ((pj->ji_qs.ji_state <= JOB_STATE_RUNNING) &&
+        (!strcmp(pj->ji_wattr[JOB_ATR_job_owner].at_val.at_str,user)))
+      {
+      num_jobs++;
+      }
+
+    pj = (job *)GET_NEXT(pj->ji_jobque);
+    }
+
+  return(num_jobs);
+  } /* END count_user_queued_jobs */
+
+
+
+
+
 /*
  * chk_resc_limits - check job Resource_Limits attribute against the queue
  * and server maximum and mininum values.
@@ -1382,7 +1426,6 @@ int svr_chkque(
   int failed_group_acl = 0;
   int failed_user_acl  = 0;
   int user_jobs;
-  job *pj;
 
   struct array_strings *pas;
   int j = 0;
@@ -1676,7 +1719,7 @@ int svr_chkque(
         snprintf(EMsg, 1024,
           "total number of jobs in queue exceeds the queue limit: "
           "user %s, queue %s",
-          pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+          pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,
           pque->qu_qs.qu_name);
 
       return(PBSE_MAXQUED);
@@ -1687,20 +1730,24 @@ int svr_chkque(
       {
       /* count number of jobs user has in queue */
 
-      user_jobs = 0;
+      user_jobs = count_user_queued_jobs(pque,
+          pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str);
 
-      pj = (job *)GET_NEXT(pque->qu_jobs);
-
-      while (pj != NULL)
+      if (pjob->ji_is_array_template)
         {
-        if ((pj->ji_qs.ji_state <= JOB_STATE_RUNNING) &&
-            (!strcmp(pj->ji_wattr[JOB_ATR_job_owner].at_val.at_str,
-                     pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str)))
-          {
-          user_jobs++;
-          }
+        /* figure out how many jobs are in the array */
+        int num_jobs = num_array_jobs(
+            pjob->ji_wattr[JOB_ATR_job_array_request].at_val.at_str);
 
-        pj = (job *)GET_NEXT(pj->ji_jobque);
+        /* only add if there wasn't an error. if there is, fail
+         * else where */
+        if (num_jobs > 0)
+          user_jobs += num_jobs;
+
+        /* when not an array, user_jobs is the current number of jobs, not
+         * the number of jobs that will be added. For this reason, the 
+         * comparison below is >= and this needs to be decremented by 1 */
+        user_jobs--;
         }
 
       if (user_jobs >= pque->qu_attr[QA_ATR_MaxUserJobs].at_val.at_long)
@@ -1709,7 +1756,7 @@ int svr_chkque(
           snprintf(EMsg, 1024,
             "total number of current user's jobs exceeds the queue limit: "
             "user %s, queue %s",
-            pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str,
+            pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,
             pque->qu_qs.qu_name);
 
         return(PBSE_MAXUSERQUED);

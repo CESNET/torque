@@ -37,6 +37,7 @@
 #include "server_limits.h"
 #include "server.h"
 #include "pbs_job.h"
+#include "queue.h"
 #include "pbs_error.h"
 #include "svrfunc.h"
 #include "work_task.h"
@@ -47,6 +48,7 @@
 extern void  job_clone_wt(struct work_task *);
 extern int array_upgrade(job_array *, int, int, int *);
 extern char *get_correct_jobname(const char *jobid);
+extern int count_user_queued_jobs(pbs_queue *,char *);
 
 /* global data items used */
 
@@ -505,7 +507,6 @@ int setup_array_struct(job *pjob)
   int bad_token_count;
   int array_size;
 
-
   /* setup a link to this job array in the servers all_arrays list */
   pa = (job_array *)calloc(1,sizeof(job_array));
 
@@ -575,7 +576,12 @@ int setup_array_struct(job *pjob)
     {
     int max_array_size = server.sv_attr[SRV_ATR_MaxArraySize].at_val.at_long;
     if (max_array_size < pa->ai_qs.num_jobs)
+      {
+      job_purge(pjob);
+      array_delete(pa);
+
       return(ARRAY_TOO_LARGE);
+      }
     }
 
   /* initialize the array */
@@ -1289,6 +1295,65 @@ void update_array_statuses()
     pa = (job_array*)GET_NEXT(pa->all_arrays);
     }
   }
+
+
+
+
+/* num_array_jobs()
+ *
+ * determine the number of jobs in the array from the array request 
+ *
+ * @param req_str - the string of the array request
+ * @return - the number of jobs in the array, -1 on error 
+ */
+
+int num_array_jobs(
+
+  char *req_str) /* I */
+
+  {
+  int   num_jobs = 0;
+  int   start;
+  int   end;
+
+  char *delim = ",";
+  char *ptr;
+  char *dash;
+
+  if (req_str == NULL)
+    return(-1);
+
+  ptr = strtok(req_str,delim);
+
+  while (ptr != NULL)
+    {
+    if ((dash = strchr(ptr,'-')) != NULL)
+      {
+      /* this is a range */
+      start = atoi(ptr);
+      end   = atoi(dash+1);
+
+      /* check for invalid range */
+      if (end < start)
+        return(-1);
+
+      num_jobs += end - start + 1;
+      }
+    else
+      {
+      /* just one job */
+      num_jobs++;
+      }
+
+    ptr = strtok(NULL,delim);
+    }
+
+  return(num_jobs);
+  } /* END num_array_jobs */
+
+
+
+
 
 /* END array_func.c */
 

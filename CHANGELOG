@@ -27,6 +27,7 @@ Array Changes
       (qstat -t expands the job array)
   f - server parameter max_job_array_size limits the number of jobs allowed
       in an array
+  b - fixed things so that arrays can't circumvent max_user_queuable
       
 
 2.5.0
