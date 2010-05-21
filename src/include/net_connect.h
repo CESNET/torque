@@ -187,18 +187,18 @@ enum conn_type
 
 void add_conn(int, enum conn_type, pbs_net_t, unsigned int, unsigned int, void (*func)(int));
 int  find_conn(pbs_net_t);
-int  client_to_svr(pbs_net_t, unsigned int, int, char *);
+int  client_to_svr(const struct sockaddr_storage*, sa_family_t, int, char *);
 void close_conn(int);
 pbs_net_t get_connectaddr(int);
 int  get_connecthost(int sock, char *, int);
-pbs_net_t get_hostaddr(char *);
+int get_hostaddr(char *,struct sockaddr_storage *);
 int  get_fullhostname(char *, char *, int, char *);
 unsigned int  get_svrport(char *, char *, unsigned int);
 int  init_network(unsigned int, void (*readfunc)());
 void net_close(int);
 int  wait_request(time_t waittime, long *);
 void net_add_close_func(int, void(*)());
-int compare_ip A_((const struct sockaddr_storage *, const struct sockaddr_storage *));
+int compare_ip (const struct sockaddr_storage *, const struct sockaddr_storage *);
 char *  netaddr(struct sockaddr_storage *);
 int get_max_num_descriptors(void);
 int get_fdset_size(void);
