@@ -1699,8 +1699,29 @@ int svr_chkque(
 
   if ((mtype != MOVE_TYPE_MgrMv) && (mtype != MOVE_TYPE_Order))
     {
-    /* 2. the queue must be enabled and the job limit not exceeded */
+    int array_jobs = 0;
 
+    /* set the number of array jobs in this request if applicable */
+    if (pjob->ji_is_array_template)
+      {
+      array_jobs = num_array_jobs(
+          pjob->ji_wattr[JOB_ATR_job_array_request].at_val.at_str);
+
+      /* only add if there wasn't an error. if there is, fail elsewhere */
+      if (array_jobs > 0)
+        {
+        /* when not an array, user_jobs is the current number of jobs, not
+         * the number of jobs that will be added. For this reason, the 
+         * comparison below is >= and this needs to be decremented by 1 */
+        array_jobs--;
+        }
+      else
+        {
+        array_jobs = 0;
+        }
+      }
+
+    /* 2. the queue must be enabled and the job limit not exceeded */
     if (pque->qu_attr[QA_ATR_Enabled].at_val.at_long == 0)
       {
       if (EMsg)
@@ -1713,7 +1734,7 @@ int svr_chkque(
       }
 
     if ((pque->qu_attr[QA_ATR_MaxJobs].at_flags & ATR_VFLAG_SET) &&
-        ((pque->qu_numjobs - pque->qu_numcompleted) >= pque->qu_attr[QA_ATR_MaxJobs].at_val.at_long))
+        ((pque->qu_numjobs - pque->qu_numcompleted + array_jobs) >= pque->qu_attr[QA_ATR_MaxJobs].at_val.at_long))
       {
       if (EMsg)
         snprintf(EMsg, 1024,
@@ -1733,24 +1754,7 @@ int svr_chkque(
       user_jobs = count_user_queued_jobs(pque,
           pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str);
 
-      if (pjob->ji_is_array_template)
-        {
-        /* figure out how many jobs are in the array */
-        int num_jobs = num_array_jobs(
-            pjob->ji_wattr[JOB_ATR_job_array_request].at_val.at_str);
-
-        /* only add if there wasn't an error. if there is, fail
-         * else where */
-        if (num_jobs > 0)
-          user_jobs += num_jobs;
-
-        /* when not an array, user_jobs is the current number of jobs, not
-         * the number of jobs that will be added. For this reason, the 
-         * comparison below is >= and this needs to be decremented by 1 */
-        user_jobs--;
-        }
-
-      if (user_jobs >= pque->qu_attr[QA_ATR_MaxUserJobs].at_val.at_long)
+      if (user_jobs + array_jobs >= pque->qu_attr[QA_ATR_MaxUserJobs].at_val.at_long)
         {
         if (EMsg)
           snprintf(EMsg, 1024,

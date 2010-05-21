@@ -28,6 +28,7 @@ Array Changes
   f - server parameter max_job_array_size limits the number of jobs allowed
       in an array
   b - fixed things so that arrays can't circumvent max_user_queuable
+  b - fixed things so that arrays can't circumvent max_queuable
       
 
 2.5.0
