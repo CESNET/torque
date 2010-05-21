@@ -2083,7 +2083,7 @@ int TMomFinalizeChild(
 
     if ((fp = fopen(cpuQdef->permfile,"w")) == NULL) 
       {
-      sprintf(log_buffer,"cannot create cpuset defintion file");
+      sprintf(log_buffer,"cannot create cpuset definition file");
 
       log_err(errno,id,log_buffer);
       }
