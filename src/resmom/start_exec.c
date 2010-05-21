@@ -1093,6 +1093,9 @@ int InitUserEnv(
   attribute            *pattr;
   resource             *presc;
   resource_def         *prd;
+#ifdef GSSAPI
+  char  *tmp;
+#endif  
   
   if (pjob == NULL)
     {
@@ -1271,6 +1274,18 @@ int InitUserEnv(
   
   /* PBS_NNODES */
   
+#ifdef GSSAPI
+  /* set krb5 credentials cache filename */
+  tmp = ccname_for_job(pjob->ji_qs.ji_jobid,path_creds);
+  if (tmp) {
+    bld_env_variables(&vtable,
+		      "KRB5CCNAME",
+		      tmp);
+    free(tmp);
+  }
+
+#endif
+
   pattr = &pjob->ji_wattr[(int)JOB_ATR_resource];
   
   prd = find_resc_def(svr_resc_def, "size", svr_resc_size);
@@ -1307,245 +1322,6 @@ int InitUserEnv(
   
   return(0);
   }	 /* END InitUserEnv() */
-
-
-#ifdef GSSAPI
-  char  *tmp;
-#endif  
-
-
-
-		log_err(errno, id, log_buffer);
-
-		return(-1);
-		}
-
-	/* initialize vtable */
-
-	if (envp != NULL)
-		{
-		for (j = 0, ebsize = 0;envp[j] != NULL;j++)
-			ebsize += strlen(envp[j]);
-		}
-
-	if (LOGLEVEL >= 10)
-		{
-		sprintf(log_buffer, "creating env buffer, count: %d  size: %d",
-						j,
-						ebsize);
-
-		log_ext(-1, id, log_buffer, LOG_DEBUG);
-		}
-
-	vstrs = pjob->ji_wattr[(int)JOB_ATR_variables].at_val.at_arst;
-
-	vtable.v_bsize = ebsize + EXTRA_VARIABLE_SPACE +
-									 (vstrs != NULL ? (vstrs->as_next - vstrs->as_buf) : 0);
-
-	vtable.v_block = malloc(vtable.v_bsize);
-
-	if (vtable.v_block == NULL)
-		{
-		sprintf(log_buffer, "PBS: failed to init env, malloc: %s\n",
-						strerror(errno));
-
-		log_err(errno, id, log_buffer);
-
-		return(-1);
-		}
-
-	vtable.v_ensize =
-
-	num_var_else +
-	num_var_env +
-	j +
-	EXTRA_ENV_PTRS +
-	(vstrs != NULL ? vstrs->as_usedptr : 0);
-
-	vtable.v_used = 0;
-
-	vtable.v_envp = malloc(vtable.v_ensize * sizeof(char *));
-
-	if (vtable.v_envp == NULL)
-		{
-		sprintf(log_buffer, "PBS: failed to init env, malloc: %s\n",
-						strerror(errno));
-
-		log_err(errno, id, log_buffer);
-
-		return(-1);
-		}
-
-	/* First variables from the local environment */
-
-	for (j = 0;j < num_var_env;++j)
-		bld_env_variables(&vtable, environ[j], NULL);
-
-	if (LOGLEVEL >= 10)
-		{
-		sprintf(log_buffer, "local env added, count: %d",
-						j);
-
-		log_ext(-1, id, log_buffer, LOG_DEBUG);
-		}
-
-	/* Next, the variables passed with the job.  They may   */
-	/* be overwritten with new correct values for this job  */
-
-	if (vstrs != NULL)
-		{
-		for (j = 0;j < vstrs->as_usedptr;++j)
-			{
-			bld_env_variables(&vtable, vstrs->as_string[j], NULL);
-
-			if (!strncmp(
-									vstrs->as_string[j],
-									variables_else[tveTmpDir],
-									strlen(variables_else[tveTmpDir])))
-				usertmpdir = 1;
-			}
-
-		if (LOGLEVEL >= 10)
-			{
-			sprintf(log_buffer, "job env added, count: %d",
-							j);
-
-			log_ext(-1, id, log_buffer, LOG_DEBUG);
-			}
-		}		 /* END if (vstrs != NULL) */
-
-	/* HOME */
-
-	if (pjob->ji_grpcache != NULL)
-		bld_env_variables(&vtable, variables_else[tveHome], pjob->ji_grpcache->gc_homedir);
-
-	/* LOGNAME */
-
-	if (pwdp != NULL)
-		bld_env_variables(&vtable, variables_else[tveLogName], pwdp->pw_name);
-
-	/* PBS_JOBNAME */
-
-	bld_env_variables(
-									 &vtable,
-									 variables_else[tveJobName],
-									 pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
-
-	/* PBS_JOBID */
-
-	bld_env_variables(&vtable, variables_else[tveJobID], pjob->ji_qs.ji_jobid);
-
-	/* PBS_QUEUE */
-
-	bld_env_variables(
-									 &vtable,
-									 variables_else[tveQueue],
-									 pjob->ji_wattr[(int)JOB_ATR_in_queue].at_val.at_str);
-
-	/* SHELL */
-
-	if (shell != NULL)
-		bld_env_variables(&vtable, variables_else[tveShell], shell);
-
-	/* USER, for compatability */
-
-	if (pwdp != NULL)
-		bld_env_variables(&vtable, variables_else[tveUser], pwdp->pw_name);
-
-	/* PBS_JOBCOOKIE */
-
-	bld_env_variables(
-									 &vtable,
-									 variables_else[tveJobCookie],
-									 pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str);
-
-	/* PBS_NODENUM */
-
-	sprintf(buf, "%d",
-					pjob->ji_nodeid);
-
-	bld_env_variables(&vtable, variables_else[tveNodeNum], buf);
-
-	/* PBS_TASKNUM */
-
-	if (ptask != NULL)
-		{
-		sprintf(buf, "%d",
-						(int)ptask->ti_qs.ti_task);
-
-		bld_env_variables(&vtable, variables_else[tveTaskNum], buf);
-		}
-
-	/* PBS_MOMPORT */
-
-	sprintf(buf, "%d",
-					pbs_rm_port);
-
-	bld_env_variables(&vtable, variables_else[tveMOMPort], buf);
-
-	/* PBS_NODEFILE */
-
-	if (pjob->ji_flags & MOM_HAS_NODEFILE)
-		{
-		sprintf(buf, "%s/%s",
-						path_aux,
-						pjob->ji_qs.ji_jobid);
-
-		bld_env_variables(&vtable, variables_else[tveNodeFile], buf);
-		}
-
-	/* PBS_NNODES */
-
-#ifdef GSSAPI
-  /* set krb5 credentials cache filename */
-  tmp = ccname_for_job(pjob->ji_qs.ji_jobid,path_creds);
-  if (tmp) {
-    bld_env_variables(&vtable,
-		      "KRB5CCNAME",
-		      tmp);
-    free(tmp);
-  }
-
-#endif
-
-  /* passed-in environment for tasks */
-	pattr = &pjob->ji_wattr[(int)JOB_ATR_resource];
-
-	prd = find_resc_def(svr_resc_def, "size", svr_resc_size);
-
-	presc = find_resc_entry(pattr, prd);
-
-	if (presc != NULL)
-		{
-		sprintf(buf, "%ld",
-						presc->rs_value.at_val.at_long);
-
-		bld_env_variables(&vtable, variables_else[tveNumNodes], buf);
-		}
-
-	/* setup TMPDIR */
-
-	if (!usertmpdir && TTmpDirName(pjob, buf))
-		bld_env_variables(&vtable, variables_else[tveTmpDir], buf);
-
-	/* PBS_VERSION */
-
-	sprintf(buf, "TORQUE-%s",
-					PACKAGE_VERSION);
-
-	bld_env_variables(&vtable, variables_else[tveVerID], buf);
-
-	/* passed-in environment for tasks */
-
-	if (envp != NULL)
-		{
-		for (j = 0;envp[j];j++)
-			bld_env_variables(&vtable, envp[j], NULL);
-		}
-
-	return(0);
-}	 /* END InitUserEnv() */
-
 
 
 

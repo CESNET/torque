@@ -354,17 +354,8 @@ int svr_get_privilege(
 #endif  /* PBS_ROOT_ALWAYS_ADMIN */
     }
 #endif /* GSSAPI */
-#ifdef __CYGWIN__
-  if (IAmAdminByName(user) && !strcasecmp(host_no_port, server_host))
-    {
-    is_root = 1;
-    return(priv | ATR_DFLAG_MGRD | ATR_DFLAG_MGWR | ATR_DFLAG_OPRD | ATR_DFLAG_OPWR);
-    }
-#else /* __CYGWIN__ */
-  /* Run this even if we aren't doing GSSAPI.  This lets the scheduler run
-     without tickets */
-  if ((strcmp(user,PBS_DEFAULT_ADMIN) == 0) &&
-      !strcasecmp(host_no_port,server_host)) 
+
+
 #ifdef __CYGWIN__
   if (IamAdminByName(user) && !strcasecmp(host_no_port, server_host))
     {
