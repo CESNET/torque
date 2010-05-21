@@ -1449,12 +1449,13 @@ const char *TJobAttr[] =
   "restartname",
   "faulttol",
   "comp_time",
-  "reported",
+  "reported",       /* 60 */
   "job_type",
   "inter_cmd",
-#ifdef ENABLE_CSA
+  "proxy_user",
+#ifdef USEJOBCREATE
   "pagg_id",
-#endif /* ENABLE_CSA */
+#endif /* USEJOBCREATE */
   NULL
   };
 
@@ -3204,6 +3205,14 @@ void req_cpyfile(
 #ifdef GSSAPI
   char          *ccname;
 #endif
+
+  /* there is nothing to copy */
+  if (spoolasfinalname == TRUE)
+    {
+    reply_ack(preq);
+
+    return;
+    }
 
   if (LOGLEVEL >= 3)
     {

@@ -105,6 +105,7 @@
 #include "pbs_error.h"
 #include "log.h"
 #include "acct.h"
+#include "dis.h"
 #include "svrfunc.h"
 #include "net_connect.h"
 #include "pbs_proto.h"
@@ -1005,7 +1006,7 @@ static int svr_strtjob2(
 
   pattr = &pjob->ji_wattr[(int)JOB_ATR_start_time];
 
-  if ((pattr->at_flags & ATR_VFLAG_SET) == 0)
+  if ((pjob->ji_wattr[(int)JOB_ATR_restart_name].at_flags & ATR_VFLAG_SET) == 0)
     {
     pattr->at_val.at_long = time(NULL);
     pattr->at_flags |= ATR_VFLAG_SET;
@@ -1020,6 +1021,14 @@ static int svr_strtjob2(
 
   svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
 
+  /* if job start timeout attribute is set use its value */
+  
+  if (((server.sv_attr[(int)SRV_ATR_JobStartTimeout].at_flags & ATR_VFLAG_SET) != 0)
+          && (server.sv_attr[(int)SRV_ATR_JobStartTimeout].at_val.at_long > 0))
+    {
+    DIS_tcp_settimeout(server.sv_attr[(int)SRV_ATR_JobStartTimeout].at_val.at_long);
+    }
+
   if (send_job(
         pjob,
         pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
@@ -1030,8 +1039,12 @@ static int svr_strtjob2(
     {
     /* SUCCESS */
 
+    DIS_tcp_settimeout(server.sv_attr[(int)SRV_ATR_tcp_timeout].at_val.at_long);
+
     return(0);
     }
+
+  DIS_tcp_settimeout(server.sv_attr[(int)SRV_ATR_tcp_timeout].at_val.at_long);
 
   sprintf(tmpLine, "unable to run job, send to MOM '%s' failed",
 

@@ -152,6 +152,12 @@ struct depend_job
 #define JOB_DEPEND_OP_DELETE  4
 #define JOB_DEPEND_OP_UNREG  5
 
+/* Job recovery levels. Options used to start pbs_mom */
+#define JOB_RECOV_REQUE       0  /* -q option */
+#define JOB_RECOV_TERM_REQUE  1  /* -r option */
+#define JOB_RECOV_RUNNING     2  /* -p option */
+#define JOB_RECOV_DELETE      3  /* -P option */
+
 /*
  * The badplace structure is used to keep track of destinations
  * which have been tried by a route queue and given a "reject"
@@ -289,9 +295,10 @@ enum job_atr
   JOB_ATR_reported, /* tracks whether job has been reported to scheduler */
   JOB_ATR_jobtype,     /* opaque job type string */
   JOB_ATR_inter_cmd,      /* command for interactive job */
-#ifdef ENABLE_CSA
+  JOB_ATR_proxy_user,
+#ifdef USEJOBCREATE
   JOB_ATR_pagg_id,
-#endif /* ENABLE_CSA */
+#endif /* USEJOBCREATE */
 #include "site_job_attr_enum.h"
 
   JOB_ATR_UNKN,  /* the special "unknown" type    */
@@ -362,6 +369,11 @@ typedef struct noderes
 #define MOM_HAS_NODEFILE 4 /* Mom wrote job PBS_NODEFILE */
 #define MOM_NO_PROC  8 /* no procs found for job */
 #define MOM_HAS_TMPDIR  16 /* Mom made a tmpdir */
+
+#ifdef USESAVEDRESOURCES
+#define MOM_JOB_RECOVERY   32  /* recovering dead job on restart */
+#endif    /* USESAVEDRESOURCES */
+
 #endif /* MOM */
 
 
@@ -477,6 +489,15 @@ struct job
    * fixed size internal data - maintained via "quick save"
    * some of the items are copies of attributes, if so this
    * internal version takes precendent
+   * 
+   * NOTE: IF YOU MAKE ANY CHANGES TO THIS STRUCT THEN YOU ARE INTRODUCING 
+   * AN INCOMPATIBILITY WITH .JB FILES FROM PREVIOUS VERSIONS OF TORQUE.
+   * YOU SHOULD INCREMENT THE VERSION OF THE STRUCT AND PROVIDE APPROPRIATE 
+   * SUPPORT IN joq_qs_upgrade() FOR UPGRADING PREVIOUS VERSIONS OF THIS 
+   * STRUCT TO THE CURRENT VERSION.  ALSO NOTE THAT ANY CHANGES TO CONSTANTS
+   * THAT DEFINE THE SIZE OF ANY ARRAYS IN THIS STRUCT ALSO INTRODUCE AN 
+   * INCOMPATIBILITY WITH .JB FILES FROM PREVIOUS VERSIONS AND REQUIRE A NEW
+   * STRUCT VERSION AND UPGRADE SUPPORT.
    */
 
   struct jobfix
@@ -776,6 +797,8 @@ task *task_find(
 #define JOB_SUBSTATE_STAGEDEL 52 /* job deleteing staged out files  */
 #define JOB_SUBSTATE_EXITED 53 /* job exit processing completed   */
 #define JOB_SUBSTATE_ABORT      54 /* job is being aborted by server  */
+#define JOB_SUBSTATE_NOTERM_REQUE 55 /* (MOM) on mom initialization. Requeue job
+                                        but do not terminate any running process */
 #define JOB_SUBSTATE_PREOBIT    57 /* (MOM) preobit jobstat sent */
 #define JOB_SUBSTATE_OBIT       58 /* (MOM) job obit notice sent */
 #define JOB_SUBSTATE_COMPLETE   59 /* job is complete */

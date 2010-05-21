@@ -295,6 +295,7 @@ extern int      mom_checkpoint_init(void);
 extern void     mom_checkpoint_check_periodic_timer(job *pjob);
 extern void     mom_checkpoint_set_directory_path(char *str);
 
+void prepare_child_tasks_for_delete();
 
 #define PMOMTCPTIMEOUT 60  /* duration in seconds mom TCP requests will block */
 
@@ -314,7 +315,7 @@ enum PMOMStateEnum
 
 static enum PMOMStateEnum mom_run_state;
 
-static int recover = 2;
+static int recover = JOB_RECOV_RUNNING;
 static int recover_set = FALSE;
 
 static int      call_hup = 0;
@@ -451,7 +452,7 @@ static char *opsys(struct rm_attribute *);
 static char *requname(struct rm_attribute *);
 static char *validuser(struct rm_attribute *);
 static char *reqmsg(struct rm_attribute *);
-static char *reqgres(struct rm_attribute *);
+char *reqgres(struct rm_attribute *);
 static char *reqstate(struct rm_attribute *);
 static char *getjoblist(struct rm_attribute *);
 static char *reqvarattr(struct rm_attribute *);
@@ -1075,7 +1076,7 @@ retryread:
 
 
 
-static char *reqgres(
+char *reqgres(
 
   struct rm_attribute *attrib)  /* I (ignored) */
 
@@ -6522,7 +6523,7 @@ void parse_command_line(
 
   errflg = 0;
 
-  while ((c = getopt(argc, argv, "a:c:C:d:DhH:l:L:M:pqrR:s:S:vx-:")) != -1)
+  while ((c = getopt(argc, argv, "a:c:C:d:DhH:l:L:M:pPqrR:s:S:vx-:")) != -1)
     {
     switch (c)
       {
@@ -6652,7 +6653,21 @@ void parse_command_line(
 
         if (!recover_set)
           {
-          recover = 2;
+          recover = JOB_RECOV_RUNNING;
+          recover_set = TRUE;
+          }
+        else
+          {
+          errflg = 1;
+          }
+
+        break;
+
+      case 'P':
+
+        if ( !recover_set )
+          {
+          recover = JOB_RECOV_DELETE;
           recover_set = TRUE;
           }
         else
@@ -6666,7 +6681,7 @@ void parse_command_line(
 
         if (!recover_set)
           {
-          recover = 1;
+          recover = JOB_RECOV_TERM_REQUE;
           recover_set = TRUE;
           }
         else
@@ -6680,7 +6695,7 @@ void parse_command_line(
 
         if (!recover_set)
           {
-          recover = 0;
+          recover = JOB_RECOV_REQUE;
           recover_set = TRUE;
           }
         else
@@ -7845,7 +7860,7 @@ void examine_all_jobs_to_resend(void)
     if (JobsToResend[jindex] == (job *)DUMMY_JOB_PTR)
       continue;
 
-    if (!post_epilogue(JobsToResend[jindex],-5))
+    if (!post_epilogue(JobsToResend[jindex], MOM_OBIT_RETRY))
       {
 
       if (LOGLEVEL >= 7)
@@ -7956,6 +7971,51 @@ int mark_for_resend(
 
 
 
+/*
+ * This is for a mom starting with the -P option. Set all existing 
+ * tasks to TI_STATE_EXITED so they can be cleanup up on the mom 
+ * and at the server 
+ */
+void prepare_child_tasks_for_delete()
+  {
+  char *id = "prepare_child_tasks_for_delete";
+  job *job;
+  extern tlist_head svr_alljobs;
+
+
+  for (job = GET_NEXT(svr_alljobs);job != NULL;job = GET_NEXT(job->ji_alljobs))
+    {
+    task *task;
+
+    for (task = GET_NEXT(job->ji_tasks);task != NULL;task = GET_NEXT(task->ti_jobtask))
+      {
+
+      char buf[128];
+
+      extern int exiting_tasks;
+
+      sprintf(buf, "preparing exited session %d for task %d in job %s for deletion",
+              (int)task->ti_qs.ti_sid,
+              task->ti_qs.ti_task,
+              job->ji_qs.ji_jobid);
+
+      log_event(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        id,
+        buf);
+
+      task->ti_qs.ti_exitstat = 0;  /* actually unknown */
+      task->ti_qs.ti_status = TI_STATE_EXITED;
+
+      task_save(task);
+
+      exiting_tasks = 1;
+      }
+    }
+  }
+
+
 
 
 /**
@@ -7973,6 +8033,9 @@ void main_loop(void)
   double        myla;
   job          *pjob;
   time_t        tmpTime;
+#ifdef USESAVEDRESOURCES
+  int           check_dead = TRUE;
+#endif    /* USESAVEDRESOURCES */
 
   mom_run_state = MOM_RUN_STATE_RUNNING;  /* mom_run_state is altered by stop_me() or MOMCheckRestart() */
 
@@ -8041,6 +8104,17 @@ void main_loop(void)
 
       mom_server_all_send_state();
 
+#ifdef USESAVEDRESOURCES
+
+      /* if -p, must poll tasks inside jobs to look for completion */
+
+      if ((check_dead) && (recover == JOB_RECOV_RUNNING))
+        {
+        scan_non_child_tasks();
+        }
+
+#endif    /* USESAVEDRESOURCES */
+
       if (time_now >= (last_poll_time + CheckPollTime))
         {
         last_poll_time = time_now;
@@ -8063,6 +8137,10 @@ void main_loop(void)
         }
       }  /* END BLOCK */
 
+#ifdef USESAVEDRESOURCES
+      check_dead = FALSE;
+#endif    /* USESAVEDRESOURCES */
+
 #ifndef NOSIGCHLDMOM
     if (termin_child != 0)  /* termin_child is a flag set by the catch_child signal handler */
 #endif
@@ -8070,8 +8148,16 @@ void main_loop(void)
 
     /* if -p, must poll tasks inside jobs to look for completion */
 
-    if (recover == 2)
+    if (recover == JOB_RECOV_RUNNING)
       scan_non_child_tasks();
+
+    if(recover == JOB_RECOV_DELETE)
+      {
+      prepare_child_tasks_for_delete();
+      /* we can only do this once so set recover back to the default */
+      recover = JOB_RECOV_RUNNING;
+      }
+      
 
     if (exiting_tasks)
       scan_for_exiting();
@@ -8146,6 +8232,17 @@ void restart_mom(
   envstr = malloc(
              (strlen("PATH") + strlen(orig_path) + 2) * sizeof(char));
 
+  if (!envstr)
+  {
+    sprintf(log_buffer, "malloc failed prior to execing myself: %s (%d)",
+            strerror(errno),
+            errno);
+
+    log_err(errno, id, log_buffer);
+
+    return;
+  }
+
   strcpy(envstr, "PATH=");
   strcat(envstr, orig_path);
   putenv(envstr);
@@ -8162,6 +8259,21 @@ void restart_mom(
 
   return;
   }  /* END restart_mom() */
+
+
+
+
+/* handles everything for binding a specific mom to a nodeboard
+ *
+ * parses mom.layout, registers procs/mem
+ * @return nonzero if there's a problem
+ */
+int bind_to_nodeboard()
+
+  {
+
+  return(0);
+  } /* END bind_to_nodeboard */
 
 
 
@@ -8196,6 +8308,11 @@ int main(
   parse_command_line(argc, argv); /* Calls exit on command line error */
 
   if ((rc = setup_program_environment()) != 0)
+    {
+    return(rc);
+    }
+
+  if ((rc = bind_to_nodeboard()) != 0)
     {
     return(rc);
     }
@@ -8239,6 +8356,9 @@ int main(
 
   return(0);
   }  /* END main() */
+
+
+
 
 /* END mom_main.c */
 

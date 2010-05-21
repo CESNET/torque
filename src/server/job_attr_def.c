@@ -920,7 +920,20 @@ attribute_def job_attr_def[] =
     PARENT_TYPE_JOB
   },
 
-#ifdef ENABLE_CSA
+  /* JOB_ATR_proxy_user */
+  { ATTR_P, /* "proxy_user" */
+    decode_str,
+    encode_str,
+    set_str,
+    comp_str,
+    free_str,
+    NULL_FUNC,
+    ATR_DFLAG_Creat | ATR_DFLAG_MGRD | ATR_DFLAG_USRD | ATR_DFLAG_OPRD,
+    ATR_TYPE_STR,
+    PARENT_TYPE_JOB
+  },
+
+#ifdef USEJOBCREATE
   /* JOB_ATR_pagg_id */
   { ATTR_pagg,  /* "pagg_id" */
     decode_ll,
@@ -933,7 +946,7 @@ attribute_def job_attr_def[] =
     ATR_TYPE_LL,
     PARENT_TYPE_JOB
   },
-#endif /* ENABLE_CSA */
+#endif /* USEJOBCREATE */
 
   /* Site defined attributes if any, see site_job_attr_*.h  */
 #include "site_job_attr_def.h"

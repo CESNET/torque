@@ -97,13 +97,15 @@ dnl
 dnl  ######################################################################
 dnl  Resource max not default mode?
 dnl
-AC_MSG_CHECKING([whether to turn on the RESOURCEMAXNOTDEFAULT flag])
-AC_ARG_ENABLE(maxnotdefault,
-    [  --enable-maxnotdefault  turn on the RESOURCEMAXNOTDEFAULT flag],
-    enable_maxnotdefault=$enableval, enable_maxnotdefault=no)
-AC_MSG_RESULT($enable_maxnotdefault)
-if test "x$enable_maxnotdefault" = "xyes" ; then
-	AC_DEFINE(RESOURCEMAXNOTDEFAULT, 1, [turns on the compilation of RESOURCEMAXNOTDEFAULT code])
+dnl  NOTE: due to confusion we are changing MAX to not be default by default
+dnl
+AC_MSG_CHECKING([whether to turn on the RESOURCEMAXDEFAULT flag])
+AC_ARG_ENABLE(maxdefault,
+    [  --enable-maxdefault  turn on the RESOURCEMAXDEFAULT flag],
+    enable_maxdefault=$enableval, enable_maxdefault=no)
+AC_MSG_RESULT($enable_maxdefault)
+if test "x$enable_maxdefault" = "xyes" ; then
+	AC_DEFINE(RESOURCEMAXDEFAULT, 1, [turns on the compilation of RESOURCEMAXDEFAULT code])
 fi
 
 
@@ -438,8 +440,13 @@ AC_SUBST(PBSPOEO)
 AC_ARG_ENABLE(cpuset,[  --enable-cpuset         enable Linux 2.6 kernel cpusets (in development)])
 build_l26_cpuset=no
 if test "x$enable_cpuset" = "xyes" ;then
-      build_l26_cpuset=yes
-       AC_DEFINE(PENABLE_LINUX26_CPUSETS, 1, [Define to enable Linux 2.6 cpusets])
+  build_l26_cpuset=yes
+  AC_DEFINE(PENABLE_LINUX26_CPUSETS, 1, [Define to enable Linux 2.6 cpusets])
+  cpuset=1
+  dnl define geometry requests to allow these to be requested here
+dnl  CFLAGS="$CFLAGS -DGEOMETRY_REQUESTS"  
+else
+  cpuset=0
 fi
 AM_CONDITIONAL([BUILD_L26_CPUSETS], test "$build_l26_cpuset" = yes)
 
@@ -456,7 +463,11 @@ if test "x$GCC" = "xyes" ;then
     build_l26_cpuset=yes
     AC_DEFINE(PENABLE_LINUX26_CPUSETS, 1, [Define to enable Linux 2.6 cpusets])
 dnl    AC_DEFINE(GEOMETRY_REQUESTS, 1, [Define to allow job specific geometry requests])
-    CFLAGS="$CFLAGS -DGEOMETRY_REQUESTS"
+    if test "${cpuset}" = "1" ; then
+      CFLAGS="$CFLAGS -DGEOMETRY_REQUESTS -DALWAYS_USE_CPUSETS"
+    else
+      CFLAGS="$CFLAGS -DGEOMETRY_REQUESTS"
+    fi
   else
     AC_MSG_RESULT([no])
   fi
@@ -570,7 +581,9 @@ AC_MSG_RESULT($CSA)
 
 case "$CSA" in
   yes) AC_DEFINE([ENABLE_CSA], 1, [Define to enable Cray's CSA support])
-      MOMLIBS="$MOMLIBS -L/opt/cray/job/default/lib64 -ljob -lcsa"
+      MOMLIBS="$MOMLIBS -L/opt/cray/job/default/lib64 -lcsa"
+      AC_CHECK_LIB([job], [job_create], ,
+        [AC_MSG_ERROR([--enable-csa requires job library support])])
       ;;
   no) : ;;
   *) AC_MSG_ERROR([--enable-csa should be yes or no]) ;;
@@ -596,6 +609,12 @@ case $PBS_MACH in
       AC_CHECK_LIB(util, openpty, MOMLIBS="$MOMLIBS -lutil"),
         AC_MSG_WARN([This is an ancient distro... will open ptys directly])
         AC_DEFINE([USEOLDTTY], 1, [Define on ancient linux distros]))
+dnl
+dnl  Check for job_create function on Cray
+dnl
+    AC_CHECK_LIB([job], [job_create],
+      [MOMLIBS="-L/opt/cray/job/default/lib64 -ljob $MOMLIBS"
+        CFLAGS="$CFLAGS -DUSEJOBCREATE"])
     ;;
   darwin*) AC_DEFINE(SETCONTROLLINGTTY, 1, [Define to set the controlling tty])
     ;;
@@ -1274,11 +1293,7 @@ if test "$with_modulefiles" != 'no'; then
     MODULEFILES_DIR="$with_modulefiles"
   fi
 else
-  if test -d /etc/modulefiles;then
-    MODULEFILES_DIR=/etc/modulefiles
-  else
-    MODULEFILES_DIR=no
-  fi
+  MODULEFILES_DIR=no
 fi
 AM_CONDITIONAL(INSTALL_MODULEFILES, [test "x$MODULEFILES_DIR" != "xno"])
 AC_SUBST(MODULEFILES_DIR)
@@ -1293,6 +1308,7 @@ dnl
 dnl  nsl is needed on some systems but duplicates libc.a on others (O2000s)
 AC_CHECK_FUNC(xdr_int, , AC_CHECK_LIB(nsl, xdr_int))
 AC_CHECK_FUNC(ruserok, , AC_CHECK_LIB(socket, ruserok))
+AC_CHECK_FUNC(hstrerror, , AC_CHECK_LIB(resolv, hstrerror))
 
 
 dnl  Readline

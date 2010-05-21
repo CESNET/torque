@@ -137,6 +137,7 @@ int   tasksize;
 #endif
 
 int   tasksize = DEFTASKSIZE;
+int   alias_opt = FALSE;
 
 
 
@@ -588,6 +589,7 @@ static void altdsp_statjob(
   char *jobn = NULL;
   char *sess;
   char *tasks;
+  char  calcTasks[64];
   char *nodect;
   char *rqtimecpu;
   char *rqtimewal;
@@ -695,9 +697,28 @@ static void altdsp_statjob(
           {
           nodect = pat->value;
           }
+        else if (!strcmp(pat->resource, "nodes"))
+          {
+          char *tmp = pat->value;
+          char *eq = strchr(tmp,'=');
+          
+          if (eq != NULL)
+            {
+            int nodes = atoi(pat->value);
+            int procs = atoi(eq+1);
+
+            sprintf(calcTasks,"%d",nodes*procs);
+            tasks = calcTasks;
+            }
+          else
+            {
+            tasks = pat->value;
+            }
+
+          }
         else if (!strcmp(pat->resource, "ncpus"))
           {
-          if (strcmp(pat->value, "0"))
+          if ((!strcmp(tasks,blank)) && (strcmp(pat->value, "0")))
             tasks = pat->value;
           }
         else if (!strcmp(pat->resource, "mppe"))
@@ -1205,6 +1226,18 @@ void display_statjob(
 
         while ((*c != '.') && (*c != '\0'))
           c++;
+
+        if (alias_opt == TRUE)
+          {
+          /* show the alias as well as the first part of the server name */
+          if (*c == '.')
+            {
+            c++;
+
+            while((*c != '.') && (*c != '\0'))
+              c++;
+            }
+          }
 
         c++;    /* List the first part of the server name, too. */
 
@@ -2033,9 +2066,9 @@ int main(
 #endif /* !FALSE */
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
-#define GETOPT_ARGS "aeE:fin1qrsu:xGMQRBW:-:"
+#define GETOPT_ARGS "aeE:filn1qrsu:xGMQRBW:-:"
 #else
-#define GETOPT_ARGS "fQBW:"
+#define GETOPT_ARGS "flQBW:"
 #endif /* PBS_NO_POSIX_VIOLATION */
 
   mode = JOBS; /* default */
@@ -2184,6 +2217,12 @@ int main(
 
           errflg++;
           }
+
+        break;
+
+      case 'l':
+
+        alias_opt = TRUE;
 
         break;
 

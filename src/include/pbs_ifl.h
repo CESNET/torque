@@ -160,10 +160,11 @@
 #define ATTR_comp_time   "comp_time"
 #define ATTR_reported    "reported"
 #define ATTR_intcmd      "inter_cmd"
+#define ATTR_P           "proxy_user"
 
-#ifdef ENABLE_CSA
+#ifdef USEJOBCREATE
 #define ATTR_pagg         "pagg_id"
-#endif /* ENABLE_CSA */
+#endif /* USEJOBCREATE */
 
 /* additional queue attributes names */
 
@@ -221,6 +222,8 @@
 #define ATTR_aclroot     "acl_roots"
 #define ATTR_managers    "managers"
 #define ATTR_dfltque     "default_queue"
+#define ATTR_dispsvrsuffix "display_job_server_suffix"
+#define ATTR_jobsuffixalias "job_suffix_alias"
 #define ATTR_defnode     "default_node"
 #define ATTR_locsvrs     "location_servers"
 #define ATTR_logevents   "log_events"
@@ -270,6 +273,8 @@
 #define ATTR_npdefault  "np_default"
 #define ATTR_clonebatchsize "clone_batch_size"
 #define ATTR_clonebatchdelay "clone_batch_delay"
+#define ATTR_jobstarttimeout "job_start_timeout"
+#define ATTR_jobforcecanceltime "job_force_cancel_time"
 
 /* additional node "attributes" names */
 
@@ -550,6 +555,9 @@ extern char **
 
 extern int
   pbs_sigjob(int connect, char *job_id, char *signal, char *extend);
+
+extern int
+  pbs_sigjobasync (int connect, char *job_id, char *signal, char *extend);
 
 extern void
   pbs_statfree(struct batch_status *stat);

@@ -162,7 +162,7 @@ start:
         {
         case PBSE_BADHOST:
 
-          if ((Server == NULL) || (Server[0] == '\0'))
+          if (Server[0] == '\0')
             {
             fprintf(stderr, "Cannot resolve default server host '%s' - check server_name file.\n",
               pbs_default());
@@ -210,6 +210,11 @@ start:
             goto retry;
 
           break;
+          
+        case PBSE_IFF_NOT_FOUND:
+        
+          fprintf(stderr, "pbs_iff command not found.\n");
+          break;
 
         case PBSE_PROTOCOL:
 
@@ -230,7 +235,7 @@ start:
         {
         if (errno == ECONNREFUSED)
           {
-          if ((Server == NULL) || (Server[0] == '\0'))
+          if (Server[0] == '\0')
             {
             char *fbserver;
 
