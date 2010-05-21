@@ -126,11 +126,11 @@ extern int             LOGLEVEL;
 
 /* Extern Functions */
 
-int status_job A_((job *,struct batch_request *,svrattrl *,tlist_head *,int *));
-int status_attrib A_((svrattrl *,attribute_def *,attribute *,int,int,tlist_head *,int *,int));
-extern int   svr_connect A_((struct sockaddr_storage *,unsigned int,void (*)(int), enum conn_type));
-extern int status_nodeattrib(svrattrl *,attribute_def *,struct pbsnode *,int,int,tlist_head *,int*);
-extern int hasprop(struct pbsnode *,struct prop *);
+int status_job(job *, struct batch_request *, svrattrl *, tlist_head *, int *);
+int status_attrib(svrattrl *, attribute_def *, attribute *, int, int, tlist_head *, int *, int);
+extern int  svr_connect(pbs_net_t, unsigned int, void (*)(int), enum conn_type);
+extern int  status_nodeattrib(svrattrl *, attribute_def *, struct pbsnode *, int, int, tlist_head *, int*);
+extern int  hasprop(struct pbsnode *, struct prop *);
 extern void rel_resc(job*);
 
 /* Private Data Definitions */
@@ -139,11 +139,11 @@ static int bad;
 
 /* The following private support functions are included */
 
-static void update_state_ct A_((attribute *, int *, char *));
-static int  status_que A_((pbs_queue *, struct batch_request *, tlist_head *));
-static int  status_node A_((struct pbsnode *, struct batch_request *, tlist_head *));
-static void req_stat_job_step2 A_((struct stat_cntl *));
-static void stat_update A_((struct work_task *));
+static void update_state_ct(attribute *, int *, char *);
+static int  status_que(pbs_queue *, struct batch_request *, tlist_head *);
+static int  status_node(struct pbsnode *, struct batch_request *, tlist_head *);
+static void req_stat_job_step2(struct stat_cntl *);
+static void stat_update(struct work_task *);
 
 #ifndef TMAX_JOB
 #define TMAX_JOB 999999999
@@ -831,6 +831,14 @@ static void stat_update(
 
           svr_mailowner(pjob, MAIL_BEGIN, MAIL_NORMAL, NULL);
           }
+
+#ifdef USESAVEDRESOURCES
+        else
+          {
+          /* save so we can recover resources used */
+          job_save(pjob, SAVEJOB_FULL);
+          }
+#endif    /* USESAVEDRESOURCES */
 
         pjob->ji_momstat = time_now;
         }

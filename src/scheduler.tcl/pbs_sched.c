@@ -759,13 +759,10 @@ char *argv[];
   fd_set  fdset;
 
 #ifndef DEBUG
-
-  if ((geteuid() != 0) || (getuid() != 0))
+  if (IamRoot() == 0)
     {
-    fprintf(stderr, "%s: Must be run by root\n", argv[0]);
-    return (1);
+        return (1);
     }
-
 #endif /* DEBUG */
 
   glob_argv = argv;

@@ -1,0 +1,134 @@
+#! /bin/sh
+
+###       AddPrivileges  ver 1.2     17 Mar 2010           ###
+### ------------------------------------------------------ ###
+###  This script creates Passwd&Group files and sets       ###
+###   additional privileges only for Windows users         ###
+###    with Computer administrator privileges.             ###
+###  It must be run at the first Torque pbs_server         ###
+###   and Torque pbs_mom installation on Cygwin.           ###
+
+
+OS=`uname -s | tr '[A-Z]' '[a-z]'`
+
+case $OS in
+   cygwin*) ;;
+   *) echo "   Script can run on Cygwin only"
+      exit 1;;
+esac
+
+
+case $1 in
+
+  -h | --h*)
+    cat <<\EOF
+
+Usage:  AddPrivileges --help | --version      or
+        AddPrivileges --add  [mom | SYSTEM]
+
+ Set additional privileges for Windows (Cygwin) user
+
+ Run from user with Computer administrator privileges only
+
+ Options:
+   --help, -h      display this help and exit
+
+   --version, -v   output version information and exit
+
+   --add           add privileges 
+
+               mom      for Torque pbs_mom
+               SYSTEM   for native Windows user
+
+EOF
+    exit $?
+    ;;
+
+  -v | --v*)
+    echo
+    echo " AddPrivileges  ver 1.2    17 Mar 2010"
+    exit $?
+    ;;
+
+  --add)
+
+CURRENTU=`whoami`
+
+PASSWDF=/etc/passwd
+
+GROUPF=/etc/group
+
+ADMINGRL=544
+
+ADMINGRD=512
+
+
+if id -G | grep -q "$ADMINGRD"
+
+    then
+    echo "   $CURRENTU is a domain administrator"
+    mkpasswd -l -d > $PASSWDF
+    mkgroup -l -d -u > $GROUPF;
+
+    elif id -G | grep -q "$ADMINGRL"
+
+        then
+        echo "   $CURRENTU is a local administrator"
+        mkpasswd -l > $PASSWDF
+        mkgroup -l -u > $GROUPF;
+
+    else echo "   Current user '$CURRENTU' has not administrator privileges"
+    exit $?;
+fi
+
+
+chmod 644 $PASSWDF
+
+chmod 644 $GROUPF
+
+
+if [ "$2" = "SYSTEM" ]; then
+
+    echo
+    echo "   Passwd&Group files were created"
+    echo
+    exit $?;
+
+fi
+
+
+if [ "$2" = "mom" ]; then 
+
+    editrights -a SeCreateTokenPrivilege -u "$CURRENTU"
+
+    echo "   Set mom's privileges"
+
+fi
+
+
+editrights -a SeServiceLogonRight -u "$CURRENTU"
+
+
+if [[ $? -eq $SUCCESS ]]; then
+
+ cat <<\EOF
+
+   Passwd&Group files and additional privileges were set successfully
+
+   Should run 'editrights -l -u UserAdmin'
+    to ascertain of the privileges installation
+
+ Warning!!! You have to understand that the installing of additional privileges
+            can decrease your OS security level
+
+EOF
+fi
+
+    exit $?
+    ;;
+
+esac
+
+echo "   Bad syntax.  Try \`$0 --help' for more information."
+exit 1;
+

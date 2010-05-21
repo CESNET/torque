@@ -775,8 +775,8 @@ int main(
   extern int rpp_fd;
   fd_set fdset;
 
-  int  schedinit A_((int argc, char **argv));
-  int  schedule A_((int com, int connector));
+  int  schedinit(int argc, char **argv);
+  int  schedule(int com, int connector);
 
   glob_argv = argv;
   alarm_time = 180;
@@ -889,12 +889,10 @@ int main(
     }
 
 #ifndef DEBUG
-  if ((geteuid() != 0) || (getuid() != 0))
+  if (IamRoot() == 0)
     {
-    fprintf(stderr, "%s: Must be run by root\n", argv[0]);
-    return (1);
+        return (1);
     }
-
 #endif        /* DEBUG */
 
   /* Save the original working directory for "restart" */
@@ -1111,6 +1109,9 @@ int main(
     {
     lock_out(lockfds, F_UNLCK);
 
+#ifdef DISABLE_DAEMONS
+    pid = getpid();
+#else
     if ((pid = fork()) == -1)
       {
       /* error on fork */
@@ -1118,7 +1119,8 @@ int main(
 
       exit(1);
       }
-    else if (pid > 0)               /* parent exits */
+    else
+    if (pid > 0)               /* parent exits */
       {
       exit(0);
       }
@@ -1129,6 +1131,7 @@ int main(
 
       exit(1);
       }
+#endif  /*  DISABLE_DAEMONS  */
 
     lock_out(lockfds, F_WRLCK);
 

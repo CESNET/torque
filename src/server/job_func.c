@@ -142,8 +142,8 @@
 #define FALSE 0
 #endif
 
-int conn_qsub A_((char *, long, char *));
-void job_purge A_((job *));
+int conn_qsub(char *, long, char *);
+void job_purge(job *);
 
 /* External functions */
 
@@ -151,7 +151,7 @@ extern void cleanup_restart_file(job *);
 
 /* Local Private Functions */
 
-static void job_init_wattr A_((job *));
+static void job_init_wattr(job *);
 
 /* Global Data items */
 
@@ -878,7 +878,7 @@ job *job_clone(
   /* set PBS_ARRAYID var */
   clear_attr(&tempattr, &job_attr_def[(int)JOB_ATR_variables]);
 
-  sprintf(buf, ",PBS_ARRAYID=%d", taskid);
+  sprintf(buf, "PBS_ARRAYID=%d", taskid);
 
   job_attr_def[(int)JOB_ATR_variables].at_decode(&tempattr,
       NULL,
@@ -927,6 +927,8 @@ void job_clone_wt(
   struct work_task *new_task;
   int i;
   int num_cloned;
+  int clone_size;
+  int clone_delay;
   int newstate;
   int newsub;
   int rc;
@@ -950,6 +952,29 @@ void job_clone_wt(
   /* do the clones in batches of CLONE_BATCH_SIZE */
 
   num_cloned = 0;
+
+  /* see if there are qmgr attributes for cloning the batch */
+
+  if (((server.sv_attr[(int)SRV_ATR_clonebatchsize].at_flags & ATR_VFLAG_SET) != 0)
+       && (server.sv_attr[(int)SRV_ATR_clonebatchsize].at_val.at_long > 0))
+    {
+    clone_size = server.sv_attr[(int)SRV_ATR_clonebatchsize].at_val.at_long;
+    }
+  else
+    {
+    clone_size = CLONE_BATCH_SIZE;
+    }
+
+  if (((server.sv_attr[(int)SRV_ATR_clonebatchdelay].at_flags & ATR_VFLAG_SET) != 0)
+       && (server.sv_attr[(int)SRV_ATR_clonebatchdelay].at_val.at_long > 0))
+    {
+    clone_delay = server.sv_attr[(int)SRV_ATR_clonebatchdelay].at_val.at_long;
+    }
+  else
+    {
+    clone_delay = 1;
+    }
+
   loop = TRUE;
 
   while (loop)
@@ -957,9 +982,9 @@ void job_clone_wt(
     start = rn->start;
     end = rn->end;
 
-    if (end - start > CLONE_BATCH_SIZE)
+    if (end - start > clone_size)
       {
-      end = start + CLONE_BATCH_SIZE - 1;
+      end = start + clone_size - 1;
       }
 
     for (i = start; i <= end; i++)
@@ -1004,7 +1029,7 @@ void job_clone_wt(
       array_save(pa);
       }
 
-    if (num_cloned == CLONE_BATCH_SIZE || rn == NULL)
+    if (num_cloned == clone_size || rn == NULL)
       {
       loop = FALSE;
       }
@@ -1012,7 +1037,7 @@ void job_clone_wt(
 
   if (rn != NULL)
     {
-    new_task = set_task(WORK_Timed, time_now + 1, job_clone_wt, ptask->wt_parm1);
+    new_task = set_task(WORK_Timed, time_now + clone_delay, job_clone_wt, ptask->wt_parm1);
     }
   else
     {
@@ -1604,6 +1629,196 @@ void job_purge(
 
 
 
+/*
+ * get_correct_jobname() - makes sure the job searches for the correct name
+ * necessary because of SRV_ATR_display_job_server_suffix and 
+ * SRV_ATR_job_suffix_alias
+ *
+ * allocs the correct job name
+ * @param jobid (I) - the jobid as passed in (NUM.SERVER_NAME)
+ * @return a pointer to the correct job name (alloc'd)
+ */
+char *get_correct_jobname(
+
+  const char *jobid) /* I */
+
+  {
+  char *correct = NULL;
+  char *dot;
+  /* first suffix could be the server name or the alias */
+  char *first_suffix = NULL;
+  /* second suffix can only be the alias */
+  char *second_suffix = NULL;
+  int   server_suffix = TRUE;
+  char *id = "get_correct_jobname";
+
+  if ((server.sv_attr[SRV_ATR_display_job_server_suffix].at_flags & ATR_VFLAG_SET) &&
+      (server.sv_attr[SRV_ATR_display_job_server_suffix].at_val.at_long == FALSE))
+    server_suffix = FALSE;
+
+  if ((dot = strchr(jobid,'.')) != NULL)
+    {
+    first_suffix = dot + 1;
+
+    if ((dot = strchr(first_suffix,'.')) != NULL)
+      {
+      second_suffix = dot + 1;
+      }
+    }
+
+  /* check current settings */
+  if ((server.sv_attr[SRV_ATR_job_suffix_alias].at_flags & ATR_VFLAG_SET) &&
+      (server_suffix == TRUE))
+    {
+    /* display the server suffix and the alias */
+    int len;
+    char *alias = server.sv_attr[SRV_ATR_job_suffix_alias].at_val.at_str;
+
+    /* check if alias is already there */
+    if (second_suffix != NULL)
+      {
+      if (strcmp(second_suffix,alias) == 0)
+        {
+        correct = strdup(jobid);
+
+        if (correct == NULL)
+          log_err(-1,id,"ERROR:    Fatal - Cannot allocate memory\n");
+
+        return(correct);
+        }
+      }
+    else if (first_suffix == NULL)
+      {
+      /* alloc memory and sprint, add 3 for 2 '.' and NULL terminator */
+      len = strlen(jobid) + strlen(server_name) + strlen(alias) + 3;
+      correct = malloc(len);
+
+      if (correct == NULL)
+        {
+        log_err(-1,id,"ERROR:    Fatal - Cannot allocate memory\n");
+        return(NULL);
+        }
+
+      snprintf(correct,len,"%s.%s.%s",
+        jobid,server_name,alias);
+      }
+    else
+      {
+      /* add 2 for null terminator and '.' */
+      len = strlen(alias) + 2 + strlen(jobid);
+
+      correct = malloc(len);
+
+      if (correct == NULL)
+        {
+        log_err(-1,id,"ERROR:    Fatal - Cannot allocate memory\n");
+        return(NULL);
+        }
+
+      snprintf(correct,len,"%s.%s",jobid,alias);
+      }
+    } /* END if (server_suffix && alias) */
+  else if (server_suffix == TRUE)
+    {
+    /* just the server suffix */
+
+    /* check for the server suffix */
+    if (second_suffix != NULL)
+      {
+      int len;
+      /* dot is still at the second '.' */
+      *dot = '\0';
+      len = strlen(jobid) + 1 ;
+
+      correct = malloc(len);
+
+      if (correct == NULL)
+        {
+        log_err(-1,id,"ERROR:    Fatal - Cannot allocate memory\n");
+        return(NULL);
+        }
+
+      snprintf(correct,len,"%s",jobid);
+      *dot = '.';
+      }
+    else if (first_suffix != NULL)
+      {
+      correct = strdup(jobid);
+
+      if (correct == NULL)
+        {
+        log_err(-1,id,"ERROR:    Fatal - Cannot allocate memory\n");
+        return(NULL);
+        }
+      }
+    else
+      {
+      int len = strlen(jobid) + strlen(server_name) + 2;
+
+      correct = malloc(len);
+
+      if (correct == NULL)
+        {
+        log_err(-1,id,"ERROR:    Fatal - Cannot allocate memory\n");
+        return(NULL);
+        }
+
+      snprintf(correct,len,"%s.%s",
+        jobid,server_name);
+      }
+    } /* END if (just server_suffix) */
+  else 
+    {
+    /* just the alias, not the server */
+
+    char *alias = server.sv_attr[SRV_ATR_job_suffix_alias].at_val.at_str;
+    int len;
+
+    if (first_suffix == NULL)
+      {
+      len = strlen(jobid) + strlen(alias) + 2;
+
+      correct = malloc(len);
+
+      if (correct == NULL)
+        {
+        log_err(-1,id,"ERROR:    Fatal - Cannot allocate memory\n");
+        return(NULL);
+        }
+
+      snprintf(correct,len,"%s.%s",jobid,alias);
+      }
+    else
+      {
+      len = strlen(alias) + 2;
+
+      if ((dot = strchr(jobid,'.')) != NULL)
+        *dot = '\0';
+
+      len += strlen(jobid);
+      correct = malloc(len);
+
+      if (correct == NULL)
+        {
+        log_err(-1,id,"ERROR:    Fatal - Cannot allocate memory\n");
+        return(NULL);
+        }
+
+      snprintf(correct,len,"%s.%s",
+        jobid,
+        alias);
+
+      *dot = '.';
+      }
+    } /* END else (just alias) */
+
+  return(correct);
+
+  } /* END get_correct_jobname() */
+
+
+
+
 
 /*
  * find_job() - find job by jobid
@@ -1618,6 +1833,9 @@ job *find_job(
 
   {
   char *at;
+  char *comp;
+  int   different = FALSE;
+
   job  *pj;
 
   if ((at = strchr(jobid, (int)'@')) != NULL)
@@ -1625,9 +1843,23 @@ job *find_job(
 
   pj = (job *)GET_NEXT(svr_alljobs);
 
+  if ((server.sv_attr[SRV_ATR_display_job_server_suffix].at_flags & ATR_VFLAG_SET) ||
+      (server.sv_attr[SRV_ATR_job_suffix_alias].at_flags & ATR_VFLAG_SET))
+    {
+    comp = get_correct_jobname(jobid);
+    different = TRUE;
+
+    if (comp == NULL)
+      return NULL;
+    }
+  else
+    {
+    comp = jobid;
+    }
+
   while (pj != NULL)
     {
-    if (!strcmp(jobid, pj->ji_qs.ji_jobid))
+    if (!strcmp(comp, pj->ji_qs.ji_jobid))
       break;
 
     pj = (job *)GET_NEXT(pj->ji_alljobs);
@@ -1635,6 +1867,9 @@ job *find_job(
 
   if (at)
     *at = '@'; /* restore @server_name */
+
+  if (different)
+    free(comp);
 
   return(pj);  /* may be NULL */
   }   /* END find_job() */

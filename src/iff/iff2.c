@@ -140,7 +140,7 @@ int main(
   int   rc;
 
   struct batch_reply   *reply;
-  char *parse_servername A_((char *, short *));
+  char *parse_servername(char *, short *);
   extern int   optind;
   extern char *optarg;
 

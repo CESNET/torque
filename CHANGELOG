@@ -1,6 +1,182 @@
-c - crash     b - bug fix    e - enhancement    f - new feature
+c - crash     b - bug fix    e - enhancement    f - new feature  n - note
+
+2.5.0
+  f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,
+      uiip.bas-net.by)
+  f - architecture and build system changes to support Cygwin (Igor Ilyenko, 
+      UIIP Minsk)
+  b - fixed EINPROGRESS in net_client.c. This signal appears every time of 
+      connecting and requires individual processing. The old erroneous 
+      processing brought to big network delay, especially on Cygwin.
+  e - improved signal processing after connecting in client_to_svr and added own
+      implementation of bindresvport for OS which lack it (Igor Ilyenko, 
+      UIIP Minsk)
+  f - created permission checking of Windows (Cygwin) users, using mkpasswd, 
+      mkgroup and own functions IamRoot, IamUser (Yauheni Charniauski, 
+      UIIP Minsk)
+  f - created permission checking of submited jobs (Vikentsi Lapa, 
+      UIIP Minsk)
+  f - Added the --disable-daemons configure option for start server-sched-mom
+      as Windows services, cygrunsrv.exe goes its into background 
+      independently.
+  e - Adapted output of Cygwin's diagnostic information (Yauheni 
+      Charniauski, UIIP Minsk)
+  b - Changed pbsd_main to call daemonize_server early only if 
+      high_availability_mode is set.
+  e - removed the very old A_ macros (patch provided by Simon Toth, CESNET z.s.p.o.)
+  e - added new qmgr server attributes (clone_batch_size, clone_batch_delay)
+      for controlling job cloning (Bugzilla #4)
+  e - added new qmgr attribute (checkpoint_defaults) for setting default
+      checkpoint values on Execution queues (Bugzilla #1)
+  b - Merged revision 3268 from 2.4-fixes. removed block of code that broke 
+      pbs_statjob for requested attributes
+  e - print a more informative error if pbs_iff isn't found when trying to
+      authenticate a client
+  n - 01/18/2010. Merged 2.4.5 revisions 3268-3375. 
+  e - added qmgr server attribute job_start_timeout, specifies timeout to be
+      used for sending job to mom. If not set, tcp_timeout is used.
+  e - added -DUSESAVEDRESOURCES code that uses servers saved resources used
+      for accounting end record instead of current resources used for jobs that
+      stopped running while mom was not up.
+
+2.4.9
+  b - Bugzilla bug 57. Check return value of malloc for tracejob for Linux
+      (Chris Samuel - Univ. of Melbourne)
+  b - fix so "gres" config gets displayed by pbsnodes
+  b - use QSUBHOST as the default host for output files when no host is
+      specified. (RT 7678) 
+  e - allow users to use cpusets and geometry requests at the same time by
+      specifying both at configure time.
+  b - Bugzilla bug 55. Check return value of malloc for pbs_mom for Linux
+      (Chris Samuel - Univ. of Melbourne)
+  e - added server parameter job_force_cancel_time. When configured to X 
+      seconds, a job that is still there X seconds after a qdel will be
+      purged. Useful for freeing nodes from a job when one node goes down
+      midjob.
+  b - fixed gcc warnings reported by Skip Montanaro
+
+2.4.8
+  e - Bugzilla bug 22. HIGH_PRECISION_FAIRSHARE for fifo scheduling.
+  c - no longer sigabrt with "running" jobs not in an execution queue. log
+      an error. 
+  c - fixed segfault for when TORQUE thinks there's a nanny but there isn't
+  e - mapped 'qsub -P user:group' to qsub -P user -W group_list=group
+  b - reverted to old behavior where interactive scripts are checked for 
+      directives and not run without a parameter.
+  e - setting a queue's resource_max.nodes now actually restricts things,
+      although so far it only limits based on the number of nodes (i.e. not
+      ppn)
+  f - added QSUBSENDGROUPLIST to qsub. This allows the server to know the 
+      correct group name when disable_server_id_check is set to true and
+      the user doesn't exist on the server.
+  e - Bugzilla bug 54. Patch submitted by Bas van der Vlies to make pbs_mkdirs
+      more robust, provide a help function and new option -C <chk_tree_location> 
+
+2.4.7
+  b - fixed a bug for when a resource_list has been set, but isn't completely
+      initialized, causing a segfault
+  b - stop counting down walltime remaining after a job is completed
+  b - correctly display the number for tasks as used in TORQUE in qstat -a output
+  b - no longer ignoring fread return values in linux cpuset code (gcc 4.3.3)
+  b - fixed a bug where job was added to obit retry list multiple times, causing
+      a segfault
+  b - Fix for Bugzilla bug 43. "configure ignores with-modulefiles=no"
+  b - no longer try to decide when to start with -t create in init.d scripts, 
+      -t creates should be done manually by the user
+  f - added -P to qsub. When submitting a job as root, the root user may add -P
+      <username> to submit the job as the proxy user specified by <usermname>
+
+2.4.6
+  f - added an asynchronous option for qsig, specified with -a.
+  b - fix to cleanup job that is left in running state after mom restart
+  f - added two server parameters: display_job_server_suffix and job_suffix_alias.
+      The first defaults to true and is whether or not jobs should be appended
+      by .server_name. The second defaults to NULL, but if it is defined it
+      will be appended at the end of the jobid, i.e. jobid.job_suffix_alias.
+  f - added -l option to qstat so that it will display a server name and an
+      alias if both are used. If these aren't used, -l has no effect.
+  e - qstat -f now includes an extra field "Walltime Remaining" that tells 
+      the remaining walltime in seconds. This field is does not account for
+      weighted walltime.
+  b - fixed open_std_file to setegid as well, this caused a problem with 
+      epilogue.user scripts.
+  e - qsub's -W can now parse attributes with quoted lists, for example: 
+      qsub script -W attr="foo,foo1,foo2,foo3" will set foo,foo1,foo2,foo3
+      as attr's value.
+  b - split Cray job library and CSA functionality since CSA is dependant on job
+      library but job library is not dependant on CSA
+
+2.4.5
+  b - epilogue.user scripts were being run with prologue argments. Fixed
+      bug in run_pelog() to include PE_EPILOGUSER so epilogue arguments get
+      passed to eplilogue.user script.
+
+  b - Ticket 6665. pbs_mom and job recovery. Fixed a bug where the -q option 
+      would terminate running processes as well as requeue jobs. This made the
+      -q option the same as the -r option for pbs_mom. -q will now only reque 
+      jobs and will not attempt to kill running processes. I also added a -P
+      option to start pbs_mom. This is similar to the -p option except the -P
+      option will only delete any left over jobs from the queue and will not
+      attempt to adopt and running processes.
+  e - Modified man page for pbs_mom. Added new -P option plus edited -p, -q
+      and -r options to hopefully make them more understandable.
+  n - 01/15/2010 created snapshot torque-2.4.5-snap201001151416.tar.gz.
+  b - now checks secondary groups (as well as primary) for creating a file
+      when spooling.  Before it wouldn't create the spool file if a user had 
+      permission through a secondary group.
+  n - 01/18/2010. Items above this point merged into trunk.
+  b - fixed a file descriptor error with high availability. Before it was possible
+      to try to regain a file descriptor which was never held, now this is fixed.
+  b - No longer overwrites the user's environment when spoolasfinalname is set.
+      Now the environment is handled correctly.
+  b - No longer will segfault if pbs_mom restarts in a bad state (user environment 
+      not initialized)
+  e - Changing MAXNOTDEFAULT behavior.  Now, by default, max is not default and max
+      can be configured as default with --enable-maxdefault.
+
+2.4.4
+  b - fixed contrib/init.d/pbs_mom so that it doesn't overwrite $args defined in
+      /etc/sysconfig/pbs_mom
+  b - when spool_as_final_name is configured for the mom, no longer send email 
+      messages about not being able to copy the spool file
+  b - when spool_as_final_name is configured for the mom, correctly substitue 
+      job environment variables
+  f - added logging for email events, allows the admin to check if emails are 
+      being sent correctly
+  b - Made a fix to svr_get_privilege(). On some architectures a non-root user
+      name would be set to null after the line " host_no_port[num_host_chars] = 0;"
+      because num_host_chars was = 1024 which was the size of hot_no_port. 
+      The null termination needed to happen at 1023. There were other problems
+      with this function so code was added to  validate the incoming
+      variables before they were used. The symptom of this bug was that non-root
+      managers and operators could not perform operations where they should 
+      have had rights.
+  b - Missed a format statement in an sprintf statement for the bug fix above.
+  b - Fixed a way that a file descriptor (for the server lockfile) could be used without 
+      initialization. RT 6756
+
+2.4.3
+  b - fix PBSD_authenticate so it correctly splits PATH with : instead of ;
+      (bugzilla #33)
+  b - pbs_mom now sets resource limits for tasks started with tm_spawn (Chris 
+      Samuel, VPAC)
+  c - fix assumption about size of unsocname.sun_path in Libnet/net_server.c
+  b - Fix for Bugzilla bug 34. "torque 2.4.X breaks OSC's mpiexec". fix in src/server
+      src/server/stat_job.c revision 3268.
+  b - Fix for Bugzilla bug 35 - printing the wrong pid (normal mode) and not
+      printing any pid for high availability mode.
+  f - added a diagnostic script (contrib/diag/tdiag.sh).  This script grabs 
+      the log files for the server and the mom, records the output of qmgr 
+      -c 'p s' and the nodefile, and creates a tarfile containing these.
+  b - Changed momctl -s to use exit(EXIT_FAILURE) instead of return(-1) if 
+      a mom is not running.
+  b - Fix for Bugzilla bug 36. "qsub crashes with long dependency list".
+  b - Fix for Bugzilla bug 41. "tracejob creates a file in the local directory".
 
 2.4.2
+  b - Changed predicate in pbsd_main.c for the two locations where 
+      daemonize_server is called to check for the value of high_availability_mode 
+      to determine when to put the server process in the background.
   b - Added pbs_error_db.h to src/include/Makefile.am and src/include/Makefile.in. 
       pbs_error_db.h now needed for install.
   e - Modified pbs_get_server_list so the $TORQUE_HOME/server_name file will work with 
@@ -9,6 +185,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   f - Added a new server parameter np_default. This allows the administrator to
       change the number of processors to a unified value dynamically for the
       entire cluster.
+  e - high availability enhanced so that the server spawns a separate thread to
+      update the "lock" on the lockfile.  Thread update and check time are both
+      setable parameters in qmgr.
+  b - close empty ACL files
   
 2.4.1
   e - added a prologue and epilogue option to the list of resources for qsub -l
@@ -80,7 +260,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       2.3.8)
   f - new fifo scheduler config option. ignore_queue: queue_name
       allows the scheduler to be instructed to ignore up to 16 queues on the server
-      (Simon Toth, muni.cz)
+      (Simon Toth, CESNET z.s.p.o.)
   e - add administrator customizable email notifications (see manpage for
       pbs_server_attributes) - (Roland Haas, Georgia Tech)
   e - moving jobs can now trigger a scheduling iteration (merged from 2.3.8)
@@ -93,11 +273,11 @@ c - crash     b - bug fix    e - enhancement    f - new feature
   b - fix to prevent some jobs from getting deleted on startup.
   f - add qpool.gz to contrib directory
   e - improve how error constants and text messages are represented (Simon Toth,
-      muni.cz)
+      CESNET z.s.p.o)
   f - new boolean queue attribute "is_transit" that allows jobs to exceede 
       server resource limits (queue limits are respected). This allows routing 
       queues to route jobs that would be rejected for exceeding local resources
-      even when the job won't be run locally. (Simon Toth, muni.cz)
+      even when the job won't be run locally. (Simon Toth, CESNET z.s.p.o)
   e - add support for "job_array" as a type for queue disallowed_types attribute
   e - added pbs_mom config option ignmem to ignore mem/pmem limit enforcement
   e - added pbs_mom config option igncput to ignore pcput limit enforcement
@@ -163,6 +343,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature
       removed OS specific CACHEOBITFAILURES code.
   b - fix so after* dependencies are handled correctly for exiting / completed
       jobs
+
 
 2.3.7
   b - fixed a bug where UNIX domain socket communication was failing when 

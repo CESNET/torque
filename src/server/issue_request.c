@@ -124,7 +124,7 @@ extern struct pbsnode *tfind_addr(const u_long);
 
 extern int       LOGLEVEL;
 
-int issue_to_svr A_((char *, struct batch_request *, void (*f)(struct work_task *)));
+int issue_to_svr(char *, struct batch_request *, void (*f)(struct work_task *));
 
 /*
  * relay_to_mom - relay a (typically existing) batch_request to MOM
@@ -252,7 +252,7 @@ int issue_to_svr(
 
   char                 *servern,                  /* I */
   struct batch_request *preq,                     /* I */
-  void (*replyfunc)     A_((struct work_task *))) /* I */
+  void (*replyfunc)    (struct work_task *))      /* I */
 
   {
   int   do_retry = 0;
@@ -378,7 +378,7 @@ int issue_Drequest(
 
   int          conn,
   struct batch_request *request,
-  void (*func) A_((struct work_task *)),
+  void (*func) (struct work_task *),
   struct work_task    **ppwt)
 
   {
@@ -518,13 +518,13 @@ int issue_Drequest(
 
     case PBS_BATCH_Rerun:
 
-      if ((rc = tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_Rerun, msg_daemonname)))
+      if ((rc = encode_DIS_ReqHdr(sock, PBS_BATCH_Rerun, msg_daemonname)))
         break;
 
-      if ((rc = tcp_encode_DIS_JobId(sock, request->rq_ind.rq_rerun)))
+      if ((rc = encode_DIS_JobId(sock, request->rq_ind.rq_rerun)))
         break;
 
-      if ((rc = tcp_encode_DIS_ReqExtend(sock, 0)))
+      if ((rc = encode_DIS_ReqExtend(sock, 0)))
         break;
 
       rc = DIS_tcp_wflush(sock);
@@ -533,18 +533,20 @@ int issue_Drequest(
 
     case PBS_BATCH_RegistDep:
 
-      if ((rc = tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_RegistDep, msg_daemonname)))
+      if ((rc = encode_DIS_ReqHdr(sock, PBS_BATCH_RegistDep, msg_daemonname)))
         break;
 
-      if ((rc = tcp_encode_DIS_Register(sock, request)))
+      if ((rc = encode_DIS_Register(sock, request)))
         break;
 
-      if ((rc = tcp_encode_DIS_ReqExtend(sock, 0)))
+      if ((rc = encode_DIS_ReqExtend(sock, 0)))
         break;
 
       rc = DIS_tcp_wflush(sock);
 
       break;
+
+    case PBS_BATCH_AsySignalJob:
 
     case PBS_BATCH_SignalJob:
 
@@ -569,13 +571,13 @@ int issue_Drequest(
 
     case PBS_BATCH_TrackJob:
 
-      if ((rc = tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_TrackJob, msg_daemonname)))
+      if ((rc = encode_DIS_ReqHdr(sock, PBS_BATCH_TrackJob, msg_daemonname)))
         break;
 
-      if ((rc = tcp_encode_DIS_TrackJob(sock, request)))
+      if ((rc = encode_DIS_TrackJob(sock, request)))
         break;
 
-      if ((rc = tcp_encode_DIS_ReqExtend(sock, 0)))
+      if ((rc = encode_DIS_ReqExtend(sock, 0)))
         break;
 
       rc = DIS_tcp_wflush(sock);
@@ -583,13 +585,13 @@ int issue_Drequest(
       break;
 
     case PBS_BATCH_ReturnFiles:
-      if ((rc = tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_ReturnFiles, msg_daemonname)))
+      if ((rc = encode_DIS_ReqHdr(sock, PBS_BATCH_ReturnFiles, msg_daemonname)))
         break;
 
-      if ((rc = tcp_encode_DIS_ReturnFiles(sock, request)))
+      if ((rc = encode_DIS_ReturnFiles(sock, request)))
         break;
 
-      if ((rc = tcp_encode_DIS_ReqExtend(sock, 0)))
+      if ((rc = encode_DIS_ReqExtend(sock, 0)))
         break;
 
       rc = DIS_tcp_wflush(sock);
@@ -598,13 +600,13 @@ int issue_Drequest(
 
     case PBS_BATCH_CopyFiles:
 
-      if ((rc = tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_CopyFiles, msg_daemonname)))
+      if ((rc = encode_DIS_ReqHdr(sock, PBS_BATCH_CopyFiles, msg_daemonname)))
         break;
 
-      if ((rc = tcp_encode_DIS_CopyFiles(sock, request)))
+      if ((rc = encode_DIS_CopyFiles(sock, request)))
         break;
 
-      if ((rc = tcp_encode_DIS_ReqExtend(sock, 0)))
+      if ((rc = encode_DIS_ReqExtend(sock, 0)))
         break;
 
       rc = DIS_tcp_wflush(sock);
@@ -613,13 +615,13 @@ int issue_Drequest(
 
     case PBS_BATCH_DelFiles:
 
-      if ((rc = tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_DelFiles, msg_daemonname)))
+      if ((rc = encode_DIS_ReqHdr(sock, PBS_BATCH_DelFiles, msg_daemonname)))
         break;
 
-      if ((rc = tcp_encode_DIS_CopyFiles(sock, request)))
+      if ((rc = encode_DIS_CopyFiles(sock, request)))
         break;
 
-      if ((rc = tcp_encode_DIS_ReqExtend(sock, 0)))
+      if ((rc = encode_DIS_ReqExtend(sock, 0)))
         break;
 
       rc = DIS_tcp_wflush(sock);
@@ -632,13 +634,13 @@ int issue_Drequest(
 
       /* who is sending obit request? */
 
-      if ((rc = tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_JobObit, msg_daemonname)))
+      if ((rc = encode_DIS_ReqHdr(sock, PBS_BATCH_JobObit, msg_daemonname)))
         break;
 
-      if ((rc = tcp_encode_DIS_JobObit(sock, request)))
+      if ((rc = encode_DIS_JobObit(sock, request)))
         break;
 
-      if ((rc = tcp_encode_DIS_ReqExtend(sock, 0)))
+      if ((rc = encode_DIS_ReqExtend(sock, 0)))
         break;
 
       rc = DIS_tcp_wflush(sock);

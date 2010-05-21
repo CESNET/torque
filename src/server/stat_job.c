@@ -92,6 +92,7 @@
 #include <stdlib.h>
 #include "libpbs.h"
 #include <ctype.h>
+#include <stdio.h>
 #include "server_limits.h"
 #include "list_link.h"
 #include "attribute.h"
@@ -103,10 +104,11 @@
 #include "work_task.h"
 #include "pbs_error.h"
 #include "svrfunc.h"
+#include "resource.h"
 
 
-extern int     svr_authorize_jobreq A_((struct batch_request *, job *));
-int status_attrib A_((svrattrl *, attribute_def *, attribute *, int, int, tlist_head *, int *, int));
+extern int     svr_authorize_jobreq(struct batch_request *, job *);
+int status_attrib(svrattrl *, attribute_def *, attribute *, int, int, tlist_head *, int *, int);
 
 /* Global Data Items: */
 
@@ -114,7 +116,7 @@ extern attribute_def job_attr_def[];
 extern int      resc_access_perm; /* see encode_resc() in attr_fn_resc.c */
 
 extern struct server server;
-
+extern time_t time_now;
 
 
 
@@ -234,34 +236,6 @@ int status_attrib(
     {
     /* client specified certain attributes */
 
-    if (pal->al_valln != 0)
-      {
-      /* HACK - report pal via high-throughput attr list */
-
-      for (;pal != NULL;pal = (svrattrl *)GET_NEXT(pal->al_link))
-        {
-        index = pal->al_valln;
-
-        if (((padef + index)->at_flags & priv) &&
-            !((padef + index)->at_flags & ATR_DFLAG_NOSTAT))
-          {
-          if (!(((padef + index)->at_flags & ATR_DFLAG_PRIVR) && (IsOwner == 0)))
-            {
-            (padef + index)->at_encode(
-              pattr + index,
-              phead,
-              (padef + index)->at_name,
-              NULL,
-              ATR_ENCODE_CLIENT);
-            }
-          }
-        }    /* END for (pal) */
-
-      /* SUCCESS */
-
-      return(0);
-      }
-
     while (pal != NULL)
       {
       ++nth;
@@ -313,6 +287,67 @@ int status_attrib(
           (padef + index)->at_name,
           NULL,
           ATR_ENCODE_CLIENT);
+
+        /* add walltime remaining if started */
+        if (index == JOB_ATR_start_time)
+          {
+          /* encode walltime remaining, this is custom because walltime 
+           * remaining isn't an attribute */
+          int       len;
+          char      buf[MAXPATHLEN];
+          char     *pname;
+          svrattrl *pal;
+          resource *pres;
+
+          int found = 0;
+          unsigned long remaining;
+          unsigned long upperBound;
+
+          if (((pattr + JOB_ATR_resource)->at_val.at_list.ll_next != NULL) &&
+              ((pattr + JOB_ATR_resource)->at_flags & ATR_VFLAG_SET))
+            {
+            pres = (resource *)GET_NEXT((pattr + JOB_ATR_resource)->at_val.at_list);
+
+            if ((pattr + JOB_ATR_comp_time)->at_flags & ATR_VFLAG_SET)
+              {
+              upperBound = (pattr + JOB_ATR_comp_time)->at_val.at_long;
+              }
+            else
+              {
+              upperBound = (unsigned long)time_now;
+              }
+
+            /* find the walltime resource */
+            for (;pres != NULL;pres = (resource *)GET_NEXT(pres->rs_link))
+              {
+              pname = pres->rs_defin->rs_name;
+
+              if (strcmp(pname, "walltime") == 0)
+                {
+                /* found walltime */
+                unsigned long value = (unsigned long)pres->rs_value.at_val.at_long;
+                remaining = value - (time_now - (pattr + index)->at_val.at_long);
+                found = TRUE;
+                break;
+                }
+              }
+            }
+
+          if (found == TRUE)
+            {
+            snprintf(buf,sizeof(buf),"%ld",remaining);
+
+            len = strlen(buf+1);
+            pal = attrlist_create("Walltime","Remaining",len);
+
+            if (pal != NULL)
+              {
+              memcpy(pal->al_value,buf,len);
+              pal->al_flags = ATR_VFLAG_SET;
+              append_link(phead,&pal->al_link,pal);
+              }
+            }
+          } /* END if (index == JOB_ATR_start_time) */
         }
       }
     }    /* END for (index) */

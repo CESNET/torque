@@ -138,7 +138,7 @@ int svr_connect(
 
   const struct sockaddr_storage *hostaddr,  /* host order */
   unsigned int   port,   /* I */
-  void (*func) A_((int)),
+  void (*func)(int),
   enum conn_type cntype)
 
   {
@@ -314,7 +314,7 @@ void svr_disconnect(
 
     DIS_tcp_setup(sock);
 
-    if ((tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_Disconnect, pbs_current_user) == 0) &&
+    if ((encode_DIS_ReqHdr(sock, PBS_BATCH_Disconnect, pbs_current_user) == 0) &&
         (DIS_tcp_wflush(sock) == 0))
       {
       /* wait for other server to close connection */

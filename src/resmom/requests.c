@@ -135,6 +135,7 @@ extern int mkdirtree(
     mode_t mode);
 
 extern int TTmpDirName(job*, char *);
+
 #endif /* HAVE_WORDEXP */
 
 /* External Global Data Items */
@@ -152,6 +153,7 @@ extern char            *msg_jobmod;
 extern char            *msg_manager;
 extern time_t  time_now;
 extern int  resc_access_perm; /* see encode_resc() */
+extern int spoolasfinalname;
 /* in attr_fn_resc.c */
 
 extern char             MOMUNameMissing[];
@@ -176,8 +178,8 @@ static char   rcperr[MAXPATHLEN]; /* file to contain rcp error */
 extern char PBSNodeMsgBuf[1024];
 extern int  LOGLEVEL;
 
-extern int im_compose A_((int, char *, char *, int, tm_event_t, tm_task_id));
-extern int mom_open_socket_to_jobs_server A_((job *, char *, void (*) A_((int))));
+extern int im_compose(int, char *, char *, int, tm_event_t, tm_task_id);
+extern int mom_open_socket_to_jobs_server(job *, char *, void (*)(int));
 
 /* prototypes */
 
@@ -293,6 +295,17 @@ static pid_t fork_to_user(
 
       return(-PBSE_BADUSER);
       }
+
+#ifdef __CYGWIN__
+    /* printf("TRY IAMADMIN FOR %s ", preq->rq_ind.rq_cpyfile.rq_user); */
+
+    if (IamUser() == 0)
+    {
+      log_err(errno, id, "Can`t run job with Administrator privileges");
+
+      return(-PBSE_BADUSER);
+    }
+#endif  /* __CYGWIN__ */
 
     useruid = pwdp->pw_uid;
 
@@ -652,9 +665,9 @@ static int return_file(
 
     DIS_tcp_setup(sock);
 
-    if ((rc = tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_MvJobFile, pbs_current_user)) ||
-        (rc = tcp_encode_DIS_JobFile(sock, seq++, buf, amt, pjob->ji_qs.ji_jobid, which)) ||
-        (rc = tcp_encode_DIS_ReqExtend(sock, NULL)))
+    if ((rc = encode_DIS_ReqHdr(sock, PBS_BATCH_MvJobFile, pbs_current_user)) ||
+        (rc = encode_DIS_JobFile(sock, seq++, buf, amt, pjob->ji_qs.ji_jobid, which)) ||
+        (rc = encode_DIS_ReqExtend(sock, NULL)))
       {
       break;
       }
@@ -780,6 +793,21 @@ static int told_to_cp(
       {
       if (wchost_match(host, pcphosts[nh].cph_hosts))
         {
+
+        if (LOGLEVEL >= 5)
+          {
+          sprintf(log_buffer, "host '%s' pcphosts[%d].cph_hosts: %s",
+                  host,
+                  nh,
+                  pcphosts[nh].cph_hosts);
+
+          log_record(
+            PBSEVENT_SYSTEM,
+            PBS_EVENTCLASS_SERVER,
+            (char *)id,
+            log_buffer);
+          }
+
         i = strlen(pcphosts[nh].cph_from);
 
         if (strncmp(pcphosts[nh].cph_from, oldpath, i) == 0)
@@ -1405,12 +1433,13 @@ const char *TJobAttr[] =
   "restartname",
   "faulttol",
   "comp_time",
-  "reported",
+  "reported",       /* 60 */
   "job_type",
   "inter_cmd",
-#ifdef ENABLE_CSA
+  "proxy_user",
+#ifdef USEJOBCREATE
   "pagg_id",
-#endif /* ENABLE_CSA */
+#endif /* USEJOBCREATE */
   NULL
   };
 
@@ -2172,7 +2201,8 @@ void req_signaljob(
 
   numprocs = kill_job(pjob, sig, id, "killing job");
 
-  if ((numprocs == 0) && ((sig == 0)||(sig == SIGKILL)))
+  if ((numprocs == 0) && ((sig == 0)||(sig == SIGKILL)) &&
+    (pjob->ji_qs.ji_substate != JOB_SUBSTATE_OBIT))
     {
     /* SIGNUL and no procs found, force job to exiting */
     /* force issue of (another) job obit */
@@ -2488,10 +2518,26 @@ static int del_files(
    * or as user in user homedir.  Let's determine if we will
    * be permitted to run setXid()/setgroup calls.
    */
-  if (getuid() != 0)
+ 
+#ifndef __CYGWIN__
+ if (getuid() != 0)
+    {
+#else
+  if (IamUser() == 1)
+    {
+#endif  /* __CYGWIN__ */
     UID0 = FALSE;
-  if (geteuid() != 0)
+    }
+
+#ifndef __CYGWIN__
+ if (geteuid() != 0)
+    {
+#else
+  if (IamUser() == 1)
+    {
+#endif  /* __CYGWIN__ */
     EUID0 = FALSE;
+    }
 
   /*
    * Build up path of file using local name only, then unlink it.
@@ -3141,6 +3187,14 @@ void req_cpyfile(
   int   wordexperr = 0;
 #endif
 
+  /* there is nothing to copy */
+  if (spoolasfinalname == TRUE)
+    {
+    reply_ack(preq);
+
+    return;
+    }
+
   if (LOGLEVEL >= 3)
     {
     pair = (struct rqfpair *)GET_NEXT(preq->rq_ind.rq_cpyfile.rq_pair);
@@ -3645,7 +3699,7 @@ void req_cpyfile(
           wordfree(&arg3exp);
 
           wordexperr = 0;
-
+          
           break; /* Successful */
           }
 

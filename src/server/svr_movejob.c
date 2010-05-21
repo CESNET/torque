@@ -121,10 +121,10 @@
 
 /* External functions called */
 
-extern void stat_mom_job A_((job *));
+extern void stat_mom_job(job *);
 extern void remove_stagein(job *);
 extern void remove_checkpoint(job *);
-extern int  job_route A_((job *));
+extern int  job_route(job *);
 extern struct pbsnode *PGetNodeFromAddr(struct sockaddr_storage *);
 extern char *PAddrToString(struct sockaddr_storage *);
 
@@ -132,12 +132,12 @@ extern char *PAddrToString(struct sockaddr_storage *);
 
 /* Private Functions local to this file */
 
-static int  local_move A_((job *, struct batch_request *));
-static void net_move_die A_((int sig));
-static void post_movejob A_((struct work_task *));
-static void post_routejob A_((struct work_task *));
-static int should_retry_route A_((int err));
-static int move_job_file A_((int con, job *pjob, enum job_file which));
+static int  local_move(job *, struct batch_request *);
+static void net_move_die(int sig);
+static void post_movejob(struct work_task *);
+static void post_routejob(struct work_task *);
+static int should_retry_route(int err);
+static int move_job_file(int con, job *pjob, enum job_file which);
 
 /* Global Data */
 
@@ -161,7 +161,7 @@ extern time_t pbs_tcp_timeout;
 extern int resc_access_perm;
 extern int      LOGLEVEL;
 
-int net_move A_((job *, struct batch_request *));
+int net_move(job *, struct batch_request *);
 
 /*
  * svr_movejob
@@ -1112,6 +1112,7 @@ int net_move(
   struct batch_request *req)
 
   {
+<<<<<<< .working
   void		*data;
   char		*destination = jobp->ji_qs.ji_destin;
   struct sockaddr_storage hostaddr;
@@ -1121,6 +1122,17 @@ int net_move(
   void	       (*post_func) A_((struct work_task *));
   char		*toserver;
   char		*id = "net_move";
+=======
+  void  *data;
+  char  *destination = jobp->ji_qs.ji_destin;
+  pbs_net_t  hostaddr;
+  char  *hostname;
+  int   move_type;
+  unsigned int  port = pbs_server_port_dis;
+  void (*post_func)(struct work_task *);
+  char  *toserver;
+  char  *id = "net_move";
+>>>>>>> .merge-right.r3630
 
   /* Determine to whom are we sending the job */
 

@@ -148,34 +148,10 @@ int set_job(
 
   long  sid;
 
-#ifdef __XTTEST
-  char  tmpLine[1024];
-#endif /* __ XTTEST */
-
   sid = setsid();
 
   if (sjr != NULL)
     sjr->sj_session = sid;
-
-#ifdef __XTTEST
-  PPtr = get_job_envvar(pjob, "BATCH_PARTITION_ID");
-
-  CPtr = get_job_envvar(pjob, "BATCH_ALLOC_COOKIE");
-
-  sprintf(tmpLine, "echo \"P:'%s' C:'%s'\" >> /tmp/dog",
-          (PPtr != NULL) ? PPtr : "NULL",
-          (CPtr != NULL) ? CPtr : "NULL");
-
-  rc = system(tmpLine);
-
-  if (WEXITSTATUS(rc) != 0)
-    {
-    snprintf(log_buffer, 1024, "cannot create alloc partition");
-
-    return(-2);
-    }
-
-#endif /* __ XTTEST */
 
   /* NOTE:  only activate partition create script for XT4+ environments */
 
@@ -188,9 +164,11 @@ int set_job(
     if (AllocParCmd == NULL)
       AllocParCmd = strdup("/opt/moab/default/tools/partition.create.xt4.pl");
 
-#ifdef ENABLE_CSA
+#ifdef USEJOBCREATE
 
-    if (pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_flags & ATR_VFLAG_SET)
+    if ((pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_flags & ATR_VFLAG_SET) &&
+      (pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_val.at_ll != (long)JOB_FAIL) &&
+      (pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_val.at_ll > 0x00000000ffffffff))
       {
       snprintf(tmpLine, sizeof(tmpLine), "%s --confirm -p %s -j %s -a %lld",
                AllocParCmd,
@@ -199,7 +177,7 @@ int set_job(
                pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_val.at_ll);
       }
     else
-#endif
+#endif  /* USEJOBCREATE */
       {
       snprintf(tmpLine, sizeof(tmpLine), "%s --confirm -p %s -j %s -a %ld",
              AllocParCmd,
@@ -467,13 +445,21 @@ void scan_for_terminated(void)
       pjob = (job *)GET_PRIOR(pjob->ji_alljobs);
       }  /* END while (pjob != NULL) */
 
+    if (WIFEXITED(statloc))
+      exiteval = WEXITSTATUS(statloc);
+    else if (WIFSIGNALED(statloc))
+      exiteval = WTERMSIG(statloc) + 0x100;
+    else
+      exiteval = 1;
+
     if (pjob == NULL)
       {
       if (LOGLEVEL >= 1)
         {
-        sprintf(log_buffer, "pid %d not tracked, exitcode=%d",
+        sprintf(log_buffer, "pid %d not tracked, statloc=%d, exitval=%d",
           pid,
-          statloc);
+          statloc,
+          exiteval);
 
         log_record(
           PBSEVENT_JOB,
@@ -484,13 +470,6 @@ void scan_for_terminated(void)
 
       continue;
       }  /* END if (pjob == NULL) */
-
-    if (WIFEXITED(statloc))
-      exiteval = WEXITSTATUS(statloc);
-    else if (WIFSIGNALED(statloc))
-      exiteval = WTERMSIG(statloc) + 0x100;
-    else
-      exiteval = 1;
 
     if (pid == pjob->ji_momsubt)
       {

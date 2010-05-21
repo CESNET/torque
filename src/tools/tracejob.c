@@ -829,10 +829,17 @@ int log_path(
           tm_ptr->tm_mday);
 
   filenames[filecount] = malloc(strlen(buf));
+
+  if(!filenames[filecount])
+  {
+    perror("malloc failed in log_path");
+    return(-1);
+  }
+
   strcpy(filenames[filecount],buf);
   filecount++;
 
-  sprintf(cmd, "ls -1t %s.* 2>1",
+  sprintf(cmd, "ls -1t %s.* 2> /dev/null",
     buf);
 
   if ((fp = popen(cmd, "r")) != NULL)

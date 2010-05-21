@@ -656,13 +656,10 @@ SystemInit(int argc, char *argv[])
   int  gethostname();
 
 #ifndef DEBUG
-
-  if ((geteuid() != 0) || (getuid() != 0))
+  if (IamRoot() == 0)
     {
-    fprintf(stderr, "%s: Must be run by root\n", argv[0]);
-    exit(1);
+	exit(1);
     }
-
 #endif  /* DEBUG */
 
   if (gethostname(host, sizeof(host)) == -1)

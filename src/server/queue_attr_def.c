@@ -91,9 +91,9 @@
 #include "attribute.h"
 #include "svrfunc.h"
 
-extern int decode_null A_((attribute *patr, char *name, char *rn, char *val));
-extern int set_null A_((attribute *patr, attribute *new, enum batch_op op));
-extern int disallowed_types_chk A_((attribute *pattr, void *pobject, int actmode));
+extern int decode_null(attribute *patr, char *name, char *rn, char *val);
+extern int set_null(attribute *patr, attribute *new, enum batch_op op);
+extern int disallowed_types_chk(attribute *pattr, void *pobject, int actmode);
 
 /* array of allowable strings in queue attribute disallowed_types */
 char* array_disallowed_types[] =
@@ -457,6 +457,18 @@ attribute_def que_attr_def[] =
     NO_USER_SET,
     ATR_TYPE_LONG,
     PARENT_TYPE_QUE_EXC
+  },
+  /* QE_ATR_checkpoint_defaults */
+  {   ATTR_checkpoint_defaults,   /* "checkpoint_defaults" */
+      decode_str,
+      encode_str,
+      set_str,
+      comp_str,
+      free_str,
+      NULL_FUNC,
+      NO_USER_SET,
+      ATR_TYPE_STR,
+      PARENT_TYPE_QUE_EXC
   },
   /* QE_ATR_RendezvousRetry */ /* Number times to retry sync of jobs */
   { "rendezvous_retry",

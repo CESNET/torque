@@ -94,8 +94,8 @@
 #include "libpbs.h"
 #include "dis.h"
 
-static int PBSD_select_put A_((int, int, struct attropl *, char *));
-static char **PBSD_select_get A_((int));
+static int PBSD_select_put(int, int, struct attropl *, char *);
+static char **PBSD_select_get(int);
 
 char **
 pbs_selectjob(int c, struct attropl *attrib, char *extend)
@@ -137,9 +137,9 @@ PBSD_select_put(int c, int type, struct attropl *attrib, char *extend)
 
   DIS_tcp_setup(sock);
 
-  if ((rc = tcp_encode_DIS_ReqHdr(sock, type, pbs_current_user)) ||
-      (rc = tcp_encode_DIS_attropl(sock, attrib)) ||
-      (rc = tcp_encode_DIS_ReqExtend(sock, extend)))
+  if ((rc = encode_DIS_ReqHdr(sock, type, pbs_current_user)) ||
+      (rc = encode_DIS_attropl(sock, attrib)) ||
+      (rc = encode_DIS_ReqExtend(sock, extend)))
     {
     connection[c].ch_errtxt = strdup(dis_emsg[rc]);
     return (pbs_errno = PBSE_PROTOCOL);

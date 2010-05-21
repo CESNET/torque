@@ -110,8 +110,8 @@
 #include "server.h"
 #include "credential.h"
 #include "batch_request.h"
-#include "pbs_job.h"
 #include "queue.h"
+#include "pbs_job.h"
 #include "net_connect.h"
 #include "pbs_error.h"
 #include "log.h"
@@ -119,17 +119,17 @@
 #include "csv.h"
 
 #include "work_task.h"
-extern void  job_clone_wt A_((struct work_task *));
+extern void  job_clone_wt(struct work_task *);
 extern int setup_array_struct(job *pjob);
 
 
 /* External Functions Called: */
 
-extern int  reply_jid A_((char *));
-extern void start_exec A_((job *));
-extern int  svr_authorize_jobreq A_((struct batch_request *, job *));
-extern int  svr_chkque A_((job *, pbs_queue *, char *, int, char *));
-extern int  job_route A_((job *));
+extern int  reply_jid(char *);
+extern void start_exec(job *);
+extern int  svr_authorize_jobreq(struct batch_request *, job *);
+extern int  svr_chkque(job *, pbs_queue *, char *, int, char *);
+extern int  job_route(job *);
 extern int node_avail_complex(char *, int *, int *, int *, int*);
 
 /* Global Data Items: */
@@ -175,12 +175,12 @@ extern  char *msg_daemonname;
 
 /* Private Functions in this file */
 
-static job *locate_new_job A_((int, char *));
+static job *locate_new_job(int, char *);
 
 #ifdef PNOT
-static int user_account_verify A_((char *, char *));
-static char *user_account_default A_((char *));
-static int user_account_read_user A_((char *));
+static int user_account_verify(char *, char *);
+static char *user_account_default(char *);
+static int user_account_read_user(char *);
 #endif /* PNOT */
 
 static char *pbs_o_que = "PBS_O_QUEUE=";
@@ -255,21 +255,62 @@ void req_quejob(
   else
     {
     char host_server[PBS_MAXSERVERNAME + 1];
+    int  server_suffix = TRUE;
 
     created_here = JOB_SVFLG_HERE;
 
-    sprintf(jidbuf, "%d.",
-            server.sv_qs.sv_jobidnumber);
-
     memset(host_server, 0, sizeof(host_server));
 
-    if (get_fullhostname(pbs_default(), host_server, PBS_MAXSERVERNAME, NULL) == 0)
+    if ((server.sv_attr[SRV_ATR_display_job_server_suffix].at_flags & ATR_VFLAG_SET) &&
+        (server.sv_attr[SRV_ATR_display_job_server_suffix].at_val.at_long == FALSE))
+      server_suffix = FALSE;
+
+    if ((server.sv_attr[SRV_ATR_job_suffix_alias].at_flags & ATR_VFLAG_SET) &&
+        (server_suffix == TRUE))
       {
-      strcat(jidbuf, host_server);
+      char *svrnm;
+
+      if (get_fullhostname(pbs_default(), host_server, PBS_MAXSERVERNAME, NULL) == 0)
+        {
+        svrnm = host_server;
+        }
+      else
+        {
+        svrnm = server_name;
+        }
+
+      snprintf(jidbuf,sizeof(jidbuf),"%d.%s.%s",
+        server.sv_qs.sv_jobidnumber,
+        svrnm,
+        server.sv_attr[SRV_ATR_job_suffix_alias].at_val.at_str);
+      }
+    else if (server.sv_attr[SRV_ATR_job_suffix_alias].at_flags & ATR_VFLAG_SET)
+      {
+      snprintf(jidbuf,sizeof(jidbuf),"%d.%s",
+        server.sv_qs.sv_jobidnumber,
+        server.sv_attr[SRV_ATR_job_suffix_alias].at_val.at_str);
+      }
+    else if (server_suffix == TRUE)
+      {
+      char *svrnm;
+
+      if (get_fullhostname(pbs_default(), host_server, PBS_MAXSERVERNAME, NULL) == 0)
+        {
+        svrnm = host_server;
+        }
+      else
+        {
+        svrnm = server_name;
+        }
+
+      snprintf(jidbuf,sizeof(jidbuf),"%d.%s",
+        server.sv_qs.sv_jobidnumber,
+        svrnm);
       }
     else
       {
-      strcat(jidbuf, server_name);
+      snprintf(jidbuf,sizeof(jidbuf),"%d",
+        server.sv_qs.sv_jobidnumber);
       }
 
     jid = jidbuf;
@@ -698,6 +739,12 @@ void req_quejob(
 
       return;
       }
+
+    /*
+     * set any "unspecified" checkpoint with queue default values, if any
+     */
+
+    set_chkpt_deflt(pj, pque);
 
     /* If queue has checkpoint directory name specified, propagate it to the job. */
 

@@ -134,17 +134,17 @@
 
 /* external functions called */
 
-extern int  pbsd_init A_((int));
+extern int  pbsd_init(int);
 extern void shutdown_ack();
-extern int  update_nodes_file A_((void));
+extern int  update_nodes_file(void);
 extern void tcp_settimeout(long);
 extern void poll_job_task(struct work_task *);
 extern int  schedule_jobs(void);
 extern int  notify_listeners(void);
-extern void queue_route A_((pbs_queue *));
+extern void queue_route(pbs_queue *);
 extern void svr_shutdown(int);
 extern void acct_close(void);
-extern int  svr_startjob A_((job *, struct batch_request *, char *, char *));
+extern int  svr_startjob(job *, struct batch_request *, char *, char *);
 extern int RPPConfigure(int, int);
 extern void acct_cleanup(long);
 #ifdef NO_SIGCHLD
@@ -178,10 +178,10 @@ extern void check_children();
 #endif
 
 #ifdef USE_HA_THREADS
-static void lock_out_ha A_(());
+static void lock_out_ha ();
 #else
-static void lock_out A_((int,int));
-static int try_lock_out A_((int,int));
+static void lock_out (int,int);
+static int try_lock_out (int,int);
 #endif
 
 /* external data items */
@@ -195,16 +195,14 @@ extern int    get_svr_attr (int);
 
 /* Local Private Functions */
 
-static int    get_port A_((char *,unsigned int *,struct sockaddr_storage *));
-static void   lock_out A_((int,int));
-static int   try_lock_out A_((int,int));
-static int    daemonize_server A_((int,int *));
-int mutex_lock A_((mutex_t *));
-int mutex_unlock A_((mutex_t *));
-int get_file_info A_((char *,unsigned long *,long *,bool_t *,bool_t *));
-int get_full_path A_((char *,char *,int));
+static int    get_port (char *, unsigned int *, pbs_net_t *);
+static int    daemonize_server (int,int *);
+int mutex_lock (mutex_t *);
+int mutex_unlock (mutex_t *);
+int get_file_info (char *,unsigned long *,long *,bool_t *,bool_t *);
+int get_full_path (char *,char *,int);
 int svr_restart();
-void          restore_attr_default A_((struct attribute *));
+void          restore_attr_default (struct attribute *);
 
 /* Global Data Items */
 
@@ -282,6 +280,7 @@ int             TForceUpdate = 0;  /* (boolean) */
 char           *ProgName;
 char           *NodeSuffix = NULL;
 
+int allow_any_mom = FALSE;
 
 
 void
@@ -291,9 +290,9 @@ DIS_rpp_reset(void)
   if (dis_getc != rpp_getc)
     {
     dis_getc    = rpp_getc;
-    dis_puts    = (int (*)A_((int, const char *, size_t)))rpp_write;
-    dis_gets    = (int (*)A_((int, char *, size_t)))rpp_read;
-    disr_skip   = (int (*)A_((int, size_t)))rpp_skip;
+    dis_puts    = (int (*)(int, const char *, size_t))rpp_write;
+    dis_gets    = (int (*)(int, char *, size_t))rpp_read;
+    disr_skip   = (int (*)(int, size_t))rpp_skip;
     disr_commit = rpp_rcommit;
     disw_commit = rpp_wcommit;
     }
@@ -321,8 +320,8 @@ void do_rpp(
 
   int  ret, proto, version;
 
-  void is_request A_((int, int, int *));
-  void stream_eof A_((int, u_long, int));
+  void is_request(int, int, int *);
+  void stream_eof(int, u_long, int);
 
   if (LOGLEVEL >= 4)
     {
@@ -575,7 +574,7 @@ void parse_command_line(int argc, char *argv[])
     };
 
 
-  while ((c = getopt(argc, argv, "A:a:d:DfhH:L:l:M:p:R:S:t:v-:")) != -1)
+  while ((c = getopt(argc, argv, "A:a:d:DefhH:L:l:mM:p:R:S:t:v-:")) != -1)
     {
     switch (c)
       {
@@ -662,6 +661,10 @@ void parse_command_line(int argc, char *argv[])
 
         TDoBackground = 0;
 
+        break;
+
+      case 'e':
+        allow_any_mom = TRUE;
         break;
 
       case 'f':
@@ -1047,10 +1050,10 @@ main_loop(void)
   time_t last_jobstat_time;
   int    when;
 
-  void ping_nodes A_((struct work_task *));
-  void check_nodes A_((struct work_task *));
-  void check_log A_((struct work_task *));
-  void check_acct_log A_((struct work_task *));
+  void ping_nodes(struct work_task *);
+  void check_nodes(struct work_task *);
+  void check_log(struct work_task *);
+  void check_acct_log(struct work_task *);
 
   extern char *msg_startup2; /* log message   */
 
@@ -1359,7 +1362,7 @@ int main(
   {
   FILE  *dummyfile;
   int  i;
-  int  lockfds;
+  int  lockfds = -1;
   int  rppfd;   /* fd to receive is HELLO's */
   int  privfd;  /* fd to send is messages */
 #ifdef TORQUE_WANT_IPV6
@@ -1456,12 +1459,9 @@ int main(
 
   /* if we are not running with real and effective uid of 0, forget it */
 
-  if ((getuid() != 0) || (geteuid() != 0))
+  if (IamRoot() == 0)
     {
-    fprintf(stderr, "%s: must be run by root\n",
-            ProgName);
-
-    return(1);
+	return(1);
     }
 
   /*
@@ -1544,17 +1544,24 @@ int main(
     DEBUGMODE = 1;
     TDoBackground = 0;
     }
+#ifdef DISABLE_DAEMONS
+    TDoBackground = 0;
+#endif
 
   /* handle running in the background or not if we're debugging */
 
-  if (daemonize_server(TDoBackground,&sid) == FAILURE)
+  if(high_availability_mode)
     {
-    exit(2);
+    if (daemonize_server(TDoBackground,&sid) == FAILURE)
+      {
+      exit(2);
+      }
     }
 
 #ifdef OS_LOSES_FD_OVER_FORK
   /* NOTE:  file descriptors may be lost across forks in SLES 10 SP1 */
 
+#ifndef USE_HA_THREADS
   close(lockfds);
 
   if ((lockfds = open(lockfile, O_CREAT | O_TRUNC | O_WRONLY, 0600)) < 0)
@@ -1569,6 +1576,9 @@ int main(
 
     exit(2);
     }
+
+#endif /* !USE_HA_THREADS */
+  /* no file descriptor was held if we're using ha threads */
 #endif /* OS_LOSES_FD_OVER_FORK */
 
 #ifdef USE_HA_THREADS
@@ -1686,9 +1696,17 @@ int main(
     }
 
 
-  sprintf(log_buffer, "%ld\n",
+  /* handle running in the background or not if we're debugging */
 
-          (long)sid);
+  if(!high_availability_mode)
+    {
+    if (daemonize_server(TDoBackground,&sid) == FAILURE)
+      {
+      exit(2);
+      }
+    }
+
+  sprintf(log_buffer, "%ld\n", (long)sid);
 
   if (!high_availability_mode)
     {
@@ -2377,8 +2395,31 @@ int start_update_ha_lock_thread()
   pthread_attr_t HALockThreadAttr;
 
   int rc;
+  int fds;
 
+  char smallBuf[MAX_LINE];
   char id[] = "start_update_ha_lock_thread";
+
+  /* write the pid to the lockfile for correctness */
+  fds = open(HALockFile,O_TRUNC|O_WRONLY,0600);
+
+  if (fds < 0)
+    {
+    log_err(-1,id,"Couldn't write the pid to the lockfile\n");
+
+    return(FAILURE);
+    }
+
+  snprintf(smallBuf,sizeof(smallBuf),"%ld\n",(long)sid); 
+  if (write(fds,smallBuf,strlen(smallBuf)) != (ssize_t)strlen(smallBuf))
+    {
+    log_err(-1,id,"Couldn't write the pid to the lockfile\n");
+
+    return(FAILURE);
+    }
+
+  /* we don't need an open handle on the lockfile, just correct update times */
+  close(fds);
 
   pthread_attr_init(&HALockThreadAttr);
 
@@ -2388,7 +2429,7 @@ int start_update_ha_lock_thread()
     {
     /* error creating thread */
 
-    log_err(-1,id,"Could not create HA Lock Thread");
+    log_err(-1,id,"Could not create HA Lock Thread\n");
 
     return(FAILURE);
     }
@@ -2397,7 +2438,7 @@ int start_update_ha_lock_thread()
     PBSEVENT_SYSTEM,
     PBS_EVENTCLASS_SERVER,
     id,
-    "HA Lock update thread is now created");
+    "HA Lock update thread is now created\n");
 #endif /* ifndef USE_HA_THREADS */
 
   return(SUCCESS);
@@ -2587,7 +2628,7 @@ static void lock_out_ha()
  * figures out, based on the mode, whether or not to run in the background and does so
  *
  * @param DoBackground - (I) indicates whether or not we should run in the background
- * @param sid - (O) set to the session id if we're running in the background, pid otherwise
+ * @param sid - (O) set to the correct pid
  * @return success unless we could not run in the background and we're supposed to
  */
 static int daemonize_server(
@@ -2596,13 +2637,13 @@ static int daemonize_server(
   int *sid)           /* O */
 
   {
-  int    pid;
+  int    pid;          
   FILE  *dummyfile;
   
   char   id[] = "daemonize_server";
   
   if (!DoBackground)
-    {
+    {  
     /* handle foreground (i.e. debug mode) */
     
     *sid = getpid();
@@ -2626,7 +2667,7 @@ static int daemonize_server(
   
   
   if (pid != 0)
-    {
+    {        
      /* exit if parent */
 
      log_event(
@@ -2645,50 +2686,54 @@ static int daemonize_server(
     log_err(errno,id,"Could not disconnect from controlling terminal");
 
     return(FAILURE);
-    }
+    }    
 
   /* disconnect stdin,stdout,stderr */
 
-    fclose(stdin);
-    fclose(stdout);
-    fclose(stderr);
+  fclose(stdin);
+  fclose(stdout);
+  fclose(stderr);
     
-    dummyfile = fopen("/dev/null","r");
-    assert((dummyfile != 0) && (fileno(dummyfile) == 0));
+  dummyfile = fopen("/dev/null","r");
+  assert((dummyfile != 0) && (fileno(dummyfile) == 0));
     
-    dummyfile = fopen("/dev/null","w");
-    assert((dummyfile != 0) && (fileno(dummyfile) == 1));
+  dummyfile = fopen("/dev/null","w");
+  assert((dummyfile != 0) && (fileno(dummyfile) == 1));
 
-    dummyfile = fopen("/dev/null","w");
-    assert((dummyfile != 0) && (fileno(dummyfile) == 2));
+  dummyfile = fopen("/dev/null","w");
+  assert((dummyfile != 0) && (fileno(dummyfile) == 2));
     
-    if ((pid = fork()) == -1)
-      {
-      log_err(errno,id,"cannot fork into background");
+  if ((pid = fork()) == -1)
+    {
+    log_err(errno,id,"cannot fork into background");
       
-      return(FAILURE);
-      }
+    return(FAILURE);
+    }
     
-    if (pid != 0)
-      {
-      /* exit if parent */
+  if (pid != 0)
+    {
+    /* exit if parent */
 
-      log_event(
-        PBSEVENT_SYSTEM,
-        PBS_EVENTCLASS_SERVER,
-        id,
-        "INFO:      parent is exiting");
-      
-      exit(0);
-      }
-    
     log_event(
       PBSEVENT_SYSTEM,
       PBS_EVENTCLASS_SERVER,
       id,
-      "INFO:      child process in background");
+      "INFO:      parent is exiting");
+      
+    exit(0);
+    }
+  
+  /* update the sid (pid written to the lock file) so that
+   * the correct pid is present */
+  *sid = getpid();
+
+  log_event(
+    PBSEVENT_SYSTEM,
+    PBS_EVENTCLASS_SERVER,
+    id,
+    "INFO:      child process in background");
     
-    return(SUCCESS);
+  return(SUCCESS);
   } /* END daemonize_server() */
 
 

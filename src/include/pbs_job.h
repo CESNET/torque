@@ -152,6 +152,12 @@ struct depend_job
 #define JOB_DEPEND_OP_DELETE  4
 #define JOB_DEPEND_OP_UNREG  5
 
+/* Job recovery levels. Options used to start pbs_mom */
+#define JOB_RECOV_REQUE       0  /* -q option */
+#define JOB_RECOV_TERM_REQUE  1  /* -r option */
+#define JOB_RECOV_RUNNING     2  /* -p option */
+#define JOB_RECOV_DELETE      3  /* -P option */
+
 /*
  * The badplace structure is used to keep track of destinations
  * which have been tried by a route queue and given a "reject"
@@ -289,9 +295,10 @@ enum job_atr
   JOB_ATR_reported, /* tracks whether job has been reported to scheduler */
   JOB_ATR_jobtype,     /* opaque job type string */
   JOB_ATR_inter_cmd,      /* command for interactive job */
-#ifdef ENABLE_CSA
+  JOB_ATR_proxy_user,
+#ifdef USEJOBCREATE
   JOB_ATR_pagg_id,
-#endif /* ENABLE_CSA */
+#endif /* USEJOBCREATE */
 #include "site_job_attr_enum.h"
 
   JOB_ATR_UNKN,  /* the special "unknown" type    */
@@ -362,6 +369,11 @@ typedef struct noderes
 #define MOM_HAS_NODEFILE 4 /* Mom wrote job PBS_NODEFILE */
 #define MOM_NO_PROC  8 /* no procs found for job */
 #define MOM_HAS_TMPDIR  16 /* Mom made a tmpdir */
+
+#ifdef USESAVEDRESOURCES
+#define MOM_JOB_RECOVERY   32  /* recovering dead job on restart */
+#endif    /* USESAVEDRESOURCES */
+
 #endif /* MOM */
 
 
@@ -477,6 +489,15 @@ struct job
    * fixed size internal data - maintained via "quick save"
    * some of the items are copies of attributes, if so this
    * internal version takes precendent
+   * 
+   * NOTE: IF YOU MAKE ANY CHANGES TO THIS STRUCT THEN YOU ARE INTRODUCING 
+   * AN INCOMPATIBILITY WITH .JB FILES FROM PREVIOUS VERSIONS OF TORQUE.
+   * YOU SHOULD INCREMENT THE VERSION OF THE STRUCT AND PROVIDE APPROPRIATE 
+   * SUPPORT IN joq_qs_upgrade() FOR UPGRADING PREVIOUS VERSIONS OF THIS 
+   * STRUCT TO THE CURRENT VERSION.  ALSO NOTE THAT ANY CHANGES TO CONSTANTS
+   * THAT DEFINE THE SIZE OF ANY ARRAYS IN THIS STRUCT ALSO INTRODUCE AN 
+   * INCOMPATIBILITY WITH .JB FILES FROM PREVIOUS VERSIONS AND REQUIRE A NEW
+   * STRUCT VERSION AND UPGRADE SUPPORT.
    */
 
   struct jobfix
@@ -660,19 +681,19 @@ typedef struct infoent
 
 #define IM_MAX          12
 
-eventent *event_alloc A_((
+eventent *event_alloc(
                            int  command,
                            hnodent *pnode,
                            tm_event_t event,
-                           tm_task_id taskid));
+                           tm_task_id taskid);
 
-task *pbs_task_create A_((
+task *pbs_task_create(
                            job *pjob,
-                           tm_task_id taskid));
+                           tm_task_id taskid);
 
-task *task_find A_((
+task *task_find(
                      job *pjob,
-                     tm_task_id taskid));
+                     tm_task_id taskid);
 
 #endif /* MOM */
 
@@ -776,6 +797,8 @@ task *task_find A_((
 #define JOB_SUBSTATE_STAGEDEL 52 /* job deleteing staged out files  */
 #define JOB_SUBSTATE_EXITED 53 /* job exit processing completed   */
 #define JOB_SUBSTATE_ABORT      54 /* job is being aborted by server  */
+#define JOB_SUBSTATE_NOTERM_REQUE 55 /* (MOM) on mom initialization. Requeue job
+                                        but do not terminate any running process */
 #define JOB_SUBSTATE_PREOBIT    57 /* (MOM) preobit jobstat sent */
 #define JOB_SUBSTATE_OBIT       58 /* (MOM) job obit notice sent */
 #define JOB_SUBSTATE_COMPLETE   59 /* job is complete */
@@ -820,57 +843,58 @@ dir so that job can be restarted */
 #define JOB_EXEC_CMDFAIL  -8 /* exec() of user command failed */
 #define JOB_EXEC_STDOUTFAIL -9 /* could not create/open stdout stderr files */
 
-extern void  add_dest A_((job *));
-extern void  depend_clrrdy A_((job *));
-extern int   depend_on_que A_((attribute *, void *, int));
-extern int   depend_on_exec A_((job *));
-extern int   depend_on_term A_((job *));
-extern job  *find_job A_((char *));
-extern char *get_egroup A_((job *));
-extern char *get_variable A_((job *, char *));
-extern int   init_chkmom A_((job *));
-extern void  issue_track A_((job *));
-extern int   job_abt A_((job **, char *));
+extern void  add_dest(job *);
+extern void  depend_clrrdy(job *);
+extern int   depend_on_que(attribute *, void *, int);
+extern int   depend_on_exec(job *);
+extern int   depend_on_term(job *);
+extern job  *find_job(char *);
+extern char *get_egroup(job *);
+extern char *get_variable(job *, char *);
+extern int   init_chkmom(job *);
+extern void  issue_track(job *);
+extern int   job_abt(job **, char *);
 extern job  *job_alloc();
-extern job  *job_clone A_((job *, int));
-extern void  job_free A_((job *));
-extern void  job_purge A_((job *));
-extern job  *job_recov A_((char *));
-extern int   job_save A_((job *, int));
-extern int   modify_job_attr A_((job *, svrattrl *, int, int *));
-extern char *prefix_std_file A_((job *, int));
-extern char *add_std_filename A_((job *, char *, int));
-extern int   set_jobexid A_((job *, attribute *, char *));
-extern int   site_check_user_map A_((job *, char *, char *));
-extern void  svr_dequejob A_((job *));
-extern int   svr_enquejob A_((job *));
-extern void  svr_evaljobstate A_((job *, int *, int *, int));
-extern void  svr_mailowner A_((job *, int, int, char *));
-extern void  set_resc_deflt A_((job *, attribute *));
-extern void  set_statechar A_((job *));
-extern int   svr_setjobstate A_((job *, int, int));
+extern job  *job_clone(job *, int);
+extern void  job_free(job *);
+extern void  job_purge(job *);
+extern job  *job_recov(char *);
+extern int   job_save(job *, int);
+extern int   modify_job_attr(job *, svrattrl *, int, int *);
+extern char *prefix_std_file(job *, int);
+extern char *add_std_filename(job *, char *, int);
+extern int   set_jobexid(job *, attribute *, char *);
+extern int   site_check_user_map(job *, char *, char *);
+extern void  svr_dequejob(job *);
+extern int   svr_enquejob(job *);
+extern void  svr_evaljobstate(job *, int *, int *, int);
+extern void  svr_mailowner(job *, int, int, char *);
+extern void  set_resc_deflt(job *, attribute *);
+extern void  set_statechar(job *);
+extern int   svr_setjobstate(job *, int, int);
 
 #ifdef BATCH_REQUEST_H
-extern job  *chk_job_request A_((char *, struct batch_request *));
-extern int   net_move A_((job *, struct batch_request *));
-extern int   svr_chk_owner A_((struct batch_request *, job *));
+extern job  *chk_job_request(char *, struct batch_request *);
+extern int   net_move(job *, struct batch_request *);
+extern int   svr_chk_owner(struct batch_request *, job *);
 
-extern struct batch_request *cpy_stage A_((struct batch_request *, job *, enum job_atr, int));
-extern struct batch_request *setup_cpyfiles A_((struct batch_request *, job *, char *, char *, int, int));
-extern struct batch_request *cpy_checkpoint A_((struct batch_request *, job *, enum job_atr, int));
+extern struct batch_request *cpy_stage(struct batch_request *, job *, enum job_atr, int);
+extern struct batch_request *setup_cpyfiles(struct batch_request *, job *, char *, char *, int, int);
+extern struct batch_request *cpy_checkpoint(struct batch_request *, job *, enum job_atr, int);
 #endif /* BATCH_REQUEST_H */
 
 #ifdef QUEUE_H
-extern int   svr_chkque A_((job *, pbs_queue *, char *, int, char *));
-extern int   default_router A_((job *, pbs_queue *, long));
-extern int   site_alt_router A_((job *, pbs_queue *, long));
-extern int   site_acl_check A_((job *, pbs_queue *));
+extern int   svr_chkque(job *, pbs_queue *, char *, int, char *);
+extern int   default_router(job *, pbs_queue *, long);
+extern int   site_alt_router(job *, pbs_queue *, long);
+extern int   site_acl_check(job *, pbs_queue *);
+extern void  set_chkpt_deflt(job *, pbs_queue *);
 #endif /* QUEUE_H */
 
 #ifdef WORK_TASK_H
-extern void  job_clone_wt A_((struct work_task *));
-extern int   issue_signal A_((job *, char *, void(*)(struct work_task *), void *));
-extern void   on_job_exit A_((struct work_task *));
+extern void  job_clone_wt(struct work_task *);
+extern int   issue_signal(job *, char *, void(*)(struct work_task *), void *);
+extern void   on_job_exit(struct work_task *);
 #endif /* WORK_TASK_H */
 
 #endif /* PBS_JOB_H */

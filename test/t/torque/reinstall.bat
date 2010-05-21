@@ -7,14 +7,13 @@ use lib "$FindBin::Bin/../../lib/";
 
 use CRI::Test;
 plan('no_plan');
-setDesc("Reinstall Latest SVN Torque to use BLCR checkpointing");
+setDesc("Reinstall Torque");
 
 my $testbase = "$FindBin::Bin/..";
 
 my @testList = (
-    "$testbase/blcr/reinstall.bat",
     "$testbase/torque/uninstall/uninstall.bat",
-    "$testbase/torque/install/install_latest_rcs.bat",
+    "$testbase/torque/install/install.bat",
 );
 
 foreach( @testList )

@@ -24,6 +24,7 @@ extern char *optarg;
 #include "pbs_ifl.h"
 #include "resmon.h"
 #include "rm.h"
+#include "log.h"
 
 #define MAX_QUERY  128
 
@@ -91,11 +92,9 @@ int main(
   HostList[0]     = '\0';
   ConfigBuf[0] = '\0';
 
-  if (getuid() != 0)
+  if (IamRoot() == 0)
     {
-    fprintf(stderr, "ERROR:  must be root to run this command\n");
-
-    exit(EXIT_FAILURE);
+	exit(EXIT_FAILURE);
     }
 
   while ((c = getopt(ArgC, ArgV, OptString)) != EOF)
@@ -550,7 +549,7 @@ int do_mom(
 
         closerm(sd);
 
-        return(-1);
+        exit(EXIT_FAILURE);
         }
 
       fprintf(stdout, "shutdown request successful on %s\n",

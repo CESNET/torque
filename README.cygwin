@@ -1,36 +1,199 @@
-TORQUE clients can be built and used under Cygwin, but be aware that there is
-basicly no security.  Windows doesn't have a concept of setuid root programs
-and priviledged ports.  This means that any user on cygwin can impersonate any
-user on your cluster[1].  You have been warned!
-
-To install Cygwin, browse to http://www.cygwin.com and click the "Install
-Cygwin Now" link.  Download and run setup.exe to install the base packages.
-After installation, run setup.exe again, click through the defaults and under
-the package selection, select the gcc and make packages.
-
-Run Cygwin and you should be looking at a terminal window with bash.  Download
-the TORQUE tarball with wget, untar it, and ./configure, make, make install as
-usual.  The configure script will warn that cygwin is an unsupported OS and
-disable the server[2] and mom components.  After the install, put your TORQUE
-server name in $PBS_SERVER_HOME/server_name.
-
-As of July 24, 2006, Cygwin doesn't yet support getaddrinfo() which means that
-X11 forwarding won't be built.  Tcl/Tk components are untested.  Interactive
-jobs are untested.
-
-If your server has a host_acl, add the DNS hostname of your Cygwin box to it
-and you should be able to run qstat and pbsnodes.
-
-Now add the hostname to your server's submit_hosts and check your Cygwin
-username with 'id' in your bash shell.  If it matches a username on your
-cluster, you can now submit jobs!  If it doesn't match, edit /etc/passwd to
-change your uid to the desired username.
 
 
-[1] Someone should write a service to take the place of the setuid root
-    pbs_iff, or wait for the forthcoming kerberos support.
+Tested with the stable release Cygwin 1.5.25-15 on 
+Windows XP Pro and on Windows Server 2003 SE (both 32-bit).
 
-[2] The server and scheduler components will successfully build under Cygwin,
-    but these components are disabled by default because actually running them
-    on Cygwin isn't practical.
+GUI and Tcl/Tk components are untested
+Interactive jobs are untested.
+Can be used on heterogeneous Torque clusters.
+Scheduler C is used only.
+Mail and drmaa are untested.
+In mom quota and setrlimit are not supported
+because Cygwin doesn't support ones.
+
+Windows file system must be NTFS!!!
+Torque needs two Windows users on each host:
+<UserAdmin> with Computer administrator privileges and 
+<SimpleUser> with Limited account.
+Both users must be password protected.
+Torque server-sched-mom can run as Cygwin daemons
+or as Windows services.
+
+
+###########################
+###   Install  Cygwin   ###
+###########################
+   
+To install Cygwin, enter into Windows as user <UserAdmin>.
+Browse to http://cygwin.com/win-9x.html and click the "setup-legacy.exe" link.  
+Download and run setup-legacy.exe.
+Click through the defaults and under the package selection 
+select the following packages:
+
+   autoconf;
+   automake;
+   cygrunsrv;
+   email;
+   gcc4;
+   make;
+   openssh;
+   sunrpc;
+   vim or mc is desirable.
+   
+Download and install the default's and selected Cygwin packages.
+
+
+
+Setup openssh for <UserAdmin> and <SimpleUser> using the
+ssh-host-config and ssh-user-config comands
+
+Adjust an access without password prompting on each host.
+
+
+     
+######################################
+###   Start Torque under Cygwin    ###
+######################################
+   
+Enter into working directory as <UserAdmin> and execute the following commands:
+   
+   #./configure --disable-unixsockets --disable-gcc-warnings [--disable-daemons]
+   #make
+   #make install
+   
+The next command must be at the server installation:
+
+   #./contrib/AddPrivileges --add
+
+The next command must be at the mom installation:   
+
+   #./contrib/AddPrivileges --add mom
+   
+The AddPrivileges script creates passwd&group files and adds privileges
+necessary for normal work Torque components.
+As a rule pbs_mom is demanded more privileges than pbs_server.
+
+Usage of privileges for various start of Torque components
+is resulted in the table:
+ --------------------------------------------------------------------------------------------------
+!                   !!                       !                          !                          !
+!      Run as       !!  pbs_server + sched   !         pbs_mom          !    on Windows subkind    !
+!                   !!                       !                          !                          !
+!===================!!=======================!==========================!==========================!
+!                   !!                       !                          !                          !
+!  Cygwin daemon    !!          ---          !  SeCreateTokenPrivilege  !  Windows XP/Server 2003  !
+!                   !!                       !                          !                          !
+!-------------------!!-----------------------!--------------------------!--------------------------!
+!                   !!                       !                          !                          !
+!  Windows service  !!  SeServiceLogonRight  !  SeServiceLogonRight     !  Windows XP/Server 2003  !
+!   by <UserAdmin>  !!                       !  SeCreateTokenPrivilege  !                          !
+!                   !!                       !                          !                          !
+!-------------------!!-----------------------!--------------------------!--------------------------!
+!                   !!                       !                          !                          !
+!  Windows service  !!                       !                          !       Windows XP         !
+!     by SYSTEM     !!          ---          !           ---            !          only            !
+!                   !!                       !                          !                          !
+!                   !!                       !                          !                          !
+ -------------------------------------------------------------------------------------------------- 
+Warning!!! You have to understand that a installing of additional privileges
+can decrease your OS security level.
+
+Open the ports for sshd, pbs_server, pbs_mom and pbs_sched in your firewalls.
+
+Reboot your computers!!!
+
+
+
+Configure pbs_server via the .../torque/server_priv/nodes file. 
+
+Initiate a pbs_server database and adjust a appropriate structure of queues:
+   
+   #pbs_server -t create
+   
+   #qmgr -c "s s scheduling=true"
+   #qmgr -c "c q batch queue_type=execution"
+   #qmgr -c "s q batch started=true"
+   #qmgr -c "s q batch enabled=true"
+   #qmgr -c "s q batch resources_default.nodes=1"
+   #qmgr -c "s q batch resources_default.walltime=3600"
+   #qmgr -c "s s default_queue=batch"
+   
+Further restart the server:
+
+   #qterm -t quick
+   #pbs_server
+   
+Start the scheduler:
+   
+   #pbs_sched
+
+
+
+Configure pbs_mom via the .../torque/mom_priv/config file. 
+
+Start the mom:
+   
+   #pbs_mom
+
+
+
+Add the client's hostname to your server's submit_hosts
+
+Set your server's hostsname in the .../torque/server_name file. 
+
+Submit jobs as <SimpleUser> with Limited account.
+
+See more the Torque Documentations.
+
+
+
+###################################
+###   Test Torque under Cygwin  ###
+###################################
+
+See nodes information:
+
+   #pbsnodes -a
+   
+Run simple jobs:
+
+   #echo "sleep 30" | qsub
+   #echo "ls -l" | qsub
+   #qstat
+
+
+
+########################################################
+###   Start Torque under Cygwin as Windows service   ###
+########################################################
+
+Enter into working directory as <UserAdmin> and execute the following commands:
+   
+   #./configure --disable-daemons --disable-unixsockets --disable-gcc-warnings
+   #make
+   #make install
+
+Configure and initiate Torque components.
+Instal the additional privileges (see above).
+
+Use cygrunsrv.exe for install, start, stop and remove services.
+See more cygrunsrv.exe --help.
+
+For example:
+
+   #./contrib/AddPrivileges --add
+   #cygrunsrv.exe -I pbs_server -p /usr/sbin/pbs_server.exe –u <UserAdmin> -w <password>
+   #cygrunsrv.exe -I pbs_sched -p /usr/sbin/pbs_sched.exe –u <UserAdmin> -w <password>
+ 
+   #./contrib/AddPrivileges --add mom
+   #cygrunsrv.exe -I pbs_mom -p /usr/sbin/pbs_mom.exe –u <UserAdmin> -w <password>
+ 
+On Windows XP <UserAdmin> also can start server-sched-mom as services by Windows 
+native user SYSTEM (uid=18):
+ 
+   #./contrib/AddPrivileges --add SYSTEM
+   #chown SYSTEM -R /var/spool/torque
+   #cygrunsrv.exe -I pbs_mom -p /usr/sbin/pbs_mom.exe
+
+Services and privileges are managed via the Windows Control Panel or comand line.
 

@@ -183,6 +183,7 @@ int    ignwalltime = 0;
 int    ignmem = 0;
 int    igncput = 0;
 int    ignvmem = 0; 
+int    spoolasfinalname = 0;
 /* end policies */
 int    lockfds = -1;
 time_t loopcnt;  /* used for MD5 calc */
@@ -291,6 +292,7 @@ extern int      mom_checkpoint_init(void);
 extern void     mom_checkpoint_check_periodic_timer(job *pjob);
 extern void     mom_checkpoint_set_directory_path(char *str);
 
+void prepare_child_tasks_for_delete();
 
 #define PMOMTCPTIMEOUT 60  /* duration in seconds mom TCP requests will block */
 
@@ -310,7 +312,7 @@ enum PMOMStateEnum
 
 static enum PMOMStateEnum mom_run_state;
 
-static int recover = 2;
+static int recover = JOB_RECOV_RUNNING;
 static int recover_set = FALSE;
 
 static int      call_hup = 0;
@@ -375,6 +377,7 @@ static unsigned long setmomhost(char *);
 static unsigned long setrreconfig(char *);
 static unsigned long setsourceloginbatch(char *);
 static unsigned long setsourcelogininteractive(char *);
+static unsigned long setspoolasfinalname(char *);
 static unsigned long setremchkptdirlist(char *);
 static unsigned long setmaxconnecttimeout(char *);
 
@@ -434,6 +437,7 @@ static struct specials
   { "preexec",             setpreexec },
   { "source_login_batch",  setsourceloginbatch },
   { "source_login_interactive", setsourcelogininteractive },
+  { "spool_as_final_name", setspoolasfinalname },
   { "remote_checkpoint_dirs", setremchkptdirlist },
   { "max_conn_timeout_micro_sec",   setmaxconnecttimeout },
   { NULL,                  NULL }
@@ -445,7 +449,7 @@ static char *opsys(struct rm_attribute *);
 static char *requname(struct rm_attribute *);
 static char *validuser(struct rm_attribute *);
 static char *reqmsg(struct rm_attribute *);
-static char *reqgres(struct rm_attribute *);
+char *reqgres(struct rm_attribute *);
 static char *reqstate(struct rm_attribute *);
 static char *getjoblist(struct rm_attribute *);
 static char *reqvarattr(struct rm_attribute *);
@@ -613,13 +617,13 @@ const char *PBSServerCmds[] =
 ** These routines are in the "dependent" code.
 */
 
-extern void dep_initialize A_((void));
-extern void dep_cleanup A_((void));
+extern void dep_initialize(void);
+extern void dep_cleanup(void);
 
 /* External Functions */
 
-extern void catch_child A_((int));
-extern void init_abort_jobs A_((int));
+extern void catch_child(int);
+extern void init_abort_jobs(int);
 extern void scan_for_exiting();
 extern void scan_for_terminated();
 extern int TMomCheckJobChild(pjobexec_t *, int, int *, int *);
@@ -635,14 +639,14 @@ extern void DIS_tcp_funcs();
 
 /* Local public functions */
 
-static void stop_me A_((int));
-static void PBSAdjustLogLevel A_((int));
+static void stop_me(int);
+static void PBSAdjustLogLevel(int);
 int         TMOMScanForStarting(void);
 
 
 /* Local private functions */
 
-void check_log A_((void));
+void check_log(void);
 
 
 
@@ -1078,7 +1082,7 @@ retryread:
 
 
 
-static char *reqgres(
+char *reqgres(
 
   struct rm_attribute *attrib)  /* I (ignored) */
 
@@ -1378,9 +1382,9 @@ DIS_rpp_reset(void)
   if (dis_getc != rpp_getc)
     {
     dis_getc = rpp_getc;
-    dis_puts = (int (*) A_((int, const char *, size_t)))rpp_write;
-    dis_gets = (int (*) A_((int, char *, size_t)))rpp_read;
-    disr_skip   = (int (*) A_((int, size_t)))rpp_skip;
+    dis_puts = (int (*)(int, const char *, size_t))rpp_write;
+    dis_gets = (int (*)(int, char *, size_t))rpp_read;
+    disr_skip   = (int (*)(int, size_t))rpp_skip;
 
     disr_commit = rpp_rcommit;
     disw_commit = rpp_wcommit;
@@ -3252,6 +3256,29 @@ static unsigned long setnospooldirlist(
 
 
 
+
+static unsigned long setspoolasfinalname(
+
+  char *value)  /* I */
+
+  {
+  log_record(
+    PBSEVENT_SYSTEM,
+    PBS_EVENTCLASS_SERVER,
+    "spoolasfinalname",
+    value);
+
+  if (!strncasecmp(value,"t",1) || (value[0] == '1') || !strcasecmp(value,"on") )
+    spoolasfinalname = 1;
+  else
+    spoolasfinalname = 0;
+
+  return(1);
+  }  /* END setspoolasfinalname() */
+
+
+
+
 static unsigned long setremchkptdirlist(
 
   char *value)  /* I */
@@ -4188,7 +4215,6 @@ int bad_restrict(
 
   struct in_addr in;
 #endif
-=======
   int i, len1, len2;
   char *cp1, *cp2;
 
@@ -4279,8 +4305,8 @@ int rm_request(
   struct rm_attribute *attr;
 
   u_short port;
-  void (*close_io) A_((int));
-  int (*flush_io) A_((int));
+  void (*close_io)(int);
+  int (*flush_io)(int);
 
   extern struct connection svr_conn[];
 
@@ -4304,7 +4330,7 @@ int rm_request(
     addr = rpp_getaddr(iochan);
     memcpy(&ipadd, &addr, sizeof(struct sockaddr_storage));
 
-    close_io = (void(*) A_((int)))rpp_close;
+    close_io = (void(*)(int))rpp_close;
     flush_io = rpp_flush;
     }
 
@@ -4334,10 +4360,7 @@ int rm_request(
 
   /* looks okay, find out what command it is */
 
-  if(tcp)
-    command = tcp_disrsi(iochan, &ret);
-  else
-    command = disrsi(iochan, &ret);
+  command = disrsi(iochan, &ret);
 
   if (ret != DIS_SUCCESS)
     {
@@ -4365,10 +4388,8 @@ int rm_request(
 
       reqnum++;
 
-      if(tcp)
-        ret = tcp_diswsi(iochan, RM_RSP_OK);
-      else
-        ret = diswsi(iochan, RM_RSP_OK);
+
+      ret = diswsi(iochan, RM_RSP_OK);
 
       if (ret != DIS_SUCCESS)
         {
@@ -4380,10 +4401,7 @@ int rm_request(
 
       for (;;)
         {
-        if(tcp)
-          cp = tcp_disrst(iochan, &ret);
-        else
-          cp = disrst(iochan, &ret);
+        cp = disrst(iochan, &ret);
 
         if (ret == DIS_EOD)
           {
@@ -5026,10 +5044,7 @@ int rm_request(
 
         free(cp);
 
-        if(tcp)
-          ret = tcp_diswst(iochan, output);
-        else
-          ret = diswst(iochan, output);
+        ret = diswst(iochan, output);
 
 
         if (ret != DIS_SUCCESS)
@@ -5065,10 +5080,7 @@ int rm_request(
 
       log_record(PBSEVENT_SYSTEM, 0, id, "configure");
 
-      if(tcp)
-        body = tcp_disrst(iochan, &ret);
-      else
-        body = disrst(iochan, &ret);
+      body = disrst(iochan, &ret);
 
       /* FORMAT:  FILE:<FILENAME> or <FILEDATA> (NYI) */
 
@@ -5121,10 +5133,7 @@ int rm_request(
 
       len = read_config(body);
 
-      if(tcp)
-        ret = tcp_diswsi(iochan, len ? RM_RSP_ERROR : RM_RSP_OK);
-      else
-        ret = diswsi(iochan, len ? RM_RSP_ERROR : RM_RSP_OK);
+      ret = diswsi(iochan, len ? RM_RSP_ERROR : RM_RSP_OK);
 
       if (ret != DIS_SUCCESS)
         {
@@ -5148,10 +5157,7 @@ int rm_request(
 
       log_record(PBSEVENT_SYSTEM, 0, id, "shutdown");
 
-      if(tcp)
-        ret = tcp_diswsi(iochan, RM_RSP_OK);
-      else
-        ret = diswsi(iochan, RM_RSP_OK);
+      ret = diswsi(iochan, RM_RSP_OK);
 
       if (ret != DIS_SUCCESS)
         {
@@ -5184,10 +5190,7 @@ int rm_request(
 
       log_err(-1, id, log_buffer);
 
-      if(tcp)
-        ret = tcp_diswsi(iochan, RM_RSP_ERROR);
-      else
-        ret = diswsi(iochan, RM_RSP_ERROR);
+      ret = diswsi(iochan, RM_RSP_ERROR);
 
       if (ret != DIS_SUCCESS)
         {
@@ -5197,10 +5200,7 @@ int rm_request(
         goto bad;
         }
 
-      if(tcp)
-        ret = tcp_diswst(iochan, log_buffer);
-      else
-        ret = diswst(iochan, log_buffer);
+      ret = diswst(iochan, log_buffer);
 
       if (ret != DIS_SUCCESS)
         {
@@ -5256,9 +5256,9 @@ void do_rpp(
   static char  id[] = "do_rpp";
 
   int             ret, proto, version;
-  void im_request A_((int, int));
-  void is_request A_((int, int, int *));
-  void im_eof     A_((int, int));
+  void im_request(int, int);
+  void is_request(int, int, int *);
+  void im_eof(int, int);
 
   DIS_rpp_reset();
   proto = disrsi(stream, &ret);
@@ -5419,7 +5419,7 @@ int do_tcp(
 #endif
 
   int ret, proto, version;
-  int tm_request A_((int stream, int version));
+  int tm_request(int stream, int version);
 
   time_t tmpT;
 
@@ -5427,7 +5427,7 @@ int do_tcp(
 
   pbs_tcp_timeout = 0;
 
-  proto = tcp_disrsi(fd, &ret);
+  proto = disrsi(fd, &ret);
 
   if (tmpT > 0)
     {
@@ -5474,7 +5474,7 @@ int do_tcp(
       break;
     }  /* END switch (ret) */
 
-  version = tcp_disrsi(fd, &ret);
+  version = disrsi(fd, &ret);
 
   if (ret != DIS_SUCCESS)
     {
@@ -5935,6 +5935,14 @@ int job_over_limit(
           break;
 
         case SISTER_EOF:
+
+          sprintf(log_buffer, "node %d (%s) requested job terminate, '%s' (code %d) - received SISTER_EOF attempting to communicate with sister MOM's",
+                  pjob->ji_nodekill,
+                  pnode->hn_host,
+                  "EOF",
+                  pnode->hn_sister);
+
+          break;
 
         default:
 
@@ -6527,7 +6535,7 @@ void parse_command_line(
 
   errflg = 0;
 
-  while ((c = getopt(argc, argv, "a:c:C:d:DhH:l:L:M:pqrR:s:S:vx-:")) != -1)
+  while ((c = getopt(argc, argv, "a:c:C:d:DhH:l:L:M:pPqrR:s:S:vx-:")) != -1)
     {
     switch (c)
       {
@@ -6657,7 +6665,21 @@ void parse_command_line(
 
         if (!recover_set)
           {
-          recover = 2;
+          recover = JOB_RECOV_RUNNING;
+          recover_set = TRUE;
+          }
+        else
+          {
+          errflg = 1;
+          }
+
+        break;
+
+      case 'P':
+
+        if ( !recover_set )
+          {
+          recover = JOB_RECOV_DELETE;
           recover_set = TRUE;
           }
         else
@@ -6671,7 +6693,7 @@ void parse_command_line(
 
         if (!recover_set)
           {
-          recover = 1;
+          recover = JOB_RECOV_TERM_REQUE;
           recover_set = TRUE;
           }
         else
@@ -6685,7 +6707,7 @@ void parse_command_line(
 
         if (!recover_set)
           {
-          recover = 0;
+          recover = JOB_RECOV_REQUE;
           recover_set = TRUE;
           }
         else
@@ -6779,7 +6801,7 @@ int setup_program_environment(void)
 
   int           c;
   int           hostc = 1;
-#ifndef DEBUG
+#if !defined(DEBUG) && !defined(DISABLE_DAEMONS)
   FILE         *dummyfile;
 #endif
   int  tryport;
@@ -6796,13 +6818,9 @@ int setup_program_environment(void)
 
   /* must be started with real and effective uid of 0 */
 
-  if ((getuid() != 0) || (geteuid() != 0))
+  if (IamRoot() == 0)
     {
-    /* FAILURE */
-
-    fprintf(stderr, "must be run as root\n");
-
-    return(1);
+        return(1);
     }
 
   /* The following is code to reduce security risks                */
@@ -6905,7 +6923,12 @@ int setup_program_environment(void)
 
   path_undeliv     = mk_dirs("undelivered/");
 
+#ifdef __CYGWIN__
+/*  AUX is reserved word in Windows  */
+  path_aux         = mk_dirs("auxx/");
+#else
   path_aux         = mk_dirs("aux/");
+#endif  /* __CYGWIN__ */
 
   path_server_name = mk_dirs("server_name");
 
@@ -7073,7 +7096,7 @@ int setup_program_environment(void)
 
   /* go into the background and become own session/process group */
 
-#ifndef DEBUG
+#if !defined(DEBUG) && !defined(DISABLE_DAEMONS)
 
   mom_lock(lockfds, F_UNLCK); /* unlock so child can relock */
 
@@ -7901,7 +7924,7 @@ void examine_all_jobs_to_resend(void)
     if (JobsToResend[jindex] == (job *)DUMMY_JOB_PTR)
       continue;
 
-    if (!post_epilogue(JobsToResend[jindex],-5))
+    if (!post_epilogue(JobsToResend[jindex], MOM_OBIT_RETRY))
       {
 
       if (LOGLEVEL >= 7)
@@ -8012,6 +8035,51 @@ int mark_for_resend(
 
 
 
+/*
+ * This is for a mom starting with the -P option. Set all existing 
+ * tasks to TI_STATE_EXITED so they can be cleanup up on the mom 
+ * and at the server 
+ */
+void prepare_child_tasks_for_delete()
+  {
+  char *id = "prepare_child_tasks_for_delete";
+  job *job;
+  extern tlist_head svr_alljobs;
+
+
+  for (job = GET_NEXT(svr_alljobs);job != NULL;job = GET_NEXT(job->ji_alljobs))
+    {
+    task *task;
+
+    for (task = GET_NEXT(job->ji_tasks);task != NULL;task = GET_NEXT(task->ti_jobtask))
+      {
+
+      char buf[128];
+
+      extern int exiting_tasks;
+
+      sprintf(buf, "preparing exited session %d for task %d in job %s for deletion",
+              (int)task->ti_qs.ti_sid,
+              task->ti_qs.ti_task,
+              job->ji_qs.ji_jobid);
+
+      log_event(
+        PBSEVENT_JOB,
+        PBS_EVENTCLASS_JOB,
+        id,
+        buf);
+
+      task->ti_qs.ti_exitstat = 0;  /* actually unknown */
+      task->ti_qs.ti_status = TI_STATE_EXITED;
+
+      task_save(task);
+
+      exiting_tasks = 1;
+      }
+    }
+  }
+
+
 
 
 /**
@@ -8029,6 +8097,9 @@ void main_loop(void)
   double        myla;
   job          *pjob;
   time_t        tmpTime;
+#ifdef USESAVEDRESOURCES
+  int           check_dead = TRUE;
+#endif    /* USESAVEDRESOURCES */
 
   mom_run_state = MOM_RUN_STATE_RUNNING;  /* mom_run_state is altered by stop_me() or MOMCheckRestart() */
 
@@ -8097,6 +8168,17 @@ void main_loop(void)
 
       mom_server_all_send_state();
 
+#ifdef USESAVEDRESOURCES
+
+      /* if -p, must poll tasks inside jobs to look for completion */
+
+      if ((check_dead) && (recover == JOB_RECOV_RUNNING))
+        {
+        scan_non_child_tasks();
+        }
+
+#endif    /* USESAVEDRESOURCES */
+
       if (time_now >= (last_poll_time + CheckPollTime))
         {
         last_poll_time = time_now;
@@ -8119,6 +8201,10 @@ void main_loop(void)
         }
       }  /* END BLOCK */
 
+#ifdef USESAVEDRESOURCES
+      check_dead = FALSE;
+#endif    /* USESAVEDRESOURCES */
+
 #ifndef NOSIGCHLDMOM
     if (termin_child != 0)  /* termin_child is a flag set by the catch_child signal handler */
 #endif
@@ -8126,8 +8212,16 @@ void main_loop(void)
 
     /* if -p, must poll tasks inside jobs to look for completion */
 
-    if (recover == 2)
+    if (recover == JOB_RECOV_RUNNING)
       scan_non_child_tasks();
+
+    if(recover == JOB_RECOV_DELETE)
+      {
+      prepare_child_tasks_for_delete();
+      /* we can only do this once so set recover back to the default */
+      recover = JOB_RECOV_RUNNING;
+      }
+      
 
     if (exiting_tasks)
       scan_for_exiting();
@@ -8207,6 +8301,17 @@ void restart_mom(
   envstr = malloc(
              (strlen("PATH") + strlen(orig_path) + 2) * sizeof(char));
 
+  if (!envstr)
+  {
+    sprintf(log_buffer, "malloc failed prior to execing myself: %s (%d)",
+            strerror(errno),
+            errno);
+
+    log_err(errno, id, log_buffer);
+
+    return;
+  }
+
   strcpy(envstr, "PATH=");
   strcat(envstr, orig_path);
   putenv(envstr);
@@ -8223,6 +8328,21 @@ void restart_mom(
 
   return;
   }  /* END restart_mom() */
+
+
+
+
+/* handles everything for binding a specific mom to a nodeboard
+ *
+ * parses mom.layout, registers procs/mem
+ * @return nonzero if there's a problem
+ */
+int bind_to_nodeboard()
+
+  {
+
+  return(0);
+  } /* END bind_to_nodeboard */
 
 
 
@@ -8257,6 +8377,11 @@ int main(
   parse_command_line(argc, argv); /* Calls exit on command line error */
 
   if ((rc = setup_program_environment()) != 0)
+    {
+    return(rc);
+    }
+
+  if ((rc = bind_to_nodeboard()) != 0)
     {
     return(rc);
     }
@@ -8300,6 +8425,9 @@ int main(
 
   return(0);
   }  /* END main() */
+
+
+
 
 /* END mom_main.c */
 

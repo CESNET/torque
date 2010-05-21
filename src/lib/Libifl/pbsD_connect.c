@@ -388,7 +388,7 @@ static int PBSD_authenticate(
 
       if ((ptr = getenv("PATH")) != NULL)
         {
-        ptr = strtok(ptr, ";");
+        ptr = strtok(ptr, ":");
 
         while (ptr != NULL)
           {
@@ -400,7 +400,7 @@ static int PBSD_authenticate(
           if (rc != -1)
             break;
 
-          ptr = strtok(NULL, ";");
+          ptr = strtok(NULL, ":");
           }  /* END while (ptr != NULL) */
         }    /* END if ((ptr = getenv("PATH")) != NULL) */
 
@@ -416,11 +416,11 @@ static int PBSD_authenticate(
                   strerror(errno));
           }
 
-        /* cannot locate iff in default location - search PATH */
+        /* cannot locate iff in default location or  PATH */
 
         iffpath[0] = '\0';
 
-        return(-1);
+        return(PBSE_IFF_NOT_FOUND);
         }
       }
     }    /* END if (iffpath[0] == '\0') */
@@ -558,6 +558,7 @@ int pbs_original_connect(
   struct hostent *hp;
   int out;
   int i;
+  int auth;
 
   struct passwd *pw;
   int use_unixsock = 0;
@@ -807,20 +808,32 @@ int pbs_original_connect(
 
     /* Have pbs_iff authenticate connection */
 
-    if ((ENABLE_TRUSTED_AUTH == FALSE) && (PBSD_authenticate(connection[out].ch_socket) != 0))
+    if ((ENABLE_TRUSTED_AUTH == FALSE) && ((auth = PBSD_authenticate(connection[out].ch_socket)) != 0))
       {
       close(connection[out].ch_socket);
 
       connection[out].ch_inuse = 0;
 
-      pbs_errno = PBSE_PERM;
-
-      if (getenv("PBSDEBUG"))
+      if (auth == PBSE_IFF_NOT_FOUND)
         {
-        fprintf(stderr, "ERROR:  cannot authenticate connection to server \"%s\", errno=%d (%s)\n",
-                server,
-                errno,
-                strerror(errno));
+        pbs_errno = PBSE_IFF_NOT_FOUND;
+        
+        if (getenv("PBSDEBUG"))
+          {
+          fprintf(stderr, "ERROR:  cannot find pbs_iif executable\n");
+          }
+        }
+      else
+        {
+        pbs_errno = PBSE_PERM;
+
+        if (getenv("PBSDEBUG"))
+          {
+          fprintf(stderr, "ERROR:  cannot authenticate connection to server \"%s\", errno=%d (%s)\n",
+                  server,
+                  errno,
+                  strerror(errno));
+          }
         }
 
       return(-1);
@@ -866,7 +879,7 @@ int pbs_disconnect(
 
   DIS_tcp_setup(sock);
 
-  if ((tcp_encode_DIS_ReqHdr(sock, PBS_BATCH_Disconnect, pbs_current_user) == 0) &&
+  if ((encode_DIS_ReqHdr(sock, PBS_BATCH_Disconnect, pbs_current_user) == 0) &&
       (DIS_tcp_wflush(sock) == 0))
     {
     int atime;

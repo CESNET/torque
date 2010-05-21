@@ -120,9 +120,9 @@ static int   run_exit;
 
 /* external prototypes */
 
-extern int pe_input A_((char *));
-extern int TTmpDirName A_((job *, char *));
-extern void encode_used A_((job *, tlist_head *));
+extern int pe_input(char *);
+extern int TTmpDirName(job *, char *);
+extern void encode_used(job *, tlist_head *);
 #ifdef ENABLE_CSA
 extern void add_wkm_end(uint64_t, int64_t, char *);
 
@@ -780,7 +780,7 @@ int run_pelog(
 
     /* NOTE:  inside child */
 
-    if (which == PE_EPILOG)
+    if ( which == PE_EPILOG || which == PE_EPILOGUSER || which == PE_EPILOGUSERJOB )
       {
       /* for epilog only */
 

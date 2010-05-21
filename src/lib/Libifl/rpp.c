@@ -1208,7 +1208,6 @@ rpp_create_sp(void)
     }
 
   DBPRT((DBTO, "rpp_create_sp: new index %d\n",
-
          i))
 
   return(i);
@@ -3483,7 +3482,6 @@ static int rpp_attention(
 
   switch (sp->state)
     {
-
     case RPP_STALE:  /* need to report error */
 
       return(TRUE);
@@ -4315,6 +4313,20 @@ int RPPReset(void)
 
   return(0);
   }
+
+int rpp_get_stream_state(int index)
+{
+  struct stream *sp;
+
+  sp = &stream_array[index];
+
+  if(sp)
+    {
+    return(sp->state);
+    }
+
+  return(-1);
+}
 
 /* END rpp.c */
 

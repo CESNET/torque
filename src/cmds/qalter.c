@@ -213,7 +213,7 @@ int main(
 
       case 'e':
  
-        rc = prepare_path(optarg, path_out);
+        rc = prepare_path(optarg, path_out,NULL);
         if ((rc == 0) || (rc == 3))
           {
           set_attr(&attrib, ATTR_e, path_out);
@@ -407,7 +407,7 @@ int main(
 
         /* output */
  
-        rc = prepare_path(optarg, path_out);
+        rc = prepare_path(optarg, path_out,NULL);
         if ((rc == 0) || (rc == 3))
           {
           set_attr(&attrib, ATTR_o, path_out);
@@ -561,12 +561,21 @@ int main(
           {
           if (strcmp(keyword, ATTR_depend) == 0)
             {
+            int rtn = 0;
             pdepend = malloc(PBS_DEPEND_LEN);
 
             if ((pdepend == NULL) ||
-                 parse_depend_list(valuewd,pdepend,PBS_DEPEND_LEN))
+                 (rtn = parse_depend_list(valuewd,pdepend,PBS_DEPEND_LEN)))
               {
-              fprintf(stderr, "qalter: illegal -W value\n");
+              if (rtn == 2)
+                {
+                fprintf(stderr,"qalter: -W value exceeded max length (%d)\n",
+                  PBS_DEPEND_LEN);
+                }
+              else
+                {
+                fprintf(stderr,"qalter: illegal -W value\n");
+                }
 
               errflg++;
 

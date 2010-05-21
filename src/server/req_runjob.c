@@ -105,6 +105,7 @@
 #include "pbs_error.h"
 #include "log.h"
 #include "acct.h"
+#include "dis.h"
 #include "svrfunc.h"
 #include "net_connect.h"
 #include "pbs_proto.h"
@@ -115,26 +116,27 @@
 
 /* External Functions Called: */
 
-extern int                   send_job A_((job *,struct sockaddr_storage *,int,int,void (*x)(),struct batch_request *));
-extern void                  set_resc_assigned A_((job *, enum batch_op));
-extern struct batch_request *cpy_stage A_((struct batch_request *,job *,enum job_atr,int));
-void                         stream_eof A_((int,struct sockaddr_storage *,int));
-extern int                   job_set_wait(attribute *,void *,int);
-extern void                  stat_mom_job A_((job *));
+extern int                   send_job(job *, pbs_net_t, int, int, void (*x)(), struct batch_request *);
+extern void                  set_resc_assigned(job *, enum batch_op);
+
+extern struct batch_request *cpy_stage(struct batch_request *, job *, enum job_atr, int);
+void                         stream_eof(int, u_long, int);
+extern int                   job_set_wait(attribute *, void *, int);
+extern void                  stat_mom_job(job *);
 
 extern int LOGLEVEL;
 
 /* Public Functions in this file */
 
-int  svr_startjob A_((job *, struct batch_request *, char *, char *));
+int  svr_startjob(job *, struct batch_request *, char *, char *);
 
 /* Private Functions local to this file */
 
-static void post_sendmom A_((struct work_task *));
-static int  svr_stagein A_((job *, struct batch_request *, int, int));
-static int  svr_strtjob2 A_((job *, struct batch_request *));
-static job *chk_job_torun A_((struct batch_request *, int));
-static int  assign_hosts A_((job *, char *, int, char *, char *));
+static void post_sendmom(struct work_task *);
+static int  svr_stagein(job *, struct batch_request *, int, int);
+static int  svr_strtjob2(job *, struct batch_request *);
+static job *chk_job_torun(struct batch_request *, int);
+static int  assign_hosts(job *, char *, int, char *, char *);
 
 /* Global Data Items: */
 
@@ -1004,7 +1006,7 @@ static int svr_strtjob2(
 
   pattr = &pjob->ji_wattr[(int)JOB_ATR_start_time];
 
-  if ((pattr->at_flags & ATR_VFLAG_SET) == 0)
+  if ((pjob->ji_wattr[(int)JOB_ATR_restart_name].at_flags & ATR_VFLAG_SET) == 0)
     {
     pattr->at_val.at_long = time(NULL);
     pattr->at_flags |= ATR_VFLAG_SET;
@@ -1019,6 +1021,14 @@ static int svr_strtjob2(
 
   svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
 
+  /* if job start timeout attribute is set use its value */
+  
+  if (((server.sv_attr[(int)SRV_ATR_JobStartTimeout].at_flags & ATR_VFLAG_SET) != 0)
+          && (server.sv_attr[(int)SRV_ATR_JobStartTimeout].at_val.at_long > 0))
+    {
+    DIS_tcp_settimeout(server.sv_attr[(int)SRV_ATR_JobStartTimeout].at_val.at_long);
+    }
+
   if (send_job(
         pjob,
         &pjob->ji_qs.ji_un.ji_exect.ji_momaddr,
@@ -1029,8 +1039,12 @@ static int svr_strtjob2(
     {
     /* SUCCESS */
 
+    DIS_tcp_settimeout(server.sv_attr[(int)SRV_ATR_tcp_timeout].at_val.at_long);
+
     return(0);
     }
+
+  DIS_tcp_settimeout(server.sv_attr[(int)SRV_ATR_tcp_timeout].at_val.at_long);
 
   sprintf(tmpLine, "unable to run job, send to MOM '%s' failed",
 

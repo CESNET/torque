@@ -483,7 +483,9 @@ static int startcom(
     ret = diswsi(stream, RM_PROTOCOL_VER);
 
     if (ret == DIS_SUCCESS)
+      {
       ret = diswsi(stream, com);
+      }
     }
 
   if (ret != DIS_SUCCESS)
@@ -565,6 +567,7 @@ static int simpleget(
 
   {
   int ret, num;
+
 
   num = disrsi(stream, &ret);
 
@@ -698,7 +701,8 @@ int configrm(
     return(-1);
     }
 
-  ret = diswcs(stream, file, len);
+    ret = diswcs(stream, file, len);
+
 
   if (ret != DIS_SUCCESS)
     {
@@ -766,6 +770,7 @@ static int doreq(
     }
 
   ret = diswcs(op->stream, line, strlen(line));
+
 
   if (ret != DIS_SUCCESS)
     {
@@ -943,6 +948,7 @@ char *getreq(
 
     op->len = -1;
     }
+
 
   startline = disrst(stream, &ret);
 
