@@ -144,6 +144,7 @@ static int read_net(sock, buf, amt)
 		} else if (got == 0)
 			break;
 		else
+/*FIXME: check for EINTR*/
 			return (-1);
 	}
 	return (total); 
