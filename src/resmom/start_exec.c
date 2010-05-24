@@ -5211,6 +5211,7 @@ void start_exec(
 	/* FIXME META make sure this is in correct place */
 	if (is_cloud_job(pjob))
 	  {
+    log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"start_exec","Cloud job detected");
     cloud_set_prerun(pjob);
 	  }
 
@@ -5257,6 +5258,7 @@ void start_exec(
 	/* FIXME META run cloud here */
 	if (is_cloud_job(pjob))
 	  {
+    log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"start_exec","Cloud job detected");
     cloud_set_prerun(pjob);
     cloud_exec(pjob);
     cloud_set_running(pjob);

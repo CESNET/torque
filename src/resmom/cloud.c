@@ -24,6 +24,7 @@ int is_cloud_job(job *pjob)
 
 int cloud_set_prerun(job *pjob)
   {
+  log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"cloud_set_prerun","Switching cloud job into transit state");
 #if 0
   if (is_cloud_mom() && !is_cloud_job(pjob) )
     {
@@ -58,13 +59,17 @@ int cloud_set_prerun(job *pjob)
 
 int cloud_set_running(job *pjob)
   {
+  extern time_t time_now;
+
+  log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"cloud_set_running","Switching cloud job into running state");
+
 #if 0
   if (is_cloud_job(pjob))
     {
     if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
       {
 #endif
-    extern time_t time_now;
+
       pjob->ji_qs.ji_stime = time_now;
       pjob->ji_sampletim   = time_now;
       pjob->ji_qs.ji_state = JOB_STATE_RUNNING;
@@ -93,5 +98,6 @@ int cloud_set_running(job *pjob)
 
 int cloud_exec(job *pjob)
   {
+  log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"cloud_exec","Executing cloud - magrathea prolog");
   return 0;
   }
