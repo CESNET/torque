@@ -5,7 +5,7 @@ DIST_SUBDIRS = aix4 aix5 cygwin darwin digitalunix freebsd freebsd5 fujitsu hpux
 	irix5 irix6 irix6array linux netbsd solaris5 solaris7 sunos4 unicos8 unicosmk2
 
 AM_CPPFLAGS += -I$(top_srcdir)/src/resmom/@PBS_MACH@ -DPBS_MOM \
-	       -DDEMUX=\"$(program_prefix)$(DEMUX_PATH)$(program_suffix)\" \ 
+	       -DDEMUX=\"$(program_prefix)$(DEMUX_PATH)$(program_suffix)\" \
 	        -DIM_DEMUX=\"$(IM_DEMUX_PATH)\" \
 	       -DRCP_PATH=\"$(program_prefix)$(RCP_PATH)$(program_suffix)\" \
 	       -DRCP_ARGS=\"$(RCP_ARGS)\" \
