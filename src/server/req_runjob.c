@@ -1651,7 +1651,11 @@ static int assign_hosts(
       /* cloud jobs support, analyze nodespec and switch virtual nodes
        * to their cloud masters */
       if (is_cloud_job(pjob))
+        {
+        log_record(PBSEVENT_SCHED,PBS_EVENTCLASS_REQUEST,
+                   "switch_nodespec_to_cloud","Detected cloud job, switching nodespec.");
         hosttoalloc = switch_nodespec_to_cloud(pjob,hosttoalloc);
+        }
 
       rc = set_nodes(pjob, hosttoalloc, &list, FailHost, EMsg);
 
