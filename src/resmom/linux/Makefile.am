@@ -1,7 +1,6 @@
 include $(top_srcdir)/buildutils/config.mk
 
-
-AM_CPPFLAGS += -DPBS_MOM -DDEMUX=\"$(DEMUX_PATH)\"  -DIM_DEMUX=\"$(IM_DEMUX_PATH)\"
+AM_CPPFLAGS += -DPBS_MOM -DDEMUX=\"$(DEMUX_PATH)\"
 
 noinst_LIBRARIES = libmommach.a
 
