@@ -748,7 +748,7 @@ resource_def svr_resc_def_const[] =
   { "wcrequeue", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
 
   /* cluster resource for virtual clusters */
-  { "cluster", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
+  { "cluster", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM, ATR_TYPE_STR },
 
   /* the definition for the "unknown" resource MUST be last */
 
