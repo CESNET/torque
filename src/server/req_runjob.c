@@ -1020,8 +1020,7 @@ static int svr_strtjob2(
 
   /* send the job to MOM */
 
-  if (!is_cloud_job(pjob))
-    svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
+  svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
 
   /* if job start timeout attribute is set use its value */
   
@@ -1190,7 +1189,6 @@ static void post_sendmom(
 
       set_resc_assigned(jobp, INCR);
 
-      if (!is_cloud_job(jobp))
       if (jobp->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
         {
         /* may be EXITING if job finished first */
