@@ -109,6 +109,7 @@
 #include <pwd.h>
 #include "mom_func.h"
 #include "pbs_nodes.h"
+#include "cloud.h"
 
 /* External Functions Called: */
 
@@ -1026,8 +1027,8 @@ void req_commit(
 
   if (is_cloud_job(pj) && pj->ji_numnodes == 1)
     {
-    cloud_exec(pjob);
-    cloud_set_running(pjob);
+    cloud_exec(pj);
+    cloud_set_running(pj);
     }
 
   job_save(pj, SAVEJOB_FULL);
