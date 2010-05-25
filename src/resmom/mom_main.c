@@ -7456,13 +7456,13 @@ int setup_program_environment(void)
   path_meminfo = (char **)malloc(num_mems * sizeof(char *));
   start_mem_index = nodenum * num_mems;
 
-  for (i = start_mem_index; i < start_mem_index + num_mems; i++)
+  for (i = 0; i < num_mems; i++)
     {
     path_meminfo[i] = (char *)malloc(mempath_len);
 
     snprintf(path_meminfo[i],mempath_len,"%s%d%s",
       "/sys/devices/system/node/node",
-      i,
+      i + start_mem_index, 
       "/meminfo");
     }
 #else
@@ -7539,6 +7539,11 @@ int setup_program_environment(void)
 
     sleep(tmpL % (rand() + 1));
     }  /* END if (ptr != NULL) */
+
+#ifdef PENABLE_LINUX26_CPUSETS
+  /* initialize cpusets */
+  initialize_root_cpuset();
+#endif /* END PENABLE_LINUX26_CPUSETS */
 
   return(0);
   }  /* END setup_program_environment() */

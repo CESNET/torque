@@ -311,6 +311,16 @@ void copy_torque_cpuset(
         }
       
       /* SUCCESS */
+      fclose(fp);
+      }
+    else
+      {
+      snprintf(log_buffer,sizeof(log_buffer),
+        "Error: %s occurred while trying to open the file %s",
+        strerror(errno),
+        path);
+      
+      log_err(-1,id,log_buffer);
       }
     }
 
@@ -329,13 +339,29 @@ void
 initialize_mom_cpuset(void)
 
   {
-/*  static char    id[] = "initialize_mom_cpuset";
-
+  static char    id[] = "initialize_mom_cpuset";
   char           path[MAXPATHLEN + 1];
 
   struct stat    statbuf;
 
-  FILE           *fp;*/
+  int            rc;
+
+  snprintf(path,sizeof(path),"%s/%s",
+    TTORQUECPUSET_PATH,
+    mom_name);
+
+  if (!(lstat(path,&statbuf) >= 0))
+    {
+    /* create the directory if it doesn't already exist */
+
+    if ((rc = mkdir(path, 0755)))
+      {
+      snprintf(log_buffer,sizeof(log_buffer),
+        "Error '%s' occurred while making directory %s\n",
+        strerror(errno),
+        path);
+      }
+    }
 
   copy_torque_cpuset("cpus");
   copy_torque_cpuset("mems");
@@ -1018,6 +1044,12 @@ int get_cpuset_strings(
 
     if (dash != NULL)
       {
+      /* make sure this is the last dash in the name */
+      while ((strchr(dash+1,'-') != NULL))
+        {
+        dash = strchr(dash+1,'-');
+        }
+
       node_offset = atoi(dash+1);
       }
     else

@@ -476,7 +476,7 @@ proc_mem_t *get_proc_mem(void)
   ret_mm.swap_used = 0;
   ret_mm.swap_free = 0;
 
-  for (i = nodenum * num_mems; i < (nodenum * num_mems) + num_mems; i++)
+  for (i = 0; i < num_mems; i++)
 #endif
     {
 #ifdef NUMA_SUPPORT
@@ -3491,7 +3491,7 @@ static char *physmem(
 #ifdef NUMA_SUPPORT
   mem_total = 0;
 
-  for (i = nodenum * num_mems; i < (nodenum*num_mems) + num_mems; i++)
+  for (i = 0; i < num_mems; i++)
 #endif /* NUMA_SUPPORT */
     {
 #ifdef NUMA_SUPPORT
