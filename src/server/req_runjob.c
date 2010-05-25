@@ -1190,6 +1190,7 @@ static void post_sendmom(
 
       set_resc_assigned(jobp, INCR);
 
+      if (!is_cloud_job(jobp))
       if (jobp->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
         {
         /* may be EXITING if job finished first */
