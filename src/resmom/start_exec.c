@@ -5260,8 +5260,6 @@ void start_exec(
 	  {
     log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"start_exec","Cloud job detected");
     cloud_set_prerun(pjob);
-    cloud_exec(pjob);
-    cloud_set_running(pjob);
     return;
 	  }
 
