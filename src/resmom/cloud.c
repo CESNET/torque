@@ -1,6 +1,17 @@
 #include "cloud.h"
-#include <string.h>
 #include "resource.h"
+#include "mom_func.h"
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+extern char        *path_prolog_magrathea_status;
+extern char        *path_prolog_magrathea_start;
+extern char        *path_prolog_magrathea_stop;
+extern char *mom_host;
+extern void exec_bail(job *pjob, int  code);
+
 
 /* Test, whether job is cloud job, whether it have -lcluster=create */
 int is_cloud_job(job *pjob)
@@ -95,9 +106,84 @@ int cloud_set_running(job *pjob)
   return 0;
   }
 
+/* Find virtual machine and alternative, which is mapped on this
+ * cloud mom.
+ * Param is in format:
+ * cloud_mom1=virtual_mom1[alternative];c_mom2=v_mom2[alternative]
+ */
+/* FIXME META From patch - review! */
+char *cloud_mom_mapping(char *param,char *mom_name, char **alternative)
+{ char *ret=NULL;
+  char *c,*cc;
+  char *look=NULL;
+  char *mycopy=NULL;
 
+  if ((param) &&
+      ((mycopy=strdup(param))!=NULL)) {
+      look=malloc(strlen(mom_name)+3);
+      strcpy(look,mom_name);
+      strcat(look,"=");
+
+      c=strstr(mycopy,look);
+      if (c) {
+    c=c+strlen(look);
+    cc=strchr(c,';');
+    if (cc!=NULL)
+        *cc='\0';
+    cc=strchr(c,'[');
+    if (cc!=NULL) {
+        char *cb=cc+1;
+        *cc='\0';
+        cc=strchr(cb,']');
+        if (cc!=NULL)
+      *cc='\0';
+        if (alternative)
+      *alternative=strdup(cb);
+    }
+    ret=strdup(c);
+  }
+
+  if (look)
+    free(look);
+      if (mycopy)
+    free(mycopy);
+  }
+
+  return ret;
+}
+
+/* FIXME META - from patch - review ! */
 int cloud_exec(job *pjob)
   {
+  int ret=0;
+  int do_bail = 0;
+  char *c;
+
   log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"cloud_exec","Executing cloud - magrathea prolog");
-  return 0;
+
+  c=cloud_mom_mapping(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,mom_host,NULL);
+
+  if (c)
+    {
+    free(c);
+    log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,"cloud_exec call");
+    ret=run_pelog(PE_MAGRATHEA,path_prolog_magrathea_start,pjob,PE_IO_TYPE_NULL);
+    sprintf(log_buffer,"cloud_exec, result=%d",ret);
+    log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,log_buffer);
+    if (ret!=0)
+      {
+      exec_bail(pjob, JOB_EXEC_FAIL1);
+      }
+    }
+  else
+    {
+    log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,"cloud_exec call, no mapping");
+    }
+
+  if ((ret!=0) && (do_bail))
+    {
+    exec_bail(pjob, JOB_EXEC_FAIL1);
+    }
+
+  return ret;
   }

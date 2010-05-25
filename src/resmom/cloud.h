@@ -27,4 +27,11 @@ int cloud_set_running(job *pjob);
 
 int cloud_exec(job *pjob);
 
+/** Parse cloud mapping attribute received from server
+ *
+ * @param alternative Stores the selected alternative
+ * @return virtual node name
+ */
+char *cloud_mom_mapping(char *param,char *mom_name, char **alternative);
+
 #endif /* CLOUD_H_ */

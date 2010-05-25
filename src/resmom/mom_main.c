@@ -201,6 +201,9 @@ char        *path_epilogp;
 char        *path_epiloguser;
 char        *path_epiloguserp;
 char        *path_epilogpdel;
+char        *path_prolog_magrathea_status;
+char        *path_prolog_magrathea_start;
+char        *path_prolog_magrathea_stop;
 char        *path_jobs;
 char        *path_prolog;
 char        *path_prologp;
@@ -6927,6 +6930,9 @@ int setup_program_environment(void)
   path_epiloguserp = mk_dirs("mom_priv/epilogue.user.parallel");
   path_prologuserp = mk_dirs("mom_priv/prologue.user.parallel");
   path_epilogpdel  = mk_dirs("mom_priv/epilogue.precancel");
+  path_prolog_magrathea_start  = mk_dirs("mom_priv/prolog_magrathea_start");
+  path_prolog_magrathea_stop   = mk_dirs("mom_priv/prolog_magrathea_stop");
+  path_prolog_magrathea_status = mk_dirs("mom_priv/prolog_magrathea_status");
 
 #ifndef DEFAULT_MOMLOGDIR
 

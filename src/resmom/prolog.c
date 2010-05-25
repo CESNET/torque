@@ -100,7 +100,7 @@
 #include "resource.h"
 #include "pbs_proto.h"
 #include "net_connect.h"
-
+#include "cloud.h"
 
 #define PBS_PROLOG_TIME 300
 
@@ -130,6 +130,8 @@ extern char             *path_epiloguser;
 #endif /* ENABLE_CSA */
 
 
+extern char mom_host[];
+
 /* END extern prototypes */
 
 const char *PPEType[] =
@@ -139,6 +141,9 @@ const char *PPEType[] =
   "epilog",
   "userprolog",
   "userepilog",
+  "jobprolog",
+  "jobepilog",
+  "magrathea",
   NULL
   };
 
@@ -798,6 +803,41 @@ int run_pelog(
       arg[11] = NULL;
 
       LastArg = 11;
+      }
+    else if (which == PE_MAGRATHEA)
+      {
+      char *cc = NULL, *c = NULL;
+
+      setenv("MAGRATHEA_CLUSTER",pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str,1);
+
+      if ((pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_flags & ATR_VFLAG_SET) &&
+          (pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str))
+        {
+        c = cloud_mom_mapping(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,mom_host,&cc);
+        }
+
+      if (c)
+        arg[5]=c;
+      else
+        arg[5]=mom_host;
+
+      setenv("MAGRATHEA_VIRTUAL_HOST",arg[5],1);
+
+      if (cc)
+        {
+        setenv("MAGRATHEA_VIRTUAL_ALTERNATIVE",cc,1);
+        free(cc);
+        }
+
+      arg[6]=(char *)0;
+
+      /* FIXME META todo for later */
+#if 0
+      if (pjob->ji_wattr[(int)JOB_SITE_ATR_cloud_vlanid].at_val.at_str != NULL )
+        {
+        setenv("MAGRATHEA_VLANID",pjob->ji_wattr[(int)JOB_SITE_ATR_cloud_vlanid].at_val.at_str,1);
+        }
+#endif
       }
     else
       {
