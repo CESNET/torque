@@ -120,11 +120,24 @@ char *cloud_mom_mapping(char *param,char *mom_name, char **alternative)
 
   if ((param) && ((mycopy=strdup(param))!=NULL))
     {
-    look=malloc(strlen(mom_name)+3);
-      strcpy(look,mom_name);
-      strcat(look,"=");
+    char *dot = strchr(mom_name,'.');
 
-      c=strstr(mycopy,look);
+    if (dot != NULL)
+      {
+      look = malloc(dot-mom_name+3);
+      strncpy(look,mom_name,dot-mom_name);
+      look[dot-mom_name] = '\0';
+      }
+    else
+      {
+      look=malloc(strlen(mom_name)+3);
+      strcpy(look,mom_name);
+      }
+
+    strcat(look,"=");
+
+    c=strstr(mycopy,look);
+
       if (c) {
     c=c+strlen(look);
     cc=strchr(c,';');
