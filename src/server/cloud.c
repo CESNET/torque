@@ -75,7 +75,7 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
         *c = '\0';
       free(ret);
 
-      mapped = construct_mapping(iter->properties->name,cloud,""); /* FIXME META add alternative support */
+      mapped = construct_mapping(cloud,iter->properties->name,""); /* FIXME META add alternative support */
       /* store mapping into job attribute */
       /* FIXME META rewrite into version, that will work for multiple nodes */
       job_attr_def[(int)JOB_ATR_cloud_mapping].at_decode(&
