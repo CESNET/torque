@@ -9,7 +9,7 @@
 extern char        *path_prolog_magrathea_status;
 extern char        *path_prolog_magrathea_start;
 extern char        *path_prolog_magrathea_stop;
-extern char *mom_host;
+extern char mom_host[];
 extern void exec_bail(job *pjob, int  code);
 
 
@@ -118,9 +118,9 @@ char *cloud_mom_mapping(char *param,char *mom_name, char **alternative)
   char *look=NULL;
   char *mycopy=NULL;
 
-  if ((param) &&
-      ((mycopy=strdup(param))!=NULL)) {
-      look=malloc(strlen(mom_name)+3);
+  if ((param) && ((mycopy=strdup(param))!=NULL))
+    {
+    look=malloc(strlen(mom_name)+3);
       strcpy(look,mom_name);
       strcat(look,"=");
 
