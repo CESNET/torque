@@ -1020,7 +1020,8 @@ static int svr_strtjob2(
 
   /* send the job to MOM */
 
-  svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
+  if (!is_cloud_job(pjob))
+    svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
 
   /* if job start timeout attribute is set use its value */
   
