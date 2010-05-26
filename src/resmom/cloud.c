@@ -90,6 +90,7 @@ int cloud_set_running(job *pjob)
       pjob->ji_wattr[(int)JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_RUNNING;
       pjob->ji_wattr[(int)JOB_ATR_substate].at_flags = ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
       job_save(pjob, SAVEJOB_QUICK);
+
 #if 0
       if (mom_get_sample() == PBSE_NONE)
         {

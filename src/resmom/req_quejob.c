@@ -1024,13 +1024,13 @@ void req_commit(
     {
     reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Commit);
     }
-
+/*
   if (is_cloud_job(pj) && pj->ji_numnodes == 1)
     {
     cloud_exec(pj);
     cloud_set_running(pj);
     }
-
+*/
   job_save(pj, SAVEJOB_FULL);
 
   /* NOTE: we used to flag JOB_ATR_errpath, JOB_ATR_outpath,

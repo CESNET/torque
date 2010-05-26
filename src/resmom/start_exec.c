@@ -5212,7 +5212,7 @@ void start_exec(
 	if (is_cloud_job(pjob))
 	  {
     log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"start_exec","Cloud job detected");
-    cloud_set_prerun(pjob);
+    /*cloud_set_prerun(pjob);*/
 	  }
 
 	free_attrlist(&phead);
@@ -5259,7 +5259,9 @@ void start_exec(
 	if (is_cloud_job(pjob))
 	  {
     log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"start_exec","Cloud job detected");
-    cloud_set_prerun(pjob);
+    /* cloud_set_prerun(pjob); */
+    cloud_exec(pjob);
+    cloud_set_running(pjob);
     return;
 	  }
 
