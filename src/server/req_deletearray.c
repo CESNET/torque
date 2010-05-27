@@ -140,7 +140,8 @@ void req_deletearray(struct batch_request *preq)
       continue;
       }  /* END if (pjob->ji_qs.ji_state == JOB_SUBSTATE_TRANSIT) */
 
-    else if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
+    else if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN ||
+             pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
       {
       /* we'll wait for the mom to get this job, then delete it */
       num_skipped++;
@@ -326,7 +327,8 @@ void array_delete_wt(struct work_task *ptask)
               * on the current job we will still have the pointer to the next */
       next = (job*)GET_NEXT(pjob->ji_arrayjobs);
 
-      if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
+      if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN ||
+          pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
         {
         num_prerun++;
         /* mom still hasn't gotten job?? delete anyway */

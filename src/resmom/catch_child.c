@@ -1323,7 +1323,7 @@ static void preobit_reply(
       "performing job clean-up in preobit_reply()");
     }
 
-  cpid = fork_me(-1);
+  cpid = fork_me(-1); /* FIXME META Cloud epilog here */
 
   if (cpid < 0)
     {
@@ -1823,6 +1823,7 @@ void init_abort_jobs(
     if ((recover != JOB_RECOV_RUNNING) && (recover != JOB_RECOV_DELETE) &&
         ((pj->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING) ||
          (pj->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN) ||
+         (pj->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD) ||
          (pj->ji_qs.ji_substate == JOB_SUBSTATE_SUSPEND) ||
          (pj->ji_qs.ji_substate == JOB_SUBSTATE_EXITED) ||
          (pj->ji_qs.ji_substate == JOB_SUBSTATE_NOTERM_REQUE) ||

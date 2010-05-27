@@ -2112,7 +2112,8 @@ void im_request(
         {
         /* job already exists locally */
 
-        if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
+        if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN ||
+            pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
           {
           if (LOGLEVEL >= 3)
             {
@@ -2376,8 +2377,8 @@ void im_request(
         {
         log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"im_request","Slave mom - finishing cloud");
         cloud_set_prerun(pjob);
-        cloud_exec(pjob);
-        cloud_set_running(pjob);
+        if (cloud_exec(pjob) == 0)
+          cloud_set_running(pjob);
         }
 
       /* run local prolog */
@@ -3537,8 +3538,8 @@ void im_request(
             if (is_cloud_job(pjob))
               {
               log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"im_request","Master mom - finishing cloud");
-              cloud_exec(pjob);
-              cloud_set_running(pjob);
+              if (cloud_exec(pjob) == 0)
+                cloud_set_running(pjob);
               return;
               }
 

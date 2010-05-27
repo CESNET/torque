@@ -54,13 +54,16 @@ int cloud_set_prerun(job *pjob)
       }
 #endif
 
-    pjob->ji_qs.ji_state = JOB_STATE_TRANSIT;
+    /*pjob->ji_qs.ji_state = JOB_STATE_TRANSIT;
     pjob->ji_wattr[(int)JOB_ATR_state].at_val.at_char = 'T';
     pjob->ji_wattr[(int)JOB_ATR_state].at_flags = ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
+    */
+
     pjob->ji_qs.ji_substate = JOB_SUBSTATE_PRERUN_CLOUD;
     pjob->ji_wattr[(int)JOB_ATR_substate].at_val.at_long = JOB_SUBSTATE_PRERUN_CLOUD;
     pjob->ji_wattr[(int)JOB_ATR_substate].at_flags = ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
     job_save(pjob, SAVEJOB_QUICK);
+
     /*update_ajob_status(pjob);*/
 #if 0
     }

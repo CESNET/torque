@@ -1020,7 +1020,10 @@ static int svr_strtjob2(
 
   /* send the job to MOM */
 
-  svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
+  if (is_cloud_job(pjob))
+    svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN_CLOUD);
+  else
+    svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
 
   /* if job start timeout attribute is set use its value */
   
@@ -1370,6 +1373,7 @@ static job *chk_job_torun(
       (pjob->ji_qs.ji_state == JOB_STATE_EXITING) ||
       (pjob->ji_qs.ji_substate == JOB_SUBSTATE_STAGEGO) ||
       (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)  ||
+      (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD) ||
       (pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING))
     {
     /* FAILURE - job already started */

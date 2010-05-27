@@ -412,7 +412,8 @@ void req_deletejob(
     return;
     }
 
-  if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
+  if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN ||
+      pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
     {
     /* being sent to MOM, wait till she gets it going */
     /* retry in one second                            */
