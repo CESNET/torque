@@ -105,6 +105,7 @@
 #include "net_connect.h"
 #include "pbs_nodes.h"
 #include "log.h"
+#include "cloud.h"
 
 /* Global Data Items: */
 
