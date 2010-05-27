@@ -242,6 +242,10 @@
 #define MAX_RETRY_TIME_IN_SECS  (5 * 60)
 #define STARTING_RETRY_INTERVAL_IN_SECS  2
 
+#ifdef NUMA_SUPPORT
+extern int numa_index;
+extern int num_numa_nodes;
+#endif /* NUMA_SUPPORT */
 
 
 typedef struct mom_server
@@ -1226,6 +1230,12 @@ void generate_server_status(
   char *BPtr = buffer;
   int   BSpace = buffer_size;
 
+  /* identify which vnode this is */
+  MUSNPrintF(&BPtr,&BSpace,"numa%d",numa_index);
+  /* advance the buffer values past the NULL */
+  BPtr++;
+  BSpace--;
+
   for (i = 0;stats[i].name != NULL;i++)
     {
     alarm(alarm_time);
@@ -1382,13 +1392,17 @@ void mom_server_all_update_stat(void)
     log_record(PBSEVENT_SYSTEM, 0, id, "composing status update for server");
     }
 
-  memset(status_strings, 0, sizeof(status_strings));
 
-  generate_server_status(status_strings, sizeof(status_strings));
-
-  for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
+  for (numa_index = 0; numa_index < num_numa_nodes; numa_index++)
     {
-    mom_server_update_stat(&mom_servers[sindex],status_strings);
+    memset(status_strings, 0, sizeof(status_strings));
+
+    generate_server_status(status_strings, sizeof(status_strings));
+
+    for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
+      {
+      mom_server_update_stat(&mom_servers[sindex],status_strings);
+      }
     }
 
   return;

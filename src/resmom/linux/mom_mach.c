@@ -120,6 +120,7 @@
 #include "mom_func.h"
 #include "resmon.h"
 #include "../rm_dep.h"
+#include "pbs_nodes.h"
 
 
 /*
@@ -189,9 +190,9 @@ extern int      igncput;
 extern int      ignvmem;
 extern int      ignmem;
 #ifdef NUMA_SUPPORT
-extern char **path_meminfo;
-extern int    nodenum;
-extern int    num_mems;
+extern int      num_numa_nodes;
+extern numanode numa_nodes[MAX_NUMA_NODES]; 
+extern int      numa_index;
 #else
 extern char  path_meminfo[MAX_LINE];
 #endif /* NUMA_SUPPORT */
@@ -476,11 +477,11 @@ proc_mem_t *get_proc_mem(void)
   ret_mm.swap_used = 0;
   ret_mm.swap_free = 0;
 
-  for (i = 0; i < num_mems; i++)
+  for (i = 0; i < numa_nodes[numa_index].num_mems; i++)
 #endif
     {
 #ifdef NUMA_SUPPORT
-    if ((fp = fopen(path_meminfo[i],"r")) == NULL)
+    if ((fp = fopen(numa_nodes[numa_index].path_meminfo[i],"r")) == NULL)
 #else
     if ((fp = fopen(path_meminfo,"r")) == NULL)
 #endif
@@ -3491,11 +3492,11 @@ static char *physmem(
 #ifdef NUMA_SUPPORT
   mem_total = 0;
 
-  for (i = 0; i < num_mems; i++)
+  for (i = 0; i < numa_nodes[numa_index].num_mems; i++)
 #endif /* NUMA_SUPPORT */
     {
 #ifdef NUMA_SUPPORT
-    if (!(fp = fopen(path_meminfo[i],"r")))
+    if (!(fp = fopen(numa_nodes[numa_index].path_meminfo[i],"r")))
 #else
     if (!(fp = fopen(path_meminfo, "r")))
 #endif

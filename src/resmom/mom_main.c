@@ -146,6 +146,7 @@
 #include "csv.h"
 #include "utils.h"
 #include "u_tree.h"
+#include "pbs_cpuset.h"
 
 #include "mcom.h"
 
@@ -188,16 +189,10 @@ float  ideal_load_val = -1.0;
 int    internal_state = 0;
 
 /* mom data items */
-char           cpus_str[100];
-int            num_cpus;
-char           mem_str[100];
-int            num_mems;
-char          *memsize_str;
-unsigned long  memsize;
-int            nodenum;
-int            cpu_offset;
 #ifdef NUMA_SUPPORT
-char         **path_meminfo;
+int            num_numa_nodes;
+numanode       numa_nodes[MAX_NUMA_NODES]; 
+int            numa_index;
 #else
 char           path_meminfo[MAXLINE];
 #endif
@@ -6834,9 +6829,6 @@ int setup_program_environment(void)
   int  privfd = 0; /* fd for sending job info */
 #ifdef NUMA_SUPPORT
   int  rc;
-  int  mempath_len;
-  int  i;
-  int  start_mem_index;
 #endif /* END NUMA_SUPPORT */
 
   struct sigaction act;
@@ -7450,21 +7442,6 @@ int setup_program_environment(void)
     return(rc);
     }
  
-  /* make sure to have enough space for the mempath
-   * adding 5 guarantees that we allow up to 999999 numa nodes */
-  mempath_len = strlen("/sys/devices/system/node/node0/meminfo") + 5;
-  path_meminfo = (char **)malloc(num_mems * sizeof(char *));
-  start_mem_index = nodenum * num_mems;
-
-  for (i = 0; i < num_mems; i++)
-    {
-    path_meminfo[i] = (char *)malloc(mempath_len);
-
-    snprintf(path_meminfo[i],mempath_len,"%s%d%s",
-      "/sys/devices/system/node/node",
-      i + start_mem_index, 
-      "/meminfo");
-    }
 #else
   snprintf(path_meminfo,sizeof(path_meminfo),"%s",
     "/proc/meminfo");
@@ -8419,7 +8396,11 @@ int read_layout_file()
   char *val = NULL;
   char *id = "read_layout_file";
 
-  int line_found = FALSE;
+  int   i = 0;
+  int   empty_line;
+  /* make sure to have enough space for the mempath
+   * adding 5 guarantees that we allow up to 999999 numa nodes */
+  int   mempath_len = strlen("/sys/devices/system/node/node0/meminfo") + 5;
   
   if ((read_layout = fopen(path_layout, "r")) == NULL)
     {
@@ -8440,92 +8421,93 @@ int read_layout_file()
     if (line[0] == '#')
       continue;
 
+    empty_line = TRUE;
+
     tok = strtok(line,delims);
 
-    if (strcmp(tok,mom_name) == 0)
+    /* find the specifications */
+    while (tok != NULL)
       {
-      /* hostname found */
-      line_found = TRUE;
-      break;
-      }
-    }
+      /* do general error checking on each pair, should be in 
+       * the format name=val, spacing optional */
+      val = strtok(NULL,delims);
 
-  if (line_found == FALSE)
-    {
-    snprintf(log_buffer,sizeof(log_buffer),
-      "Unable to find hostname %s in layout file %s\n",
-      mom_name,
-      path_layout);
-    log_err(-1,id,log_buffer);
-
-    exit(-505);
-    }
-
-  /* find the specifications */
-  while ((tok = strtok(NULL,delims)) != NULL)
-    {
-    /* do general error checking on each pair, should be in 
-     * the format name=val, spacing optional */
-    val = strtok(NULL,delims);
-
-    if (val == NULL)
-      {
-      snprintf(log_buffer,sizeof(log_buffer),
-        "Malformed mom.layout file, line:\n%s\n",
-        line);
-      log_err(-1,id,log_buffer);
-      
-      exit(-505);
-      }
-    
-    if (strcmp(tok,"cpus") == 0)
-      {
-      /* handle cpus */
-      strcpy(cpus_str, val);
-      if (strchr(val,'-') != NULL)
-        num_cpus = parse_range(val);
-      else
-        num_cpus = get_comma_count(val);
-      }
-    else if (strcmp(tok,"mem") == 0)
-      {
-      /* handle mem */
-      strcpy(mem_str, val);
-      if (strchr(val,'-') != NULL)
-        num_mems = parse_range(val);
-      else
-        num_mems = get_comma_count(val);
-      }
-    else if (strcmp(tok,"memsize") == 0)
-      {
-      /* handle memsize */
-      memsize_str = val;
-      memsize = atoi(val);
-      /* default to KB, keeping with TORQUE tradition */
-      if ((strstr(val,"gb")) ||
-          (strstr(val,"GB")))
+      if (val == NULL)
         {
-        memsize *= 1024 * 1024;
+        snprintf(log_buffer,sizeof(log_buffer),
+          "Malformed mom.layout file, line:\n%s\n",
+          line);
+        log_err(-1,id,log_buffer);
+        
+        exit(-505);
         }
-      else if ((strstr(val,"mb")) ||
-               (strstr(val,"MB")))
+     
+      empty_line = FALSE;
+
+      if (strcmp(tok,"cpus") == 0)
         {
-        memsize *= 1024;
+        /* save offset, lowest index must come first */
+        numa_nodes[i].cpu_offset = atoi(val);
+
+        /* find the node count */
+        if (strchr(val,'-') != NULL)
+          numa_nodes[i].num_cpus = parse_range(val);
+        else
+          numa_nodes[i].num_cpus = get_comma_count(val);
         }
-      }
-    else if (strcmp(tok,"nodenum") == 0)
-      {
-      nodenum = atoi(val);
-      }
-    else if (strcmp(tok,"cpuoffset") == 0)
-      {
-      cpu_offset = atoi(val);
-      }
-    else
-      {
-      /* ignore other stuff for now */
-      }
-    } /* END while (parsing line) */
+      else if (strcmp(tok,"mem") == 0)
+        {
+        int j;
+        /* save offset, lowest index must come first */
+        numa_nodes[i].mem_offset = atoi(val);
+
+        if (strchr(val,'-') != NULL)
+          numa_nodes[i].num_mems = parse_range(val);
+        else
+          numa_nodes[i].num_mems = get_comma_count(val);
+
+        /* save the meminfo path stuff */
+        numa_nodes[i].path_meminfo = (char **)malloc(numa_nodes[i].num_mems * sizeof(char *));
+        
+        for (j = 0; j < numa_nodes[i].num_mems; j++)
+          {
+          numa_nodes[i].path_meminfo[j] = (char *)malloc(mempath_len);
+          
+          snprintf(numa_nodes[i].path_meminfo[j],mempath_len,
+            "/sys/devices/system/node/node%d/meminfo",
+            j + numa_nodes[i].mem_offset);
+          }
+
+        }
+      else if (strcmp(tok,"memsize") == 0)
+        {
+        numa_nodes[i].memsize = atoi(val);
+        /* default to KB, keeping with TORQUE tradition */
+        if ((strstr(val,"gb")) ||
+            (strstr(val,"GB")))
+          {
+          numa_nodes[i].memsize *= 1024 * 1024;
+          }
+        else if ((strstr(val,"mb")) ||
+                 (strstr(val,"MB")))
+          {
+          numa_nodes[i].memsize *= 1024;
+          }
+        }
+      else
+        {
+        /* ignore other stuff for now */
+        }
+
+      /* advance token */
+      tok = strtok(NULL,delims);
+      } /* END while (parsing line) */
+
+    if (empty_line == FALSE)
+      i++;
+    } /* END while (parsing file) */
+
+  num_numa_nodes = i;
  
   return(0);
   } /* END read_layout_file() */

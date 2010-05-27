@@ -7,6 +7,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <sys/param.h>
+#include <errno.h>
 
 #include "libpbs.h"
 #include "attribute.h"
@@ -360,6 +361,8 @@ initialize_mom_cpuset(void)
         "Error '%s' occurred while making directory %s\n",
         strerror(errno),
         path);
+
+      log_err(errno,id,log_buffer);
       }
     }
 

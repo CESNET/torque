@@ -85,7 +85,9 @@
 
 /* NOTE:  requires server_limits.h */
 
-#define BM_ERROR    -20
+#define BM_ERROR        -20
+#define MAX_NUMA_NODES   2048
+
 enum psit
   {
   okay,
@@ -125,6 +127,22 @@ struct pbssubn
   short           index;  /* subnode index */
   };
 
+#ifdef NUMA_SUPPORT
+typedef struct numanode_t
+  {
+
+  int              num_cpus;     /* count of cpus */
+  int              cpu_offset;   /* real index of first cpu */
+  int              index;        /* the node's index */
+  int              num_mems;     /* count of memory nodes */
+  int              mem_offset;   /* real index of first memory node */
+  unsigned long    memsize;
+  char           **path_meminfo; /* path to meminfo file */
+
+  } numanode;
+#endif /* NUMA_SUPPORT */
+
+
 struct pbsnode
   {
   char   *nd_name; /* node's host name */
@@ -159,6 +177,9 @@ struct pbsnode
   short    nd_order; /* order of user's request */
   time_t                 nd_warnbad;
   time_t                 nd_lastupdate; /* time of last update. */
+#ifdef NUMA_SUPPORT
+  numanode numa_nodes[MAX_NUMA_NODES];
+#endif /* NUMA_SUPPORT */
   };
 
 struct howl

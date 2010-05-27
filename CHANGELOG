@@ -34,6 +34,8 @@ NUMA
       that get rid unaligned access errors
   e - mother superior now creates the whole cpuset for a job
   e - allow configurable amounts of memory nodes per mom
+  e - first step to running just one mom: allow the mom to manage and report
+      on the memory for the entire node.
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,
