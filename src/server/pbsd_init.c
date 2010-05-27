@@ -1519,11 +1519,11 @@ static int pbsd_init_job(
 
     case JOB_SUBSTATE_PRERUN:
 
-    case JOB_SUBSTATE_PRERUN_CLOUD:
-
       pbsd_init_reque(pjob, CHANGE_STATE);
 
       break;
+
+    case JOB_SUBSTATE_PRERUN_CLOUD:
 
     case JOB_SUBSTATE_RUNNING:
 

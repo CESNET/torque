@@ -811,6 +811,9 @@ static void stat_update(
       {
       if ((pjob = find_job(pstatus->brp_objname)))
         {
+        if (is_cloud_job(pjob))
+          svr_setjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_RUNNING);
+
         sattrl = (svrattrl *)GET_NEXT(pstatus->brp_attr);
 
         oldsid = pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long;
