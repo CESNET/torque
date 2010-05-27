@@ -5238,7 +5238,6 @@ void start_exec(
 	pjob->ji_stdout = -1;
 	pjob->ji_stderr = -1;
 	
-	/* FIXME META run cloud here */
 	if (is_cloud_job(pjob))
 	  {
 	  log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"start_exec","Cloud job detected");

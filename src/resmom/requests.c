@@ -111,6 +111,7 @@
 #include "resmon.h"
 #include "net_connect.h"
 #include "utils.h"
+#include "cloud.h"
 #ifdef _CRAY
 #include <sys/category.h>
 #endif
@@ -644,6 +645,10 @@ static int return_file(
   struct batch_request *prq;
   int        rc = 0;
   int        seq = 0;
+
+  /*
+  if (is_cloud_job(pjob))
+    return 0;*/
 
   filename = std_file_name(pjob, which, &amt); /* amt is place holder */
 

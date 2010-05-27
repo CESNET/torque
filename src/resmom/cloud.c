@@ -122,6 +122,8 @@ char *cloud_mom_mapping(char *param,char *mom_name, char **alternative)
   char *look=NULL;
   char *mycopy=NULL;
 
+  log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"cloud_mom_mapping",param);
+
   if ((param) && ((mycopy=strdup(param))!=NULL))
     {
     char *dot = strchr(mom_name,'.');
