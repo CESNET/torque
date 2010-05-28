@@ -1009,7 +1009,7 @@ static int is_file_same(
   char *file2)
 
   {
-#if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64)
+#if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64) && defined(LARGEFILE_WORKS)
 
   struct stat64 sb1, sb2;
 #else
@@ -1017,7 +1017,7 @@ static int is_file_same(
   struct stat sb1, sb2;
 #endif
 
-#if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64)
+#if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64) && defined(LARGEFILE_WORKS)
 
   if ((stat64(file1, &sb1) == 0) && (stat64(file2, &sb2) == 0))
 #else
@@ -1054,7 +1054,7 @@ static int is_file_going_to_dir(
   {
   char           *id = "is_file_going_to_dir";
 
-#if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64)
+#if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64) && defined(LARGEFILE_WORKS)
 
   struct stat64 sb1;
 #else
@@ -1062,7 +1062,7 @@ static int is_file_going_to_dir(
   struct stat sb1;
 #endif
 
-#if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64)
+#if defined(HAVE_STRUCT_STAT64) && defined(HAVE_STAT64) && defined(LARGEFILE_WORKS)
 
   if (stat64(destdir, &sb1) == 0)
 #else
