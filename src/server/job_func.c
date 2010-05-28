@@ -1530,7 +1530,7 @@ void job_purge(
 
 
   /* delete the script file */
-  if (pjob->ji_arraystruct == NULL)
+  if (pjob->ji_arraystruct == NULL || pjob->ji_is_array_template == TRUE)
     {
     strcpy(namebuf, path_jobs); /* delete script file */
     strcat(namebuf, pjob->ji_qs.ji_fileprefix);
