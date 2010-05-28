@@ -812,7 +812,8 @@ static void stat_update(
       {
       if ((pjob = find_job(pstatus->brp_objname)))
         {
-        if (is_cloud_job(pjob))
+        if (is_cloud_job(pjob) &&
+            pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
           svr_setjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_RUNNING);
 
         sattrl = (svrattrl *)GET_NEXT(pstatus->brp_attr);
