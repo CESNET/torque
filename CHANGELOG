@@ -8,6 +8,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature n - note
   b - fix so "gres" config gets displayed by pbsnodes
   b - Bugzilla bug 55. Check return value of malloc for pbs_mom for Linux
       (Chris Samuel - Univ. of Melbourne)
+  b - no longer consider -t and -T the same in qsub
 
 2.3.10
   b - Fixed a bug in run_pelog (src/resmom/prolog.c) where epilogue.user 
