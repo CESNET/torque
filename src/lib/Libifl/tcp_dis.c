@@ -494,7 +494,7 @@ int DIS_tcp_wflush(
 #endif
 
   maxattempts=25;
-  while ((i = write(fd,pb,ct)) != (ssize_t)ct) 
+  while ((i = write(fd,pb,ct)) != (ssize_t)ct )
     {
     if (i == -1)
       {
@@ -1051,43 +1051,6 @@ void DIS_tcp_setup(
 #endif
     }
 
-#ifdef GSSAPI
- /*if(tcp->gssctx != GSS_C_NO_CONTEXT){
-	 gss_name_t target;
-	 OM_uint32  lifetime=0, ctx_flags=0;
-	 OM_uint32  major,minor;
-	 int local,opened;
-	 major=gss_context_time(&minor,tcp->gssctx,&lifetime);*/
-/*	 major=gss_inquire_context(&minor,tcp->gssctx,NULL,NULL,&lifetime,NULL,&ctx_flags,&local,&opened);*/
-/*
-	 if((OM_uint32)lifetime < 600 || major != GSS_S_COMPLETE){
-		 log_err(major,"DIS_tcp_setup","Context Expiration failure less than 10 minutes");
-		 gss_delete_sec_context (&minor, tcp->gssctx, GSS_C_NO_BUFFER);
-		 tcp->gssctx=GSS_C_NO_CONTEXT ;
-	 }
-*/
-
-/*
-	 if (((gss_ctx_id_desc *)tcp->gssctx)->cred_handle)
-	    {
-	        major =  gss_inquire_cred(&minor,
-	            ((gss_ctx_id_desc *)context)->cred_handle->cred_handle,
-	            NULL,
-	            &lifetime,
-	            NULL,
-	            NULL,);
-	    }
-	 if((OM_uint32)lifetime < 600 || major != GSS_S_COMPLETE){
-		 log_err(major,"DIS_tcp_setup","Context Expiration failure less than 10 minutes");
-		 gss_delete_sec_context (&minor, tcp->gssctx, GSS_C_NO_BUFFER);
-		 tcp->gssctx=GSS_C_NO_CONTEXT ;
-	 }
-*/
-
-/*	 major=gss_release_name(&minor,&target);*/
-
-/* }*/
-#endif
 
   /* initialize read and write buffers */
 
@@ -1124,13 +1087,29 @@ void DIS_tcp_release(
 
   tcp=tcparray[fd];
   tp = &tcp->readbuf;
-  if (tp->tdis_thebuf != NULL) free(tp->tdis_thebuf);
+  if (tp->tdis_thebuf != NULL){
+	  free(tp->tdis_thebuf);
+	  tp->tdis_thebuf = NULL;
+  }
   tp = &tcp->writebuf;
-  if (tp->tdis_thebuf != NULL) free(tp->tdis_thebuf);
+  if (tp->tdis_thebuf != NULL){
+	  free(tp->tdis_thebuf);
+	  tp->tdis_thebuf = NULL;
+  }
 
 #ifdef GSSAPI
-  if (tcparray[fd]->gssctx != GSS_C_NO_CONTEXT)
-    gss_delete_sec_context (&minor, &tcparray[fd]->gssctx, GSS_C_NO_BUFFER);
+  if (tcparray[fd]->gssctx != GSS_C_NO_CONTEXT){
+	  OM_uint32 minor,major;
+	  /*gss_buffer_desc out_buf;*/
+/*	  major=gss_delete_sec_context (&minor, &tcparray[fd]->gssctx,&out_buf);*/
+	  major=gss_delete_sec_context (&minor, &tcparray[fd]->gssctx,GSS_C_NO_BUFFER);
+      if(major != GSS_S_COMPLETE ){
+    	  log_err(major,"DIS_tcp_release","gss_delete_sec_context failure");
+    	 /* gss_delete_sec_context (&minor, &tcparray[fd]->gssctx,GSS_C_NO_BUFFER);*/
+      }
+     /*gss_release_buffer(&minor,&out_buf);*/
+      tcparray[fd]->gssctx = GSS_C_NO_CONTEXT;
+  }
   if (tcparray[fd]->unwrapped.value)
     gss_release_buffer (&minor, &tcparray[fd]->unwrapped);
   /*fix memory loss in DIS_scp_setup */
@@ -1153,7 +1132,6 @@ void DIS_tcp_set_gss(
 
   {
   OM_uint32 major, minor, bufsize;
-  struct tcpdisbuf *tp;
 
   assert (fd >= 0 && fd < tcparraymax && tcparray[fd]);
   assert (tcparray[fd]->gssctx == GSS_C_NO_CONTEXT);
@@ -1162,20 +1140,6 @@ void DIS_tcp_set_gss(
   tcparray[fd]->Confidential = (flags & GSS_C_CONF_FLAG);
   major = gss_wrap_size_limit (&minor, ctx, (flags & GSS_C_CONF_FLAG),
                              GSS_C_QOP_DEFAULT, THE_BUF_SIZE, &bufsize);
-  if (major == GSS_S_COMPLETE)
-    {
-    tp = &tcparray[fd]->writebuf;
-
-    tp->tdis_thebuf = (char *)malloc(THE_BUF_SIZE);
-    if(tp->tdis_thebuf == NULL)
-      {
-      log_err(errno,"DIS_tcp_set_gss","malloc failure");
-
-      return;
-      }
-    tp->tdis_bufsize = THE_BUF_SIZE;
-
-    }
   } /* END DIS_tcp_set_gss */
 #endif
 
