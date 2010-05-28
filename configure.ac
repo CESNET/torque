@@ -284,9 +284,6 @@ if test "$DEBUG_SYMBOLS" = 'yes'; then
   AC_MSG_RESULT([after tweak CFLAGS=$CFLAGS])
 fi
 
-dnl Torque's own largefile support
-TAC_SYS_LARGEFILE
-
 dnl if using gcc, we can be very strict
 AC_ARG_ENABLE(gcc_warnings, [
   --disable-gcc-warnings  Disable gcc strictness and warnings.  If using
@@ -305,6 +302,9 @@ if test "x$GCC" = "xyes" ;then
     fi
   fi
 fi
+
+dnl Torque's own largefile support
+TAC_SYS_LARGEFILE
 
 dnl check if we should use high availability mode
 AC_ARG_ENABLE(high_availability, [
@@ -361,7 +361,8 @@ AC_CHECK_HEADERS([arpa/inet.h fcntl.h float.h limits.h malloc.h netdb.h \
 		  sys/socket.h sys/time.h sys/ioctl.h sys/mount.h \
                   sys/vfs.h sys/statfs.h sys/statvfs.h sys/ucred.h sys/un.h sys/uio.h \
                   syslog.h readline/readline.h \
-                  termios.h err.h sys/poll.h pam/pam_modules.h security/pam_appl.h])
+                  termios.h err.h sys/poll.h pam/pam_modules.h security/pam_appl.h \
+                  mach/shared_region.h])
 
 # On Solaris, pam_modules.h requires pam_appl.h
 AC_CHECK_HEADERS([security/pam_modules.h], [], [],
@@ -1205,7 +1206,6 @@ dnl  nsl is needed on some systems but duplicates libc.a on others (O2000s)
 AC_CHECK_FUNC(xdr_int, , AC_CHECK_LIB(nsl, xdr_int))
 AC_CHECK_FUNC(ruserok, , AC_CHECK_LIB(socket, ruserok))
 AC_CHECK_FUNC(hstrerror, , AC_CHECK_LIB(resolv, hstrerror))
-
 
 dnl  Readline
 if test "$HAVE_READLINE" = "yes" ; then
