@@ -3543,7 +3543,7 @@ void im_request(
               log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"im_request","Master mom - finishing cloud");
               if (cloud_exec(pjob) == 0)
                 cloud_set_running(pjob);
-              return;
+              break;
               }
 
             TMOMJobGetStartInfo(NULL, &TJE);
