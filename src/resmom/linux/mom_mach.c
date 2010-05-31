@@ -1924,7 +1924,7 @@ int mom_over_limit(
  * @return An error code if something goes wrong.
  */
 
-int mom_set_use(
+int mom_set_use( /* FIXME META add extra cloud stuff */
 
   job *pjob)  /* I (modified) */
 

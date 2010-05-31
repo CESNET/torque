@@ -5696,8 +5696,12 @@ int kill_job(
   DBPRT(("%s\n", log_buffer));
 
   /* FIXME META is this the right place */
-  if (sig == SIGTERM && is_cloud_job(pjob)) /* special handling for cloud jobs (no tasks) */
+  if ((sig == SIGTERM || sig == SIGKILL) && is_cloud_job(pjob)) /* special handling for cloud jobs (no tasks) */
+    {
     pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+    job_save(pjob,SAVEJOB_QUICK);
+    exiting_tasks = 1;
+    }
 
   /* NOTE:  should change be made to only execute precancel epilog if job is active? (NYI) */
 
@@ -7689,7 +7693,7 @@ int TMOMScanForStarting(void)
  */
 
 void
-examine_all_polled_jobs(void)
+examine_all_polled_jobs(void) /* FIXME META examine job limits after restarts */
 
   {
   static char id[] = "examine_all_polled_jobs";
@@ -7791,7 +7795,7 @@ examine_all_polled_jobs(void)
  */
 
 void
-examine_all_running_jobs(void)
+examine_all_running_jobs(void) /* FIXME META check used resources here */
 
   {
   job         *pjob;
@@ -7826,7 +7830,6 @@ examine_all_running_jobs(void)
            ptask != NULL;
            ptask = (task *)GET_NEXT(ptask->ti_jobtask))
         {
-        /* TODO Cloud - pokud je job cloud, tak kontroluj jinak */
 #ifdef _CRAY
 
         if (pjob->ji_globid == NULL)

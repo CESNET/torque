@@ -50,6 +50,8 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
   pars_spec * ps;
   pars_spec_node *iter;
 
+  char mapping[1024] = { 0 }; /* FIXME META Needs a dynamic array */
+
   if ((ps = parse_nodespec(nodespec)) == NULL)
     return NULL;
 
@@ -76,11 +78,9 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
       free(ret);
 
       mapped = construct_mapping(cloud,iter->properties->name,""); /* FIXME META add alternative support */
+      strcat(mapping,mapped);
       /* store mapping into job attribute */
       /* FIXME META rewrite into version, that will work for multiple nodes */
-      job_attr_def[(int)JOB_ATR_cloud_mapping].at_decode(&
-          pjob->ji_wattr[(int)JOB_ATR_cloud_mapping],
-          (char *)0, (char *)0, mapped);
       free(mapped);
 
       /* interchange virtual node name for its cloud master */
@@ -89,6 +89,9 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
       }
     iter = iter->next;
     }
+
+  job_attr_def[(int)JOB_ATR_cloud_mapping].at_decode(&pjob->ji_wattr[(int)JOB_ATR_cloud_mapping],
+                                                      (char *)0, (char *)0, mapping);
 
   sprintf(log_buffer,"Source: %s Target: %s",nodespec,concat_nodespec(ps));
   log_record(PBSEVENT_SCHED,PBS_EVENTCLASS_REQUEST,"switch_nodespec_to_cloud",log_buffer);

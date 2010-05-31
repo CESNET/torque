@@ -668,6 +668,12 @@ scan_for_exiting(void)
       ** Check to see if any tasks are running.
       */
 
+      if (is_cloud_job(pjob))
+          /* special care for cloud job (no tasks) */
+        {
+        cloud_kill(pjob);
+        }
+
       ptask = (task *)GET_NEXT(pjob->ji_tasks);
 
       while (ptask != NULL)
@@ -707,10 +713,6 @@ scan_for_exiting(void)
           {
           log_err(-1, id, "parallel epilog failed");
           }
-        }
-      else if (is_cloud_job(pjob))
-        {
-        cloud_kill(pjob);
         }
       else
         {
