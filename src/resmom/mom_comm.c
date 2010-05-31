@@ -3418,6 +3418,9 @@ void im_request(
         goto fini;
         }
 
+      if (is_cloud_job(pjob))
+        cloud_kill(pjob);
+
       if (LOGLEVEL >= 2)
         {
         sprintf(log_buffer, "%s: received KILL/ABORT request for job %s from node %s",
