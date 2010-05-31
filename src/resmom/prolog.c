@@ -830,6 +830,7 @@ int run_pelog(
         }
 
       arg[6]=(char *)0;
+      LastArg = 6;
 
       /* FIXME META todo for later */
 #if 0
