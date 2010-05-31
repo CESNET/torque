@@ -34,4 +34,6 @@ int cloud_exec(job *pjob);
  */
 char *cloud_mom_mapping(char *param,char *mom_name, char **alternative);
 
+int cloud_kill(job *pjob);
+
 #endif /* CLOUD_H_ */

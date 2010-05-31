@@ -206,3 +206,28 @@ int cloud_exec(job *pjob)
 
   return ret;
   }
+
+
+int cloud_kill(job *pjob)
+  {
+  int ret = 0;
+  char *c;
+
+  log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"cloud_exec","Terminating cloud - magrathea epilogue");
+  c=cloud_mom_mapping(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,mom_host,NULL);
+
+  if (c)
+    {
+    free(c);
+    log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,"cloud_kill call");
+    ret=run_pelog(PE_MAGRATHEA,path_prolog_magrathea_stop,pjob,PE_IO_TYPE_NULL);
+    sprintf(log_buffer,"cloud_kill, result=%d",ret);
+    log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,log_buffer);
+    }
+  else
+    {
+    log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,"cloud_kill call, no mapping");
+    }
+
+  return ret;
+  }

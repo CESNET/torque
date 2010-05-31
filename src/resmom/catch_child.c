@@ -110,6 +110,7 @@
 #include "pbs_error.h"
 #include "pbs_proto.h"
 #include "rpp.h"
+#include "cloud.h"
 #ifdef ENABLE_CPA
 #include "pbs_cpa.h"
 #endif
@@ -420,6 +421,29 @@ scan_for_exiting(void)
     ** Check each EXITED task.  They transition to DEAD here.
     */
 
+    if (is_cloud_job(pjob) && pjob->ji_qs.ji_substate == JOB_SUBSTATE_EXITING) /* special care for cloud jobs (no tasks) */
+      {
+      NumSisters = send_sisters(pjob, IM_KILL_JOB);
+      if (NumSisters == 0)
+        {
+        /* no sisters contacted - should be a serial job */
+        if (LOGLEVEL >= 3)
+          {
+          LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid,
+                    "no sisters contacted - setting job substate to EXITING");
+          }
+
+        pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+
+        job_save(pjob, SAVEJOB_QUICK);
+        }
+      else if (LOGLEVEL >= 3)
+        {
+        snprintf(log_buffer, 1024, "cloud job has exited - sent kill job request to %d sisters", NumSisters);
+        LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, log_buffer);
+        }
+      }
+
     for (
       ptask = (task *)GET_NEXT(pjob->ji_tasks);
       ptask != NULL;
@@ -683,6 +707,10 @@ scan_for_exiting(void)
           {
           log_err(-1, id, "parallel epilog failed");
           }
+        }
+      else if (is_cloud_job(pjob))
+        {
+        cloud_kill(pjob);
         }
       else
         {
@@ -1400,6 +1428,10 @@ static void preobit_reply(
       {
       log_err(-1, id, "system epilog failed - interactive job");
       }
+    }
+  else if (is_cloud_job(pjob))
+    {
+    cloud_kill(pjob);
     }
   else
     {

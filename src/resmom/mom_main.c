@@ -5695,6 +5695,10 @@ int kill_job(
 
   DBPRT(("%s\n", log_buffer));
 
+  /* FIXME META is this the right place */
+  if (sig == SIGTERM && is_cloud_job(pjob)) /* special handling for cloud jobs (no tasks) */
+    pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+
   /* NOTE:  should change be made to only execute precancel epilog if job is active? (NYI) */
 
   /* NOTE:  epilog blocks until complete, which may cause issues if shutdown grace time is
