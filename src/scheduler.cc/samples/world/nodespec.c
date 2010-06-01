@@ -648,7 +648,11 @@ static char *get_target(node_info *ninfo, int mode)
     iter = iter->next;
     }
 
-  /* TODO add alternative support */
+  if (ninfo->temp_assign_alternative != NULL)
+    {
+    len += strlen("alternative") + 1; /* :alternative */
+    len += strlen(ninfo->temp_assign_alternative->r_name) + 1; /* =name */
+    }
 
   if ((str = malloc(len)) == NULL)
     return NULL;
@@ -674,6 +678,12 @@ static char *get_target(node_info *ninfo, int mode)
         }
       }
     iter = iter->next;
+    }
+
+  if (ninfo->temp_assign_alternative != NULL)
+    {
+    strcpy(cp,":alternative="); cp += strlen(":alternative=");
+    strcpy(cp,ninfo->temp_assign_alternative->r_name); cp += strlen(ninfo->temp_assign_alternative->r_name);
     }
 
   return str;
