@@ -68,6 +68,7 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
     if (ret!=NULL)
       {
       char *c, *cloud, *mapped;
+      pars_prop *it2;
 
       /* cut out the cloud node name from the cache value */
       c=strchr(ret,'\t');
@@ -77,10 +78,20 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
         *c = '\0';
       free(ret);
 
-      mapped = construct_mapping(cloud,iter->properties->name,""); /* FIXME META add alternative support */
+      it2 = iter->properties;
+      while (it2 != NULL)
+        {
+        if ((strcmp(it2->name,"alternative") == 0) && (it2->value != NULL))
+          break;
+
+        it2 = it2->next;
+        }
+
+      if (it2 != NULL)
+        mapped = construct_mapping(cloud,iter->properties->name,it2->value);
+      else
+        mapped = construct_mapping(cloud,iter->properties->name,"default");
       strcat(mapping,mapped);
-      /* store mapping into job attribute */
-      /* FIXME META rewrite into version, that will work for multiple nodes */
       free(mapped);
 
       /* interchange virtual node name for its cloud master */
@@ -90,6 +101,7 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
     iter = iter->next;
     }
 
+  /* store the constructed mapping into job attribute */
   job_attr_def[(int)JOB_ATR_cloud_mapping].at_decode(&pjob->ji_wattr[(int)JOB_ATR_cloud_mapping],
                                                       (char *)0, (char *)0, mapping);
 
