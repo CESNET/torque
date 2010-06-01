@@ -108,6 +108,7 @@
 #include "svrfunc.h"
 #include "sched_cmds.h"
 #include "queue.h"
+#include "cloud.h"
 
 
 #define RESC_USED_BUF 2048
@@ -2601,6 +2602,7 @@ void req_jobobit(
     /* If job is terminating (not rerun), */
     /*  update state and send mail        */
 
+    cloud_transition_into_stopped(pjob);
     svr_setjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_EXITING);
 
     if (alreadymailed == 0)
