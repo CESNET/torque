@@ -1540,6 +1540,14 @@ void req_commit(
 
         req_reject(PBSE_BAD_ARRAY_REQ, 0, preq, NULL, log_buffer);
         }
+      else if (rc == INVALID_SLOT_LIMIT)
+        {
+        snprintf(log_buffer,sizeof(log_buffer),
+          "Requested slot limit too large, limit is %ld",
+          server.sv_attr[SRV_ATR_MaxSlotLimit].at_val.at_long);
+
+        req_reject(PBSE_BAD_ARRAY_REQ, 0, preq, NULL, log_buffer);
+        }
       else
         {
         req_reject(PBSE_BAD_ARRAY_REQ, 0, preq, NULL, NULL);

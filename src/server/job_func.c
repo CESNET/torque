@@ -767,7 +767,7 @@ job *job_clone(
 
   pnewjob->ji_qs.ji_jobid[PBS_MAXSVRJOBID] = '\0';
 
-  snprintf(pnewjob->ji_qs.ji_jobid, PBS_MAXSVRJOBID, "%s-%d.%s",
+  snprintf(pnewjob->ji_qs.ji_jobid, PBS_MAXSVRJOBID, "%s[%d].%s",
            oldid,
            taskid,
            hostname);

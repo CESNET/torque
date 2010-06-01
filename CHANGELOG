@@ -29,7 +29,8 @@ Array Changes
       in an array
   b - fixed things so that arrays can't circumvent max_user_queuable
   b - fixed things so that arrays can't circumvent max_queuable
-      
+  f - added server parameter max_slot_limit to restrict slot limits
+  e - changed array names from jobid-index to jobid[index] for consistency
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,

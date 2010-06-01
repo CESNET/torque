@@ -465,14 +465,26 @@ int array_delete(job_array *pa)
 /* 
  * set_slot_limit()
  * sets how many jobs can be run from this array at once
+ *
+ * @param request - the string array request
+ * @param pa - the array to receive a slot limit
+ *
+ * @return 0 on SUCCESS
  */
-void set_slot_limit(
+int set_slot_limit(
 
   char      *request, /* I */
   job_array *pa)      /* O */
 
   {
   char *pcnt;
+  int   max_limit = NO_SLOT_LIMIT;
+
+  /* check for a max slot limit */
+  if (server.sv_attr[SRV_ATR_MaxSlotLimit].at_flags & ATR_VFLAG_SET)
+    {
+    max_limit = server.sv_attr[SRV_ATR_MaxSlotLimit].at_val.at_long;
+    }
 
   if ((pcnt = strchr(request,'%')) != NULL)
     {
@@ -484,17 +496,23 @@ void set_slot_limit(
     if (strlen(pcnt) > 0)
       {
       pa->ai_qs.slot_limit = atoi(pcnt);
+      if ((max_limit != NO_SLOT_LIMIT) &&
+          (max_limit < pa->ai_qs.slot_limit))
+        {
+        return(INVALID_SLOT_LIMIT);
+        }
       }
     else
       {
-      pa->ai_qs.slot_limit = NO_SLOT_LIMIT;
+      pa->ai_qs.slot_limit = max_limit;
       }
     }
   else
     {
-    pa->ai_qs.slot_limit = NO_SLOT_LIMIT;
+    pa->ai_qs.slot_limit = max_limit;
     }
 
+  return(0);
   } /* END set_slot_limit() */
 
 
@@ -506,6 +524,7 @@ int setup_array_struct(job *pjob)
   array_request_node *rn;
   int bad_token_count;
   int array_size;
+  int rc;
 
   /* setup a link to this job array in the servers all_arrays list */
   pa = (job_array *)calloc(1,sizeof(job_array));
@@ -543,7 +562,21 @@ int setup_array_struct(job *pjob)
     return 1;
     }
 
-  set_slot_limit(pjob->ji_wattr[JOB_ATR_job_array_request].at_val.at_str, pa);
+  if ((rc = set_slot_limit(pjob->ji_wattr[JOB_ATR_job_array_request].at_val.at_str, pa)))
+    {
+    array_delete(pa);
+
+    snprintf(log_buffer,sizeof(log_buffer),
+      "Array %s requested a slot limit above the max limit %ld, rejecting\n",
+      pa->ai_qs.parent_id,
+      server.sv_attr[SRV_ATR_MaxSlotLimit].at_val.at_long);
+    log_event(PBSEVENT_SYSTEM,
+      PBS_EVENTCLASS_JOB,
+      pa->ai_qs.parent_id,
+      log_buffer);
+
+    return(INVALID_SLOT_LIMIT);
+    }
 
   pa->ai_qs.jobs_running = 0;
   pa->ai_qs.num_started = 0;
@@ -577,7 +610,6 @@ int setup_array_struct(job *pjob)
     int max_array_size = server.sv_attr[SRV_ATR_MaxArraySize].at_val.at_long;
     if (max_array_size < pa->ai_qs.num_jobs)
       {
-      job_purge(pjob);
       array_delete(pa);
 
       return(ARRAY_TOO_LARGE);
