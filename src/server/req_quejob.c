@@ -625,6 +625,15 @@ void req_quejob(
 
     if ((pj->ji_wattr[(int)JOB_ATR_jobname].at_flags & ATR_VFLAG_SET) == 0)
       {
+      if (is_cloud_job(pj)) /* cloud jobs need job names */
+        {
+        job_purge(pj);
+
+        req_reject(PBSE_BADATVAL, 0, preq, NULL, "job name is required for cloud jobs");
+
+        return;
+        }
+
       job_attr_def[(int)JOB_ATR_jobname].at_decode(
         &pj->ji_wattr[(int)JOB_ATR_jobname],
         NULL,
