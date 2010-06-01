@@ -117,6 +117,7 @@
 #include "log.h"
 #include "svrfunc.h"
 #include "csv.h"
+#include "cloud.h"
 
 #include "work_task.h"
 extern void  job_clone_wt A_((struct work_task *));
