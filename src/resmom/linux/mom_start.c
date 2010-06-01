@@ -187,10 +187,11 @@ int set_job(
              pjob->ji_qs.ji_jobid,
              (long)sjr->sj_session);
 
-    log_err(
+    log_ext(
       -1,
       id,
-      tmpLine);
+      tmpLine,
+      LOG_DEBUG);
 
     rc = system(tmpLine);
 
