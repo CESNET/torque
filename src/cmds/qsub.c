@@ -4691,7 +4691,27 @@ int main(
   if (!strcmp(script, "") || !strcmp(script, "-"))
     {
     if (!N_opt)
-      set_attr(&attrib, ATTR_N, "STDIN");
+      {
+      struct attrl *attr;
+
+      attr = attrib;
+
+      while (attr != NULL)
+        {
+        if (strncmp(attr->name,"cluster",strlen("cluster")) == 0)
+          break;
+
+        attr = attr->next;
+        }
+
+      if (attr != NULL)
+        set_attr(&attrib, ATTR_N, "STDIN");
+      else
+        {
+        fprintf(stderr, "qsub: Cannot submit a cloud job without specifying the name of the cluster.\n");
+        exit(1);
+        }
+      }
 
     if (Interact_opt == FALSE)
       {
