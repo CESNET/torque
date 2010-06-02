@@ -9,6 +9,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature n - note
   b - Bugzilla bug 55. Check return value of malloc for pbs_mom for Linux
       (Chris Samuel - Univ. of Melbourne)
   b - no longer consider -t and -T the same in qsub
+  c - very rare read of a potentially NULL pointer
 
 2.3.10
   b - Fixed a bug in run_pelog (src/resmom/prolog.c) where epilogue.user 
