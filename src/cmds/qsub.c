@@ -4698,6 +4698,7 @@ int main(
 
       while (attr != NULL)
         {
+        fprintf(stderr,"N: %s V: %s R: %s",attr->name,attr->value,attr->resource);
         if ((strncmp(attr->name,"cluster",strlen("cluster")) == 0) &&
             (strncmp(attr->value,"create",strlen("create")) == 0))
           break;
@@ -4705,7 +4706,7 @@ int main(
         attr = attr->next;
         }
 
-      if (attr != NULL)
+      if (attr == NULL)
         set_attr(&attrib, ATTR_N, "STDIN");
       else
         {
