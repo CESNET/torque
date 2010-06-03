@@ -4698,7 +4698,8 @@ int main(
 
       while (attr != NULL)
         {
-        if (strncmp(attr->name,"cluster=create",strlen("cluster=create")) == 0)
+        if ((strncmp(attr->name,"cluster",strlen("cluster")) == 0) &&
+            (strncmp(attr->value,"create",strlen("create")) == 0))
           break;
 
         attr = attr->next;
