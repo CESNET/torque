@@ -385,7 +385,7 @@
 #define PBS_MAXGRPN  16 /* max group name length */
 #define PBS_MAXQUEUENAME 15 /* max queue name length */
 #define PBS_MAXSERVERNAME PBS_MAXHOSTNAME /* max server name length */
-#define PBS_MAXJOBARRAYLEN      6       /* number of characters allowed in jobarray portion of job id, including '-' */
+#define PBS_MAXJOBARRAYLEN      7       /* number of characters allowed in jobarray portion of job id, including '[]' */
 #define PBS_MAXSEQNUM  8 /* max sequence number length */
 #define PBS_MAXPORTNUM  5 /* udp/tcp port numbers max=16 bits */
 #define PBS_MAXJOBARRAY  99999
@@ -403,7 +403,7 @@
    hex value e.g. 0x00020300 for torque v2.3.0. Now we just increment a value 
    which is added to the last version encoded that way */
 #define PBS_QS_VERSION_BASE 0x00020300 /* magic number do not change */
-#define PBS_QS_VERSION_INT 1 /* increment this version number with every change to the ji_qs struct */
+#define PBS_QS_VERSION_INT 2 /* increment this version number with every change to the ji_qs struct */
 #define PBS_QS_VERSION  (PBS_QS_VERSION_BASE + PBS_QS_VERSION_INT) /* version number saved in the ji_qs struct */
 
 /* someday the PBS_*_PORT definition will go away and only the */
