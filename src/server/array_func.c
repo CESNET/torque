@@ -206,29 +206,34 @@ void array_get_parent_id(char *job_id, char *parent_id)
   {
   char *c;
   char *pid;
+  
 
   c = job_id;
   *parent_id = '\0';
   pid = parent_id;
 
-  /* copy until the '-' */
+  /* copy up to the '[' */
 
-  while (*c != '-' && *c != '\0')
+  while (*c != '[' && *c != '\0')
     {
     *pid = *c;
     c++;
     pid++;
     }
 
-  /* skip the until the first '.' */
-  while (*c != '.' && *c != '\0')
+  /* skip the until the closing bracket */
+  while (*c != ']' && *c != '\0')
     {
     c++;
     }
-
+    
+  if (*c == ']')
+    {
+    c++;
+    }
+    
   /* copy the rest of the id */
   *pid = '\0';
-
   strcat(pid, c);
 
 
