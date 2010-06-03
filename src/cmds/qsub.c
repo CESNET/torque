@@ -4698,9 +4698,9 @@ int main(
 
       while (attr != NULL)
         {
-        fprintf(stderr,"N: %s V: %s R: %s",attr->name,attr->value,attr->resource);
-        if ((strncmp(attr->name,"cluster",strlen("cluster")) == 0) &&
-            (strncmp(attr->value,"create",strlen("create")) == 0))
+        if (strcmp(attr->name,"Resource_List") == 0 &&
+            strncmp(attr->resource,"cluster",strlen("cluster")) == 0 &&
+            strncmp(attr->value,"create",strlen("create")) == 0)
           break;
 
         attr = attr->next;
