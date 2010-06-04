@@ -11,6 +11,8 @@
 
 
 extern struct pbsnode *find_nodebyname(char *);
+char *start_sbf_vlan(char *clusterid, char *nodelist);
+int stop_sbf_vlan(char *vlanid);
 
 /* test resource if it is a cloud create request */
 int is_cloud_create(resource *res)
@@ -35,6 +37,11 @@ int is_cloud_job(job *pjob)
 
   return(0);
 }
+
+int is_cloud_job_private(job *pjob)
+  {
+  return 0;
+  }
 
 static char *construct_mapping(char* old, char* new, char* alternative)
   {
@@ -174,6 +181,24 @@ char *get_alternative_name(char *mapping, char *machine)
   }
 
 
+void cloud_transition_into_prerun(job *pjob)
+  {
+  char *vlanid;
+
+  svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN_CLOUD);
+  if (is_cloud_job_private(pjob))
+    {
+    vlanid=start_sbf_vlan(pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str,
+                          pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
+    if (vlanid !=NULL)
+      {
+      job_attr_def[(int)JOB_ATR_vlan_id].at_decode(&pjob->ji_wattr[(int)JOB_ATR_vlan_id],
+                                                  (char *)0, (char *)0, vlanid);
+
+      }
+    }
+  }
+
 void cloud_transition_into_running(job *pjob)
   {
   pars_spec *ps;
@@ -254,4 +279,104 @@ void cloud_transition_into_stopped(job *pjob)
     }
 
   free_parsed_nodespec(ps);
+
+  if (is_cloud_job_private(pjob))
+    {
+    if (pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str != NULL)
+      stop_sbf_vlan(pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str);
+    }
   }
+
+
+
+#define SBF_START "/var/spool/torque/server_priv/sbf_start"
+#define SBF_STOP "/var/spool/torque/server_priv/sbf_stop"
+
+/* start_sbf_vlan
+ * start SBF vlan, pass list of hosts to SBF, read vlanid back
+ */
+char *start_sbf_vlan(char *clusterid, char *nodelist)
+{ FILE *fp;
+  char buf[256];
+  char execbuf[10024]; /* TODO FIX */
+  char *c,*s,*ss,*cc;
+  char delim[2];
+
+  ss=s=strdup(nodelist);
+  delim[0]='+';
+  delim[1]='\0';
+
+  strcpy(execbuf,SBF_START);
+  strcat(execbuf," ");
+  strcat(execbuf,clusterid);
+  strcat(execbuf," ");
+
+  while (((c=strsep(&s,delim))!=NULL) ) {
+        cc=strchr(c,'/');
+        if (cc!=NULL)
+          *cc='\0';
+        cc=strchr(c,':');
+        if (cc!=NULL)
+          *cc='\0';
+        cc=strchr(c,'[');
+        if (cc!=NULL)
+          *cc='\0';
+
+        strcat(execbuf," ");
+  strcat(execbuf,c);
+  }
+  free(ss);
+
+  if( (fp = popen(execbuf,"r")) != NULL ) {
+      if( fgets(buf, 256, fp) != NULL ) {
+    if (strlen(buf)<=1) {
+              log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,"start_sbf_vlan","error in read");
+        return NULL;
+    }
+    buf[strlen(buf)-1] = '\0';
+      } else {
+          log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,"start_sbf_vlan","error in fgets");
+    return NULL;
+      }
+      pclose(fp);
+  } else {
+      log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,"start_sbf_vlan","error in popen");
+      return NULL;
+  }
+
+  return strdup(buf);
+}
+
+/* stop_sbf_vlan
+ * stop SBF vlan created by start_sbf_vlan()
+ */
+int stop_sbf_vlan(char *vlanid)
+{ FILE *fp;
+  char buf[256];
+  int ret=0;
+  char execbuf[1024];
+
+  strcpy(execbuf,SBF_STOP);
+  strcat(execbuf," ");
+  strcat(execbuf,vlanid);
+
+  if( (fp = popen(execbuf,"r")) != NULL ) {
+      if( fgets(buf, 256, fp) != NULL ) {
+    buf[strlen(buf)-1] = '\0';
+    if (strcmp(buf,"ok")!=0) {
+              log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,"stop_sbf_vlan","error in read");
+        ret=-1;
+    }
+      } else {
+          log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,"stop_sbf_vlan","error in fgets");
+    ret=-1;
+      }
+      pclose(fp);
+  } else {
+      log_record(PBSEVENT_SYSTEM,PBS_EVENTCLASS_SERVER,"stop_sbf_vlan","error in popen");
+      ret=-1;
+  }
+
+  return ret;
+}
+

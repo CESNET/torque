@@ -301,6 +301,7 @@ enum job_atr
   JOB_ATR_proxy_user,
   JOB_ATR_cloud_mapping,  /* cloud to virtual nodes mappings including alternatives */
   JOB_ATR_sched_spec, /* schedulers nodespec sent during job run request */
+  JOB_ATR_vlan_id, /* vlan id used by cloud jobs */
 #ifdef USEJOBCREATE
   JOB_ATR_pagg_id,
 #endif /* USEJOBCREATE */
