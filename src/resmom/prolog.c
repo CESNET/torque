@@ -829,16 +829,13 @@ int run_pelog(
         free(cc);
         }
 
+      if (pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str != NULL )
+        {
+        setenv("MAGRATHEA_VLANID",pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str,1);
+        }
+
       arg[6]=(char *)0;
       LastArg = 6;
-
-      /* FIXME META todo for later */
-#if 0
-      if (pjob->ji_wattr[(int)JOB_SITE_ATR_cloud_vlanid].at_val.at_str != NULL )
-        {
-        setenv("MAGRATHEA_VLANID",pjob->ji_wattr[(int)JOB_SITE_ATR_cloud_vlanid].at_val.at_str,1);
-        }
-#endif
       }
     else
       {
