@@ -706,6 +706,7 @@ job *job_clone(
 
   char  *oldid;
   char  *hostname;
+  char  *bracket;
   char  *tmpstr;
   char  basename[PBS_JOBBASE+1];
   char  namebuf[MAXPATHLEN + 1];
@@ -761,11 +762,14 @@ job *job_clone(
     return(NULL);
     }
 
+  bracket = index(oldid, '[');
   hostname = index(oldid, '.');
 
-  *(hostname++) = '\0';
+  *bracket = '\0';
+  hostname++;
 
-  pnewjob->ji_qs.ji_jobid[PBS_MAXSVRJOBID] = '\0';
+
+  pnewjob->ji_qs.ji_jobid[PBS_MAXSVRJOBID - 1] = '\0';
 
   snprintf(pnewjob->ji_qs.ji_jobid, PBS_MAXSVRJOBID, "%s[%d].%s",
            oldid,
@@ -849,7 +853,7 @@ job *job_clone(
 
         tmpstr = (char*)malloc(sizeof(char) * (slen + PBS_MAXJOBARRAYLEN + 1));
 
-        sprintf(tmpstr, "%s-%d",
+        sprintf(tmpstr, "%s[%d]",
                 template_job->ji_wattr[i].at_val.at_str,
                 taskid);
 

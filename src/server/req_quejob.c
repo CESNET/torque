@@ -205,7 +205,7 @@ void req_quejob(
 
   char   basename[PBS_JOBBASE + 1];
   int   created_here = 0;
-  int   index;
+  int   attr_index;
   char  *jid;
   char   namebuf[MAXPATHLEN + 1];
   attribute_def *pdef;
@@ -485,18 +485,18 @@ void req_quejob(
     {
     /* identify the attribute by name */
 
-    index = find_attr(job_attr_def, psatl->al_name, JOB_ATR_LAST);
+    attr_index = find_attr(job_attr_def, psatl->al_name, JOB_ATR_LAST);
 
-    if (index < 0)
+    if (attr_index < 0)
       {
       /* FAILURE */
 
       /* didn`t recognize the name */
 
-      index = JOB_ATR_UNKN; /* keep as "unknown" for now */
+      attr_index = JOB_ATR_UNKN; /* keep as "unknown" for now */
       }
 
-    pdef = &job_attr_def[index];
+    pdef = &job_attr_def[attr_index];
 
     /* Is attribute not writeable by manager or by a server? */
 
@@ -514,7 +514,7 @@ void req_quejob(
     /* decode attribute */
 
     rc = pdef->at_decode(
-           &pj->ji_wattr[index],
+           &pj->ji_wattr[attr_index],
            psatl->al_name,
            psatl->al_resc,
            psatl->al_value);
@@ -883,7 +883,32 @@ void req_quejob(
   /* set ji_is_array_template before calling */
   if (pj->ji_wattr[JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET)
     {
+    char  *oldid;
+    char  *hostname;
+    
     pj->ji_is_array_template = TRUE;
+    
+    /* rewrite jobid to include empty brackets
+       this causes arrays to show up as id[].host in qstat output, and 
+       actions applied to id[] are applied to the entire array */
+    oldid = strdup(pj->ji_qs.ji_jobid);
+
+    if (oldid == NULL)
+      {
+      /* TODO, return with error if unable to alocate memory! */
+      }
+
+    hostname = index(oldid, '.');
+
+    *(hostname++) = '\0';
+
+    snprintf(pj->ji_qs.ji_jobid, PBS_MAXSVRJOBID, "%s[].%s",
+             oldid,
+             hostname);
+
+    free(oldid);    
+       
+    
     }
 
   if ((rc = svr_chkque(pj, pque, preq->rq_host, MOVE_TYPE_Move, EMsg)))

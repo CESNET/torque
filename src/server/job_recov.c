@@ -544,6 +544,7 @@ job *job_recov(
       }
     else
       {
+      /* XXX should we move this up after pa = get_array... */
       if (pa == NULL)
         {   
         job_abt(&pj, "Array job missing array struct, aborting job");

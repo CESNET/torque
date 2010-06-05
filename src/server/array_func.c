@@ -73,25 +73,8 @@ static int parse_array_request(char *request, tlist_head *tl);
 /* search job array list to determine if id is a job array */
 int is_array(char *id)
   {
-  char  goodId[PBS_MAXSVRJOBID];
-  char *bracket_open;
-  char *bracket_close;
-
   job_array *pa;
-
-  if ((bracket_open = strchr(id,'[')) != NULL)
-    {
-    *bracket_open = '\0';
-    strcpy(goodId,id);
-
-    if ((bracket_close = strchr(bracket_open+1,']')) != NULL)
-      {
-      strcat(goodId,bracket_close+1);
-      id = goodId;
-      }
-    *bracket_open = '[';
-    }
-
+  
   pa = (job_array*)GET_NEXT(svr_jobarrays);
 
   while (pa != NULL)
@@ -206,7 +189,7 @@ void array_get_parent_id(char *job_id, char *parent_id)
   {
   char *c;
   char *pid;
-  
+  int bracket = 0;
 
   c = job_id;
   *parent_id = '\0';
@@ -214,8 +197,12 @@ void array_get_parent_id(char *job_id, char *parent_id)
 
   /* copy up to the '[' */
 
-  while (*c != '[' && *c != '\0')
+  while (!bracket && *c != '\0')
     {
+    if (*c == '[')
+      {
+      bracket = 1;
+      }
     *pid = *c;
     c++;
     pid++;
@@ -226,16 +213,10 @@ void array_get_parent_id(char *job_id, char *parent_id)
     {
     c++;
     }
-    
-  if (*c == ']')
-    {
-    c++;
-    }
-    
+
   /* copy the rest of the id */
   *pid = '\0';
   strcat(pid, c);
-
 
   }
 
