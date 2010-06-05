@@ -40,6 +40,13 @@ int is_cloud_job(job *pjob)
 
 int is_cloud_job_private(job *pjob)
   {
+  resource *pres = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],
+		   find_res_def(svr_resc_def,"net",svr_resc_size));
+
+  if (pres != NULL && (pres->rs_value.at_flag & ATR_VLFAG_SET) &&
+	strcmp(res->rs_value.at_val.at_str,"private") == 0)
+    return 1;
+  
   return 0;
   }
 
