@@ -336,8 +336,12 @@ int refresh_magrathea_status(node_info *ninfo, job_info *jinfo, int preassign_st
 /** Check basic node suitability for job */
 static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_starving)
   {
-  if (ninfo->is_offline)
+  if (ninfo->is_offline && ninfo->type != NodeVirtual)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+            "Node %s not used, node is down and is not virtual.", ninfo->name);
     return 0;
+    }
 
   if (ninfo->type == NodeTimeshared || ninfo->type == NodeCloud)
     {
