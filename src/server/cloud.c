@@ -170,7 +170,8 @@ void set_alternative_on_node(char *nodename, char *alternative)
 
   /* clean the previous data */
   free_prop_list(np->x_ad_prop);
-  free(np->x_ad_properties->as_buf);
+  if (np->x_ad_properties)
+    free(np->x_ad_properties->as_buf);
   free(np->x_ad_properties);
 
   np->xn_ad_prop = 0;
@@ -222,6 +223,7 @@ void clear_alternative_on_node(char *nodename)
   free_prop_list(np->x_ad_prop);
   if (np->x_ad_properties)
     free(np->x_ad_properties->as_buf);
+  free(np->x_ad_properties);
   np->x_ad_prop = NULL;
   np->x_ad_properties = NULL;
   np->xn_ad_prop = 0;
