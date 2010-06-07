@@ -2500,7 +2500,7 @@ int hasadprop(struct pbsnode *pnode, struct prop *props)
     if (need->mark == 0)
       continue;
 
-    for (pp = pnode->ad_prop; pp != NULL; pp = pp->next)
+    for (pp = pnode->x_ad_prop; pp != NULL; pp = pp->next)
       {
       if (strcmp(pp->name, need->name) == 0)
         break;
@@ -2640,7 +2640,7 @@ static int search(
               continue;
       */
 
-      if (!hasprop(pnode, glorf))
+      if (!(hasprop(pnode, glorf) || hasadprop(pnode, glorf)))
         continue;
 
       if ((skip == SKIP_NONE) || (skip == SKIP_NONE_REUSE))
@@ -2712,7 +2712,7 @@ static int search(
           (vpreq < (pnode->nd_nsnfree + pnode->nd_nsnshared)))
         continue;
 
-      if (!hasprop(pnode, glorf))
+      if (!(hasprop(pnode, glorf) || hasadprop(pnode, glorf)))
         continue;
 
       pnode->nd_flag = conflict;
@@ -3008,7 +3008,7 @@ static int listelem(
     if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
         || pnode->nd_ntype == NTYPE_CLOUD)
       {
-      if (hasprop(pnode, prop) && hasppn(pnode, node_req, SKIP_NONE))
+      if ((hasprop(pnode, prop) || hasadprop(pnode, prop)) && hasppn(pnode, node_req, SKIP_NONE))
         hit++;
 
       if (hit == num)
@@ -4499,7 +4499,7 @@ int node_avail(
         continue;
 
       if ((pn->nd_ntype == NTYPE_CLUSTER || pn->nd_ntype == NTYPE_VIRTUAL
-          || pn->nd_ntype == NTYPE_CLOUD) && hasprop(pn, prop))
+          || pn->nd_ntype == NTYPE_CLOUD) && (hasprop(pn, prop) || hasadprop(pn, prop)))
         {
         if (pn->nd_state & (INUSE_OFFLINE | INUSE_DOWN))
           ++xdown;

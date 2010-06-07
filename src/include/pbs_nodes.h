@@ -144,10 +144,6 @@ struct pbsnode
   u_long  *nd_addrs; /* IP addresses of host */
 
   struct array_strings *nd_prop; /* array of properties */
-  char *nd_adprop; /* array of additional properties */
-
-
-
   struct array_strings  *nd_status;
   char           *nd_note;  /* note set by administrator */
   int     nd_stream; /* RPP stream to Mom on host */
@@ -169,8 +165,9 @@ struct pbsnode
   struct attribute attributes[2]; /* resources_total, resources_used */
   char *queue;
 
-  struct array_strings *ad_properties;
-  struct prop *ad_prop;
+  struct array_strings *x_ad_properties;
+  struct prop *x_ad_prop;
+  int xn_ad_prop;
   };
 
 struct howl

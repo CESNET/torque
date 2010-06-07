@@ -183,11 +183,11 @@ attribute_def node_attr_def[] =
 
   /* ND_ATR_adproperties */
   { ATTR_NODE_adproperties,
-    decode_str,
-    encode_str,
-    set_str,
+    decode_arst,
+    encode_arst,
+    set_arst,
     comp_null,
-    free_str,
+    free_arst,
     node_adprop_list,
     MGR_ONLY_SET,
     ATR_TYPE_ARST,

@@ -1100,6 +1100,82 @@ int node_status_list(
   }  /* END node_status_list() */
 
 
+/** Node additional properties list
+ *
+ * Either derive a "prop list" attribute from the node or update nodes prop list
+ * from attributes prop list.
+ */
+int node_adprop_list(
+
+  attribute *new, /*derive props into this attribute*/
+  void     *pnode, /*pointer to a pbsnode struct     */
+  int      actmode) /*action mode; "NEW" or "ALTER"   */
+
+  {
+  int   rc = 0;
+
+  struct pbsnode  *np;
+  attribute  temp;
+
+  np = (struct pbsnode*)pnode; /*because of at_action arg type*/
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+
+      /* if node has a property list, then copy array_strings    */
+      /* into temp to use to setup a copy, otherwise setup empty */
+
+      if (np->x_ad_properties != NULL)
+        {
+        /* setup temporary attribute with the array_strings */
+        /* from the node        */
+
+        temp.at_val.at_arst = np->x_ad_properties;
+        temp.at_flags = ATR_VFLAG_SET;
+        temp.at_type  = ATR_TYPE_ARST;
+
+        rc = set_arst(new, &temp, SET);
+        }
+      else
+        {
+        /* Node has no properties, setup empty attribute */
+
+        new->at_val.at_arst = 0;
+        new->at_flags       = 0;
+        new->at_type        = ATR_TYPE_ARST;
+        }
+
+      break;
+
+    case ATR_ACTION_ALTER:
+
+      /* update node with new attr_strings */
+
+      np->x_ad_properties = new->at_val.at_arst;
+
+      /* update number of properties listed in node */
+      /* does not include name and subnode property */
+
+      if (np->x_ad_properties)
+        np->xn_ad_prop = np->x_ad_properties->as_usedptr;
+      else
+        np->x_ad_properties = 0;
+
+      break;
+
+    default:
+
+      rc = PBSE_INTERNAL;
+
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }  /* END node_adprop_list() */
+
+
 /** Either derive a no_multinode attribute from the node or update node
  *
  * @param new
@@ -1387,81 +1463,6 @@ int set_note_str(
   return(rc);
   }  /* END set_note_str() */
 
-
-/*
- * node_note - Either derive a note attribute from the node
- *             or update node's note from attribute's list.
- */
-
-int node_adprop_list(
-
-  attribute *new,           /*derive status into this attribute*/
-  void      *pnode,         /*pointer to a pbsnode struct     */
-  int        actmode)       /*action mode; "NEW" or "ALTER"   */
-
-  {
-  int              rc = 0;
-
-  struct pbsnode  *np;
-  attribute        temp;
-
-  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
-
-  switch (actmode)
-    {
-
-    case ATR_ACTION_NEW:
-
-      /* if node has a note, then copy string into temp  */
-      /* to use to setup a copy, otherwise setup empty   */
-
-      if (np->nd_adprop != NULL)
-        {
-        /* setup temporary attribute with the string from the node */
-
-        temp.at_val.at_str = np->nd_adprop;
-        temp.at_flags = ATR_VFLAG_SET;
-        temp.at_type  = ATR_TYPE_STR;
-
-        rc = set_note_str(new, &temp, SET);
-        }
-      else
-        {
-        /* node has no properties, setup empty attribute */
-
-        new->at_val.at_str  = NULL;
-        new->at_flags       = 0;
-        new->at_type        = ATR_TYPE_STR;
-        }
-
-      break;
-
-    case ATR_ACTION_ALTER:
-
-      if (np->nd_adprop != NULL)
-        {
-        free(np->nd_adprop);
-
-        np->nd_adprop = NULL;
-        }
-
-      /* update node with new string */
-
-      np->nd_adprop = new->at_val.at_str;
-
-      new->at_val.at_str = NULL;
-
-      break;
-
-    default:
-
-      rc = PBSE_INTERNAL;
-
-      break;
-    }  /* END switch(actmode) */
-
-  return(rc);
-  }  /* END node_adprop_list() */
 
 /* END attr_node_func.c */
 

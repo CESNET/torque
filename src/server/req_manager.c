@@ -151,6 +151,7 @@ extern int que_purge(pbs_queue *);
 extern void save_characteristic(struct pbsnode *);
 extern int chk_characteristic(struct pbsnode *, int *);
 extern int hasprop(struct pbsnode *, struct prop *);
+extern int hasadprop(struct pbsnode *, struct prop *);
 extern int PNodeStateToString(int, char *, int);
 
 
@@ -673,6 +674,8 @@ int mgr_set_node_attr(
   int   nstatus = 0;
   int   nprops = 0;
   int   rc;
+  int   nad_props;
+
   attribute *new;
   attribute *unused = (attribute *)0;
   attribute *pnew;
@@ -800,6 +803,17 @@ int mgr_set_node_attr(
     pnode->nd_prop = NULL;
     }
 
+  /* handle additional properties */
+  if (pnode->x_ad_properties && (pnode->x_ad_properties != tnode.x_ad_properties))
+    {
+    if (pnode->x_ad_properties->as_buf)
+      free(pnode->x_ad_properties->as_buf);
+
+    free(pnode->x_ad_properties);
+
+    pnode->x_ad_properties = NULL;
+    }
+
   /* NOTE:  nd_status properly freed during attribute alter */
 
   if ((pnode->nd_state != tnode.nd_state))
@@ -911,6 +925,28 @@ int mgr_set_node_attr(
   pnode->nd_l_st = pdest;
 
   pnode->nd_nstatus = nstatus + 1;
+
+
+  /* update additional properties list based on new additional properties array */
+
+  free_prop_list(pnode->x_ad_prop);
+
+  plink = &pnode->x_ad_prop;
+
+  if (pnode->x_ad_properties != NULL)
+    {
+    nad_props = pnode->x_ad_properties->as_usedptr;
+
+    for (i = 0; i < nad_props; ++i)
+      {
+      pdest = init_prop(pnode->x_ad_properties->as_string[i]);
+
+      *plink = pdest;
+      plink = &pdest->next;
+      }
+    }
+
+  pnode->xn_ad_prop = nad_props;
 
   /* now update subnodes */
 
@@ -1787,7 +1823,7 @@ void mgr_node_set(
 
   for (i = 0;i < svr_totnodes;i++, pnode = pbsndlist[i])
     {
-    if (propnodes && !hasprop(pnode, &props))
+    if (propnodes && (!hasprop(pnode, &props) && !hasadprop(pnode, &props)))
       continue;
 
     save_characteristic(pnode);

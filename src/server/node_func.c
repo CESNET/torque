@@ -676,7 +676,7 @@ int status_nodeattrib(
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_properties))
       atemp[i].at_val.at_arst = pnode->nd_prop;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_adproperties))
-      atemp[i].at_val.at_str = pnode->nd_adprop;
+      atemp[i].at_val.at_arst = pnode->x_ad_properties;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_status))
       atemp[i].at_val.at_arst = pnode->nd_status;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_ntype))
@@ -831,7 +831,6 @@ static void initialize_pbsnode(
   pnode->nd_needed  = 0;
   pnode->nd_order   = 0;
   pnode->nd_prop    = NULL;
-  pnode->nd_adprop  = NULL;
   pnode->nd_status  = NULL;
   pnode->nd_note    = NULL;
   pnode->nd_psn     = NULL;
@@ -840,11 +839,15 @@ static void initialize_pbsnode(
   pnode->nd_last    = pnode->nd_first;
   pnode->nd_f_st    = init_prop(pnode->nd_name);
   pnode->nd_l_st    = pnode->nd_f_st;
+
   pnode->nd_nprops  = 0;
   pnode->nd_nstatus = 0;
   pnode->nd_warnbad = 0;
   pnode->queue = 0;
   pnode->nd_no_multinode = 0;
+  pnode->x_ad_prop = NULL;
+  pnode->x_ad_properties = NULL;
+
 
   for (i = 0;pul[i];i++)
     {
@@ -960,7 +963,7 @@ void effective_node_delete(
   rpp_close(pnode->nd_stream);
   free(pnode->nd_name);
 
-  free(pnode->nd_adprop);
+  free(pnode->x_ad_prop);
 
   pnode->nd_name    = NULL;
   pnode->nd_stream  = -1;

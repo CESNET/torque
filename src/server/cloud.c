@@ -11,8 +11,10 @@
 
 
 extern struct pbsnode *find_nodebyname(char *);
-char *start_sbf_vlan(char *clusterid, char *nodelist);
-int stop_sbf_vlan(char *vlanid);
+extern char *start_sbf_vlan(char *clusterid, char *nodelist);
+extern int stop_sbf_vlan(char *vlanid);
+extern void free_prop_list(struct prop*);
+extern struct prop  *init_prop(char *pname);
 
 /* test resource if it is a cloud create request */
 int is_cloud_create(resource *res)
@@ -129,11 +131,36 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
   return concat_nodespec(ps); /* FIXME META needs fortification and fix of memory leak */
   }
 
+/* FIXME META DUPLICATED WITH SITE PBS CACHE */
+#define PBS_REPLICA_IMAGES   "/var/local/repository/images"
+extern int check_and_read_config(char *filename,config_line_s **lines,time_t *last_modification,int *last_line);
+static config_line_s *replica_images_lines[10240]; /* FIX ME - dynamicaly allocated? */
+static time_t replica_images_last_modification=0;
+static int replica_images_last_line=-1;
+
+char *get_alternative_properties(char *name)
+{ int ret;
+  int i;
+
+  ret=check_and_read_config(PBS_REPLICA_IMAGES,replica_images_lines,&replica_images_last_modification,&replica_images_last_line);
+  if (ret==-1) return NULL;
+
+  for(i=0;replica_images_lines[i];i++)
+      if (strcmp(replica_images_lines[i]->key,name)==0)
+    return(replica_images_lines[i]->first);
+  return NULL;
+}
+
 void set_alternative_on_node(char *nodename, char *alternative)
   {
-#if 0
-  char * c;
-  struct pbsnode *np;
+  char            *c;
+  struct pbsnode  *np;
+  struct attribute props;
+  struct prop    **plink;
+  struct prop     *pdest;
+  int              nad_props;
+  int              i;
+  extern attribute_def node_attr_def[];
 
   np = find_nodebyname(nodename);
   if ((np = find_nodebyname(nodename)) == NULL)
@@ -141,26 +168,64 @@ void set_alternative_on_node(char *nodename, char *alternative)
 
   c = get_alternative_properties(alternative);
 
-  free(np->nd_adprop); /* parse prop list */
-  np->nd_adprop = c;
+  /* clean the previous data */
+  free_prop_list(np->x_ad_prop);
+  free(np->x_ad_properties->as_buf);
+  free(np->x_ad_properties);
+
+  np->xn_ad_prop = 0;
+  np->x_ad_properties = NULL;
+  np->x_ad_prop = NULL;
+
+  props.at_val.at_arst = 0;
+  props.at_flags = 0;
+  props.at_type = ATR_TYPE_ARST;
+
+  /* decode the new value into the temporary attribute */
+  node_attr_def[(int)ND_ATR_adproperties].at_decode(&props,
+                                                    ATTR_NODE_adproperties,
+                                                    0,
+                                                    c);
+  /* set the real structure attribute */
+  node_attr_def[(int)ND_ATR_adproperties].at_action(&props,
+                                                    np,
+                                                    ATR_ACTION_ALTER);
+
+  /* update additional properties list based on new additional properties array */
+  plink = &np->x_ad_prop;
+
+  if (np->x_ad_properties != NULL)
+    {
+    nad_props = np->x_ad_properties->as_usedptr;
+
+    for (i = 0; i < nad_props; ++i)
+      {
+      pdest = init_prop(np->x_ad_properties->as_string[i]);
+
+      *plink = pdest;
+      plink = &pdest->next;
+      }
+    }
+
+  np->xn_ad_prop = nad_props;
 
   log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, np->nd_name, "additional properties set on node");
-#endif
   }
 
 void clear_alternative_on_node(char *nodename)
   {
-#if 0
   struct pbsnode *np;
 
   if ((np = find_nodebyname(nodename)) == NULL)
     return;
 
-  free(np->nd_adprop);
-  np->nd_adprop = 0; /* free_prop_list */
+  free_prop_list(np->x_ad_prop);
+  free(np->x_ad_properties->as_buf);
+  np->x_ad_prop = NULL;
+  np->x_ad_properties = NULL;
+  np->xn_ad_prop = 0;
 
   log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, np->nd_name, "additional properties cleared from node");
-#endif
   }
 
 char *get_alternative_name(char *mapping, char *machine)
