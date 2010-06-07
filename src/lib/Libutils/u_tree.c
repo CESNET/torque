@@ -215,101 +215,109 @@ int AVL_is_in_tree(u_long key, uint16_t port, AvlTree tree)
   } /* end AVL_is_in_tree */
 
 
-AvlTree AVL_delete_node( u_long key, uint16_t port, AvlTree tree)
-{
+AvlTree AVL_delete_node( 
+
+  u_long   key, 
+  uint16_t port, 
+  AvlTree  tree)
+
+  {
   AvlTree	h1;
   AvlTree 	h2;
 
+  if (tree == NULL)
+    return(NULL);
+
   if( key < tree->key )
-	{
-	if( tree->left )
-	  {
-	  h1 = AVL_delete_node(key, port, tree->left);
-	  tree->left = h1;
-	  }
-	return(tree);
-	}
+    {
+    if( tree->left )
+      {
+      h1 = AVL_delete_node(key, port, tree->left);
+      tree->left = h1;
+      }
+    return(tree);
+    }
   else if( key > tree->key )
-	{
-	if( tree->right )
-	  {
-	  h1 = AVL_delete_node(key, port, tree->right);
-	  tree->right = h1;
-	  }
-	return(tree);
-	}
+    {
+    if( tree->right )
+      {
+      h1 = AVL_delete_node(key, port, tree->right);
+      tree->right = h1;
+      }
+    return(tree);
+    }
   else if ( key == tree->key )
-	{
-	/* we found the key. Now find the port */
-	if(port < tree->port)
-	  {
-	  if( tree->left )
-		{
-		h1 = AVL_delete_node(key, port, tree->left);
-		tree->left = h1;
-		}
-	  return(tree);
-	  }
-	else if(port > tree->port)
-	  {
-	  if( tree->right )
-		{
-		h1 = AVL_delete_node(key, port, tree->right);
-		tree->left = h1;
-		}
-	  return(tree);
-	  }
-	else if (port == tree->port)
-	  {
-  
-	  /* We found our node. Delete it */
-	  if(tree->right == NULL && tree->left == NULL)
-		{
-		free(tree);
-		return(NULL);
-		}
-	  else if (tree->right == NULL)
-		{
-		h1 = tree->left;
-		free(tree);
-		return(h1);
-		}
-	  else if (tree->left == NULL)
-		{
-		h1 = tree->right;
-		free(tree);
-		return(h1);
-		}
-	  else
-		{
-		/* If right node has no children it replaces the deleted node
-		 * Otherwise get the right nodes left most decendent and 
-		 * promote it to the deleted node */
-		h1 = tree->right;
-		if(h1->left == NULL)
-		  {
-		  h1->left = tree->left;
-		  return(h1);
-		  }
-  
-		/* Find the left most node of this branch */
-		while(h1->left != NULL)
-		  {
-		  h2 = h1;
-		  h1 = h1->left;
-		  }
-  
-		/* Promote leftmost node to the deleted node */
-		h1->right = tree->right;
-		h1->left = tree->left;
-		h2->left = NULL;
-		free(tree);
-		return(h1);
-		}
-	  }
-	}
+    {
+    /* we found the key. Now find the port */
+    if(port < tree->port)
+      {
+      if( tree->left )
+        {
+        h1 = AVL_delete_node(key, port, tree->left);
+        tree->left = h1;
+        }
+      return(tree);
+      }
+    else if(port > tree->port)
+      {
+      if( tree->right )
+        {
+        h1 = AVL_delete_node(key, port, tree->right);
+        tree->left = h1;
+        }
+      return(tree);
+      }
+    else if (port == tree->port)
+      {
+      
+      /* We found our node. Delete it */
+      if(tree->right == NULL && tree->left == NULL)
+        {
+        free(tree);
+        return(NULL);
+        }
+      else if (tree->right == NULL)
+        {
+        h1 = tree->left;
+        free(tree);
+        return(h1);
+        }
+      else if (tree->left == NULL)
+        {
+        h1 = tree->right;
+        free(tree);
+        return(h1);
+        }
+      else
+        {
+        /* If right node has no children it replaces the deleted node
+         * Otherwise get the right nodes left most decendent and 
+         * promote it to the deleted node */
+        h1 = tree->right;
+        if(h1->left == NULL)
+          {
+          h1->left = tree->left;
+          return(h1);
+          }
+        
+        /* Find the left most node of this branch */
+        while(h1->left != NULL)
+          {
+          h2 = h1;
+          h1 = h1->left;
+          }
+        
+        /* Promote leftmost node to the deleted node */
+        h1->right = tree->right;
+        h1->left = tree->left;
+        h2->left = NULL;
+        free(tree);
+        return(h1);
+        }
+      }
+    }
   return(tree);
-} /*  End delete_node */
+  } /*  End delete_node */
 
 /* AVL_list -- return the key and port values for
  * each entry in the tree in a ',' delimited list

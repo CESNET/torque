@@ -1231,7 +1231,7 @@ void generate_server_status(
   int   BSpace = buffer_size;
 
   /* identify which vnode this is */
-  MUSNPrintF(&BPtr,&BSpace,"numa%d",numa_index);
+  MUSNPrintF(&BPtr,&BSpace,"%s%d",NUMA_KEYWORD,numa_index);
   /* advance the buffer values past the NULL */
   BPtr++;
   BSpace--;

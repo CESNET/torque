@@ -87,6 +87,7 @@
 
 #define BM_ERROR        -20
 #define MAX_NUMA_NODES   2048
+#define NUMA_KEYWORD     "numa"
 
 enum psit
   {
@@ -126,6 +127,7 @@ struct pbssubn
   unsigned short  inuse;
   short           index;  /* subnode index */
   };
+
 
 #ifdef NUMA_SUPPORT
 typedef struct numanode_t
@@ -178,7 +180,9 @@ struct pbsnode
   time_t                 nd_warnbad;
   time_t                 nd_lastupdate; /* time of last update. */
 #ifdef NUMA_SUPPORT
-  numanode numa_nodes[MAX_NUMA_NODES];
+  unsigned short  num_numa_nodes; /* number of numa nodes */
+  struct AvlNode *numa_nodes; /* private tree of numa nodes */
+  char           *numa_str; /* comma-delimited string of processor values */
 #endif /* NUMA_SUPPORT */
   };
 
@@ -292,6 +296,8 @@ enum nodeattr
   ND_ATR_note,
   ND_ATR_mom_port,
   ND_ATR_mom_rm_port,
+  ND_ATR_num_numa_nodes,
+  ND_ATR_numa_str,
   ND_ATR_LAST
   }; /* WARNING: Must be the highest valued enum */
 

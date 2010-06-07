@@ -644,6 +644,11 @@ int status_nodeattrib(
       atemp[i].at_val.at_long  = pnode->nd_mom_port;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_mom_rm_port))
       atemp[i].at_val.at_long  = pnode->nd_mom_rm_port;
+    /* skip NUMA attributes */
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_num_numa_nodes))
+      continue;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_numa_str))
+      continue;
     else
       {
       /*we don't ever expect this*/
@@ -758,28 +763,28 @@ static void initialize_pbsnode(
 
   memset(pnode, 0, sizeof(struct pbsnode));
 
-  pnode->nd_name    = pname;
-  pnode->nd_stream  = -1;
-  pnode->nd_mom_port = PBS_MOM_SERVICE_PORT;
+  pnode->nd_name        = pname;
+  pnode->nd_stream      = -1;
+  pnode->nd_mom_port    = PBS_MOM_SERVICE_PORT;
   pnode->nd_mom_rm_port = PBS_MANAGER_SERVICE_PORT;
-  pnode->nd_addrs   = pul;       /* list of host byte order */
-  pnode->nd_ntype   = ntype;
-  pnode->nd_nsn     = 0;
-  pnode->nd_nsnfree = 0;
-  pnode->nd_needed  = 0;
-  pnode->nd_order   = 0;
-  pnode->nd_prop    = NULL;
-  pnode->nd_status  = NULL;
-  pnode->nd_note    = NULL;
-  pnode->nd_psn     = NULL;
-  pnode->nd_state   = INUSE_NEEDS_HELLO_PING | INUSE_DOWN;
-  pnode->nd_first   = init_prop(pnode->nd_name);
-  pnode->nd_last    = pnode->nd_first;
-  pnode->nd_f_st    = init_prop(pnode->nd_name);
-  pnode->nd_l_st    = pnode->nd_f_st;
-  pnode->nd_nprops  = 0;
-  pnode->nd_nstatus = 0;
-  pnode->nd_warnbad = 0;
+  pnode->nd_addrs       = pul;       /* list of host byte order */
+  pnode->nd_ntype       = ntype;
+  pnode->nd_nsn         = 0;
+  pnode->nd_nsnfree     = 0;
+  pnode->nd_needed      = 0;
+  pnode->nd_order       = 0;
+  pnode->nd_prop        = NULL;
+  pnode->nd_status      = NULL;
+  pnode->nd_note        = NULL;
+  pnode->nd_psn         = NULL;
+  pnode->nd_state       = INUSE_NEEDS_HELLO_PING | INUSE_DOWN;
+  pnode->nd_first       = init_prop(pnode->nd_name);
+  pnode->nd_last        = pnode->nd_first;
+  pnode->nd_f_st        = init_prop(pnode->nd_name);
+  pnode->nd_l_st        = pnode->nd_f_st;
+  pnode->nd_nprops      = 0;
+  pnode->nd_nstatus     = 0;
+  pnode->nd_warnbad     = 0;
 
   /*for (i = 0;pul[i];i++)
     {
@@ -1455,6 +1460,94 @@ static struct pbssubn *create_subnode(
 
 
 
+#ifdef NUMA_SUPPORT
+/* creates the private numa nodes on this node 
+ *
+ * @param pnode - the node that will house the numa nodes
+ *
+ * @return 0 on success, -1 on failure
+ */
+int setup_numa_nodes(
+
+  struct pbsnode *pnode)
+
+  {
+  int             i;
+  int             j;
+  struct pbsnode *pn;
+  char            pname[MAX_LINE];
+  char           *np_ptr = NULL;
+  char           *aloccd_name;
+  int             np;
+  char           *delim = ",";
+
+  char           *id = "setup_numa_nodes";
+
+  if (pnode == NULL)
+    return(-1);
+
+  if (pnode->numa_str != NULL)
+    {
+    np_ptr = strtok(pnode->numa_str,delim);
+    np = atoi(np_ptr);
+    }
+  else
+    {
+    np = pnode->nd_nsn / pnode->num_numa_nodes;
+    }
+
+  for (i = 0; i < pnode->num_numa_nodes; i++)
+    {
+    pn = (struct pbsnode *)malloc(sizeof(struct pbsnode));
+
+    /* each numa node just has a number for a name */
+    snprintf(pname,sizeof(pname),"%s-%d",
+      pnode->nd_name,
+      i);
+
+    allocd_name = strdup(pname);
+    if (allocd_name == NULL)
+      {
+      /* no memory error */
+      log_err(PBSE_SYSTEM,id,"Cannot allocate memory for node name\n");
+
+      return(PBSE_SYSTEM);
+      }
+    initialize_pbsnode(pn, allocd_name, NULL, NTYPE_CLUSTER);
+
+    /* set the number of processors */
+    if (np_ptr != NULL)
+      {
+      np_ptr = strtok(NULL,delim);
+      np = atoi(np_ptr);
+      }
+
+    /* create the subnodes for this node */
+    for (j = 0; j < np; j++)
+      {
+      if (create_subnode(pn) == NULL)
+        {
+        /* ERROR */
+        pn->nd_state = INUSE_DELETED;
+
+        return(PBSE_SYSTEM);
+        }
+      }
+
+    /* add the node to the private tree */
+    pnode->numa_nodes = AVL_insert(i,
+        pn->nd_mom_port,
+        pn,
+        pnode->numa_nodes);
+    }
+
+  return(0);
+  } /* END setup_numa_nodes() */
+#endif /* NUMA_SUPPORT */
+
+
+
+
 
 /*
  * create_pbs_node - create pbs node structure, i.e. add a node
@@ -1684,6 +1777,9 @@ int create_pbs_node(
       
     }  /* END for (i) */
 
+#ifdef NUMA_SUPPORT
+  setup_numa_nodes(pnode);
+#endif /* NUMA_SUPPORT */
 
   recompute_ntype_cnts();
 
@@ -2266,6 +2362,95 @@ int node_mom_rm_port_action(new, pobj, actmode)
 
   return rc;
   }
+
+
+
+#ifdef NUMA_SUPPORT
+int node_numa_action(
+
+  attribute *new,           /*derive status into this attribute*/
+  void      *pnode,         /*pointer to a pbsnode struct     */
+  int        actmode)       /*action mode; "NEW" or "ALTER"   */
+
+  {
+
+  struct pbsnode *np = (struct pbsnode *)pnode;
+  int rc = 0;
+
+  switch (actmode)
+    {
+    case ATR_ACTION_NEW:
+      new->at_val.at_long = np->num_numa_nodes;
+      break;
+
+    case ATR_ACTION_ALTER:
+      np->num_numa_nodes = new->at_val.at_long;
+      break;
+
+    default:
+      rc = PBSE_INTERNAL;
+    }
+
+  return(rc);
+  } /* END node_numa_action */
+
+
+
+
+int numa_str_action(
+
+  attribute *new,           /*derive status into this attribute*/
+  void      *pnode,         /*pointer to a pbsnode struct     */
+  int        actmode)       /*action mode; "NEW" or "ALTER"   */
+
+  {
+  struct pbsnode *np = (struct pbsnode *)pnode;
+  int len;
+
+  switch (actmode)
+    {
+    case ATR_ACTION_NEW:
+
+      if (np->numa_str != NULL)
+        {
+        len = strlen(np->numa_str) + 1;
+        new->at_val.at_str = (char *)malloc(len * sizeof(char));
+
+        if (new->at_val.at_str == NULL)
+          return(PBSE_SYSTEM);
+
+        strcpy(new->at_val.at_str,np->numa_str);
+        }
+      else
+        new->at_val.at_str = NULL;
+
+      break;
+
+    case ATR_ACTION_ALTER:
+
+      if (new->at_val.at_str != NULL)
+        {
+        len = strlen(new->at_val.at_str) + 1;
+        np->numa_str = (char *)malloc(len * sizeof(char));
+
+        if (np->numa_str == NULL)
+          return(PBSE_SYSTEM);
+
+        strcpy(np->numa_str,new->at_val.at_str);
+        }
+      else
+        np->numa_str = NULL;
+
+      break;
+
+    default:
+      return(PBSE_INTERNAL);
+    }
+
+  return(0);
+  } /* END numa_str_action */
+
+#endif /* NUMA_SUPPORT */
 
 
 

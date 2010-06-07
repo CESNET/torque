@@ -14,6 +14,7 @@
 #include "resource.h"
 #include "server_limits.h"
 #include "pbs_job.h"
+#include "pbs_nodes.h"
 #include "log.h"
 
 /* NOTE: move these three things to utils when lib is checked in */
@@ -30,17 +31,20 @@
 #define TTORQUECPUSET_PATH "/dev/cpuset/torque"
 #define TROOTCPUSET_PATH   "/dev/cpuset"
 
+#ifdef NUMA_SUPPORT
+extern numanode numa_nodes[];
+extern int num_numa_nodes;
+#endif /* NUMA_SUPPORT */
+
 /* FIXME: TODO:  TTORQUECPUSET_PATH, enabling cpuset support, and correct error
  * checking need a run-time config */
 
 int           *VPToCPUMap = NULL;  /* map of virtual processors to cpus (alloc) */
 
 extern char    mom_name[];
-extern char    cpus_str[];
-extern char    mem_str[];
-extern int     num_cpus;
-extern int     num_mems;
-extern int     cpu_offset;
+int num_cpus;
+int num_mems;
+int cpu_offset;
 extern int     LOGLEVEL;
 
 extern char    mom_short_name[];
@@ -1025,11 +1029,15 @@ int get_cpuset_strings(
   {
   vnodent *np = pjob->ji_vnods;
   int     j;
-  int     ratio = num_cpus / num_mems;
+  int     cpu_index;
+  int     mem_index;
+  int     ratio;
   char    tmpStr[MAXPATHLEN];
-  int     node_offset;
+  int     numa_index;
 
   char   *id = "get_cpuset_strings";
+
+  numanode *numa_tmp;
 
   if ((pjob == NULL) || 
       (CpuStr == NULL) ||
@@ -1041,8 +1049,6 @@ int get_cpuset_strings(
 
   for (j = 0;j < pjob->ji_numvnod;++j, np++)
     {
-    int cpu_index;
-    int mem_index;
     char *dash = strchr(np->vn_host->hn_host,'-');
 
     if (dash != NULL)
@@ -1053,19 +1059,21 @@ int get_cpuset_strings(
         dash = strchr(dash+1,'-');
         }
 
-      node_offset = atoi(dash+1);
+      numa_index = atoi(dash+1);
       }
     else
       {
       log_err(-1,id,"could not parse node number from node name\n");
-      node_offset = 0;
+      numa_index = 0;
       }
 
     if (CpuStr[0] != '\0')
       strcat(CpuStr, ",");
 
-    cpu_index = np->vn_index + (node_offset*num_cpus);
-    mem_index = cpu_index / ratio;
+    numa_tmp = numa_nodes + numa_index;
+    cpu_index = np->vn_index + numa_tmp->cpu_offset;
+    ratio = numa_tmp->num_cpus / numa_tmp->num_mems;
+    mem_index = (cpu_index / ratio) + numa_tmp->mem_offset;
 
     sprintf(tmpStr, "%d", cpu_index);
 
@@ -1085,8 +1093,8 @@ int get_cpuset_strings(
   if (LOGLEVEL >= 7)
     {
     sprintf(log_buffer,
-      "found cpus (%s) mems (%s) ratio = %d cpu_offset = %d mem_offset = %d",
-      CpuStr, MemStr, ratio, cpu_offset, atoi(mem_str));
+      "found cpus (%s) mems (%s) ratio = %d cpu_offset = %d",
+      CpuStr, MemStr, ratio, cpu_offset);
     log_ext(-1, id, log_buffer, LOG_DEBUG);
     }
 

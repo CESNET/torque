@@ -1170,6 +1170,49 @@ int is_stat_get(
 
   while (((ret_info = disrst(stream, &rc)) != NULL) && (rc == DIS_SUCCESS))
     {
+#ifdef NUMA_SUPPORT
+    /* check if this is the update on a numa node */
+    if (!strncmp(ret_info,NUMA_KEYWORD,strlen(NUMA_KEYWORD)))
+      {
+      char *numa_id;
+      struct pbsnode *tmp;
+      unsigned long numa_index;
+
+      if (np->numa_nodes == NULL)
+        {
+        /* ERROR */
+        snprintf(log_buffer,sizeof(log_buffer),
+          "Node %s isn't declared to be NUMA, but mom is reporting\n",
+          np->nd_name);
+        log_err(-1,id,log_buffer);
+
+        return(DIS_NOCOMMIT);
+        }
+
+      numa_id = ret_info + strlen(NUMA_KEYWORD);
+      numa_index = atoi(numa_id);
+
+      tmp = AVL_find(numa_index,np->nd_mom_port,np->numa_nodes);
+
+      if (tmp == NULL)
+        {
+        /* ERROR */
+        snprintf(log_buffer,sizeof(log_buffer),
+          "Could not find NUMA index %lu for node %s\n",
+          numa_index,
+          np->nd_name);
+        log_err(-1,id,log_buffer);
+
+        return(DIS_NOCOMMIT);
+        }
+
+      np = tmp;
+
+      /* resume normal processing on the next line */
+      continue;
+      }
+#endif /* NUMA_SUPPORT */
+
     /* add the info to the "temp" attribute */
 
     if (decode_arst(&temp, NULL, NULL, ret_info))

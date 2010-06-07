@@ -90,6 +90,10 @@
 #ifndef PBS_JOB_H
 #define PBS_JOB_H 1
 
+#ifndef MAX_LINE
+#define MAX_LINE 1024
+#endif
+
 /* anything including job.h also needs array.h so lets just include it this way*/
 #include "array.h"
 

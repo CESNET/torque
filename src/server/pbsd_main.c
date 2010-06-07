@@ -152,9 +152,6 @@ extern void acct_cleanup(long);
 extern void check_children();
 #endif
 
-#ifndef MAX_LINE
-#define MAX_LINE 1024
-#endif
 #ifndef MAX_PATH_LEN
 #define MAX_PATH_LEN 256
 #endif

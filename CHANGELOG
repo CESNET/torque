@@ -36,6 +36,8 @@ NUMA
   e - allow configurable amounts of memory nodes per mom
   e - first step to running just one mom: allow the mom to manage and report
       on the memory for the entire node.
+  e - server will receive updates for each node from the pbs_mom. Sets 
+      numa node properties correctly
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,

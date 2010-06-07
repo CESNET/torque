@@ -210,8 +210,8 @@ attribute_def node_attr_def[] =
 	  ATR_TYPE_STR,
 	  PARENT_TYPE_NODE,
 	},
-	/* ND_ATR_port */
-	{ ATTR_NODE_mom_port,  /* "port" */
+	/* ND_ATR_mom_port */
+	{ ATTR_NODE_mom_port,  /* "mom_service_port" */
 	  decode_l,
 	  encode_l,
 	  set_l,
@@ -222,8 +222,8 @@ attribute_def node_attr_def[] =
 	  ATR_TYPE_LONG,
 	  PARENT_TYPE_NODE,
 	},
-	/* ND_ATR_port */
-	{ ATTR_NODE_mom_rm_port,  /* "port" */
+	/* ND_ATR_mom_rm_port */
+	{ ATTR_NODE_mom_rm_port,  /* "mom_manager_port" */
 	  decode_l,
 	  encode_l,
 	  set_l,
@@ -234,4 +234,30 @@ attribute_def node_attr_def[] =
 	  ATR_TYPE_LONG,
 	  PARENT_TYPE_NODE,
 	},
+#ifdef NUMA_SUPPORT
+  /* ND_ATR_num_numa_nodes */
+  { ATTR_NODE_num_numa_nodes, /* "num_numa_nodes" */
+    decode_l,
+    encode_l,
+    set_l,
+    comp_null,
+    free_null,
+    node_numa_action,
+    NO_USER_SET,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_NODE,
+  },
+  /* ND_ATR_numa_str */
+  { ATTR_NODE_numa_str, /* "numa_node_str" */
+    decode_str,
+    encode_str,
+    set_str,
+    comp_str,
+    free_str,
+    numa_str_action,
+    NO_USER_SET,
+    ATR_TYPE_STR,
+    PARENT_TYPE_NODE,
+  },
+#endif /* NUMA_SUPPORT */
   };
