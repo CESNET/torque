@@ -209,7 +209,7 @@ char        *path_aux;
 char        *path_server_name;
 char        *path_home = PBS_SERVER_HOME;
 #ifdef GSSAPI
-char           *path_creds;
+char           *path_creds = "/tmp";
 #endif
 char        *mom_home;
 extern char *msg_daemonname;          /* for logs     */

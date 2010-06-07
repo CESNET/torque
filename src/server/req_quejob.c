@@ -422,7 +422,7 @@ void req_quejob(
   }
   jobidcopy = malloc(sizeof(char) * (strlen(jid) + 2));
   strcpy(jobidcopy,jid);
-  set_task(WORK_Timed,time((time_t *)0) + 3600*3,renew_job_credentials,jobidcopy);
+  set_task(WORK_Timed,time((time_t *)0) + 1200,renew_job_credentials,jobidcopy);
   free(ccname);
 
 #endif /* GSSAPI */

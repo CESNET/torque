@@ -126,6 +126,7 @@
 #include "svrfunc.h"
 #include "sched_cmds.h"
 #include "pbs_proto.h"
+#include "log.h"
 #ifdef GSSAPI
 #include "pbsgss.h"
 #endif
@@ -2466,8 +2467,10 @@ void renew_job_credentials (struct work_task *ptask) {
      allocated in req_quejob.c just to hold the jobname for the renewal tasks 
   */
   if (retval == 0) {
-    set_task(WORK_Timed,time_now + 3600*3,renew_job_credentials,jobname);
+    set_task(WORK_Timed,time_now + 3600,renew_job_credentials,jobname);
   } else {
+    sprintf(log_buffer, "failed to renew tickets for %s : %d", jobname, retval);
+      log_event(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, "renew_job_credentials", log_buffer);
     free(jobname);
   }
 }

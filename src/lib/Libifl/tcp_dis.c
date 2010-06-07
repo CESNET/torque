@@ -177,6 +177,39 @@ static void tcp_pack_buff(
   return;
   }  /* END tcp_pack_buff() */
 
+static int tcp_resize_buff (
+			    struct tcpdisbuf *tp,
+			    size_t newbufsize) {
+#ifndef NDEBUG
+  char *id = "tcp_resize_buff";
+#endif
+
+  int leadpct, trailpct; 
+  char *temp;
+  leadpct = (int)(tp->tdis_thebuf - tp->tdis_leadp);
+  trailpct = (int)(tp->tdis_thebuf - tp->tdis_trailp);
+  temp = (char *)malloc(newbufsize);
+  if(!temp)
+    {
+      /* FAILURE */
+
+      DBPRT(("%s: error!  out of space in buffer and cannot realloc message buffer (bufsize=%ld, buflen=%d, newbufsize=%d)\n",
+             id,
+             tp->tdis_bufsize,
+             (int)(tp->tdis_leadp - tp->tdis_thebuf),
+             (int)newbufsize))
+
+	return(-1);
+    }
+
+  memcpy(temp, tp->tdis_thebuf, tp->tdis_bufsize);
+  free(tp->tdis_thebuf);
+  tp->tdis_thebuf = temp;
+  tp->tdis_bufsize = newbufsize;
+  tp->tdis_leadp = tp->tdis_thebuf - leadpct;
+  tp->tdis_trailp = tp->tdis_thebuf - trailpct;
+  return 0;
+} /* END tcp_resize_buff */
 
 
 
@@ -331,7 +364,7 @@ leftover:
     {
     tp = &tcparray[fd]->readbuf;
     tcp_pack_buff(tp);
-    f = THE_BUF_SIZE - (tp->tdis_eod - tp->tdis_thebuf);
+    f = tp->tdis_bufsize - (tp->tdis_eod - tp->tdis_thebuf);
     if ((size_t)f < l)
       {
       memcpy(tp->tdis_eod, tcparray[fd]->unwrapped.value, f);
@@ -363,9 +396,15 @@ readmore:
     int i;
     for (i=0, l=0; i<4; i++)
       l = l<<8 | (*tp->tdis_leadp++ & 0xff);
-    if (l+4>THE_BUF_SIZE)
+    /* if the buffer is to small to have read the entire gss token,
+       make the buffer bigger and call read again to read the rest from the
+       socket.  Then proceed
+    */
+    if (l+4>tp->tdis_bufsize)
       {
-      return(-2);	/* FIXME: this is fatal; how to clean up? */
+	tcp_resize_buff(tp, l+4);
+	f = tcp_readbuf(fd, tp);
+	tcparray[fd]->AtEOF = (f == -2);
       }
     if ((size_t)(tp->tdis_eod - tp->tdis_leadp) >= l)
       {
@@ -773,15 +812,9 @@ static int tcp_puts(
   size_t      ct)  /* I */
 
   {
-#ifndef NDEBUG
-  char *id = "tcp_puts";
-#endif
 
   struct tcp_chan *tcp;
   struct tcpdisbuf *tp;
-  char *temp;
-  int leadpct, trailpct; 
-  size_t newbufsize;
 
   tcp = tcparray[fd];
 
@@ -792,31 +825,9 @@ static int tcp_puts(
   tp = &tcp->writebuf;
   if ((tp->tdis_thebuf + tp->tdis_bufsize - tp->tdis_leadp) < (ssize_t)ct)
     {
-    /* not enough room, reallocate the buffer */
-    leadpct = (int)(tp->tdis_thebuf - tp->tdis_leadp);
-    trailpct = (int)(tp->tdis_thebuf - tp->tdis_trailp);
-    newbufsize = tp->tdis_bufsize + THE_BUF_SIZE;
-    temp = (char *)malloc(newbufsize);
-    if(!temp)
-      {
-      /* FAILURE */
-
-      DBPRT(("%s: error!  out of space in buffer and cannot realloc message buffer (bufsize=%ld, buflen=%d, ct=%d)\n",
-             id,
-             tp->tdis_bufsize,
-             (int)(tp->tdis_leadp - tp->tdis_thebuf),
-             (int)ct))
-
-      return(-1);
+      if (tcp_resize_buff(tp,tp->tdis_bufsize + THE_BUF_SIZE) != 0) {
+	return(-1);
       }
-
-    memcpy(temp, tp->tdis_thebuf, tp->tdis_bufsize);
-    free(tp->tdis_thebuf);
-    tp->tdis_thebuf = temp;
-    tp->tdis_bufsize = newbufsize;
-    tp->tdis_leadp = tp->tdis_thebuf - leadpct;
-    tp->tdis_trailp = tp->tdis_thebuf - trailpct;
-
     }
 
   memcpy(tp->tdis_leadp, (char *)str, ct);
@@ -1140,6 +1151,31 @@ void DIS_tcp_set_gss(
   tcparray[fd]->Confidential = (flags & GSS_C_CONF_FLAG);
   major = gss_wrap_size_limit (&minor, ctx, (flags & GSS_C_CONF_FLAG),
                              GSS_C_QOP_DEFAULT, THE_BUF_SIZE, &bufsize);
+
+  /* reallocate the gss buffer if it's too small to handle the wrapped
+     version of the largest unwrapped message
+  */
+  if (major == GSS_S_COMPLETE)
+    {
+
+    struct tcpdisbuf *tp = &tcparray[fd]->gssrdbuf;
+    if (tp->tdis_bufsize < bufsize)
+      {
+      if (tp->tdis_thebuf != NULL)
+        {
+        free(tp->tdis_thebuf);
+        }
+      tp->tdis_thebuf = (char *)malloc(bufsize);
+      if(tp->tdis_thebuf == NULL)
+        {
+        log_err(errno,"DIS_tcp_set_gss","malloc failure");
+        
+        return;
+        }
+      tp->tdis_bufsize = bufsize;
+      }
+    }
+
   } /* END DIS_tcp_set_gss */
 #endif
 

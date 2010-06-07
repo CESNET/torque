@@ -835,6 +835,13 @@ AC_ARG_WITH(gssapi,
 	AC_CHECK_HEADERS(gssapi.h gssapi/gssapi.h)
 	AC_CHECK_HEADERS(gssapi_krb5.h gssapi/gssapi_krb5.h)
 	AC_CHECK_HEADERS(gssapi_generic.h gssapi/gssapi_generic.h)
+	AC_CHECK_HEADERS(afs/param.h)
+	AC_MSG_CHECKING(for libafsauthent)
+	AC_CHECK_LIB(afsauthent_pic,
+		     setpag,
+                    [K5LIBS="-lafsauthent_pic -lafsrpc_pic -lpthread $K5LIBS"],
+                     AC_MSG_WARN([Can't find libafsauthent]),
+                     -lafsrpc_pic -lpthread)
 
 	]
 )
@@ -844,6 +851,11 @@ AM_CONDITIONAL(INCLUDE_GSSAPI, [test "$buildgssapi" = "yes"])
 if test "$buildgssapi" = "yes" ;then
      AC_PATH_PROGS(KRB5KDESTROY, kdestroy, kdestroy,$PATH:$GSSAPIROOT/bin)
      AC_DEFINE_UNQUOTED([KRB5_KDESTROY],"${KRB5KDESTROY}",[Path to kdestroy])
+     AC_CHECK_PROG(KRB5KINIT, kinit, kinit)
+     AC_DEFINE_UNQUOTED([KRB5_KINIT],"${KRB5KINIT}",[Path to kinit])
+     AC_CHECK_PROG(AKLOGPATH, aklog, aklog)
+     AC_DEFINE_UNQUOTED([AKLOG_PATH],"${AKLOGPATH}",[Path to aklog])
+     AC_DEFINE_UNQUOTED([__TOLDGROUP],"1",[use old group lookup method to keep from trashing PAGs])
 fi
 
 dnl

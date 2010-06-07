@@ -44,6 +44,7 @@ int pbsgss_save_creds (gss_cred_id_t client_creds,
 char *ccname_for_job(char *jobnamem, char *prefix);
 int authenticate_as_job(char *jobname,int setpag);
 int pbsgss_renew_creds (char *jobname, char *prefix);
+void pbsgss_delete_creds(char *jobname, char *prefix);
 void pbsgss_save_sec_context(gss_ctx_id_t *context, OM_uint32 flags, int fd);
 
 /* Token types */

@@ -1149,6 +1149,11 @@ void req_deletejob(
 
     /* assume success? */
 
+#ifdef GSSAPI
+    /* clean up the ticket file */
+    pbsgss_delete_creds(pjob->ji_qs.ji_jobid,path_creds);
+#endif
+
     mom_deljob(pjob);
 
     reply_ack(preq);
@@ -4158,7 +4163,10 @@ int req_accept_forwarded_creds(struct batch_request *request, int socket, int sa
       *atindex = '\0';
       pwinfo = getpwnam(forwarded_princ);
       if (pwinfo != NULL) {
-        chown(ccname,pwinfo->pw_uid,pwinfo->pw_gid);
+        if (chown(ccname,pwinfo->pw_uid,pwinfo->pw_gid) != 0) {
+	  free(ccname);
+	  return -1;
+	}
       }
       *atindex = '@';
     } 

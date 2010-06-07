@@ -1478,10 +1478,6 @@ void job_purge(
 
   char          namebuf[MAXPATHLEN + 1];
   extern char  *msg_err_purgejob;
-#ifdef GSSAPI
-  char          *ccname;
-  char          *kdestroy;
-#endif
 
   if ((pjob->ji_qs.ji_substate != JOB_SUBSTATE_TRANSIN) &&
       (pjob->ji_qs.ji_substate != JOB_SUBSTATE_TRANSICM))
@@ -1632,16 +1628,7 @@ void job_purge(
     }
 
 #ifdef GSSAPI
-  ccname = ccname_for_job(pjob->ji_qs.ji_jobid,path_creds);
-  if (ccname) {
-    kdestroy = malloc(sizeof(char) * (strlen(ccname) + strlen(KRB5_KDESTROY) + 5));
-    if (kdestroy) {
-      sprintf(kdestroy,"%s -c %s",KRB5_KDESTROY,ccname);
-      system(kdestroy);
-      free(kdestroy);
-    }
-    free(ccname);
-  }
+  pbsgss_delete_creds(pjob->ji_qs.ji_jobid,path_creds);
 #endif
 
   job_free(pjob);
