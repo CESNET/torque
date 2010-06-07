@@ -220,7 +220,8 @@ void clear_alternative_on_node(char *nodename)
     return;
 
   free_prop_list(np->x_ad_prop);
-  free(np->x_ad_properties->as_buf);
+  if (np->x_ad_properties)
+    free(np->x_ad_properties->as_buf);
   np->x_ad_prop = NULL;
   np->x_ad_properties = NULL;
   np->xn_ad_prop = 0;
@@ -245,9 +246,9 @@ char *get_alternative_name(char *mapping, char *machine)
 
   end--;
 
-  result = malloc(end-begin+1);
-  memset(result,0,end-begin+1);
-  strncpy(result,begin,end-begin);
+  result = malloc(end-begin+2);
+  memset(result,0,end-begin+2);
+  strncpy(result,begin,end-begin+1);
 
   return result;
   }
