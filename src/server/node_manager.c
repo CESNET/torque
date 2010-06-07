@@ -175,6 +175,7 @@ extern int            SvrNodeCt;
 #endif
 
 int hasprop(struct pbsnode *, struct prop *);
+int hasadprop(struct pbsnode *, struct prop *);
 void send_cluster_addrs(struct work_task *);
 int add_cluster_addrs(int);
 int is_compose(int, int);
@@ -2485,8 +2486,32 @@ int hasprop(
   }  /* END hasprop() */
 
 
+/** Look through the additional property list and make sure that all those makred are contained in the node
+ *
+ */
+int hasadprop(struct pbsnode *pnode, struct prop *props)
+  {
+  struct prop *need;
 
+  for (need = props; need != NULL; need = need->next)
+    {
+    struct prop *pp;
 
+    if (need->mark == 0)
+      continue;
+
+    for (pp = pnode->ad_prop; pp != NULL; pp = pp->next)
+      {
+      if (strcmp(pp->name, need->name) == 0)
+        break;
+      }
+
+    if (pp == NULL)
+      return 0;
+    }
+
+  return 1;
+  }
 
 /*
  * see if node has the number of processors required
