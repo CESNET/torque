@@ -78,6 +78,7 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
    */
   pars_spec * ps;
   pars_spec_node *iter;
+  pars_prop * prop;
 
   char mapping[1024] = { 0 }; /* FIXME META Needs a dynamic array */
 
@@ -93,11 +94,12 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
     /* there has to be at least node name */
     dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
 
-    ret=pbs_cache_get_local(get_last_prop(iter->properties)->name,"host");
+    prop = get_last_prop(iter->properties);
+
+    ret=pbs_cache_get_local(prop->name,"host");
     if (ret!=NULL)
       {
       char *c, *cloud, *mapped;
-      pars_prop *it2;
 
       /* cut out the cloud node name from the cache value */
       c=strchr(ret,'\t');
@@ -107,25 +109,16 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
         *c = '\0';
       free(ret);
 
-      it2 = iter->properties;
-      while (it2 != NULL)
-        {
-        if ((strcmp(it2->name,"alternative") == 0) && (it2->value != NULL))
-          break;
-
-        it2 = it2->next;
-        }
-
-      if (it2 != NULL)
-        mapped = construct_mapping(cloud,iter->properties->name,it2->value);
+      if (iter->alternative != NULL)
+        mapped = construct_mapping(cloud,prop->name,iter->alternative);
       else
-        mapped = construct_mapping(cloud,iter->properties->name,"default");
+        mapped = construct_mapping(cloud,prop->name,"default");
       strcat(mapping,mapped);
       free(mapped);
 
       /* interchange virtual node name for its cloud master */
-      free(iter->properties->name);
-      iter->properties->name=cloud;
+      free(prop->name);
+      prop->name=cloud;
       }
     iter = iter->next;
     }
