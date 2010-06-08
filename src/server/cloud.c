@@ -16,6 +16,20 @@ extern int stop_sbf_vlan(char *vlanid);
 extern void free_prop_list(struct prop*);
 extern struct prop  *init_prop(char *pname);
 
+/** Return the node name from the properties list (last property) */
+static pars_prop *get_name_prop(pars_spec_node *node)
+  {
+  pars_prop *iter = node->properties;
+
+  if (iter == NULL)
+    return NULL;
+
+  while (iter->next != NULL)
+    iter = iter->next;
+
+  return iter;
+  }
+
 /* test resource if it is a cloud create request */
 int is_cloud_create(resource *res)
 {
@@ -60,14 +74,6 @@ static char *construct_mapping(char* old, char* new, char* alternative)
   return result;
   }
 
-struct pars_prop *get_last_prop(struct pars_prop *i)
-  {
-  while (i->next != NULL)
-    i = i->next;
-
-  return i;
-  }
-
 /* switch virtual nodes in the nodespec to their cloud masters
  * only used for cloud jobs support
  */
@@ -94,7 +100,7 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
     /* there has to be at least node name */
     dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
 
-    prop = get_last_prop(iter->properties);
+    prop = get_name_prop(iter);
 
     ret=pbs_cache_get_local(prop->name,"host");
     if (ret!=NULL)
@@ -167,7 +173,14 @@ void set_alternative_on_node(char *nodename, char *alternative)
   if ((np = find_nodebyname(nodename)) == NULL)
     return;
 
+  log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_NODE, nodename, "Found node and setting alternative.");
+
   c = get_alternative_properties(alternative);
+
+  if (c == NULL)
+    return;
+
+  log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_NODE, nodename, "Found alternative and setting.");
 
   /* clean the previous data */
   free_prop_list(np->x_ad_prop);
@@ -296,25 +309,28 @@ void cloud_transition_into_running(job *pjob)
   while (iter != NULL)
     {
     char *c;
+    pars_prop *name;
 
     /* there has to be at least node name */
     dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
     if (iter->properties == NULL)
       { iter = iter->next; continue; }
 
+    name = get_name_prop(iter);
+
     /* update cache information that this machine now belongs to the following vcluster */
-    cache_store_local(iter->properties->name,"machine_cluster",pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
+    cache_store_local(name->name,"machine_cluster",pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
 
     /* dig up the alternative from cloud mapping */
     dbg_consistency((pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_flags & ATR_VFLAG_SET) != 0,
         "Cloud mapping has to be set at this point.");
 
-    c = get_alternative_name(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,iter->properties->name);
+    c = get_alternative_name(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,name->name);
     if (c != NULL)
       {
       sprintf(log_buffer,"Determined alternative is: %s", c);
-      log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_NODE, iter->properties->name,log_buffer);
-      set_alternative_on_node(iter->properties->name,c);
+      log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_NODE, name->name,log_buffer);
+      set_alternative_on_node(name->name,c);
       free(c);
       }
 
@@ -340,16 +356,20 @@ void cloud_transition_into_stopped(job *pjob)
 
   while (iter != NULL)
     {
+    pars_prop *name;
+
     /* there has to be at least node name */
     dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
     if (iter->properties == NULL)
       { iter = iter->next; continue; }
 
+    name = get_name_prop(iter);
+
     /* update cache information that this machine now belongs to the following vcluster */
-    cache_remove_local(iter->properties->name,"machine_cluster");
+    cache_remove_local(name->name,"machine_cluster");
 
     /* remove any alternative stored on the node */
-    clear_alternative_on_node(iter->properties->name);
+    clear_alternative_on_node(name->name);
 
     iter = iter->next;
     }
