@@ -408,6 +408,7 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
   /* virtual clusters support */
   if (jinfo->is_cluster && jinfo->cluster_mode == ClusterCreate)
     {
+
     if (!ninfo->is_bootable)
       return 0;
 

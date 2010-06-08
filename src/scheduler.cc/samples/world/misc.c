@@ -418,6 +418,10 @@ void query_external_cache(server_info *sinfo)
          if (value!=NULL)
            {
            res = find_alloc_resource( node -> res, res_to_check[j].name );
+
+           if (node->res == NULL)
+             node->res = res;
+
            if (res != NULL)
              {
              free(res -> str_avail);
