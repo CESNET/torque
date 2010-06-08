@@ -70,6 +70,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#ifdef USEJOBCREATE
+#ifndef JOBFAKE
+#include <job.h>
+#endif /* JOBFAKE */
+#endif /* USEJOBCREATE */
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -127,8 +132,42 @@
 #endif /* HAVE_WORDEXP */
 
 #ifdef ENABLE_CSA
-	#include "csa_api.h"
-	#include "csaacct.h"
+#ifndef CSAFAKE
+#include "csa_api.h"
+#include "csaacct.h"
+
+#else
+
+typedef enum
+  {
+  WM_INFO = 1, /* Informational */
+  WM_RECV, /* Request received */
+  WM_INIT, /* Request initiated */
+  WM_SPOOL, /* Request output spooled */
+  WM_TERM /* Request terminated */
+  } wm_type;
+
+/*
+* Subtypes for workload management accounting record type WM_RECV.
+*/
+#define WM_RECV_NEW 1 /* New request */
+
+/*
+* Subtypes for workload management accounting record type WM_INIT.
+*/
+#define WM_INIT_START 1 /* Request started for first time */
+#define WM_INIT_RESTART 2 /* Request restarted */
+#define WM_INIT_RERUN 3 /* Request rerun */
+
+/*
+* Subtypes for workload management accounting record type WM_TERM.
+*/
+#define WM_TERM_EXIT 1 /* Request exited */
+#define WM_TERM_REQUEUE 2 /* Request requeued */
+#define WM_TERM_HOLD 3 /* Request checkpointed and held */
+#define WM_TERM_RERUN 4 /* Request will be rerun */
+#define WM_TERM_MIGRATE 5 /* Request will be migrated */
+#endif /* CSAFAKE */
 #endif /* ENABLE_CSA */
 
 #ifdef NOPOSIXMEMLOCK
@@ -279,8 +318,12 @@ void im_compose (	int        stream,
  
 
 /* END prototypes */
+
+#ifdef USEJOBCREATE
+uint64_t get_jobid(char *);
+#endif /* USEJOBCREATE */
+
 #ifdef ENABLE_CSA
-uint64_t get_csa_jobid(char *);
 void add_wkm_start(uint64_t, char *);
 void add_wkm_end(uint64_t, int64_t, char *);
 
@@ -290,8 +333,6 @@ enum csa_chk_cmd
   IS_INSTALLED = 0,
   IS_UP = 1
   };
-
-  #define JOB_FAIL               (jid_t)-1
 
 #endif /* ENABLE_CSA */
 
@@ -1984,11 +2025,15 @@ int TMomFinalizeChild( pjobexec_t *TJE )		/* I */
   char           *termtype;
   resource 		 *presc;
   char *path_prologuserjob;
-#ifdef ENABLE_CSA
+#ifdef USEJOBCREATE
+
   struct startjob_rtn    sjr = { 0, 0, 0};
+
 #else
+
   struct startjob_rtn    sjr = { 0, 0};
-#endif /* ENABLE_CSA */
+
+#endif /* USEJOBCREATE */
   job                   *pjob;
   task                  *ptask;
   struct passwd         *pwdp;
@@ -2354,6 +2399,18 @@ int TMomFinalizeChild( pjobexec_t *TJE )		/* I */
 		
 		sigaction(SIGALRM, &act, NULL);
 		
+#ifdef USEJOBCREATE
+    /*
+     * Get a job id from the system
+     */
+    sjr.sj_jobid  = get_jobid(pjob->ji_qs.ji_jobid);
+
+    pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_val.at_ll = sjr.sj_jobid;
+    
+    pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_flags =
+      ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
+#endif /* USEJOBCREATE */
+  	
 		/* set up the job session (update sjr) */
 		
 		j = set_job(pjob, &sjr);
@@ -2446,12 +2503,11 @@ int TMomFinalizeChild( pjobexec_t *TJE )		/* I */
 			}
 		
 #ifdef ENABLE_CSA
-			/*
-			 * Get a CSA job it and add a workload management start record
-			*/
-			sjr.sj_csajobid  = get_csa_jobid(pjob->ji_qs.ji_jobid);
+        /*
+        * Add a workload management start record
+        */
 		
-			add_wkm_start(sjr.sj_csajobid, pjob->ji_qs.ji_jobid);
+      add_wkm_start(sjr.sj_jobid, pjob->ji_qs.ji_jobid);
 		
 #endif /* ENABLE_CSA */
 		
@@ -2672,6 +2728,18 @@ int TMomFinalizeChild( pjobexec_t *TJE )		/* I */
 		if (LOGLEVEL >= 10)
 			log_ext(-1, id, "stdout/stderr opened", LOG_DEBUG);
 		
+#ifdef USEJOBCREATE
+    /*
+     * Get a job id from the system
+     */
+    sjr.sj_jobid  = get_jobid(pjob->ji_qs.ji_jobid);
+
+    pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_val.at_ll = sjr.sj_jobid;
+    
+    pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_flags =
+      ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
+#endif /* USEJOBCREATE */
+  	
 		/* set up the job session (update sjr) */
 		
 		j = set_job(pjob, &sjr);
@@ -3544,19 +3612,29 @@ int TMomFinalizeJob3( pjobexec_t *TJE,				/* I (modified) */
   
   if (LOGLEVEL >= 3)
 		{
-		#ifdef ENABLE_CSA
+#if defined (ENABLE_CSA) || defined (USEJOBCREATE)
+#ifdef ENABLE_CSA
 		sprintf(log_buffer, "Job %s read start return code=%d session=%ld CSA jobid=%llx",
 						pjob->ji_qs.ji_jobid,
 						sjr.sj_code,
 						(long)sjr.sj_session,
 						sjr.sj_csajobid);
-		#else
+#endif /* ENABLE_CSA */
+#ifdef USEJOBCREATE
+  	sprintf(log_buffer, "Job %s read start return code=%d session=%ld jobid=%lx",
+  					  pjob->ji_qs.ji_jobid,
+  					  sjr.sj_code,
+  					  (long)sjr.sj_session,
+  					  sjr.sj_jobid);
+#endif /* USEJOBCREATE */
+#else
 		sprintf(log_buffer, "Job %s read start return code=%d session=%ld",
 						pjob->ji_qs.ji_jobid,
 						sjr.sj_code,
 						(long)sjr.sj_session);
-		#endif /* ENABLE_CSA */
+#endif /* ENABLE_CSA||USEJOBCREATE */
 		
+
 		log_record(
 							PBSEVENT_ERROR,
 							PBS_EVENTCLASS_JOB,
@@ -3703,9 +3781,17 @@ int TMomFinalizeJob3( pjobexec_t *TJE,				/* I (modified) */
   
   pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_flags =
   ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
-  
 #endif /* ENABLE_CSA */
+  
+#ifdef USEJOBCREATE
+  pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_val.at_ll = sjr.sj_jobid;
+  
+  pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_flags =
+  ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 
+#endif /* USEJOBCREATE */
+
+>>>>>>> .merge-right.r3541
   pjob->ji_qs.ji_state    = JOB_STATE_RUNNING;
   
   pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
@@ -3759,7 +3845,7 @@ int start_process( task  *ptask,	/* I */
 	u_long ipaddr;
 	unsigned int momport = 0;
 	
-#ifdef ENABLE_CSA
+#ifdef USEJOBCREATE
 	
 	struct  startjob_rtn sjr =
 		{
@@ -3773,7 +3859,7 @@ int start_process( task  *ptask,	/* I */
 			0, 0
 		};
 	
-#endif /* ENABLE_CSA */
+#endif /* USEJOBCREATE */
 	
 	
 	if (pipe(pipes) == -1)
@@ -6434,11 +6520,8 @@ int TMomCheckJobChild(
 
 
 
-#ifdef ENABLE_CSA
-/*
- * Check to see if CSA in installed or turned on. Return 1 if it is good else 0
- */
 
+#ifdef USEJOBCREATE
 
 	#if 0
 int check_csa_status(
@@ -6456,18 +6539,8 @@ int check_csa_status(
   
   if ((fp = popen("/usr/sbin/csaswitch -c status", "r")) != NULL)
 		{
-		while (fgets(pbuf, 80, fp) != NULL)
+		if (LOGLEVEL >= 3)
 			{
-			
-			/* ignore the comment / header lines */
-			
-			if (pbuf[0] == '#')
-				{
-				continue;
-				}
-			
-			sscanf(pbuf, "%s %s", csa_name, csa_state);
-			
 			if (strncmp(csa_name, "csa", 3) == 0)
 				{
 				csa_installed = 1;
@@ -6477,38 +6550,77 @@ int check_csa_status(
 				csa_running = 1;
 				}
 			}
-		
-		pclose(fp);
-		
-		switch (chk_action)
-			{
-			
-			case IS_INSTALLED:
-				csa_stat = csa_installed;
-				break;
-			
-			case IS_UP:
-				csa_stat = csa_running;
-				break;
-			}
-		}
-
+                }
   return(csa_stat);
   }
 
-	#else
+
+/*
+ * Get a job_id from the system. Return job id or -1 if error
+ */
+
+uint64_t get_jobid(
+	char*    pbs_jobid)
+{
+	static char *id = "get_jobid";
+	
+	uint64_t job_id;
+
+#ifndef JOBFAKE
+  job_id = job_create(0, getuid(), 0);
+#else
+  job_id = 76544;
+/*  job_id = -1; */
+#endif /* JOBFAKE */
+
+	if (job_id == JOB_FAIL)
+			sprintf(log_buffer, "Failed to get system job id for pbs job %s",
+							pbs_jobid);
+
+			log_err(-1, id, log_buffer);
+			}
+			
+		return(job_id);
+		}
+			
+	if (LOGLEVEL >= 7)
+		{
+		sprintf(log_buffer, "Got system job id = %lx(%ld) for pbs job %s",
+						job_id,
+						job_id,
+						pbs_jobid);
+		log_ext(-1, id, log_buffer, LOG_DEBUG);
+		}
+			
+	return(job_id);
+}	 /* END get_jobid() */
+#endif /* if 0 */
+#endif  /* USEJOBCREATE */
+		
+			
+			
+
+#ifdef ENABLE_CSA
+/*
+ * Check to see if CSA in installed or turned on. Return 1 if it is good else 0
+ */
+
+
 int check_csa_status(enum csa_chk_cmd chk_action)
 {
-  static char *id = "check_csa_status";
-  int csa_stat = 0;
-  
-  struct csa_check_req ck_req;
-  
-  ck_req.ck_stat.am_id = (chk_action == IS_INSTALLED) ? ACCT_KERN_CSA : ACCT_DMD_WKMG;
-  ck_req.ck_stat.am_status = ACS_OFF;
-  ck_req.ck_stat.am_param = 0;
-  
-  if (csa_check(&ck_req) != 0)
+#ifndef CSAFAKE	
+	static char *id = "check_csa_status";
+#endif /* CSAFAKE */	
+	int csa_stat = 0;
+
+#ifndef CSAFAKE	
+	struct csa_check_req ck_req;
+
+	ck_req.ck_stat.am_id = (chk_action == IS_INSTALLED) ? ACCT_KERN_CSA : ACCT_DMD_WKMG;
+	ck_req.ck_stat.am_status = ACS_OFF;
+	ck_req.ck_stat.am_param = 0;
+
+	if (csa_check(&ck_req) != 0)
 		{
 		if (errno != ENOSYS)
 			{
@@ -6530,10 +6642,13 @@ int check_csa_status(enum csa_chk_cmd chk_action)
 		csa_stat = (ck_req.ck_stat.am_status != ACS_ON) ? 0 : 1;
 		}
 
-  return(csa_stat);
-  }
+#else
+  csa_stat = 1;
 
-#endif
+#endif /* CSAFAKE */	
+	return(csa_stat);
+}
+
 
 uint64_t get_csa_jobid(
 						char*    pbs_jobid)
@@ -6601,8 +6716,10 @@ int create_WLM_Rec(
   {
   static char *id = "create_WLM_Rec";
   
-  struct csa_wra_req cw;
-  struct wkmgmtbs wkm;
+#ifndef CSAFAKE
+	struct csa_wra_req cw;
+	struct wkmgmtbs wkm;
+#endif /* CSAFAKE */
   
   char    rec_type[8];
   char    sub_type[8];
@@ -6699,6 +6816,20 @@ int create_WLM_Rec(
     return 0;
     }
   
+#ifdef CSAFAKE
+  if (LOGLEVEL >= 7)
+    {
+    sprintf(log_buffer, "Creating FAKE CSA workload management %s - %s record for: "
+            "job_id = %lx, compCode = %d, pbs job %s",
+            (char*)&rec_type, (char*)&sub_type,
+            job_id, (int)compCode,
+            pbs_jobid);
+
+		log_ext(-1, id, log_buffer, LOG_DEBUG);
+    }
+
+#else
+
   if (LOGLEVEL >= 7)
     {
     sprintf(log_buffer, "Creating CSA workload management %s - %s record for: "
@@ -6802,6 +6933,8 @@ int create_WLM_Rec(
   	  }
     }
   
+#endif /* CSAFAKE */
+
   return 1;
   }
 
@@ -6820,6 +6953,23 @@ void add_wkm_start(
   
   if (check_csa_status(IS_UP))
 	{
+		
+		/* check if we have a valid job id, if not just return */
+		
+		if (job_id == JOB_FAIL)
+  		{
+      if (LOGLEVEL >= 2)
+  			{
+  			sprintf(log_buffer,
+  							"%s called with bad job id = %lx for pbs job %s",
+  							id,
+  							job_id,
+  							pbs_jobid);
+
+  			log_err(-1, id, log_buffer);
+  			}
+  		return;
+  		}
 	
 	/* Add a workload management received record before the start */
 	
@@ -6828,7 +6978,7 @@ void add_wkm_start(
 	  if (LOGLEVEL >= 7)
 		{
 		sprintf(log_buffer,
-						"Added CSA workload management WM_RECV for job id = %llx for pbs job %s",
+						"Added CSA workload management WM_RECV for job id = %lx for pbs job %s",
 						job_id,
 						pbs_jobid);
 		
@@ -6840,7 +6990,7 @@ void add_wkm_start(
 	  if (LOGLEVEL >= 2)
 		{
 		sprintf(log_buffer,
-						"Failed to add CSA workload management WM_RECV for job id = %llx for pbs job %s",
+						"Failed to add CSA workload management WM_RECV for job id = %lx for pbs job %s",
 						job_id,
 						pbs_jobid);
 		
@@ -6855,7 +7005,7 @@ void add_wkm_start(
 	  if (LOGLEVEL >= 7)
 		{
 		sprintf(log_buffer,
-						"Added CSA workload management WM_INIT for job id = %llx for pbs job %s",
+						"Added CSA workload management WM_INIT for job id = %lx for pbs job %s",
 						job_id,
 						pbs_jobid);
 		
@@ -6865,7 +7015,7 @@ void add_wkm_start(
 	else if (LOGLEVEL >= 2)
 	  {
 	  sprintf(log_buffer,
-					  "Failed to add CSA workload management WM_INIT for job id = %llx for pbs job %s",
+					  "Failed to add CSA workload management WM_INIT for job id = %lx for pbs job %s",
 					  job_id,
 					  pbs_jobid);
 	  
@@ -6874,7 +7024,7 @@ void add_wkm_start(
 	}
   
   return;
-  }	 /* END add_wkm_recv() */
+  }	 /* END add_wkm_start() */
 
 
 
@@ -6889,29 +7039,47 @@ void add_wkm_end(
   static char *id = "add_wkm_end";
   
   if (check_csa_status(IS_UP))
-	{
-	if (create_WLM_Rec(pbs_jobid, job_id, WM_TERM, WM_TERM_EXIT, 0, 0, comp_code, 0))
-	  {
-	  if (LOGLEVEL >= 7)
-		{
-		sprintf(log_buffer,
-						"Added CSA workload management WM_TERM for job id = %llx for pbs job %s",
-						job_id,
-						pbs_jobid);
+  	{
+  		
+		/* check if we have a valid job id, if not just return */
 		
-		log_ext(-1, id, log_buffer, LOG_DEBUG);
-		}
-	  } 
-	else if (LOGLEVEL >= 2)
-	  {
-	  sprintf(log_buffer,
-					  "Failed to add CSA workload management WM_TERM for job id = %llx for pbs job %s",
-					  job_id,
-					  pbs_jobid);
-	  
-	  log_err(-1, id, log_buffer);
-	  }
-	}
+		if (job_id == JOB_FAIL)
+  		{
+      if (LOGLEVEL >= 2)
+  			{
+  			sprintf(log_buffer,
+  							"%s called with bad job id = %lx for pbs job %s",
+  							id,
+  							job_id,
+  							pbs_jobid);
+
+  			log_err(-1, id, log_buffer);
+  			}
+  		return;
+  		}
+
+  	if (create_WLM_Rec(pbs_jobid, job_id, WM_TERM, WM_TERM_EXIT, 0, 0, comp_code, 0))
+  	  {
+  	  if (LOGLEVEL >= 7)
+    		{
+    		sprintf(log_buffer,
+    						"Added CSA workload management WM_TERM for job id = %lx for pbs job %s",
+    						job_id,
+    						pbs_jobid);
+    		
+    		log_ext(-1, id, log_buffer, LOG_DEBUG);
+    		}
+  	  } 
+  	else if (LOGLEVEL >= 2)
+  	  {
+  	  sprintf(log_buffer,
+  					  "Failed to add CSA workload management WM_TERM for job id = %lx for pbs job %s",
+  					  job_id,
+  					  pbs_jobid);
+  	  
+  	  log_err(-1, id, log_buffer);
+  	  }
+  	}
   
   return;
   }	 /* END add_wkm_end() */
