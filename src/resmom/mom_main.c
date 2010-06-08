@@ -477,7 +477,7 @@ static char *opsys(struct rm_attribute *);
 static char *requname(struct rm_attribute *);
 static char *validuser(struct rm_attribute *);
 static char *reqmsg(struct rm_attribute *);
-static char *reqgres(struct rm_attribute *);
+char *reqgres(struct rm_attribute *);
 static char *reqstate(struct rm_attribute *);
 static char *getjoblist(struct rm_attribute *);
 static char *reqvarattr(struct rm_attribute *);
@@ -1102,7 +1102,7 @@ retryread:
 
 
 
-static char *reqgres(
+char *reqgres(
 
   struct rm_attribute *attrib)  /* I (ignored) */
 
@@ -8305,6 +8305,17 @@ void restart_mom(
 
   envstr = malloc(
              (strlen("PATH") + strlen(orig_path) + 2) * sizeof(char));
+
+  if (!envstr)
+  {
+    sprintf(log_buffer, "malloc failed prior to execing myself: %s (%d)",
+            strerror(errno),
+            errno);
+
+    log_err(errno, id, log_buffer);
+
+    return;
+  }
 
   strcpy(envstr, "PATH=");
   strcat(envstr, orig_path);

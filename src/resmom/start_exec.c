@@ -1968,30 +1968,33 @@ int determine_umask( int  uid  /* I */ )
  * else FALSE
  */
 
-int use_cpusets( job *pjob )	/* I */
+int use_cpusets(
+
+  job *pjob)	/* I */
+
   {
-  #ifdef GEOMETRY_REQUESTS
-  resource     *presc;
-  resource_def *prd;
-  
-  if (pjob == NULL)
-	  return(FALSE);
-  
-  prd = find_resc_def(svr_resc_def,"procs_bitmap",svr_resc_size);
-  presc = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],prd);
-  
-  /* don't create a cpuset unless one was specifically requested */
-  if ((presc == NULL) ||
-      (presc->rs_value.at_flags & ATR_VFLAG_SET) == FALSE)
-	{
-	return(FALSE);
-	} 
+#ifdef GEOMETRY_REQUESTS
+	resource     *presc;
+	resource_def *prd;
+
+	if (pjob == NULL)
+		return(FALSE);
+
+	prd = find_resc_def(svr_resc_def,"procs_bitmap",svr_resc_size);
+	presc = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],prd);
+
+	/* don't create a cpuset unless one was specifically requested */
+	if ((presc == NULL) ||
+			(presc->rs_value.at_flags & ATR_VFLAG_SET) == FALSE)
+		{
+		return(FALSE);
+		} 
   else
+		return(TRUE);
+#else
 	return(TRUE);
-  #else
-  return(TRUE);
-  #endif /* GEOMETRY_REQUESTS */
-}	/* END use_cpusets() */
+#endif /* GEOMETRY_REQUESTS */
+  }	/* END use_cpusets() */
 #endif /* PENABLE_LINUX26_CPUSETS */
 
 
@@ -2206,26 +2209,28 @@ int TMomFinalizeChild( pjobexec_t *TJE )		/* I */
   
 #ifdef PENABLE_LINUX26_CPUSETS
 
-  if (use_cpusets(pjob) == TRUE)
-	{
-	sprintf(log_buffer, "about to create cpuset for job %s.\n",
-					pjob->ji_qs.ji_jobid);
-	
-	log_ext(-1, id, log_buffer, LOG_DEBUG);
-	
-	if (create_jobset(pjob) == FAILURE)
-	  {
-	  /* FAILURE */
-	  
-	  sprintf(log_buffer, "Could not create cpuset for job %s.\n",
-					  pjob->ji_qs.ji_jobid);
-	  
-	  log_err(-1, id, log_buffer);
-	  
-	  starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_RETRY, &sjr);
-	  }
-	}
-  
+#ifndef ALWAYS_USE_CPUSETS
+	if (use_cpusets(pjob) == TRUE)
+#endif /* ALWAYS_USE_CPUSETS */
+		{
+		sprintf(log_buffer, "about to create cpuset for job %s.\n",
+						pjob->ji_qs.ji_jobid);
+
+		log_ext(-1, id, log_buffer, LOG_DEBUG);
+
+		if (create_jobset(pjob) == FAILURE)
+			{
+			/* FAILURE */
+
+			sprintf(log_buffer, "Could not create cpuset for job %s.\n",
+							pjob->ji_qs.ji_jobid);
+
+			log_err(-1, id, log_buffer);
+
+			starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_RETRY, &sjr);
+			}
+		}
+
 #endif /* END PENABLE_LINUX26_CPUSETS */
 
 #ifdef ENABLE_CPA
