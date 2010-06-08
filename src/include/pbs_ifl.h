@@ -274,6 +274,7 @@
 #define ATTR_clonebatchsize "clone_batch_size"
 #define ATTR_clonebatchdelay "clone_batch_delay"
 #define ATTR_jobstarttimeout "job_start_timeout"
+#define ATTR_jobforcecanceltime "job_force_cancel_time"
 #define ATTR_maxarraysize    "max_job_array_size"
 #define ATTR_maxslotlimit    "max_slot_limit"
 

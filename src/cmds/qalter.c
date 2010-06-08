@@ -215,7 +215,7 @@ int main(
 
       case 'e':
  
-        rc = prepare_path(optarg, path_out);
+        rc = prepare_path(optarg, path_out,NULL);
         if ((rc == 0) || (rc == 3))
           {
           set_attr(&attrib, ATTR_e, path_out);
@@ -409,7 +409,7 @@ int main(
 
         /* output */
  
-        rc = prepare_path(optarg, path_out);
+        rc = prepare_path(optarg, path_out,NULL);
         if ((rc == 0) || (rc == 3))
           {
           set_attr(&attrib, ATTR_o, path_out);
