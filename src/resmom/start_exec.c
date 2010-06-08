@@ -3796,7 +3796,6 @@ int TMomFinalizeJob3( pjobexec_t *TJE,				/* I (modified) */
 
 #endif /* USEJOBCREATE */
 
->>>>>>> .merge-right.r3541
   pjob->ji_qs.ji_state    = JOB_STATE_RUNNING;
   
   pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;

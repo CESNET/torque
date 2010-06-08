@@ -3475,7 +3475,7 @@ static char *physmem(
   int   BSpace;
 
   unsigned long long mem;
-  unsigned long long mem_total;
+  unsigned long long mem_total = 0;
   FILE *fp;
 #ifdef NUMA_SUPPORT
   int i;

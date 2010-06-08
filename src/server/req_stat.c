@@ -1133,6 +1133,7 @@ static int status_que(
 
 
 
+#ifdef NUMA_SUPPORT
 /* instead of getting the status on a node with numa nodes, report
  * the status of all the numa nodes
  *
@@ -1175,6 +1176,7 @@ int get_numa_statuses(
 
   return(rc);
   } /* END get_numa_statuses() */
+#endif /* NUMA_SUPPORT */
 
 
 

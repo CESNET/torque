@@ -194,7 +194,7 @@ int            num_numa_nodes;
 numanode       numa_nodes[MAX_NUMA_NODES]; 
 int            numa_index;
 #else
-char           path_meminfo[MAXLINE];
+char           path_meminfo[MAX_LINE];
 #endif
 
 /* by default, enforce these policies */

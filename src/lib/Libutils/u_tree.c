@@ -223,7 +223,7 @@ AvlTree AVL_delete_node(
 
   {
   AvlTree	h1;
-  AvlTree 	h2;
+  AvlTree 	h2=NULL;
 
   if (tree == NULL)
     return(NULL);
