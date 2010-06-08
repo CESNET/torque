@@ -106,6 +106,7 @@ static pars_spec_node *init_pars_spec_node()
   if (spec == NULL)
     return NULL;
 
+  spec->alternative = NULL;
   spec->node_count = 0;
   spec->next = NULL;
   spec->properties = NULL;
@@ -176,6 +177,8 @@ pars_spec_node *clone_pars_spec_node(pars_spec_node *node)
     return NULL;
 
   result->node_count = node->node_count;
+  result->alternative = strdup(node->alternative);
+
   if ((result->properties = clone_pars_prop(node->properties)) == NULL &&
       node->properties != NULL)
     {
@@ -216,6 +219,9 @@ void free_pars_spec_node(pars_spec_node **node)
 
   dbg_precondition(node != NULL && (*node) != NULL,
         "This function does not accept NULL param");
+
+  free((*node)->alternative);
+  (*node)->alternative = NULL;
 
   while ((*node)->properties != NULL)
     {
@@ -314,8 +320,18 @@ static pars_spec_node *parse_spec_node(char *node)
       return NULL;
       }
 
-    prop->next = result->properties;
-    result->properties = prop;
+    /* special handle for alternative=image */
+    if (strcmp(prop->name,"alternative") == 0 && prop->value != NULL)
+      {
+      result->alternative = prop->value;
+      prop->value = NULL;
+      free_pars_prop(&prop);
+      }
+    else
+      {
+      prop->next = result->properties;
+      result->properties = prop;
+      }
 
     iter = delim;
     }

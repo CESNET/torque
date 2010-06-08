@@ -29,6 +29,7 @@ struct pars_prop
 struct pars_spec_node
   {
   unsigned node_count; /**< count of nodes requested for this spec */
+  char *alternative; /**< selected alternative name (if present) */
   struct pars_prop *properties;
   struct pars_spec_node *next;
   };
