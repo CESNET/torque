@@ -1303,7 +1303,7 @@ void mom_server_all_update_stat(void)
     log_record(PBSEVENT_SYSTEM, 0, id, "composing status update for server");
     }
 
-#ifdef ENABLE_NUMA
+#ifdef NUMA_SUPPORT
   for (numa_index = 0; numa_index < num_numa_nodes; numa_index++)
     {
     memset(status_strings, 0, sizeof(status_strings));
@@ -1315,7 +1315,7 @@ void mom_server_all_update_stat(void)
       mom_server_update_stat(&mom_servers[sindex],status_strings);
       }
     }
-#else /* ENABLE_NUMA */
+#else /* NUMA_SUPPORT */
 
   generate_server_status(status_strings, sizeof(status_strings));
   
@@ -1323,7 +1323,7 @@ void mom_server_all_update_stat(void)
     {
     mom_server_update_stat(&mom_servers[sindex],status_strings);
     }
-#endif /* ENABLE_NUMA */
+#endif /* NUMA_SUPPORT */
 
 
   return;

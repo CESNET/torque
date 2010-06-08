@@ -321,7 +321,9 @@ extern void     mom_checkpoint_set_directory_path(char *str);
 
 void prepare_child_tasks_for_delete();
 static void mom_lock(int fds, int op);
+#ifdef NUMA_SUPPORT
 int bind_to_nodeboard();
+#endif
 #define PMOMTCPTIMEOUT 60  /* duration in seconds mom TCP requests will block */
 
 
@@ -8583,10 +8585,12 @@ int main(
     return(rc);
     }
 
+#ifdef NUMA_SUPPORT
   if ((rc = bind_to_nodeboard()) != 0)
     {
     return(rc);
     }
+#endif /* NUMA_SUPPORT */
 
   main_loop();
 
