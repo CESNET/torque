@@ -21728,7 +21728,7 @@ cat >>confdefs.h <<\_ACEOF
 #define PENABLE_LINUX26_CPUSETS 1
 _ACEOF
 
-    CFLAGS="$CFLAGS -DNUMA_SUPPORT"
+    CFLAGS="$CFLAGS -DENABLE_NUMASUPPORT"
   else
     echo "$as_me:$LINENO: result: no" >&5
 echo "${ECHO_T}no" >&6

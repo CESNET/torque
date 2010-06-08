@@ -189,13 +189,13 @@ extern int      ignwalltime;
 extern int      igncput;
 extern int      ignvmem;
 extern int      ignmem;
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
 extern int      num_numa_nodes;
 extern numanode numa_nodes[MAX_NUMA_NODES]; 
 extern int      numa_index;
 #else
 extern char  path_meminfo[MAX_LINE];
-#endif /* NUMA_SUPPORT */
+#endif /* ENABLE_NUMASUPPORT */
 
 /*
 ** local functions and data
@@ -465,11 +465,11 @@ proc_mem_t *get_proc_mem(void)
   FILE               *fp;
   char                str[32];
   unsigned long long  bfsz, casz;
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
   int i;
 #endif
 
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
   ret_mm.mem_total = 0;
   ret_mm.mem_used = 0;
   ret_mm.mem_free = 0;
@@ -480,7 +480,7 @@ proc_mem_t *get_proc_mem(void)
   for (i = 0; i < numa_nodes[numa_index].num_mems; i++)
 #endif
     {
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
     if ((fp = fopen(numa_nodes[numa_index].path_meminfo[i],"r")) == NULL)
 #else
     if ((fp = fopen(path_meminfo,"r")) == NULL)
@@ -3477,7 +3477,7 @@ static char *physmem(
   unsigned long long mem;
   unsigned long long mem_total = 0;
   FILE *fp;
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
   int i;
 #endif
 
@@ -3489,13 +3489,13 @@ static char *physmem(
 
     return(NULL);
     }
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
   mem_total = 0;
 
   for (i = 0; i < numa_nodes[numa_index].num_mems; i++)
-#endif /* NUMA_SUPPORT */
+#endif /* ENABLE_NUMASUPPORT */
     {
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
     if (!(fp = fopen(numa_nodes[numa_index].path_meminfo[i],"r")))
 #else
     if (!(fp = fopen(path_meminfo, "r")))

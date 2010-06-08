@@ -1460,7 +1460,7 @@ static struct pbssubn *create_subnode(
 
 
 
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
 /* creates the private numa nodes on this node 
  *
  * @param pnode - the node that will house the numa nodes
@@ -1543,7 +1543,7 @@ int setup_numa_nodes(
 
   return(0);
   } /* END setup_numa_nodes() */
-#endif /* NUMA_SUPPORT */
+#endif /* ENABLE_NUMASUPPORT */
 
 
 
@@ -1777,9 +1777,9 @@ int create_pbs_node(
       
     }  /* END for (i) */
 
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
   setup_numa_nodes(pnode);
-#endif /* NUMA_SUPPORT */
+#endif /* ENABLE_NUMASUPPORT */
 
   recompute_ntype_cnts();
 
@@ -2365,7 +2365,7 @@ int node_mom_rm_port_action(new, pobj, actmode)
 
 
 
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
 int node_numa_action(
 
   attribute *new,           /*derive status into this attribute*/
@@ -2450,7 +2450,7 @@ int numa_str_action(
   return(0);
   } /* END numa_str_action */
 
-#endif /* NUMA_SUPPORT */
+#endif /* ENABLE_NUMASUPPORT */
 
 
 

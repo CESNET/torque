@@ -2320,7 +2320,7 @@ void im_request(
         }
 
 #ifdef PENABLE_LINUX26_CPUSETS
-#ifndef NUMA_SUPPORT
+#ifndef ENABLE_NUMASUPPORT
 
       if (use_cpusets(pjob) == TRUE)
         {
@@ -2338,7 +2338,7 @@ void im_request(
           }
         }
 
-#endif  /* ndef NUMA_SUPPORT */
+#endif  /* ndef ENABLE_NUMASUPPORT */
 #endif  /* (PENABLE_LINUX26_CPUSETS) */
 
 

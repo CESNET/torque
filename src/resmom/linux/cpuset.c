@@ -31,10 +31,10 @@
 #define TTORQUECPUSET_PATH "/dev/cpuset/torque"
 #define TROOTCPUSET_PATH   "/dev/cpuset"
 
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
 extern numanode numa_nodes[];
 extern int num_numa_nodes;
-#endif /* NUMA_SUPPORT */
+#endif /* ENABLE_NUMASUPPORT */
 
 /* FIXME: TODO:  TTORQUECPUSET_PATH, enabling cpuset support, and correct error
  * checking need a run-time config */
@@ -86,11 +86,11 @@ int cpuset_delete(
   if (cpusetname[0] == '/')
     strcpy(path, cpusetname);
   else
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
     sprintf(path, "%s/%s/%s", TTORQUECPUSET_PATH, mom_name, cpusetname);
 #else
     sprintf(path, "%s/%s", TTORQUECPUSET_PATH, cpusetname);
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
 
   if ((dir = opendir(path)) == NULL)
     {
@@ -193,10 +193,10 @@ void remove_defunct_cpusets()
   /* Find all the job cpusets. */
 
   strcpy(path, TTORQUECPUSET_PATH);
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
   strcat(path, "/");
   strcat(path, mom_name);
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
   if ((dir = opendir(path)) == NULL)
     {
     sprintf(log_buffer, "opendir(%s) failed.\n",path);
@@ -212,10 +212,10 @@ void remove_defunct_cpusets()
 
     /* Prepend directory name to file name for lstat. */
     strcpy(path, TTORQUECPUSET_PATH);
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
     strcat(path, "/");
     strcat(path, mom_name);
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
 
     if (path[strlen(path)-1] != '/') 
       strcat(path, "/");
@@ -254,7 +254,7 @@ void remove_defunct_cpusets()
 
 
 
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
 
 /**
  * read the root torque cpuset and copy it to the mom's cpuset
@@ -512,7 +512,7 @@ initialize_mom_cpuset(void)
 
   return;*/
   }  /* END initialize_mom_cpuset() */
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
 
 
 
@@ -947,7 +947,7 @@ initialize_root_cpuset(void)
       memset(cpuset_buf, '\0', sizeof(cpuset_buf));
       }  /* END if (fp != NULL) */
     }    /* END if (lstat(path,&statbuf) != 0) */
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
   initialize_mom_cpuset();
 #else
   else
@@ -956,7 +956,7 @@ initialize_root_cpuset(void)
 
     remove_defunct_cpusets();
     }
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
 
   return;
   }  /* END initialize_root_cpuset() */
@@ -1127,9 +1127,9 @@ int init_jobset(
   {
   char *id = "init_jobset";
   char  tmppath[MAXPATHLEN+1];
-#ifndef NUMA_SUPPORT
+#ifndef ENABLE_NUMASUPPORT
   FILE *fd;
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
 
   if ((path == NULL) ||
       (pjob == NULL) ||
@@ -1152,20 +1152,20 @@ int init_jobset(
   /* don't "else return(FAILURE);" because the directory doesn't necessarily exist */
 
   /* create the directory and copy the relevant memory data */
-#ifndef NUMA_SUPPORT
+#ifndef ENABLE_NUMASUPPORT
   snprintf(tmppath,sizeof(tmppath),"%s/%s/mems",TTORQUECPUSET_PATH,mom_name);
   if ((access(TTORQUECPUSET_PATH, F_OK) == 0) &&
       (access(tmppath, F_OK) == 0))
 #else
   snprintf(tmppath,sizeof(tmppath),"%s/mems",TTORQUECPUSET_PATH);
   if (access(TTORQUECPUSET_PATH, F_OK) == 0)
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
     {
 
     /* create the jobset */
     mkdir(path, 0755);
 
-#ifndef NUMA_SUPPORT
+#ifndef ENABLE_NUMASUPPORT
     /* add all mems to jobset */
     fd = fopen(tmppath, "r");
 
@@ -1198,7 +1198,7 @@ int init_jobset(
       }
 #else
     return(SUCCESS);
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
     }
 
   return(FAILURE);
@@ -1325,9 +1325,9 @@ int add_cpus_to_jobset(
   char *id = "add_cpus_to_jobset";
   char  cpusbuf[MAXPATHLEN+1];
   char  tmppath[MAXPATHLEN+1];
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
   char  memsbuf[MAXPATHLEN+1];
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
 
   if ((pjob == NULL) ||
       (path == NULL))
@@ -1336,11 +1336,11 @@ int add_cpus_to_jobset(
     }
 
   /* Make the string defining the CPUs to add into the jobset */
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
   get_cpuset_strings(pjob,cpusbuf,memsbuf);
 #else
   get_cpu_string(pjob,cpusbuf);
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
 
   snprintf(tmppath,sizeof(tmppath),"%s/cpus",path);
 
@@ -1372,7 +1372,7 @@ int add_cpus_to_jobset(
       }
 
     fclose(fd);
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
     snprintf(tmppath,sizeof(tmppath),"%s/mems",path);
     fd = fopen(tmppath, "w");
     if (fd)
@@ -1399,7 +1399,7 @@ int add_cpus_to_jobset(
       }
 #else
     return(SUCCESS);
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
     }
     
   return(FAILURE);
@@ -1421,12 +1421,12 @@ int create_jobset(
 
   savemask = (umask(0022));
 
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
   snprintf(path,sizeof(path), "%s/%s/%s", TTORQUECPUSET_PATH, mom_name,
     pjob->ji_qs.ji_jobid);
 #else
   snprintf(path,sizeof(path), "%s/%s", TTORQUECPUSET_PATH, pjob->ji_qs.ji_jobid);
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
 
   if (init_jobset(path,pjob,savemask,membuf) == FAILURE)
     {
@@ -1439,13 +1439,13 @@ int create_jobset(
     return(FAILURE);
     }
 
-#ifndef NUMA_SUPPORT
+#ifndef ENABLE_NUMASUPPORT
   /* Create the vnodesets */
   if (create_vnodesets(pjob,path,membuf,savemask) == FAILURE)
     {
     return(FAILURE);
     }
-#endif /* end NUMA_SUPPORT */
+#endif /* end ENABLE_NUMASUPPORT */
 
   return(SUCCESS);
   }  /* END create_jobset() */
@@ -1467,12 +1467,12 @@ int move_to_jobset(
   savemask = (umask(0022));
 
   sprintf(pidbuf, "%d", pid);
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
   sprintf(taskspath, "%s/%s/%s/tasks", TTORQUECPUSET_PATH, mom_name,
     pjob->ji_qs.ji_jobid);
 #else
   sprintf(taskspath, "%s/%s/tasks", TTORQUECPUSET_PATH, pjob->ji_qs.ji_jobid);
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
   sprintf(log_buffer, "CPUSET MOVE: %s  %s\n", taskspath, pidbuf);
   log_event(PBSEVENT_SYSTEM,
     PBS_EVENTCLASS_SERVER,
@@ -1519,13 +1519,13 @@ int move_to_taskset(
   savemask = (umask(0022));
 
   sprintf(pidbuf, "%d", pid);
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
   sprintf(taskspath, "%s/%s/%s/%s/tasks", TTORQUECPUSET_PATH, mom_name,
     pjob->ji_qs.ji_jobid,
     vnodeid);
 #else
   sprintf(taskspath, "%s/%s/%s/tasks", TTORQUECPUSET_PATH, pjob->ji_qs.ji_jobid, vnodeid);
-#endif  /* end NUMA_SUPPORT */
+#endif  /* end ENABLE_NUMASUPPORT */
   sprintf(log_buffer, "TASKSET MOVE: %s  %s\n", taskspath, pidbuf);
   log_event(PBSEVENT_SYSTEM,
     PBS_EVENTCLASS_SERVER,

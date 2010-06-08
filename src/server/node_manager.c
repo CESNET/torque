@@ -1170,7 +1170,7 @@ int is_stat_get(
 
   while (((ret_info = disrst(stream, &rc)) != NULL) && (rc == DIS_SUCCESS))
     {
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
     /* check if this is the update on a numa node */
     if (!strncmp(ret_info,NUMA_KEYWORD,strlen(NUMA_KEYWORD)))
       {
@@ -1211,7 +1211,7 @@ int is_stat_get(
       /* resume normal processing on the next line */
       continue;
       }
-#endif /* NUMA_SUPPORT */
+#endif /* ENABLE_NUMASUPPORT */
 
     /* add the info to the "temp" attribute */
 

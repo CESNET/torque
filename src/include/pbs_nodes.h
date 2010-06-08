@@ -129,7 +129,7 @@ struct pbssubn
   };
 
 
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
 typedef struct numanode_t
   {
 
@@ -142,7 +142,7 @@ typedef struct numanode_t
   char           **path_meminfo; /* path to meminfo file */
 
   } numanode;
-#endif /* NUMA_SUPPORT */
+#endif /* ENABLE_NUMASUPPORT */
 
 
 struct pbsnode
@@ -179,11 +179,11 @@ struct pbsnode
   short    nd_order; /* order of user's request */
   time_t                 nd_warnbad;
   time_t                 nd_lastupdate; /* time of last update. */
-#ifdef NUMA_SUPPORT
+#ifdef ENABLE_NUMASUPPORT
   unsigned short  num_numa_nodes; /* number of numa nodes */
   struct AvlNode *numa_nodes; /* private tree of numa nodes */
   char           *numa_str; /* comma-delimited string of processor values */
-#endif /* NUMA_SUPPORT */
+#endif /* ENABLE_NUMASUPPORT */
   };
 
 struct howl
