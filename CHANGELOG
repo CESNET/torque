@@ -43,22 +43,22 @@ NUMA
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,
       uiip.bas-net.by)
   f - architecture and build system changes to support Cygwin (Igor Ilyenko, 
-      uiip.bas-net.by)
+      UIIP Minsk)
   b - fixed EINPROGRESS in net_client.c. This signal appears every time of 
       connecting and requires individual processing. The old erroneous 
       processing brought to big network delay, especially on Cygwin.
   e - improved signal processing after connecting in client_to_svr and added own
       implementation of bindresvport for OS which lack it (Igor Ilyenko, 
-      uiip.bas-net.by)
+      UIIP Minsk)
   f - created permission checking of Windows (Cygwin) users, using mkpasswd, 
       mkgroup and own functions IamRoot, IamUser (Yauheni Charniauski, 
-      uiip.bas-net.by)
+      UIIP Minsk)
   f - created permission checking of submited jobs (Vikentsi Lapa, 
-      uiip.bas-net.by)
+      UIIP Minsk)
   f - Added the --disable-daemons configure option for start server-sched-mom 
       as Windows services, cygrunsrv.exe goes its into background independently.
   e - Adapted output of Cygwin's diagnostic information (Yauheni Charniauski, 
-      uiip.bas-net.by)
+      UIIP Minsk)
   b - Changed pbsd_main to call daemonize_server early only if 
       high_availability_mode is set.
   e - removed the very old A_ macros (patch provided by Simon Toth, CESNET z.s.p.o.)
@@ -98,6 +98,9 @@ NUMA
       stopped running while mom was not up.
   f - added -P to qsub. When submitting a job as root, the root user may add -P
       <username> to submit the job as the proxy user specified by <usermname>
+
+2.4.8
+  e - Bugzilla bug 22. HIGH_PRECISION_FAIRSHARE for fifo scheduling.
 
 2.4.7
   b - fixed a bug for when a resource_list has been set, but isn't completely

@@ -8331,7 +8331,6 @@ void restart_mom(
  * finds the number of elements in a range in this form: num-num
  */
 int parse_range(
-
   char *str) /* I */
 
   {
@@ -8569,6 +8568,11 @@ int main(
   parse_command_line(argc, argv); /* Calls exit on command line error */
 
   if ((rc = setup_program_environment()) != 0)
+    {
+    return(rc);
+    }
+
+  if ((rc = bind_to_nodeboard()) != 0)
     {
     return(rc);
     }
