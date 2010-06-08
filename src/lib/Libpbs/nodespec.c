@@ -177,7 +177,8 @@ pars_spec_node *clone_pars_spec_node(pars_spec_node *node)
     return NULL;
 
   result->node_count = node->node_count;
-  result->alternative = strdup(node->alternative);
+  if (node->alternative != NULL)
+    result->alternative = strdup(node->alternative);
 
   if ((result->properties = clone_pars_prop(node->properties)) == NULL &&
       node->properties != NULL)
