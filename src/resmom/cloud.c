@@ -126,6 +126,7 @@ char *cloud_mom_mapping(char *param,char *mom_name, char **alternative)
 
   if ((param) && ((mycopy=strdup(param))!=NULL))
     {
+#if 0
     char *dot = strchr(mom_name,'.');
 
     if (dot != NULL)
@@ -136,9 +137,12 @@ char *cloud_mom_mapping(char *param,char *mom_name, char **alternative)
       }
     else
       {
+#endif
       look=malloc(strlen(mom_name)+3);
       strcpy(look,mom_name);
+#if 0
       }
+#endif
 
     strcat(look,"=");
 
