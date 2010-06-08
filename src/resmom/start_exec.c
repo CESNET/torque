@@ -2189,29 +2189,32 @@ int determine_umask( int  uid  /* I */ )
  * else FALSE
  */
 
-int use_cpusets( job *pjob )	/* I */
+int use_cpusets(
+
+  job *pjob)	/* I */
+
   {
-  #ifdef GEOMETRY_REQUESTS
-  resource     *presc;
-  resource_def *prd;
-  
-  if (pjob == NULL)
-	  return(FALSE);
-  
-  prd = find_resc_def(svr_resc_def,"procs_bitmap",svr_resc_size);
-  presc = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],prd);
-  
-  /* don't create a cpuset unless one was specifically requested */
-  if ((presc == NULL) ||
-      (presc->rs_value.at_flags & ATR_VFLAG_SET) == FALSE)
-	{
-	return(FALSE);
-	} 
+#ifdef GEOMETRY_REQUESTS
+	resource     *presc;
+	resource_def *prd;
+
+	if (pjob == NULL)
+		return(FALSE);
+
+	prd = find_resc_def(svr_resc_def,"procs_bitmap",svr_resc_size);
+	presc = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],prd);
+
+	/* don't create a cpuset unless one was specifically requested */
+	if ((presc == NULL) ||
+			(presc->rs_value.at_flags & ATR_VFLAG_SET) == FALSE)
+		{
+		return(FALSE);
+		} 
   else
+		return(TRUE);
+#else
 	return(TRUE);
-  #else
-  return(TRUE);
-  #endif /* GEOMETRY_REQUESTS */
+#endif /* GEOMETRY_REQUESTS */
   }	/* END use_cpusets() */
 #endif /* PENABLE_LINUX26_CPUSETS */
 

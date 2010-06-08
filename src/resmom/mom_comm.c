@@ -281,7 +281,7 @@ int task_save(
       log_buffer);
     }
 
-#ifdef HAVE_OPEN64
+#if defined(HAVE_OPEN64) && defined(LARGEFILE_WORKS)
   fds = open64(namebuf, openflags, 0600);
 
 #else
@@ -605,7 +605,7 @@ int task_recov(
 
   strcat(namebuf, JOB_TASKDIR_SUFFIX);
 
-#ifdef HAVE_OPEN64
+#if defined(HAVE_OPEN64) && defined(LARGEFILE_WORKS)
   fds = open64(namebuf, O_RDONLY, 0);
 #else
   fds = open(namebuf, O_RDONLY, 0);
