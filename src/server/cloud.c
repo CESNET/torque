@@ -60,6 +60,14 @@ static char *construct_mapping(char* old, char* new, char* alternative)
   return result;
   }
 
+struct pars_prop *get_last_prop(struct pars_prop *i)
+  {
+  while (i->next != NULL)
+    i = i->next;
+
+  return i;
+  }
+
 /* switch virtual nodes in the nodespec to their cloud masters
  * only used for cloud jobs support
  */
@@ -85,7 +93,7 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
     /* there has to be at least node name */
     dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
 
-    ret=pbs_cache_get_local(iter->properties->name,"host");
+    ret=pbs_cache_get_local(get_last_prop(iter->properties)->name,"host");
     if (ret!=NULL)
       {
       char *c, *cloud, *mapped;
