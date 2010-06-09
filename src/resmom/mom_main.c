@@ -5695,12 +5695,22 @@ int kill_job(
 
   DBPRT(("%s\n", log_buffer));
 
-  /* FIXME META is this the right place */
-  if ((sig == SIGTERM || sig == SIGKILL) && is_cloud_job(pjob)) /* special handling for cloud jobs (no tasks) */
+  if ((sig == SIGTERM || sig == SIGKILL) && /* we are trying to kill the job */
+      is_cloud_job(pjob) && /* and this is a cloud job */
+      (pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) != 0 && /* and we are the master mom */
+      pjob->ji_qs.ji_substate != JOB_SUBSTATE_EXITING) /* and the job has not been yet handled */
     {
-    pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
-    job_save(pjob,SAVEJOB_QUICK);
-    exiting_tasks = 1;
+    int nodecount = send_sisters(pjob, IM_KILL_JOB);
+
+    if (nodecount != pjob->ji_numnodes - 1)
+      {
+      sprintf(log_buffer, "%s: sent %d KILL requests, should be %d",
+              id,
+              nodecount,
+              pjob->ji_numnodes - 1);
+
+      log_err(-1, id, log_buffer);
+      }
     }
 
   /* NOTE:  should change be made to only execute precancel epilog if job is active? (NYI) */

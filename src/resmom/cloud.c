@@ -190,6 +190,8 @@ int cloud_exec(job *pjob, int master)
     return 1;
     }
 
+  free(c); /* remove the mapping */
+
   log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,"cloud_exec call");
   ret=run_pelog(PE_MAGRATHEA,path_prolog_magrathea_start,pjob,PE_IO_TYPE_NULL);
 

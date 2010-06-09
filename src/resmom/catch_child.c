@@ -421,24 +421,6 @@ scan_for_exiting(void)
     ** Check each EXITED task.  They transition to DEAD here.
     */
 
-    if (is_cloud_job(pjob) && pjob->ji_qs.ji_substate == JOB_SUBSTATE_EXITING) /* special care for cloud jobs (no tasks) */
-      {
-      NumSisters = send_sisters(pjob, IM_KILL_JOB);
-      if (NumSisters == 0)
-        {
-        /* no sisters contacted - should be a serial job */
-        if (LOGLEVEL >= 3)
-          {
-          LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "no sisters contacted");
-          }
-        }
-      else if (LOGLEVEL >= 3)
-        {
-        snprintf(log_buffer, 1024, "cloud job has exited - sent kill job request to %d sisters", NumSisters);
-        LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, log_buffer);
-        }
-      }
-
     for (
       ptask = (task *)GET_NEXT(pjob->ji_tasks);
       ptask != NULL;
@@ -663,12 +645,6 @@ scan_for_exiting(void)
       ** Check to see if any tasks are running.
       */
 
-      if (is_cloud_job(pjob))
-          /* special care for cloud job (no tasks) */
-        {
-        cloud_kill(pjob);
-        }
-
       ptask = (task *)GET_NEXT(pjob->ji_tasks);
 
       while (ptask != NULL)
@@ -694,6 +670,9 @@ scan_for_exiting(void)
 
         continue;
         }
+
+      if (is_cloud_job(pjob)) /* cloud epilogue */
+        cloud_kill(pjob); /* we don't really care if the epilogue succeeded */
 
       if ((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) &&
           pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long)
@@ -1391,6 +1370,9 @@ static void preobit_reply(
 
   /* child */
 
+  if (is_cloud_job(pjob)) /* run cloud epilogue */
+    cloud_kill(pjob);
+
   /* check epilog script */
 
   if ((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) &&
@@ -1425,10 +1407,6 @@ static void preobit_reply(
       {
       log_err(-1, id, "system epilog failed - interactive job");
       }
-    }
-  else if (is_cloud_job(pjob))
-    {
-    cloud_kill(pjob);
     }
   else
     {
