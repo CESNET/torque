@@ -25,7 +25,7 @@ int cloud_set_prerun(job *pjob);
  */
 int cloud_set_running(job *pjob);
 
-int cloud_exec(job *pjob);
+int cloud_exec(job *pjob, int master);
 
 /** Parse cloud mapping attribute received from server
  *

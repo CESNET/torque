@@ -2372,13 +2372,19 @@ void im_request(
 
 #endif  /* (PENABLE_LINUX26_CPUSETS) */
 
-      /* FIXME META We need to do something here to prevent running prolog in case of a cloud job and run cloud prolog instead */
       if (is_cloud_job(pjob))
         {
-        log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"im_request","Slave mom - finishing cloud");
+        log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"im_request","Slave mom - constructing cloud");
         cloud_set_prerun(pjob);
-        if (cloud_exec(pjob) == 0)
-          cloud_set_running(pjob);
+
+        if (cloud_exec(pjob, 0) != 0)
+          {
+          SEND_ERR(PBSE_SYSTEM)
+          goto done;
+          }
+
+        cloud_set_running(pjob);
+        log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"im_request","Slave mom - cloud successfully constructed");
         }
 
       /* run local prolog */
@@ -3541,7 +3547,7 @@ void im_request(
             if (is_cloud_job(pjob))
               {
               log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"im_request","Master mom - finishing cloud");
-              if (cloud_exec(pjob) == 0)
+              if (cloud_exec(pjob,1) == 0)
                 cloud_set_running(pjob);
               break;
               }

@@ -1027,7 +1027,7 @@ void req_commit(
 
   if (is_cloud_job(pj) && pj->ji_numnodes == 1)
     {
-    if (cloud_exec(pj) == 0)
+    if (cloud_exec(pj, 1) == 0)
       cloud_set_running(pj);
     }
 

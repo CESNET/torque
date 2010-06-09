@@ -176,36 +176,32 @@ char *cloud_mom_mapping(char *param,char *mom_name, char **alternative)
 }
 
 /* FIXME META - from patch - review ! */
-int cloud_exec(job *pjob)
+int cloud_exec(job *pjob, int master)
   {
   int ret=0;
-  int do_bail = 0;
   char *c;
 
   log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"cloud_exec","Executing cloud - magrathea prolog");
-
   c=cloud_mom_mapping(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,mom_host,NULL);
 
-  if (c)
+  if (c == NULL)
     {
-    free(c);
-    log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,"cloud_exec call");
-    ret=run_pelog(PE_MAGRATHEA,path_prolog_magrathea_start,pjob,PE_IO_TYPE_NULL);
-    sprintf(log_buffer,"cloud_exec, result=%d",ret);
-    log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,log_buffer);
-    if (ret!=0)
-      {
-      exec_bail(pjob, JOB_EXEC_FAIL1);
-      }
-    }
-  else
-    {
-    log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,"cloud_exec call, no mapping");
+    log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,"cloud_exec call, no cloud mapping found");
+    return 1;
     }
 
-  if ((ret!=0) && (do_bail))
+  log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,"cloud_exec call");
+  ret=run_pelog(PE_MAGRATHEA,path_prolog_magrathea_start,pjob,PE_IO_TYPE_NULL);
+
+  if (ret != 0)
     {
-    exec_bail(pjob, JOB_EXEC_FAIL1);
+    DBPRT(("cannot run cloud prolog '%s': %s (rc: %d)\n", path_prolog_magrathea_start, log_buffer, ret));
+    LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, log_buffer);
+
+    if (master != 0)
+      exec_bail(pjob, JOB_EXEC_FAIL1);
+    else
+      job_purge(pjob);
     }
 
   return ret;
