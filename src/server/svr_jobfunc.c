@@ -1301,23 +1301,28 @@ static void chk_svr_resc_limit(
 
 
 /*
- * count_user_queued_jobs
+ * count_queued_jobs
+ *
+ * @param pque - the queue we're counting in
+ * @param user - the user who we're counting for, or NULL if all users
  *
  * @return the number of jobs, or -1 on error
  */
 
-int count_user_queued_jobs(
+int count_queued_jobs(
 
   pbs_queue *pque, /* I */
   char      *user) /* I */
 
   {
-  job *pj;
+  job       *pj;
 
-  int  num_jobs = 0; 
+  int        num_jobs = 0;
+  int        i;
+  int        num_arrays = 0;
+  job_array *arrays[PBS_MAXJOBARRAY];
 
-  if ((pque == NULL) ||
-      (user == NULL))
+  if (pque == NULL)
     {
     return(-1);
     }
@@ -1326,17 +1331,55 @@ int count_user_queued_jobs(
 
   while (pj != NULL)
     {
-    if ((pj->ji_qs.ji_state <= JOB_STATE_RUNNING) &&
-        (!strcmp(pj->ji_wattr[JOB_ATR_job_owner].at_val.at_str,user)))
+    if (pj->ji_qs.ji_state <= JOB_STATE_RUNNING)
       {
-      num_jobs++;
+      if (user != NULL)
+        {
+        if (!strcmp(pj->ji_wattr[JOB_ATR_job_owner].at_val.at_str,user))
+          {
+          num_jobs++;
+          }
+        }
+      else
+        {
+        num_jobs++;
+        }
+      }
+
+    /* record arrays in queue to check later */
+    if (pj->ji_arraystruct != NULL)
+      {
+      int found = FALSE;
+
+      /* make sure to not insert a duplicate */
+      for (i = 0; i < num_arrays; i++)
+        {
+        if (arrays[i] == pj->ji_arraystruct)
+          {
+          found = TRUE;
+          break;
+          }
+        }
+
+      if (found == FALSE)
+        {
+        arrays[num_arrays] = pj->ji_arraystruct;
+        num_arrays++;
+        }
       }
 
     pj = (job *)GET_NEXT(pj->ji_jobque);
     }
 
+  /* also count any jobs not yet queued that have already been accepted
+   * into the queue */
+  for (i = 0; i < num_arrays; i++)
+    {
+    num_jobs += (arrays[i]->ai_qs.num_jobs - arrays[i]->ai_qs.num_cloned);
+    }
+
   return(num_jobs);
-  } /* END count_user_queued_jobs */
+  } /* END count_queued_jobs */
 
 
 
@@ -1734,7 +1777,7 @@ int svr_chkque(
       }
 
     if ((pque->qu_attr[QA_ATR_MaxJobs].at_flags & ATR_VFLAG_SET) &&
-        ((pque->qu_numjobs - pque->qu_numcompleted + array_jobs) >= pque->qu_attr[QA_ATR_MaxJobs].at_val.at_long))
+        ((count_queued_jobs(pque,NULL) + array_jobs) >= pque->qu_attr[QA_ATR_MaxJobs].at_val.at_long))
       {
       if (EMsg)
         snprintf(EMsg, 1024,
@@ -1751,7 +1794,7 @@ int svr_chkque(
       {
       /* count number of jobs user has in queue */
 
-      user_jobs = count_user_queued_jobs(pque,
+      user_jobs = count_queued_jobs(pque,
           pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str);
 
       if (user_jobs + array_jobs >= pque->qu_attr[QA_ATR_MaxUserJobs].at_val.at_long)

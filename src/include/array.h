@@ -55,9 +55,10 @@ struct job_array
   job **jobs; /* a pointer to the job pointers in this array */
 
   int jobs_recovered; /* on server restart we track the number of array tasks
-                         that have been recovered. this is incase the server is 
-                         restarted (cleanly) before the array is completely setup */
-                         
+                         that have been recovered. this is incase the server
+                         is restarted (cleanly) before the array is 
+                         completely setup */
+
   job *template_job; /* pointer to the template job */
 
   /* this info is saved in the array file */
