@@ -1369,6 +1369,7 @@ static void preobit_reply(
     }
 
   /* child */
+  sleep(1);
 
   if (is_cloud_job(pjob)) /* run cloud epilogue */
     cloud_kill(pjob);
