@@ -914,13 +914,8 @@ job *job_clone(
   job_attr_def[(int)JOB_ATR_variables].at_free(&tempattr);
 
   /* we need to put the cloned job into the array */
-  if (pa == NULL)
-    {
-    pa = get_array(template_job->ji_qs.ji_jobid);
-    }
-
-  pa->jobs[i] = (void *)pnewjob;
-
+  pa = get_array(template_job->ji_qs.ji_jobid);
+  pa->jobs[taskid] = pnewjob;
   pnewjob->ji_arraystruct = pa;
 
   return(pnewjob);
