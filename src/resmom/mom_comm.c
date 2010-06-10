@@ -1264,11 +1264,17 @@ void node_bailout(
           {
           /* all dead */
 
-          pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+          /* if the job is already hung, don't change the state here */
+          if (!(pjob->ji_qs.ji_substate >= JOB_SUBSTATE_EXITING &&
+                pjob->ji_qs.ji_substate <= JOB_SUBSTATE_COMPLETE ))
+            {
 
-          job_save(pjob, SAVEJOB_QUICK);
+            pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-          exiting_tasks = 1;
+            job_save(pjob, SAVEJOB_QUICK);
+
+            exiting_tasks = 1;
+            }
           }
 
         break;
@@ -3730,11 +3736,16 @@ void im_request(
                    id,
                    jobid))
 
-            pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+            /* if the job is already hung, don't change the state here */
+            if (!(pjob->ji_qs.ji_substate >= JOB_SUBSTATE_EXITING &&
+                pjob->ji_qs.ji_substate <= JOB_SUBSTATE_COMPLETE ))
+              {
+              pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-            job_save(pjob, SAVEJOB_QUICK);
+              job_save(pjob, SAVEJOB_QUICK);
 
-            exiting_tasks = 1;
+              exiting_tasks = 1;
+              }
             }
 
           break;
@@ -4263,11 +4274,16 @@ void im_request(
             {
             /* all dead */
 
-            pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+            /* if the job is already hung, don't change the state here */
+            if (!(pjob->ji_qs.ji_substate >= JOB_SUBSTATE_EXITING &&
+                  pjob->ji_qs.ji_substate <= JOB_SUBSTATE_COMPLETE ))
+              {
+              pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-            job_save(pjob, SAVEJOB_QUICK);
+              job_save(pjob, SAVEJOB_QUICK);
 
-            exiting_tasks = 1;
+              exiting_tasks = 1;
+              }
             }
 
           break;
