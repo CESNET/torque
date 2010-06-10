@@ -2323,8 +2323,7 @@ void req_jobobit(
     return;
     }  /* END if (pjob->ji_qs.ji_state != JOB_STATE_RUNNING) */
 
-  if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN ||
-      pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
+  if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
     {
     /* have hit a race condition, the send_job child's SIGCHLD */
     /* has not yet been reaped.  Must wait for it.     */
