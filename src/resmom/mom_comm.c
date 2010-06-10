@@ -1272,9 +1272,8 @@ void node_bailout(
             pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
             job_save(pjob, SAVEJOB_QUICK);
-
-            exiting_tasks = 1;
             }
+            exiting_tasks = 1;
           }
 
         break;
@@ -3743,9 +3742,9 @@ void im_request(
               pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
               job_save(pjob, SAVEJOB_QUICK);
+              }
 
               exiting_tasks = 1;
-              }
             }
 
           break;
@@ -4281,9 +4280,8 @@ void im_request(
               pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
               job_save(pjob, SAVEJOB_QUICK);
-
-              exiting_tasks = 1;
               }
+              exiting_tasks = 1;
             }
 
           break;
