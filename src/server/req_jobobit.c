@@ -2594,14 +2594,16 @@ void req_jobobit(
     }
 
   /* What do we now do with the job... */
+  if (is_cloud_job(pjob))
+    cloud_transition_into_stopped(pjob);
 
-  if ((pjob->ji_qs.ji_substate != JOB_SUBSTATE_RERUN) &&
-      (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RERUN1))
+  if (((pjob->ji_qs.ji_substate != JOB_SUBSTATE_RERUN) &&
+      (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RERUN1)) ||
+      is_cloud_job(pjob))
     {
     /* If job is terminating (not rerun), */
     /*  update state and send mail        */
 
-    cloud_transition_into_stopped(pjob);
     svr_setjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_EXITING);
 
     if (alreadymailed == 0)
@@ -2669,7 +2671,6 @@ void req_jobobit(
     }
   else
     {
-
     /* Rerunning job, if not checkpointed, clear "resources_used and requeue job */
 
     if ((pjob->ji_qs.ji_svrflags & (JOB_SVFLG_CHECKPOINT_FILE | JOB_SVFLG_CHECKPOINT_MIGRATEABLE)) == 0)
