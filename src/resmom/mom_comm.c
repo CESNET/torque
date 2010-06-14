@@ -3548,12 +3548,14 @@ void im_request(
                 "all sisters have reported in, launching job locally");
               }
 
-            /* FIXME META run cloud here */
             if (is_cloud_job(pjob))
               {
               log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"im_request","Master mom - finishing cloud");
               if (cloud_exec(pjob,1) == 0)
                 cloud_set_running(pjob);
+
+              append_link(&mom_polljobs, &pjob->ji_jobque, pjob);
+
               break;
               }
 

@@ -5695,23 +5695,44 @@ int kill_job(
 
   DBPRT(("%s\n", log_buffer));
 
-  if ((sig == SIGTERM || sig == SIGKILL) && /* we are trying to kill the job */
-      is_cloud_job(pjob) && /* and this is a cloud job */
-      (pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) != 0) /* and we are the master mom */
+  if (is_cloud_job(pjob)) /* special handling for cloud jobs */
     {
-    /* if the job is already hung, don't kill anything */
-    if (!(pjob->ji_qs.ji_substate >= JOB_SUBSTATE_EXITING &&
-          pjob->ji_qs.ji_substate <= JOB_SUBSTATE_COMPLETE ))
+    if (sig == SIGTERM || sig == SIGKILL) /* the request is to kill the job */
       {
-      int nodecount = send_sisters(pjob, IM_KILL_JOB);
-
-      if (nodecount != pjob->ji_numnodes - 1)
+      if (!(pjob->ji_qs.ji_substate >= JOB_SUBSTATE_EXITING &&
+            pjob->ji_qs.ji_substate <= JOB_SUBSTATE_COMPLETE )) /* job not yet down */
         {
-        sprintf(log_buffer, "%s: sent %d KILL requests, should be %d",
-                            id, nodecount, pjob->ji_numnodes - 1);
+        if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) != 0) /* this is the master mom */
+          {
+          int nodecount = send_sisters(pjob, IM_KILL_JOB);
 
-        log_err(-1, id, log_buffer);
+          if (nodecount != pjob->ji_numnodes - 1)
+            {
+            sprintf(log_buffer, "%s: sent %d KILL requests, should be %d", id, nodecount, pjob->ji_numnodes - 1);
+
+            log_err(-1, id, log_buffer);
+            }
+
+          pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+          job_save(pjob, SAVEJOB_QUICK);
+          exiting_tasks = 1;
+          }
+        else /* not a master node */
+          {
+          /* force the exiting state */
+          pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+          job_save(pjob, SAVEJOB_QUICK);
+          exiting_tasks = 1;
+          }
         }
+      else /* job is already exiting/obit */
+        {
+        /* noop */
+        }
+      }
+    else /* not SIGTERM or SIGKILL */
+      {
+      /* noop */
       }
     }
 
@@ -7801,6 +7822,34 @@ examine_all_polled_jobs(void) /* FIXME META examine job limits after restarts */
 
 
 
+/** Check consistency of all cloud jobs
+ */
+void examile_all_cloud_jobs(void)
+  {
+  job *pjob;
+
+  for (pjob = (job *)GET_NEXT(svr_alljobs);
+       pjob != NULL;
+       pjob = (job *)GET_NEXT(pjob->ji_alljobs))
+    {
+    if (!is_cloud_job(pjob))
+      continue;
+
+    if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
+    /* ignore clusters that are still building or already shutting down */
+      continue;
+
+    if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
+    /* sister node */
+      {
+      /* FIXME META What should we do when we encounter a broken cloud on sister? We could somehow check if we are not stray and cleanup if thats the case. */
+      continue;
+      }
+
+    cloud_check_state(pjob);
+    }
+  }
+
 
 /*
  * examine_all_running_jobs
@@ -8140,6 +8189,8 @@ void main_loop(void)
             examine_all_running_jobs();
 
             examine_all_polled_jobs();
+
+            examile_all_cloud_jobs();
 
             examine_all_jobs_to_resend();
             }

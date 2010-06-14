@@ -11,6 +11,7 @@ extern char        *path_prolog_magrathea_start;
 extern char        *path_prolog_magrathea_stop;
 extern char mom_host[];
 extern void exec_bail(job *pjob, int  code);
+extern int exiting_tasks;
 
 
 /* Test, whether job is cloud job, whether it have -lcluster=create */
@@ -232,4 +233,39 @@ int cloud_kill(job *pjob)
     }
 
   return ret;
+  }
+
+int cloud_check_state(job *pjob)
+  {
+  int ret = 0;
+  char *c;
+
+  log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"cloud_check_state","Checking cloud status");
+
+  c=cloud_mom_mapping(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,mom_host,NULL);
+
+  if (c != NULL)
+    {
+    free(c);
+    ret=run_pelog(PE_MAGRATHEA, path_prolog_magrathea_status, pjob, PE_IO_TYPE_NULL);
+
+    sprintf(log_buffer,"cloud_update_state, state=%d",ret);
+    log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,log_buffer);
+
+    /* FIXME META This might ignore partially built clouds still in PRERUN phase */
+    if (ret != 0 && pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING)
+    /* cloud is broken, but job is still running */
+      {
+      pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+      job_save(pjob, SAVEJOB_QUICK);
+      exiting_tasks = 1;
+      return 1;
+      }
+    }
+  else
+    {
+    log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,"cloud_check_state call, no mapping");
+    }
+
+  return 0;
   }

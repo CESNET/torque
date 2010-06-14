@@ -127,6 +127,7 @@ extern int PBSNodeCheckProlog;
 extern int internal_state;
 
 extern const char *PJobSubState[];
+extern tlist_head mom_polljobs;
 
 /* sync w/enum job_file TJobFileType[]) */
 
@@ -1029,6 +1030,9 @@ void req_commit(
     {
     if (cloud_exec(pj, 1) == 0)
       cloud_set_running(pj);
+
+    if (mom_do_poll(pj) != 0)
+      append_link(&mom_polljobs, &pj->ji_jobque, pj);
     }
 
   job_save(pj, SAVEJOB_FULL);
