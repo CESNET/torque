@@ -1170,7 +1170,7 @@ int is_stat_get(
 
   while (((ret_info = disrst(stream, &rc)) != NULL) && (rc == DIS_SUCCESS))
     {
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
     /* check if this is the update on a numa node */
     if (!strncmp(ret_info,NUMA_KEYWORD,strlen(NUMA_KEYWORD)))
       {
@@ -1211,7 +1211,7 @@ int is_stat_get(
       /* resume normal processing on the next line */
       continue;
       }
-#endif /* ENABLE_NUMASUPPORT */
+#endif /* NUMA_SUPPORT */
 
     /* add the info to the "temp" attribute */
 
@@ -2616,6 +2616,129 @@ static void mark(
 
 
 
+/*
+ * checks if a node is ok for search
+ *
+ * All parameters are exactly the same as search
+ * @param pnode - the node we're looking at
+ *
+ * @return TRUE if the node is acceptable for search's purposes
+ */
+int search_acceptable(
+
+  struct pbsnode *pnode,
+  struct prop    *glorf,
+  int             skip,
+  int             vpreq)
+
+  {
+  if (pnode->nd_state & INUSE_DELETED)
+    return(FALSE);
+
+  if (pnode->nd_ntype == NTYPE_CLUSTER)
+    {
+    if (pnode->nd_flag != okay)
+      {
+      if ((skip != SKIP_NONE_REUSE) || (pnode->nd_flag != thinking))
+        {
+        /* allow node re-use if SKIP_NONE_REUSE is set */
+
+        return(FALSE);
+        }
+      }
+
+    /* FIXME: this is rejecting job submits?
+          if (pnode->nd_state & pass)
+            continue;
+    */
+
+    if (!hasprop(pnode, glorf))
+      return(FALSE);
+
+    if ((skip == SKIP_NONE) || (skip == SKIP_NONE_REUSE))
+      {
+      if (vpreq > pnode->nd_nsn)
+        return(FALSE);
+      }
+    else if ((skip == SKIP_ANYINUSE) &&
+             ((pnode->nd_state & INUSE_SUBNODE_MASK) || (vpreq > pnode->nd_nsnfree)))
+      {
+      return(FALSE);
+      }
+    else if ((skip == SKIP_EXCLUSIVE) &&
+             ((pnode->nd_state & INUSE_SUBNODE_MASK) ||
+              (vpreq > (pnode->nd_nsnfree + pnode->nd_nsnshared))))
+      {
+      return(FALSE);
+      }
+    }
+  else
+    return(FALSE);
+
+  return(TRUE);
+  } /* END search_acceptable() */
+
+
+
+
+
+
+/*
+ * checks if a node is ok for to reshuffle
+ *
+ * All parameters are exactly the same as search
+ * @param pnode - the node we're looking at
+ *
+ * @return TRUE if the node is reshuffleable for search's purposes
+ */
+int can_reshuffle(
+
+  struct pbsnode *pnode,
+  struct prop    *glorf,
+  int             skip,
+  int             vpreq,
+  int             pass)
+
+  {
+
+  if (pnode->nd_state & INUSE_DELETED)
+    return(FALSE);
+
+  if (pnode->nd_ntype == NTYPE_CLUSTER)
+    {
+    if (pnode->nd_flag != thinking)
+      {
+      /* only shuffle nodes which have been selected above */
+
+      return(FALSE);
+      }
+
+    if (pnode->nd_state & pass)
+      return(FALSE);
+
+    if ((skip == SKIP_EXCLUSIVE) && (vpreq < pnode->nd_nsnfree))
+      return(FALSE);
+
+    if ((skip == SKIP_ANYINUSE) &&
+        (vpreq < (pnode->nd_nsnfree + pnode->nd_nsnshared)))
+      return(FALSE);
+
+    if (!hasprop(pnode, glorf))
+      return(FALSE);
+    }
+  else
+    return(FALSE);
+
+  return(TRUE);
+  } /* can_reshuffle() */
+
+
+
+
+
+
+
+
 #define RECURSIVE_LIMIT 3
 
 /*
@@ -2638,61 +2761,22 @@ static int search(
 
   struct pbsnode *pnode;
   int found;
-  int i;
+
+  node_iterator iter;
 
   if (++depth == RECURSIVE_LIMIT)
     {
     return(0);
     }
+  
+  reinitialize_node_iterator(&iter);
 
   /* look for nodes we haven't picked already */
 
-  for (i = 0;i < svr_totnodes;i++)
+  while ((pnode = next_node(&iter)) != NULL)
     {
-    pnode = pbsndlist[i];
-
-    if (pnode->nd_state & INUSE_DELETED)
-      continue;
-
-    if (pnode->nd_ntype == NTYPE_CLUSTER)
+    if (search_acceptable(pnode,glorf,skip,vpreq) == TRUE)
       {
-      if (pnode->nd_flag != okay)
-        {
-        if ((skip != SKIP_NONE_REUSE) || (pnode->nd_flag != thinking))
-          {
-          /* allow node re-use if SKIP_NONE_REUSE is set */
-
-          continue;
-          }
-        }
-
-      /* FIXME: this is rejecting job submits?
-            if (pnode->nd_state & pass)
-              continue;
-      */
-
-      if (!hasprop(pnode, glorf))
-        continue;
-
-      if ((skip == SKIP_NONE) || (skip == SKIP_NONE_REUSE))
-        {
-        if (vpreq > pnode->nd_nsn)
-          continue;
-        }
-      else if ((skip == SKIP_ANYINUSE) &&
-               ((pnode->nd_state & INUSE_SUBNODE_MASK) || (vpreq > pnode->nd_nsnfree)))
-        {
-        continue;
-        }
-      else if ((skip == SKIP_EXCLUSIVE) &&
-               ((pnode->nd_state & INUSE_SUBNODE_MASK) ||
-                (vpreq > (pnode->nd_nsnfree + pnode->nd_nsnshared))))
-        {
-        continue;
-        }
-
-      /* NOTE: allow node re-use if SKIP_NONE_REUSE by ignoring 'thinking' above */
-
       pnode->nd_flag = thinking;
 
       mark(pnode, glorf);
@@ -2715,36 +2799,12 @@ static int search(
     }
 
   /* try re-shuffling the nodes to get what we want */
+  reinitialize_node_iterator(&iter);
 
-  for (i = 0;i < svr_totnodes;i++)
+  while ((pnode = next_node(&iter)) != NULL)
     {
-    pnode = pbsndlist[i];
-
-    if (pnode->nd_state & INUSE_DELETED)
-      continue;
-
-    if (pnode->nd_ntype == NTYPE_CLUSTER)
+    if (can_reshuffle(pnode,glorf,skip,vpreq,pass) == TRUE)
       {
-      if (pnode->nd_flag != thinking)
-        {
-        /* only shuffle nodes which have been selected above */
-
-        continue;
-        }
-
-      if (pnode->nd_state & pass)
-        continue;
-
-      if ((skip == SKIP_EXCLUSIVE) && (vpreq < pnode->nd_nsnfree))
-        continue;
-
-      if ((skip == SKIP_ANYINUSE) &&
-          (vpreq < (pnode->nd_nsnfree + pnode->nd_nsnshared)))
-        continue;
-
-      if (!hasprop(pnode, glorf))
-        continue;
-
       pnode->nd_flag = conflict;
 
       /* Ben Webb patch (CRI 10/06/03) */
@@ -2760,17 +2820,16 @@ static int search(
 
       if (found)
         {
+        /* SUCCESS */
         mark(pnode, glorf);
 
         pnode->nd_needed = vpreq;
         pnode->nd_order  = order;
 
-        /* SUCCESS */
-
         return(1);
         }
       }
-    }    /* END for (i) */
+    }  /* END for (each node) */
 
   /* FAILURE */
 
@@ -2976,6 +3035,8 @@ static int listelem(
   struct pbsnode *pnode;
   int node_req = 1;
 
+  node_iterator iter;
+
   if ((i = number(str, &num)) == -1) /* get number */
     {
     /* FAILURE */
@@ -3015,10 +3076,10 @@ static int listelem(
 
   hit = 0;
 
-  for (i = 0;i < svr_totnodes;i++)
-    {
-    pnode = pbsndlist[i];
+  reinitialize_node_iterator(&iter);
 
+  while ((pnode = next_node(&iter)) != NULL)
+    {
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
@@ -3311,6 +3372,78 @@ int MSNPrintF(
 
 
 
+/* checks if nodes are free/configured */
+int node_avail_check(
+
+  struct pbsnode *pnode)           /* I */
+
+  {
+  char           *id = "node_avail_check";
+
+  struct pbssubn *snp;
+
+#ifdef GEOMETRY_REQUESTS
+  /* must be dedicated node use for cpusets */
+  if (IS_VALID_STR(ProcBMStr)) 
+    {
+    if (pnode->nd_state != INUSE_FREE)
+      continue;
+
+    if (node_satisfies_request(pnode,ProcBMStr) == FALSE)
+      continue;
+    }
+#endif /* GEOMETRY_REQUESTS */
+
+  if (LOGLEVEL >= 6)
+    {
+    DBPRT(("%s: %s nsn %d, nsnfree %d, nsnshared %d\n",
+           id,
+           pnode->nd_name,
+           pnode->nd_nsn,
+           pnode->nd_nsnfree,
+           pnode->nd_nsnshared))
+    }
+
+  pnode->nd_flag   = okay;
+
+  pnode->nd_needed = 0;
+
+  for (snp = pnode->nd_psn;snp != NULL;snp = snp->next)
+    {
+    snp->flag = okay;
+
+    if (LOGLEVEL >= 6)
+      {
+      DBPRT(("%s: %s/%d inuse 0x%x nprops %d\n",
+             id,
+             pnode->nd_name,
+             snp->index,
+             snp->inuse,
+             pnode->nd_nprops))
+      }
+    }
+
+  if (pnode->nd_ntype == NTYPE_CLUSTER)
+    {
+    /* configured node located */
+    svr_numcfgnodes++;
+
+    if ((pnode->nd_state & (INUSE_OFFLINE | INUSE_DOWN | INUSE_RESERVE | INUSE_JOB)) == 0)
+      {
+      /* NOTE:  checking if node is not just up, but free */
+      /* available node located */
+
+      svr_numnodes++;
+      }
+    }
+
+  return(0);
+  } /* END node_avail_check() */
+
+
+
+
+
 /*
  * Test a node specification.
  *
@@ -3334,10 +3467,11 @@ static int node_spec(
   static char id[] = "node_spec";
 
   struct pbsnode *pnode;
+  node_iterator  *iter;
 
-  struct pbssubn *snp;
   char *str, *globs, *cp, *hold;
-  int  i, num;
+  int  i;
+  int  num;
   int  rv;
   static char shared[] = "shared";
 
@@ -3503,61 +3637,25 @@ static int node_spec(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-#ifdef GEOMETRY_REQUESTS
-    /* must be dedicated node use for cpusets */
-    if (IS_VALID_STR(ProcBMStr)) 
+#ifdef NUMA_SUPPORT
+    if (pnode->num_numa_nodes > 0)
       {
-      if (pnode->nd_state != INUSE_FREE)
-        continue;
+      /* check each of the num nodes */
+      struct pbsnode *tmp;
+      int             j;
 
-      if (node_satisfies_request(pnode,ProcBMStr) == FALSE)
-        continue;
-      }
-#endif /* GEOMETRY_REQUESTS */
-
-    if (LOGLEVEL >= 6)
-      {
-      DBPRT(("%s: %s nsn %d, nsnfree %d, nsnshared %d\n",
-             id,
-             pnode->nd_name,
-             pnode->nd_nsn,
-             pnode->nd_nsnfree,
-             pnode->nd_nsnshared))
-      }
-
-    pnode->nd_flag   = okay;
-
-    pnode->nd_needed = 0;
-
-    for (snp = pnode->nd_psn;snp != NULL;snp = snp->next)
-      {
-      snp->flag = okay;
-
-      if (LOGLEVEL >= 6)
+      for (j = 0; j < pnode->num_numa_nodes; j++)
         {
-        DBPRT(("%s: %s/%d inuse 0x%x nprops %d\n",
-               id,
-               pnode->nd_name,
-               snp->index,
-               snp->inuse,
-               pnode->nd_nprops))
+        tmp = AVL_find(j,pnode->nd_mom_port,pnode->numa_nodes);
+
+        node_avail_check(tmp);
         }
       }
-
-    if (pnode->nd_ntype == NTYPE_CLUSTER)
+    else
+#endif /* NUMA_SUPPORT */
       {
-      /* configured node located */
-
-      svr_numcfgnodes++;
-
-      if ((pnode->nd_state & (INUSE_OFFLINE | INUSE_DOWN | INUSE_RESERVE | INUSE_JOB)) == 0)
-        {
-        /* NOTE:  checking if node is not just up, but free */
-
-        /* available node located */
-
-        svr_numnodes++;
-        }
+      /* compute normally */
+      node_avail_check(pnode);
       }
     }    /* END for (i = 0) */
 
@@ -3654,11 +3752,10 @@ static int node_spec(
    * Here we find a replacement for any nodes chosen above
    * that are already inuse.
    */
+  iter = get_node_iterator();
 
-  for (i = 0;i < svr_totnodes;i++)
+  while ((pnode = next_node(iter)) != NULL)
     {
-    pnode = pbsndlist[i];
-
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
@@ -4170,6 +4267,8 @@ int set_nodes(
   struct pbsnode *pnode;
 
   struct pbssubn *snp;
+
+  node_iterator  *iter;
   char           *nodelist;
   char           *portlist;
 
@@ -4239,12 +4338,10 @@ int set_nodes(
 
   /* initialize the mom port values to unset so that they're only
    * set once */
+  iter = get_node_iterator();
 
-  for (i = 0;i < svr_totnodes;i++)
+  while ((pnode = next_node(iter)) != NULL)
     {
-
-    pnode = pbsndlist[i];
-
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
@@ -4478,7 +4575,6 @@ int node_avail(
 
   {
   char *id = "node_avail";
-  int i;
   int j;
   int holdnum;
 
@@ -4493,6 +4589,8 @@ int node_avail(
   register int xresvd;
   register int xdown;
   int          node_req = 1;
+
+  node_iterator iter;
 
   if (spec == NULL)
     {
@@ -4524,10 +4622,10 @@ int node_avail(
         }
       }
 
-    for (i = 0;i < svr_totnodes;i++)
-      {
-      pn = pbsndlist[i];
+    reinitialize_node_iterator(&iter);
 
+    while ((pn = next_node(&iter)) != NULL)
+      {
       if (pn->nd_state & INUSE_DELETED)
         continue;
 
@@ -4612,7 +4710,8 @@ int node_reserve(
 
   struct pbssubn *snp;
   int   ret_val;
-  int   i;
+
+  node_iterator iter;
 
   DBPRT(("%s: entered\n",
          id))
@@ -4634,11 +4733,10 @@ int node_reserve(
     ** Zero or more of the needed Nodes are available to be
     ** reserved.
     */
+    reinitialize_node_iterator(&iter);
 
-    for (i = 0;i < svr_totnodes;i++)
+    while ((pnode = next_node(&iter)) != NULL)
       {
-      pnode = pbsndlist[i];
-
       if (pnode->nd_state & INUSE_DELETED)
         continue;
 
@@ -4776,7 +4874,8 @@ void free_nodes(
   struct pbsnode *pnode;
 
   struct jobinfo *jp, *prev;
-  int             i;
+
+  node_iterator iter;
 
   if (LOGLEVEL >= 3)
     {
@@ -4791,11 +4890,10 @@ void free_nodes(
     }
 
   /* examine all nodes in cluster */
+  reinitialize_node_iterator(&iter);
 
-  for (i = 0;i < svr_totnodes;i++)
+  while ((pnode = next_node(&iter)) != NULL)
     {
-    pnode = pbsndlist[i];
-
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 

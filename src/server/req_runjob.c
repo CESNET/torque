@@ -1544,6 +1544,8 @@ int set_mother_superior_ports(job *pjob, char *list)
   int  i;
   struct pbsnode *pnode;
 
+  node_iterator *iter;
+
   if(list == NULL)
     {
     return(PBSE_UNKNODEATR);
@@ -1559,10 +1561,10 @@ int set_mother_superior_ports(job *pjob, char *list)
     ptr++;
     }
 
-  for(i = 0; i < svr_totnodes; i++)
-    {
-    pnode = pbsndlist[i];
+  iter = get_node_iterator();
 
+  while ((pnode = next_node(iter)) != NULL)
+    {
     if(!strcasecmp(pnode->nd_name, ms))
       {
       pjob->ji_qs.ji_un.ji_exect.ji_momport = pnode->nd_mom_port;

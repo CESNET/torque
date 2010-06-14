@@ -1132,8 +1132,7 @@ static int status_que(
 
 
 
-
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
 /* instead of getting the status on a node with numa nodes, report
  * the status of all the numa nodes
  *
@@ -1176,8 +1175,7 @@ int get_numa_statuses(
 
   return(rc);
   } /* END get_numa_statuses() */
-#endif /* ENABLE_NUMASUPPORT */
-
+#endif /* NUMA_SUPPORT */
 
 
 
@@ -1274,12 +1272,12 @@ void req_stat_node(
     {
     /* get status of the named node */
 
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
     /* get the status on all of the numa nodes */
     rc = get_numa_statuses(pnode,preq,&preply->brp_un.brp_status);
 #else
     rc = status_node(pnode, preq, &preply->brp_un.brp_status);
-#endif /* ENABLE_NUMASUPPORT */
+#endif /* NUMA_SUPPORT */
     }
   else
     {
@@ -1291,12 +1289,12 @@ void req_stat_node(
 
       if ((type == 2) && !hasprop(pnode, &props))
         continue;
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
       /* get the status on all of the numa nodes */
       rc = get_numa_statuses(pnode,preq,&preply->brp_un.brp_status);
 #else
       if ((rc = status_node(pnode, preq, &preply->brp_un.brp_status)) != 0)
-#endif /* ENABLE_NUMASUPPORT */
+#endif /* NUMA_SUPPORT */
         break;
       }
     }

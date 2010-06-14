@@ -487,7 +487,7 @@ if test "x$GCC" = "xyes" ;then
     AC_MSG_RESULT([yes])
     build_l26_cpuset=yes
     AC_DEFINE(PENABLE_LINUX26_CPUSETS, 1, [Define to enable Linux 2.6 cpusets])
-    CFLAGS="$CFLAGS -DENABLE_NUMASUPPORT"
+    CFLAGS="$CFLAGS -DNUMA_SUPPORT"
   else
     AC_MSG_RESULT([no])
   fi

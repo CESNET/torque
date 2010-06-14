@@ -242,10 +242,10 @@
 #define MAX_RETRY_TIME_IN_SECS  (5 * 60)
 #define STARTING_RETRY_INTERVAL_IN_SECS  2
 
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
 extern int numa_index;
 extern int num_numa_nodes;
-#endif /* ENABLE_NUMASUPPORT */
+#endif /* NUMA_SUPPORT */
 
 
 typedef struct mom_server
@@ -1140,12 +1140,12 @@ void generate_server_status(
   int   BSpace = buffer_size;
 
   /* identify which vnode this is */
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
   MUSNPrintF(&BPtr,&BSpace,"%s%d",NUMA_KEYWORD,numa_index);
   /* advance the buffer values past the NULL */
   BPtr++;
   BSpace--;
-#endif /* ENABLE_NUMASUPPORT */
+#endif /* NUMA_SUPPORT */
 
   for (i = 0;stats[i].name != NULL;i++)
     {
@@ -1303,8 +1303,9 @@ void mom_server_all_update_stat(void)
     log_record(PBSEVENT_SYSTEM, 0, id, "composing status update for server");
     }
 
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
   for (numa_index = 0; numa_index < num_numa_nodes; numa_index++)
+#endif /* NUMA_SUPPORT */
     {
     memset(status_strings, 0, sizeof(status_strings));
 
@@ -1315,16 +1316,6 @@ void mom_server_all_update_stat(void)
       mom_server_update_stat(&mom_servers[sindex],status_strings);
       }
     }
-#else /* ENABLE_NUMASUPPORT */
-
-  generate_server_status(status_strings, sizeof(status_strings));
-  
-  for (sindex = 0;sindex < PBS_MAXSERVER;sindex++)
-    {
-    mom_server_update_stat(&mom_servers[sindex],status_strings);
-    }
-#endif /* ENABLE_NUMASUPPORT */
-
 
   return;
   }  /* END mom_server_all_update_stat() */

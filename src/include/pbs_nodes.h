@@ -86,8 +86,10 @@
 /* NOTE:  requires server_limits.h */
 
 #define BM_ERROR        -20
+#ifdef NUMA_SUPPORT
 #define MAX_NUMA_NODES   2048
 #define NUMA_KEYWORD     "numa"
+#endif /* NUMA_SUPPORT */
 
 enum psit
   {
@@ -129,7 +131,7 @@ struct pbssubn
   };
 
 
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
 typedef struct numanode_t
   {
 
@@ -142,7 +144,14 @@ typedef struct numanode_t
   char           **path_meminfo; /* path to meminfo file */
 
   } numanode;
-#endif /* ENABLE_NUMASUPPORT */
+#endif /* NUMA_SUPPORT */
+
+/* struct used for iterating numa nodes */
+typedef struct node_iterator 
+  {
+  int node_index;
+  int numa_index;
+  } node_iterator;
 
 
 struct pbsnode
@@ -179,11 +188,11 @@ struct pbsnode
   short    nd_order; /* order of user's request */
   time_t                 nd_warnbad;
   time_t                 nd_lastupdate; /* time of last update. */
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
   unsigned short  num_numa_nodes; /* number of numa nodes */
   struct AvlNode *numa_nodes; /* private tree of numa nodes */
   char           *numa_str; /* comma-delimited string of processor values */
-#endif /* ENABLE_NUMASUPPORT */
+#endif /* NUMA_SUPPORT */
   };
 
 struct howl
@@ -335,6 +344,10 @@ extern void recompute_ntype_cnts();
 extern  int create_pbs_node(char *, svrattrl *, int, int *);
 extern  int create_partial_pbs_node(char *, unsigned long, int);
 extern  int mgr_set_node_attr(struct pbsnode *, attribute_def *, int, svrattrl *, int, int *, void *, int);
+
+extern struct pbsnode *next_node(node_iterator *);
+extern node_iterator  *get_node_iterator();
+extern void            reinitialize_node_iterator(node_iterator *);
 
 struct prop  *init_prop(char *pname);
 #endif /* BATCH_REQUEST_H */

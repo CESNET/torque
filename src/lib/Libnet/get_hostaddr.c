@@ -139,7 +139,7 @@ pbs_net_t get_hostaddr(
 
   extern int pbs_errno;
 
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
   /* if this is a numa host, just get the parent node's address */
   char *dash;
 
@@ -165,7 +165,7 @@ pbs_net_t get_hostaddr(
     }
 #else
   hp = gethostbyname(hostname);
-#endif /* ENABLE_NUMASUPPORT */
+#endif /* NUMA_SUPPORT */
 
 
   if (hp == NULL)

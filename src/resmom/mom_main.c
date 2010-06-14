@@ -189,7 +189,7 @@ float  ideal_load_val = -1.0;
 int    internal_state = 0;
 
 /* mom data items */
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
 int            num_numa_nodes;
 numanode       numa_nodes[MAX_NUMA_NODES]; 
 int            numa_index;
@@ -210,9 +210,9 @@ time_t loopcnt;  /* used for MD5 calc */
 float  max_load_val = -1.0;
 int    hostname_specified = 0;
 char   mom_host[PBS_MAXHOSTNAME + 1];
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
 char   mom_name[PBS_MAXHOSTNAME + 1];
-#endif /* ENABLE_NUMASUPPORT */
+#endif /* NUMA_SUPPORT */
 char   TMOMRejectConn[1024];   /* most recent rejected connection */
 char   mom_short_name[PBS_MAXHOSTNAME + 1];
 int    num_var_env;
@@ -321,9 +321,9 @@ extern void     mom_checkpoint_set_directory_path(char *str);
 
 void prepare_child_tasks_for_delete();
 static void mom_lock(int fds, int op);
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
 int bind_to_nodeboard();
-#endif
+#endif /* NUMA_SUPPORT */
 #define PMOMTCPTIMEOUT 60  /* duration in seconds mom TCP requests will block */
 
 
@@ -6629,9 +6629,9 @@ void parse_command_line(
         hostname_specified = 1;
 
         strncpy(mom_host, optarg, PBS_MAXHOSTNAME); /* remember name */
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
         strncpy(mom_name, optarg, PBS_MAXHOSTNAME);
-#endif /* ifdef ENABLE_NUMASUPPORT */
+#endif /* ifdef NUMA_SUPPORT */
 
         break;
 
@@ -6829,9 +6829,9 @@ int setup_program_environment(void)
   int  tryport;
   int  rppfd;  /* fd for rm and im comm */
   int  privfd = 0; /* fd for sending job info */
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
   int  rc;
-#endif /* END ENABLE_NUMASUPPORT */
+#endif /* END NUMA_SUPPORT */
 
   struct sigaction act;
   char         *ptr;            /* local tmp variable */
@@ -7438,7 +7438,7 @@ int setup_program_environment(void)
     return(3);
     }
 
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
   if ((rc = bind_to_nodeboard()) != 0)
     {
     return(rc);
@@ -7447,7 +7447,7 @@ int setup_program_environment(void)
 #else
   snprintf(path_meminfo,sizeof(path_meminfo),"%s",
     "/proc/meminfo");
-#endif /* END ENABLE_NUMASUPPORT */
+#endif /* END NUMA_SUPPORT */
 
   /* recover & abort jobs which were under MOM's control */
 
@@ -8339,11 +8339,12 @@ void restart_mom(
 
 
 
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
 /* 
  * finds the number of elements in a range in this form: num-num
  */
 int parse_range(
+
   char *str) /* I */
 
   {
@@ -8547,7 +8548,7 @@ int bind_to_nodeboard()
 
   return(0);
   } /* END bind_to_nodeboard */
-#endif /* ifdef ENABLE_NUMASUPPORT */
+#endif /* ifdef NUMA_SUPPORT */
 
 
 
@@ -8585,12 +8586,12 @@ int main(
     return(rc);
     }
 
-#ifdef ENABLE_NUMASUPPORT
+#ifdef NUMA_SUPPORT
   if ((rc = bind_to_nodeboard()) != 0)
     {
     return(rc);
     }
-#endif /* ENABLE_NUMASUPPORT */
+#endif /* NUMA_SUPPORT */
 
   main_loop();
 
