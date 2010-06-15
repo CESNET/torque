@@ -516,26 +516,14 @@ void find_bootable_alternatives(server_info *sinfo)
 
 int cloud_check(job_info *jinfo)
 {
-  int is_cluster_create=0;
-  int is_cluster_req=0;
-  resource_req *req_cluster=NULL;
   char *owner=NULL;
   char *group=NULL;
   char *cluster=NULL;
-  struct group *g;
+  struct group *g = NULL;
   int ret=0;
 
-  req_cluster = find_resource_req(jinfo -> resreq, "cluster");
-  if ((req_cluster !=NULL ) && (req_cluster -> res_str != NULL )) {
-      if (strncmp(req_cluster->res_str,"create",6)==0)
-          is_cluster_create=1;
-      else
-          is_cluster_req=1;
-  } else
-      return ret;
-
-  if (is_cluster_req) {
-      cluster = pbs_cache_get_local (req_cluster->res_str, "cluster");
+  if (jinfo->cluster_mode == ClusterUse) {
+      cluster = pbs_cache_get_local (jinfo->cluster_name, "cluster");
 
       if (cluster == NULL)
         {
@@ -587,10 +575,10 @@ perm_done:
         return ret;
   }
 
-  if (is_cluster_create) {
+  if (jinfo->cluster_mode == ClusterCreate) {
       cluster = pbs_cache_get_local (jinfo -> custom_name, "cluster");
       if (cluster != NULL)
-          ret=CLUSTER_RUNNING;
+        ret=CLUSTER_RUNNING;
   }
 
   if (cluster)
