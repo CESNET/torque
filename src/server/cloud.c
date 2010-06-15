@@ -254,9 +254,9 @@ char *get_alternative_name(char *mapping, char *machine)
 
 int cloud_transition_into_prerun(job *pjob)
   {
-  char     *vlanid;
-  char     *cached;
-  resource *pres;
+  char     *vlanid = NULL;
+  char     *cached = NULL;
+  resource *pres = NULL;
 
   svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN_CLOUD);
   if (is_cloud_job_private(pjob))
