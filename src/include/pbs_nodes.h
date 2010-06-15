@@ -305,8 +305,10 @@ enum nodeattr
   ND_ATR_note,
   ND_ATR_mom_port,
   ND_ATR_mom_rm_port,
+#ifdef NUMA_SUPPORT 
   ND_ATR_num_numa_nodes,
   ND_ATR_numa_str,
+#endif /* NUMA_SUPPORT */
   ND_ATR_LAST
   }; /* WARNING: Must be the highest valued enum */
 

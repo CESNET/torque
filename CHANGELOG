@@ -39,6 +39,7 @@ NUMA
   e - server will receive updates for each node from the pbs_mom. Sets 
       numa node properties correctly
   e - server will find numa nodes as it searches through the all nodes list
+  e - mom will correctly launch the jobs 
 
 2.5.0
   f - added full support (server-scheduler-mom) for Cygwin (UIIP NAS of Belarus,

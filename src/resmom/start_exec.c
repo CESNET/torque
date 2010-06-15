@@ -1319,7 +1319,6 @@ int TMomFinalizeJob1(
 {
   static char       *id = "TMomFinalizeJob1";
   
-  torque_socklen_t   slen;
   
   int                 i;
   int                 rc;
@@ -1328,8 +1327,12 @@ int TMomFinalizeJob1(
   attribute          *pattri;
   resource           *presc;
   resource_def   *prd;
-  
+
+#ifndef NUMA_SUPPORT 
+  torque_socklen_t   slen;
   struct sockaddr_in  saddr;
+#endif /* ndef NUMA_SUPPORT */
+
   char                buf[MAXPATHLEN + 2];
   time_t              time_now;
   
@@ -1357,7 +1360,8 @@ int TMomFinalizeJob1(
   TJE->pjob = (void *)pjob;
   
   /* prepare job environment */
-  
+ 
+#ifndef NUMA_SUPPORT  
   if (pjob->ji_numnodes > 1)
       {
       /*
@@ -1399,6 +1403,7 @@ int TMomFinalizeJob1(
       TJE->port_err = (int)ntohs(saddr.sin_port);
       } 
   else
+#endif /* ndef NUMA_SUPPORT */
       {
       TJE->port_out = -1;
       TJE->port_err = -1;
@@ -4973,14 +4978,19 @@ void start_exec( job *pjob )	/* I (modified) */
   {
   static char  *id = "start_exec";
 
+  int nodenum;
+#ifndef NUMA_SUPPORT 
   eventent     *ep;
-  int  i, nodenum, ret;
+  int  i;
+  int ret;
 
   hnodent      *np;
   attribute    *pattr;
   tlist_head    phead;
   svrattrl      *psatl;
   int           stream;
+#endif /* ndef NUMA_SUPPORT */
+
   char          tmpdir[MAXPATHLEN];
   
  
@@ -5075,6 +5085,7 @@ void start_exec( job *pjob )	/* I (modified) */
   /* if nodecount > 1, return once joins are sent, if nodecount == 1,
 	   return once job is started */
 
+#ifndef NUMA_SUPPORT 
   if (nodenum > 1)
 	  {
 	  /* Step 4.0A Send Join Request to Sisters */
@@ -5182,6 +5193,7 @@ void start_exec( job *pjob )	/* I (modified) */
 	  free_attrlist(&phead);
 	  }	 /* END if (nodenum > 1) */
   else
+#endif /* ndef NUMA_SUPPORT */
 	  {
 	  /* Step 4.0B Launch Serial Task Locally */
 	  	  

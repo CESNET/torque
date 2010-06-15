@@ -970,6 +970,10 @@ void free_node(
   pnode->nd_nsn     = 0;
   pnode->nd_nsnfree = 0;
 
+#ifdef NUMA_SUPPORT
+  /* free numa nodes */
+#endif /* NUMA_SUPPORT */
+
   return;
   }  /* END free_node() */
 

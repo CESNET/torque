@@ -795,7 +795,7 @@ int get_cpuset_strings(
     numa_tmp = numa_nodes + numa_index;
     cpu_index = np->vn_index + numa_tmp->cpu_offset;
     ratio = numa_tmp->num_cpus / numa_tmp->num_mems;
-    mem_index = (cpu_index / ratio) + numa_tmp->mem_offset;
+    mem_index = (np->vn_index / ratio) + numa_tmp->mem_offset;
 
     sprintf(tmpStr, "%d", cpu_index);
 
