@@ -489,7 +489,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
   {
   int i, ret = 1;
   pars_prop *iter = spec->properties;
-  repository_alternatives* ra;
+  repository_alternatives** ra;
 
   for (i = 0; i < avail_nodes; i++) /* for each node */
     {
@@ -501,13 +501,13 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
     /* has alternatives */
     if (ninfo_arr[i]->alternatives != NULL && ninfo_arr[i]->alternatives[0] != NULL)
       {
-      ra = ninfo_arr[i]->alternatives[0];
-      while (ra != NULL)
+      ra = ninfo_arr[i]->alternatives;
+      while (*ra != NULL)
         {
         while (iter != NULL)
           {
           if ((get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0) &&
-              (alternative_has_property(ra,iter->name) == 0))
+              (alternative_has_property(*ra,iter->name) == 0))
             break; /* break out of the cycle if not found property */
           iter = iter->next;
           }
@@ -516,7 +516,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
         ra++;
         }
 
-      if (ra == NULL)
+      if (*ra == NULL)
         continue; /* no alternative matching the spec */
       }
     else /* else just do simple iteration */
@@ -541,7 +541,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
     else
       {
       ninfo_arr[i]->temp_assign = clone_pars_spec_node(spec);
-      ninfo_arr[i]->temp_assign_alternative = ra;
+      ninfo_arr[i]->temp_assign_alternative = *ra;
       }
 
     ret = 0;
