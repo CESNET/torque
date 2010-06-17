@@ -13,7 +13,7 @@ setDesc('Qsub -u');
 
 # Submit a job with qsub and get its job id
 my %jobId = runCommandAs($props->get_property('moab.user.one'),'echo /bin/sleep 60 | qsub -u ' . $props->get_property('moab.user.one'));
-ok($jobId{'EXIT_CODE'} == 0,'Chekcing if qsub submission worked') or die("qsub failed with rc=$jobId{'EXIT_CODE'}");
+ok($jobId{'EXIT_CODE'} == 0,'Checking if qsub submission worked') or die("qsub failed with rc=$jobId{'EXIT_CODE'}");
 
 # Run qstat -f on the submitted job and look for User_List
 my $userList = '';
