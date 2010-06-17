@@ -116,6 +116,7 @@ extern int   svr_authorize_jobreq(struct batch_request *, job *);
 extern struct server server;
 extern int  resc_access_perm;
 extern tlist_head svr_alljobs;
+extern tlist_head      svr_jobs_array_sum;
 extern time_t  time_now;
 
 /* Private Functions  */
@@ -371,6 +372,7 @@ static void sel_step2(
   job       *pjob;
   int        rc;
   int        exec_only = 0;
+  int        summarize_arrays = 0;
   pbs_queue *pque = NULL;
 
   /* do first pass of finding jobs that match the selection criteria */
@@ -384,6 +386,8 @@ static void sel_step2(
     {
     if (!strncmp(cntl->sc_origrq->rq_extend, EXECQUEONLY, strlen(EXECQUEONLY)))
       exec_only = 1;
+    else if (!strncmp(cntl->sc_origrq->rq_extend, "summarize_arrays", strlen("summarize_arrays")))
+      summarize_arrays = 1;
     }
 
   while (1)
@@ -394,20 +398,41 @@ static void sel_step2(
      * list (queue or server).
      */
 
-    if (pjob == NULL)
+    if (summarize_arrays)
       {
-      if (cntl->sc_pque)
-        pjob = (job *)GET_NEXT(cntl->sc_pque->qu_jobs);
+      if (pjob == NULL)
+        {
+        if (cntl->sc_pque)
+          pjob = (job *)GET_NEXT(cntl->sc_pque->qu_jobs_array_sum);
+        else
+          pjob = (job *)GET_NEXT(svr_jobs_array_sum);
+        }
+      else if (cntl->sc_pque)
+        {
+        pjob = (job *)GET_NEXT(pjob->ji_jobque_array_sum);
+        }
       else
-        pjob = (job *)GET_NEXT(svr_alljobs);
-      }
-    else if (cntl->sc_pque)
-      {
-      pjob = (job *)GET_NEXT(pjob->ji_jobque);
+        {
+        pjob = (job *)GET_NEXT(pjob->ji_jobs_array_sum);
+        }
       }
     else
       {
-      pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+      if (pjob == NULL)
+        {
+        if (cntl->sc_pque)
+          pjob = (job *)GET_NEXT(cntl->sc_pque->qu_jobs);
+        else
+          pjob = (job *)GET_NEXT(svr_alljobs);
+        }
+      else if (cntl->sc_pque)
+        {
+        pjob = (job *)GET_NEXT(pjob->ji_jobque);
+        }
+      else
+        {
+        pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+        }
       }
 
     if (pjob == NULL)
@@ -470,6 +495,7 @@ static void sel_step3(
 
   {
   int        bad = 0;
+  int        summarize_arrays = 0;
   job       *pjob;
 
   struct batch_request *preq;
@@ -482,6 +508,12 @@ static void sel_step3(
   int        rc = 0;
   int        exec_only = 0;
   pbs_queue           *pque = NULL;
+
+  if (cntl->sc_origrq->rq_extend != NULL)
+    {
+    if (!strncmp(cntl->sc_origrq->rq_extend, "summarize_arrays", strlen("summarize_arrays")))
+      summarize_arrays = 1;
+    }
 
   /* setup the appropriate return */
 
@@ -507,10 +539,22 @@ static void sel_step3(
 
   /* now start checking for jobs that match the selection criteria */
 
-  if (cntl->sc_pque)
-    pjob = (job *)GET_NEXT(cntl->sc_pque->qu_jobs);
+
+  if (summarize_arrays)
+    {
+    if (cntl->sc_pque)
+      pjob = (job *)GET_NEXT(cntl->sc_pque->qu_jobs_array_sum);
+    else
+      pjob = (job *)GET_NEXT(svr_jobs_array_sum);
+    }
   else
-    pjob = (job *)GET_NEXT(svr_alljobs);
+    {
+    if (cntl->sc_pque)
+      pjob = (job *)GET_NEXT(cntl->sc_pque->qu_jobs);
+    else
+      pjob = (job *)GET_NEXT(svr_alljobs);
+    }
+
 
   while (pjob != NULL)
     {
@@ -565,10 +609,20 @@ static void sel_step3(
 
 nextjob:
 
-    if (cntl->sc_pque)
-      pjob = (job *)GET_NEXT(pjob->ji_jobque);
+    if(summarize_arrays)
+      {
+      if (cntl->sc_pque)
+        pjob = (job *)GET_NEXT(pjob->ji_jobque_array_sum);
+      else
+        pjob = (job *)GET_NEXT(pjob->ji_jobs_array_sum);
+      }
     else
-      pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+      {
+      if (cntl->sc_pque)
+        pjob = (job *)GET_NEXT(pjob->ji_jobque);
+      else
+        pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+      }
     }
 
   free_sellist(cntl->sc_select);
