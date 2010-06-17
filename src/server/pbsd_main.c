@@ -277,9 +277,7 @@ char           *NodeSuffix = NULL;
 
 int allow_any_mom = FALSE;
 
-
-void
-DIS_rpp_reset(void)
+void DIS_rpp_reset(void)
 
   {
   if (dis_getc != rpp_getc)

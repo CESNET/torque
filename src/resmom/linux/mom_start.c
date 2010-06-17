@@ -329,8 +329,8 @@ void scan_for_terminated(void)
   task *ptask = NULL;
   int  statloc;
 #ifdef USESAVEDRESOURCES
-  int  update_stats = TRUE;
-#endif    /* USESAVEDRESOURCES */
+  int update_stats = TRUE;
+#endif /* USESAVEDRESOURCES */
 
   int    tcount;
 
@@ -359,10 +359,10 @@ void scan_for_terminated(void)
       ptask = (task *)GET_NEXT(pjob->ji_tasks);
 
       /*
-      ** check task with associated process id to see if we are recovering
-      ** after a mom restart where process completed while we were gone
-      */
-
+       ** check task with associated process id to see if we are recovering
+       ** after a mom restart where process completed while we were gone
+        */
+      
       while (ptask != NULL)
         {
         if (ptask->ti_flags & TI_FLAGS_RECOVERY)
@@ -378,15 +378,15 @@ void scan_for_terminated(void)
               pjob->ji_qs.ji_jobid,
               log_buffer);
             }
-
+          
           update_stats = FALSE;
           break;
           }
 
         ptask = (task *)GET_NEXT(ptask->ti_jobtask);
-
+        
         }  /* END while (ptask) */
-
+      
       if (update_stats)
         {
         mom_set_use(pjob);
@@ -395,7 +395,7 @@ void scan_for_terminated(void)
 
       mom_set_use(pjob);
 
-#endif    /* USESAVEDRESOURCES */
+#endif /* USESAVEDRESOURCES */
 
       pjob = (job *)GET_PRIOR(pjob->ji_alljobs);
       }

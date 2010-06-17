@@ -1241,6 +1241,18 @@ void display_statjob(
             }
           }
 
+        if (alias_opt == TRUE)
+          {
+          /* show the alias as well as the first part of the server name */
+          if (*c == '.')
+            {
+            c++;
+
+            while((*c != '.') && (*c != '\0'))
+              c++;
+            }
+          }
+
         c++;    /* List the first part of the server name, too. */
 
         while ((*c != '.') && (*c != '\0'))

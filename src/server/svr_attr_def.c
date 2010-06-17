@@ -1128,7 +1128,7 @@ attribute_def svr_attr_def[] =
   },
 
   /* SRV_ATR_MaxArraySize */
-  {  ATTR_maxarraysize,            /* "max_job_array_size" */
+  {  ATTR_maxarraysize,           /* max_job_array_size */
      decode_l,
      encode_l,
      set_l,
@@ -1141,7 +1141,7 @@ attribute_def svr_attr_def[] =
   },
 
   /* SRV_ATR_MaxSlotLimit */
-  {  ATTR_maxslotlimit,      /* "max_slot_limit" */
+  {  ATTR_maxslotlimit,           /* max_slot_limit */
      decode_l,
      encode_l,
      set_l,

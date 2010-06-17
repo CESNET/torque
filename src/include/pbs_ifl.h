@@ -368,9 +368,10 @@
 
 /* WARNING: be careful changing these PBS_MAX* values.  They can result in a
    change in the structure of the .JB file, and binary incompatibilities between
-   versions of TORQUE.  Do not change in a -fixes branch, avoid changin in 
-   a minor release if possible*/
-   
+   versions of TORQUE.  Do not change in a -fixes branch, avoid changing in
+   a minor release if possible */
+
+
 
 #define PBS_MAXHOSTNAME  1024 /* max host name length */
 #ifndef MAXPATHLEN

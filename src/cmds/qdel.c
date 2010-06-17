@@ -155,15 +155,6 @@ int main(
           break;
           }
 
-        if (strchr(optarg, '='))
-          {
-          /* message cannot contain '=' character */
-
-          errflg++;
-
-          break;
-          }
-
         strncpy(extend, optarg, sizeof(extend));
 
         break;
@@ -180,6 +171,32 @@ int main(
         strcpy(extend, DELPURGE);
 
         strcat(extend, "1");
+
+        break;
+
+      case 't':
+
+        if (extend[0] != '\0')
+          {
+          errflg++;
+
+          break;
+          }
+
+        pc = optarg;
+
+        if (strlen(pc) == 0)
+          {
+          fprintf(stderr, "qdel: illegal -t value (array range cannot be zero length)\n");
+
+          errflg++;
+
+          break;
+          }
+
+        snprintf(extend,sizeof(extend),"%s%s",
+          ARRAY_RANGE,
+          pc);
 
         break;
 

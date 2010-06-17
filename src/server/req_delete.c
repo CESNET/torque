@@ -235,6 +235,8 @@ void ensure_deleted(
   } /* ensure_deleted */
 
 
+
+
 /*
  * req_deletejob - service the Delete Job Request
  *
@@ -645,6 +647,20 @@ jump:
       append_link(&pjob->ji_svrtask, &pwtcheck->wt_linkobj, pwtcheck);
     }
 
+  /* make a cleanup task if set */
+  if ((server.sv_attr[SRV_ATR_JobForceCancelTime].at_flags & ATR_VFLAG_SET) &&
+      (server.sv_attr[SRV_ATR_JobForceCancelTime].at_val.at_long > 0))
+    {
+    pwtcheck = set_task(
+        WORK_Timed,
+        time_now + server.sv_attr[SRV_ATR_JobForceCancelTime].at_val.at_long,
+        ensure_deleted,
+        preq);
+    
+    if (pwtcheck != NULL)
+      append_link(&pjob->ji_svrtask, &pwtcheck->wt_linkobj, pwtcheck);
+    }
+
   reply_ack(preq);
 
   return;
@@ -984,6 +1000,12 @@ void remove_job_delete_nanny(
   {
 
   struct work_task *pwtiter, *pwtdel;
+
+  if (pjob->ji_svrtask.ll_next == NULL)
+    {
+    /* no nanny, nothing to delete */
+    return;
+    }
 
   if (pjob->ji_svrtask.ll_next == NULL)
     {
