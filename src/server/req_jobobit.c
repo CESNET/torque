@@ -107,6 +107,7 @@
 #include "svrfunc.h"
 #include "sched_cmds.h"
 #include "queue.h"
+#include "array.h"
 
 
 #define RESC_USED_BUF 2048
@@ -2653,6 +2654,14 @@ void req_jobobit(
       }
 
     ptask = set_task(WORK_Immed, 0, on_job_exit, (void *)pjob);
+
+    /* decrease array running job count */
+    if ((pjob->ji_arraystruct != NULL) &&
+        (pjob->ji_is_array_template == FALSE))
+      {
+      update_array_values(pjob->ji_arraystruct,
+        pjob,JOB_STATE_RUNNING,aeTerminate);
+      }
 
     if (ptask != NULL)
       {
