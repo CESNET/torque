@@ -99,11 +99,17 @@
 /* Define to 1 if you have the `elf' library (-lelf). */
 #undef HAVE_LIBELF
 
+/* Define to 1 if you have the `job' library (-ljob). */
+#undef HAVE_LIBJOB
+
 /* Define to 1 if you have the `kvm' library (-lkvm). */
 #undef HAVE_LIBKVM
 
 /* Define to 1 if you have the `nsl' library (-lnsl). */
 #undef HAVE_LIBNSL
+
+/* Define to 1 if you have the `resolv' library (-lresolv). */
+#undef HAVE_LIBRESOLV
 
 /* Define to 1 if you have the `socket' library (-lsocket). */
 #undef HAVE_LIBSOCKET
@@ -113,6 +119,9 @@
 
 /* Define if lseek64() is available */
 #undef HAVE_LSEEK64
+
+/* Define to 1 if you have the <mach/shared_region.h> header file. */
+#undef HAVE_MACH_SHARED_REGION_H
 
 /* Define to 1 if you have the <malloc.h> header file. */
 #undef HAVE_MALLOC_H
@@ -302,6 +311,9 @@
 /* defined if this is an SP2 */
 #undef IBM_SP2
 
+/* Define if open64, stat64, and friends work */
+#undef LARGEFILE_WORKS
+
 /* the machine specific resc_def_* file name */
 #undef MACH_RESC_DEFS
 
@@ -410,8 +422,8 @@
 /* turns on the compilation of QUICKCOMMIT code */
 #undef QUICKCOMMIT
 
-/* turns on the compilation of RESOURCEMAXNOTDEFAULT code */
-#undef RESOURCEMAXNOTDEFAULT
+/* turns on the compilation of RESOURCEMAXDEFAULT code */
+#undef RESOURCEMAXDEFAULT
 
 /* Define to enable RPP resource queries */
 #undef RPP
@@ -555,16 +567,6 @@
 #ifndef __GNUC__
 #       define __attribute__ /* nothing */
 #endif
-
-#ifdef __CYGWIN__
-/* sys/types.h from cygwin fails to define uid_t and gid_t */
-#ifndef uid_t
-#define uid_t int
-#endif
-#ifndef gid_t
-#define gid_t int
-#endif
-#endif  /* __CYGWIN__  */
 
 
 
