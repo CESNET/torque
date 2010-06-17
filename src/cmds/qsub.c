@@ -544,7 +544,7 @@ char *smart_strtok(
   *ptrPtr = ptr;
 
   return(head);
-  } /* END smarter_strtok */
+  } /* END smart_strtok */
 
 
 
@@ -1183,6 +1183,7 @@ int p_opt = FALSE;
 int q_opt = FALSE;
 int r_opt = FALSE;
 int t_opt = FALSE;
+int T_opt = FALSE;
 int u_opt = FALSE;
 int v_opt = FALSE;
 int z_opt = FALSE;
@@ -3614,9 +3615,9 @@ int process_opts(
 
       case 'T':
 
-        if_cmd_line(t_opt)
+        if_cmd_line(T_opt)
           {
-          t_opt = passet;
+          T_opt = passet;
 
           /* validate before sending request to server? */
 
@@ -4555,6 +4556,17 @@ int main(
     if ((param_val = get_param("QSUBSENDUID", config_buf)) != NULL)
       {
       sprintf(owner_uid, "%d", (int)getuid());
+      }
+
+    if ((param_val = get_param("QSUBSENDGROUPLIST", config_buf)) != NULL)
+      {
+      gid_t group_id = getgid();
+      struct group *gpent = getgrgid(group_id);
+
+      if (gpent != NULL)
+        {
+        set_attr(&attrib, ATTR_g, gpent->gr_name);
+        }
       }
 
     if ((param_val = get_param("QSUBSENDGROUPLIST", config_buf)) != NULL)
