@@ -541,7 +541,10 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
     else
       {
       ninfo_arr[i]->temp_assign = clone_pars_spec_node(spec);
-      ninfo_arr[i]->temp_assign_alternative = *ra;
+      if (ra != NULL)
+        ninfo_arr[i]->temp_assign_alternative = *ra;
+      else
+        ninfo_arr[i]->temp_assign_alternative = NULL; /* FIXME META Prepsat do citelneho stavu */
       }
 
     ret = 0;
