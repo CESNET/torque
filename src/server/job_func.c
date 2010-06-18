@@ -170,6 +170,7 @@ extern int   LOGLEVEL;
 
 extern tlist_head svr_newjobs;
 extern tlist_head svr_alljobs;
+extern tlist_head svr_jobs_array_sum;
 extern char *path_checkpoint;
 
 extern struct batch_request *setup_cpyfiles(struct batch_request *, job *, char *, char *, int, int);
@@ -1855,13 +1856,23 @@ job *find_job(
   {
   char *at;
   char *comp = NULL;
+  int   array = FALSE;
 
   job  *pj;
 
   if ((at = strchr(jobid, (int)'@')) != NULL)
     * at = '\0'; /* strip off @server_name */
 
-  pj = (job *)GET_NEXT(svr_alljobs);
+  /* if its the name of a job array, look in the other list */
+  if (strstr(jobid,"[]") != NULL)
+    {
+    pj = (job *)GET_NEXT(svr_jobs_array_sum);
+    array = TRUE;
+    }
+  else
+    {
+    pj = (job *)GET_NEXT(svr_alljobs);
+    }
 
   while (pj != NULL)
     {
@@ -1888,7 +1899,14 @@ job *find_job(
         }
       }
 
-    pj = (job *)GET_NEXT(pj->ji_alljobs);
+    if (array == TRUE)
+      {
+      pj = (job *)GET_NEXT(pj->ji_jobs_array_sum);
+      }
+    else
+      {
+      pj = (job *)GET_NEXT(pj->ji_alljobs);
+      }
     }
 
   if (at)
