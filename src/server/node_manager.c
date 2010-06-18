@@ -2476,6 +2476,13 @@ int hasprop(
         break;  /* found it */
       }
 
+    if (pp == NULL) /* if its not a normal property, check aditional properties */
+    for (pp = pnode->x_ad_prop; pp != NULL; pp = pp->next)
+      {
+      if (strcmp(pp->name, need->name) == 0)
+        break; /* found it */
+      }
+
     if (pp == NULL)
       {
       return(0);
