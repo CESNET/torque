@@ -11,22 +11,107 @@ use CRI::Test;
 use Carp;
 
 use Torque::Util::Qstat qw(
-                                    parse_qstat_fx
-                                 );
-use Torque::Job::Utils         qw(
-                                    cleanupJobId
-                                    detaintJobId
-                                 );
+                             parse_qstat_fx
+                          );
+use Torque::Job::Utils  qw(
+                             cleanupJobId
+                             detaintJobId
+                          );
 
 use base 'Exporter';
 
 our @EXPORT = qw(
+                qsub
                 submitJob
                 submitSleepJob
                 submitCheckpointJob
                 runJobs 
                 delJobs
                 );
+
+#------------------------------------------------------------------------------
+# $job_id = qsub(); 
+# $job_id = qsub({
+#                 'qsub_loc'     => '/usr/test/torque/tools/qsub.special.pl',
+#                 'flags'        => '-A account1',
+#                 'cmd'          => 'sleep 600',
+#                 'user'         => 'testuser1',
+#                 'runcmd_flags' => { 'test_fail_die' => 1 }
+#               }); 
+# $job_id = qsub({
+#                 'qsub_loc'     => '/usr/test/torque/tools/qsub.special.pl',
+#                 'flags'        => '-A account1',
+#                 'user'         => 'testuser1',
+#                 'runcmd_flags' => { 'test_fail_die' => 1 },
+#                 'script'       => '/tmp/test.pl',
+#                 'full_jobid'   => 1
+#               }); 
+#------------------------------------------------------------------------------
+#
+# Submits a job using the qsub command and returns the job id.
+#
+# NOTE: If the 'script' parameter is given it will override the 'cmd' parameter
+#       if it is given as well.
+#
+#------------------------------------------------------------------------------
+sub qsub #($) 
+  {
+  
+  my ($params) = @_; 
+
+  # Variables
+  my $qsub_loc     = $params->{ 'qsub_loc'     } || $props->get_property("Torque.Home.Dir") . "/bin/qsub";
+  my $flags        = $params->{ 'flags'        } || '';
+  my $cmd          = $params->{ 'cmd'          } || 'sleep 300' unless exists $params->{script};
+  my $user         = $params->{ 'user'         } || $props->get_property("moab.user.one");
+  my $runcmd_flags = $params->{ 'runcmd_flags' } || { 'test_success_die' => 1 };
+  my $full_jobid   = $params->{ 'full_jobid'   } || 1;
+  my $script 	     = $params->{ 'script'       } if exists $params->{script};
+
+  # Create the command
+  my $qsub     = $qsub_loc;
+  $qsub       .= " $flags" 
+    if defined $flags;
+  $qsub        = "echo '$cmd' | $qsub"
+    if defined $cmd;
+  $qsub        = "$qsub $script"
+    if defined $script;
+
+  my $job_regex = undef;
+  if ($full_jobid)
+    {
+
+    $job_regex = qr/(\S+)/;
+
+    } # END if ($full_jobid)
+  else
+    {
+
+    $job_regex = qr/(\d+(\[\])?)/;
+
+    } # END else
+
+  # Submit the job
+  my %qsub_result = runCommandAs($user, $qsub, %$runcmd_flags );
+
+  # Get the job_id, using the regex detaints the value as well
+  my $job_id = $qsub_result{ 'STDOUT' };
+  if ($job_id =~ $job_regex)  
+    { 
+  
+    $job_id = $1; 
+  
+    } # END if ($job_id =~ /(\S+)/)  
+  else
+    {
+
+    $job_id = undef;
+
+    } # END else
+
+  return $job_id;
+
+  } # END qsub #($) 
 
 ###############################################################################
 # submitSleepJob 
@@ -174,19 +259,37 @@ sub submitJob #($)
 sub runJobs #(@)
   {
 
+  # Gather Parameters
   my @job_ids = @_;
+  my $params  = {};
 
+  if (ref $job_ids[0] eq 'HASH')
+    {
+
+    $params  = $job_ids[0];
+    @job_ids = @{ $params->{ 'job_ids' } }
+
+    } # END if (ref $job_ids[0] eq 'HASH')
+
+  # Variables
+  my $run_cmd_flags = $params->{ 'run_cmd_flags' } || { 'test_success' => 1 };
+
+  my @qruns        = ();
+
+  # Run the jobs
   foreach my $job_id (@job_ids)
     {
   
     $job_id = cleanupJobId($job_id);
 
     my $cmd  = "qrun $job_id";
-    my %qrun = runCommand($cmd);
-    ok($qrun{ 'EXIT_CODE' } == 0, "Checking that '$cmd' ran successfully")
-      or diag ("STDERR: $qrun{ 'STDERR' }");
+    my %qrun = runCommand($cmd, %$run_cmd_flags);
+
+    push(@qruns, \%qrun);
 
     } # END foreach my $job_id (@job_ids)
+
+  return \@qruns;
 
   } # END runJobs #(@)
 
@@ -199,7 +302,7 @@ sub delJobs #(@)
   my @job_ids = @_;
 
   # Variables
-  my $job_str = join(" ", @job_ids);
+  my $job_str = join(" ", @job_ids) || 'ALL';
   my $cmd     = "qdel -p $job_str";
   my $result;
 
