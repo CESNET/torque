@@ -1,6 +1,11 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
 2.4.9
+  b -Made a fix to qmgr.c in is_attr. When checking node names against
+     attribute keywords is_attr used strncmp and limited the length of the
+     compare to the length of the keyword. So node names like stateless
+     were tagged as an error. I replaced strncmp with strcmp. This fix was
+     added to trunk first. Version 2.5.0
   b - Bugzilla bug 57. Check return value of malloc for tracejob for Linux
       (Chris Samuel - Univ. of Melbourne)
   b - fix so "gres" config gets displayed by pbsnodes
