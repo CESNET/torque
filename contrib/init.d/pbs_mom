@@ -77,7 +77,7 @@ case "$1" in
 		;;
 	reload)
 	        echo -n "Re-reading TORQUE Mom config file: "
-		kill -SIGHUP `pidof_pbs_mom` && success "HUP" || failure "HUP"
+		kill -HUP `pidof_pbs_mom` && success "HUP" || failure "HUP"
 		echo
 	        ;;
 	*)
