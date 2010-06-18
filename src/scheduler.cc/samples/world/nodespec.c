@@ -125,6 +125,17 @@ int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starv
     /* the property is not a resource */
     iter = ninfo->properties;
 
+    if (iter != NULL)
+    while (*iter != NULL)
+      {
+      if (strcmp(*iter,property->name) == 0)
+        return 1;
+
+      iter++;
+      }
+
+    iter = ninfo->adproperties;
+
     if (iter == NULL)
       return 0;
 
@@ -135,6 +146,7 @@ int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starv
 
       iter++;
       }
+
     }
   else /* resource or ppn */
     {
@@ -218,9 +230,7 @@ int get_node_has_property(node_info *ninfo, const char* property)
   /* the property is not a resource */
   iter = ninfo->properties;
 
-  if (iter == NULL)
-    return 0;
-
+  if (iter != NULL)
   while (*iter != NULL)
     {
     if (strcmp(*iter,property) == 0)
@@ -230,6 +240,20 @@ int get_node_has_property(node_info *ninfo, const char* property)
 
     iter++;
     }
+
+  iter = ninfo->adproperties;
+
+  if (iter != NULL)
+  while (*iter != NULL)
+    {
+    if (strcmp(*iter,property) == 0)
+      {
+      return 1;
+      }
+
+    iter++;
+    }
+
   return 0;
   }
 
@@ -499,7 +523,8 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
     /* check nodespec */
     ra = NULL;
     /* has alternatives */
-    if (ninfo_arr[i]->alternatives != NULL && ninfo_arr[i]->alternatives[0] != NULL)
+    if (jinfo->cluster_mode==ClusterCreate && ninfo_arr[i]->alternatives != NULL
+        && ninfo_arr[i]->alternatives[0] != NULL)
       {
       ra = ninfo_arr[i]->alternatives;
       while (*ra != NULL)

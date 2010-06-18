@@ -203,6 +203,9 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
     else if (!strcmp(attrp -> name, ATTR_NODE_properties))
       ninfo -> properties = break_comma_list(attrp -> value);
 
+    else if (!strcmp(attrp -> name, ATTR_NODE_adproperties))
+      ninfo -> adproperties = break_comma_list(attrp -> value);
+
     /* the jobs running on the node */
     else if (!strcmp(attrp -> name, ATTR_NODE_jobs))
       ninfo -> jobs = break_comma_list(attrp -> value);
@@ -309,6 +312,7 @@ node_info *new_node_info()
 
   new -> name = NULL;
   new -> properties = NULL;
+  new -> adproperties = NULL;
   new -> jobs = NULL;
   new -> big_status = NULL;
   new -> queue = NULL;
@@ -376,6 +380,7 @@ void free_node_info(node_info *ninfo)
     {
     free(ninfo -> name);
     free_string_array(ninfo -> properties);
+    free_string_array(ninfo -> adproperties);
     free_string_array(ninfo -> jobs);
     free(ninfo -> arch);
     free_string_array(ninfo -> big_status);
@@ -902,6 +907,22 @@ void print_node(node_info *ninfo, int brief)
 
         printf("\n");
         }
+
+      if (ninfo -> adproperties != NULL)
+        {
+        printf("Additional Properties: ");
+
+        for (i = 0; ninfo -> adproperties[i] != NULL; i++)
+          {
+          if (i)
+            printf(", ");
+
+          printf("%s", ninfo -> adproperties[i]);
+          }
+
+        printf("\n");
+        }
+
 
       if (ninfo -> res != NULL)
         {

@@ -325,6 +325,7 @@ unsigned is_bootable:
 
   char *name;   /* name of the node */
   char **properties;  /* the node properties */
+  char **adproperties; /* additional properties */
   char **jobs;   /* the jobs currently running on the node */
   char **big_status; /**< List of status strings */
 
