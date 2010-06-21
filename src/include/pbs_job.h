@@ -101,6 +101,8 @@
 struct job_array;
 #endif
 
+#include "server_limits.h"
+
 /*
  * Dependent Job Structures
  *
