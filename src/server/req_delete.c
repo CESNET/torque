@@ -507,10 +507,7 @@ void req_deletejob(
       if ((cluster->rs_value.at_flags & ATR_VFLAG_SET) == 0)
         continue;
 
-      if (strlen(cluster->rs_value.at_val.at_str) <= 7)
-        continue;
-
-      if (strncmp(cluster->rs_value.at_val.at_str+6,name,strlen(name)) != 0)
+      if (strncmp(cluster->rs_value.at_val.at_str,name,strlen(name)) != 0)
         continue;
 
       cloud_bussy = 1;
