@@ -2596,7 +2596,7 @@ void req_jobobit(
   /* What do we now do with the job... */
   if (is_cloud_job(pjob))
     {
-    job * ojob;
+    job *ojob, *tjob;
     char * name;
 
     log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "Cloud job obit received, purging cloud.");
@@ -2638,7 +2638,9 @@ void req_jobobit(
 
       log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Purging job from cloud.");
 
+      tjob = (job *)GET_PRIOR(ojob->ji_alljobs); /* move one back, so we can purge this one */
       job_purge(ojob);
+      ojob = tjob;
       }  /* END for (ojob) */
     }
 

@@ -482,7 +482,7 @@ void req_deletejob(
 
   if (is_cloud_job(pjob) && pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING)
     {
-    job * ojob;
+    job *ojob, *tjob;
     int cloud_bussy = 0;
     char * name;
 
@@ -520,7 +520,9 @@ void req_deletejob(
       else
         {
         log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Purging job from cloud.");
+        tjob = (job *)GET_PRIOR(ojob->ji_alljobs); /* move one back, so we can purge this one */
         job_purge(ojob);
+        ojob = tjob;
         }
       }  /* END for (ojob) */
 
