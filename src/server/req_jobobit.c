@@ -2599,6 +2599,8 @@ void req_jobobit(
     job * ojob;
     char * name;
 
+    log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "Cloud job obit received, purging cloud.");
+
     /* job does not have name */
     if ((pjob->ji_wattr[(int)JOB_ATR_jobname].at_flags & ATR_VFLAG_SET) == 0)
       goto post_cloud;
@@ -2626,6 +2628,8 @@ void req_jobobit(
 
       if (strncmp(cluster->rs_value.at_val.at_str+6,name,strlen(name)) != 0)
         continue;
+
+      log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Purging job from cloud.");
 
       job_purge(ojob);
       }  /* END for (ojob) */
