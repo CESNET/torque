@@ -2072,6 +2072,7 @@ int is_attr(
   int   attr_type)
 
   {
+
   static char *svr_public_attrs[] =
     {
 #include "qmgr_svr_public.h"
@@ -2115,6 +2116,7 @@ int is_attr(
   char **attr_public = NULL;
   char **attr_readonly = NULL;
   int ret = FALSE;
+  char *name_ptr = NULL, *dupname = NULL;
 
   if (object == MGR_OBJ_SERVER)
     {
@@ -2132,12 +2134,24 @@ int is_attr(
     attr_readonly = node_readonly_attrs;
     }
 
+  dupname = strdup(name);
+  if(dupname == NULL)
+    {
+    return(FALSE);
+    }
+
+  name_ptr = strchr(dupname, '.');
+  if(name_ptr)
+    {
+    *name_ptr = 0;
+    }
+
   if (attr_public != NULL && (attr_type & TYPE_ATTR_PUBLIC))
     {
     while (*attr_public != NULL && ret == FALSE)
       {
       /* if (strncmp(name, *attr_public, strlen(*attr_public)) == 0) */
-      if (strcmp(name, *attr_public) == 0)
+      if (strcmp(dupname, *attr_public) == 0)
         ret =  TRUE;
 
       attr_public++;
@@ -2149,11 +2163,16 @@ int is_attr(
     while (*attr_readonly != NULL && ret == FALSE)
       {
       /* if (strncmp(name, *attr_readonly, strlen(*attr_readonly)) == 0) */
-      if (strcmp(name, *attr_readonly) == 0)
+      if (strcmp(dupname, *attr_readonly) == 0)
         ret = TRUE;
 
       attr_readonly++;
       }
+    }
+
+  if(dupname)
+    {
+    free(dupname);
     }
 
   return(ret);
