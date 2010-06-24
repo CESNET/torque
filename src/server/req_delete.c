@@ -105,6 +105,7 @@
 #include "acct.h"
 #include "log.h"
 #include "svrfunc.h"
+#include "cloud.h"
 
 
 /* Global Data Items: */
@@ -436,10 +437,11 @@ void req_deletejob(
         goto jump;
         }
 
-      if (time_now - cycle_check_when > 20)
+      if (((!is_cloud_job(pjob)) && (time_now - cycle_check_when > 20)) ||
+          /* give up after 20 seconds if this is not a cloud job*/
+          (  is_cloud_job(pjob)  && (time_now - cycle_check_when > 300)))
+          /* give up after 5 minutes if this is a cloud job */
         {
-        /* give up after 20 seconds */
-
         cycle_check_jid[0] = '\0';
         cycle_check_when  = 0;
         }
@@ -472,6 +474,69 @@ void req_deletejob(
 
     return;
     }  /* END if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN) */
+
+  /* Special handling for cloud jobs
+   *
+   * If this is a request to delete a running cloud job, also delete all jobs inside the cloud.
+   */
+
+  if (is_cloud_job(pjob) && pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING)
+    {
+    job * ojob;
+    int cloud_bussy = 0;
+    char * name;
+
+    /* job does not have name */
+    if ((pjob->ji_wattr[(int)JOB_ATR_jobname].at_flags & ATR_VFLAG_SET) == 0)
+      goto jump;
+
+    name = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
+
+    for (ojob = (job *)GET_NEXT(svr_alljobs);
+         ojob != NULL;
+         ojob = (job *)GET_NEXT(ojob->ji_alljobs))
+      {
+      resource * cluster = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],
+                             find_resc_def(svr_resc_def, "cluster", svr_resc_size));
+
+      if (cluster == NULL)
+          continue;
+
+      if ((cluster->rs_value.at_flags & ATR_VFLAG_SET) == 0)
+        continue;
+
+      if (strlen(cluster->rs_value.at_val.at_str) <= 7)
+        continue;
+
+      if (strncmp(cluster->rs_value.at_val.at_str+6,name,strlen(name)) != 0)
+        continue;
+
+      cloud_bussy = 1;
+
+      if (ojob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING )
+        {
+        issue_signal(ojob,sigt,release_req,0);
+        }
+      else
+        {
+        job_purge(ojob);
+        }
+      }  /* END for (ojob) */
+
+    if (cloud_bussy)
+      {
+      pwtnew = set_task(
+                 WORK_Timed,
+                 time_now + 15, /* give the cloud some time to process this */
+                 post_delete_route,
+                 preq);
+
+      if (pwtnew == 0)
+        req_reject(PBSE_SYSTEM, 0, preq, NULL, NULL);
+
+      return;
+      }
+    }
 
 jump:
 

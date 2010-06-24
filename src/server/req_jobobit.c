@@ -2595,7 +2595,43 @@ void req_jobobit(
 
   /* What do we now do with the job... */
   if (is_cloud_job(pjob))
+    {
+    job * ojob;
+    char * name;
+
+    /* job does not have name */
+    if ((pjob->ji_wattr[(int)JOB_ATR_jobname].at_flags & ATR_VFLAG_SET) == 0)
+      goto post_cloud;
+
+    name = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
+
     cloud_transition_into_stopped(pjob);
+
+    /* all slave jobs that were running inside the cloud are definitely dead by now */
+    for (ojob = (job *)GET_NEXT(svr_alljobs);
+         ojob != NULL;
+         ojob = (job *)GET_NEXT(ojob->ji_alljobs))
+      {
+      resource * cluster = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],
+                            find_resc_def(svr_resc_def, "cluster", svr_resc_size));
+
+      if (cluster == NULL)
+        continue;
+
+      if ((cluster->rs_value.at_flags & ATR_VFLAG_SET) == 0)
+        continue;
+
+      if (strlen(cluster->rs_value.at_val.at_str) <= 7)
+        continue;
+
+      if (strncmp(cluster->rs_value.at_val.at_str+6,name,strlen(name)) != 0)
+        continue;
+
+      job_purge(ojob);
+      }  /* END for (ojob) */
+    }
+
+post_cloud:
 
   if (((pjob->ji_qs.ji_substate != JOB_SUBSTATE_RERUN) &&
       (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RERUN1)) ||
