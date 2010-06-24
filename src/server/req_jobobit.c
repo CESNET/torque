@@ -2614,17 +2614,27 @@ void req_jobobit(
          ojob != NULL;
          ojob = (job *)GET_NEXT(ojob->ji_alljobs))
       {
-      resource * cluster = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],
+      resource * cluster = find_resc_entry(&ojob->ji_wattr[(int)JOB_ATR_resource],
                             find_resc_def(svr_resc_def, "cluster", svr_resc_size));
 
       if (cluster == NULL)
+        {
+        log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Not killing, not a cloud request.");
         continue;
+        }
+
 
       if ((cluster->rs_value.at_flags & ATR_VFLAG_SET) == 0)
+        {
+        log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Not killing, not a cloud request.");
         continue;
+        }
 
       if (strncmp(cluster->rs_value.at_val.at_str,name,strlen(name)) != 0)
+        {
+        log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Not killing, does not belong to killed cloud.");
         continue;
+        }
 
       log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Purging job from cloud.");
 
