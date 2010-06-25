@@ -1,6 +1,15 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
 2.4.9
+  e - Patch to correctly log attempts to create a cpuset as debug messages.
+      The function im_request() in src/resmom/mom_comm.c logs the message:
+      pbs_mom: LOG_ERROR::im_request, about to create cpuset for job 55100.blah.
+       as an error rather than a debug message (as used in src/resmom/start_exec.c).
+       The fix is to replace:
+       log_err(-1, id, log_buffer);
+      with:
+       log_ext(-1, id, log_buffer, LOG_INFO);
+
   b - Modified fix in qmgr.c in is_attr to check for the '.' character
       on resource attributes such as resources_available.nodect. The 
       attribute is striped of the '.' and the element and just the attribute
