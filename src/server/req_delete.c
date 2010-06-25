@@ -1190,19 +1190,38 @@ static void post_job_delete_nanny(
     }
   else if (rc == PBSE_UNKJOBID)
     {
-    sprintf(log_buffer, "job delete nanny returned, but does not exist on mom");
+    if(pjob->ji_qs.ji_state == JOB_STATE_QUEUED)
+      {
+      /* great, rerun worked. Nothing to do here */
+      sprintf(log_buffer,"job delete nanny returned, job is queued now");
 
-    LOG_EVENT(
-      PBSEVENT_ERROR,
-      PBS_EVENTCLASS_JOB,
-      preq_sig->rq_ind.rq_signal.rq_jid,
-      log_buffer);
+      LOG_EVENT(
+        PBSEVENT_ERROR, 
+        PBS_EVENTCLASS_JOB,
+        preq_sig->rq_ind.rq_signal.rq_jid, 
+        log_buffer);
 
-    free_nodes(pjob);
+      fprintf(stderr,"%s",log_buffer);
 
-    set_resc_assigned(pjob, DECR);
+      }
+    else
+      {
+      sprintf(log_buffer,"job delete nanny returned, but does not exist on mom");
 
-    job_purge(pjob);
+      LOG_EVENT(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        preq_sig->rq_ind.rq_signal.rq_jid,
+        log_buffer);
+      
+
+      fprintf(stderr, "%s", log_buffer);
+      free_nodes(pjob);
+
+      set_resc_assigned(pjob, DECR);
+
+      job_purge(pjob);
+      }
     }
 
   /* free task */
