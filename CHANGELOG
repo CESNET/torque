@@ -1,5 +1,14 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 3.0-alpha
+  e - Patch to correctly log attempts to create a cpuset as debug messages.
+      The function im_request() in src/resmom/mom_comm.c logs the message:
+      pbs_mom: LOG_ERROR::im_request, about to create cpuset for job 55100.blah.
+      as an error rather than a debug message (as used in src/resmom/start_exec.c).
+      The fix is to replace:
+        log_err(-1, id, log_buffer);
+      with:
+        log_ext(-1, id, log_buffer, LOG_INFO);
+
   f - Added code to support mulitple MOMs per node. Changed code to support
       a radix of sister nodes giving mom to mom job communication a hierarchical
       structure instead of the flat Mother Superior to everyone which is the
