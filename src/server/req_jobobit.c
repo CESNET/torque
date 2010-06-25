@@ -1681,6 +1681,7 @@ void on_job_rerun(
   struct batch_request *preq;
 
   int                 IsFaked;
+  extern void remove_job_delete_nanny(struct job *);
 
   if (ptask->wt_type != WORK_Deferred_Reply)
     {
@@ -1697,6 +1698,8 @@ void on_job_rerun(
     {
     return;
     }
+
+  remove_job_delete_nanny(pjob);
 
   switch (pjob->ji_qs.ji_substate)
     {
