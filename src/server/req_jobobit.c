@@ -2614,7 +2614,12 @@ void req_jobobit(
          ojob != NULL;
          ojob = (job *)GET_NEXT(ojob->ji_alljobs))
       {
-      resource * cluster = find_resc_entry(&ojob->ji_wattr[(int)JOB_ATR_resource],
+      resource * cluster;
+
+      if (ojob->ji_qs.ji_state == JOB_STATE_COMPLETE)
+        continue;
+
+      cluster = find_resc_entry(&ojob->ji_wattr[(int)JOB_ATR_resource],
                             find_resc_def(svr_resc_def, "cluster", svr_resc_size));
 
       if (cluster == NULL)
