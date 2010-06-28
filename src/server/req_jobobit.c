@@ -2596,7 +2596,7 @@ void req_jobobit(
   /* What do we now do with the job... */
   if (is_cloud_job(pjob))
     {
-    job *ojob, *tjob;
+    job *ojob;
     char * name;
 
     log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "Cloud job obit received, purging cloud.");
@@ -2638,9 +2638,22 @@ void req_jobobit(
 
       log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Purging job from cloud.");
 
-      tjob = (job *)GET_PRIOR(ojob->ji_alljobs); /* move one back, so we can purge this one */
-      job_purge(ojob);
-      ojob = tjob;
+      svr_setjobstate(ojob, JOB_STATE_COMPLETE, JOB_SUBSTATE_COMPLETE);
+      ptask = set_task(WORK_Immed, 0, on_job_exit, (void *)ojob);
+
+      if (ptask != NULL)
+        {
+        append_link(&ojob->ji_svrtask, &ptask->wt_linkobj, ptask);
+
+        if (LOGLEVEL >= 4)
+          {
+          log_event(
+            PBSEVENT_ERROR | PBSEVENT_JOB,
+            PBS_EVENTCLASS_JOB,
+            ojob->ji_qs.ji_jobid,
+            "on_job_exit task assigned to job");
+          }
+        }
       }  /* END for (ojob) */
     }
 

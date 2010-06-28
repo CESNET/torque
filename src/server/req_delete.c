@@ -288,6 +288,7 @@ void req_deletejob(
 
   struct work_task *pwtnew;
   struct work_task *pwtcheck;
+  struct work_task *ptask;
 
   int               rc;
   char             *sigt = "SIGTERM";
@@ -482,7 +483,7 @@ void req_deletejob(
 
   if (is_cloud_job(pjob) && pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING)
     {
-    job *ojob, *tjob;
+    job *ojob;
     int cloud_bussy = 0;
     char * name;
 
@@ -520,9 +521,21 @@ void req_deletejob(
       else
         {
         log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Purging job from cloud.");
-        tjob = (job *)GET_PRIOR(ojob->ji_alljobs); /* move one back, so we can purge this one */
-        job_purge(ojob);
-        ojob = tjob;
+        svr_setjobstate(ojob, JOB_STATE_COMPLETE, JOB_SUBSTATE_COMPLETE);
+        ptask = set_task(WORK_Immed, 0, on_job_exit, (void *)ojob);
+        if (ptask != NULL)
+          {
+          append_link(&ojob->ji_svrtask, &ptask->wt_linkobj, ptask);
+
+          if (LOGLEVEL >= 4)
+            {
+            log_event(
+              PBSEVENT_ERROR | PBSEVENT_JOB,
+              PBS_EVENTCLASS_JOB,
+              ojob->ji_qs.ji_jobid,
+              "on_job_exit task assigned to job");
+            }
+          }
         }
       }  /* END for (ojob) */
 
