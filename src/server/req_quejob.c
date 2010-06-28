@@ -931,6 +931,7 @@ void req_quejob(
     {
     job_purge(pj);
     req_reject(0,0,preq,NULL,"Cloud with this name already exists.");
+    return;
     }
 
   /* FIXME: if EMsg[0] != '\0', send a warning email to the user */
