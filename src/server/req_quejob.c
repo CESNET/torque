@@ -930,7 +930,7 @@ void req_quejob(
   if (is_cloud_job(pj) && find_job_by_name(pj->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str))
     {
     job_purge(pj);
-    req_reject(0,0,preq,NULL,"Cloud with this name already exists.");
+    req_reject(PBSE_CLOUD_NAME,0,preq,NULL,NULL);
     return;
     }
 
