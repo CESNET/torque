@@ -1864,6 +1864,7 @@ job *find_job_by_name(char *name)
 
   while (pj != NULL)
     {
+    if (pj->ji_qs.ji_state != JOB_STATE_COMPLETE) /* ignore completed jobs */
     if (pj->ji_wattr[(int)JOB_ATR_jobname].at_flags & ATR_VFLAG_SET)
     if (!strcmp(name, pj->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str))
       break;
