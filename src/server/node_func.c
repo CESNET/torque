@@ -432,6 +432,7 @@ static int  old_nprops = 0xdead;  /*node's   nprops  */
 static int             old_nstatus = 0xdead;            /*node's   nstatus */
 static char           *old_note    = NULL;              /*node's   note    */
 static char     *old_queue = NULL;
+static char     *old_cloud = NULL;
 static int old_np = 0;
 static struct attribute *old_resources = (struct attribute*)0;
 static unsigned old_no_multinode = 0;
@@ -483,14 +484,17 @@ void save_characteristic(
   if (old_resources == NULL)
     return; /* XXX silent death */
 
-  if (old_queue != NULL)
-    {
-    free(old_queue);
-    old_queue = NULL;
-    }
+  free(old_queue);
+  old_queue = NULL;
 
   if (pnode->queue != NULL)
     old_queue = strdup(pnode->queue);
+
+  free(old_cloud);
+  old_cloud = NULL;
+
+  if (pnode->cloud != NULL)
+    old_cloud = strdup(pnode->cloud);
 
   clear_attr(old_resources,&node_attr_def[ND_ATR_resources_total]);
   node_attr_def[ND_ATR_resources_total].at_set(old_resources,&pnode->attributes[0],SET);
@@ -625,6 +629,18 @@ int chk_characteristic(
       }
     }
 
+  if (pnode->cloud != old_cloud)
+    {
+    if (pnode->cloud == NULL || old_cloud == NULL)
+      {
+      *pneed_todo |= WRITE_NEW_NODESFILE;
+      }
+    else if (strcmp(pnode->cloud,old_cloud))
+      {
+      *pneed_todo |= WRITE_NEW_NODESFILE;
+      }
+    }
+
   if (pnode->nd_nsn != old_np)
     *pneed_todo |= WRITE_NEW_NODESFILE;
 
@@ -693,6 +709,8 @@ int status_nodeattrib(
       atemp[i].at_val.at_str = pnode->nd_note;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_queue))
       atemp[i].at_val.at_str = pnode->queue;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_cloud))
+      atemp[i].at_val.at_str = pnode->cloud;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_no_multinode_jobs))
       atemp[i].at_val.at_long = pnode->nd_no_multinode;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_total))
@@ -843,7 +861,8 @@ static void initialize_pbsnode(
   pnode->nd_nprops  = 0;
   pnode->nd_nstatus = 0;
   pnode->nd_warnbad = 0;
-  pnode->queue = 0;
+  pnode->queue = NULL;
+  pnode->cloud = NULL;
   pnode->nd_no_multinode = 0;
   pnode->x_ad_prop = NULL;
   pnode->x_ad_properties = NULL;
@@ -1351,6 +1370,10 @@ update_nodes_file(void)
     if (np->queue != NULL)
       fprintf(nin, " queue=%s", np->queue);
 
+    /* write out cloud */
+    if (np->cloud != NULL)
+      fprintf(nin, " cloud=%s", np->cloud);
+
     if (np->nd_no_multinode)
       fprintf(nin, " %s=1",ATTR_NODE_no_multinode_jobs);
 
@@ -1710,6 +1733,16 @@ int create_pbs_node(
     }
 
   recompute_ntype_cnts();
+
+  /* check the node for cloud */
+  if (pnode->cloud != NULL)
+    {
+    /* FIXME META reset alternative properties*/
+    }
+  else
+    {
+    /* FIXME META make sure no alternative properties are set */
+    }
 
   return(PBSE_NONE);     /*create completely successful*/
   }  /* END create_pbs_node() */

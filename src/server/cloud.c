@@ -140,7 +140,7 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
 
 extern int check_and_read_config(char *filename,config_line_s **lines,time_t *last_modification,int *last_line);
 
-void set_alternative_on_node(char *nodename, char *alternative)
+void set_alternative_on_node(char *nodename, char *alternative, char *cloud_name)
   {
   char            *c;
   struct pbsnode  *np;
@@ -206,6 +206,9 @@ void set_alternative_on_node(char *nodename, char *alternative)
 
   np->xn_ad_prop = nad_props;
 
+  free(np->cloud);
+  np->cloud = strdup(cloud_name);
+
   log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, np->nd_name, "additional properties set on node");
   }
 
@@ -223,6 +226,9 @@ void clear_alternative_on_node(char *nodename)
   np->x_ad_prop = NULL;
   np->x_ad_properties = NULL;
   np->xn_ad_prop = 0;
+
+  free(np->cloud);
+  np->cloud = NULL;
 
   log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, np->nd_name, "additional properties cleared from node");
   }
@@ -319,6 +325,7 @@ void cloud_transition_into_running(job *pjob)
   {
   pars_spec *ps;
   pars_spec_node *iter;
+  char *cloud_name;
 
   if (is_cloud_job(pjob) && pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
     svr_setjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_RUNNING);
@@ -330,6 +337,8 @@ void cloud_transition_into_running(job *pjob)
   dbg_consistency(ps != NULL, "The nodespec should be well formed when reaching this point.");
   if (ps == NULL)
     return;
+
+  cloud_name = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
 
   iter = ps->nodes;
 
@@ -357,7 +366,7 @@ void cloud_transition_into_running(job *pjob)
       {
       sprintf(log_buffer,"Determined alternative is: %s", c);
       log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_NODE, name->name,log_buffer);
-      set_alternative_on_node(name->name,c);
+      set_alternative_on_node(name->name,c,cloud_name);
       free(c);
       }
 

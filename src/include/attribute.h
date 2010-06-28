@@ -460,6 +460,7 @@ extern int      node_adprop_list (attribute*, void*, int);
 extern int      node_status_list A_((attribute*, void*, int));
 extern int      node_note        A_((attribute*, void*, int));
 extern int node_queue(attribute *new, void *pnode, int actmode);
+extern int node_cloud(attribute *new, void *pnode, int actmode);
 extern int node_no_multinode(attribute *new, void *pnode, int actmode);
 extern int 	 node_ncpu(attribute*, void*, int);
 extern int		 node_mem(attribute*, void*, int);

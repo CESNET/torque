@@ -1211,6 +1211,80 @@ int node_no_multinode(attribute *new, void *pnode, int actmode)
   return(rc);
   }
 
+
+/** Either derive a cloud attribute from the node or update node's cloud
+ *  from attribute's list
+ *
+ *  @param new derive queue into this attribute
+ *  @param pnode pointer to a pbsnode struct
+ *  @param actmode NEW or ALTER
+ */
+int node_cloud(attribute *new, void *pnode, int actmode)
+  {
+  int              rc = 0;
+
+  struct pbsnode  *np;
+  attribute        temp;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+
+      /* if node has a queue, then copy string into temp  */
+      /* to use to setup a copy, otherwise setup empty   */
+
+      if (np->cloud != NULL)
+        {
+        /* setup temporary attribute with the string from the node */
+
+        temp.at_val.at_str = np->cloud;
+        temp.at_flags = ATR_VFLAG_SET;
+        temp.at_type  = ATR_TYPE_STR;
+
+        rc = set_note_str(new, &temp, SET); /* TODO change */
+        }
+      else
+        {
+        /* node has no properties, setup empty attribute */
+
+        new->at_val.at_str  = NULL;
+        new->at_flags       = 0;
+        new->at_type        = ATR_TYPE_STR;
+        }
+
+      break;
+
+    case ATR_ACTION_ALTER:
+
+      if (np->cloud != NULL)
+        {
+        free(np->cloud);
+
+        np->cloud = NULL;
+        }
+
+      /* update node with new string */
+
+      np->cloud = new->at_val.at_str;
+
+      new->at_val.at_str = NULL;
+
+      break;
+
+    default:
+
+      rc = PBSE_INTERNAL;
+
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
+
+
 /** Either derive a queue attribute from the node or update node's queue
  *  from attribute's list
  *

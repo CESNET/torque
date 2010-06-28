@@ -315,6 +315,7 @@
 #define ATTR_NODE_resources_total "resources_total"
 #define ATTR_NODE_resources_used "resources_used"
 #define ATTR_NODE_queue         "queue"
+#define ATTR_NODE_cloud         "cloud"
 
 /* notification email formating */
 #define ATTR_mailsubjectfmt "mail_subject_fmt"

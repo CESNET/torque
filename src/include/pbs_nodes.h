@@ -164,6 +164,7 @@ struct pbsnode
 
   struct attribute attributes[2]; /* resources_total, resources_used */
   char *queue;
+  char *cloud;
 
   struct array_strings *x_ad_properties;
   struct prop *x_ad_prop;
@@ -271,6 +272,7 @@ enum nodeattr
   ND_ATR_note,
   ND_ATR_no_multinode_jobs,
   ND_ATR_queue,
+  ND_ATR_cloud,
   ND_ATR_resources_total,
   ND_ATR_resources_used,
   ND_ATR_LAST

@@ -926,6 +926,13 @@ void req_quejob(
     return;
     }
 
+  /* If this is a cloud create job, check if the requested name is unique */
+  if (is_cloud_job(pj) && find_job_by_name(pj->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str))
+    {
+    job_purge(pj);
+    req_reject(0,0,preq,NULL,"Cloud with this name already exists.");
+    }
+
   /* FIXME: if EMsg[0] != '\0', send a warning email to the user */
 
   strcpy(pj->ji_qs.ji_queue, pque->qu_qs.qu_name);

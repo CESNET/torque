@@ -272,6 +272,19 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE,
   },
 
+  /* ND_ATR_cloud */
+  { ATTR_NODE_cloud,
+    decode_str,
+    encode_str,
+    set_str,
+    comp_null,
+    free_str,
+    node_cloud,
+    READ_ONLY,
+    ATR_TYPE_STR,
+    PARENT_TYPE_NODE
+  },
+
   /* ND_ATR_resources_total */
   { ATTR_NODE_resources_total,
     decode_resc,
