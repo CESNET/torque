@@ -327,9 +327,7 @@ int reply_send(
 void
 reply_ack(struct batch_request *preq)
   {
-  if (preq->rq_replied) 
-    return;
-  preq->rq_replied  = 1;
+
   preq->rq_reply.brp_code    = PBSE_NONE;
   preq->rq_reply.brp_auxcode = 0;
   preq->rq_reply.brp_choice  = BATCH_REPLY_CHOICE_NULL;
@@ -423,11 +421,6 @@ void req_reject(
   {
   char msgbuf[ERR_MSG_SIZE + 256 + 1];
   char msgbuf2[ERR_MSG_SIZE + 256 + 1];
-
-  if (preq->rq_replied)
-    return;
-
-  preq->rq_replied = 1;
 
   set_err_msg(code, msgbuf);
 
