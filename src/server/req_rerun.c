@@ -105,7 +105,6 @@
 
 extern char *msg_manager;
 extern char *msg_jobrerun;
-extern time_t time_now;
 
 extern void rel_resc(job *);
 
@@ -172,8 +171,6 @@ void req_rerunjob(
 
   {
   job *pjob;
-  extern struct work_task *apply_job_delete_nanny(struct job *,int);
-
   struct work_task	*pwt;
 
   int  Force;
@@ -245,11 +242,9 @@ void req_rerunjob(
 
   if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING)
     {
-    apply_job_delete_nanny(pjob,time_now + 60);
-
     /* ask MOM to kill off the job if it is running */
 
-    rc = issue_signal(pjob, "SIGTERM", post_rerun, 0);
+    rc = issue_signal(pjob, "SIGKILL", post_rerun, 0);
     }
   else
     { 

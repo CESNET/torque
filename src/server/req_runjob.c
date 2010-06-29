@@ -109,7 +109,6 @@
 #include "svrfunc.h"
 #include "net_connect.h"
 #include "pbs_proto.h"
-#include "pbs_nodes.h"
 
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -137,7 +136,6 @@ static void post_sendmom A_((struct work_task *));
 static int  svr_stagein A_((job *, struct batch_request *, int, int));
 static int  svr_strtjob2 A_((job *, struct batch_request *));
 static job *chk_job_torun A_((struct batch_request *, int));
-static int chk_job_forpreemptees A_((job *,struct batch_request *));
 static int  assign_hosts A_((job *, char *, int, char *, char *));
 
 /* Global Data Items: */
@@ -166,7 +164,6 @@ long  DispatchTime[20];
 job  *DispatchJob[20];
 char *DispatchNode[20];
 
-static void resume_runjob(struct work_task *ptask);
 
 
 /*
@@ -203,15 +200,6 @@ void req_runjob(
     return;
     }
 
-  if (chk_job_forpreemptees(pjob,preq) == 0)
-    {
-    /* delay - come back to here in a little bit */
-
-    free_nodes(pjob);
-
-    return;
-    }
-
   if (preq->rq_conn == scheduler_sock)
     ++scheduler_jobct; /* see scheduler_close() */
 
@@ -229,21 +217,14 @@ void req_runjob(
   /* If async run, reply now; otherwise reply is handled in */
   /* post_sendmom or post_stagein */
 
+  /* perhaps node assignment should be handled immediately in async run? */
+
   if ((preq != NULL) &&
       (preq->rq_type == PBS_BATCH_AsyrunJob))
     {
     reply_ack(preq);
-    }
 
-  preq = NULL;  /* cleared so we don't try to reuse */
-    
-  if (chk_job_forpreemptees(pjob,preq) == 0)
-    {
-    /* delay - a work task was created to come back to here in a little bit */
-
-    free_nodes(pjob);
-
-    return;
+    preq = NULL;  /* cleared so we don't try to reuse */
     }
 
   /* NOTE:  nodes assigned to job in svr_startjob() */
@@ -1547,77 +1528,8 @@ static job *chk_job_torun(
   }  /* END chk_job_torun() */
 
 
-  /* FIXME:
-    foreach node
-       foreach job
-         if job substate is rerun
-             set_task(resume_runjob)
-             return
-  */
 
-int chk_job_forpreemptees(
 
-  job                  *pjob,  /* I */
-  struct batch_request *preq)  /* I */
-  {
-  char   *nodestr, *hostlist;
-  struct pbsnode *pnode;
-  struct work_task *pwt;
-  struct pbssubn *np;
-  struct jobinfo *jp;
-
-  if (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_flags & ATR_VFLAG_SET)
-    {
-    hostlist=strdup(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
-  
-    nodestr = strtok(hostlist,"+");
-
-    while (nodestr != NULL)
-      {  /* foreach node ... */
-      if ((pnode=find_nodebyname(nodestr)) != NULL)
-        {
-        for (np = pnode->nd_psn;np != NULL;np = np->next)
-          {  /* foreach subnode ... */
-          for (jp = np->jobs;jp != NULL;jp = jp->next)
-            {  /* foreach job ... */
-            if ((jp->job != NULL) && (jp->job != pjob))
-              {
-              if (jp->job->ji_qs.ji_substate == JOB_SUBSTATE_RERUN)
-                {
-
-                if (!(pwt = set_task(WORK_Timed,time_now + 5,resume_runjob,(void *)preq)))
-                  {
-                  req_reject(PBSE_SYSTEM,0,preq,NULL,NULL);
-                  }
-
-                sprintf(log_buffer,"job start delayed by preemptee job %s on node %s",
-                  jp->job->ji_qs.ji_jobid,
-                  nodestr);
-
-                log_event(
-                  PBSEVENT_JOB,
-                  PBS_EVENTCLASS_JOB,
-                  pjob->ji_qs.ji_jobid,
-                  log_buffer);
-
-                free(hostlist);
-
-                return(0);
-                } /* END if job is rerun */
-              } /* END if job */
-
-            } /* END for each job */
-          } /* END foreach subnode */
-        } /* END if find node */
-
-      nodestr = strtok(NULL,"+");
-      } /* END while(nodestr) */
-
-    free(hostlist);
-    }
-
-  return(1);
-}
 
 /*
  * assign_hosts - assign hosts (nodes) to job by the following rules:
@@ -1808,15 +1720,6 @@ static int assign_hosts(
   return(rc);
   }  /* END assign_hosts() */
 
-static void resume_runjob(
-
-  struct work_task *ptask)
-
-  {
-  req_runjob((struct batch_request *)ptask->wt_parm1);
-
-  return;
-  }
 
 /* END req_runjob.c */
 
