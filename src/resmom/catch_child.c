@@ -1327,7 +1327,7 @@ static void preobit_reply(
       "performing job clean-up in preobit_reply()");
     }
 
-  cpid = fork_me(-1); /* FIXME META Cloud epilog here */
+  cpid = fork_me(-1);
 
   if (cpid < 0)
     {

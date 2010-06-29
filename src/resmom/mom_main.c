@@ -7726,7 +7726,7 @@ int TMOMScanForStarting(void)
  */
 
 void
-examine_all_polled_jobs(void) /* FIXME META examine job limits after restarts */
+examine_all_polled_jobs(void)
 
   {
   static char id[] = "examine_all_polled_jobs";
@@ -7856,7 +7856,7 @@ void examile_all_cloud_jobs(void)
  */
 
 void
-examine_all_running_jobs(void) /* FIXME META check used resources here */
+examine_all_running_jobs(void)
 
   {
   job         *pjob;
