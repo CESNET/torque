@@ -641,35 +641,44 @@ void req_registerarray(
   range[0] = '\0';
   if ((bracket_ptr = strchr(array_name,'[')) != NULL)
     {
-    *bracket_ptr = '\0';
-    bracket_ptr++;
-
-    strcpy(range,bracket_ptr);
-    if ((bracket_ptr = strchr(range,']')) != NULL)
+    /* go to the 2nd pair of brackets, if present */
+    if ((bracket_ptr = strchr(bracket_ptr+1,'[')) != NULL)
       {
       *bracket_ptr = '\0';
-      num_jobs = atoi(range);
+      bracket_ptr++;
 
-      if ((dot_server = strchr(bracket_ptr+1,'.')) != NULL)
+      strcpy(range,bracket_ptr);
+      if ((bracket_ptr = strchr(range,']')) != NULL)
         {
-        strcat(array_name,dot_server);
+        *bracket_ptr = '\0';
+
+        /* only do this if range isn't empty */
+        if (strcmp(range,""))
+          {
+          num_jobs = atoi(range);
+          }
+
+        if ((dot_server = strchr(bracket_ptr+1,'.')) != NULL)
+          {
+          strcat(array_name,dot_server);
+          }
+        else 
+          {
+          /* error, no server. shouldn't get here ever due
+           * to checks in depend_on_que */
+
+          req_reject(PBSE_IVALREQ,0,preq,NULL,
+            "No server specified");
+          }
         }
-      else 
+      else
         {
-        /* error, no server. shouldn't get here ever due
-         * to checks in depend_on_que */
+        /* error, if bracket opens must close */
 
         req_reject(PBSE_IVALREQ,0,preq,NULL,
-          "No server specified");
+          "Array range format invalid, must have closed bracket ']'");
         }
-      }
-    else
-      {
-      /* error, if bracket opens must close */
-
-      req_reject(PBSE_IVALREQ,0,preq,NULL,
-        "Array range format invalid, must have closed bracket ']'");
-      }
+      } /* end second brackets if */
     }
 
   /* get the array */
@@ -680,7 +689,7 @@ void req_registerarray(
      * yet be recovered, that is not an error.
      */
 
-    if (server.sv_attr[(int)SRV_ATR_State].at_val.at_long != SV_STATE_INIT)
+    if (server.sv_attr[SRV_ATR_State].at_val.at_long != SV_STATE_INIT)
       {
       log_event(
         PBSEVENT_DEBUG,
@@ -913,8 +922,8 @@ void set_array_depend_holds(
              (pdep->dp_type > JOB_DEPEND_TYPE_AFTERANYARRAY)))
           {
           /* hold */
-          pjob->ji_wattr[JOB_ATR_depend].at_val.at_long |= HOLD_s;
-          pjob->ji_wattr[JOB_ATR_depend].at_flags |= ATR_VFLAG_SET;
+          pjob->ji_wattr[JOB_ATR_hold].at_val.at_long |= HOLD_s;
+          pjob->ji_wattr[JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
 
           if (LOGLEVEL >= 8)
             {
@@ -932,7 +941,7 @@ void set_array_depend_holds(
           /* release the array's hold - set_depend_hold
            * will clear holds if there are no other dependencies
            * logged in set_depend_hold */
-          set_depend_hold(pjob,&pjob->ji_wattr[(int)JOB_ATR_depend]);
+          set_depend_hold(pjob,&pjob->ji_wattr[JOB_ATR_depend]);
           }
         }
 
@@ -996,7 +1005,7 @@ static void post_doq(
         svr_mailowner(pjob, MAIL_ABORT, MAIL_FORCE, log_buffer);
         }
 
-      pattr = &pjob->ji_wattr[(int)JOB_ATR_depend];
+      pattr = &pjob->ji_wattr[JOB_ATR_depend];
 
       if (((pdp = find_depend(preq->rq_ind.rq_register.rq_dependtype, pattr)) != 0) &&
           ((pdjb = find_dependjob(pdp, preq->rq_ind.rq_register.rq_parent)) != 0))
@@ -1005,8 +1014,8 @@ static void post_doq(
 
         if (preq->rq_reply.brp_code != PBSE_BADSTATE)
           {
-          pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_u;
-          pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
+          pjob->ji_wattr[JOB_ATR_hold].at_val.at_long |= HOLD_u;
+          pjob->ji_wattr[JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
           pjob->ji_modified = 1;
           }
 
@@ -1605,7 +1614,7 @@ static void set_depend_hold(
     if ((pjob->ji_qs.ji_substate == JOB_SUBSTATE_SYNCHOLD) ||
         (pjob->ji_qs.ji_substate == JOB_SUBSTATE_DEPNHOLD))
       {
-      pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long &= ~HOLD_s;
+      pjob->ji_wattr[JOB_ATR_hold].at_val.at_long &= ~HOLD_s;
 
       /* newstate is job's 'natural state - ie, what it would be if dependency did not exist */
 
@@ -1627,8 +1636,8 @@ static void set_depend_hold(
     {
     /* there are dependencies, set system hold accordingly */
 
-    pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long |= HOLD_s;
-    pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
+    pjob->ji_wattr[JOB_ATR_hold].at_val.at_long |= HOLD_s;
+    pjob->ji_wattr[JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
 
     if (LOGLEVEL >= 8)
       {
