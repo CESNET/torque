@@ -1,6 +1,8 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
 2.4.9
+  b - Backed out enhancement for preempted jobs. This was SVN revision 3784.
+      This patch cased qrun to hang and not return when executing jobs.
   e - Commited changes that changed how preempted jobs are killed.
       This change uses a SIGTERM followed by a kill_delay SIGKILL 
       to give preemted jobs time to checkpoint before terminating.
