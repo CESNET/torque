@@ -200,26 +200,6 @@ int main(
 
         break;
 
-      case 't':
-
-        if (extend[0] != '\0')
-          {
-          errflg++;
-
-          break;
-          }
-
-        pc = optarg;
-
-        if (strlen(pc) == 0)
-          {
-          fprintf(stderr, "qdel: illegal -t value (array range cannot be zero length)\n");
-
-          errflg++;
-
-          break;
-          }
-
         snprintf(extend,sizeof(extend),"%s%s",
           ARRAY_RANGE,
           pc);
