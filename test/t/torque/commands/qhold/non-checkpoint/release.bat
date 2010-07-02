@@ -19,5 +19,4 @@ execute_tests(
               "$testbase/qhold_h_o.t",
               "$testbase/qhold_h_s.t",
               "$testbase/qhold_h_sou.t",
-              "$testbase/qhold_qrls_t.t",
 );

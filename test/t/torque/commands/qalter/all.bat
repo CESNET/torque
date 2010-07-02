@@ -31,7 +31,6 @@ execute_tests(
               "$testbase/qalter_p.t",
               "$testbase/qalter_r.t",
               "$testbase/qalter_cS.t",
-              "$testbase/qalter_t_p.t",
               "$testbase/qalter_u.t",
               "$testbase/qalter_cW_sync.t",
               "$testbase/qalter_cW_after.t",

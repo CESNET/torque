@@ -500,13 +500,11 @@ int MXMLSetVal(
   enum MDataFormatEnum Format) /* I */
 
   {
-  char *outbuf = NULL;
-  char *ptr;
   char  tmpLine[MMAX_LINE];
+  char *ptr;
 
   int Vlen;
   int final_len = 0;
-  int buf_size = MMAX_LINE;
   int i;
 
   if ((E == NULL) || (V == NULL))
@@ -531,101 +529,58 @@ int MXMLSetVal(
       /* temporarily use ptr as the input string */
       ptr = (char *)V;
       Vlen = strlen(ptr);
-    
-      outbuf = (char *)malloc(buf_size*(sizeof(char)));
-      
-      if (outbuf == NULL)
-        {
-        fprintf(stderr,"Unable to allocate memory for XML output\n");
-        
-        return(FAILURE);
-        }
-
       for (i = 0; i < Vlen; i++)
         {
         /* escape characters &"'<> */
-
-        /* check 7 because we could add 6 character and a NULL terminator */
-        if (final_len + 7 >= buf_size)
+        if (ptr[i] == '<')
           {
-          char *tmp;
-
-          buf_size += MMAX_LINE;
-          tmp = (char *)realloc(outbuf,buf_size);
-
-          if (tmp == NULL)
-            {
-            fprintf(stderr,"Unable to allocate memeory for XML output\n");
-            free(outbuf);
-            return(FAILURE);
-            }
-
-          outbuf = tmp;
+          tmpLine[final_len++] = '&';
+          tmpLine[final_len++] = 'l';
+          tmpLine[final_len++] = 't';
+          tmpLine[final_len++] = ';';
           }
-
-        /* escape characters &"'<> */
-        switch (ptr[i])
+        else if (ptr[i] == '>')
           {
-          case '<':
+          tmpLine[final_len++] = '&';
+          tmpLine[final_len++] = 'g';
+          tmpLine[final_len++] = 't';
+          tmpLine[final_len++] = ';';
+          }
+        else if (ptr[i] == '&')
+          {
+          tmpLine[final_len++] = '&';
+          tmpLine[final_len++] = 'a';
+          tmpLine[final_len++] = 'm';
+          tmpLine[final_len++] = 'p';
+          tmpLine[final_len++] = ';';
+          }
+        else if (ptr[i] == '"')
+          {
+          tmpLine[final_len++] = '&';
+          tmpLine[final_len++] = 'q';
+          tmpLine[final_len++] = 'u';
+          tmpLine[final_len++] = 'o';
+          tmpLine[final_len++] = 't';
+          tmpLine[final_len++] = ';';
+          }
+        else if (ptr[i] == '\'')
+          {
+          tmpLine[final_len++] = '&';
+          tmpLine[final_len++] = 'a';
+          tmpLine[final_len++] = 'p';
+          tmpLine[final_len++] = 'o';
+          tmpLine[final_len++] = 's';
+          tmpLine[final_len++] = ';';
+          }
+        else
+          {
+          tmpLine[final_len++] = ptr[i];
+          }
+        }
+      tmpLine[final_len] = '\0';
 
-            outbuf[final_len++] = '&';
-            outbuf[final_len++] = 'l';
-            outbuf[final_len++] = 't';
-            outbuf[final_len++] = ';';
-
-            break;
-
-          case '>':
-
-            outbuf[final_len++] = '&';
-            outbuf[final_len++] = 'g';
-            outbuf[final_len++] = 't';
-            outbuf[final_len++] = ';';
-
-            break;
-            
-          case '&':
-
-            outbuf[final_len++] = '&';
-            outbuf[final_len++] = 'a';
-            outbuf[final_len++] = 'm';
-            outbuf[final_len++] = 'p';
-            outbuf[final_len++] = ';';
-
-            break;
-
-          case '"':
-  
-            outbuf[final_len++] = '&';
-            outbuf[final_len++] = 'q';
-            outbuf[final_len++] = 'u';
-            outbuf[final_len++] = 'o';
-            outbuf[final_len++] = 't';
-            outbuf[final_len++] = ';';
-
-            break;
-
-          case '\'':
-
-            outbuf[final_len++] = '&';
-            outbuf[final_len++] = 'a';
-            outbuf[final_len++] = 'p';
-            outbuf[final_len++] = 'o';
-            outbuf[final_len++] = 's';
-            outbuf[final_len++] = ';';
-
-            break;
-
-          default:
-            
-            outbuf[final_len++] = ptr[i];
-
-            break;
-          } /* END switch(ptr[i]) */
-
-        } /* END for (i < Vlen) */
-
-      outbuf[final_len] = '\0';
+      /* set ptr to it's proper output place */
+      ptr = tmpLine;
 
       break;
 
@@ -655,16 +610,9 @@ int MXMLSetVal(
       ptr = tmpLine;
 
       break;
-    }  /* END switch (Format) */
+    }  /* END switch(Format) */
 
-  if (outbuf != NULL)
-    {
-    E->Val = outbuf;
-    }
-  else
-    {
-    E->Val = strdup(ptr);
-    }
+  E->Val = strdup(ptr);
 
   return(SUCCESS);
   }  /* END MXMLSetVal() */

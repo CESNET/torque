@@ -193,7 +193,7 @@ parse_depend_item(
         }
       else
         {
-        strcat(rtn_list, deptypes[i]);
+        (void)strcat(rtn_list, deptypes[i]);
         }
 
       }
@@ -204,7 +204,7 @@ parse_depend_item(
       if ((i < 2) ||
           (array))
         {
-        strcat(rtn_list, s);
+        (void)strcat(rtn_list, s);
 
         if (array)
           {
@@ -212,37 +212,33 @@ parse_depend_item(
           char *dot;
           char *open_square_bracket;
 
-          /* only do this if the server isn't already there */
-          if ((dot = strchr(rtn_list,'.')) == NULL)
+          /* fix open_square_bracket for server search */
+          open_square_bracket = strchr(s,'[');
+          if (open_square_bracket != NULL)
             {
-            /* fix open_square_bracket for server search */
-            open_square_bracket = strchr(s,'[');
-            if (open_square_bracket != NULL)
-              {
-              *open_square_bracket = '\0';
-              }
-
-            if (get_server(s,full_job_id,server_out) != 0)
-              return 1;
-
-            /* now put it back */
-            if (open_square_bracket != NULL)
-              {
-              *open_square_bracket = '[';
-              }
-
-            /* check if we will exceed the length of the return string size */
-            if (strlen(rtn_list) + strlen(full_job_id) > (size_t)rtn_size)
-              {
-              return 2;
-              }
-
-            /* get just the '.server_name' */
-            dot = strchr(full_job_id,'.');
-            if (dot != NULL)
-              strcat(rtn_list,dot);
-
+            *open_square_bracket = '\0';
             }
+
+          if (get_server(s,full_job_id,server_out) != 0)
+            return 1;
+
+          /* now put it back */
+          if (open_square_bracket != NULL)
+            {
+            *open_square_bracket = '[';
+            }
+
+          /* check if we will exceed the length of the return string size */
+          if (strlen(rtn_list) + strlen(full_job_id) > (size_t)rtn_size)
+            {
+            return 2;
+            }
+
+          /* get just the '.server_name' */
+          dot = strchr(full_job_id,'.');
+          if (dot != NULL)
+            strcat(rtn_list,dot);
+
           }
         }
       else    /* for others, job id */

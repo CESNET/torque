@@ -16,7 +16,7 @@ execute_tests("$testbase/setup.t")
   or die("Couldn't setup for qhold tests!");
 
 execute_tests(
-# needs BLCR              "$testbase/checkpoint/release.bat",
+              "$testbase/checkpoint/release.bat",
               "$testbase/non-checkpoint/release.bat",
 );
 

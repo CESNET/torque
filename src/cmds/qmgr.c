@@ -2136,11 +2136,8 @@ int is_attr(
     {
     while (*attr_public != NULL && ret == FALSE)
       {
-/*      if (strncmp(name, *attr_public, strlen(*attr_public)) == 0)*/
-      if(strcmp(name, *attr_public) == 0)
-        {
-          ret =  TRUE;
-        }
+      if (strncmp(name, *attr_public, strlen(*attr_public)) == 0)
+        ret =  TRUE;
 
       attr_public++;
       }
@@ -2150,8 +2147,7 @@ int is_attr(
     {
     while (*attr_readonly != NULL && ret == FALSE)
       {
-      /*if (strncmp(name, *attr_readonly, strlen(*attr_readonly)) == 0)*/
-      if (strcmp(name, *attr_readonly) == 0)
+      if (strncmp(name, *attr_readonly, strlen(*attr_readonly)) == 0)
         ret = TRUE;
 
       attr_readonly++;
