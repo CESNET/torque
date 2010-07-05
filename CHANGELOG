@@ -1,5 +1,6 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 3.0-alpha
+  e - Added module /src/lib/Libutils/u_xml.c to the tree.
   b - Resolved conflicts caused by the addition of procs support in the trunk.
       The prototype for set_nodes did not have a procs variable in its
       argument list.
