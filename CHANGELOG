@@ -1,5 +1,9 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 3.0-alpha
+  b - Resolved conflicts caused by the addition of procs support in the trunk.
+      The prototype for set_nodes did not have a procs variable in its
+      argument list.
+
   e - Patch to correctly log attempts to create a cpuset as debug messages.
       The function im_request() in src/resmom/mom_comm.c logs the message:
       pbs_mom: LOG_ERROR::im_request, about to create cpuset for job 55100.blah.

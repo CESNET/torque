@@ -1755,11 +1755,7 @@ static int assign_hosts(
     {
     if ((rc = is_ts_node(hosttoalloc)) != 0)
       {
-<<<<<<< .working
-      rc = set_nodes(pjob, hosttoalloc, &list, &portlist, FailHost, EMsg);
-=======
-      rc = set_nodes(pjob, hosttoalloc, procs, &list, FailHost, EMsg);
->>>>>>> .merge-right.r3789
+      rc = set_nodes(pjob, hosttoalloc, procs, &list, &portlist, FailHost, EMsg);
 
       set_exec_host = 1; /* maybe new VPs, must set */
 

@@ -4172,21 +4172,12 @@ int build_host_list(
 int set_nodes(
   job  *pjob,
   char *spec,       /* I */
+  int  procs,
   char **rtnlist,      /* O */
   char **rtnportlist,  /* O */
   char  *FailHost,     /* O (optional,minsize=1024) */
   char  *EMsg)         /* O (optional,minsize=1024) */
 
-<<<<<<< .working
-=======
-  job   *pjob,      /* I */
-  char *spec,       /* I */
-  int  procs,       /* I */
-  char **rtnlist,   /* O */
-  char  *FailHost,  /* O (optional,minsize=1024) */
-  char  *EMsg)      /* O (optional,minsize=1024) */
-
->>>>>>> .merge-right.r3789
   {
 
   struct howl *hp;
