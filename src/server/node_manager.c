@@ -4246,6 +4246,7 @@ int build_host_list(
 int set_nodes(
   job  *pjob,
   char *spec,       /* I */
+  int  procs,
   char **rtnlist,      /* O */
   char **rtnportlist,  /* O */
   char  *FailHost,     /* O (optional,minsize=1024) */
@@ -4258,6 +4259,7 @@ int set_nodes(
   struct howl *nxt;
 
   int     i, count;
+  int     procs_needed = 0;
   short   newstate;
 
   int     NCount;
@@ -4390,6 +4392,64 @@ int set_nodes(
 
     }    /* END for (i) */
 
+  /* did we have a request for procs? Do those now */
+  if(procs > 0)
+    {
+    /* check to see if a -l nodes request was made */
+    if(pjob->ji_have_nodes_request)
+      {
+      procs_needed = procs;
+      }
+    else
+      {
+      /* the qsub request used -l procs only. No -l nodes=x
+         was given in the qsub request.
+         TORQUE allocates 1 node by default if a -l nodes specification
+         is not given.
+      */
+      if(procs > 1)
+        {
+        procs_needed = procs - 1;
+        }
+      else
+        procs_needed = 1;
+      }
+
+    for (i = 0;i < svr_totnodes;i++)
+      {
+      pnode = pbsndlist[i];
+
+      if (pnode->nd_state & INUSE_DELETED)
+        continue;
+
+      for (snp = pnode->nd_psn;snp && procs_needed > 0;snp = snp->next)
+        {
+        if(exclusive)
+          {
+          if(snp->inuse != INUSE_FREE)
+            continue;
+          }
+        else
+          {
+          if ((snp->inuse != INUSE_FREE) && (snp->inuse != INUSE_JOBSHARE))
+            continue;
+          }
+        /* Mark subnode as being IN USE */
+
+
+        pnode->nd_needed++; /* we do this because add_job_to_node will decrement it */
+        /* We need to set the node to thinking. */
+        pnode->nd_flag = thinking;
+        add_job_to_node(pnode,snp,newstate,pjob,exclusive);
+
+        build_host_list(&hlist,snp,pnode);
+        procs_needed--;
+
+        } /* END for (snp) */
+
+      }
+    }  
+
   if (hlist == NULL)
     {
     if (LOGLEVEL >= 1)
@@ -4511,6 +4571,123 @@ int set_nodes(
   }  /* END set_nodes() */
 
 
+/* count the number of requested processors in a node spec
+ * return processors requested on success
+ * return -1 on error 
+ */ 
+int procs_requested(char *spec)
+  {
+  char *id = "procs_requested";
+  char *str, *globs, *cp, *hold;
+  int num_nodes = 0, num_procs = 0, total_procs = 0;
+  int i;
+  static char shared[] = "shared";
+  struct prop *prop = NULL;
+
+  spec = strdup(spec);  
+
+  if (spec == NULL)
+    {
+    /* FAILURE */
+
+    sprintf(log_buffer,"cannot alloc memory");
+
+    if (LOGLEVEL >= 1)
+      {
+      log_record(
+        PBSEVENT_SCHED,
+        PBS_EVENTCLASS_REQUEST,
+        id,
+        log_buffer);
+      }
+
+    return(-1);
+    }
+
+  /* Check to see if we have a global modifier */
+  if ((globs = strchr(spec, '#')) != NULL)
+    {
+    *globs++ = '\0';
+
+    globs = strdup(globs);
+
+    while ((cp = strrchr(globs, '#')) != NULL)
+      {
+      *cp++ = '\0';
+
+      if (strcmp(cp, shared) != 0)
+        {
+        hold = mod_spec(spec, cp);
+
+        free(spec);
+
+        spec = hold;
+        }
+      else
+        {
+        exclusive = 0;
+        }
+      }
+
+    if (strcmp(globs, shared) != 0)
+      {
+      hold = mod_spec(spec, globs);
+
+      free(spec);
+
+      spec = hold;
+      }
+    else
+      {
+      exclusive = 0;
+      }
+
+    free(globs);
+    }  /* END if ((globs = strchr(spec,'#')) != NULL) */
+
+  str = spec;
+
+  do
+    {
+
+    if((i = number(&str, &num_nodes)) == -1 )
+      {
+      /* Bad string syntax. Fail */
+      return(-1);
+      }
+
+    if (i == 0)
+      {
+      /* number exists */
+
+      if (*str == ':')
+        {
+        /* there are properties */
+
+        str++;
+
+        if (proplist(&str, &prop, &num_procs))
+          {
+          return(-1);
+          }
+        }
+      }
+    else
+      {
+      /* no number */
+      num_nodes = 1;
+      if (proplist(&str, &prop, &num_procs))
+        {
+        /* must be a prop list with no number in front */
+
+        return(-1);
+        }
+      }
+    total_procs += num_procs * num_nodes;
+    } while(*str++ == '+');
+
+    return(total_procs);
+  }
 
 
 
@@ -5107,6 +5284,7 @@ void set_old_nodes(
 
   return;
   }  /* END set_old_nodes() */
+
 
 
 /* END node_manager.c */

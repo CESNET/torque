@@ -1,6 +1,9 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
 NUMA
+  e - Added code to support procs functionality for qsub. This code was
+      originally merged into the NUMA branch at revision 3793 but backed
+      out with revision 3808 because of conflicts.
   e - Now parsing the file located in $TORQUE_HOME/mom_priv/mom.layout and 
       storing the values. Mom looks for the line starting with its hostname
   e - Added code to support multiple MOMs on a single host. 
