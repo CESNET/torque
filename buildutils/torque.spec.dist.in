@@ -6,28 +6,23 @@
 %define release 1cri
 
 
-%define torquehomedir @PBS_SERVER_HOME@
-%define server_name @PBS_DEFAULT_SERVER@
+%define torquehomedir /var/spool/torque
+%define server_name localhost
 
-%define _libdir @rpmlibdir@
-%define _mandir @rpmmandir@
-%define _bindir @rpmbindir@
-%define _sbindir @rpmsbindir@
-%define _includedir @rpmincludedir@
-%define drmaadocdir @rpmdrmaadocdir@
+%define drmaadocdir %{_datadir}/doc/torque-drmaa
 
-%define use_tcl @use_tcl@
-%define build_server @build_server@
-%define build_mom @build_mom@
-%define build_clients @build_clients@
-%define build_gui @build_gui@
-%define build_pbs_rcp @build_pbs_rcp@
-%define build_drmaa @build_drmaa@
-%define build_drmaa_docs @build_drmaa_docs@
-%define pammoddir @pammoddir@
-%define modulefiles_dir @MODULEFILES_DIR@
+%define use_tcl 1
+%define build_server yes
+%define build_mom yes
+%define build_clients yes
+%define build_gui yes
+%define build_pbs_rcp no
+%define build_drmaa yes
+%define build_drmaa_docs yes
+%define pammoddir /%{_lib}/security
+%define modulefiles_dir no
 
-%define configure_args ''@ac_configure_args@
+%define configure_args --with-server-home=%{torquehomedir} --enable-server --enable-mom --enable-clients --enable-gui --enable-drmaa --with-tcl --with-tcltk --with-pam=%{pammoddir}
 
 
 ############################################
@@ -52,7 +47,7 @@ Group: System Environment/Daemons
 URL: http://www.clusterresources.com/products/torque/
 BuildRoot: %{_tmppath}/%{name}-%{version}-buildroot
 Provides: pbs
-BuildRequires: ed
+BuildRequires: ed doxygen tcl-devel tk-devel pam-devel
 Conflicts: pbspro, openpbs, openpbs-oscar
 Obsoletes: scatorque
 
@@ -71,7 +66,7 @@ This package holds just a few shared files and directories.
 
 
 %build
-CFLAGS="%{optflags}" ./configure %{?configure_args}
+%{configure} %{?configure_args}
 
 %{__make} %{?_smp_mflags}
 
