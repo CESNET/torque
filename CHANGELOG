@@ -141,6 +141,9 @@ NUMA
   e - make PBS_O_WORKDIR accessible in the environment for prolog scripts
   e - Bugzilla 59. Applied patch to allow '=' for qdel -m.
       (Chris Samuel - Univ. of Melbourne)
+  e - from Simon Toth: If no available amount is specified for a resource 
+      and the max limit is set, the requirement should be checked against 
+      the maximum only (for scheduler, bugzilla 23). 
 
 2.4.8
   e - Bugzilla bug 22. HIGH_PRECISION_FAIRSHARE for fifo scheduling.
