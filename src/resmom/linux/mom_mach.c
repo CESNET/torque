@@ -442,6 +442,34 @@ proc_stat_t *get_proc_stat(
 
 
 
+/** Open memory file (either system or magrathea) */
+FILE *open_memory_file()
+  {
+  struct stat sbuf;
+  int ret;
+  FILE *fp;
+
+  ret = stat("/var/run/magrathea.mem", &sbuf);
+
+  if (ret == 0)
+    {
+    if ((fp = fopen("/var/run/magrathea.mem", "r")) == NULL)
+      {
+      log_err(-1,"open_memory_file","Could not open magrathea memory file.");
+      return NULL;
+      }
+    }
+  else
+    {
+    if ((fp = fopen("/proc/meminfo", "r")) == NULL)
+      {
+      log_err(-1,"open_memory_file","Could not open system memory file.");
+      return NULL;
+      }
+    }
+
+  return fp;
+  }
 
 
 proc_mem_t *get_proc_mem(void)
@@ -452,7 +480,7 @@ proc_mem_t *get_proc_mem(void)
   char                str[32];
   unsigned long long  bfsz, casz;
 
-  if ((fp = fopen("/proc/meminfo","r")) == NULL)
+  if ((fp = open_memory_file()) == NULL)
     {
     return(NULL);
     }
@@ -592,7 +620,7 @@ get_proc_mem(void)
   unsigned long m_tot, m_use, m_free;
   unsigned long s_tot, s_use, s_free;
 
-  if ((fp = fopen("/proc/meminfo", "r")) == NULL)
+  if ((fp = open_memory_file()) == NULL)
     {
     return(NULL);
     }
@@ -3450,7 +3478,7 @@ static char *physmem(
     return(NULL);
     }
 
-  if (!(fp = fopen(path_meminfo, "r")))
+  if (!(fp = open_memory_file()))
     {
     rm_errno = RM_ERR_SYSTEM;
 
