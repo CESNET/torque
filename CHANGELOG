@@ -1,5 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature n - note
 
+2.3.12
+
 2.3.11
   b - no longer ignoring fread return values in linux cpuset code (gcc 4.3.3)
   b - fixed segfault for when TORQUE thinks there's a nanny but there isn't
