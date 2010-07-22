@@ -254,18 +254,18 @@ void reset_alternative_on_node(job *pjob)
           }
 
         host = strchr(p,'=');
-        if (host != NULL)
-          {
-          host++;
-          }
+        if (host == NULL)
+          return;
+
+        host++;
 
         alternative = strchr(p,'[');
-        if (alternative != NULL)
-          {
-          *alternative = '\0';
-          alternative++;
-          alternative[strlen(alternative)-2] = '\0';
-          }
+        if (alternative == NULL)
+          return;
+
+        *alternative = '\0';
+        alternative++;
+        alternative[strlen(alternative)-1] = '\0';
 
         set_alternative_on_node(host,alternative,pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
 
