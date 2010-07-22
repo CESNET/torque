@@ -28,5 +28,6 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec);
 int cloud_transition_into_prerun(job *pjob);
 void cloud_transition_into_running(job *pjob);
 void cloud_transition_into_stopped(job *pjob);
+void reset_alternative_on_node(job *pjob);
 
 #endif /* CLOUD_H_ */

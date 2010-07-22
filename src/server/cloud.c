@@ -233,6 +233,51 @@ void clear_alternative_on_node(char *nodename)
   log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, np->nd_name, "additional properties cleared from node");
   }
 
+void reset_alternative_on_node(job *pjob)
+  {
+  if (is_cloud_job(pjob))
+    {
+    if ((pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_flags & ATR_VFLAG_SET) != 0)
+      {
+      char *map, *p;
+
+      p = map = strdup(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str);
+      do
+        {
+        char *host, *alternative, *c;
+
+        c = strchr(p,';');
+        if (c != NULL)
+          {
+          *c = '\0';
+          c++;
+          }
+
+        host = strchr(p,'=');
+        if (host != NULL)
+          {
+          host++;
+          }
+
+        alternative = strchr(p,'[');
+        if (alternative != NULL)
+          {
+          *alternative = '\0';
+          alternative++;
+          alternative[strlen(alternative)-2] = '\0';
+          }
+
+        set_alternative_on_node(host,alternative,pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
+
+        p = c;
+        }
+      while (p != NULL);
+
+      free(map);
+      }
+    }
+  }
+
 char *get_alternative_name(char *mapping, char *machine)
   {
   char *mpos, *begin, *end, *result;

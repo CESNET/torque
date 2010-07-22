@@ -116,6 +116,7 @@
 #include "resmon.h"
 #include "mcom.h"
 #include "utils.h"
+#include "cloud.h"
 
 #include "assertions.h"
 
@@ -5087,6 +5088,9 @@ void set_old_nodes(
       }
 
     set_one_old(old, pjob, shared);
+
+    /* reset alternatives on nodes */
+    reset_alternative_on_node(pjob);
 
     free(old);
     }  /* END if ((pbsndmast != NULL) && ...) */
