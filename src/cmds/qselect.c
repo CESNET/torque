@@ -271,7 +271,7 @@ int main(
 
     struct attropl *select_list = 0;
 
-    static char destination[PBS_MAXQUEUENAME+1] = "";
+    static char destination[PBS_MAXROUTEDEST+1] = "";
     char server_out[MAXSERVERNAME] = "";
 
     char *queue_name_out;
@@ -396,7 +396,7 @@ int main(
         set_attrop(&select_list, ATTR_p, NULL, optargout, op);
         break;
     case 'q':
-        strcpy(destination, optarg);
+        strncpy(destination, optarg, PBS_MAXROUTEDEST);
         check_op(optarg, pop, optargout); 
         set_attrop(&select_list, ATTR_q, NULL, optargout, op);
         break;
