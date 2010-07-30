@@ -380,6 +380,13 @@ int dis_request_read(
 
 #endif /* PBS_MOM */
 
+#ifdef GSSAPI
+    case PBS_BATCH_GSSAuthenUser:
+      /* nothing to do here.  There's no body in the request */
+      break;
+
+#endif /* GSSAPI */
+
     default:
 
       sprintf(log_buffer, "%s: %d from %s",

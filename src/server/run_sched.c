@@ -119,7 +119,7 @@ static void listener_close A_((int));
 
 
 extern void bad_node_warning(pbs_net_t);
-extern ssize_t write_nonblocking_socket(int, const void *, ssize_t);
+/* extern ssize_t write_nonblocking_socket(int, const void *, ssize_t); */
 
 
 

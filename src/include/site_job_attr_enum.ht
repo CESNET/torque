@@ -92,3 +92,4 @@
  */
 
 JOB_SITE_ATR_x,
+JOB_SITE_ATR_krb_princ,

@@ -87,10 +87,15 @@ typedef unsigned long pbs_net_t;        /* for holding host addresses */
 #define PBS_NET_TYPE
 #endif
 
+#ifdef GSSAPI
+#include "pbsgss.h"
+#endif
+
 #define PBS_NET_MAXCONNECTIDLE  900
 #define PBS_NET_CONN_AUTHENTICATED 1
 #define PBS_NET_CONN_FROM_PRIVIL   2
 #define PBS_NET_CONN_NOTIMEOUT     4
+#define PBS_NET_CONN_GSSAPIAUTH    8
 
 #define PBS_SOCK_UNIX     1
 #define PBS_SOCK_INET     2
@@ -205,6 +210,10 @@ struct connection
   time_t cn_lasttime;    /* time last active */
   void (*cn_func) A_((int));  /* read function when data rdy */
   void (*cn_oncl) A_((int));  /* func to call on close */
+#ifdef GSSAPI
+        char            *principal;      /* client principal for use with GSS auth */
+        gss_cred_id_t   creds;           /* client creds, for use with GSS auth */
+#endif
   };
 
 struct netcounter
