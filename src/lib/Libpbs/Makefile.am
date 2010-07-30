@@ -6,7 +6,7 @@ EXTRA_DIST = ../Libdis/dis_.h
 
 lib_LTLIBRARIES = libtorque.la
 
-libtorque_la_LDFLAGS = -version-info 2:0:0 -lpbscache
+libtorque_la_LDFLAGS = -version-info 2:0:0 -L/usr/heimdal/lib -lgssapi -lkrb5 -lasn1 -lcom_err -lcrypto -lroken -lcrypt -ldl -lresolv -pthread -lpbscache
 
 libtorque_la_SOURCES = ../Libcsv/csv.c ../Libdis/dis.c \
             ../Libdis/discui_.c ../Libdis/discul_.c \
@@ -83,5 +83,8 @@ libtorque_la_SOURCES = ../Libcsv/csv.c ../Libdis/dis.c \
 		    ../Libnet/md5.c ../Libnet/net_client.c \
                     ../Libnet/net_server.c ../Libnet/net_set_clse.c \
 		    ../Libnet/rm.c ../Libnet/port_forwarding.c \
-		    ../Libsite/site_user_account.c ./nodespec.cpp
+		    ../Libsite/site_user_account.c ./nodespec.cpp \
+if INCLUDE_GSSAPI
+		    ../Libifl/pbsgss.c
+endif
 

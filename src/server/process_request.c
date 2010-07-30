@@ -200,6 +200,10 @@ void req_holdarray(struct batch_request *preq);
 
 #endif
 
+#ifdef GSSAPI
+extern int req_gssauthenuser (struct batch_request *preq, int sock);
+#endif
+
 /* END request processing prototypes */
 
 
@@ -424,6 +428,31 @@ void process_request(
     return;
     }
 
+#ifdef GSSAPI
+  if (request->rq_type == PBS_BATCH_GSSAuthenUser) {
+#ifdef PBS_MOM
+    req_reject(PBSE_BADCRED,0,request,NULL,"pbs_mom didn't expect PBS_BATCH_GSSAuthenUser");
+    return;
+#else
+    /* gss_gssauthenuser will already have called req_reject */
+    if (req_gssauthenuser(request,sfds) < 0) {
+      log_event(PBSEVENT_DEBUG,
+                PBS_EVENTCLASS_SERVER,"req_gssauthenuser returned < 0","");
+      return;
+    }
+    log_event(PBSEVENT_DEBUG,
+              PBS_EVENTCLASS_SERVER,"req_gssauthenuser returned >= 0","");
+#endif
+  } else {
+#ifndef PBS_MOM    
+    if (svr_conn[sfds].cn_authen == PBS_NET_CONN_GSSAPIAUTH) {
+      strcpy(request->rq_user,conn_credent[sfds].username);
+      strcpy(request->rq_host,conn_credent[sfds].hostname);
+    }
+#endif
+  }
+#endif /* GSSAPI */
+
   if (LOGLEVEL >= 1)
     {
     sprintf(
@@ -530,9 +559,12 @@ void process_request(
 
     if (ENABLE_TRUSTED_AUTH == TRUE)
       rc = 0;  /* bypass the authentication of the user--trust the client completely */
-    else if (svr_conn[sfds].cn_authen != PBS_NET_CONN_AUTHENTICATED)
+    else if (svr_conn[sfds].cn_authen != PBS_NET_CONN_AUTHENTICATED &&
+        svr_conn[sfds].cn_authen != PBS_NET_CONN_GSSAPIAUTH) {
+      log_event(PBSEVENT_DEBUG,
+                PBS_EVENTCLASS_SERVER,"cn_authen not net_conn_auth",log_buffer);
       rc = PBSE_BADCRED;
-    else
+    } else
       rc = authenticate_user(request, &conn_credent[sfds]);
 
     if (rc != 0)
@@ -1010,6 +1042,12 @@ void dispatch_request(
       break;
 
 #endif /* !PBS_MOM */
+
+#ifdef GSSAPI
+    case PBS_BATCH_GSSAuthenUser:
+      /* already handled */
+      break;
+#endif /* GSSAPI */
 
     default:
 

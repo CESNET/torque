@@ -109,6 +109,7 @@
 #include "server_limits.h"
 #include "net_connect.h"
 #include "log.h"
+#include "dis.h"
 
 extern int LOGLEVEL;
 
@@ -734,6 +735,8 @@ void close_conn(
    * In the case of a -t cold start, this will be called prior to
    * GlobalSocketReadSet being initialized
    */
+
+  DIS_tcp_release(sd);  /* FIXME: only do this on TCP sockets */
 
   if (GlobalSocketReadSet != NULL)
   {

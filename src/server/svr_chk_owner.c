@@ -94,6 +94,10 @@
 #include "svrfunc.h"
 #include "mcom.h"
 
+#ifdef GSSAPI
+#include "pbsgss.h"
+#endif
+
 /* Global Data */
 
 extern struct credential conn_credent[PBS_NET_MAX_CONNECTIONS];
@@ -105,6 +109,11 @@ extern time_t time_now;
 extern char *PJobState[];
 
 extern int site_allow_u(char *, char *);
+
+#ifdef GSSAPI
+char  *rootprinc;
+#endif
+
 
 int svr_chk_owner_generic(struct batch_request *preq, char *owner, char *submit_host);
 int svr_authorize_req(struct batch_request *preq, char *owner, char *submit_host);
@@ -255,7 +264,13 @@ int svr_get_privilege(
   int   is_root = 0;
   int   priv = (ATR_DFLAG_USRD | ATR_DFLAG_USWR);
   int   num_host_chars;
+#ifdef GSSAPI
+# define uhlen PBS_MAXUSER + PBS_MAXHOSTNAME + 102
+  char  uh[uhlen];
+#else
   char  uh[PBS_MAXUSER + PBS_MAXHOSTNAME + 2];
+#endif
+
   char  host_no_port[PBS_MAXHOSTNAME+1];
   char *colon_loc = NULL;
 
@@ -333,6 +348,20 @@ int svr_get_privilege(
   sprintf(uh, "%s@%s", user, host);
 
   /* NOTE:  enable case insensitive host check (CRI) */
+
+#ifdef GSSAPI
+  snprintf(uh,uhlen,"%s@%s",user,host);
+  if (!rootprinc) {
+    rootprinc = pbsgss_get_host_princname();
+  }
+  if (!rootprinc) {return 0;}
+  if (strcmp(uh,rootprinc) == 0) {
+    is_root = 1;
+#ifdef PBS_ROOT_ALWAYS_ADMIN
+    return(priv|ATR_DFLAG_MGRD|ATR_DFLAG_MGWR|ATR_DFLAG_OPRD|ATR_DFLAG_OPWR);
+#endif  /* PBS_ROOT_ALWAYS_ADMIN */
+    }
+#endif /* GSSAPI */
 
   if ((strcmp(user, PBS_DEFAULT_ADMIN) == 0) &&
       !strcasecmp(host_no_port, server_host))
