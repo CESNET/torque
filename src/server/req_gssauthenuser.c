@@ -123,9 +123,9 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
     req_reject(PBSE_BADCRED,0,preq,NULL,"got no context");
     return -1;
   }
-  if (svr_conn[sock].principal != NULL) {
-    free(svr_conn[sock].principal);
-  }
+
+  free(svr_conn[sock].principal);
+
   svr_conn[sock].principal = (char *)malloc(sizeof(char) * (1 + client_name.length));
   strncpy(svr_conn[sock].principal,client_name.value,client_name.length);
   svr_conn[sock].principal[client_name.length] = '\0';

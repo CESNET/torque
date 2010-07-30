@@ -753,6 +753,9 @@ void close_conn(
 
   svr_conn[sd].cn_authen = 0;
 
+  free(svr_conn[sd].principal);
+  svr_conn[sd].principal = NULL;
+
   num_connections--;
 
   return;
