@@ -199,6 +199,8 @@ PbsErrClient(PBSE_PRECONDITION,      "Routine precondition failed.")
 PbsErrClient(PBSE_POSTCONDITION,     "Routine postcondition failed.")
 /* Routine consistency test failed */
 PbsErrClient(PBSE_CONSISTENCY,       "Routine consistency check failed.")
+PbsErrClient(PBSE_KERBEROS_USER, "Effective user name does not match kerberos principal")
+PbsErrClient(PBSE_KERBEROS_TICKET, "Getting kerberos ticket for user failed")
 /* pbs client errors ceiling (max_client_err + 1) */
 PbsErrClient(PBSE_CEILING,           (char*)0)
 #endif

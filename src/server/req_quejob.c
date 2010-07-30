@@ -601,6 +601,19 @@ void req_quejob(
       (void)job_attr_def[(int)JOB_SITE_ATR_krb_princ].at_decode(
 	&pj->ji_wattr[(int)JOB_SITE_ATR_krb_princ],
         NULL, NULL, svr_conn[preq->rq_conn].principal);
+
+#if 0
+      /* verify match between effective user and kerberos principal */
+      if (pj->ji_wattr[(int)JOB_ATR_euser].at_flags & ATR_VFLAG_SET)
+      if (strncmp(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,
+      		      pj->ji_wattr[(int)JOB_SITE_ATR_krb_princ].at_val.at_str,
+      		      strlen(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str)) != 0)
+        {
+      	  job_purge(pj);
+
+      	  req_reject(PBSE_KERBEROS_USER, 0, preq, NULL, NULL);
+        }
+#endif
   }
 #endif /* GSSAPI */
 

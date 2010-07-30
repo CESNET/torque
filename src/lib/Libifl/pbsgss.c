@@ -85,9 +85,6 @@ extern afs_int32 setpag();
 #include "dis_init.h"
 
 #define gss_nt_service_name GSS_C_NT_HOSTBASED_SERVICE
-#define KRB5_KINIT "/usr/heimdal/bin/kinit"
-#define KRB5_KDESTROY "/usr/heimdal/bin/kdestroy"
-#define AKLOG_PATH "/usr/heimdal/bin/afslog"
 
 static int retry = 0;
 

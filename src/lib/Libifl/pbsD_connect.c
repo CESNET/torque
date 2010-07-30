@@ -828,31 +828,35 @@ int pbs_original_connect(
      If there's no GSSAPI, then just use iff.
    */
 #ifdef GSSAPI
-  if (pbsgss_can_get_creds()) {
-    if (encode_DIS_ReqHdr(connection[out].ch_socket,
-			  PBS_BATCH_GSSAuthenUser,
-			  pbs_current_user) ||
-	encode_DIS_ReqExtend(connection[out].ch_socket,0)) {
-      if (getenv("PBSDEBUG")) {
-	fprintf(stderr,"ERROR:  cannot authenticate connection with gssapi, errno=%d (%s)\n",
-		errno,
-		strerror(errno));
-      }    
+  if (pbsgss_can_get_creds())
+    {
+    if (encode_DIS_ReqHdr(connection[out].ch_socket, PBS_BATCH_GSSAuthenUser, pbs_current_user) ||
+        encode_DIS_ReqExtend(connection[out].ch_socket,0))
+      {
+      if (getenv("PBSDEBUG"))
+        {
+        fprintf(stderr,"ERROR:  cannot authenticate connection with gssapi, errno=%d (%s)\n", errno, strerror(errno));
+        }
       neediff = 1;
-    } else {
+      }
+    else
+      {
       DIS_tcp_wflush(connection[out].ch_socket);
-      if (pbsgss_client_authenticate(server,connection[out].ch_socket,1,1) != 0) {
-	neediff = 1;
-	if (getenv("PBSDEBUG")) {
-	  fprintf(stderr,"ERROR:  cannot authenticate connection, errno=%d (%s)\n",
-		  errno,
-		  strerror(errno));
-	}    
+      if (pbsgss_client_authenticate(server,connection[out].ch_socket,1,1) != 0)
+        {
+        neediff = 1;
+        if (getenv("PBSDEBUG"))
+          {
+          fprintf(stderr,"ERROR:  cannot authenticate connection, errno=%d (%s)\n", errno, strerror(errno));
+          }
+        }
       }
     }
-  } else {
+  else
+    {
     neediff = 1;
-  }
+    }
+
   if (neediff) 
     {
 #endif

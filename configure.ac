@@ -781,6 +781,7 @@ AC_ARG_WITH(gssapi,
                         K5CFLAGS="`$KRB5CONF --cflags $k5confopts`"
                         K5LIBS="`$KRB5CONF --libs $k5confopts`"
                         CPPFLAGS="$CPPFLAGS $K5CFLAGS"
+			LDFLAGS="$LDFLAGS -Wl,-R${GSSAPIROOT}/lib $K5LIBS"
                         AC_MSG_CHECKING(whether we are using Heimdal)
                         AC_TRY_COMPILE([ #include <krb5.h> ],
                                        [ const char *tmp = heimdal_version; tmp=NULL;],
@@ -806,7 +807,11 @@ AM_CONDITIONAL(INCLUDE_GSSAPI, [test "$buildgssapi" = "yes"])
 
 if test "$buildgssapi" = "yes" ;then
      AC_PATH_PROGS(KRB5KDESTROY, kdestroy, kdestroy,$PATH:$GSSAPIROOT/bin)
+     AC_PATH_PROGS(KRB5KINIT, kinit, kinit,$PATH:$GSSAPIROOT/bin)
+     AC_PATH_PROGS(AKLOG, afslog, afslog,$PATH:$GSSAPIROOT/bin)
      AC_DEFINE_UNQUOTED([KRB5_KDESTROY],"${KRB5KDESTROY}",[Path to kdestroy])
+     AC_DEFINE_UNQUOTED([KRB5_KINIT],"${KRB5KINIT}",[Path to kinit])
+     AC_DEFINE_UNQUOTED([AKLOG_PATH],"${AKLOG}",[Path to afslog])
 fi
 
 

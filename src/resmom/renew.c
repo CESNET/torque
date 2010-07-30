@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-
 #include <pbs_config.h>
 
 #include <errno.h>
@@ -13,11 +11,12 @@
 #include <sys/fcntl.h>
 #include <signal.h>
 #include <unistd.h>
-#include <krb5.h>
 #include <com_err.h>
+#include <krb5.h>
 #include <kafs.h>
 #include <krb525.h>
 #include <krb525_convert.h>
+
 
 #include "libpbs.h"
 #include "portability.h"
@@ -39,6 +38,7 @@
 #include "md5.h"
 #include "mcom.h"
 #include "resource.h"
+#include "renew.h"
 
 enum {   MAXTRIES  = 60 };
 
@@ -55,26 +55,15 @@ extern struct var_table vtable;
 char     *error_msg = NULL;
 static int received_signal = -1;
 
-typedef struct eexec_job_info_t {
-  int         expire_time;    /* updated according to ticket lifetime */
-  time_t      endtime;        /* tickets expiration time */
-  krb5_creds  creds;          /* User's TGT */
-  krb5_ccache ccache;         /* User's credentials cache */
-  uid_t job_uid;
-  char *username;
-  char *princ;
-  char *realm;
-  char *ccache_name;
-  krb5_principal client;
-} eexec_job_info_t, *eexec_job_info;
+
+int krb_log_file;
 
 int
-get_job_info(task *ptask, eexec_job_info job_info)
+get_job_info(job *pjob, task *ptask, eexec_job_info job_info)
 {
   char                 *qsub_msg = NULL;
   char                 *id = "get_job_info";
   char                 *ccname;
-  job	               *pjob = ptask->ti_job;
   krb5_context         context;
 
   qsub_msg = pjob->ji_wattr[(int)JOB_SITE_ATR_krb_princ].at_val.at_str;
@@ -87,8 +76,16 @@ get_job_info(task *ptask, eexec_job_info job_info)
   /* job_info.pid = getpid(); */
   job_info->job_uid = pjob->ji_qs.ji_un.ji_momt.ji_exuid;
   job_info->username = pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str;
-  asprintf(&ccname, "FILE:/tmp/krb5cc_pbsjob_%s_%ld", 
-		  pjob->ji_qs.ji_jobid, (long)ptask->ti_qs.ti_task);
+  if (ptask == NULL)
+    {
+    asprintf(&ccname, "FILE:/tmp/krb5cc_pbsjob_%s_jobwide",
+        pjob->ji_qs.ji_jobid);
+    }
+  else
+    {
+    asprintf(&ccname, "FILE:/tmp/krb5cc_pbsjob_%s_%ld",
+        pjob->ji_qs.ji_jobid, (long)ptask->ti_qs.ti_task);
+    }
   job_info->ccache_name = ccname;
 
   krb5_init_context(&context);
@@ -99,21 +96,6 @@ get_job_info(task *ptask, eexec_job_info job_info)
 
   return(0);
 }
-
-int
-check_info(eexec_job_info job_info)
-{
-  char *id = "check_info";
-
-  /* Check username and ticket owner principal - XXX */
-  if(strcmp(job_info->username, job_info->princ) != 0) {
-    log_err(-1, id, "user differs from ticket owner");
-    /* return(-1); */
-  }
-  
-  return(0);
-}
-
 
 krb5_error_code
 get_ticket(krb5_context context, eexec_job_info job_info)
@@ -326,6 +308,74 @@ register_signal(int signal)
    received_signal = signal;
 }
 
+/** Initialize a kerberos ticket
+ *
+ *  @param pjob Parent job
+ *  @param ptask Parent task
+ *  @param job_info Job info to be filled
+ *  @param context Context to be filled
+ *  @return -2 if principal is present, -3 if get_job_info failed, -4 if krb5_init_context failed, -5 if get_renewed_creds failed
+ */
+int init_ticket(job *pjob, task *ptask, eexec_job_info job_info, krb5_context* context)
+  {
+  int ret;
+  char buf[512];
+  static char *id = "init_ticket";
+
+  memset(job_info, 0, sizeof(*job_info));
+
+  if ((ret = get_job_info(pjob, ptask, job_info)) != 0)
+    {
+    snprintf(buf, sizeof(buf), "get_job_info returned %d",ret);
+    log_err(errno, id, buf);
+    if (ret == -2)
+      return -2;
+    else
+      return -3;
+    }
+
+  if (k_hasafs())
+      k_setpag();
+
+  if((ret = krb5_init_context(context)) != 0)
+    {
+    log_err(-1, id, "initializing krb5 context");
+    return -4;
+    }
+
+  if ((ret = get_renewed_creds(*context, job_info)) != 0)
+    {
+    krb5_free_context(*context);
+    snprintf(buf, sizeof(buf), "get_renewed_creds returned %d, %s, %s",ret, error_message(ret), error_msg);
+    log_err(errno, id, buf);
+    return -5;
+    }
+
+  bld_env_variables(&vtable, "KRB5CCNAME", job_info->ccache_name);
+
+  return 0;
+  }
+
+/** Free a kerberos ticket
+ *
+ * @param context Context of the ticket
+ * @param job_info Job info (for ticketfile name)
+ * @return always 0
+ */
+int free_ticket(krb5_context* context, eexec_job_info job_info)
+  {
+  if(job_info->ccache)
+    {
+    krb5_cc_destroy(*context, job_info->ccache);
+    unlink(job_info->ccache_name);
+    }
+
+  if(k_hasafs())
+    k_unlog();
+
+  return 0;
+  }
+
 int
 do_renewal(krb5_context context, eexec_job_info job_info)
 {
@@ -370,12 +420,7 @@ out:
      log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, id, log_msg);
   }
 
-  if(job_info->ccache) {
-     krb5_cc_destroy(context, job_info->ccache);
-     unlink(job_info->ccache_name);
-  }
-  if(k_hasafs())
-     k_unlog();
+  free_ticket(&context, job_info);
 
   return(ret);
 }
@@ -400,7 +445,7 @@ check_user_creds(eexec_job_info job_info, char *filename)
 }
 
 int 
-start_renewal(task *ptask)
+start_renewal(task *ptask, int fd1, int fd2)
 {
   eexec_job_info_t     _job_info;
   eexec_job_info       job_info = &_job_info;
@@ -412,8 +457,6 @@ start_renewal(task *ptask)
   char pid_file[MAXPATHLEN];
   char buf[512];
   job                  *pjob = ptask->ti_job;
-
-  memset(job_info, 0, sizeof(*job_info));
 
   if (*pjob->ji_qs.ji_fileprefix != '\0')
      snprintf(pid_file, sizeof(pid_file), "%s%s_renew_%ld.pid",
@@ -433,46 +476,17 @@ start_renewal(task *ptask)
      return -1;
   }
 
-  ret = get_job_info(ptask, job_info);
-  if (ret == -2) {
-     close(fd);
-     snprintf(buf, sizeof(buf), "get_job_info returned -2");
-     log_err(errno, id, buf);
-     return 0;
-  }
-  if (ret) {
-     close(fd);
-     snprintf(buf, sizeof(buf), "get_job_info returned %d",ret);
-     log_err(errno, id, buf);
-     return ret;
-  }
-
-  if((ret = check_info(job_info))) {
-     close(fd);
-     snprintf(buf, sizeof(buf), "check_info returned %d",ret);
-     log_err(errno, id, buf);
-     return ret;
-  }
-  
-  if (k_hasafs())
-      k_setpag();
-
-  /* Initialize krb5 context */
-  if((ret = krb5_init_context(&context))) {
-       close(fd);
-       log_err(-1, id, "initializing krb5 context");
-       return -1;
-  }
-
-  if ((ret = get_renewed_creds(context, job_info))) {
-        krb5_free_context(context);
-	close(fd);
-        snprintf(buf, sizeof(buf), "get_renewed_creds returned %d, %s",ret, error_message(ret));
-        log_err(errno, id, buf);
-        return ret;
-  }
-
-  bld_env_variables(&vtable, "KRB5CCNAME", job_info->ccache_name);
+  ret = init_ticket(pjob, ptask, job_info, &context);
+  if (ret == -2) /* job without a principal */
+    {
+    close(fd);
+    return 0;
+    }
+  if (ret) /* error */
+    {
+    close(fd);
+    return ret;
+    }
      
   pid = fork();
   if (pid < 0) {
@@ -511,6 +525,10 @@ out:
   }
 
   close(fd);
+  if (fd1 >= 0)
+	  close(fd1);
+  if (fd2 >= 0)
+	  close(fd2);
   do_renewal(context, job_info);
 
   exit(0);
@@ -549,8 +567,7 @@ stop_renewal(task *ptask)
 
    fclose(fd);
 
-   if (kill(pid, SIGTERM) < 0)
-      return;
+   kill(pid, SIGTERM);
 
    if (stat(pid_file, &cache_info) == 0) {
       unlink(pid_file);

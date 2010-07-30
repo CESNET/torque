@@ -365,7 +365,7 @@ int init_network(
       return(-1);
       }
 
-    if (chmod(TSOCK_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) != 0)
+    if (chmod(TSOCK_PATH, S_IRUSR | S_IWUSR) != 0)
       {
       close(unixsocket);
 
@@ -752,6 +752,11 @@ void close_conn(
   svr_conn[sd].cn_func = (void (*)())0;
 
   svr_conn[sd].cn_authen = 0;
+
+#ifdef GSSAPI
+  free(svr_conn[sd].principal);
+  svr_conn[sd].principal = NULL;
+#endif
 
   num_connections--;
 

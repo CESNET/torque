@@ -306,7 +306,7 @@ extern void get_jobs_default_checkpoint_dir(job *pjob, char *defaultpath);
 extern char *cat_dirs(char *root, char *base);
 extern char *get_local_script_path(job *pjob, char *base);
 
-extern int start_renewal(task *ptask); 
+extern int start_renewal(task *ptask, int, int);
 
 /* END prototypes */
 
@@ -3020,7 +3020,7 @@ int TMomFinalizeChild(
 	}
 
 #ifdef GSSAPI
-  if (start_renewal(ptask)) 
+  if (start_renewal(ptask,-1,-1))
     {
     starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr); 
     /*NOTREACHED*/
@@ -4178,13 +4178,6 @@ int start_process(
   
 	exit(1);
 	}	
-  
-#ifdef GSSAPI
-#if 0
-  if (start_renewal(ptask))
-      starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-#endif
-#endif
 
   /* NULL terminate the envp array, This is MUST DO */
   
@@ -4537,7 +4530,12 @@ int start_process(
 	  starter_return(kid_write, kid_read, JOB_EXEC_FAIL2, &sjr);
 	  }
 	}
-  
+    
+#ifdef GSSAPI
+  if (start_renewal(ptask,kid_write,kid_read))
+      starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
+#endif
+
   /* become the user and execv the shell and become the real job */
   
   if (setgroups(pjob->ji_grpcache->gc_ngroup,
