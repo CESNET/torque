@@ -8,6 +8,8 @@
 static const char *shared = "shared";
 static const char *excl = "excl";
 
+static void free_pars_prop(pars_prop **prop);
+
 /** Count the parts in a nodespec
  *
  * (Only works for local specs)
@@ -122,6 +124,62 @@ static pars_prop *init_pars_prop()
   return prop;
   }
 
+/** Clone parsed properties
+ *
+ * @param prop Properties to clone
+ * @return Cloned properties or NULL on error
+ */
+static pars_prop *clone_pars_prop(pars_prop *prop)
+  {
+  pars_prop *iter = prop, *result = NULL;
+  while (iter != NULL)
+    {
+    pars_prop *tmp = result;
+
+    if ((result = init_pars_prop()) == NULL)
+      {
+      free_pars_prop(&tmp);
+      return NULL;
+      }
+
+    if ((result->name = strdup(iter->name)) == NULL)
+      {
+      free_pars_prop(&tmp);
+      return NULL;
+      }
+
+    if (iter->value != NULL)
+    if ((result->value = strdup(iter->value)) == NULL)
+      {
+      free(result->name);
+      free_pars_prop(&tmp);
+      return NULL;
+      }
+
+    result->next = tmp;
+    iter = iter->next;
+    }
+
+  return result;
+  }
+
+pars_spec_node *clone_pars_spec_node(pars_spec_node *node)
+  {
+  pars_spec_node *result;
+	if ((result = init_pars_spec_node()) == NULL)
+    return NULL;
+
+  result->node_count = node->node_count;
+  if ((result->properties = clone_pars_prop(node->properties)) == NULL)
+    {
+    free_pars_spec_node(&result);
+	  return NULL;
+    }
+
+  return result;
+  }
+
+
 /** Free one parsed property from the list of properties
  *
  * @param prop List of properties
@@ -145,7 +203,7 @@ static void free_pars_prop(pars_prop **prop)
  *
  * @param node List of node specs
  */
-static void free_pars_spec_node(pars_spec_node **node)
+void free_pars_spec_node(pars_spec_node **node)
   {
   pars_spec_node *tmp;
 

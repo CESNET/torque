@@ -64,4 +64,17 @@ void free_parsed_nodespec(pars_spec *nodespec);
  */
 char *expand_nodespec(const char* nodespec, int *is_exclusive);
 
+/** Free one node spec from the list of node specs
+ *
+ * @param node List of node specs
+ */
+void free_pars_spec_node(pars_spec_node **node);
+
+/** Clone the selected one node spec
+ *
+ * @param node Node spec to be cloned
+ * @return Copy of the spec
+ */
+pars_spec_node *clone_pars_spec_node(pars_spec_node *node);
+
 #endif /* NODESPEC_H_ */
