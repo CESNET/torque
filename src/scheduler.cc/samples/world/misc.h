@@ -86,12 +86,6 @@
 #include "job_info.h"
 
 /*
- * string_dup - duplicate a string
- */
-char *string_dup(char *str);
-
-
-/*
  *      res_to_num - convert a resource string to an integer in the lowest
  *                      form of resource on the machine (btye/word)
  *                      example: 1kb -> 1024 or 1kw -> 1024
@@ -151,5 +145,11 @@ void query_external_cache(server_info *sinfo);
 
 /** check if string contains a number */
 int is_num(const char* value);
+
+/** check the validity of a cloud request */
+int cloud_check(job_info *jinfo);
+
+/** find bootable alternatives for nodes */
+void find_bootable_alternatives(server_info *sinfo);
 
 #endif

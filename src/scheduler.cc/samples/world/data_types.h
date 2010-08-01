@@ -218,6 +218,8 @@ unsigned excl_nodes_only:
   node_info **excl_nodes;
   };
 
+enum ClusterMode { ClusterNone, ClusterCreate, ClusterUse };
+
 struct job_info
   {
 
@@ -260,10 +262,16 @@ unsigned is_exclusive:
 unsigned is_multinode:
   1; /* job requeires multiple nodes */
 
+unsigned is_cluster:
+  1; /* cluster request */
+
+enum ClusterMode cluster_mode;
+
   char *name;   /* name of job */
   char *comment;  /* comment field of job */
   char *account;  /* username of the owner of the job */
   char *group;   /* groupname of the owner of the job */
+  char *custom_name; /**< user selected job/cluster name */
 
   struct queue_info *queue; /* queue where job resides */
   int priority;   /* PBS priority of job */
@@ -274,6 +282,10 @@ unsigned is_multinode:
   group_info *ginfo;  /* the fair share node for the owner */
   node_info *job_node;  /* node the job is running on */
   };
+
+#include "site_pbs_cache.h"
+
+typedef enum node_type { NodeTimeshared, NodeCluster, NodeVirtual, NodeCloud } node_type;
 
 struct node_info
   {
@@ -302,16 +314,16 @@ unsigned is_sharing:
 unsigned is_busy:
   1;  /* load on node is too high to schedule */
 
-  /* node types */
-
-unsigned is_timeshare:
-  1; /* this node is for time-sharing only */
-
-unsigned is_cluster:
-  1; /* This node is a member of a cluster */
+unsigned is_job_suitable:
+  1; /* TODO implement */
 
 unsigned no_multinode_jobs:
   1; /* no multinode jobs on this node */
+
+unsigned is_bootable:
+  1;
+
+  node_type type; /**<type of the node (cluster,timeshared,virtual,cloud) */
 
   char *name;   /* name of the node */
   char **properties;  /* the node properties */
@@ -336,6 +348,10 @@ unsigned no_multinode_jobs:
   int npshared; /* number of shared virtual processors */
 
   job_info* starving_job; /* starving job */
+
+  char *cluster_name;
+
+  struct repository_alternatives ** alternatives;
 
   pars_spec_node *temp_assign;
 #if 0

@@ -90,32 +90,9 @@
 #include "globals.h"
 #include "fairshare.h"
 #include "api.h"
-
-
-/*
- *
- * string_dup - duplicate a string
- *
- *   str - string to duplicate
- *
- * returns newly allocated string
- *
- */
-
-char *string_dup(char *str)
-  {
-  char *newstr;
-
-  if (str == NULL)
-    return NULL;
-
-  if ((newstr = (char *) malloc(strlen(str) + 1)) == NULL)
-    return NULL;
-
-  strcpy(newstr, str);
-
-  return newstr;
-  }
+#include "utility.h"
+#include "site_pbs_cache.h"
+#include "assertions.h"
 
 /*
  *
@@ -271,7 +248,7 @@ char **break_comma_list(char *list)
       while (isspace((int) *tok))
         tok++;
 
-      arr[i] = string_dup(tok);
+      retnull_on_null(arr[i] = strdup(tok));
 
       tok = strtok(NULL, ",");
       }
@@ -329,7 +306,7 @@ char **dup_string_array(char **ostrs)
       }
 
     for (i = 0; ostrs[i] != NULL; i++)
-      nstrs[i] = string_dup(ostrs[i]);
+      retnull_on_null(nstrs[i] = strdup(ostrs[i]));
 
     nstrs[i] = NULL;
     }
@@ -432,7 +409,7 @@ void query_external_cache(server_info *sinfo)
   int j;
   void *ptable;
 
-  for( j = 0; num_res; j++ )
+  for( j = 0; j < num_res; j++ )
     {
     ptable=cache_hash_init();
     if (res_to_check[j].source == ResCheckBoth || res_to_check[j].source == ResCheckCache)
@@ -454,6 +431,7 @@ void query_external_cache(server_info *sinfo)
                res -> avail = res_to_num(value);
                res -> str_avail = value;
                res -> assigned = 0;
+               printf("[pbs_cache] got new numeric value %s = %ld", res->name, (long)res->avail);
                }
              else
                {
@@ -461,6 +439,7 @@ void query_external_cache(server_info *sinfo)
                res -> str_avail = value;
                res -> avail = 0;
                res -> assigned = 0;
+               printf("[pbs_cache] got new string value %s = %s", res->name, res->str_avail);
                }
              }
            }
@@ -470,16 +449,104 @@ void query_external_cache(server_info *sinfo)
            }
         }
       }
+      cache_hash_destroy(ptable);
+    }
+
+  /* read cluster info */
+  ptable=cache_hash_init();
+  if (cache_hash_fill_local("cluster",ptable)==0)
+  for (i=0;i<sinfo -> num_nodes;i++)
+    {
+    node=sinfo -> nodes[i];
+    value=cache_hash_find(ptable,node->name);
+    if (value != NULL)
+      {
+      free(node->cluster_name);
+      node->cluster_name = value;
+      }
     }
   cache_hash_destroy(ptable);
+
   return;
   }
 
 
-int is_num(const char* value) /* TODO improve */
+/** Trivial check for number
+ *
+ * everything that begins with a digit is considered a number
+ *
+ * @param value string
+ * @return 1 if number 0 if not
+ */
+int is_num(const char* value)
   {
+  dbg_precondition(value != NULL, "Cannot check null pointer.");
   if (isdigit(*value))
     return 1;
   else
     return 0;
   }
+
+static int is_magrathea_bootable(resource *res)
+{ long int m_possible;
+
+  if ((magrathea_decode(res,NULL,NULL,NULL,NULL,&m_possible)==0) && (m_possible==1)) {
+      /* TODO jeste test na bootable vlastnost a typ virtual? */
+      return 1;
+  }
+  return 0;
+}
+void find_bootable_alternatives(server_info *sinfo)
+{ int i;
+  node_info *node;
+  resource *res;
+
+
+  for (i=0;i<sinfo -> num_nodes;i++) {
+      node=sinfo -> nodes[i];
+      res = find_resource( node -> res, "magrathea" );
+      if ( (res != NULL) && (is_magrathea_bootable(res) ) ) {
+          node -> alternatives = get_bootable_alternatives(node->name,NULL);
+      }
+  }
+
+  return ;
+}
+
+int cloud_check(job_info *jinfo)
+{
+  int is_cluster_create=0;
+  int is_cluster_req=0;
+  resource_req *req_cluster=NULL;
+  char *owner=NULL;
+  char *cluster=NULL;
+  int ret=0;
+
+  req_cluster = find_resource_req(jinfo -> resreq, "cluster");
+  if ((req_cluster !=NULL ) && (req_cluster -> res_str != NULL )) {
+      if (strncmp(req_cluster->res_str,"create",6)==0)
+          is_cluster_create=1;
+      else
+          is_cluster_req=1;
+  } else
+      return ret;
+
+  if (is_cluster_req) {
+      cluster = pbs_cache_get_local (req_cluster->res_str, "cluster");
+      retrieve_cluster_attr (cluster, "owner", &owner);
+      /* TODO porovnat owner a jinfo -> account */
+      if (owner)
+          free(owner);
+  }
+
+  if (is_cluster_create) {
+      cluster = pbs_cache_get_local (jinfo -> custom_name, "cluster");
+      if (cluster != NULL)
+          ret=CLUSTER_RUNNING;
+  }
+
+  if (cluster)
+      free(cluster);
+
+  return ret;
+}

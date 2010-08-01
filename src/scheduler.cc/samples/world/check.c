@@ -190,6 +190,9 @@ int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
   if ((rc = check_starvation(jinfo)))
     return rc;
 
+  if ((rc = cloud_check(jinfo)))
+    return rc;
+
 #if 0
   if (pbs_sd >= 0) /* only for local checks */
   if ((rc = check_nodes(pbs_sd, jinfo, sinfo -> timesharing_nodes)))

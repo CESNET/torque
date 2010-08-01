@@ -90,7 +90,7 @@
 #include "globals.h"
 #include "fairshare.h"
 #include "node_info.h"
-
+#include "utility.h"
 
 
 /*
@@ -215,7 +215,7 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
   if ((jinfo = new_job_info()) == NULL)
     return NULL;
 
-  jinfo -> name = string_dup(job -> name);
+  jinfo -> name = strdup(job -> name);
 
   attrp = job -> attribs;
 
@@ -223,7 +223,9 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
 
   while (attrp != NULL)
     {
-    if (!strcmp(attrp -> name, ATTR_p))   /* priority */
+    if (!strcmp(attrp -> name, ATTR_name))
+      jinfo -> custom_name = strdup(attrp -> value);
+    else if (!strcmp(attrp -> name, ATTR_p))   /* priority */
       {
       count = strtol(attrp -> value, &endp, 10);
 
@@ -244,26 +246,42 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
     else if (!strcmp(attrp -> name, ATTR_state))   /* state of job */
       set_state(attrp -> value, jinfo);
     else if (!strcmp(attrp -> name, ATTR_comment))   /* job comment */
-      jinfo -> comment = string_dup(attrp -> value);
+      jinfo -> comment = strdup(attrp -> value);
     else if (!strcmp(attrp -> name, ATTR_euser))    /* account name */
-      jinfo -> account = string_dup(attrp -> value);
+      jinfo -> account = strdup(attrp -> value);
     else if (!strcmp(attrp -> name, ATTR_egroup))    /* group name */
-      jinfo -> group = string_dup(attrp -> value);
+      jinfo -> group = strdup(attrp -> value);
     else if (!strcmp(attrp -> name, ATTR_exechost))    /* where job is running*/
       jinfo -> job_node = find_node_info(attrp -> value,
                                          queue -> server -> nodes);
     else if (!strcmp(attrp -> name, ATTR_l))    /* resources requested*/
       {
-      resreq = find_alloc_resource_req(attrp -> resource, jinfo -> resreq);
-
-      if (resreq != NULL)
+      /* special handling for cluster */
+      if (strcmp(attrp->resource,"cluster") == 0)
         {
-        resreq -> res_str = string_dup(attrp -> value);
-        resreq -> amount = res_to_num(attrp -> value);
+        jinfo->is_cluster = 1;
+        if (strcmp(attrp->value,"create") == 0)
+          {
+          jinfo->cluster_mode = ClusterCreate;
+          }
+        else
+          {
+          jinfo->cluster_mode = ClusterUse;
+          }
         }
+      else
+        {
+        resreq = find_alloc_resource_req(attrp -> resource, jinfo -> resreq);
 
-      if (jinfo -> resreq == NULL)
-        jinfo -> resreq = resreq;
+        if (resreq != NULL)
+          {
+          resreq -> res_str = strdup(attrp -> value);
+          resreq -> amount = res_to_num(attrp -> value);
+          }
+
+        if (jinfo -> resreq == NULL)
+          jinfo -> resreq = resreq;
+        }
       }
     else if (!strcmp(attrp -> name, ATTR_used))    /* resources used */
       {
@@ -345,6 +363,11 @@ job_info *new_job_info()
 
   jinfo -> job_node = NULL;
 
+  jinfo -> custom_name = NULL;
+
+  jinfo -> is_cluster = 0;
+  jinfo -> cluster_mode = ClusterNone;
+
   return jinfo;
   }
 
@@ -404,7 +427,7 @@ resource_req *find_alloc_resource_req(char *name, resource_req *reqlist)
     if ((resreq = new_resource_req()) == NULL)
       return NULL;
 
-    resreq -> name = string_dup(name);
+    retnull_on_null(resreq -> name = strdup(name));
 
     if (prev != NULL)
       prev -> next = resreq;
@@ -425,22 +448,13 @@ resource_req *find_alloc_resource_req(char *name, resource_req *reqlist)
 
 void free_job_info(job_info *jinfo)
   {
-  if (jinfo -> name != NULL)
-    free(jinfo -> name);
-
-  if (jinfo -> comment != NULL)
-    free(jinfo -> comment);
-
-  if (jinfo -> account != NULL)
-    free(jinfo -> account);
-
-  if (jinfo -> group != NULL)
-    free(jinfo -> group);
-
+  free(jinfo -> name);
+  free(jinfo -> custom_name);
+  free(jinfo -> comment);
+  free(jinfo -> account);
+  free(jinfo -> group);
   free_resource_req_list(jinfo -> resreq);
-
   free_resource_req_list(jinfo -> resused);
-
   free(jinfo);
   }
 
@@ -775,7 +789,7 @@ int update_job_comment(int pbs_sd, job_info *jinfo, char *comment)
     if (jinfo -> comment != NULL)
       free(jinfo -> comment);
 
-    jinfo -> comment = string_dup(comment);
+    jinfo -> comment = strdup(comment);
 
     attr.value = comment;
 
@@ -993,6 +1007,11 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg)
       case NODESPEC_NOT_ENOUGH_NODES_INTERSECT:
         strcpy(comment_msg, COMMENT_NODESPEC_INTERSECT);
         sprintf(log_msg, INFO_NODESPEC_INTERSECT);
+        break;
+
+      case CLUSTER_RUNNING:
+        strcpy(comment_msg, COMMENT_CLUSTER_RUNNING);
+        sprintf(log_msg, INFO_CLUSTER_RUNNING);
         break;
 
       default:

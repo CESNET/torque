@@ -560,7 +560,6 @@ int scheduling_cycle(
         {
         sched_log(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER,
                   jinfo->name, "Considering starving job.");
-        query_external_cache(server->info);
         is_ok_to_run_job(sd, server->info, jinfo->queue, jinfo, 1);
         }
       }
