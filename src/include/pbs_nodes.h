@@ -262,6 +262,7 @@ enum nodeattr
   ND_ATR_jobs,
   ND_ATR_status,
   ND_ATR_note,
+  ND_ATR_no_multinode_jobs,
   ND_ATR_queue,
   ND_ATR_resources_total,
   ND_ATR_resources_used,

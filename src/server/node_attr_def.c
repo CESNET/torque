@@ -233,6 +233,19 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE,
   },
 
+  /* ND_ATR_no_multinode_jobs */
+  { ATTR_NODE_no_multinode_jobs,
+    decode_b,
+    encode_b,
+    set_b,
+    comp_b,
+    free_null,
+    NULL_FUNC,
+    MGR_ONLY_SET,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_NODE,
+  },
+
   /* ND_ATR_queue */
   { ATTR_NODE_queue,
     decode_str,
