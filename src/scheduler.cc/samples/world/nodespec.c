@@ -260,7 +260,7 @@ int refresh_magrathea_status(node_info *ninfo, job_info *jinfo, int preassign_st
       if ((ninfo->type == NodeVirtual) && (m_possible == 1) && (ninfo->is_down))
         { ninfo->is_bootable=1; }
       else
-        { ninfo->is_bootable=0; } /* TODO determine if necessary */
+        { ninfo->is_bootable=0; }
 
       if (m_status < 1)
         {
