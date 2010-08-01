@@ -152,7 +152,10 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
 
     /* query mom on the node for resources */
     if (!conf.no_mom_talk)
+      {
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, "", "Talking with node.");
       talk_with_mom(ninfo);
+      }
 
     ninfo_arr[i] = ninfo;
 
@@ -188,7 +191,7 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
 
   attrp = node -> attribs;
 
-  ninfo -> name = string_dup(node -> name);
+  ninfo -> name = strdup(node -> name);
 
   ninfo -> server = sinfo;
 
@@ -304,8 +307,6 @@ node_info *new_node_info()
   new -> is_reserved = 0;
   new -> is_exclusive = 0;
   new -> is_sharing = 0;
-  new -> is_timeshare = 0;
-  new -> is_cluster = 0;
   new -> no_multinode_jobs = 0;
 
   new -> name = NULL;
@@ -330,6 +331,8 @@ node_info *new_node_info()
   new -> res = NULL;
 
   new -> starving_job = NULL;
+
+  new -> cluster_name = NULL;
 
   return new;
   }
@@ -369,8 +372,7 @@ void free_node_info(node_info *ninfo)
   {
   if (ninfo != NULL)
     {
-    if (ninfo -> name != NULL)
-      free(ninfo -> name);
+    free(ninfo -> name);
 
     if (ninfo -> properties != NULL)
       free_string_array(ninfo -> properties);
@@ -378,8 +380,7 @@ void free_node_info(node_info *ninfo)
     if (ninfo -> jobs != NULL)
       free_string_array(ninfo -> jobs);
 
-    if (ninfo -> arch != NULL)
-      free(ninfo -> arch);
+    free(ninfo -> arch);
 
     if (ninfo -> big_status != NULL)
       free_string_array(ninfo -> big_status);
@@ -387,9 +388,8 @@ void free_node_info(node_info *ninfo)
     if (ninfo -> res != NULL)
       free_resource_list(ninfo -> res);
 
-    if (ninfo -> queue != NULL)
-      free(ninfo -> queue);
-
+    free(ninfo -> queue);
+    free(ninfo -> cluster_name);
     free(ninfo);
     }
   }
@@ -411,9 +411,13 @@ int set_node_type(node_info *ninfo, char *ntype)
   if (ntype != NULL && ninfo != NULL)
     {
     if (!strcmp(ntype, ND_timeshared))
-      ninfo -> is_timeshare = 1;
+      ninfo -> type = NodeTimeshared;
     else if (!strcmp(ntype, ND_cluster))
-      ninfo -> is_cluster = 1;
+      ninfo -> type = NodeCluster;
+    else if (!strcmp(ntype, ND_cloud))
+      ninfo -> type = NodeCloud;
+    else if (!strcmp(ntype, ND_virtual))
+      ninfo -> type = NodeVirtual;
     else
       {
       sprintf(errbuf, "Unknown node type: %s", ntype);
@@ -657,7 +661,7 @@ node_info **node_filter(node_info **nodes, int size,
 int is_node_timeshared(node_info *node, void *arg)
   {
   if (node != NULL)
-    return node -> is_timeshare;
+    return (node->type == NodeTimeshared);
 
   return 0;
   }
@@ -893,8 +897,6 @@ void print_node(node_info *ninfo, int brief)
       printf("is_reserved: %s\n", ninfo -> is_reserved ? "TRUE" : "FALSE");
       printf("is_exclusive: %s\n", ninfo -> is_exclusive ? "TRUE" : "FALSE");
       printf("is_sharing: %s\n", ninfo -> is_sharing ? "TRUE" : "FALSE");
-      printf("is_timeshare: %s\n", ninfo -> is_timeshare ? "TRUE" : "FALSE");
-      printf("is_cluster: %s\n", ninfo -> is_cluster ? "TRUE" : "FALSE");
 
       printf("np: %d | npfree: %d | npshared: %d\n",
              ninfo->np, ninfo->npfree, ninfo->npshared);

@@ -8,6 +8,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <assertions.h>
+#include "site_pbs_cache.h"
 
 /* get the number of requested virtual cpus */
 int get_req_vps(pars_spec_node *spec)
@@ -25,6 +27,89 @@ int get_req_vps(pars_spec_node *spec)
     }
 
   return 1;
+  }
+
+enum ResourceCheckMode { MaxOnly, Avail };
+
+static int node_has_enough_np(node_info *ninfo, char *value, enum ResourceCheckMode mode)
+  {
+#if 0
+  long amount = res_to_num(value);
+  switch(mode)
+    {
+    case MaxOnly:
+      if (ninfo->np >= amount)
+        return 1;
+      break;
+    case Avail:
+      if (ninfo->np - ninfo->npshared >= amount &&
+          ninfo->npfree >= amount)
+        return 1;
+      else
+        return 0;
+      break;
+    }
+  return 0; /* default is no */
+#endif
+  return 1; /* np support turned of for a while */
+  }
+
+static int node_has_enough_resource(node_info *ninfo, char *name, char *value,
+    enum ResourceCheckMode mode)
+  {
+  struct resource *res;
+  int i;
+  long amount = 0;
+
+  for (i = 0; i < num_res; i++)
+    {
+    if (strcmp(name,res_to_check[i].name) == 0)
+      break;
+    }
+
+  if (i == num_res) /* not checking this resource */
+    {
+    return 1;
+    }
+
+  if ((res = find_resource(ninfo->res, name)) == NULL)
+    return 0;
+
+  if (res->is_string)
+    {
+    /* string resources work kind of like properties right now */
+    if (strcmp(res->str_avail,value) == 0)
+      return 1;
+    }
+
+  amount = res_to_num(value);
+
+  switch (mode)
+    {
+    case MaxOnly:
+      /* there is no maximum (only avail), and we therefore can't check suitability,
+       * so lets assume it is suitable. The maximum is infinity, then its definitely suitable,
+       * or the maximum is more then we need.
+       */
+      if (res->max == UNSPECIFIED  || res->max == INFINITY || res->max >= amount)
+        return 1;
+      break;
+    case Avail:
+      if (res->max == INFINITY || res->max == UNSPECIFIED)
+        /* we only have the avail value */
+        {
+        if (res->avail >= amount)
+          return 1;
+        }
+      else
+        {
+        /* we don't have avail - only max and assigned */
+        if (res->max - res->assigned >= amount)
+          return 1;
+        }
+      break;
+    }
+  return 0; /* by default, the node does not have enough */
   }
 
 int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starving)
@@ -52,71 +137,15 @@ int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starv
     }
   else /* resource or ppn */
     {
-    long amount = 0;
-    amount = res_to_num(property->value);
-
     if (strcmp("ppn",property->name) == 0)
       {
-#if 0
-      if (preassign_starving)
-        {
-        if (ninfo->np >= amount)
-          return 1;
-        else
-          return 0;
-        }
-      else
-        {
-        if (ninfo->np - ninfo->npshared >= amount &&
-            ninfo->npfree >= amount)
-          return 1;
-        else
-          return 0;
-        }
-#endif
-      return 1; /* np support turned of for a while */
+      return node_has_enough_np(ninfo, property->value,
+               preassign_starving?MaxOnly:Avail);
       }
     else
       {
-      struct resource *res;
-      int i;
-
-      for (i = 0; i < num_res; i++)
-        {
-        if (strcmp(property->name,res_to_check[i].name) == 0)
-          break;
-        }
-
-      if (i == num_res) /* not checking this resource */
-        {
-        return 1;
-        }
-
-      res = find_resource(ninfo->res, res_to_check[i].name);
-
-      if (res == NULL)
-        return 0;
-
-      if (preassign_starving)
-        {
-        if(res->is_string)
-          {
-          if (strcmp(res->str_avail,property->value) == 0)
-            return 1;
-          }
-        else if (res->max >= amount)
-          return 1;
-        }
-      else
-        {
-        if(res->is_string)
-          {
-          if (strcmp(res->str_avail,property->value) == 0)
-            return 1;
-          }
-        else if (res->max - res->assigned >= amount)
-          return 1;
-        }
+      return node_has_enough_resource(ninfo,property->name, property->value,
+               preassign_starving?MaxOnly:Avail);
       }
     }
 
@@ -237,6 +266,9 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
     if (iter != NULL)
       continue;
 
+    if (site_user_has_account(jinfo->account,ninfo_arr[i]->name,ninfo_arr[i]->cluster_name) == CHECK_NO)
+      break;
+
     if (preassign_starving)
       ninfo_arr[i]->starving_job = jinfo;
     else
@@ -293,7 +325,7 @@ int check_nodespec(job_info *jinfo, int nodecount, node_info **ninfo_arr, int pr
     if (missed_nodes > 0) /* try reassigns */
       {
       nodes_preassign_clean(ninfo_arr,nodecount);
-      return SCHD_ERROR;
+      return NODESPEC_NOT_ENOUGH_NODES_TOTAL;
       }
     }
 
@@ -425,6 +457,8 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count)
         }
       }
     }
+
+  dbg_consistency(str != NULL, "At this point, the target must be set.");
 
   if (!jinfo->is_exclusive)
     {

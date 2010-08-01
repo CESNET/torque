@@ -87,7 +87,7 @@
 #include "misc.h"
 #include "constant.h"
 #include "config.h"
-
+#include "utility.h"
 
 /*
  *
@@ -176,7 +176,7 @@ group_info *find_alloc_ginfo(char *name)
     if ((ginfo = new_group_info()) == NULL)
       return NULL;
 
-    ginfo-> name = string_dup(name);
+    retnull_on_null(ginfo-> name = strdup(name));
 
     ginfo -> shares = 1;
 
@@ -286,7 +286,7 @@ int parse_group(char *fname)
             if ((new_ginfo = new_group_info()) == NULL)
               return 0;
 
-            new_ginfo -> name = string_dup(nametok);
+            new_ginfo -> name = strdup(nametok);
 
             new_ginfo -> resgroup = ginfo -> cresgroup;
 

@@ -86,12 +86,6 @@
 #include "job_info.h"
 
 /*
- * string_dup - duplicate a string
- */
-char *string_dup(char *str);
-
-
-/*
  *      res_to_num - convert a resource string to an integer in the lowest
  *                      form of resource on the machine (btye/word)
  *                      example: 1kb -> 1024 or 1kw -> 1024

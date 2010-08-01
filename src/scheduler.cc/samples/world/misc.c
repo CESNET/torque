@@ -90,32 +90,7 @@
 #include "globals.h"
 #include "fairshare.h"
 #include "api.h"
-
-
-/*
- *
- * string_dup - duplicate a string
- *
- *   str - string to duplicate
- *
- * returns newly allocated string
- *
- */
-
-char *string_dup(char *str)
-  {
-  char *newstr;
-
-  if (str == NULL)
-    return NULL;
-
-  if ((newstr = (char *) malloc(strlen(str) + 1)) == NULL)
-    return NULL;
-
-  strcpy(newstr, str);
-
-  return newstr;
-  }
+#include "utility.h"
 
 /*
  *
@@ -271,7 +246,7 @@ char **break_comma_list(char *list)
       while (isspace((int) *tok))
         tok++;
 
-      arr[i] = string_dup(tok);
+      retnull_on_null(arr[i] = strdup(tok));
 
       tok = strtok(NULL, ",");
       }
@@ -329,7 +304,7 @@ char **dup_string_array(char **ostrs)
       }
 
     for (i = 0; ostrs[i] != NULL; i++)
-      nstrs[i] = string_dup(ostrs[i]);
+      retnull_on_null(nstrs[i] = strdup(ostrs[i]));
 
     nstrs[i] = NULL;
     }
@@ -432,7 +407,7 @@ void query_external_cache(server_info *sinfo)
   int j;
   void *ptable;
 
-  for( j = 0; num_res; j++ )
+  for( j = 0; j < num_res; j++ )
     {
     ptable=cache_hash_init();
     if (res_to_check[j].source == ResCheckBoth || res_to_check[j].source == ResCheckCache)
@@ -454,6 +429,7 @@ void query_external_cache(server_info *sinfo)
                res -> avail = res_to_num(value);
                res -> str_avail = value;
                res -> assigned = 0;
+               printf("[pbs_cache] got new numeric value %s = %ld", res->name, (long)res->avail);
                }
              else
                {
@@ -461,6 +437,7 @@ void query_external_cache(server_info *sinfo)
                res -> str_avail = value;
                res -> avail = 0;
                res -> assigned = 0;
+               printf("[pbs_cache] got new string value %s = %s", res->name, res->str_avail);
                }
              }
            }
@@ -470,8 +447,24 @@ void query_external_cache(server_info *sinfo)
            }
         }
       }
+      cache_hash_destroy(ptable);
+    }
+
+  /* read cluster info */
+  ptable=cache_hash_init();
+  if (cache_hash_fill_local("cluster",ptable)==0)
+  for (i=0;i<sinfo -> num_nodes;i++)
+    {
+    node=sinfo -> nodes[i];
+    value=cache_hash_find(ptable,node->name);
+    if (value != NULL)
+      {
+      free(node->cluster_name);
+      node->cluster_name = value;
+      }
     }
   cache_hash_destroy(ptable);
+
   return;
   }
 

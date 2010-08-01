@@ -275,6 +275,8 @@ unsigned is_multinode:
   node_info *job_node;  /* node the job is running on */
   };
 
+typedef enum node_type { NodeTimeshared, NodeCluster, NodeVirtual, NodeCloud } node_type;
+
 struct node_info
   {
 
@@ -302,16 +304,13 @@ unsigned is_sharing:
 unsigned is_busy:
   1;  /* load on node is too high to schedule */
 
-  /* node types */
-
-unsigned is_timeshare:
-  1; /* this node is for time-sharing only */
-
-unsigned is_cluster:
-  1; /* This node is a member of a cluster */
+unsigned is_job_suitable:
+    1; /* TODO implement */
 
 unsigned no_multinode_jobs:
   1; /* no multinode jobs on this node */
+
+  node_type type; /**<type of the node (cluster,timeshared,virtual,cloud) */
 
   char *name;   /* name of the node */
   char **properties;  /* the node properties */
@@ -336,6 +335,8 @@ unsigned no_multinode_jobs:
   int npshared; /* number of shared virtual processors */
 
   job_info* starving_job; /* starving job */
+
+  char *cluster_name;
 
   pars_spec_node *temp_assign;
 #if 0

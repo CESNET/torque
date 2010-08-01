@@ -91,7 +91,7 @@
 #include "node_info.h"
 #include "assertions.h"
 #include "globals.h"
-
+#include "utility.h"
 
 /*
  *
@@ -128,6 +128,7 @@ server_info *query_server(int pbs_sd)
 
   /* get the nodes, if any */
   sinfo -> nodes = query_nodes(pbs_sd, sinfo);
+  query_external_cache(sinfo);
 
   /* get the queues */
   if ((sinfo -> queues = query_queues(pbs_sd, sinfo)) == NULL)
@@ -206,14 +207,14 @@ server_info *query_server_info(struct batch_status *server)
   if ((sinfo = new_server_info()) == NULL)
     return NULL;    /* error */
 
-  sinfo -> name = string_dup(server -> name);
+  sinfo -> name = strdup(server -> name);
 
   attrp = server -> attribs;
 
   while (attrp != NULL)
     {
     if (!strcmp(attrp -> name, ATTR_dfltque)) /* default_queue */
-      sinfo -> default_queue = string_dup(attrp -> value);
+      sinfo -> default_queue = strdup(attrp -> value);
     else if (!strcmp(attrp -> name, ATTR_maxrun))  /* max_running */
       {
       count = strtol(attrp -> value, &endp, 10);
@@ -282,8 +283,6 @@ server_info *query_server_info(struct batch_status *server)
     attrp = attrp -> next;
     }
 
-  query_external_cache(sinfo);
-
   return sinfo;
   }
 
@@ -318,7 +317,7 @@ resource *find_alloc_resource(resource *resplist, char *name)
     if ((resp = new_resource()) == NULL)
       return NULL;
 
-    resp -> name = string_dup(name);
+    retnull_on_null(resp -> name = strdup(name));
 
     if (prev != NULL)
       prev -> next = resp;
@@ -746,7 +745,7 @@ token** get_token_array(char* tokenlist)
   token **token_array;
   int i, count;
 
-  list = break_comma_list(string_dup(tokenlist));
+  list = break_comma_list(strdup(tokenlist));
 
   count = 0;
 
@@ -774,7 +773,7 @@ token* get_token(char* token_string)
 
   char *colon;
   token *this_token = (token *) malloc(sizeof(token));
-  char *work_string = string_dup(token_string);
+  char *work_string = strdup(token_string);
   colon = strstr(work_string, ":");
   this_token->count = atof(colon + 1);
   *colon = 0;

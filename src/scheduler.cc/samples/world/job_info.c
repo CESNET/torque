@@ -90,7 +90,7 @@
 #include "globals.h"
 #include "fairshare.h"
 #include "node_info.h"
-
+#include "utility.h"
 
 
 /*
@@ -215,7 +215,7 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
   if ((jinfo = new_job_info()) == NULL)
     return NULL;
 
-  jinfo -> name = string_dup(job -> name);
+  jinfo -> name = strdup(job -> name);
 
   attrp = job -> attribs;
 
@@ -244,11 +244,11 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
     else if (!strcmp(attrp -> name, ATTR_state))   /* state of job */
       set_state(attrp -> value, jinfo);
     else if (!strcmp(attrp -> name, ATTR_comment))   /* job comment */
-      jinfo -> comment = string_dup(attrp -> value);
+      jinfo -> comment = strdup(attrp -> value);
     else if (!strcmp(attrp -> name, ATTR_euser))    /* account name */
-      jinfo -> account = string_dup(attrp -> value);
+      jinfo -> account = strdup(attrp -> value);
     else if (!strcmp(attrp -> name, ATTR_egroup))    /* group name */
-      jinfo -> group = string_dup(attrp -> value);
+      jinfo -> group = strdup(attrp -> value);
     else if (!strcmp(attrp -> name, ATTR_exechost))    /* where job is running*/
       jinfo -> job_node = find_node_info(attrp -> value,
                                          queue -> server -> nodes);
@@ -258,7 +258,7 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
 
       if (resreq != NULL)
         {
-        resreq -> res_str = string_dup(attrp -> value);
+        resreq -> res_str = strdup(attrp -> value);
         resreq -> amount = res_to_num(attrp -> value);
         }
 
@@ -404,7 +404,7 @@ resource_req *find_alloc_resource_req(char *name, resource_req *reqlist)
     if ((resreq = new_resource_req()) == NULL)
       return NULL;
 
-    resreq -> name = string_dup(name);
+    retnull_on_null(resreq -> name = strdup(name));
 
     if (prev != NULL)
       prev -> next = resreq;
@@ -775,7 +775,7 @@ int update_job_comment(int pbs_sd, job_info *jinfo, char *comment)
     if (jinfo -> comment != NULL)
       free(jinfo -> comment);
 
-    jinfo -> comment = string_dup(comment);
+    jinfo -> comment = strdup(comment);
 
     attr.value = comment;
 

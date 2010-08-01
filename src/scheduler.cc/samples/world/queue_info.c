@@ -279,7 +279,7 @@ queue_info *query_queue_info(struct batch_status *queue, server_info *sinfo)
 
   attrp = queue -> attribs;
 
-  qinfo -> name = string_dup(queue -> name);
+  qinfo -> name = strdup(queue -> name);
 
   qinfo -> server = sinfo;
 
