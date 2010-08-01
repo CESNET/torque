@@ -109,6 +109,7 @@
 #include "svrfunc.h"
 #include "net_connect.h"
 #include "pbs_proto.h"
+#include "cloud.h"
 
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -1647,6 +1648,11 @@ static int assign_hosts(
     {
     if ((rc = is_ts_node(hosttoalloc)) != 0)
       {
+      /* cloud jobs support, analyze nodespec and switch virtual nodes
+       * to their cloud masters */
+      if (is_cloud_job(pjob))
+        hosttoalloc = switch_nodespec_to_cloud(pjob,hosttoalloc);
+
       rc = set_nodes(pjob, hosttoalloc, &list, FailHost, EMsg);
 
       set_exec_host = 1; /* maybe new VPs, must set */
