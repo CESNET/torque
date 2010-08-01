@@ -45,7 +45,7 @@ static char *nodespec_app(const char *spec, const char *app)
   unsigned len = nodespec_part_count(spec) * (strlen(app) + 1) + strlen(spec) + 1;
   /* number of local specs * (appended length + ':' ) + lenght of local specs + '\0' */
 
-  result = malloc(len);
+  result = (char*)malloc(len);
   if (result == NULL) /* alloc fail */
     return NULL;
 
@@ -80,7 +80,7 @@ static char *nodespec_app(const char *spec, const char *app)
 static pars_spec *init_pars_spec()
   {
 
-  pars_spec *spec = malloc(sizeof(pars_spec));
+  pars_spec *spec = (pars_spec*)malloc(sizeof(pars_spec));
   if (spec == NULL)
     return NULL;
 
@@ -96,7 +96,7 @@ static pars_spec *init_pars_spec()
  */
 static pars_spec_node *init_pars_spec_node()
   {
-  pars_spec_node *spec = malloc(sizeof(pars_spec_node));
+  pars_spec_node *spec = (pars_spec_node*)malloc(sizeof(pars_spec_node));
   if (spec == NULL)
     return NULL;
 
@@ -113,7 +113,7 @@ static pars_spec_node *init_pars_spec_node()
  */
 static pars_prop *init_pars_prop()
   {
-  pars_prop *prop = malloc(sizeof(pars_prop));
+  pars_prop *prop = (pars_prop*)malloc(sizeof(pars_prop));
   if (prop == NULL)
     return NULL;
 
