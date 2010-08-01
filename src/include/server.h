@@ -173,6 +173,8 @@ enum srv_atr
   SRV_ATR_NPDefault,
   SRV_ATR_JobStartTimeout,
   SRV_ATR_JobForceCancelTime,
+  SRV_ATR_ResourcesToStore,
+  SRV_ATR_ResourcesMappings,
 #include "site_svr_attr_enum.h"
   /* This must be last */
   SRV_ATR_LAST

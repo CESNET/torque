@@ -1271,24 +1271,66 @@ int is_stat_get(
       {
       resource_def *def;
       resource *res;
-      char *c = strchr(ret_info,'=');
+      int store = 0;
+      char *target_name = ret_info, *c = strchr(ret_info,'=');
       if (c != NULL)
         *c = '\0';
 
-      def = find_resc_def(svr_resc_def,ret_info,svr_resc_size);
-      if (def != 0)
+      /* check if the resource is in the list specified in ATTR_ResourcesToStore */
+      if (server.sv_attr[SRV_ATR_ResourcesToStore].at_flags & ATR_VFLAG_SET)
         {
-        res = find_resc_entry(&np->attributes[0],def);
-        if (res != 0)
+        int i;
+        struct array_strings *tmp =
+            server.sv_attr[SRV_ATR_ResourcesToStore].at_val.at_arst;
+
+        for (i = 0; i < tmp->as_usedptr; i++)
           {
-          if ((res->rs_value.at_flags & ATR_VFLAG_FORCED) == 0)
-            def->rs_decode(&res->rs_value,0,0,c+1);
+          if (strcmp(tmp->as_string[i],ret_info) == 0)
+            {
+            store = 1;
+            break;
+            }
           }
-        else
+        }
+
+      /* check if the resource is mapped to some other name */
+      if (store && (server.sv_attr[SRV_ATR_ResourcesMappings].at_flags & ATR_VFLAG_SET))
+        {
+        int i;
+        struct array_strings *tmp =
+            server.sv_attr[SRV_ATR_ResourcesMappings].at_val.at_arst;
+
+        for (i = 0; i < tmp->as_usedptr; i++)
           {
-          res = add_resource_entry(&np->attributes[0],def);
-          def->rs_decode(&res->rs_value,0,0,c+1);
-          res->rs_value.at_flags &= ~ATR_VFLAG_FORCED;
+          if (strncmp(tmp->as_string[i],ret_info,strlen(ret_info)) == 0)
+            {
+            char *new_name = strchr(tmp->as_string[i],'=');
+
+            if (new_name == NULL) /* mallformed value */
+              continue;
+
+            target_name = ++new_name;
+            }
+          }
+        }
+
+      if (store)
+        {
+        def = find_resc_def(svr_resc_def,target_name,svr_resc_size);
+        if (def != 0)
+          {
+          res = find_resc_entry(&np->attributes[0],def);
+          if (res != 0)
+            {
+            if ((res->rs_value.at_flags & ATR_VFLAG_FORCED) == 0)
+              def->rs_decode(&res->rs_value,0,0,c+1);
+            }
+          else
+            {
+            res = add_resource_entry(&np->attributes[0],def);
+            def->rs_decode(&res->rs_value,0,0,c+1);
+            res->rs_value.at_flags &= ~ATR_VFLAG_FORCED;
+            }
           }
         }
       }
