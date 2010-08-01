@@ -32,6 +32,7 @@ struct pars_spec
   {
   unsigned is_exclusive : 1; /**< exclusive request flag */
   struct pars_spec_node *nodes;
+  unsigned total_nodes;
   };
 
 typedef struct pars_prop pars_prop;

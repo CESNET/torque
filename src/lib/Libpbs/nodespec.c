@@ -86,6 +86,7 @@ static pars_spec *init_pars_spec()
 
   spec->is_exclusive = 0;
   spec->nodes = NULL;
+  spec->total_nodes = 0;
 
   return spec;
   }
@@ -358,6 +359,7 @@ pars_spec *parse_nodespec(const char *nodespec)
 
     node->next = parsed->nodes;
     parsed->nodes = node;
+    parsed->total_nodes += node->node_count;
     iter = delim;
     }
 
