@@ -146,4 +146,10 @@ void query_external_cache(server_info *sinfo);
 /** check if string contains a number */
 int is_num(const char* value);
 
+/** check the validity of a cloud request */
+int cloud_check(job_info *jinfo);
+
+/** find bootable alternatives for nodes */
+void find_bootable_alternatives(server_info *sinfo);
+
 #endif

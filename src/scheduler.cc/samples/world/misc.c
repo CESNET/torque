@@ -91,6 +91,8 @@
 #include "fairshare.h"
 #include "api.h"
 #include "utility.h"
+#include "site_pbs_cache.h"
+#include "assertions.h"
 
 /*
  *
@@ -469,10 +471,82 @@ void query_external_cache(server_info *sinfo)
   }
 
 
-int is_num(const char* value) /* TODO improve */
+/** Trivial check for number
+ *
+ * everything that begins with a digit is considered a number
+ *
+ * @param value string
+ * @return 1 if number 0 if not
+ */
+int is_num(const char* value)
   {
+  dbg_precondition(value != NULL, "Cannot check null pointer.");
   if (isdigit(*value))
     return 1;
   else
     return 0;
   }
+
+static int is_magrathea_bootable(resource *res)
+{ long int m_possible;
+
+  if ((magrathea_decode(res,NULL,NULL,NULL,NULL,&m_possible)==0) && (m_possible==1)) {
+      /* TODO jeste test na bootable vlastnost a typ virtual? */
+      return 1;
+  }
+  return 0;
+}
+void find_bootable_alternatives(server_info *sinfo)
+{ int i;
+  node_info *node;
+  resource *res;
+
+
+  for (i=0;i<sinfo -> num_nodes;i++) {
+      node=sinfo -> nodes[i];
+      res = find_resource( node -> res, "magrathea" );
+      if ( (res != NULL) && (is_magrathea_bootable(res) ) ) {
+          node -> alternatives = get_bootable_alternatives(node->name,NULL);
+      }
+  }
+
+  return ;
+}
+
+int cloud_check(job_info *jinfo)
+{
+  int is_cluster_create=0;
+  int is_cluster_req=0;
+  resource_req *req_cluster=NULL;
+  char *owner=NULL;
+  char *cluster=NULL;
+  int ret=0;
+
+  req_cluster = find_resource_req(jinfo -> resreq, "cluster");
+  if ((req_cluster !=NULL ) && (req_cluster -> res_str != NULL )) {
+      if (strncmp(req_cluster->res_str,"create",6)==0)
+          is_cluster_create=1;
+      else
+          is_cluster_req=1;
+  } else
+      return ret;
+
+  if (is_cluster_req) {
+      cluster = pbs_cache_get_local (req_cluster->res_str, "cluster");
+      retrieve_cluster_attr (cluster, "owner", &owner);
+      /* TODO porovnat owner a jinfo -> account */
+      if (owner)
+          free(owner);
+  }
+
+  if (is_cluster_create) {
+      cluster = pbs_cache_get_local (jinfo -> custom_name, "cluster");
+      if (cluster != NULL)
+          ret=CLUSTER_RUNNING;
+  }
+
+  if (cluster)
+      free(cluster);
+
+  return ret;
+}

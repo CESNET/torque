@@ -334,6 +334,10 @@ node_info *new_node_info()
 
   new -> cluster_name = NULL;
 
+  new -> alternatives = NULL;
+
+  new -> is_bootable = 0;
+
   return new;
   }
 
@@ -373,21 +377,12 @@ void free_node_info(node_info *ninfo)
   if (ninfo != NULL)
     {
     free(ninfo -> name);
-
-    if (ninfo -> properties != NULL)
-      free_string_array(ninfo -> properties);
-
-    if (ninfo -> jobs != NULL)
-      free_string_array(ninfo -> jobs);
-
+    free_string_array(ninfo -> properties);
+    free_string_array(ninfo -> jobs);
     free(ninfo -> arch);
-
-    if (ninfo -> big_status != NULL)
-      free_string_array(ninfo -> big_status);
-
-    if (ninfo -> res != NULL)
-      free_resource_list(ninfo -> res);
-
+    free_string_array(ninfo -> big_status);
+    free_resource_list(ninfo -> res);
+    free_bootable_alternatives(ninfo->alternatives);
     free(ninfo -> queue);
     free(ninfo -> cluster_name);
     free(ninfo);

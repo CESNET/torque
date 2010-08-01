@@ -239,6 +239,9 @@ struct repository_alternatives **dup_bootable_alternatives(struct repository_alt
 void free_bootable_alternatives(struct  repository_alternatives **list) 
 { int i;
 
+  if (list == NULL)
+    return;
+
   for(i=0;list[i]!=NULL;i++) {
     if (list[i]->r_name)
 	free(list[i]->r_name);

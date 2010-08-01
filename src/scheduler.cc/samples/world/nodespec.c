@@ -10,6 +10,7 @@
 #include <ctype.h>
 #include <assertions.h>
 #include "site_pbs_cache.h"
+#include "api.h"
 
 /* get the number of requested virtual cpus */
 int get_req_vps(pars_spec_node *spec)
@@ -231,48 +232,262 @@ int get_node_has_property(node_info *ninfo, const char* property)
   return 0;
   }
 
+/** Check basic node suitability for job */
+static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_starving)
+  {
+  if (ninfo->is_offline)
+    return 0;
+
+  if (ninfo->type == NodeTimeshared || ninfo->type == NodeCloud)
+    return 0;
+
+  if ((ninfo->type == NodeVirtual && (!jinfo->is_cluster))
+      || (ninfo->type == NodeCluster && jinfo->is_cluster))
+    /* cluster joby jenom na virtualnich uzlech */
+    return 0;
+
+  if ((ninfo->starving_job != NULL) && /* already assigned to a starving job */
+      (strcmp(ninfo->starving_job->name,jinfo->name) != 0) && /* and not this job */
+      (ninfo->starving_job->queue->priority >= jinfo->queue->priority)) /* job priority is not higher */
+    return 0;
+
+  if (jinfo->is_multinode && ninfo->no_multinode_jobs)
+    return 0;
+
+  if (ninfo->temp_assign != NULL) /* node already assigned */
+    return 0;
+
+  if (preassign_starving == 0) /* only for non-starving jobs */
+    {
+    if ((jinfo->is_exclusive) && (ninfo->npfree != ninfo->np))
+      return 0; /* skip non-empty nodes for exclusive requests */
+
+    if (ninfo->is_exclusive)
+      return 0;
+    }
+
+  if (jinfo->is_cluster && jinfo->cluster_mode == ClusterCreate)
+    {
+    if (ninfo->type == NodeVirtual) /* always true, checked before */
+      {
+      char *cmom;
+      char *cloud_mom=NULL;
+      node_info *cloudnode =NULL;
+      cmom=pbs_cache_get_local(ninfo->name, "host");
+
+      if (cmom)
+        {
+        cloud_mom=cache_value_only(cmom);
+        free(cmom);
+        }
+
+      if (cloud_mom)
+        cloudnode=find_node_info(cloud_mom,jinfo->queue->server->nodes);
+
+      if (!cloudnode)
+        {
+        /* sprintf(logbuf, "Node %s not used, cloud mom is missing, cache = %s", node -> name,cloud_mom);
+        schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf); */
+        free(cloud_mom);
+        return 0;
+        }
+
+      free(cloud_mom);
+
+      if (!cloudnode -> type == NodeCloud)
+        {
+        /* sprintf(logbuf, "Node %s not used, cloud mom %s is not usable", node -> name,cloudnode->name);
+        schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf); */
+        return 0;
+        }
+
+      if (cloudnode -> is_down)
+        {
+        /* sprintf(logbuf, "Node %s not used, cloud mom %s is down", node -> name,cloudnode->name);
+        schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf); */
+        return 0;
+        }
+      }
+    else if (ninfo->type == NodeCloud) /* unreachable */
+      { }
+    else /* unreachable */
+      {
+      /* sprintf(logbuf, "Node %s not used, cloud requires virt mom", node -> name);
+      schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf); */
+      return 0;
+      }
+
+#if 0 /* node states broken right now */
+    if (node -> is_free)
+      {
+      /* TODO, cloud - free, already running node. Can cloud used it? */
+      }
+#endif
+
+    if (ninfo->np != ninfo->npfree)
+      {
+      /*sprintf(logbuf, "Node %s not used, cloud cannot share node with job", node -> name);
+      schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf);*/
+      return 0;
+      }
+
+    if ((ninfo->is_bootable) && ((ninfo->alternatives == NULL) || (ninfo->alternatives[0] == NULL)))
+      {
+      /* sprintf(logbuf, "Node %s not used, bootable node without alternatives", node -> name);
+      schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf); */
+      return 0;
+      }
+    }
+
+
+#if 0
+    res_machine = find_resource(node -> res,"machine_cluster");
+    res_magrathea = find_resource( node -> res, "magrathea" );
+
+     /* get Magrathea status */
+    if (starving_simulation==0) {
+
+      /* fprintf(stderr,"magrathea test: node=%s, magrathea=%s\n",
+       * node->name,res_magrathea->str_avail); */
+      if ((res_magrathea != NULL) && (res_magrathea -> str_avail != NULL)) {
+        int ret;
+
+
+        ret=magrathea_decode(res_magrathea,&m_status,&m_count,&m_used,&m_free,&m_possible);
+        if ((ret) || (strcmp(res_magrathea -> str_avail,"external")==0)) {
+            sprintf(logbuf, "Node %s not used, magrathea state is %s.", node -> name, res_magrathea -> str_avail);
+            schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo -> name, logbuf);
+            return 0;
+        }
+
+        if ( (node -> is_virt) && (m_possible==1) &&
+            (node -> is_down)) {
+           is_node_bootable=1;
+        }
+
+        if (m_status < 1) {
+            if ((jinfo->cluster_mode = ClusterCreate) && (ninfo->is_node_bootable)) {
+                /* OK, we can boot virtual machine on this node */
+            } else {
+                sprintf(logbuf, "Node %s not used due to magrathea: %s.",
+                        node -> name, res_magrathea -> str_avail);
+                schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG,
+                        jinfo -> name, logbuf);
+                return 0;
+            }
+        }
+      }
+    }
+
+#endif
+
+
+#if 0
+  if (req_cluster == NULL) {
+
+        /* user does not require cluster */
+        if (res_machine!=NULL) {
+            /* but node already belongs to cluster */
+            sprintf(logbuf, "Node %s not used, it belogs to cluster %s.", node
+-> name,
+                    res_machine -> str_avail);
+            schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo ->
+name, logbuf);
+            return 0;
+        }
+    } else if (is_cluster_create) {
+        /* cluster creation */
+        if (res_machine!=NULL) {
+            /* but node is already in (different cluster) */
+            sprintf(logbuf, "Node %s not used, it belogs to (different) cluster %s.",
+                    node -> name, res_machine -> str_avail);
+            schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo ->
+name, logbuf);
+            return 0;
+        }
+    } else if ( (req_cluster !=NULL ) && (req_cluster -> res_str != NULL )) {
+            /* user requires already running cluster */
+        if ((res_machine == NULL) || (res_machine -> str_avail == NULL)) {
+            /* but node is not in cluster */
+            sprintf(logbuf, "Node %s not used, it doesn't belong to any cluster",
+                    node -> name);
+            schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo ->
+name, logbuf);
+            return 0;
+        }
+        if (strcmp(res_machine -> str_avail,req_cluster->res_str)!=0) {
+            /* but node is in different cluster */
+            sprintf(logbuf, "Node %s not used, it belongs to different cluster %s.",
+                    node -> name, res_machine -> str_avail);
+            schdlog(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, LOG_DEBUG, jinfo ->
+name, logbuf);
+            return 0;
+        }
+  }
+
+#endif
+
+  return 1;
+  }
+
 static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
                        int avail_nodes, node_info **ninfo_arr, int preassign_starving)
   {
   int i, ret = 1;
   pars_prop *iter = spec->properties;
+  repository_alternatives* ra;
 
   for (i = 0; i < avail_nodes; i++)
     {
-    if (jinfo->is_multinode && ninfo_arr[i]->no_multinode_jobs)
-      continue; /* multinode job cannot run on non-multinode nodes */
-
-    if ((ninfo_arr[i]->starving_job != NULL) && /* if already assigned to a starving job */
-        (strcmp(ninfo_arr[i]->starving_job->name,jinfo->name) != 0) && /* and not this job */
-        (ninfo_arr[i]->starving_job->queue->priority >= jinfo->queue->priority)) /* job priority is not higher */
-      continue; /* skip this node */
-
-    if (ninfo_arr[i]->temp_assign != NULL)
-      continue; /* skip already assigned nodes */
-    /* TODO add support for one node to be used by several parts of the spec */
-
-    if (preassign_starving == 0) /* only for non-starving jobs */
-    if ((exclusivity == 1) && (ninfo_arr[i]->npfree != ninfo_arr[i]->np))
-      continue; /* skip nodes with running jobs for exclusive requests */
-
-    while (iter != NULL)
-      {
-      if (get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0)
-        break;
-
-      iter = iter->next;
-      }
-
-    if (iter != NULL)
+    if (!is_node_suitable(ninfo_arr[i],jinfo,preassign_starving))
       continue;
 
+    ra = NULL;
+    /* has alternatives */
+    if (ninfo_arr[i]->alternatives != NULL && ninfo_arr[i]->alternatives[0] != NULL)
+      {
+      ra = ninfo_arr[i]->alternatives[0];
+      while (ra != NULL)
+        {
+        while (iter != NULL)
+          {
+          if ((get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0) &&
+              (alternative_has_property(ra,iter->name) == 0))
+            break; /* break out of the cycle if not found property */
+          iter = iter->next;
+          }
+        if (iter == NULL)
+          break;
+        ra++;
+        }
+
+      if (ra == NULL)
+        continue; /* no alternative matching the spec */
+      }
+    else /* else just do simple iteration */
+      {
+      while (iter != NULL)
+        {
+        if (get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0)
+          break; /* break out of the cycle if not found property */
+
+        iter = iter->next;
+        }
+
+      if (iter != NULL) /* one of the properties not found */
+        continue;
+      }
+
     if (site_user_has_account(jinfo->account,ninfo_arr[i]->name,ninfo_arr[i]->cluster_name) == CHECK_NO)
-      break;
+      continue;
 
     if (preassign_starving)
       ninfo_arr[i]->starving_job = jinfo;
     else
+      {
       ninfo_arr[i]->temp_assign = clone_pars_spec_node(spec);
+      ninfo_arr[i]->temp_assign_alternative = ra;
+      }
 
     ret = 0;
     break;
@@ -351,6 +566,7 @@ void nodes_preassign_clean(node_info **ninfo_arr, int count)
       free_pars_spec_node(&ninfo_arr[i]->temp_assign);
 
     ninfo_arr[i]->temp_assign = NULL;
+    ninfo_arr[i]->temp_assign_alternative = NULL;
     }
   }
 
@@ -380,6 +596,8 @@ static char *get_target_full(node_info *ninfo)
       len += strlen(iter->value) + 1; /* =value */
     iter = iter->next;
     }
+
+  /* TODO add alternative support */
 
   if ((str = malloc(len)) == NULL)
     return NULL;

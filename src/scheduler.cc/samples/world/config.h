@@ -163,6 +163,7 @@
 #define INFO_JOB_COULDNT_MOVE "Job couldn't be assigned to any server"
 #define INFO_NODESPEC_TOTAL "Not enough nodes fitting the nodespec found"
 #define INFO_NODESPEC_INTERSECT "Not enough nodes fitting the nodespec available"
+#define INFO_CLUSTER_RUNNING "Cluster with the same name already running"
 
 #define COMMENT_QUEUE_NOT_STARTED "Not Running: Queue not started."
 #define COMMENT_QUEUE_NOT_EXEC    "Not Running: Queue not an execution queue."
@@ -186,5 +187,6 @@
 #define COMMENT_JOB_COULDNT_MOVE "Not Moving: Job couldn't be assigned to any server"
 #define COMMENT_NODESPEC_TOTAL "Not Running: Not enough nodes fitting the nodespec found"
 #define COMMENT_NODESPEC_INTERSECT "Not Running: Not enough nodes fitting the nodespec available"
+#define COMMENT_CLUSTER_RUNNING "Not Running: Cluster with the same name already running"
 
 #endif

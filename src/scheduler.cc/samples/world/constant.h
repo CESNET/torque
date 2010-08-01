@@ -122,6 +122,8 @@
 #define NODESPEC_NOT_ENOUGH_NODES_INTERSECT (RET_BASE + 21)
 #define JOB_MOVED (RET_BASE + 22)
 #define JOB_FAILED_MOVE (RET_BASE + 22)
+#define CLUSTER_RUNNING (RET_BASE + 23)
+
 
 /* for SORT_BY */
 enum sort_type

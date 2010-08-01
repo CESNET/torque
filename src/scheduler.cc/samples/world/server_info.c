@@ -92,6 +92,7 @@
 #include "assertions.h"
 #include "globals.h"
 #include "utility.h"
+#include "site_pbs_cache.h"
 
 /*
  *
@@ -129,6 +130,7 @@ server_info *query_server(int pbs_sd)
   /* get the nodes, if any */
   sinfo -> nodes = query_nodes(pbs_sd, sinfo);
   query_external_cache(sinfo);
+  find_bootable_alternatives(sinfo);
 
   /* get the queues */
   if ((sinfo -> queues = query_queues(pbs_sd, sinfo)) == NULL)

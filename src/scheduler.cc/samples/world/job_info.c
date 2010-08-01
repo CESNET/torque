@@ -223,7 +223,9 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
 
   while (attrp != NULL)
     {
-    if (!strcmp(attrp -> name, ATTR_p))   /* priority */
+    if (!strcmp(attrp -> name, ATTR_name))
+      jinfo -> custom_name = strdup(attrp -> value);
+    else if (!strcmp(attrp -> name, ATTR_p))   /* priority */
       {
       count = strtol(attrp -> value, &endp, 10);
 
@@ -254,16 +256,32 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
                                          queue -> server -> nodes);
     else if (!strcmp(attrp -> name, ATTR_l))    /* resources requested*/
       {
-      resreq = find_alloc_resource_req(attrp -> resource, jinfo -> resreq);
-
-      if (resreq != NULL)
+      /* special handling for cluster */
+      if (strcmp(attrp->resource,"cluster") == 0)
         {
-        resreq -> res_str = strdup(attrp -> value);
-        resreq -> amount = res_to_num(attrp -> value);
+        jinfo->is_cluster = 1;
+        if (strcmp(attrp->value,"create") == 0)
+          {
+          jinfo->cluster_mode = ClusterCreate;
+          }
+        else
+          {
+          jinfo->cluster_mode = ClusterUse;
+          }
         }
+      else
+        {
+        resreq = find_alloc_resource_req(attrp -> resource, jinfo -> resreq);
 
-      if (jinfo -> resreq == NULL)
-        jinfo -> resreq = resreq;
+        if (resreq != NULL)
+          {
+          resreq -> res_str = strdup(attrp -> value);
+          resreq -> amount = res_to_num(attrp -> value);
+          }
+
+        if (jinfo -> resreq == NULL)
+          jinfo -> resreq = resreq;
+        }
       }
     else if (!strcmp(attrp -> name, ATTR_used))    /* resources used */
       {
@@ -345,6 +363,11 @@ job_info *new_job_info()
 
   jinfo -> job_node = NULL;
 
+  jinfo -> custom_name = NULL;
+
+  jinfo -> is_cluster = 0;
+  jinfo -> cluster_mode = ClusterNone;
+
   return jinfo;
   }
 
@@ -425,22 +448,13 @@ resource_req *find_alloc_resource_req(char *name, resource_req *reqlist)
 
 void free_job_info(job_info *jinfo)
   {
-  if (jinfo -> name != NULL)
-    free(jinfo -> name);
-
-  if (jinfo -> comment != NULL)
-    free(jinfo -> comment);
-
-  if (jinfo -> account != NULL)
-    free(jinfo -> account);
-
-  if (jinfo -> group != NULL)
-    free(jinfo -> group);
-
+  free(jinfo -> name);
+  free(jinfo -> custom_name);
+  free(jinfo -> comment);
+  free(jinfo -> account);
+  free(jinfo -> group);
   free_resource_req_list(jinfo -> resreq);
-
   free_resource_req_list(jinfo -> resused);
-
   free(jinfo);
   }
 
@@ -993,6 +1007,11 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg)
       case NODESPEC_NOT_ENOUGH_NODES_INTERSECT:
         strcpy(comment_msg, COMMENT_NODESPEC_INTERSECT);
         sprintf(log_msg, INFO_NODESPEC_INTERSECT);
+        break;
+
+      case CLUSTER_RUNNING:
+        strcpy(comment_msg, COMMENT_CLUSTER_RUNNING);
+        sprintf(log_msg, INFO_CLUSTER_RUNNING);
         break;
 
       default:
