@@ -3524,6 +3524,7 @@ void im_request(
               }
 
             TMOMJobGetStartInfo(NULL, &TJE);
+            /* TODO Cloud: run cloud here */
 
             if (TMomFinalizeJob1(pjob, TJE, &SC) == FAILURE)
               {

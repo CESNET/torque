@@ -5246,6 +5246,8 @@ void start_exec(
 		return;
 		}
 	
+	/* TODO Cloud: run cloud here */
+
 	if (TMomFinalizeJob1(pjob, TJE, &SC) == FAILURE)
 		{
 		/* FAILURE (or at least do not continue) */

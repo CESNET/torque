@@ -7570,6 +7570,8 @@ int TMOMScanForStarting(void)
           log_buffer);
         }
 
+      /* TODO Cloud Finalize the cloud job start? Switch to state running? */
+
       if (TMOMJobGetStartInfo(pjob, &TJE) == FAILURE)
         {
         sprintf(log_buffer, "job %s start data lost, server will retry",
@@ -7814,6 +7816,7 @@ examine_all_running_jobs(void)
            ptask != NULL;
            ptask = (task *)GET_NEXT(ptask->ti_jobtask))
         {
+        /* TODO Cloud - pokud je job cloud, tak kontroluj jinak */
 #ifdef _CRAY
 
         if (pjob->ji_globid == NULL)
