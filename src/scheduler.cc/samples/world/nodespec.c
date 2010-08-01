@@ -88,7 +88,7 @@ static int node_has_enough_resource(node_info *ninfo, char *name, char *value,
   switch (mode)
     {
     case MaxOnly:
-      /* there is no maximum (only avail), and we therefore can't check suitability,
+      /* there is no current limit, only maximum, and we therefore can't check suitability,
        * so lets assume it is suitable. The maximum is infinity, then its definitely suitable,
        * or the maximum is more then we need.
        */
@@ -260,7 +260,7 @@ int refresh_magrathea_status(node_info *ninfo, job_info *jinfo, int preassign_st
       if ((ninfo->type == NodeVirtual) && (m_possible == 1) && (ninfo->is_down))
         { ninfo->is_bootable=1; }
       else
-        { ninfo->is_bootable=0; } /* TODO determine if necessary */
+        { ninfo->is_bootable=0; }
 
       if (m_status < 1)
         {
