@@ -1101,6 +1101,30 @@ attribute_def svr_attr_def[] =
       PARENT_TYPE_SERVER
   },
 
+  /* SRV_ATR_ResourcesToStore */
+  {   ATTR_ResourcesToStore, /* "resources_to_store" */
+      decode_arst,
+      encode_arst,
+      set_arst,
+      comp_arst,
+      free_arst,
+      NULL_FUNC,
+      MGR_ONLY_SET,
+      ATR_TYPE_ARST,
+      PARENT_TYPE_SERVER
+  },
+  /* SRV_ATR_ResourcesMappings */
+  {   ATTR_ResourcesMappings, /* "resources_mappings" */
+      decode_arst,
+      encode_arst,
+      set_arst,
+      comp_arst,
+      free_arst,
+      NULL_FUNC,
+      MGR_ONLY_SET,
+      ATR_TYPE_ARST,
+      PARENT_TYPE_SERVER
+  },
   /* site supplied server attribute definitions if any, see site_svr_attr_*.h  */
 #include "site_svr_attr_def.h"
 
