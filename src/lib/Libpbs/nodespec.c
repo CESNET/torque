@@ -171,7 +171,8 @@ pars_spec_node *clone_pars_spec_node(pars_spec_node *node)
     return NULL;
 
   result->node_count = node->node_count;
-  if ((result->properties = clone_pars_prop(node->properties)) == NULL)
+  if ((result->properties = clone_pars_prop(node->properties)) == NULL &&
+      node->properties != NULL)
     {
     free_pars_spec_node(&result);
 	  return NULL;
