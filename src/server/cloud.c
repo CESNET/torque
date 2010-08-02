@@ -257,6 +257,7 @@ int cloud_transition_into_prerun(job *pjob)
   char     *vlanid = NULL;
   char     *cached = NULL;
   resource *pres = NULL;
+  char     *tmp = NULL, *owner = NULL, *jowner = NULL;
 
   svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN_CLOUD);
   if (is_cloud_job_private(pjob))
@@ -276,7 +277,22 @@ int cloud_transition_into_prerun(job *pjob)
     }
 
   /* udpate cache information */
-  store_cluster_attr(&cached,"owner",pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str);
+  jowner = pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str;
+
+  tmp = strchr(jowner,'@');
+  if (tmp == NULL)
+    {
+    owner = strdup(jowner);
+    }
+  else
+    {
+    owner = malloc(tmp - jowner + 1);
+    strncpy(owner,jowner,tmp - jowner);
+    owner[tmp - jowner] = '\0';
+    }
+
+  store_cluster_attr(&cached,"owner",owner);
+  free(owner);
 
   if (vlanid)
     {
