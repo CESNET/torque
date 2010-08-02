@@ -82,6 +82,7 @@
 #include <time.h>
 #include <ctype.h>
 #include <string.h>
+#include <grp.h>
 #include "pbs_ifl.h"
 #include "log.h"
 #include "config.h"
@@ -454,7 +455,7 @@ void query_external_cache(server_info *sinfo)
 
   /* read cluster info */
   ptable=cache_hash_init();
-  if (cache_hash_fill_local("cluster",ptable)==0)
+  if (cache_hash_fill_local("phys_cluster",ptable)==0)
   for (i=0;i<sinfo -> num_nodes;i++)
     {
     node=sinfo -> nodes[i];
@@ -519,7 +520,9 @@ int cloud_check(job_info *jinfo)
   int is_cluster_req=0;
   resource_req *req_cluster=NULL;
   char *owner=NULL;
+  char *group=NULL;
   char *cluster=NULL;
+  struct group *g;
   int ret=0;
 
   req_cluster = find_resource_req(jinfo -> resreq, "cluster");
@@ -533,10 +536,55 @@ int cloud_check(job_info *jinfo)
 
   if (is_cluster_req) {
       cluster = pbs_cache_get_local (req_cluster->res_str, "cluster");
+
+      if (cluster == NULL)
+        {
+        ret = CLUSTER_PERMISSIONS;
+        goto perm_done;
+        }
+
       retrieve_cluster_attr (cluster, "owner", &owner);
-      /* TODO porovnat owner a jinfo -> account */
-      if (owner)
-          free(owner);
+      retrieve_cluster_attr (cluster, "group", &group);
+
+      if (owner == NULL)
+        goto perm_done;
+
+      if (strcmp(jinfo->account,owner) == 0)
+        goto perm_done;
+
+      /* user does not match, check for group */
+      if (group == NULL)
+        {
+        ret = CLUSTER_PERMISSIONS;
+        goto perm_done;
+        }
+
+      g = getgrnam(group);
+      if (g != NULL)
+        {
+        char **iter = g->gr_mem;
+
+        while (*iter != NULL)
+          {
+          if (strcmp(jinfo->account,*iter) == 0)
+            goto perm_done;
+
+          iter++;
+          }
+        }
+
+      if (is_users_in_group(group,jinfo->account) != 0)
+        goto perm_done;
+
+      ret = CLUSTER_PERMISSIONS; /* if reached, then the user doesn't have permission */
+
+perm_done:
+
+      free(owner);
+      free(group);
+
+      if (ret != 0)
+        return ret;
   }
 
   if (is_cluster_create) {

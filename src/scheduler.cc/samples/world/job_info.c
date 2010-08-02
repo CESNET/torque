@@ -1017,6 +1017,11 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg)
         sprintf(log_msg, INFO_CLUSTER_RUNNING);
         break;
 
+      case CLUSTER_PERMISSIONS:
+        strcpy(comment_msg, COMMENT_CLUSTER_PERMISSIONS);
+        sprintf(log_msg, INFO_CLUSTER_PERMISSIONS);
+        break;
+
       default:
         rc = 0;
         comment_msg[0] = '\0';
