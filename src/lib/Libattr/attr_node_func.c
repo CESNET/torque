@@ -1014,9 +1014,6 @@ int node_prop_list(
   return(rc);
   }  /* END node_prop_list() */
 
-
-
-
 /*
  * node_status_list - Either derive a "status list" attribute from the node
  *                 or update node's status list from attribute's status list.
@@ -1389,6 +1386,82 @@ int set_note_str(
 
   return(rc);
   }  /* END set_note_str() */
+
+
+/*
+ * node_note - Either derive a note attribute from the node
+ *             or update node's note from attribute's list.
+ */
+
+int node_adprop_list(
+
+  attribute *new,           /*derive status into this attribute*/
+  void      *pnode,         /*pointer to a pbsnode struct     */
+  int        actmode)       /*action mode; "NEW" or "ALTER"   */
+
+  {
+  int              rc = 0;
+
+  struct pbsnode  *np;
+  attribute        temp;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+
+      /* if node has a note, then copy string into temp  */
+      /* to use to setup a copy, otherwise setup empty   */
+
+      if (np->nd_adprop != NULL)
+        {
+        /* setup temporary attribute with the string from the node */
+
+        temp.at_val.at_str = np->nd_adprop;
+        temp.at_flags = ATR_VFLAG_SET;
+        temp.at_type  = ATR_TYPE_STR;
+
+        rc = set_note_str(new, &temp, SET);
+        }
+      else
+        {
+        /* node has no properties, setup empty attribute */
+
+        new->at_val.at_str  = NULL;
+        new->at_flags       = 0;
+        new->at_type        = ATR_TYPE_STR;
+        }
+
+      break;
+
+    case ATR_ACTION_ALTER:
+
+      if (np->nd_adprop != NULL)
+        {
+        free(np->nd_adprop);
+
+        np->nd_adprop = NULL;
+        }
+
+      /* update node with new string */
+
+      np->nd_adprop = new->at_val.at_str;
+
+      new->at_val.at_str = NULL;
+
+      break;
+
+    default:
+
+      rc = PBSE_INTERNAL;
+
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }  /* END node_adprop_list() */
 
 /* END attr_node_func.c */
 

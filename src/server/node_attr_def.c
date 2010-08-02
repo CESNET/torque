@@ -181,6 +181,19 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE,
   },
 
+  /* ND_ATR_adproperties */
+  { ATTR_NODE_adproperties,
+    decode_str,
+    encode_str,
+    set_str,
+    comp_null,
+    free_str,
+    node_adprop_list,
+    MGR_ONLY_SET,
+    ATR_TYPE_ARST,
+    PARENT_TYPE_NODE,
+  },
+
   /* ND_ATR_ntype */
   { ATTR_NODE_ntype, /* "ntype" */
     decode_ntype,

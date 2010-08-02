@@ -675,6 +675,8 @@ int status_nodeattrib(
       atemp[i].at_val.at_short = pnode->nd_state;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_properties))
       atemp[i].at_val.at_arst = pnode->nd_prop;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_adproperties))
+      atemp[i].at_val.at_str = pnode->nd_adprop;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_status))
       atemp[i].at_val.at_arst = pnode->nd_status;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_ntype))
@@ -829,6 +831,7 @@ static void initialize_pbsnode(
   pnode->nd_needed  = 0;
   pnode->nd_order   = 0;
   pnode->nd_prop    = NULL;
+  pnode->nd_adprop  = NULL;
   pnode->nd_status  = NULL;
   pnode->nd_note    = NULL;
   pnode->nd_psn     = NULL;
@@ -956,6 +959,8 @@ void effective_node_delete(
 
   rpp_close(pnode->nd_stream);
   free(pnode->nd_name);
+
+  free(pnode->nd_adprop);
 
   pnode->nd_name    = NULL;
   pnode->nd_stream  = -1;

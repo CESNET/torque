@@ -143,7 +143,8 @@ struct pbsnode
   struct prop           *nd_l_st;
   u_long  *nd_addrs; /* IP addresses of host */
 
-  struct array_strings *nd_prop; /* array of properities */
+  struct array_strings *nd_prop; /* array of properties */
+  char *nd_adprop; /* array of additional properties */
 
   struct array_strings  *nd_status;
   char           *nd_note;  /* note set by administrator */
@@ -261,6 +262,7 @@ enum nodeattr
   ND_ATR_npfree,
   ND_ATR_npshared,
   ND_ATR_properties,
+  ND_ATR_adproperties,
   ND_ATR_ntype,
   ND_ATR_jobs,
   ND_ATR_status,

@@ -456,6 +456,7 @@ extern int node_resources_action(attribute*, void*, int);
 extern int      node_np_action  A_((attribute*, void*, int));
 extern int      node_ntype A_((attribute*, void*, int));
 extern int      node_prop_list A_((attribute*, void*, int));
+extern int      node_adprop_list (attribute*, void*, int);
 extern int      node_status_list A_((attribute*, void*, int));
 extern int      node_note        A_((attribute*, void*, int));
 extern int node_queue(attribute *new, void *pnode, int actmode);
