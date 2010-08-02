@@ -934,7 +934,20 @@ attribute_def job_attr_def[] =
   },
 
   /* JOB_ATR_cloud_mapping */
-  { ATTR_cloudmap,
+  { ATTR_cloudmap, /* cloudmap */
+    decode_str,
+    encode_str,
+    set_str,
+    comp_str,
+    free_str,
+    NULL_FUNC,
+    READ_ONLY | ATR_DFLAG_MOM,
+    ATR_TYPE_STR,
+    PARENT_TYPE_JOB
+  },
+
+  /* JOB_ATR_sched_spec */
+  { ATTR_schedspec, /* sched_nodespec */
     decode_str,
     encode_str,
     set_str,

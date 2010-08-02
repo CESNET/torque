@@ -429,13 +429,8 @@ scan_for_exiting(void)
         /* no sisters contacted - should be a serial job */
         if (LOGLEVEL >= 3)
           {
-          LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid,
-                    "no sisters contacted - setting job substate to EXITING");
+          LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "no sisters contacted");
           }
-
-        pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
-
-        job_save(pjob, SAVEJOB_QUICK);
         }
       else if (LOGLEVEL >= 3)
         {

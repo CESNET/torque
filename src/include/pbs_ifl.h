@@ -181,6 +181,7 @@
 #define ATTR_intcmd      "inter_cmd"
 #define ATTR_P           "proxy_user"
 #define ATTR_cloudmap    "cloudmap"
+#define ATTR_schedspec   "sched_nodespec"
 
 #ifdef USEJOBCREATE
 #define ATTR_pagg         "pagg_id"

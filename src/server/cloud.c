@@ -97,3 +97,41 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
   log_record(PBSEVENT_SCHED,PBS_EVENTCLASS_REQUEST,"switch_nodespec_to_cloud",log_buffer);
   return concat_nodespec(ps); /* FIXME META needs fortification */
   }
+
+
+void cloud_transition_into_running(job *pjob)
+  {
+  pars_spec *ps;
+  pars_spec_node *iter;
+
+  if (is_cloud_job(pjob) && pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
+    svr_setjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_RUNNING);
+
+  dbg_consistency(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_flags & ATR_VFLAG_SET,
+      "JOB_ATR_sched_spec has to be set at this point");
+
+  ps = parse_nodespec(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
+  dbg_consistency(ps != NULL, "The nodespec should be well formed when reaching this point.");
+  if (ps == NULL)
+    return;
+
+  iter = ps->nodes;
+
+  while (iter != NULL)
+    {
+    /* there has to be at least node name */
+    dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
+    if (iter->properties == NULL)
+      { iter = iter->next; continue; }
+
+    /* update cache information that this machine now belongs to the following vcluster */
+    cache_store_local(iter->properties->name,"machine_cluster",pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
+
+    iter = iter->next;
+    }
+  }
+
+void cloud_transition_into_stopped(job *pjob)
+  {
+
+  }

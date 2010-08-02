@@ -1646,6 +1646,13 @@ static int assign_hosts(
     hosttoalloc = PBS_DEFAULT_NODE;
     }
 
+  /* now we have a nodespec */
+  job_attr_def[(int)JOB_ATR_sched_spec].at_decode(
+               &pjob->ji_wattr[(int)JOB_ATR_sched_spec],
+               NULL,
+               NULL,
+               hosttoalloc); /* we don't really care if this fails */
+
   /* do we need to allocate the (cluster) node(s)? */
 
   if (svr_totnodes != 0)

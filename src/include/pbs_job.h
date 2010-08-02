@@ -300,6 +300,7 @@ enum job_atr
   JOB_ATR_inter_cmd,      /* command for interactive job */
   JOB_ATR_proxy_user,
   JOB_ATR_cloud_mapping,  /* cloud to virtual nodes mappings including alternatives */
+  JOB_ATR_sched_spec, /* schedulers nodespec sent during job run request */
 #ifdef USEJOBCREATE
   JOB_ATR_pagg_id,
 #endif /* USEJOBCREATE */
