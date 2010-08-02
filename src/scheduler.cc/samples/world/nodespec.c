@@ -88,7 +88,7 @@ static int node_has_enough_resource(node_info *ninfo, char *name, char *value,
   switch (mode)
     {
     case MaxOnly:
-      /* there is no maximum (only avail), and we therefore can't check suitability,
+      /* there is no current limit, only maximum, and we therefore can't check suitability,
        * so lets assume it is suitable. The maximum is infinity, then its definitely suitable,
        * or the maximum is more then we need.
        */
