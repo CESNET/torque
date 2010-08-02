@@ -25,7 +25,7 @@ int is_cloud_create(resource *res);
 int is_cloud_job(job *pjob);
 
 char *switch_nodespec_to_cloud(job  *pjob, char *nodespec);
-void cloud_transition_into_prerun(job *pjob);
+int cloud_transition_into_prerun(job *pjob);
 void cloud_transition_into_running(job *pjob);
 void cloud_transition_into_stopped(job *pjob);
 

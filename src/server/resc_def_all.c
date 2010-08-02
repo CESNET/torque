@@ -749,7 +749,10 @@ resource_def svr_resc_def_const[] =
 
   /* cluster resource for virtual clusters */
   { "cluster", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_STR },
+  /* net resource for virtual clusters */
   { "net", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_STR },
+  /* group resource for virtual clusters */
+  { "group", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_STR },
 
   /* the definition for the "unknown" resource MUST be last */
 

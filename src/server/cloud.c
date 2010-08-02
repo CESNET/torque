@@ -138,25 +138,7 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
   return concat_nodespec(ps); /* FIXME META needs fortification and fix of memory leak */
   }
 
-/* FIXME META DUPLICATED WITH SITE PBS CACHE */
-#define PBS_REPLICA_IMAGES   "/var/local/repository/images"
 extern int check_and_read_config(char *filename,config_line_s **lines,time_t *last_modification,int *last_line);
-static config_line_s *replica_images_lines[10240]; /* FIX ME - dynamicaly allocated? */
-static time_t replica_images_last_modification=0;
-static int replica_images_last_line=-1;
-
-char *get_alternative_properties(char *name)
-{ int ret;
-  int i;
-
-  ret=check_and_read_config(PBS_REPLICA_IMAGES,replica_images_lines,&replica_images_last_modification,&replica_images_last_line);
-  if (ret==-1) return NULL;
-
-  for(i=0;replica_images_lines[i];i++)
-      if (strcmp(replica_images_lines[i]->key,name)==0)
-    return(replica_images_lines[i]->first);
-  return NULL;
-}
 
 void set_alternative_on_node(char *nodename, char *alternative)
   {
@@ -270,9 +252,11 @@ char *get_alternative_name(char *mapping, char *machine)
   }
 
 
-void cloud_transition_into_prerun(job *pjob)
+int cloud_transition_into_prerun(job *pjob)
   {
-  char *vlanid;
+  char     *vlanid;
+  char     *cached;
+  resource *pres;
 
   svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN_CLOUD);
   if (is_cloud_job_private(pjob))
@@ -285,7 +269,34 @@ void cloud_transition_into_prerun(job *pjob)
                                                   (char *)0, (char *)0, vlanid);
 
       }
+    else
+      {
+      return 1;
+      }
     }
+
+  /* udpate cache information */
+  store_cluster_attr(&cached,"owner",pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str);
+
+  if (vlanid)
+    {
+    store_cluster_attr(&cached,"vlan",vlanid);
+    free(vlanid);
+    }
+
+  pres = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],
+                          find_resc_def(svr_resc_def, "group", svr_resc_size));
+
+  if (pres != NULL && ((pres->rs_value.at_flags & ATR_VFLAG_SET) != 0))
+    {
+    store_cluster_attr(&cached, "group", pres->rs_value.at_val.at_str);
+    }
+
+  cache_store_local(pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str, "cluster", cached);
+
+  free(cached);
+
+  return 0;
   }
 
 void cloud_transition_into_running(job *pjob)
@@ -381,9 +392,9 @@ void cloud_transition_into_stopped(job *pjob)
     if (pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str != NULL)
       stop_sbf_vlan(pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str);
     }
+
+  cache_remove_local(pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str,"cluster");
   }
-
-
 
 #define SBF_START "/var/spool/torque/server_priv/sbf_start"
 #define SBF_STOP "/var/spool/torque/server_priv/sbf_stop"

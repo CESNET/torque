@@ -1021,7 +1021,7 @@ static int svr_strtjob2(
   /* send the job to MOM */
 
   if (is_cloud_job(pjob))
-    cloud_transition_into_prerun(pjob);
+    cloud_transition_into_prerun(pjob); /* FIXME META consider return value */
   else
     svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
 
