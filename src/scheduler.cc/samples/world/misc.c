@@ -520,7 +520,21 @@ int cloud_check(job_info *jinfo)
   char *group=NULL;
   char *cluster=NULL;
   struct group *g = NULL;
+  char *jowner=NULL;
+  char *tmp = NULL;
   int ret=0;
+
+  tmp = strchr(jinfo->account,'@');
+  if (tmp == NULL)
+    {
+    jowner = strdup(jinfo->account);
+    }
+  else
+    {
+    jowner = malloc(tmp-jinfo->account+1);
+    strncpy(jowner,jinfo->account,tmp-jinfo->account);
+    jowner[tmp-jinfo->account] = '\0';
+    }
 
   if (jinfo->cluster_mode == ClusterUse) {
       cluster = pbs_cache_get_local (jinfo->cluster_name, "cluster");
@@ -537,7 +551,7 @@ int cloud_check(job_info *jinfo)
       if (owner == NULL)
         goto perm_done;
 
-      if (strcmp(jinfo->account,owner) == 0)
+      if (strcmp(jowner,owner) == 0)
         goto perm_done;
 
       /* user does not match, check for group */
@@ -554,14 +568,14 @@ int cloud_check(job_info *jinfo)
 
         while (*iter != NULL)
           {
-          if (strcmp(jinfo->account,*iter) == 0)
+          if (strcmp(jowner,*iter) == 0)
             goto perm_done;
 
           iter++;
           }
         }
 
-      if (is_users_in_group(group,jinfo->account) != 0)
+      if (is_users_in_group(group,jowner) != 0)
         goto perm_done;
 
       ret = CLUSTER_PERMISSIONS; /* if reached, then the user doesn't have permission */
@@ -583,6 +597,8 @@ perm_done:
 
   if (cluster)
       free(cluster);
+
+  free(jowner);
 
   return ret;
 }
