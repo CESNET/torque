@@ -336,8 +336,12 @@ int refresh_magrathea_status(node_info *ninfo, job_info *jinfo, int preassign_st
 /** Check basic node suitability for job */
 static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_starving)
   {
-  if (ninfo->is_offline)
+  if (ninfo->is_offline && ninfo->type != NodeVirtual)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+            "Node %s not used, node is down and is not virtual.", ninfo->name);
     return 0;
+    }
 
   if (ninfo->type == NodeTimeshared || ninfo->type == NodeCloud)
     {
@@ -404,6 +408,10 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
   /* virtual clusters support */
   if (jinfo->is_cluster && jinfo->cluster_mode == ClusterCreate)
     {
+
+    if (!ninfo->is_bootable)
+      return 0;
+
     if (ninfo->type == NodeVirtual) /* always true, checked before */
       {
       char *cmom;
@@ -648,10 +656,17 @@ static char *get_target(node_info *ninfo, int mode)
     iter = iter->next;
     }
 
-  if (ninfo->temp_assign_alternative != NULL)
+  if (ninfo->alternatives != NULL && ninfo->alternatives[0] != NULL)
     {
     len += strlen("alternative") + 1; /* :alternative */
-    len += strlen(ninfo->temp_assign_alternative->r_name) + 1; /* =name */
+    if (ninfo->temp_assign_alternative != NULL)
+      {
+      len += strlen(ninfo->temp_assign_alternative->r_name) + 1; /* =name */
+      }
+    else
+      {
+      len += strlen(ninfo->alternatives[0]->r_name) + 1;
+      }
     }
 
   if ((str = malloc(len)) == NULL)
@@ -680,10 +695,18 @@ static char *get_target(node_info *ninfo, int mode)
     iter = iter->next;
     }
 
-  if (ninfo->temp_assign_alternative != NULL)
+  if (ninfo->alternatives != NULL && ninfo->alternatives[0] != NULL)
     {
     strcpy(cp,":alternative="); cp += strlen(":alternative=");
-    strcpy(cp,ninfo->temp_assign_alternative->r_name); cp += strlen(ninfo->temp_assign_alternative->r_name);
+
+    if (ninfo->temp_assign_alternative != NULL)
+      {
+      strcpy(cp,ninfo->temp_assign_alternative->r_name); cp += strlen(ninfo->temp_assign_alternative->r_name);
+      }
+    else
+      {
+      strcpy(cp,ninfo->alternatives[0]->r_name); cp += strlen(ninfo->alternatives[0]->r_name);
+      }
     }
 
   return str;
