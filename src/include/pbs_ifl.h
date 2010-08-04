@@ -316,6 +316,7 @@
 #define ATTR_NODE_resources_used "resources_used"
 #define ATTR_NODE_queue         "queue"
 #define ATTR_NODE_cloud         "cloud"
+#define ATTR_NODE_noautoresv    "no_starving_jobs"
 
 /* notification email formating */
 #define ATTR_mailsubjectfmt "mail_subject_fmt"

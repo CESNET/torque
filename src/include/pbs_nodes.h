@@ -161,6 +161,7 @@ struct pbsnode
   time_t                 nd_lastupdate; /* time of last update. */
 
   unsigned nd_no_multinode : 1;
+  unsigned nd_noautoresv : 1;
 
   struct attribute attributes[2]; /* resources_total, resources_used */
   char *queue;
@@ -273,6 +274,7 @@ enum nodeattr
   ND_ATR_no_multinode_jobs,
   ND_ATR_queue,
   ND_ATR_cloud,
+  ND_ATR_noautoresv,
   ND_ATR_resources_total,
   ND_ATR_resources_used,
   ND_ATR_LAST
