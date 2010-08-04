@@ -1,0 +1,64 @@
+#! /bin/bash
+# $Id: prologue.in,v 1.5 2007/12/10 23:17:01 xdenemar Exp $
+#
+# Started just before job execution by superior mom
+
+JOBID="$1"
+USER="$2"
+GROUP="$3"
+
+QSTAT=
+if [ -x /usr/bin/qstat.bin ]; then
+	QSTAT="/usr/bin/qstat.bin";
+elif [ -x /software/torque-2.4/bin/qstat.bin ]; then
+	QSTAT="/software/torque-2.4/bin/qstat.bin";
+	PATH=/software/torque-2.4/sbin:$PATH;
+else
+	exit 1;
+fi
+
+# GPU handling
+CACHE_LIST=/software/pbs-7.0.0/cache/list_cache
+CACHE_UPDATE=/software/pbs-7.0.0/cache/update_cache
+
+GPU=`$QSTAT -f $JOBID | awk '/resc_req_total.gpu/ { print $3 }'`;
+
+if [ "$GPU" != "" ]; then
+	FREE_GPU=`find /dev -user root -name nvidia[0-9]* | wc -l`;
+	if [ $GPU -gt $FREE_GPU ]; then # if requested more then present - bail out
+		exit 3;
+	fi
+
+	while [ $GPU -gt 0 ]; do
+		CARD=`find /dev -user root -name nvidia[0-9]* | head -n 1`;
+		chown $USER $CARD;
+		chmod 600 $CARD;
+		$CACHE_UPDATE arien `hostname`:$CARD gpu_allocation $JOBID;
+		let GPU-=1
+	done
+fi
+
+# Cloud handling
+
+if [ ! -x /usr/sbin/magrathea-cmd ]; then
+	exit 0;
+fi
+
+# Determine if this is a cluster job, if it is, don't do anything
+if [ `$QSTAT -f $JOBID | grep "Resource_List.cluster" | wc -l` -ne 0 ]; then
+	exit 0;
+fi
+
+if [ `$QSTAT -f $JOBID | sed -n 's/[ ]*resc_req_total.nodect[ ]*=[ ]*//p'` -gt 1 ]; then
+	preempt=
+else
+	preempt='-preemptible'
+fi
+
+/usr/sbin/magrathea-cmd startjob$preempt "$JOBID" "1" &>/dev/null
+if [ $? -ne 0 ]; then
+	exit 2;
+fi
+
+exit 0
+

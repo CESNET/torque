@@ -1,0 +1,37 @@
+#!/bin/bash
+
+
+JOBID="$1"
+QSTAT=
+if [ -x /usr/bin/qstat.bin ]; then
+	QSTAT="/usr/bin/qstat.bin";
+elif [ -x /software/torque-2.4/bin/qstat.bin ]; then
+	QSTAT="/software/torque-2.4/bin/qstat.bin";
+	PATH=/software/torque-2.4/sbin:$PATH;
+else
+	exit 1;
+fi
+
+# GPU support
+CACHE_LIST=/software/pbs-7.0.0/cache/list_cache
+CACHE_UPDATE=/software/pbs-7.0.0/cache/update_cache
+
+HOST=`hostname`
+for i in `$CACHE_LIST arien gpu_allocation | grep $JOBID | sed -n 's/'$HOST'://p' | cut -f1`; do
+	chown root:root $i;
+	chmod 600 $i;
+	$CACHE_UPDATE arien `hostname`:$i gpu_allocation unallocated;
+done
+
+# Cloud support
+
+if [ ! -x /usr/sbin/magrathea-cmd ]; then
+	exit 0;
+fi
+
+# Determine if this is a cluster job, if it is, don't do anything
+if [ `$QSTAT -f $JOBID | grep "Resource_List.cluster" | wc -l` -ne 0 ]; then
+	exit 0;
+fi
+
+/usr/sbin/magrathea-cmd stopjob "$JOBID" >&/dev/null

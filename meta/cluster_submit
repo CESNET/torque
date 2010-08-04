@@ -1,13 +1,6 @@
 #!/bin/bash
 
-QSUB="/software/pbs-7.0.0/bin/qsub"
-LISTCACHE="/software/pbs-7.0.0/cache/list_cache"
-QSTAT="/software/pbs-7.0.0/bin/qstat.bin"
-SYS_AWK="awk"
-SYS_GREP="grep"
-
-PRIVATEPARM="";
-NODES="1";
+source $(dirname $0)/cluster_conf
 
 showHelp()
 {
@@ -26,14 +19,21 @@ Options:
 EndHelpHeader
 }
 
+
+
+
+
+extra_param="";
+nodes="1";
+
 #cmdline parameters
 while test -n "$1"
 do
 	case "$1" in
 		"-h" | "--help") showHelp && exit 2 ;;
-		"-p" | "--private") PRIVATEPARM=":net=private" ;;
-		"-n" | "-N" | "--name") shift ; NAME=$1 ;;
-		"-l" | "--nodes") shift ; NODES=$1 ;;
+		"-p" | "--private") extra_param="-l net=private" ;;
+		"-n" | "-N" | "--name") shift ; name=$1 ;;
+		"-l" | "--nodes") shift ; nodes=$1 ;;
 		"-v" | "--verbose") VDEBUG="1" ;;
 		*)	if [[ $1 =~ ^-.* ]]; then
 				printf "Ignoring unknown argument $1\n";
@@ -45,38 +45,38 @@ do
 done
 
 #parameter tests
-if [ "$NAME" = "" ]; then
+if [ "$name" = "" ]; then
 	printf "Cluster name must be specified!\n";
 	exit 1;
 fi
 
 #whitespace test
-echo "$NAME" | grep -E "[[:space:]]"
+echo "$name" | $grep -E "[[:space:]]" &>/dev/null
 if [ $? -eq 0 ]; then
         printf "Cluster name must not contain whitespace characters!\n";
         exit 1;
 fi
 
 #test cache for cluster name uniqueness
-$LISTCACHE $HOST cluster | $SYS_AWK '{print $1}' | $SYS_GREP -w "$NAME" > /dev/null
+$list_cache $HOST cluster | $awk '{print $1}' | $grep -w "$name" > /dev/null
 if [ $? -eq 0 ]; then
-	printf "Cache record for cluster $NAME already exists!\n";
+	printf "Cache record for cluster $name already exists!\n";
 	exit 1;
 fi
 
 #test qstat output for cluster name uniqueness
-$QSTAT | $SYS_GREP -w $NAME | $SYS_AWK '{print $5}' | $SYS_GREP "[HQRBTWS]" > /dev/null
-if [ $? -eq 0 ]; then
-	printf "Qstat record for cluster $NAME already exists!\n";
+set_jobid $name
+if [ "$jobid" != "" ]; then
+	printf "Qstat record for cluster $name already exists!\n";
 	exit 1;
 fi
 
 #sumbit cluster
 if [ "$VDEBUG" = "1" ]; then
-	echo $QSUB -q reserved -l nodes=$NODES -l cluster=create$PRIVATEPARM -N $NAME
+	echo $qsub -q reserved -l nodes=$nodes -l cluster=create $extra_param -N $name
 fi
 
-$QSUB -q reserved -l nodes=$NODES -l cluster=create$PRIVATEPARM -N $NAME<<EOF
+$qsub -q reserved -l nodes=$nodes -l cluster=create $extra_param -N $name<<EOF
 /bin/true
 EOF
 

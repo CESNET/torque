@@ -1,0 +1,46 @@
+#!/bin/sh
+#
+# sbf_start cluster_id host1 host2
+#
+# TODO pouzit misto random jen jmeno clusteru?
+
+exec 2>>/tmp/mujtrace
+set -x
+
+RAW_PARAMS="$*"
+
+SBF_BIN=/software/magrathea/bin/sbf
+NEW_VLAN=1
+
+if [ $1 == "-v" ]; then
+	my_vlan=$2;
+	shift;shift;shift;
+	NEW_VLAN=0
+else
+	my_vlan=$1$RANDOM
+	shift;
+fi
+
+# slartibartfast_client requestvlan MojeVLAN
+# slartibartfast_client addhosts MojeVLAN $*
+
+if [ -x $SBF_BIN ]; then
+	if [ $NEW_VLAN -eq 1 ]; then
+	        $SBF_BIN -q requestvlan $my_vlan >/dev/null
+	        if [ $? != 0 ]; then exit 1;fi
+	fi
+        $SBF_BIN -q addhosts $my_vlan $* >/dev/null
+        if [ $? != 0 ]; then
+		if [ $NEW_VLAN -eq 1 ]; then
+	        	$SBF_BIN -q releasevlan $my_vlan >/dev/null
+		else
+			$SBF_BIN -q removehosts $my_vlan $*
+		fi
+	        exit 2
+		
+        fi
+fi
+
+echo $my_vlan
+exit 0
+
