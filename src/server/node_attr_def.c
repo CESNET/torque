@@ -285,6 +285,19 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE
   },
 
+  /* ND_ATR_noautoresv */
+  { ATTR_NODE_noautoresv,
+    decode_b,
+    encode_b,
+    set_b,
+    comp_b,
+    free_null,
+    node_noautoresv,
+    MGR_ONLY_SET,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_NODE,
+  },
+
   /* ND_ATR_resources_total */
   { ATTR_NODE_resources_total,
     decode_resc,

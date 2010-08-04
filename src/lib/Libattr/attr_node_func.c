@@ -1211,6 +1211,40 @@ int node_no_multinode(attribute *new, void *pnode, int actmode)
   return(rc);
   }
 
+/** Either derive a no_starving_jobs attribute from the node or update node
+ *
+ * @param new
+ * @param pnode
+ * @param actmode
+ * @return
+ */
+int node_noautoresv(attribute *new, void *pnode, int actmode)
+  {
+  int rc = 0;
+  struct pbsnode  *np;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+      new->at_val.at_long  = np->nd_noautoresv;
+      new->at_flags       = ATR_VFLAG_SET;
+      new->at_type        = ATR_TYPE_LONG;
+      break;
+
+    case ATR_ACTION_ALTER:
+      np->nd_noautoresv = new->at_val.at_long;
+      break;
+
+    default:
+      rc = PBSE_INTERNAL;
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
 
 /** Either derive a cloud attribute from the node or update node's cloud
  *  from attribute's list
