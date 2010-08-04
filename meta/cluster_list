@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LISTCACHE="/software/pbs-7.0.0/cache/list_cache"
+LISTCACHE="list_cache"
 #QSTAT="/software/pbs-7.0.0/bin/qstat.bin"
 SYS_AWK="awk"
 
