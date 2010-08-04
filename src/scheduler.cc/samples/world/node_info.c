@@ -230,6 +230,10 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
       {
       ninfo->queue = strdup(attrp->value);
       }
+    else if (!strcmp(attrp -> name, ATTR_NODE_noautoresv))
+      {
+      ninfo -> no_starving_jobs = atoi(attrp->value);
+      }
 
     else if (!strcmp(attrp -> name, ATTR_NODE_resources_total))
       {
