@@ -318,6 +318,9 @@ unsigned is_busy:
 unsigned no_multinode_jobs:
   1; /* no multinode jobs on this node */
 
+unsigned no_starving_jobs:
+  1; /* no starving jobs no this node */
+
 unsigned is_bootable:
   1;
 

@@ -388,6 +388,13 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
     return 0;
     }
 
+  if (ninfo->no_starving_jobs && preassign_starving)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Node %s set not to be used for starving jobs.",ninfo->name);
+    return 0;
+    }
+
   if ((ninfo->starving_job != NULL) && /* already assigned to a starving job */
       (strcmp(ninfo->starving_job->name,jinfo->name) != 0) && /* and not this job */
       (ninfo->starving_job->queue->priority >= jinfo->queue->priority)) /* job priority is not higher */
