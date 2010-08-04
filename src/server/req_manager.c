@@ -674,7 +674,7 @@ int mgr_set_node_attr(
   int   nstatus = 0;
   int   nprops = 0;
   int   rc;
-  int   nad_props;
+  int   nad_props = 0;
 
   attribute *new;
   attribute *unused = (attribute *)0;
