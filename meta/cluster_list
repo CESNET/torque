@@ -1,0 +1,14 @@
+#!/bin/bash
+
+LISTCACHE="/software/pbs-7.0.0/cache/list_cache"
+#QSTAT="/software/pbs-7.0.0/bin/qstat.bin"
+SYS_AWK="awk"
+
+printf "\nCluster name                   Cache record\n"
+printf "===================================================================\n"
+
+$LISTCACHE $HOSTNAME cluster | $SYS_AWK '{printf "%-30s(%s)\n",$1,$3}'
+
+printf "\n"
+
+
