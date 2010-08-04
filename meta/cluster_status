@@ -1,0 +1,67 @@
+#!/bin/bash
+
+LISTCACHE="/software/pbs-7.0.0/cache/list_cache"
+QSTAT="/software/pbs-7.0.0/bin/qstat.bin"
+SYS_AWK="awk"
+SYS_SED="sed"
+SYS_GREP="grep"
+SBF="/software/magrathea/bin/sbf"
+TIMEOUT="/software/magrathea/amd64_linux26/bin/timeout"
+
+# Req. argument
+if [ "$1" = "" ]; then
+	printf "No cluster name given\n\nUsage: $0 <cluster_name>\n\n"
+	exit 1
+fi
+
+# Cache record
+
+cache_record=`$LISTCACHE $HOSTNAME cluster | $SYS_GREP -w "$1"`
+
+
+if [ "$cache_record" = "" ]; then
+	printf "No record of cluster $1 in the cache\n"
+	exit 1
+fi
+
+echo $cache_record | $SYS_AWK '{printf "\nCluster records:\n  Cluster name:\t%s\n  Record ID:\t%s\n  Attributes:\t%s\n", $1, $2, $3}'
+#printf "\nCache record:\t\"$cache_record\"\n\n"
+#printf "\nCache record:\n"
+#"\t\"$cache_record\"\n\n"
+jobid=`$QSTAT | $SYS_GREP "$1.* [RT] " | $SYS_AWK '{print $1}' 2> /dev/null`
+
+if [ "$jobid" = "" ]; then
+        printf "Couldn't find JobID by qstat. Job state other than R or T?\n"
+        exit 1
+fi
+
+printf "  Job ID:\t$jobid\n"
+
+printf "  Owner: \t"
+echo $cache_record | $SYS_AWK '{print $3}' | $SYS_SED 's/^.*owner=//' | $SYS_SED 's/[ \t;,].*$//'
+vlan_id=`echo $cache_record | $SYS_AWK '{print $3}' | $SYS_GREP "vlan" | $SYS_SED 's/^.*vlan=//' | $SYS_SED 's/[ \t;,].*$//'`
+if [ "$vlan_id" != "" ]; then
+	printf "  VLAN: \t$vlan_id\n"
+
+	sbftag=`$TIMEOUT 10 $SBF dumpstate | $SYS_GREP -m 1 -A 10000 "vlan ID=\"$vlan_id\"" | $SYS_GREP -m 1 -B 10000 "</vlan>" | $SYS_GREP "<tag>" | $SYS_SED 's/<\/tag>//' | $SYS_SED 's/^.*>//'`
+	printf "  sbfVLAN tag: \t$sbftag\n"
+
+	sbfhosts=`$TIMEOUT 10 $SBF dumpstate | $SYS_GREP -m 1 -A 10000 "vlan ID=\"$vlan_id\"" | $SYS_GREP -m 1 -B 10000 "</vlan>" | $SYS_GREP "<host>" | $SYS_SED 's/<\/host>//' | $SYS_SED 's/^.*>//' | $SYS_AWK '{printf "%s ", $1}'`
+
+	printf "  sbfVLAN host:\t$sbfhosts\n"
+
+
+fi
+
+# Machine list
+
+printf "  Machines:\t"
+
+$LISTCACHE $HOSTNAME machine_cluster | $SYS_GREP -E "$1\$" | $SYS_AWK '{printf "%s ", $1}' 
+
+
+$QSTAT -n $jobid | $SYS_GREP $jobid | $SYS_AWK '{printf "\n  Username:\t%s\n  Queue:\t%s\n  Elapsed:\t%s\n  State:\t%s\n  Time: \t%s\n", $2, $3, $9, $10, $11}'
+
+printf "\n"
+
+

@@ -1,0 +1,29 @@
+#!/bin/bash
+
+#LISTCACHE="/software/pbs-7.0.0/cache/list_cache"
+QSTAT="/software/pbs-7.0.0/bin/qstat.bin"
+QDEL="/software/pbs-7.0.0/bin/qdel"
+SYS_AWK="awk"
+SYS_GREP="grep"
+
+# Req. argument
+if [ "$1" = "" ]; then
+        printf "No cluster name given\n\nUsage: $0 <cluster_name>\n\n"
+        exit 1
+fi
+
+
+jobid=`$QSTAT | $SYS_GREP -w "$1" | $SYS_GREP -E "\W[QRT]\W+\w+\W*$" | $SYS_AWK '{print $1}' 2> /dev/null`
+
+if [ "$jobid" = "" ]; then
+  printf "No such cluster\n\n"
+  exit 1
+fi
+
+printf "Deleting cluster $1 (Job ID $jobid)\n"
+
+$QDEL $jobid 
+
+printf "\n"
+
+

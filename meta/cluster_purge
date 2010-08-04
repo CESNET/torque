@@ -1,0 +1,37 @@
+#!/bin/bash
+
+LISTCACHE="/software/pbs-7.0.0/cache/list_cache"
+DELCACHE="/software/pbs-7.0.0/cache/bin/delete_cache"
+QSTAT="/software/pbs-7.0.0/bin/qstat.bin"
+QDEL="/software/pbs-7.0.0/bin/qdel"
+SYS_AWK="awk"
+SYS_GREP="grep"
+
+# Req. argument
+if [ "$1" = "" ]; then
+        printf "No cluster name given\n\nUsage: $0 <cluster_name>\n\n"
+        exit 1
+fi
+
+
+jobid=`$QSTAT | $SYS_GREP -w "$1" | $SYS_AWK '{print $1}' 2> /dev/null`
+
+if [ "$jobid" = "" ]; then
+  printf "No such cluster known to qstat. Trying do delete all traces from cache\n\n"
+else
+  printf "Running qdel\n"
+  $QDEL $jobid 
+fi
+
+printf "Deleting node records from cache\n"
+$LISTCACHE $HOSTNAME machine_cluster | $SYS_GREP -w "$1" | $SYS_AWK '{print $1}' | while read machinerecords; do
+	printf "< $machinerecords\n"
+	$DELCACHE $HOSTNAME $machinerecords machine_cluster
+done
+
+printf "Deleting cluster record from cache\n"
+$DELCACHE $HOSTNAME $1 cluster
+
+printf "\n"
+
+
