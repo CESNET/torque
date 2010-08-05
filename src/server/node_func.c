@@ -713,6 +713,8 @@ int status_nodeattrib(
       atemp[i].at_val.at_str = pnode->cloud;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_no_multinode_jobs))
       atemp[i].at_val.at_long = pnode->nd_no_multinode;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_noautoresv))
+      atemp[i].at_val.at_long = pnode->nd_noautoresv;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_total))
 	  {
       clear_attr(&atemp[i],(padef+i));
