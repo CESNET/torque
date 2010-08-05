@@ -125,6 +125,12 @@ req_messagejob(struct batch_request *preq)
   if ((pjob = chk_job_request(preq->rq_ind.rq_message.rq_jid, preq)) == 0)
     return;
 
+  if (is_cloud_job(pjob))
+    {
+    rc = PBSE_CLOUD_REQUEST;
+    req_reject(rc, 0, preq, NULL, NULL);
+    }
+
   /* the job must be running */
 
   if (pjob->ji_qs.ji_state != JOB_STATE_RUNNING)

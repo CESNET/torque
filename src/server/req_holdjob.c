@@ -177,6 +177,11 @@ void req_holdjob(
     return;
     }
 
+  if (is_cloud_job(pjob))
+    {
+    req_reject(PBSE_CLOUD_REQUEST,0,preq,NULL,NULL);
+    }
+
   /* cannot do anything until we decode the holds to be set */
 
   if ((rc = get_hold(&preq->rq_ind.rq_hold.rq_orig.rq_attr, &pset,
@@ -298,6 +303,12 @@ void req_checkpointjob(
   if ((pjob = chk_job_request(preq->rq_ind.rq_manager.rq_objname, preq)) == NULL)
     {
     return;
+    }
+
+  if (is_cloud_job(pjob))
+    {
+    rc = PBSE_CLOUD_REQUEST;
+    req_reject(rc, 0, preq, NULL, "cloud jobs cannot be checkpointed");
     }
 
   pattr = &pjob->ji_wattr[(int)JOB_ATR_checkpoint];

@@ -209,6 +209,8 @@ PbsErrClient(PBSE_SCHLOCKBADCOMM,    "Bad command for scheduler lock management"
 PbsErrClient(PBSE_SCHLOCKBROKEN,     "Scheduler lock was broken or timed out")
 /* Cannot submit two cloud jobs with the same name */
 PbsErrClient(PBSE_CLOUD_NAME,        "Cloud with specified name already exists.")
+/* Requested command is not available for cloud jobs */
+PbsErrclient(PBSE_CLOUD_REQUEST,     "Command is not available for cloud jobs.")
 /* pbs client errors ceiling (max_client_err + 1) */
 PbsErrClient(PBSE_CEILING,           (char*)0)
 #endif
