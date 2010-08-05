@@ -98,7 +98,7 @@
 #include "pbs_error.h"
 #include "log.h"
 #include "svrfunc.h"
-
+#include "cloud.h"
 
 /* Private Function local to this file */
 

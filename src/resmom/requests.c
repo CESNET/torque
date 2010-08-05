@@ -1383,8 +1383,8 @@ void req_messagejob(
 
   if (pjob && is_cloud_job(pjob))
     {
-    rc = PBSE_CLOUD_REQUEST;
-    req_reject(rc, 0, preq, mom_host, "cannot message cloud jobs);
+    ret = PBSE_CLOUD_REQUEST;
+    req_reject(ret, 0, preq, mom_host, "cannot message cloud jobs");
     }
 
   if ((preq->rq_ind.rq_message.rq_file == PBS_BATCH_FileOpt_Default) ||
