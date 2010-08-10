@@ -1,5 +1,3 @@
-#define _GNU_SOURCE
-
 #include <pbs_config.h>
 
 #include <errno.h>
