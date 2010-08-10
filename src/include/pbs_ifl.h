@@ -351,6 +351,7 @@
 #define ND_job_exclusive "job-exclusive"
 #define ND_job_sharing  "job-sharing"
 #define ND_busy   "busy"
+#define ND_frozen "frozen"
 #define ND_state_unknown "state-unknown"
 #define ND_timeshared  "time-shared"
 #define ND_cluster  "cluster"

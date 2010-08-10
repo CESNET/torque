@@ -117,6 +117,7 @@
 #include "mcom.h"
 #include "utils.h"
 #include "cloud.h"
+#include "api.h"
 
 #include "assertions.h"
 
@@ -354,6 +355,8 @@ void update_node_state(
     np->nd_state &= ~INUSE_BUSY;
 
     np->nd_state &= ~INUSE_UNKNOWN;
+
+    np->nd_state &= ~INUSE_FROZEN;
 
 #ifdef BROKENVNODECHECKS
 
@@ -1533,6 +1536,9 @@ void ping_nodes(
 
   static  int            startcount = 0;
 
+  void *ptable;
+  char *value;
+
   extern int RPPConfigure(int, int);
   extern int RPPReset(void);
 
@@ -1558,6 +1564,48 @@ void ping_nodes(
     PBS_EVENTCLASS_REQUEST,
     id,
     log_buffer);
+
+  /* read magrathea status from pbs_cache
+   * and set INUSE_FROZEN for frozen nodes
+   * flag is cleared only for nodes which are not down,
+   * otherwise is cleared when ping from node arrives
+   */
+  ptable=cache_hash_init();
+  if (cache_hash_fill_local("magrathea",ptable)==0)
+    {
+    for (i=0; i< svr_totnodes; i++)
+      {
+      value=cache_hash_find(ptable,pbsndmast[i]->nd_name);
+      if (value!=NULL)
+        {
+        struct pbsnode *nd;
+        nd=pbsndmast[i];
+
+        if (strstr(value,"frozen")!=NULL)
+          {
+          if (nd->nd_state & INUSE_FROZEN)
+            {
+            log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, nd->nd_name, "frozen flag already set");
+            }
+          else
+            {
+            nd->nd_state |= INUSE_FROZEN;
+            log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, nd->nd_name, "frozen flag set");
+            }
+          }
+        else
+          {
+          if ((nd->nd_state & INUSE_FROZEN))
+            {
+            nd->nd_state &= ~(INUSE_FROZEN);
+            log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, nd->nd_name, "frozen flag removed");
+            }
+          }
+        free(value);
+        }
+      }
+    }
+
 
   /* change RPP to report node state quickly */
 
@@ -1782,7 +1830,7 @@ void check_nodes(
     {
     np = pbsndmast[i];
 
-    if (np->nd_state & (INUSE_DELETED | INUSE_DOWN))
+    if (np->nd_state & (INUSE_DELETED | INUSE_DOWN | INUSE_FROZEN))
       continue;
 
     if (np->nd_lastupdate < (time_now - chk_len))
@@ -2052,7 +2100,7 @@ found:
 
       /* CLUSTER_ADDRS successful */
 #endif
-      node->nd_state &= ~(INUSE_NEEDS_HELLO_PING);
+      node->nd_state &= ~(INUSE_NEEDS_HELLO_PING|INUSE_FROZEN|INUSE_DOWN);
 
       break;
 
