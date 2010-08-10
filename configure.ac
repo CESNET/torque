@@ -773,6 +773,7 @@ AC_ARG_WITH(gssapi,
                         K5CFLAGS="`$KRB5CONF --cflags $k5confopts`"
                         K5LIBS="`$KRB5CONF --libs $k5confopts`"
                         CPPFLAGS="$CPPFLAGS $K5CFLAGS"
+			LDFLAGS="$LDFLAGS -Wl,-R${GSSAPIROOT}/lib $K5LIBS"
                         AC_MSG_CHECKING(whether we are using Heimdal)
                         AC_TRY_COMPILE([ #include <krb5.h> ],
                                        [ const char *tmp = heimdal_version; tmp=NULL;],
