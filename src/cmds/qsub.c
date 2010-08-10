@@ -4449,6 +4449,7 @@ int main(
   int   argi, argslen = 0;
   int   idx;
   int   have_intr_cmd = FALSE;
+  int   is_cloud_create = FALSE;
 
   if ((param_val = getenv("PBS_CLIENTRETRY")) != NULL)
     {
@@ -4686,27 +4687,36 @@ int main(
       }
     }
 
+  {
+  struct attrl *attr;
+  attr = attrib;
+  while (attr != NULL)
+    {
+    if (strcmp(attr->name,"Resource_List") == 0 &&
+        strncmp(attr->resource,"cluster",strlen("cluster")) == 0 &&
+        strncmp(attr->value,"create",strlen("create")) == 0)
+      break;
+
+    attr = attr->next;
+    }
+
+  if (attr != NULL)
+    {
+    is_cloud_create = TRUE;
+    set_attr(&attrib, ATTR_k, "oe");
+    }
+
+  }
+
+
   /* if script is empty, get standard input */
 
   if (!strcmp(script, "") || !strcmp(script, "-"))
     {
     if (!N_opt)
       {
-      struct attrl *attr;
 
-      attr = attrib;
-
-      while (attr != NULL)
-        {
-        if (strcmp(attr->name,"Resource_List") == 0 &&
-            strncmp(attr->resource,"cluster",strlen("cluster")) == 0 &&
-            strncmp(attr->value,"create",strlen("create")) == 0)
-          break;
-
-        attr = attr->next;
-        }
-
-      if (attr == NULL)
+      if (!is_cloud_create)
         set_attr(&attrib, ATTR_N, "STDIN");
       else
         {
@@ -4820,6 +4830,14 @@ int main(
     {
     fprintf(stderr, "qsub: interactive job can not be job array.\n");
 
+    unlink(script_tmp);
+
+    exit(2);
+    }
+
+  if (Interact_opt && is_cloud_create)
+    {
+    fprintf(stderr, "qsub: cloud create jobs cannot be interactive.\n");
     unlink(script_tmp);
 
     exit(2);
