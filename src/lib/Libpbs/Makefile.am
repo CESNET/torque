@@ -83,9 +83,9 @@ libtorque_la_SOURCES = ../Libcsv/csv.c ../Libdis/dis.c \
 		    ../Libnet/get_hostaddr.c ../Libnet/get_hostname.c \
 		    ../Libnet/md5.c ../Libnet/net_client.c \
                     ../Libnet/net_server.c ../Libnet/net_set_clse.c \
-		    ../Libnet/rm.c ../Libnet/port_forwarding.c \
+		    ../Libnet/rm.c ../Libnet/port_forwarding.c
 if INCLUDE_GSSAPI
-		    ../Libifl/pbsgss.c
+libtorque_la_SOURCES  += ../Libifl/pbsgss.c
 endif
 
 
