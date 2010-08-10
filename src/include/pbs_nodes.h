@@ -219,6 +219,7 @@ int tlist(tree *, char *, int);
 #define INUSE_JOB  0x10 /* VP   in use by job (exclusive use) */
 #define INUSE_JOBSHARE  0x20 /* VP   is use by job(s) (time shared) */
 #define INUSE_BUSY  0x40 /* Node is busy (high loadave)  */
+#define INUSE_FROZEN 0x80 /* Node is a frozen virtual machine */
 
 #define INUSE_UNKNOWN  0x100 /* Node has not been heard from yet */
 #define INUSE_NEEDS_HELLO_PING 0x200  /*node needs to be informed of a*/

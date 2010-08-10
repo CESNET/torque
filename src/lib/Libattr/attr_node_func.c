@@ -159,6 +159,7 @@ static struct node_state
   {INUSE_JOB,     ND_job_exclusive},
   {INUSE_JOBSHARE, ND_job_sharing},
   {INUSE_BUSY,    ND_busy},
+  {INUSE_FROZEN,  ND_frozen},
   {0,             NULL}
   };
 
@@ -235,6 +236,14 @@ int PNodeStateToString(
       strncat(Buf, ",", BufSize - strlen(Buf));
 
     strncat(Buf, ND_state_unknown, BufSize - strlen(Buf));
+    }
+
+  if (SBM & (INUSE_FROZEN))
+    {
+    if (Buf[0] != '\0')
+      strncat(Buf, ",", BufSize - strlen(Buf));
+
+    strncat(Buf, ND_frozen, BufSize - strlen(Buf));
     }
 
   if (Buf[0] == '\0')
@@ -838,6 +847,8 @@ static int set_nodeflag(
     *pflag = *pflag | INUSE_DOWN;
   else if (!strcmp(str, ND_reserve))
     *pflag = *pflag | INUSE_RESERVE;
+  else if (!strcmp(str, ND_frozen))
+    *pflag = *pflag | INUSE_FROZEN;
   else
     {
     rc = PBSE_BADNDATVAL;
