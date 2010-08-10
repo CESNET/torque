@@ -117,6 +117,7 @@
 #include "mcom.h"
 #include "utils.h"
 #include "cloud.h"
+#include "api.h"
 
 #include "assertions.h"
 
@@ -1584,12 +1585,12 @@ void ping_nodes(
           {
           if (nd->nd_state & INUSE_FROZEN)
             {
-            log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, LOG_NOTICE, nd->nd_name, "frozen flag already set");
+            log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, nd->nd_name, "frozen flag already set");
             }
           else
             {
             nd->nd_state |= INUSE_FROZEN;
-            log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, LOG_NOTICE, nd->nd_name, "frozen flag set");
+            log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, nd->nd_name, "frozen flag set");
             }
           }
         else
@@ -1597,7 +1598,7 @@ void ping_nodes(
           if ((nd->nd_state & INUSE_FROZEN))
             {
             nd->nd_state &= ~(INUSE_FROZEN);
-            log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, LOG_NOTICE, nd->nd_name, "frozen flag removed");
+            log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, nd->nd_name, "frozen flag removed");
             }
           }
         free(value);
