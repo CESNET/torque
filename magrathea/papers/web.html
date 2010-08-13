@@ -1,0 +1,52 @@
+<h1>Magrathea</h1>
+
+<p>Magrathea provides an interface between batch scheduling system(s) and
+virtual machine monitors. It allows jobs to be submitted in a controlled manner
+into virtual machines running on cluster nodes (when several virtual machines
+are running on a single cluster node). Magrathea can also be seen as a scheduler
+running on each cluster node which schedules virtual machines according to jobs
+submitted into them by batch scheduling systems. Current implementation supports
+PBS Pro scheduling system, which has to be slightly modified to support all
+features of Magrathea, and Xen and VServer virtual machine monitors.</p>
+
+<p>Further information about Magrathea may also be found in <a
+href="http://www.cesnet.cz/doc/techzpravy/2007/metacenter-virtualising-using-magrathea/"
+>CESNET technical report 25/2007</a>.</p>
+
+<p>The name comes from The Hitchhiker's Guide to the Galaxy written by Douglas
+Adams. Magrathea is a planet where other planets, such as Earth, are built for
+wealthy-enough creatures, such as mice.</p>
+
+
+<h2>Architecture</h2>
+
+<p>Magrathea consists of three main components: master process representing
+physical machines, slave processes running in each virtual machine and optional
+cache process, storing information about status of all virtual machines running
+on a cluster. Architecture of Magrathea and interaction with resource
+management system and virtual machine monitor is depicted in the following
+figure:</p>
+<img src="architecture.png" alt="Magrathea architecture"/>
+
+<h3>Master</h3>
+<p>Runs on each real machine and manages all virtual worker nodes running on
+the same machine and stores their current status at the status cache. The
+status cache is updated whenever the status is changed and even when no change
+occurs within a predefined time period.</p>
+
+<h3>Slave</h3>
+<p>Runs on each virtual worker node and asks its master daemon for permission
+to start a new job, informs the master about finished jobs and behaves
+according to commands received from the master.</p>
+
+<h3>Cache</h3>
+<p>Stores status data about all virtual worker nodes so that a batch scheduling
+system does not have to contact each node to check its current status before
+making a decision where to execute a job. This part is not required when a
+scheduling system is able to get status information directly from computational
+nodes. However, the status cache is a more scalable solution.</p>
+
+<h2>Source Code</h2>
+<p>Source code of Magrathea with administrator's documentation is available as
+"magrathea" module in METACenter CVS repository.</p>
+

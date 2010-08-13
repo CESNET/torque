@@ -1,0 +1,227 @@
+#! /bin/bash
+# $Id: master-cmd.in,v 1.2 2008/05/29 14:51:49 xdenemar Exp $
+#
+# callback executed on commands received from magrathea-master
+
+# default values
+PBS_PATH=
+SWAP=
+
+CONFIG_FILE=@CONF_DIR@/slave
+source @CONF_DIR@/parse-config.sh
+
+[[ "$PBS_PATH" ]] && PBS_PATH=${PBS_PATH%%/}/
+
+qstat="${PBS_PATH}qstat"
+pbsnodes="${PBS_PATH}pbsnodes"
+
+jobs_count=-1
+declare -a jobs
+
+
+if [[ -d /proc/xen ]]; then
+    VMM=xen
+else
+    VMM=vserver
+fi
+
+
+function usage()
+{
+    echo "$0 suspend|wakeup <memory_KB> [<jobs_count> <jobs...>]" >&2
+    exit 1
+}
+
+
+function mem_info()
+{
+    cat /proc/meminfo | awk /$1'/{print $2}'
+}
+
+function mem_free()
+{
+    local memory=$1
+    local proc_min_free=/proc/sys/vm/min_free_kbytes
+
+
+    local free=$[$(mem_info MemTotal) - $memory]
+
+    echo "Freeing memory using $proc_min_free, $free KB needed"
+
+    local old=$(<$proc_min_free)
+    echo $free >$proc_min_free
+
+    while [[ $(mem_info MemFree) -lt $free ]]; do
+        sleep 1
+    done
+    echo $old >$proc_min_free
+
+    echo "Free memory: $(mem_info MemFree) KB"
+}
+
+function mem_shrink()
+{
+    local memory=$1; shift
+    local shrink=/proc/magrathea/shrink
+
+    [[ $memory -gt 0 ]] || return
+
+    echo "Shrinking memory to $memory KB"
+
+    if [[ ! -r $shrink ]]; then
+        echo "Kernel helper not found"
+        # don't use min_free_kbytes for machines with more than ~5GB memory
+        # it's much worse than just ballooning in those cases
+        if [[ $(mem_info MemTotal) -gt 5000000 ]]; then
+            echo "Total memory is too big, not using min_free_kbytes"
+        else
+            mem_free $memory
+        fi
+    else
+        echo "Using kernel helper to shrink memory"
+        echo -n "$memory,2" >$shrink
+    fi
+
+    local occupied=$[$(mem_info MemTotal) - $(mem_info MemFree)]
+
+    echo "Occupied memory: $occupied KB"
+}
+
+
+function swap_on()
+{
+    if [[ "$SWAP" ]]; then
+        echo "Adding swap $SWAP"
+        swapon -p 0 $SWAP
+    fi
+}
+
+function swap_off()
+{
+    if [[ "$SWAP" ]]; then
+        echo "Removing swap $SWAP"
+        swapoff $SWAP
+    fi
+}
+
+
+function jobs_list()
+{
+    local hostname=$(hostname --fqdn)
+
+    echo "Searching for jobs on $hostname"
+
+    jobs=($($pbsnodes $hostname |
+            grep jobs |
+            sed -e 's/jobs *= *//; s/\/[0-9]\+\(,\|$\)//g; s/  */ /g' |
+            tr ' ' '\n' |
+            sort |
+            uniq |
+            tr '\n' ' '))
+
+    jobs_count=${#jobs[*]}
+
+    if [[ $jobs_count -gt 0 ]]; then
+        echo "Found $jobs_count jobs: ${jobs[*]}"
+    else
+        echo "No running jobs"
+    fi
+}
+
+
+function jobs_get()
+{
+    if [[ $# -ge 1 ]]; then
+        jobs_count=$1
+        shift
+    fi
+
+    [[ $# -ge 1 ]] && jobs=( "$@" )
+
+    [[ ${#jobs[*]} -ne $jobs_count ]] && jobs_list
+}
+
+
+function jobs_signal()
+{
+    [[ $jobs_count -gt 0 ]] || return
+
+    echo "Searching for owners of jobs: ${jobs[*]}"
+
+    local users=$($qstat -f ${jobs[*]} |
+                  awk 'BEGIN{FS="[=,]"}/PBS_O_LOGNAME/{print $2}' |
+                  tr '\n' ' ')
+    echo "Owners are: $users"
+
+    for user in $(echo "$users" | tr ' ' '\n' | sort | uniq); do
+        if [[ $(id -u $user) -eq 0 ]]; then
+            echo "Skipping jobs owned by root"
+        else
+            echo "Sending $1 signal to all processes owned by $user"
+            for pid in $(ps -u $user -o pid=); do
+                echo "Sending $1 signal to PID $pid"
+                kill -$1 $pid
+            done
+        fi
+    done
+}
+
+
+[[ $# -ge 2 ]] || usage
+cmd="$1"; shift
+memory="$1"; shift
+
+case "$cmd" in
+suspend)
+    if [[ $VMM == xen ]]; then
+        if [[ $(</proc/sys/vm/swappiness) -eq 1 ]]; then
+            echo "Domain is already suspended; ignoring suspend command"
+            exit 0
+        fi
+
+        echo 1 >/proc/sys/vm/swappiness
+
+        jobs_get "$@"
+        jobs_signal STOP
+
+        echo 3 >/proc/sys/vm/drop_caches
+        echo 64 > /sys/class/net/eth0/rxbuf_min
+
+        swap_on
+        mem_shrink $memory
+
+    elif [[ $VMM == vserver ]]; then
+        jobs_get "$@"
+        jobs_signal STOP
+    fi
+    ;;
+
+wakeup)
+    if [[ $VMM == xen ]]; then
+        if [[ $(</proc/sys/vm/swappiness) -eq 20 ]]; then
+            echo "Domain is already awake; ignoring wakeup command"
+            exit 0
+        fi
+
+        echo 20 >/proc/sys/vm/swappiness
+
+        cp /sys/class/net/eth0/rxbuf_max /sys/class/net/eth0/rxbuf_min
+
+        swap_off
+
+        jobs_get "$@"
+        jobs_signal CONT
+
+    elif [[ $VMM == vserver ]]; then
+        jobs_get "$@"
+        jobs_signal CONT
+    fi
+    ;;
+
+*)
+    usage
+    ;;
+esac
+
+exit 0
+

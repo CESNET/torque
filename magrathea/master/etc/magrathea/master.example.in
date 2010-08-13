@@ -1,0 +1,94 @@
+# $Id: master.example.in,v 1.7 2008/05/21 15:56:16 xdenemar Exp $
+# configuration file for magrathea-master daemon
+
+# Log debug messages by default. Default value depends on how the daemon was
+# started; with "-d" option given, it is "yes", otherwise it is "no".
+#
+#   debug = yes|no
+debug = yes
+
+# Allow/deny Internet Protocol version 6 to be used. It will be used by
+# default if Magrathea was compiled with IPv6 support and IPv6 is available
+# in operating system. Please note that even if IPv6 is used, IPv4 addresses
+# can still be written in their standard notation in configuration files, they
+# will be automatically translated into IPv6-mapped IPv4 addresses.
+#
+#   ipv6 = yes|no|auto
+ipv6 = yes
+
+# IP address and port number where connections from slave daemons will be
+# accepted. Default port number (5678) will be used if it is not correctly
+# specified here. The master will listen at 0.0.0.0 or :: if listen address is
+# not specified.
+# Please, be sure to specify 'defrost-address' option if you do not specify
+# 'listen-address' this one or if you use 0.0.0.0 or :: address.
+#
+#   listen-address = <IP address>
+#   listen-port = <port>
+listen-address = 0.0.0.0
+listen-port = 0
+
+# Unix socket for administrative management of the master daemon. The socket is
+# created so that only the user under which the master daemon is running is
+# able to connect to it. Defaults to RUN_DIR/master.sock
+#
+#   admin-socket = <unix socket>
+admin-socket = /var/run/magrathea/master.sock
+
+# Total number of CPUs available to virtual machines (0 disables CPU
+# counting).
+#
+#   cpus = <count>
+cpus = 0
+
+# Status caches to report status changes to. Default port number (7878) will be
+# used if it is not specified here. Several cache options may be used to report
+# changes to more than one server.
+#
+#   cache = <host> [<port>]
+cache = erebor.ics.muni.cz
+
+# IP address and port number where requests for defrosting frozen domains
+# will be accepted and which will be advertised to status cache for each
+# frozen domain. Therefore, using 0.0.0.0 or :: is not a good idea as it is
+# not a valid destination IP address.
+# Automatic port number will be used if it is not specified here.  Master's IP
+# address will be used if defrost address is omitted.
+#
+#   defrost-address = <IP address>
+#   defrost-port = <port>
+defrost-address = 10.0.0.1
+defrost-port = 5679
+
+# Parameters for ifconfig used for setting up a dedicated ethernet bridge for
+# communication between master and slaves. At least an IP address of the
+# bridge, which has to be the same as listen-address, must be provided,
+# otherwise the bridge will not be created. The default and recommended value
+# is empty, which disables the bridge.
+#
+#   bridge = <ifconfig parameters>
+
+# Parameters used by @CONF_DIR@/switch script. Default values can be seen
+# at the beginning of the script.
+# Xen:
+#   xen-path = <xen-tools installation root>
+#   xen-credit-free = <arguments to "xm sched-credit" command for free domains>
+#   xen-credit-running = <scheduler parameters for running domains>
+#   xen-credit-preempted = <scheduler parameters for preempted domains>
+#   xen-mem-free = <memory (in MB) assigned to free domains>
+#   xen-mem-running = <memory for running domains, 0 means all usable memory>
+#   xen-mem-preempted = <memory assigned to preempted domains>
+#
+# VServer:
+#   vserver-path = <util-vserver installation root>
+#   vserver-sched-free = <arguments to "vsched" command for free VMs>
+#   vserver-sched-running = <arguments to "vsched" command for running VMs>
+#   vserver-sched-preempted = <arguments to "vsched" command for preempted VMs>
+
+# Infiniband
+#
+#   ib-module = <infiniband module to be unloaded>
+#   ib-pci-id = <PCI ID of infiniband card>
+ib-module = ib_mthca
+ib-pci-id = 0000:08:00.0
+

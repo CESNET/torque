@@ -1,0 +1,701 @@
+Administrator's Guide to Magrathea
+==================================
+$Revision: 1.10 $
+$Date: 2008/08/14 15:16:03 $
+
+Contents
+| 1 Architecture Overview
+| 1.1 Status cache
+| 1.2 Master daemon
+| 1.3 Slave daemon
+| 2 Configuration
+| 2.1 Magrathea
+| 2.1.1 Master Configuration
+| 2.1.1.1 Xen-specific Configuration for /etc/magrathea/switch
+| 2.1.1.1.1 InfiniBand
+| 2.1.1.2 VServer-specific Configuration for /etc/magrathea/switch
+| 2.1.1.3 Configuration of Virtual Machines
+| 2.1.2 Slave Configuration
+| 2.1.2.1 /etc/magrathea/master-cmd
+| 2.2 Virtual Machines
+| 2.3 PBS MOM
+| 3 Running
+| 3.1 Master
+| 3.1.1 State File
+| 3.1.2 Status Cache
+| 3.1.3 Administrative Commands
+| 3.1.4 VM Management
+| 3.1.5 Freezing and Defrosting Virtual Machines
+| 3.1.6 Switching Virtual Machines Using /etc/magrathea/switch
+| 3.1.7 Switching Number of CPUs Dedicated to Virtual Machines
+| 3.2 Slave
+| 3.2.1 Slave Commands
+
+1 Architecture Overview
+
+The whole Magrathea system consists of three building blocks:
+    - status cache,
+    - master daemons,
+    - slave daemons.
+
+In addition, Magrathea cooperates with a virtual machine monitor (VMM) and a
+batch queuing system. The architecture of Magrathea and interactions with
+other parts of a whole computational environment is depicted in the following
+figure (and architecture.svg):
+
+         +------------------------------------------------------+
+         | cluster node                                         |
+         |   +-------------+               +------------------+ |
+         |   |   dom0      |               | domU             | |
+         |   | +--------+  |               |  +-------+       | |
+         |   | | master |<===================>| slave |<===+  | |
+         |   | |        |<=========+       |  +-------+   ||  | |
+         |   | +--------+  |      ||       |              cmd | |
+         |   |     ||      |      ||       |  +-------+   ||  | |
+         |   +-----||------+      ||   +=====>| mom   |<===+  | |
+         +---------||----------+  ||   ||  |  +-------+       | |
+                   ||          |  ||   ||  +------------------+ |
+                   \/          |  ||   ||                       |
+             +------------+    |  ||   ||  +------------------+ |
+         +==>| cache      |    |  ||   ||  | domU             | |
+         ||  +------------+    |  ||   ||  |  +-------+       | |
+         ||                    |  +==========>| slave |<===+  | |
+         ||                    |       ||  |  +-------+   ||  | |
+         ||  +------------+    |       ||  |              cmd | |
+         +==>| pbs_server |<============+  |  +-------+   ||  | |
+             |            |<=================>| mom   |<===+  | |
+             +------------+    |           |  +-------+       | |
+                               |           +------------------+ |
+                               +--------------------------------+
+
+1.1 Status cache
+
+Stores status data about all virtual worker nodes so that a batch scheduling
+system does not have to contact each node to check its current status before
+making a decision where to execute a job. This part is not required when a
+scheduling system is able to get status information directly from
+computational nodes. However, the status cache is a more scalable solution.
+
+
+1.2 Master daemon
+
+Runs on each real machine and manages all virtual worker nodes running on the
+same machine and stores their current status at the status cache. The status
+cache is updated whenever the status is changed and even when no change occurs
+within a predefined time period.
+
+
+1.3 Slave daemon
+
+Runs on each virtual worker node and asks its master daemon for permission to
+start a new job, informs the master about finished jobs and behaves according
+to commands received from the master.
+
+
+2 Configuration
+
+All three cooperating parts have to be configured: master and slave daemons of
+Magrathea, virtual machine monitor and the way virtual machines are started,
+and PBS MOM.
+
+
+2.1 Magrathea
+
+By default master reads its configuration from /etc/magrathea/master and slave
+reads its configuration from /etc/magrathea/slave. Full documentation can be
+found in /etc/magarathea/master.example and /etc/magrathea/slave.example.
+
+It is possible to add custom options to a configuration file provided that its
+name is different from all options specified in the particular .example
+configuration file. Custom options are silently ignored by daemons and scripts
+from distribution.
+
+All options are in the form of "name = value", where "name" can be any
+combination of letters, digits and "-" signs, however it must start with a
+letter. Option's name can be separated by any number of spaces and tabs from
+the "=" sign. On the other hand, only the first space after the "=" sign is
+considered not to be part of option's value. Thus, by adding one more space,
+it is possible to specify values which start with a space.
+
+In shell scripts, options are transformed using /etc/magrathea/parse-config.sh
+to upper case and all "-" signs are replaced with underscores ("_") to make
+them valid variable names. Because of this, users are advised to use only
+lower case letters for option names.
+
+
+2.1.1 Master Configuration
+
+The following options are recognized by magrathea-master daemon:
+
+debug = yes|no
+    Log debug messages by default. Default value depends on how the daemon was
+    started; with "-d" option given, it is "yes", otherwise it is "no".
+
+ipv6 = yes|no|auto
+    Allow/deny Internet Protocol version 6 to be used. It will be used by
+    default if Magrathea was compiled with IPv6 support and IPv6 is available
+    in operating system. Please note that even if IPv6 is used, IPv4 addresses
+    can still be written in their standard notation in configuration files,
+    they will be automatically translated into IPv6-mapped IPv4 addresses.
+
+listen-address = <IP address>
+listen-port = <port>
+    IP address and port number where connections from slave daemons will be
+    accepted. Default port number (5678) will be used if it is not correctly
+    specified here. The master will listen at 0.0.0.0 or :: if listen address
+    is not specified. Please, be sure to specify 'defrost-address' option if
+    you do not specify 'listen-address' this one or if you use 0.0.0.0 or ::
+    address.
+
+admin-socket = <unix socket>
+    Unix socket for administrative management of the master daemon. The socket
+    is created so that only the user under which the master daemon is running
+    is able to connect to it. Defaults to RUN_DIR/master.sock
+
+cpus = <count>
+    Total number of CPUs available to virtual machines (0 disables CPU
+    counting).
+
+cache = <host> [<port>]
+    Status caches to report status changes to. Default port number (7878) will
+    be used if it is not specified here. Several cache options may be used to
+    report changes to more than one server.
+
+defrost-address = <IP address>
+defrost-port = <port>
+    IP address and port number where requests for defrosting frozen domains
+    will be accepted and which will be advertised to status cache for each
+    frozen domain. Therefore, using 0.0.0.0 or :: is not a good idea as it is
+    not a valid destination IP address. Automatic port number will be used if
+    it is not specified here. Master's IP address will be used if defrost
+    address is omitted.
+
+bridge = <ifconfig parameters>
+    Parameters for ifconfig used for setting up a dedicated ethernet bridge
+    for communication between master and slaves. At least an IP address of the
+    bridge, which has to be the same as listen-address, must be provided,
+    otherwise the bridge will not be created. The default and recommended
+    value is empty, which disables the bridge.
+
+
+2.1.1.1 Xen-specific Configuration for /etc/magrathea/switch
+
+The /etc/magrathea/switch script is responsible for switching virtual machines
+and assigning CPUs and memory to them. Xen version of the script uses the
+following options in /etc/magrathea/master:
+
+xen-path
+    Installation root of xen-tools.
+
+xen-credit-free
+xen-credit-running
+xen-credit-preempted
+    Parameters passed to "xm sched-credit" command. Used for setting amount of
+    CPU power given to free, running and preempted domains, respectively.
+
+xen-mem-free
+xen-mem-running
+xen-mem-preempted
+    Size of a memory (in megabytes) assigned to free, running and preempted
+    respectively.
+
+
+2.1.1.1.1 InfiniBand
+
+For InfiniBand being available under Xen's user domains it must be hidden from
+domain-0. This can either be done on domain-0 kernel's command line or in
+runtime. For automatic hiding of InfiniBand device by
+/etc/init.d/magrathea_master script two optional parameters can be configured
+int /etc/magrathea/master:
+
+ib-module
+    Name of the driver being used in domain-0 for InfiniBand card.
+
+ib-pci-id
+    PCI identifier of the InfiniBand card.
+
+
+2.1.1.2 VServer-specific Configuration for /etc/magrathea/switch
+
+The /etc/magrathea/switch script is responsible for switching virtual machines
+and assigning CPUs and memory to them. VServer version of the script is
+responsible for setting scheduler parameters for VServer contexts. It uses the
+following options in /etc/magrathea/switch:
+
+vserver-path
+    Installation root of util-vserver.
+
+vserver-sched-free
+vserver-sched-running
+vserver-sched-preempted
+    Parameters passed to "vsched" command for free, running, and preempted
+    contexts.
+
+
+2.1.1.3 Configuration of Virtual Machines
+
+Virtual machines which are supposed to be configured and created automatically
+when magrathea starts can be specified in /etc/magrathea/auto configuration
+file (/etc/magrathea/auto.example is provided to give some examples). Each
+line which is not empty and is not a comment describes one virtual machine in
+the same way as "create" command of magrathea-admin tool does. See section
+"Administrative Commands" in "Running"->"Master" for details.
+
+
+2.1.2 Slave Configuration
+
+The following options are recognized by magrathea-slave daemon:
+
+debug = yes|no
+    Log debug messages by default. Default value depends on how the daemon was
+    started; with "-d" option given, it is "yes", otherwise it is "no".
+
+ipv6 = yes|no|auto
+    Allow/deny Internet Protocol version 6 to be used. It will be used by
+    default if Magrathea was compiled with IPv6 support and IPv6 is available
+    in operating system. Please note that even if IPv6 is used, IPv4 addresses
+    can still be written in their standard notation in configuration files,
+    they will be automatically translated into IPv6-mapped IPv4 addresses.
+
+listen-address = <IP address>
+listen-port = <port>
+    IP address and port number where connections from master daemon will be
+    accepted. Automatic port number will be used if it is not correctly
+    specified here. The slave will listen at 0.0.0.0 or :: if listen address
+    is not specified.
+
+cmd-socket = <unix socket>
+    Unix socket for magrathea-cmd. The socket is created so that only the user
+    under which the master daemon is running is able to connect to it.
+    Defaults to RUN_DIR/slave.sock
+
+hostname = <FQDN>
+    Fully qualified domain name of the machine the slave is running in.
+    Defaults to the result of hostname --fqdn
+
+master-address = <IP address>
+master-port = <port>
+    IP address and port number where we can contact our master daemon. Default
+    port number (5678) will be used if it is not correctly specified here. No
+    default value is specified for master's IP address.
+
+pbs-path = <path>
+    Path to the PBS binaries (such as qstat, pbs_rmget, etc.).
+
+swap = <swap partition or file>
+    Swap partition or file which should be automatically switched on/off when
+    VM's memory is reduced/restored. This functionality will be switched off
+    if the value is left empty. Default value is empty.
+
+
+2.1.2.1 /etc/magrathea/master-cmd
+
+The /etc/magrathea/master-cmd script informs the operating system in a virtual
+machine that it is about to be preempted or that it has just been woken up from
+a preemption. The purpose of this script is to prepare the operating system
+for changed CPU power and amount of available memory.
+
+The first argument to the script is either "suspend" or "wakeup" before
+preempting the domain or at the end of preemption, respectively. The second
+argument is amount of memory (in KB) which will be assigned to the VM. The
+first two arguments may be, optionally, followed by a number of jobs running
+in the VM and a list of identifiers of these jobs.
+
+
+2.2 Virtual Machines
+
+Virtual machines do not have to be configured in any special way. Normally,
+public IP addresses are used for communication between master daemon and its
+slave daemons. However, in Xen VMM, if communication using private IP
+addresses through a dedicated bridge is preferred, further configuration is
+needed.
+
+All virtual machines have to be configured to use two network interfaces:
+
+    vif = [ 'bridge=xenbr0', 'ip=SLAVE_IP,bridge=magr' ]
+
+Where "xenbr0" is the default bridge and "magr" is a dedicated bridge with
+private IP address.
+
+The slave daemon inside the virtual machine is configured using an extra
+parameter to a VM's kernel:
+
+    extra = "magrathea=eth1:SLAVE_IP"
+
+Although, communication through a dedicated bridge was the only possible
+communication between master and slave daemons in the previous version of
+Magrathea when used in Xen environment, it should not be used in new
+installations as it limits the set of features Magrathea supports and will
+support in the future.
+
+
+2.3 PBS MOM
+
+Several scripts are copied into the /usr/spool/PBS/mom_priv/ to connect PBS
+MOM with magrathea-slave daemon using prolog and epilog hooks.
+
+
+3 Running
+
+Generally, Magrathea is started using /etc/init.d/magrathea_master and
+/etc/init.d/magrathea_slave scripts.
+
+
+3.1 Master
+
+For Xen virtual machine monitor, the magrathea_master init script in Domain-0
+automatically starts or stops user domains found in /etc/magrathea/auto.
+During restart, only the daemon is restarted.
+
+
+3.1.1 State File
+
+Current state of all virtual machines managed by master daemon can be found in
+/var/run/magrathea/master.state.IP.PORT file. This file, if it exists, is also
+read by master daemon during its start to preserve state during restart or
+upgrade of master daemon.
+
+The state file contains details about all virtual machines and their jobs
+managed by the master daemon. Each line of the file is either empty or in the
+following form (parameters are separated by spaces):
+
+    keyword parameters
+
+No comments are allowed in the state file, empty lines separate virtual
+machines from each other.
+
+All keywords and their description follow.
+
+vm ID
+    unique identifier of the virtual machine within the VMM.
+
+fqdn FQDN
+    fully qualified domain name of the VM. It serves as a globally unique
+    identifier and as a key to status cache database.
+
+cluster CLUSTER
+    identification of a cluster to which the virtual machine belongs. This
+    keyword is missing if the VM does not belong to any cluster.
+
+name NAME
+    static name of the virtual machine. As opposed to ID, this name must not
+    change during restarts, suspend/resume cycles, etc. It is used for
+    resolving ID, which may change in time.
+
+ip IP PORT
+    IP address and port number where the slave daemon running inside the
+    virtual machine can be contacted.
+
+status STATUS
+    current status of the virtual machine. Possible values and their meanings
+    are:
+
+    down
+        the VM is not running,
+    booting
+        VM's operating system is booting,
+    free
+        jobs can be submitted into the VM,
+    occupied-would-preempt
+        submitting a job into the VM will cause preemption of another VM,
+    occupied
+        no job can be submitted into the VM,
+    running-preemptible
+        the VM is running only preemptible jobs and can be preempted,
+    running
+        the VM is running jobs which cannot be preempted,
+    preempted
+        the VM was preempted by another VM,
+    frozen
+        the VM was suspended on user request.
+
+rebooting 0|1
+    the parameter is "1" iff the virtual machine is being rebooted and needs
+    to be provided with as much memory as possible.
+
+running-jobs NUMBER
+    number of jobs running inside the virtual machine. Each job has to be
+    described using a job keyword.
+
+job ID PREEMPTIBLE CPUS PREEMPTION_START PREEMPTION_LENGTH
+    description of a single job. ID is a job identifier. PREEMPTIBLE can be
+    either "P" or "N" is the job is or is not preemptible respectively. CPUS
+    is a number of CPUs consumed by the job. If the job has been preempted, it
+    has been preempted since PREEMPTION_START, otherwise PREEMPTION_START is
+    zero. PREEMPTION_LENGTH is a total number of seconds the job has been
+    preempted (excluding number of seconds elapsed since PREEMPTION_START).
+
+preemptive 0|1
+    the parameter is "1" iff the virtual machine is allowed to preempt other
+    VMs. Otherwise it is zero.
+
+
+3.1.2 Status Cache
+
+Current status of each virtual machine is described by a single line status
+string, which is sent both on change and periodically to status cache servers.
+The status string is divided into several parts by ";" sign.
+
+The first part consists of current status of the VM and, if CPU counting is
+enabled, information about CPUs allocated by the VM and CPUs, which are
+available to the VM:
+
+    status_string [ ":" allocated_CPUs ":" available_CPUs ]
+
+    status_string
+        is similar to status in the state file described above in
+        section State File. In addition, two more values are defined for
+        status cache:
+
+        removed
+            the virtual machine was removed,
+        occupied-booting
+            operating system in another VM is booting.
+        running-priority
+            the VM is running jobs and it is a priority VM.
+
+    allocated_CPUs
+        is a number of CPUs currently consumed by jobs running in the VM.
+
+    available_CPUs
+        is a number of CPUs, which new jobs going into the VM can utilize.
+
+The second part contains total number of seconds
+    - jobs running in the VM has been preempted by other VMs if the VM is
+      preemptible, that is, it has normal priority,
+    - all other VMs have been preempted if the VM is priority, that is, it can
+      preempt other VMs.
+
+All other parts are always labeled and can appear in any order.
+
+Defrost part formatted as
+
+    "defrost=" defrost_IP_&_port
+
+is only used for frozen VMs and contains IP address and port, where the VM can
+be defrosted (see section Freezing and Defrosting Virtual Machines below for
+details).
+
+Changed part is formatted as
+
+    "changed=" last_change_timestamp
+
+and contains a time stamp (number of seconds since the Epoch) of the most
+recent change of the VM's status.
+
+Some examples of what can be seen in status cache:
+
+    running-preemptible:2:1;0;changed=1206436366
+    running:2:6;0;changed=1206436518
+    occupied-would-preempt:0:6;0;changed=1206436909
+    running:5:1;65;changed=1206436998
+    preempted:2:0;76;changed=1206436998
+    occupied-booting:2:3;344;changed=1206437289
+    booting:0:8;0;changed=1206437293
+    down:0:6;0;changed=1206437166
+    frozen:7:1;2385;defrost=10.0.0.1:12345;changed=1206437611
+    frozen:7:1;1910;defrost=[fec0:37cf:ad::ab:8]:12345;changed=1206610177
+
+
+3.1.3 Administrative Commands
+
+In runtime, magrathea-admin is used for administration of Magrathea. Commands
+supported by magrathea-admin are:
+
+ping-master
+    tests whether connection to magrathea-master daemon can be established.
+    The command can be used to detect correctly running master daemon.
+
+stop-master
+    tells the master daemon to terminate. Prior to terminating, current state
+    of all domains is saved to the state file and reported to status caches.
+
+create FQDN NAME priority|normal IP
+    creates a new virtual machine. FQDN is VM's fully qualified domain name.
+    NAME is a static identifier as described above in section "State File".
+    The third argument is either "priority" or "normal" saying the VM will be
+    allowed to preempt other VMs or not, respectively. IP is an address of the
+    VM.
+
+boot FQDN
+    marks a virtual machine identified by its fully qualified domain name as
+    booting and makes magrathea wait until the VM is up.
+
+down FQDN
+    marks a VM identified by FQDN as being down. The command can only be used
+    on booting VMs and tells the deamon that the VM will not come up.
+    
+remove FQDN
+    removes a VM identified by FQDN. Only VMs which are down, can be removed.
+
+register FQDN PORT
+    registers a slave daemon listening on PORT in a VM identified by FQDN at
+    the master daemon. The same command is issued when a slave daemon starts.
+    Booting VM comes up by sending this command to its master daemon.
+
+priority FQDN priority|normal
+    changes priority of a VM. The command will fail if the VM is running any
+    jobs.
+
+defrost FQDN
+    defrosts a frozen VM identified by FQDN.
+
+cluster [FQDN [remove | set CLUSTER]
+    when issued with no arguments, the command lists all virtual machines and
+    their clusters. If only FQDN is specified, cluster name of the specified
+    virtual machine is returned. Additional arguments "remove" and "set" are
+    used for manipulating with VM's cluster membership. When issued with
+    "remove" argument, the VM is removed from its cluster. When "set" argument
+    is used followed by a cluster name, the VM is marked as a member of the
+    specified cluster.
+
+In addition to the commands above, magrathea-admin also supports several
+commands recognized by magrathea-cmd (see section "Slave Commands" below). In
+contrast to magrathea-cmd commands, these commands take an additional
+argument which identifies a particular virtual machine.
+
+reboot FQDN
+    ensures enough resources is available for rebooting a VM identified by
+    FQDN, marks it as booting and waits for it to get down a come up again.
+
+freeze FQDN
+    freezes a VM identified by FQDN.
+
+status FQDN
+    checks VM's status. The string returned is described above in section
+    "Status Cache". The FQDN may be omitted which results in printing current
+    status of all VMs.
+
+stopjob FQDN ID
+    stops a job identified by ID in a VM identified by FQDN.
+
+stopalljobs FQDN
+    stops all jobs running in a VM identified by FQDN.
+
+
+3.1.4 VM Management
+
+VM's life cycle is depicted in lifecycle.svg.
+
+First, each virtual machine has to be created using magrathea-admin's create
+command. New virtual machines are marked as being down.
+
+Before the virtual machine can be really started (e.g., using xm create in Xen
+VMM), it has to be marked as booting by magrathea-admin's boot command. This
+command also reserves enough resources to boot the VM (or fails if there is
+not enough resources). While booting a virtual machine, magrathea-master
+daemon does not allow any job to be started in any of its virtual machines.
+Also, only a limited set of commands can be used in this time.
+
+Once a virtual machine is up and its slave daemon is running, jobs can be
+submitted into it. If rebooting the VM is required, magrathea-admin's reboot
+command has to be issued to reserve enough resources for the VM. Only after
+the command succeeds, /sbin/shutdown -r may be run to actually reboot the
+virtual machine. If the reboot command fails, it is not safe to reboot the VM.
+
+On the other hand, no extra resources are needed for shutting down a virtual
+machine. Thus, /sbin/shutdown -h or an equivalent command can be run in any
+time and master daemon will detect the VM went down and will mark it as being
+down.
+
+If, for any reason, a VM is not able to boot or run magrathea-slave daemon, it
+can be marked as being down by magrathea-admin's down command.
+
+Any virtual machine which is down can be removed from master's database by
+magrathea-admin's remove command.
+
+
+3.1.5 Freezing and Defrosting Virtual Machines
+
+A priority virtual machine can, under certain circumstances, be froze to
+entirely free all occupied resources. The freezing process can be started by
+issuing the freeze command of either magrathea-cmd or magrathea-admin. After
+the VM is frozen, only preemptible jobs are allowed to occupy CPUs previously
+used by the VM so that it can be defrosted in any time. Defrosting can be
+issued by the defrost command of magrathea-admin or by sending "defrost FQDN"
+string to the IP and port specified in the defrost part of VM's status string
+(see section "Status Cache" above).
+
+
+3.1.6 Switching Virtual Machines Using /etc/magrathea/switch
+
+Normally, the /etc/magrathea/switch is called automatically by a master daemon
+to change memory and CPU power allocations according to values configured in
+/etc/magrathea/master. However, in some cases it may be useful to run the
+script manually. The script is called with two parameters for each virtual
+machine:
+
+    /etc/magrathea/switch vm1 vm2 vm3 ...
+
+where vm1, vm2, vm3, etc. describe individual virtual machines. Each virtual
+machine is described as follows:
+    ID:status:CPUs
+where ID is virtual machine's identifier, status describes current status of
+the virtual machine and CPUs is a number of CPUs (which is insignificant if
+CPU counting is disabled) assigned to the VM. Current status of each VM can
+be one of the following characters:
+    f   for a free virtual machine,
+    o   for a virtual machine which is occupied or occupied-would-preempt,
+    r   for a virtual machine which is running or running-preemptible,
+    p   for a preempted virtual machine.
+
+
+3.1.7 Switching Number of CPUs Dedicated to Virtual Machines
+
+Similarly to /etc/magrathea/switch, there is a /etc/magrathea/switch-cpu
+script for assigning CPUs to particular virtual machines. The script is called
+with two parameters for each virtual machine:
+
+    /etc/magrathea/switch-cpu vm1 vm2 vm3 ...
+
+where vm1, vm2, vm3, etc. have the same meaning as for /etc/magrathea/switch
+script.
+
+
+3.2 Slave
+
+After being started by /etc/init.d/magrathea_slave, the slave daemon registers
+at the master daemons and listens on a /var/run/magrathea/slave.socket UNIX
+socket for commands send by magrathea-cmd command, which is called from epilog
+and prologue scripts by PBS MOM. These commands are forwarded to the master
+daemon for processing and the result is returned back through the UNIX socket.
+
+If special magrathea parameter is passed to a VM's kernel on its command line
+(see section "Configuration"->"Virtual Machines" above), the
+/etc/init.d/magrathea_slave also configures given network interface for
+communication with the master daemon.
+
+
+3.2.1 Slave Commands
+
+Commands supported by magrathea-cmd are:
+
+startjob ID CPUS
+    start a nonpreemptible job. ID is a job identifier and CPUS is a number of
+    CPUs required by the job.
+
+startjob-preemptible ID CPUS
+    start a new premptible job. ID is a job identifier and CPUS is a number of
+    CPUs required by the job.
+
+stopjob ID
+    stop a job of a given ID.
+
+stopalljobs
+    stop all jobs running in the VM.
+
+status
+    return current status of the VM. The string returned is described above in
+    section "Status Cache".
+
+preempted ID
+    return total number of seconds the job identified by ID has been
+    preempted.
+
+freeze
+    freeze the VM.
+
+reboot
+    ensure enough resources is available for rebooting the VM. If it succeeds,
+    commands may be executed to actually reboot the virtual machine.
+

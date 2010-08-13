@@ -1,0 +1,32 @@
+#! /bin/bash
+#
+# $Id: job_cpu.sh.in,v 1.5 2008/05/21 15:56:16 xdenemar Exp $
+
+# default values
+PBS_PATH=
+
+CONFIG_FILE=@CONF_DIR@/slave
+source @CONF_DIR@/parse-config.sh
+
+[[ "$PBS_PATH" ]] && PBS_PATH=${PBS_PATH%%/}/
+
+QSTAT="${PBS_PATH}qstat"
+
+jobid="$1"
+
+hosts=$($QSTAT -f "$jobid" |
+        tr -d '\t\n' |
+        sed -e 's/.* exec_host *= *\([^ ]*\).*/\1/' |
+        tr + '\n')
+
+if [[ $? == 0 ]]; then
+    my_cpus=$(echo "$hosts" | grep $(uname -n) | wc -l)
+    total_cpus=$(echo "$hosts" | wc -l)
+else
+    my_cpus=0
+    total_cpus=0
+fi
+
+echo "MY_CPUS=$my_cpus"
+echo "TOTAL_CPUS=$total_cpus"
+

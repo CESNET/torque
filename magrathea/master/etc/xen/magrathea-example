@@ -1,0 +1,19 @@
+# $Id: magrathea-example,v 1.4 2008/03/05 08:45:21 xdenemar Exp $
+
+kernel = "/boot/vmlinuz-2.6.16-xenU"
+memory = 1024
+name = "example"
+hostname = "example.domain.name"
+ip = "123.45.67.89" 
+netmask = "255.255.255.0"
+gateway = "123.45.67.1"
+vcpus = 4
+disk = ['phy:sdb1,hda1,w','phy:sdb2,hda2,w', 'phy:sdb3,hda3,w', 'phy:md0,hda4,w'] 
+root = "/dev/hda1"
+
+# setup additional ethernet interface for communication between magrathea
+# master and slave
+vif = [ 'bridge=xenbr0', 'ip=10.0.0.101,bridge=magr' ]
+# magrathea=slave_iface_name:this_slave_ip
+extra = "magrathea=eth1:10.0.0.101"
+

@@ -1,0 +1,12 @@
+Source: magrathea
+Section: unknown
+Priority: extra
+Maintainer: Jiri Denemark <jirka@ics.muni.cz>
+Build-Depends: debhelper (>= 5), autotools-dev
+Standards-Version: 3.7.2
+
+Package: magrathea
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: Magrathea
+ 

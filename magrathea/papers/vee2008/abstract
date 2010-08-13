@@ -1,0 +1,23 @@
+Traditional batch scheduling systems used for high performance computing
+started to limit people in applications which they are able to run on such
+systems. Nowadays people often require more than submitting a job to a queue
+and waiting until scheduling system decides to run it. For example, resource
+owners may provide their resources for jobs of other users, but may require
+higher priority for accessing them. Another class of applications require
+interactive access to computing resources when users dynamically influence the
+computation which may result in a sudden need for more resources required to
+finish the task. Such requirements may be easily satisfied with the help of
+virtual machines deployed on computational machines. In this paper, we provide
+a description of a system called Magrathea, which we have created to allow job
+scheduling system to deal with several virtual machines (VMs) running on a
+single computer and to submit jobs into those VMs. Virtual machines may
+provide different execution environments for user's jobs with different
+allocation of resources. Magrathea manages resources given to each virtual
+machines so that several VMs are allowed to share a single node and its
+resources according to site requirements. It is designed to be general and
+flexible with a minimum set of modifications required for specific batch
+system. Virtual machines running on a single node are managed by a dedicated
+daemon on the same node. This way different resources managed by a single
+batch scheduling system may provide different access policies and sharing of
+resources among virtual machines. In a more complicated schema, each virtual
+machine on the same node can even be managed by different scheduling system.

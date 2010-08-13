@@ -1,0 +1,69 @@
+#! /bin/bash
+
+exec 2>&1 >config.tmp
+
+if [[ -z $MAKELEVEL ]]; then
+    echo "./configure is supposed to be run by make; do not run it manually" >&2
+    exit 1
+fi
+
+source ./config/functions.sh || exit 1
+
+[[ $VMM ]] || VMM=auto
+
+rm -f config.h config.log 2>/dev/null
+
+case $VMM in
+auto)
+    xen=false
+    vserver=false
+
+    compiler link xen XEN && xen=true
+    compiler link vserver VSERVER && vserver=true
+    $vserver && compiler compile vserver-CTX_TYPE HAVE_CTX_TYPE
+
+    if $xen && $vserver; then
+        VMM=xen,vserver
+    elif $xen; then
+        VMM=xen
+    elif $vserver; then
+        VMM=vserver
+    else
+        error "neither Xen nor VServer found"
+    fi
+    ;;
+
+both)
+    compiler link xen XEN &&
+    compiler link vserver VSERVER ||
+    error "either Xen or VServer not found"
+
+    compiler compile vserver-CTX_TYPE HAVE_CTX_TYPE
+
+    VMM=xen,vserver
+    ;;
+
+xen)
+    compiler link xen XEN ||
+    error "Xen not found"
+    ;;
+
+vserver)
+    compiler link vserver VSERVER ||
+    error "VServer not found"
+
+    compiler compile vserver-CTX_TYPE HAVE_CTX_TYPE
+    ;;
+
+esac
+
+echo "VMM \"$VMM\""
+[[ $VMM != ${VMM/,} ]] && echo "VMM_AUTO 1"
+
+exec >&-
+
+log ""
+cat config.tmp >>config.log
+
+generate_config
+

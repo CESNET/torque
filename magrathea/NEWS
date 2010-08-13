@@ -1,0 +1,142 @@
+$Id: NEWS,v 1.4 2008/09/01 09:49:37 xdenemar Exp $
+------------------------------------------------------------------------------
+Notation:
+    + new features were added
+    - something was removed
+    * code change
+    F a bug was fixed
+    o note
+
+    (Xen)     only related to Xen
+    (VServer) only related to Linux VServer
+------------------------------------------------------------------------------
+
++   relation between each domain and the host on which it is running is
+    reported to 'host' metric of pbs_cache process
+F   pbs_cache may be compiled even on machines without Xen and VServer
++   each domain may be assigned to a cluster (the assignment is reported to
+    'machine_cluster' metric of pbs_cache process)
+
+
+CVS Tag r3_11 (2008-08-08)
+==========================
++   NEWS file
++   -t <timeout> option for magrathea-admin
++   stop-master command for magrathea-admin to stop master daemon gracefully
+*   (Xen) better scheduler settings: allow free domains to consume CPU power
+    which is not consumed by Domain-0 and running domains
+
+
+CVS Tag r3_10 (2008-08-04)
+==========================
+F   (Xen) 0750 permissions for /var/run/magrathea: deny access for others to
+    the memory of frozen domains
+*   after becoming daemons, master and slave log their parents' PID
+F   (Xen) detecting memory assigned to domains with ID >= 10
++   magrathea-admin's status command prints status of all domains when issued
+    without FQDN
+
+
+CVS Tag r3_9  (2008-07-25)
+==========================
++   support for building Debian packages
+*   init script for master renamed to magrathea_master
+*   init script for slave renamed to magrathea_slave
+F   (Xen) detecting memory assigned to domains with short names
+*   when listening on all interfaces, master daemon stores its current state
+    in master.state.PORT instead of master.state.0.0.0.0.PORT (for IPv4) or
+    master.state.::.PORT (for IPv6)
+*   after becoming daemons, master and slave log their CVS Tag
+
+
+CVS Tag r3_8  (2008-05-29)
+==========================
++   (Xen) kernel helper shrinking domain's memory (faster than ballooning)
+
+
+CVS Tag r3_7  (2008-05-26)
+==========================
++   support for both Xen and VServer can be linked in the same binary with
+    run-time detection of the VMM
++   slave's master-cmd.xen and master-cmd.vserver scripts were integrated into
+    a single master-cmd script
+
+
+CVS Tag r3_6  (2008-05-21)
+==========================
++   IPv6 support
+
+
+CVS Tag r3_5  (2008-05-19)
+==========================
++   compile-time detection of Xen and VServer including incompatible changes
+    in vserver.h
+F   rebooting a domain in running* state
+F   when CPU counting is off and a frozen domain exists, non-preemptible jobs
+    must not be allowed in any other domain
+F   timeout was removed when master is waiting for a defrosted domain to become
+    available; anyway we cannot do anything clever if the domain is not ready
+*   (Xen) better memory switching: detects memory assigned to each domain
++   -c <config_file> and -s <socket> options for magrathea-admin
+*   init scripts refuse to start when the daemon is already running
+F   CPU counters are always reset during startup
+*   common master's init script for both Xen and VServer: even VServer contexts
+    are started automatically when mentioned in /etc/magrathea/auto
+*   each domain is described by "ID:status:CPUs" string when passed on to
+    switch and switch-cpu scripts
++   (VServer) complete support for VServer; CPU counting requires kernel to be
+    compiled with CONFIG_CPUSETS=y
++   VServer and Xen libraries may be linked in statically
+
+
+CVS Tag r3_4  (2008-04-16)
+==========================
++   debug=yes|no configuration option to switch on/off debugging messages
+*   a priority domain with running jobs is reported as "running-priority"
+    instead of just "running"
+
+
+CVS Tag r3_3  (2008-04-14)
+==========================
+F   daemons do not ignore SIGCHLD anymore
+
+
+CVS Tag r3_2  (2008-04-10)
+==========================
++   both master and slave daemons detach themselves from a terminal and stay
+    running in background; -d option disables this behavior and turns on debug
+    messages
++   slave daemon logs when its master informs it about its domain being
+    rebooted
+
+
+CVS Tag r3_1  (2008-04-09)
+==========================
++   processes of owners of all jobs are suspended when a domain is preempted
+*   suspend and wakeup commands send by master to its slaves contain a number
+    of jobs and their IDs
+F   (Xen) switch script will wait forever when shrinking domain's memory, the
+    timeout was removed
+
+
+CVS Tag r3_0  (2008-03-26)
+==========================
++   (Xen) PCI pass-through support for InfiniBand
++   domain life-cycle management (create, remove, boot, down commands for
+    magrathea-admin)
++   reboot command for magrathea-admin and magrathea-cmd to request domain's
+    restart; the domain gets CPU power and memory as if it was running jobs
+-   domain's status can no longer be reported through pbs_mom, it is propagated
+    only through pbs_cache
++   administrative interface to master daemon through magrathea-admin
+*   /etc/magrathea/master configuration file instead of loads of command line
+    options
+F   no timeouts when master sends commands to its slaves; prevents master from
+    doing something stupid, it's better when it is blocked 
++   support for any number of pbs_cache servers
++   each status string sent to pbs_cache includes a timestamp of the last
+    status change
++   support for frozen domains
++   support for several running domains using CPU counting (not very useful for
+    Xen, though, as master does not know how to switch memory)
+

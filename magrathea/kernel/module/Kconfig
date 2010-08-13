@@ -1,0 +1,9 @@
+# $Id: Kconfig,v 1.2 2008/05/29 14:51:49 xdenemar Exp $
+
+config MAGRATHEA
+	tristate "Magrathea"
+	depends on XEN && PROC_FS && PM
+	default y
+	help
+	  mem-shrink helper for Magrathea.
+

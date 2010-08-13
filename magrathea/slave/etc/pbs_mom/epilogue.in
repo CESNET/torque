@@ -1,0 +1,7 @@
+#! /bin/bash
+# $Id: epilogue.in,v 1.4 2007/12/10 23:17:01 xdenemar Exp $
+#
+# Started when job is finished by superior mom
+
+@PBS_MOM@/epilogue_meta "$@"
+

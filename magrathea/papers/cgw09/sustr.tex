@@ -1,0 +1,190 @@
+\documentclass{article}
+       \usepackage{cgw}
+       \usepackage{epsf}
+
+\title {Virtual Clusters as a New Service of MetaCentrum, the Czech NGI}
+\author{Ruda, M.;
+\v Sustr, Z.;
+Sitera, J.;
+Anto\v s, D.;
+Hejtm\' anek, L.;
+Holub, P.;}
+
+\institute{CESNET}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+MetaCentrum, the Czech NGI, already started to virtualize the infrastructure several years ago. Major
+part of MetaCenter computation resources is currently virtualized. The virtual nature of the resources
+is mostly hidden to the end users due to integration with the resource management system. Currently
+we are introducing a new public service "virtual cluster" which turns the virtualized infrastructure
+directly into end user service. Virtual cluster service provides an illusion of totally dedicated clusters
+under complete user control running on a shared infrastructure, including administrator access and
+user specified application environment. Virtual machines and clusters are handled in a way similar to
+ordinary computation jobs, planned for batch or interactive processing. We developed an extension to
+job scheduler PBSPro and new management tools to smoothly integrate virtual cluster service into
+NGI environment. Networking is also a vital part of the service, where Czech NREN CESNET2
+technology allows managing virtual cluster network without perceivable overhead. Virtual network
+becomes a new resource, that can be attached to user's home network. Benefits of this fully integrated
+virtualized infrastructure will be demonstrated through series of use cases.
+
+\medskip
+
+Acknowledgements. This work was done with the support of Ministry of Education of the Czech
+Republic, research programs MSM0021622419 and MSM6383917201.
+\end{abstract}
+
+\section{Introduction}
+Work described in this article has been carried out by META Centrum (http://meta.cesnet.cz), the Czech National Grid Initiative operating within CESNET Association. META Centrum operates computing resources, mostly clusters located in research establishments across the Country. META Centrum experts are also involved in many other related activities such operating EGEE Computing sites, participating in EGEE/gLite development, or providing support to users and virtual organizations.
+
+In recent years Virtualization of computing resources became one of the key focal points of research and development in META Centrum. It allows applications with differing requirements to run on a single node, making it rather simple to allocate resources available to each of them. Besides that, it is possible to suspend, preempt or even migrate virtual machines running long-term jobs, and create isolated environment to run legacy or special-purpose applications.
+
+Several issues regarding grid job scheduling services had to be resolved for the solution to run efficiently, i. e. allowing them to manage several virtual machines running on a single computer, and submitting jobs to the proper ones. The Magrathea System has been developed to provide that functionality and more.
+
+\section{Magrathea---Virtual Grid Scheduling}
+Magrathea provides an interface between the batch scheduling system and virtual machine monitors. It allows jobs to be submitted in a controlled manner into virtual machines running on cluster nodes (with multiple virtual machines running on a single cluster node). Magrathea can also be seen as a scheduler running on each cluster node, scheduling virtual machines according to jobs submitted by batch scheduling systems. Current implementation supports PBS Pro (modified slightly to support all of Magrathea's features) and Xen as well as VServer virtual machine monitors.
+
+\subsection{Use Cases}
+Development of Magrathea has been driven by four typical use cases [1]:
+
+\medskip
+
+\begin{enumerate}
+\item Multiple static domains
+
+\medskip
+
+Only one of them may run at any given time. Typically used for preempting mutually incompatible images. A single domain is assigned almost all available resources at a time, while the others are allowed to run with a minimum CPU and memory consumption, appearing available to their respective scheduling systems.
+
+\medskip
+
+\item Submitting high-priority jobs to privileged domains
+
+\medskip
+
+Jobs with high priorities – such as massively parallel jobs whose processing would be unfeasible should they have to wait until the full number of required processors is actually free – may run in high-priority or “privileged” domains, temporarily suppressing resources available to standard virtual domains. Virtual machines in the standard domains keep running at a reduced pace, still visible to their respective scheduling and monitoring systems. This ensures that those “suppressed” jobs are not considered “lost” or aborted, and the scheduler does not resubmit them to another node.
+
+\medskip
+
+\item Proportional assignment of CPUs to virtual machines
+
+\medskip
+
+Virtual machines may share physical resources on a CPU-by-CPU basis with Magrathea assigning CPUs to individual virtual machines as required/indicated by job descriptions. High-priority machines running indispensable services are always kept running, while those with standard priority may be preempted to free up resources required by prioritized tasks.
+
+\medskip
+
+\item Suspending/freezing virtual machines
+
+\medskip
+
+Machines running services that only need to be available temporarily, on demand, may be suspend by manual intervention. Such machine remains on “stand-by” and may be reactivated on request if needed by its user.
+\end{enumerate}
+
+\section{Virtual Clusters}
+Virtual clusters consist of virtual machines rather that actual physical ones, abstracting even from the physical topology of the underlying resources. This service has been motivated, to certain extent, by could services---virtual computing services whose popularity has been growing rapidly in recent years.
+
+\subsection{Use Cases}
+
+Two additional use cases have been kept in mind while implementing functionality required by virtual clusters:
+
+\medskip
+
+\begin{enumerate}
+
+\item Run jobs in an environment adjusted/tuned to its needs
+
+\medskip
+
+Some jobs require extremely specific environment to run. Users may be allowed to supply their own images set-up and tested specifically for compatibility with the computing job at hand. Such images may be used to form nodes of a semi-permanent virtual cluster that may be only used for the sole purpose of running the specific job, and consequently removed or kept back for future need.
+
+\medskip
+
+\item Further extension of the previous use case by introducing grid infrastructure services into the virtual nodes
+
+\medskip
+
+Once set up, the virtual node may become an integral part of the infrastructure, subject to common job and account management. Standard interfaces (PBS command line or web interface) may be used to submit jobs to these virtual clusters under common scheduling policies. With this approach, exciting physical resources (clusters) may be extended with additional virtual nodes, the physical or virtual nature of any given node completely transparent to the user.
+
+\end{enumerate}
+
+\subsection{On-demand node installation}
+
+Installation of various operating systems (Linux flavors) on virtual nodes must be supported due to varying user group requirements. Typical requirements include WLCG SLC4/5/6, Debian, or RedHat/Suse for commercial applications.
+
+Users are given the possibility to specify the architecture and image they want to use when requesting the virtual cluster:
+
+\medskip
+
+\texttt{qsub -l nodes=1:xeon:debian}
+
+\medskip
+
+In an environment managed by Magrathea, nodes do not need to be pre-installed as they can be installed on the fly. Both PBS and Magrathea have been extended to recognize bootable nodes, allowing for any of suitable images available in the image repository to be installed on the node.
+
+The concept of Magrathea also supports the use of custom images supplied by users. The contents of such images may be completely outside the control of the infrastructure provider, giving rise to certain security issues. Users supplying their custom images may exercise root privileges on the resulting virtual machines and beside that, there are no technical means able to make sure that the systems are kept up-to date, whit all security-oriented updates installed. In certain cases, users may even be interested in running legacy systems, which are not being maintained anymore and security updates are not even available.
+
+The obvious method to resolve such security considerations is inserting all virtual machines running custom images in a private network, limiting outside access.
+
+\subsection{Constructing Virtual Clusters}
+
+Virtual clusters may be requested by users in a manner very similar to submitting standard parallel jobs, giving cluster properties (number of nodes, virtual machine images, etc.) as parameters:
+
+\medskip
+
+\texttt{qsub -l cluster=NAME -l nodes=2:debian+4:slc5}
+
+\medskip
+
+At this point, users may specify either a standard image offered by the infrastructure provider, or a special-purpose image they have supplied.
+
+Once started, users may access their clusters via ssh and start using them. Typically, users will either install their own job management system inside their clusters, or---in case they have chosen a ``standard'' image---rely on the centrally installed PBS to schedule and run jobs in their cluster.
+
+\subsection{Authorization}
+
+Use cases observed while designing the virtualization infrastructure at the METACenter do not require complex authorization scenarios. The two authorization-related issues that need to be resolved are:
+
+\begin{enumerate}
+\item Allowing users to reboot/power off virtual machines running their own jobs.
+\item Allowing users to specify groups allowed to use their clusters (in fact creating virtual departmental clusters---an analog of physical clusters accessible to a limited number of users within, typically, a university department).
+\end{enumerate}
+
+\subsection{Enclosing Virtual Clusters in VPNs}
+
+Users may request a private network to be created for their cluster while submitting the cluster request:
+
+\medskip
+
+\texttt{qsub -l cluster=NAME,net=private}
+
+\medskip
+
+Additional DNS and VPN servers will be established for each cluster requesting a private network with DHCP configured as per the user's specification. It will be possible to access the cluster with authorization through the VPN server and there may also be open gateways provided by the infrastructure, such as file systems.
+
+The private networking functionality relies on the advanced infrastructure of the CESNET National Research Network, which allows VPLS VLANs to be set up across the whole backbone.
+
+On top of that, a standard openvpn setup allows us to establish tunnels connecting the clusters to target users' networks.
+
+\section{Conclusion}
+
+A prototype of the system has been implemented and the development team is currently in the process of catering for the needs of early adopters. Certain aspects of authorization---group access---have not been implemented yet, and the system is currently being extended to support not only PBSPro but Torque as well.
+
+In foreseeable future, the solution will be made available across the whole National Grid Infrastructure and the development team will focus its efforts on integration with cloud interfaces (Globus Workspaces).
+
+\section{References}
+\begin{enumerate}
+\item Ruda, M.; Denemark, J.; Matyska, L.: \emph{Scheduling Virtual Grids: the Magrathea System},
+   Second International Workshop on Virtualization Technology in Distributed Computing, USA,
+   ACM digital library, 2007. p. 1-7. 2007, Reno, USA.
+\item Anto\v s, D.; Matyska, L.; Holub, P.; Sitera, J.: \emph{VirtCloud: Virtualising Network
+   for Grid Environments-First Experiences}, The 23rd IEEE International Conference on Advanced
+   Information Networking and Applications AINA 2009. Bradford, UK : IEEE Comp. Soc., 2009. od s.
+   876-883, 8 s. ISBN 978-0-7695-3638-5
+\item Anto\v s D., Sitera J., Matyska L., Holub P.: \emph{MetaCenter Virtual Networks, proceedings of Cracow
+   Grid Workshop 2008}, Cyfronet AGH, 2009, str.: 86-93 , ISBN: 978-83-61433-00-2
+\item MetaCentrum ­ \emph{http://meta.cesnet.cz/}
+\end{enumerate}
+
+\end{document} 

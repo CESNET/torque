@@ -1,0 +1,332 @@
+#!/bin/bash
+#
+# $Id: magrathea.in,v 1.18 2008/05/21 15:56:16 xdenemar Exp $
+#
+# magrathea     Initialize magrathea master
+#
+# chkconfig: 2345 99 00
+# description: Initialize magrathea master.
+#
+### BEGIN INIT INFO
+# Provides: magrathea
+# Required-Start: xend vserver
+# Should-Start: xendomains vserver-domains
+# Required-Stop: xend vserver
+# Default-Start: 3 5
+# Default-Stop: 0 1 2 6
+# Description: Initialize magrathea master
+### END INIT INFO
+
+VMM=
+RUN=@RUN_DIR@
+PIDFILE=/var/run/magrathea-master.pid
+
+# default values
+XEN_PATH=/usr
+IB_MODULE=
+IB_PCI_ID=
+BRIDGE=
+VSERVER_PATH=/usr
+
+CONFIG_FILE=@CONF_DIR@/master
+source @CONF_DIR@/parse-config.sh
+
+xm=$XEN_PATH/sbin/xm
+
+command=$1
+echo "Magrathea master $command requested."
+
+
+function print
+{
+    echo "Magrathea master $command: $*."
+}
+
+
+function check_vmm
+{
+    if grep -q "control_d" /proc/xen/capabilities 2>/dev/null ; then
+        VMM=xen
+    elif [ -d /proc/virtnet ]; then
+        VMM=vserver
+    else
+        print "unknown VMM; cannot detect Xen nor VServer"
+        exit 0
+    fi
+
+    print "detected $VMM VMM"
+}
+
+
+function check_running
+{
+    if [[ -r $PIDFILE ]] &&
+       ps -o pid= -C magrathea-master | grep -q '^'$(<$PIDFILE)'$'; then
+        print "magrathea-master deamon is already running; stop it first"
+        exit 0
+    fi
+}
+
+
+function mount_cpuset
+{
+    if [[ $VMM == vserver && $CPUS -gt 0 ]]; then
+        print "Mounting /dev/cpuset"
+
+        [[ -d /dev/cpuset ]] || mkdir /dev/cpuset
+        if ! { mount | fgrep -q /dev/cpuset || mount /dev/cpuset; } ||
+           ! [[ -r /dev/cpuset/cpus && "$(</dev/cpuset/cpus)" ]]; then
+            print "cannot mount /dev/cpuset; cpusets are required for CPU counting"
+            return 1
+        fi
+    fi
+
+    return 0
+}
+
+
+function infiniband
+{
+    local pciback='/sys/bus/pci/drivers/pciback'
+
+    if [[ $VMM == xen && "$IB_PCI_ID" ]]; then
+        print "configuring InfiniBand device $IB_PCI_ID"
+
+        if ! fgrep -q "$IB_PCI_ID" $pciback/slots 2>/dev/null; then
+            if [[ "$IB_MODULE" ]] && lsmod | fgrep -q "$IB_MODULE"; then
+                print "removing kernel modules"
+                rmmod $IB_MODULE &&
+                rmmod ib_mad &&
+                rmmod ib_core ||
+                { print "failed to remove kernel modules"; return 1; }
+            fi
+
+            print "binding $IB_PCI_ID to pciback driver"
+            echo -n "$IB_PCI_ID" > $pciback/new_slot &&
+            echo -n "$IB_PCI_ID" > $pciback/bind ||
+            { print "failed to bind device to pciback driver"; return 1; }
+        fi
+    fi
+
+    return 0
+}
+
+
+function bridge
+{
+    [[ $VMM == xen && "$BRIDGE" ]] || return 0
+
+    if [[ ! "$LISTEN_ADDRESS" ||
+          "${BRIDGE/$LISTEN_ADDRESS/}" == "$BRIDGE" ]]; then
+        print "invalid bridge configuration; check $CONFIG_FILE"
+        return 1
+    fi
+
+    if [[ $1 == up ]]; then
+        print "creating ethernet bridge: magr"
+        brctl addbr magr &&
+        ifconfig magr $BRIDGE up &&
+        ethtool -K magr tx off ||
+        return 1
+    elif [[ $1 == down ]]; then
+        print "removing ethernet bridge: magr"
+        ifconfig magr down 2>/dev/null
+        brctl delbr magr 2>/dev/null
+    fi
+}
+
+
+function master_start
+{
+    mkdir -p "$RUN" >&/dev/null
+
+    print "starting magrathea-master daemon"
+    @SBIN_DIR@/magrathea-master -p $PIDFILE
+
+    t=0
+    while [[ $t -lt 10 ]]; do
+        killall -0 magrathea-master >&/dev/null || break
+        @SBIN_DIR@/magrathea-admin ping-master >&/dev/null && return 0
+        sleep 1
+        t=$[t+1]
+    done
+
+    print "failed to start magrathea-master daemon"
+    return 1
+}
+
+
+function master_stop
+{
+    print "stopping magrathea-master daemon"
+
+    if [[ -r $PIDFILE ]] &&
+       ps -o pid= -C magrathea-master | grep -q '^'$(<$PIDFILE)'$'; then
+        PID=$(<$PIDFILE)
+        kill $PID 2>/dev/null
+        while kill -0 $PID 2>/dev/null; do
+            sleep 1
+        done
+    else
+        killall magrathea-master 2>/dev/null
+        while killall -0 magrathea-master 2>/dev/null; do
+            sleep 1
+        done
+    fi
+
+    rm -f $PIDFILE 2>/dev/null
+}
+
+
+function domain_create
+{
+    local FQDN=$1; shift
+    local NAME=$1; shift
+    local PRIORITY=$1; shift
+    local ADDRESS=$1; shift
+
+    @SBIN_DIR@/magrathea-admin \
+        create "$FQDN" "$NAME" "$PRIORITY" "$ADDRESS" &&
+    @SBIN_DIR@/magrathea-admin boot "$FQDN"
+
+    if [[ $? -eq 0 ]]; then
+        print "$NAME ($FQDN) created"
+    else
+        print "failed to create $NAME ($FQDN)"
+        return 1
+    fi
+
+    return 0
+}
+
+
+function domain_start
+{
+    local FQDN=$1; shift
+    local NAME=$1; shift
+
+    print "starting $NAME ($FQDN)"
+
+    if [[ $VMM == xen ]]; then
+        $xm create "/etc/xen/$NAME"
+    else
+        $VSERVER_PATH/sbin/startdomain "$NAME"
+    fi
+
+    if [[ $? -ne 0 ]]; then
+        print "failed to start $NAME"
+        return 1
+    fi
+
+    while true; do
+        state=$(@SBIN_DIR@/magrathea-admin status "$FQDN" 2>&1)
+
+        if [[ $? != 0 ]]; then
+            print "failed to start $NAME"
+            return 1
+        elif [[ "${state/[:;]*/}" == booting ]]; then
+            sleep 10
+        else
+            break
+        fi
+    done
+    
+    print "$NAME is up and running"
+    return 0
+}
+
+function domain_stop
+{
+    local FQDN=$1; shift
+    local NAME=$1; shift
+
+    print "stopping $NAME ($FQDN)"
+
+    if [[ $VMM == xen ]]; then
+        $xm shutdown "$NAME" -w >&/dev/null
+    else
+        $VSERVER_PATH/sbin/stopdomain "$NAME"
+    fi
+
+    if [[ $? -eq 0 ]]; then
+        print "$NAME stopped"
+    else
+        print "failed to stop $NAME"
+    fi
+
+    return 0
+}
+
+
+function domains
+{
+    local cmd=$1; shift
+
+    local FQDN NAME PRIORITY ADDRESS
+    local auto=@CONF_DIR@/auto
+
+    [ -r "$auto" ] || return 0
+
+    case $cmd in
+    create) print "creating VMs" ;;
+    start)  print "starting VMs" ;;
+    stop)   print "stopping VMs" ;;
+    *)      return 1 ;;
+    esac
+
+    cat "$auto" |
+    while read FQDN NAME PRIORITY ADDRESS; do
+        if [[ "$FQDN" == '#'
+              || -z "$FQDN"
+              || -z "$NAME"
+              || -z "$PRIORITY"
+              || -z "$ADDRESS" ]]; then
+            continue;
+        fi
+
+        case $cmd in
+        create) domain_create "$FQDN" "$NAME" "$PRIORITY" "$ADDRESS" ;;
+        start)  domain_start "$FQDN" "$NAME" ;;
+        stop)   domain_stop "$FQDN" "$NAME" ;;
+        esac || return 1
+    done
+}
+
+
+case "$1" in
+start)
+    check_vmm
+    check_running
+
+    rm -rf $RUN 2>/dev/null
+    bridge up &&
+    infiniband &&
+    mount_cpuset &&
+    master_start &&
+    domains create &&
+    domains start
+    ;;
+
+stop)
+    check_vmm
+
+    domains stop
+    master_stop
+    bridge down
+    ;;
+
+restart)
+    check_vmm
+
+    master_stop
+    master_start
+    ;;
+
+*)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit $?
+

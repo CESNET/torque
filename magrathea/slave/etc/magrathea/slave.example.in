@@ -1,0 +1,62 @@
+# $Id: slave.example.in,v 1.4 2008/05/21 15:56:16 xdenemar Exp $
+# configuration file for magrathea-slave daemon
+
+# Log debug messages by default. Default value depends on how the daemon was
+# started; with "-d" option given, it is "yes", otherwise it is "no".
+#
+#   debug = yes|no
+debug = yes
+
+# Allow/deny Internet Protocol version 6 to be used. It will be used by default
+# if Magrathea was compiled with IPv6 support and IPv6 is available in
+# operating system. Please note that even if IPv6 is used, IPv4 addresses can
+# still be written in their standard notation in configuration files, they will
+# be automatically translated into IPv6-mapped IPv4 addresses.
+#
+#   ipv6 = yes|no|auto
+ipv6 = yes
+
+# IP address and port number where connections from master daemon will be
+# accepted. Automatic port number will be used if it is not correctly specified
+# here. The slave will listen at 0.0.0.0 or :: if listen address is not
+# specified.
+#
+#   listen-address = <IP address>
+#   listen-port = <port>
+listen-address = 0.0.0.0
+listen-port = 5678
+
+# Unix socket for magrathea-cmd. The socket is created so that only the user
+# under which the master daemon is running is able to connect to it. Defaults
+# to RUN_DIR/slave.sock
+#
+#   cmd-socket = <unix socket>
+cmd-socket = /var/run/magrathea/slave.sock
+
+# Fully qualified domain name of the machine the slave is running in.
+# Defaults to the result of hostname --fqdn
+#
+#   hostname = <FQDN>
+hostname = test1.localdomain
+
+# IP address and port number where we can contact our master daemon. Default
+# port number (5678) will be used if it is not correctly specified here. No
+# default value is specified for master's IP address.
+#
+#   master-address = <IP address>
+#   master-port = <port>
+master-address = 10.0.0.1
+master-port = 0
+
+# Path to the PBS binaries (such as qstat, pbs_rmget, etc.).
+#
+#   pbs-path = <path>
+pbs-path = /software/pbs-7.0.0/bin
+
+# Swap partition or file which should be automatically switched on/off when
+# VM's memory is reduced/restored. This functionality will be switched off if
+# the value is left empty. Default value is empty.
+#
+#   swap = <swap partition or file>
+swap = /swap
+

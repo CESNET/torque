@@ -1,0 +1,22 @@
+#! /bin/bash
+# $Id: prologue.in,v 1.5 2007/12/10 23:17:01 xdenemar Exp $
+#
+# Started just before job execution by superior mom
+
+JOBID="$1"
+
+eval $(@PBS_MOM@/job_cpu.sh "$JOBID")
+
+if [[ $TOTAL_CPUS -gt $MY_CPUS ]]; then
+    preempt=
+else
+    preempt='-preemptible'
+fi
+
+if ! @SBIN_DIR@/magrathea-cmd startjob$preempt "$JOBID" $MY_CPUS; then
+    # resubmit
+    exit 2
+fi
+
+exit 0
+

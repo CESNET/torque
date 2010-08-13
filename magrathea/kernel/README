@@ -1,0 +1,28 @@
+$Id: README,v 1.2 2008/05/29 14:51:49 xdenemar Exp $
+
+Kernel memory shrinking helper for Magrathea
+============================================
+
+Installed in Xen's domU, the helper will be automatically used by master-cmd
+script to shrink domain's memory. It uses code provided by swsusp to speedup
+ballooning.
+
+
+1. Installation
+
+DomU's kernel has to be patched with appropriate patch found in patches/
+subdirectory and the module/ subdirectory has to be copied into kernel's
+drivers/xen directory and renamed to magrathea. The easiest way to do this is
+by running
+
+    ./patch kernel_source_to_be_patched
+
+Depending on CONFIG_MAGRATHEA option the helper will be built in or a separate
+module called magrathea.ko will be created.
+
+
+2. Usage
+
+A simple interface to the helper is provided by /proc/magrathea/shrink file.
+Read the file to obtain a list of available commands.
+
