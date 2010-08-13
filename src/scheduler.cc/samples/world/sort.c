@@ -78,6 +78,7 @@
 */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "data_types.h"
 #include "sort.h"
 #include "job_info.h"
