@@ -174,5 +174,16 @@ int multi_sort(const void *j1, const void *j2);
  */
 int cmp_sort(const void *v1, const void *v2);
 
+/** Compare two nodes using their magrathea state
+ */
+int cmp_magrathea(const void *v1, const void *v2);
+
+/** Sort nodes using the given comparison function
+ *
+ * @param sinfo Server info containing the nodes
+ * @param cmp Comparison function
+ */
+void sort_nodes(server_info *sinfo, int (*cmp)(const void*, const void*));
+
 
 #endif
