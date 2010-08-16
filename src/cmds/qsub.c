@@ -1458,16 +1458,6 @@ int set_job_env(
     strcat(job_env, c);
     }
 
-/*
- * Commented out by dbeer
- * This isn't a reliable way to find the hostname because it doesn't
- * account for the interface over which the connection is happening,
- * or any aliasing on that interface. Letting the server discover 
- * PBS_O_HOST works better and the code is already there.
- *
- * Unless you are certain CRAY sites that want this value for PBS_O_HOST
- */
-#ifdef QSUBHOSTNAME
   if (qsub_host[0] != '\0' ||
      (rc = gethostname(qsub_host, PBS_MAXHOSTNAME + 1)) == 0)
     {
@@ -1477,7 +1467,6 @@ int set_job_env(
       strcat(job_env, qsub_host);
       }   
     }
-#endif
     
   if (rc != 0)
     {
