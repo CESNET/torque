@@ -4178,13 +4178,6 @@ int start_process(
   
 	exit(1);
 	}	
-  
-#ifdef GSSAPI
-#if 0
-  if (start_renewal(ptask))
-      starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-#endif
-#endif
 
   /* NULL terminate the envp array, This is MUST DO */
   
@@ -4537,7 +4530,12 @@ int start_process(
 	  starter_return(kid_write, kid_read, JOB_EXEC_FAIL2, &sjr);
 	  }
 	}
-  
+    
+#ifdef GSSAPI
+  if (start_renewal(ptask))
+      starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
+#endif
+
   /* become the user and execv the shell and become the real job */
   
   if (setgroups(pjob->ji_grpcache->gc_ngroup,
