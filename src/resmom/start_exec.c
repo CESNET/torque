@@ -306,7 +306,7 @@ extern void get_jobs_default_checkpoint_dir(job *pjob, char *defaultpath);
 extern char *cat_dirs(char *root, char *base);
 extern char *get_local_script_path(job *pjob, char *base);
 
-extern int start_renewal(task *ptask); 
+extern int start_renewal(task *ptask, int, int);
 
 /* END prototypes */
 
