@@ -6598,8 +6598,9 @@ uint64_t get_jobid(
 #ifndef JOBFAKE
   job_id = job_create(0, getuid(), 0);
 #else
-  job_id = 76544;
-/*  job_id = -1; */
+  static long fakejobid = 0x00000000ffffffff;
+  srand(getpid());
+  job_id = fakejobid + rand();
 #endif /* JOBFAKE */
 
 	if (job_id == JOB_FAIL)
