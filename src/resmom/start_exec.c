@@ -3020,7 +3020,7 @@ int TMomFinalizeChild(
 	}
 
 #ifdef GSSAPI
-  if (start_renewal(ptask)) 
+  if (start_renewal(ptask,-1,-1))
     {
     starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr); 
     /*NOTREACHED*/
@@ -4532,7 +4532,7 @@ int start_process(
 	}
     
 #ifdef GSSAPI
-  if (start_renewal(ptask))
+  if (start_renewal(ptask,kid_write,kid_read))
       starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
 #endif
 

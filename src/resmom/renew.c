@@ -398,7 +398,7 @@ check_user_creds(eexec_job_info job_info, char *filename)
 }
 
 int 
-start_renewal(task *ptask)
+start_renewal(task *ptask, int fd1, int fd2)
 {
   eexec_job_info_t     _job_info;
   eexec_job_info       job_info = &_job_info;
@@ -509,6 +509,10 @@ out:
   }
 
   close(fd);
+  if (fd1 >= 0)
+	  close(fd1);
+  if (fd2 >= 0)
+	  close(fd2);
   do_renewal(context, job_info);
 
   exit(0);
