@@ -168,7 +168,7 @@ extern int is_mom_server_down(pbs_net_t);
 extern void set_mom_server_down(pbs_net_t);
 extern int no_mom_servers_down();
 extern char *get_local_script_path(job *pjob, char *base);
-
+extern void stop_renewal(task *ptask);
 
 /* END external prototypes */
 
