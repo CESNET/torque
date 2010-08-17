@@ -372,6 +372,7 @@ out:
      krb5_cc_destroy(context, job_info->ccache);
      unlink(job_info->ccache_name);
   }
+
   if(k_hasafs())
      k_unlog();
 
@@ -551,8 +552,7 @@ stop_renewal(task *ptask)
 
    fclose(fd);
 
-   if (kill(pid, SIGTERM) < 0)
-      return;
+   kill(pid, SIGTERM);
 
    if (stat(pid_file, &cache_info) == 0) {
       unlink(pid_file);

@@ -540,6 +540,10 @@ scan_for_exiting(void)
 
       ptask->ti_qs.ti_status = TI_STATE_DEAD;
 
+#if GSSAPI
+      stop_renewal(ptask);
+#endif
+
       if (LOGLEVEL >= 3)
         {
         LOG_EVENT(
