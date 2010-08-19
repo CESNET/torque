@@ -601,6 +601,17 @@ void req_quejob(
       (void)job_attr_def[(int)JOB_SITE_ATR_krb_princ].at_decode(
 	&pj->ji_wattr[(int)JOB_SITE_ATR_krb_princ],
         NULL, NULL, svr_conn[preq->rq_conn].principal);
+
+
+      /* verify match between effective user and kerberos principal */
+      if (strncmp(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,
+      		      pj->ji_wattr[(int)JOB_SITE_ATR_krb_princ].at_val.at_str,
+      		      strlen(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str)) != 0)
+        {
+      	  job_purge(pj);
+
+      	  req_reject(PBSE_KERBEROS_USER, 0, preq, NULL, NULL);
+        }
   }
 #endif /* GSSAPI */
 
@@ -928,19 +939,6 @@ void req_quejob(
   pj->ji_qs.ji_un.ji_newt.ji_fromaddr = get_connectaddr(sock);
 
   pj->ji_qs.ji_un.ji_newt.ji_scriptsz = 0;
-
-/* verify match between effective user and kerberos principal */
-#ifdef GSSAPI
-  if (svr_conn[preq->rq_conn].cn_authen == PBS_NET_CONN_GSSAPIAUTH &&
-      strncmp(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,
-		      pj->ji_wattr[(int)JOB_SITE_ATR_krb_princ].at_val.at_str,
-		      strlen(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str)) != 0)
-  {
-	  job_purge(pj);
-
-	  req_reject(PBSE_KERBEROS_USER, 0, preq, NULL, NULL);
-  }
-#endif
 
   /* acknowledge the request with the job id */
 
