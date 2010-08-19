@@ -98,21 +98,6 @@ get_job_info(task *ptask, eexec_job_info job_info)
   return(0);
 }
 
-int
-check_info(eexec_job_info job_info)
-{
-  char *id = "check_info";
-
-  /* Check username and ticket owner principal - XXX */
-  if(strcmp(job_info->username, job_info->princ) != 0) {
-    log_err(-1, id, "user differs from ticket owner");
-    /* return(-1); */
-  }
-  
-  return(0);
-}
-
-
 krb5_error_code
 get_ticket(krb5_context context, eexec_job_info job_info)
 {
@@ -446,13 +431,6 @@ start_renewal(task *ptask, int fd1, int fd2)
      return ret;
   }
 
-  if((ret = check_info(job_info))) {
-     close(fd);
-     snprintf(buf, sizeof(buf), "check_info returned %d",ret);
-     log_err(errno, id, buf);
-     return ret;
-  }
-  
   if (k_hasafs())
       k_setpag();
 

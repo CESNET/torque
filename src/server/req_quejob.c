@@ -929,6 +929,17 @@ void req_quejob(
 
   pj->ji_qs.ji_un.ji_newt.ji_scriptsz = 0;
 
+#ifdef GSSAPI
+  if (strncmp(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,
+		      pj->ji_wattr[(int)JOB_SITE_ATR_krb_princ].at_val.at_str,
+		      strlen(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str)) != 0)
+  {
+	  job_purge(pj);
+
+	  req_reject(PBSE_KERBEROS_USER, 0, preq, NULL, NULL);
+  }
+#endif
+
   /* acknowledge the request with the job id */
 
   if (reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Queue) != 0)
