@@ -3,6 +3,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 2.4.10
   b - fix to get new pagg ID and add additional CSA records when restarting from
       checkpoint (backported from 2.5.2)
+  e - added documentation for pbs_alterjob_async(), pbs_checkpointjob(),
+      pbs_fbserver(), pbs_get_server_list() and pbs_sigjobasync(). (backported 
+      from 2.5.2)
 
 2.4.9
   b - Backed out enhancement for preempted jobs. This was SVN revision 3784.
