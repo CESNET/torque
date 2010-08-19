@@ -929,8 +929,10 @@ void req_quejob(
 
   pj->ji_qs.ji_un.ji_newt.ji_scriptsz = 0;
 
+/* verify match between effective user and kerberos principal */
 #ifdef GSSAPI
-  if (strncmp(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,
+  if (svr_conn[preq->rq_conn].cn_authen == PBS_NET_CONN_GSSAPIAUTH &&
+      strncmp(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,
 		      pj->ji_wattr[(int)JOB_SITE_ATR_krb_princ].at_val.at_str,
 		      strlen(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str)) != 0)
   {
