@@ -1,6 +1,8 @@
 c - crash     b - bug fix    e - enhancement    f - new feature n - note
 
 2.3.12
+  b - Applied patch submitted for bug 61. pbs_mom changing /dev/null mode
+      and perms
 
 2.3.11
   b - no longer ignoring fread return values in linux cpuset code (gcc 4.3.3)
