@@ -2832,7 +2832,7 @@ int process_opts(
   char search_string[256];
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
-#define GETOPT_ARGS "a:A:b:c:C:d:D:e:fhIj:k:l:m:M:N:o:p:P:q:r:S:t:T:u:v:Vw:W:Xxz-:"
+#define GETOPT_ARGS "a:A:b:c:C:d:D:e:fhIj:k:Kl:m:M:N:o:p:P:q:r:S:t:T:u:v:Vw:W:Xxz-:"
 #else
 #define GETOPT_ARGS "a:A:c:C:e:hj:k:l:m:M:N:o:p:q:r:S:u:v:VW:z"
 #endif /* PBS_NO_POSIX_VIOLATION */
@@ -4611,7 +4611,8 @@ int main(
       [-C directive_prefix] [-d path] [-D path]\n\
       [-e path] [-h] [-I] [-j oe] [-k {oe}] [-l resource_list] [-m n|{abe}]\n\
       [-M user_list] [-N jobname] [-o path] [-p priority] [-P proxy_user] [-q queue] \n\
-      [-r y|n] [-S path] [-t number_to_submit] [-T type]  [-u user_list] [-w] path\n";
+      [-r y|n] [-S path] [-t number_to_submit] [-T type]  [-u user_list] [-w] path\n\
+      [-K]";
 
     /* need secondary usage since there appears to be a 512 byte size limit */
 
