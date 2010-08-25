@@ -130,6 +130,7 @@
 #include "net_connect.h"
 #include "log.h"
 #include "port_forwarding.h"
+#include "pbsgss.h"
 
 /* DefaultFilterPath is used to fall back on in order to maintain backwards compatibility.
    the new preferred path for the submit filter is ${libexecdir}/qsub_filter */
@@ -1200,6 +1201,7 @@ int z_opt = FALSE;
 int A_opt = FALSE;
 int C_opt = FALSE;
 int F_opt = FALSE;
+int K_opt = FALSE;
 int M_opt = FALSE;
 int N_opt = FALSE;
 int S_opt = FALSE;
@@ -3264,6 +3266,14 @@ int process_opts(
 
         break;
 
+      case 'K':
+        if_cmd_line(K_opt)
+          {
+          K_opt = passet;
+          }
+
+        break;
+
       case 'l':
 
         l_opt = passet;
@@ -4612,6 +4622,13 @@ int main(
 
     exit(2);
     }
+#ifdef GSSAPI
+  if ((!pbsgss_can_get_creds()) && (!K_opt))
+    {
+    fprintf(stderr,"No kerberos credentials found.\n");
+    exit(2);
+    }
+#endif
 
   /* check to see if PBS_Filter exists.  If not then fall back to the old hard-coded file */
 
