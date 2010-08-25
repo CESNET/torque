@@ -846,6 +846,7 @@ extern int   init_chkmom A_((job *));
 extern void  issue_track A_((job *));
 extern int   job_abt A_((job **, char *));
 extern job  *job_alloc();
+extern int   job_unlink_file(job *pjob, const char *name);
 extern job  *job_clone A_((job *, int));
 extern void  job_free A_((job *));
 extern void  job_purge A_((job *));
