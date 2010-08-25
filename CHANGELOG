@@ -6,6 +6,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - added documentation for pbs_alterjob_async(), pbs_checkpointjob(),
       pbs_fbserver(), pbs_get_server_list() and pbs_sigjobasync(). (backported 
       from 2.5.2)
+  b - fix for bug 61. The fix takes care of a problem where pbs_mom under
+      some situations will change the mode and permissions of /dev/null.
 
 2.4.9
   b - Backed out enhancement for preempted jobs. This was SVN revision 3784.
