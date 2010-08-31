@@ -3,6 +3,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 2.4.11 
   b - changed type cast for calloc of ioenv from sizeof(char) to sizof(char *)
       in pbsdsh.c. This fixes bug 79.
+  e - allow input of walltime in the format of [DD]:HH:MM:SS (backported from
+      2.5.2)
 
 2.4.10
   b - fix to get new pagg ID and add additional CSA records when restarting from
