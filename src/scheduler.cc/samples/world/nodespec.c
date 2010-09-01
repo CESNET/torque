@@ -441,7 +441,11 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
     {
 
     if (!ninfo->is_bootable)
+      {
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, 
+                "Node %s not used, because not bootable.",ninfo->name);
       return 0;
+      }
 
     if (ninfo->type == NodeVirtual) /* always true, checked before */
       {
