@@ -365,7 +365,7 @@ int init_network(
       return(-1);
       }
 
-    if (chmod(TSOCK_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) != 0)
+    if (chmod(TSOCK_PATH, S_IRUSR | S_IWUSR) != 0)
       {
       close(unixsocket);
 
