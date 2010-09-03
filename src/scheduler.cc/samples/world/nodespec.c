@@ -523,7 +523,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
                        int avail_nodes, node_info **ninfo_arr, int preassign_starving)
   {
   int i, ret = 1;
-  pars_prop *iter = spec->properties;
+  pars_prop *iter = NULL;
   repository_alternatives** ra;
 
   for (i = 0; i < avail_nodes; i++) /* for each node */
@@ -533,6 +533,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
 
     /* check nodespec */
     ra = NULL;
+
     /* has alternatives */
     if (jinfo->cluster_mode==ClusterCreate && ninfo_arr[i]->alternatives != NULL
         && ninfo_arr[i]->alternatives[0] != NULL)
@@ -540,13 +541,16 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
       ra = ninfo_arr[i]->alternatives;
       while (*ra != NULL)
         {
+        iter = spec->properties;
         while (iter != NULL)
           {
           if ((get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0) &&
               (alternative_has_property(*ra,iter->name) == 0))
             break; /* break out of the cycle if not found property */
+
           iter = iter->next;
           }
+
         if (iter == NULL)
           break;
         ra++;
@@ -557,6 +561,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
       }
     else /* else just do simple iteration */
       {
+      iter = spec->properties;
       while (iter != NULL)
         {
         if (get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0)
