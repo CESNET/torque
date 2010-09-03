@@ -13,7 +13,7 @@ set -x
 FAKE_VERSION=0
 FAST_FAKE_VERSION=0
 MAGRATHEA_VERSION=1
-INVOKE_BOOOT=0
+INVOKE_BOOOT=1
 
 if [ -f /etc/pbs.conf ]; 
  then . /etc/pbs.conf
@@ -29,6 +29,7 @@ USER=$2
 #username and usergroup not used
 JOBNAME=$4
 DOMAIN=$5
+DOM=${DOMAIN/*=/};
 ALTERNATIVE=$MAGRATHEA_VIRTUAL_ALTERNATIVE
 VLANID=$MAGRATHEA_VLANID
 
@@ -62,7 +63,6 @@ case $PROG in
     fi 
 
     if [ $FAKE_VERSION = 1 -o $FAKE_VERSION = 2 ] || [ $INVOKE_BOOOT = 1 ]; then
-	DOM=${DOMAIN/*=/};
 	if [ -z "/usr/sbin/xm list /etc/xen/${DOM/\.*/} | grep -e '-b----'" ]; then
 		exit 4;
 	fi
@@ -92,11 +92,11 @@ case $PROG in
         exit 0;
     fi 
 
-    DOM=${DOMAIN/*=/};
     if [ $INVOKE_BOOOT = 1 ]; then
         if [ $FAKE_VERSION -eq 2 -o $MAGRATHEA_VERSION = 1 ]; then
           #sometimes --dont-create-fs
-	  /afs/ics.muni.cz/home/mulac/stratus/booot create ${DOM/\.*/} >/tmp/booot.log 2>&1
+	  /afs/ics.muni.cz/software/booot/booot create ${DOM/\.*/} >/tmp/booot.log 2>&1
+	  #/afs/ics.muni.cz/software/booot/booot create --dont-create-fs  ${DOM/\.*/} >/tmp/booot.log  2>&1
         else
           exit 8
         fi
@@ -156,7 +156,6 @@ case $PROG in
         elif [ $FAKE_VERSION = 2 ]; then
            NOW=`date +%s`
            $CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "down-possible;changed=$NOW"
-           DOM=${DOMAIN/*=/};
            /usr/sbin/xm shutdown -w ${DOM/\.*/}
         fi
         if [ $? != 0 ]
@@ -187,7 +186,7 @@ case $PROG in
 
     if [ $INVOKE_BOOOT = 1 ]; then
         if [ $FAKE_VERSION -eq 2 -o $MAGRATHEA_VERSION = 1 ]; then
-	   /afs/ics.muni.cz/home/mulac/stratus/booot delete ${DOM/\.*/} >/tmp/booot.log 2>&1
+	   /afs/ics.muni.cz/software/booot/booot delete ${DOM/\.*/} >/tmp/booot.log 2>&1
         else
            exit 8
 	fi
