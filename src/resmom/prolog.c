@@ -102,7 +102,7 @@
 #include "net_connect.h"
 #include "cloud.h"
 
-#define PBS_PROLOG_TIME 300
+#define PBS_PROLOG_TIME 1800
 
 extern char PBSNodeMsgBuf[];
 extern int  MOMPrologTimeoutCount;
