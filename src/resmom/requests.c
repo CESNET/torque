@@ -429,9 +429,12 @@ static pid_t fork_to_user(
     return(-PBSE_SYSTEM);
     }
 
+
   if (pid > 0)
     {
     /* parent - note leave connection open */
+    log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, (pjob != NULL) ? pjob->ji_qs.ji_jobid : "N/A",
+               "Parent leaving child to continue forking.");
 
     free_br(preq);
 
@@ -461,7 +464,7 @@ static pid_t fork_to_user(
     {
     int ret;
 
-    krb_log_file = open("/tmp/krb_raw.log",O_WRONLY);
+    krb_log_file = open("/tmp/krb_raw.log",O_WRONLY|O_TRUNC|O_CREAT);
 
     write(krb_log_file,"CHECKPOINT - before init\n",
                 strlen("CHECKPOINT - before init\n"));
