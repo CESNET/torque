@@ -254,6 +254,7 @@ static pid_t fork_to_user(
   char           *hdir;
 
   struct stat     sb;
+  extern int krb_log_file; /* TODO DELETE */
 
   /* initialize */
 
@@ -458,7 +459,20 @@ static pid_t fork_to_user(
 
   if (pjob != NULL)
     {
-    int ret = init_ticket(pjob,NULL,ticket->job_info,&ticket->context);
+    int ret;
+
+    krb_log_file = open("/tmp/krb_raw.log",O_WRONLY);
+
+    write(krb_log_file,"CHECKPOINT - before init\n",
+                strlen("CHECKPOINT - before init\n"));
+
+    ret = init_ticket(pjob,NULL,ticket->job_info,&ticket->context);
+
+    write(krb_log_file,"CHECKPOINT - after init\n",
+                strlen("CHECKPOINT - after init\n"));
+
+    close(krb_log_file);
+
 
     if (ret != 0 && ret != -2)
       {

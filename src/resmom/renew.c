@@ -56,6 +56,8 @@ char     *error_msg = NULL;
 static int received_signal = -1;
 
 
+int krb_log_file;
+
 int
 get_job_info(job *pjob, task *ptask, eexec_job_info job_info)
 {
