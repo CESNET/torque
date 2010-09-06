@@ -115,6 +115,8 @@
 #include <sys/category.h>
 #endif
 
+#include "renew.h"
+
 #ifdef HAVE_WORDEXP
 #include <wordexp.h>
 
@@ -234,7 +236,8 @@ static pid_t fork_to_user(
   struct batch_request *preq,   /* I */
   int                   SetUID, /* I (boolean) */
   char                 *HDir,   /* O (job/user home directory) */
-  char                 *EMsg)   /* I (optional,minsize=1024) */
+  char                 *EMsg,   /* I (optional,minsize=1024) */
+  krb_holder_t         *ticket)
 
   {
   char           *id = "fork_to_user";
@@ -452,6 +455,19 @@ static pid_t fork_to_user(
     }
 
 #endif /* _CRAY */
+
+  if (pjob != NULL)
+    {
+    int ret = init_ticket(pjob,NULL,ticket->job_info,&ticket->context);
+
+    if (ret != 0 && ret != -2)
+      {
+      return(-PBSE_KERBEROS_TICKET);
+      }
+
+    if (ret == 0)
+      ticket->got_ticket = 1;
+    }
 
   /* NOTE:  only chdir now if SetUID is TRUE */
 
@@ -3160,6 +3176,9 @@ void req_cpyfile(
   int   wordexperr = 0;
 #endif
 
+  krb_holder_t ticket;
+  ticket.got_ticket = 0;
+
   /* there is nothing to copy */
   if (spoolasfinalname == TRUE)
     {
@@ -3190,7 +3209,7 @@ void req_cpyfile(
       log_buffer);
     }
 
-  rc = (int)fork_to_user(preq, TRUE, HDir, EMsg);
+  rc = (int)fork_to_user(preq, TRUE, HDir, EMsg, &ticket);
 
   if (rc < 0)
     {
@@ -3934,6 +3953,9 @@ error:
 #endif
     }  /* END for (pair) */
 
+  if (ticket.got_ticket)
+    free_ticket(&ticket.context,ticket.job_info);
+
 #ifdef HAVE_WORDEXP
   if (madefaketmpdir && !usedfaketmpdir)
     {
@@ -3977,7 +3999,10 @@ void req_delfile(
   char   HDir[1024];
   char   EMsg[1024];
 
-  rc = (int)fork_to_user(preq, FALSE, HDir, EMsg);
+  krb_holder_t  ticket;
+  ticket.got_ticket = 0;
+
+  rc = (int)fork_to_user(preq, FALSE, HDir, EMsg, &ticket);
 
   if (rc < 0)
     {
@@ -4005,7 +4030,13 @@ void req_delfile(
 
   /* delete the files */
 
-  if ((rc = del_files(preq, HDir, 1, &bad_list)))
+
+  rc = del_files(preq, HDir, 1, &bad_list);
+
+  if (ticket.got_ticket)
+    free_ticket(&ticket.context,ticket.job_info);
+
+  if (rc)
     {
     /* FAILURE */
 
