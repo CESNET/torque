@@ -462,7 +462,8 @@ static pid_t fork_to_user(
 
     if (ret != 0 && ret != -2)
       {
-      return(-PBSE_KERBEROS_TICKET);
+/*      log_err(PBSE_KERBEROS_TICKET,"fork_to_user","Could not get user ticket");
+      return(-PBSE_KERBEROS_TICKET);*/
       }
 
     if (ret == 0)
