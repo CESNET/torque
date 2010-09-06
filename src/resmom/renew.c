@@ -318,11 +318,11 @@ int init_ticket(job *pjob, task *ptask, eexec_job_info job_info, krb5_context* c
   {
   int ret;
   char buf[512];
-  static char *id = "start_renewal";
+  static char *id = "init_ticket";
 
   memset(job_info, 0, sizeof(*job_info));
 
-  if ((ret = get_job_info(ptask->ti_job, ptask, job_info)) != 0)
+  if ((ret = get_job_info(pjob, ptask, job_info)) != 0)
     {
     snprintf(buf, sizeof(buf), "get_job_info returned %d",ret);
     log_err(errno, id, buf);
@@ -344,7 +344,7 @@ int init_ticket(job *pjob, task *ptask, eexec_job_info job_info, krb5_context* c
   if ((ret = get_renewed_creds(*context, job_info)) != 0)
     {
     krb5_free_context(*context);
-    snprintf(buf, sizeof(buf), "get_renewed_creds returned %d, %s",ret, error_message(ret));
+    snprintf(buf, sizeof(buf), "get_renewed_creds returned %d, %s, %s",ret, error_message(ret), error_msg);
     log_err(errno, id, buf);
     return -5;
     }
@@ -474,7 +474,7 @@ start_renewal(task *ptask, int fd1, int fd2)
      return -1;
   }
 
-  ret = init_ticket(ptask->ti_job, ptask, job_info, &context);
+  ret = init_ticket(pjob, ptask, job_info, &context);
   if (ret == -2) /* job without a principal */
     {
     close(fd);
