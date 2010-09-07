@@ -3196,6 +3196,7 @@ void req_cpyfile(
 
   krb_holder_t ticket;
   ticket.got_ticket = 0;
+  ticket.job_info = &ticket.job_info_;
 
   /* there is nothing to copy */
   if (spoolasfinalname == TRUE)
@@ -4019,6 +4020,7 @@ void req_delfile(
 
   krb_holder_t  ticket;
   ticket.got_ticket = 0;
+  ticket.job_info = &ticket.job_info_;
 
   rc = (int)fork_to_user(preq, FALSE, HDir, EMsg, &ticket);
 

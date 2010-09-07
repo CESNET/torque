@@ -24,6 +24,7 @@ typedef struct eexec_job_info_t {
 typedef struct krb_holder
   {
   int got_ticket;
+  eexec_job_info_t job_info_;
   eexec_job_info job_info;
   krb5_context context;
   } krb_holder_t;
