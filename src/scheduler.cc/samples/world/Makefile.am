@@ -17,5 +17,5 @@ libfoo_la_SOURCES = check.c dedtime.c fairshare.c fifo.c globals.c \
 		    parse.h prev_job_info.h prime.h queue_info.h server_info.h \
 		    sort.h state_count.h \
 	        token_acct.h token_accounting.c world.h world.c \
-            world_server.h world_server.c nodespec.c nodespec.h site_pbs_cache.c \
+            world_server.h world_server.c nodespec.c nodespec_sch.h site_pbs_cache.c \
             ../../../lib/Libsite/site_pbs_cache_common.c
