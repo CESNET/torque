@@ -2632,6 +2632,10 @@ static int del_files(
       if (setuserenv && (pjob = find_job(preq->rq_ind.rq_cpyfile.rq_jobid)) != NULL)
         {
         InitUserEnv(pjob, NULL, NULL, NULL, NULL);
+        if (ticket.got_ticket)
+          {
+          bld_env_variables(&vtable, "KRB5CCNAME", ticket.job_info->ccache_name);
+          }
 
         *(vtable.v_envp + vtable.v_used) = NULL;
 
@@ -3402,6 +3406,10 @@ void req_cpyfile(
   else
     {
     InitUserEnv(pjob, NULL, NULL, NULL, NULL);
+    if (ticket.got_ticket)
+      {
+      bld_env_variables(&vtable, "KRB5CCNAME", ticket.job_info->ccache_name);
+      }
 
     *(vtable.v_envp + vtable.v_used) = NULL;
 
