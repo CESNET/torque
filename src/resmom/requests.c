@@ -2498,7 +2498,8 @@ static int del_files(
   struct batch_request *preq,      /* I */
   char                 *HDir,      /* I (home directory) */
   int                   setuserenv,/* I */
-  char                **pbadfile)  /* O */
+  char                **pbadfile,  /* O */
+  krb_holder_t         *ticket)
 
   {
   char   id[] = "del_files";
@@ -2632,11 +2633,12 @@ static int del_files(
       if (setuserenv && (pjob = find_job(preq->rq_ind.rq_cpyfile.rq_jobid)) != NULL)
         {
         InitUserEnv(pjob, NULL, NULL, NULL, NULL);
-        if (ticket.got_ticket)
+#if 0
+        if (ticket->got_ticket)
           {
-          bld_env_variables(&vtable, "KRB5CCNAME", ticket.job_info->ccache_name);
+          bld_env_variables(&vtable, "KRB5CCNAME", ticket->job_info->ccache_name);
           }
-
+#endif
         *(vtable.v_envp + vtable.v_used) = NULL;
 
         environ = vtable.v_envp;
@@ -3844,7 +3846,7 @@ error:
 
         /* NOTE:  running as user in user homedir */
 
-        del_files(preq, NULL, 1, &bad_list);
+        del_files(preq, NULL, 1, &bad_list, &ticket);
 
 #if NO_SPOOL_OUTPUT == 0
         }
@@ -4059,7 +4061,7 @@ void req_delfile(
   /* delete the files */
 
 
-  rc = del_files(preq, HDir, 1, &bad_list);
+  rc = del_files(preq, HDir, 1, &bad_list, &ticket);
 
   if (ticket.got_ticket)
     free_ticket(&ticket.context,ticket.job_info);
