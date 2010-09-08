@@ -25,7 +25,8 @@ dnl by David Beer (dbeer@adaptivecomputing.com)
 dnl
 
 AC_PREREQ(2.53)
-AC_INIT([torque], [2.4.11], [torqueusers@supercluster.org])
+AC_INIT([torque], [2.4.41], [torqueusers@supercluster.org])
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
 AC_REVISION($Revision$)
 AC_CONFIG_SRCDIR([src/cmds/qrun.c])
 AC_CONFIG_AUX_DIR([buildutils])
@@ -275,9 +276,9 @@ if test "$DEBUG_SYMBOLS" = 'yes'; then
       ;;
     *)
       if test "$CFLAGS" = ''; then
-        CFLAGS="-g"
+        CFLAGS="-ggdb3"
       else
-        CFLAGS="-g $CFLAGS"
+        CFLAGS="-ggdb3 $CFLAGS"
       fi
       ;;
   esac
@@ -741,6 +742,13 @@ if test "$SCHD_TYPE" = cc -o "$SCHD_TYPE" = basl; then
 fi  
 
 AC_SUBST(SCHD_CODE)
+
+dnl ######################################################################
+dnl PBS CACHE
+dnl
+
+AC_CHECK_HEADERS(pbs_cache_api.h)
+AC_CHECK_LIB([pbscache],[pbs_cache_get_local])
 
 
 dnl
