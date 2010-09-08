@@ -742,6 +742,32 @@ fi
 
 AC_SUBST(SCHD_CODE)
 
+dnl
+dnl PBS cache lib
+dnl
+
+AC_ARG_WITH(pbs_cache, [
+  --with-pbs-cache=PATH  sets path to the pbs cache lib and api.
+                         Only applicable for world scheduler.],
+    [PBS_CACHE="${withval}"],[PBS_CACHE=none])
+
+if test "$PBS_CACHE" = none -a "$SCHD_CODE" = world; then
+    AC_MSG_ERROR([Must specify pbs cache path using --with-pbs-cache=FULL_PATH])
+fi
+
+if test "$PBS_CACHE" = none; then
+	PBS_CACHE=
+	PBS_CACHE_LIB=
+	PBS_CACHE_INCLUDE=
+else
+	PBS_CACHE_LIB="$PBS_CACHE"/libpbscache.a
+	PBS_CACHE_INCLUDE=-I"$PBS_CACHE"
+fi
+
+
+AC_SUBST([PBS_CACHE])
+AC_SUBST([PBS_CACHE_LIB])
+AC_SUBST([PBS_CACHE_INCLUDE])
 
 dnl
 dnl  ######################################################################
