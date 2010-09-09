@@ -148,6 +148,8 @@
 
 #include "mcom.h"
 
+#include "cloud.h"
+
 #ifdef NOPOSIXMEMLOCK
 #undef _POSIX_MEMLOCK
 #endif /* NOPOSIXMEMLOCK */
@@ -199,6 +201,9 @@ char        *path_epilogp;
 char        *path_epiloguser;
 char        *path_epiloguserp;
 char        *path_epilogpdel;
+char        *path_prolog_magrathea_status;
+char        *path_prolog_magrathea_start;
+char        *path_prolog_magrathea_stop;
 char        *path_jobs;
 char        *path_prolog;
 char        *path_prologp;
@@ -5690,6 +5695,47 @@ int kill_job(
 
   DBPRT(("%s\n", log_buffer));
 
+  if (is_cloud_job(pjob)) /* special handling for cloud jobs */
+    {
+    if (sig == SIGTERM || sig == SIGKILL) /* the request is to kill the job */
+      {
+      if (!(pjob->ji_qs.ji_substate >= JOB_SUBSTATE_EXITING &&
+            pjob->ji_qs.ji_substate <= JOB_SUBSTATE_COMPLETE )) /* job not yet down */
+        {
+        if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) != 0) /* this is the master mom */
+          {
+          int nodecount = send_sisters(pjob, IM_KILL_JOB);
+
+          if (nodecount != pjob->ji_numnodes - 1)
+            {
+            sprintf(log_buffer, "%s: sent %d KILL requests, should be %d", id, nodecount, pjob->ji_numnodes - 1);
+
+            log_err(-1, id, log_buffer);
+            }
+
+          pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+          job_save(pjob, SAVEJOB_QUICK);
+          exiting_tasks = 1;
+          }
+        else /* not a master node */
+          {
+          /* force the exiting state */
+          pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+          job_save(pjob, SAVEJOB_QUICK);
+          exiting_tasks = 1;
+          }
+        }
+      else /* job is already exiting/obit */
+        {
+        /* noop */
+        }
+      }
+    else /* not SIGTERM or SIGKILL */
+      {
+      /* noop */
+      }
+    }
+
   /* NOTE:  should change be made to only execute precancel epilog if job is active? (NYI) */
 
   /* NOTE:  epilog blocks until complete, which may cause issues if shutdown grace time is
@@ -6925,6 +6971,9 @@ int setup_program_environment(void)
   path_epiloguserp = mk_dirs("mom_priv/epilogue.user.parallel");
   path_prologuserp = mk_dirs("mom_priv/prologue.user.parallel");
   path_epilogpdel  = mk_dirs("mom_priv/epilogue.precancel");
+  path_prolog_magrathea_start  = mk_dirs("mom_priv/prolog_magrathea_start");
+  path_prolog_magrathea_stop   = mk_dirs("mom_priv/prolog_magrathea_stop");
+  path_prolog_magrathea_status = mk_dirs("mom_priv/prolog_magrathea_status");
 
 #ifndef DEFAULT_MOMLOGDIR
 
@@ -7773,6 +7822,34 @@ examine_all_polled_jobs(void)
 
 
 
+/** Check consistency of all cloud jobs
+ */
+void examile_all_cloud_jobs(void)
+  {
+  job *pjob;
+
+  for (pjob = (job *)GET_NEXT(svr_alljobs);
+       pjob != NULL;
+       pjob = (job *)GET_NEXT(pjob->ji_alljobs))
+    {
+    if (!is_cloud_job(pjob))
+      continue;
+
+    if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
+    /* ignore clusters that are still building or already shutting down */
+      continue;
+
+    if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
+    /* sister node */
+      {
+      /* FIXME META What should we do when we encounter a broken cloud on sister? We could somehow check if we are not stray and cleanup if thats the case. */
+      continue;
+      }
+
+    cloud_check_state(pjob);
+    }
+  }
+
 
 /*
  * examine_all_running_jobs
@@ -8112,6 +8189,8 @@ void main_loop(void)
             examine_all_running_jobs();
 
             examine_all_polled_jobs();
+
+            examile_all_cloud_jobs();
 
             examine_all_jobs_to_resend();
             }

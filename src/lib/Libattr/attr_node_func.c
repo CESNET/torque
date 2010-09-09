@@ -363,11 +363,13 @@ encode_ntype(
 
   ntype = pattr->at_val.at_short & PBSNODE_NTYPE_MASK;
 
-  if (!ntype)
-    strcpy(ntype_str, ND_cluster);
-
-  else
-    strcpy(ntype_str, ND_timeshared);
+  switch (ntype)
+    {
+    case NTYPE_CLUSTER:     strcpy(ntype_str, ND_cluster);    break;
+    case NTYPE_TIMESHARED:  strcpy(ntype_str, ND_timeshared); break;
+    case NTYPE_CLOUD:       strcpy(ntype_str, ND_cloud);      break;
+    case NTYPE_VIRTUAL:     strcpy(ntype_str, ND_virtual);    break;
+    }
 
   pal = attrlist_create(aname, rname, (int)strlen(ntype_str) + 1);
 
@@ -644,6 +646,10 @@ decode_ntype(
     tmp = NTYPE_TIMESHARED;
   else if (!strcmp(val, ND_cluster))
     tmp = NTYPE_CLUSTER;
+  else if (!strcmp(val, ND_cloud))
+    tmp = NTYPE_CLOUD;
+  else if (!strcmp(val, ND_virtual))
+  	tmp = NTYPE_VIRTUAL;
   else
     rc = (PBSE_BADNDATVAL);
 
@@ -1012,9 +1018,6 @@ int node_prop_list(
   return(rc);
   }  /* END node_prop_list() */
 
-
-
-
 /*
  * node_status_list - Either derive a "status list" attribute from the node
  *                 or update node's status list from attribute's status list.
@@ -1100,12 +1103,198 @@ int node_status_list(
   return(rc);
   }  /* END node_status_list() */
 
+
+/** Node additional properties list
+ *
+ * Either derive a "prop list" attribute from the node or update nodes prop list
+ * from attributes prop list.
+ */
+int node_adprop_list(
+
+  attribute *new, /*derive props into this attribute*/
+  void     *pnode, /*pointer to a pbsnode struct     */
+  int      actmode) /*action mode; "NEW" or "ALTER"   */
+
+  {
+  int   rc = 0;
+
+  struct pbsnode  *np;
+  attribute  temp;
+
+  np = (struct pbsnode*)pnode; /*because of at_action arg type*/
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+
+      /* if node has a property list, then copy array_strings    */
+      /* into temp to use to setup a copy, otherwise setup empty */
+
+      if (np->x_ad_properties != NULL)
+        {
+        /* setup temporary attribute with the array_strings */
+        /* from the node        */
+
+        temp.at_val.at_arst = np->x_ad_properties;
+        temp.at_flags = ATR_VFLAG_SET;
+        temp.at_type  = ATR_TYPE_ARST;
+
+        rc = set_arst(new, &temp, SET);
+        }
+      else
+        {
+        /* Node has no properties, setup empty attribute */
+
+        new->at_val.at_arst = 0;
+        new->at_flags       = 0;
+        new->at_type        = ATR_TYPE_ARST;
+        }
+
+      break;
+
+    case ATR_ACTION_ALTER:
+
+      /* update node with new attr_strings */
+
+      np->x_ad_properties = new->at_val.at_arst;
+
+      /* update number of properties listed in node */
+      /* does not include name and subnode property */
+
+      if (np->x_ad_properties)
+        np->xn_ad_prop = np->x_ad_properties->as_usedptr;
+      else
+        np->x_ad_properties = 0;
+
+      break;
+
+    default:
+
+      rc = PBSE_INTERNAL;
+
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }  /* END node_adprop_list() */
+
+
+/** Either derive a no_multinode attribute from the node or update node
+ *
+ * @param new
+ * @param pnode
+ * @param actmode
+ * @return
+ */
+int node_no_multinode(attribute *new, void *pnode, int actmode)
+  {
+  int rc = 0;
+  struct pbsnode  *np;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+      new->at_val.at_long  = np->nd_no_multinode;
+      new->at_flags       = ATR_VFLAG_SET;
+      new->at_type        = ATR_TYPE_LONG;
+      break;
+
+    case ATR_ACTION_ALTER:
+      np->nd_no_multinode = new->at_val.at_long;
+      break;
+
+    default:
+      rc = PBSE_INTERNAL;
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
+
+
+/** Either derive a cloud attribute from the node or update node's cloud
+ *  from attribute's list
+ *
+ *  @param new derive queue into this attribute
+ *  @param pnode pointer to a pbsnode struct
+ *  @param actmode NEW or ALTER
+ */
+int node_cloud(attribute *new, void *pnode, int actmode)
+  {
+  int              rc = 0;
+
+  struct pbsnode  *np;
+  attribute        temp;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+
+      /* if node has a queue, then copy string into temp  */
+      /* to use to setup a copy, otherwise setup empty   */
+
+      if (np->cloud != NULL)
+        {
+        /* setup temporary attribute with the string from the node */
+
+        temp.at_val.at_str = np->cloud;
+        temp.at_flags = ATR_VFLAG_SET;
+        temp.at_type  = ATR_TYPE_STR;
+
+        rc = set_note_str(new, &temp, SET); /* TODO change */
+        }
+      else
+        {
+        /* node has no properties, setup empty attribute */
+
+        new->at_val.at_str  = NULL;
+        new->at_flags       = 0;
+        new->at_type        = ATR_TYPE_STR;
+        }
+
+      break;
+
+    case ATR_ACTION_ALTER:
+
+      if (np->cloud != NULL)
+        {
+        free(np->cloud);
+
+        np->cloud = NULL;
+        }
+
+      /* update node with new string */
+
+      np->cloud = new->at_val.at_str;
+
+      new->at_val.at_str = NULL;
+
+      break;
+
+    default:
+
+      rc = PBSE_INTERNAL;
+
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
+
+
 /** Either derive a queue attribute from the node or update node's queue
  *  from attribute's list
  *
- *  @new derive queue into this attribute
- *  @pnode pointer to a pbsnode struct
- *  @actmode NEW or ALTER
+ *  @param new derive queue into this attribute
+ *  @param pnode pointer to a pbsnode struct
+ *  @param actmode NEW or ALTER
  */
 int node_queue(attribute *new, void *pnode, int actmode)
   {
@@ -1351,6 +1540,7 @@ int set_note_str(
 
   return(rc);
   }  /* END set_note_str() */
+
 
 /* END attr_node_func.c */
 

@@ -1523,6 +1523,8 @@ static int pbsd_init_job(
 
       break;
 
+    case JOB_SUBSTATE_PRERUN_CLOUD:
+
     case JOB_SUBSTATE_RUNNING:
 
       pbsd_init_reque(pjob, KEEP_STATE);

@@ -181,6 +181,19 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE,
   },
 
+  /* ND_ATR_adproperties */
+  { ATTR_NODE_adproperties,
+    decode_arst,
+    encode_arst,
+    set_arst,
+    comp_null,
+    free_arst,
+    node_adprop_list,
+    MGR_ONLY_SET,
+    ATR_TYPE_ARST,
+    PARENT_TYPE_NODE,
+  },
+
   /* ND_ATR_ntype */
   { ATTR_NODE_ntype, /* "ntype" */
     decode_ntype,
@@ -240,7 +253,7 @@ attribute_def node_attr_def[] =
     set_b,
     comp_b,
     free_null,
-    NULL_FUNC,
+    node_no_multinode,
     MGR_ONLY_SET,
     ATR_TYPE_LONG,
     PARENT_TYPE_NODE,
@@ -257,6 +270,19 @@ attribute_def node_attr_def[] =
     MGR_ONLY_SET,
     ATR_TYPE_STR,
     PARENT_TYPE_NODE,
+  },
+
+  /* ND_ATR_cloud */
+  { ATTR_NODE_cloud,
+    decode_str,
+    encode_str,
+    set_str,
+    comp_null,
+    free_str,
+    node_cloud,
+    READ_ONLY,
+    ATR_TYPE_STR,
+    PARENT_TYPE_NODE
   },
 
   /* ND_ATR_resources_total */

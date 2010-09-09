@@ -117,6 +117,7 @@
 #include "log.h"
 #include "svrfunc.h"
 #include "csv.h"
+#include "cloud.h"
 
 #include "work_task.h"
 extern void  job_clone_wt A_((struct work_task *));
@@ -625,6 +626,15 @@ void req_quejob(
 
     if ((pj->ji_wattr[(int)JOB_ATR_jobname].at_flags & ATR_VFLAG_SET) == 0)
       {
+      if (is_cloud_job(pj)) /* cloud jobs need job names */
+        {
+        job_purge(pj);
+
+        req_reject(PBSE_BADATVAL, 0, preq, NULL, "job name is required for cloud jobs");
+
+        return;
+        }
+
       job_attr_def[(int)JOB_ATR_jobname].at_decode(
         &pj->ji_wattr[(int)JOB_ATR_jobname],
         NULL,
@@ -913,6 +923,14 @@ void req_quejob(
 
     req_reject(rc, 0, preq, NULL, EMsg);
 
+    return;
+    }
+
+  /* If this is a cloud create job, check if the requested name is unique */
+  if (is_cloud_job(pj) && find_job_by_name(pj->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str))
+    {
+    job_purge(pj);
+    req_reject(PBSE_CLOUD_NAME,0,preq,NULL,NULL);
     return;
     }
 

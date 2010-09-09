@@ -128,6 +128,8 @@ struct varattr
   time_t      va_lasttime;
   };
 
+struct passwd; /**< needed for following function declarations */
+
 /* public funtions within MOM */
 
 #ifdef _CRAY
@@ -200,6 +202,7 @@ extern int kill_task A_((struct task *, int, int));
 #define PE_EPILOGUSER   4
 #define PE_PROLOGUSERJOB 5  /* per job prologue script */
 #define PE_EPILOGUSERJOB 6 /* per job epilogue script */
+#define PE_MAGRATHEA 7 /**< magrathea script */
 
 #ifdef LIBPBS_H
 extern int   open_std_file A_((job *, enum job_file, int, gid_t));

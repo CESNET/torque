@@ -127,6 +127,7 @@
 #include "pbs_cpuset.h"
 #endif
 
+#include "cloud.h"
 
 /* Global Data Items */
 
@@ -1263,11 +1264,16 @@ void node_bailout(
           {
           /* all dead */
 
-          pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+          /* if the job is already hung, don't change the state here */
+          if (!(pjob->ji_qs.ji_substate >= JOB_SUBSTATE_EXITING &&
+                pjob->ji_qs.ji_substate <= JOB_SUBSTATE_COMPLETE ))
+            {
 
-          job_save(pjob, SAVEJOB_QUICK);
+            pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-          exiting_tasks = 1;
+            job_save(pjob, SAVEJOB_QUICK);
+            }
+            exiting_tasks = 1;
           }
 
         break;
@@ -2111,7 +2117,8 @@ void im_request(
         {
         /* job already exists locally */
 
-        if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
+        if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN ||
+            pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
           {
           if (LOGLEVEL >= 3)
             {
@@ -2369,6 +2376,21 @@ void im_request(
         }
 
 #endif  /* (PENABLE_LINUX26_CPUSETS) */
+
+      if (is_cloud_job(pjob))
+        {
+        log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"im_request","Slave mom - constructing cloud");
+        cloud_set_prerun(pjob);
+
+        if (cloud_exec(pjob, 0) != 0)
+          {
+          SEND_ERR(PBSE_SYSTEM)
+          goto done;
+          }
+
+        cloud_set_running(pjob);
+        log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"im_request","Slave mom - cloud successfully constructed");
+        }
 
       /* run local prolog */
 
@@ -3407,6 +3429,9 @@ void im_request(
         goto fini;
         }
 
+      if (is_cloud_job(pjob))
+        cloud_kill(pjob);
+
       if (LOGLEVEL >= 2)
         {
         sprintf(log_buffer, "%s: received KILL/ABORT request for job %s from node %s",
@@ -3523,7 +3548,19 @@ void im_request(
                 "all sisters have reported in, launching job locally");
               }
 
+            if (is_cloud_job(pjob))
+              {
+              log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"im_request","Master mom - finishing cloud");
+              if (cloud_exec(pjob,1) == 0)
+                cloud_set_running(pjob);
+
+              append_link(&mom_polljobs, &pjob->ji_jobque, pjob);
+
+              break;
+              }
+
             TMOMJobGetStartInfo(NULL, &TJE);
+
 
             if (TMomFinalizeJob1(pjob, TJE, &SC) == FAILURE)
               {
@@ -3700,11 +3737,16 @@ void im_request(
                    id,
                    jobid))
 
-            pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+            /* if the job is already hung, don't change the state here */
+            if (!(pjob->ji_qs.ji_substate >= JOB_SUBSTATE_EXITING &&
+                pjob->ji_qs.ji_substate <= JOB_SUBSTATE_COMPLETE ))
+              {
+              pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-            job_save(pjob, SAVEJOB_QUICK);
+              job_save(pjob, SAVEJOB_QUICK);
+              }
 
-            exiting_tasks = 1;
+              exiting_tasks = 1;
             }
 
           break;
@@ -4233,11 +4275,15 @@ void im_request(
             {
             /* all dead */
 
-            pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
+            /* if the job is already hung, don't change the state here */
+            if (!(pjob->ji_qs.ji_substate >= JOB_SUBSTATE_EXITING &&
+                  pjob->ji_qs.ji_substate <= JOB_SUBSTATE_COMPLETE ))
+              {
+              pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-            job_save(pjob, SAVEJOB_QUICK);
-
-            exiting_tasks = 1;
+              job_save(pjob, SAVEJOB_QUICK);
+              }
+              exiting_tasks = 1;
             }
 
           break;

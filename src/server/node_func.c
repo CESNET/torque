@@ -432,8 +432,10 @@ static int  old_nprops = 0xdead;  /*node's   nprops  */
 static int             old_nstatus = 0xdead;            /*node's   nstatus */
 static char           *old_note    = NULL;              /*node's   note    */
 static char     *old_queue = NULL;
+static char     *old_cloud = NULL;
 static int old_np = 0;
 static struct attribute *old_resources = (struct attribute*)0;
+static unsigned old_no_multinode = 0;
 
 
 
@@ -461,6 +463,7 @@ void save_characteristic(
   old_first =   pnode->nd_first;
   old_f_st =    pnode->nd_f_st;
   old_np =    pnode->nd_nsn;
+  old_no_multinode = pnode->nd_no_multinode;
 
   /* if there was a previous note stored here, free it first */
 
@@ -481,14 +484,17 @@ void save_characteristic(
   if (old_resources == NULL)
     return; /* XXX silent death */
 
-  if (old_queue != NULL)
-    {
-    free(old_queue);
-    old_queue = NULL;
-    }
+  free(old_queue);
+  old_queue = NULL;
 
   if (pnode->queue != NULL)
     old_queue = strdup(pnode->queue);
+
+  free(old_cloud);
+  old_cloud = NULL;
+
+  if (pnode->cloud != NULL)
+    old_cloud = strdup(pnode->cloud);
 
   clear_attr(old_resources,&node_attr_def[ND_ATR_resources_total]);
   node_attr_def[ND_ATR_resources_total].at_set(old_resources,&pnode->attributes[0],SET);
@@ -584,6 +590,9 @@ int chk_characteristic(
   if ((old_nprops != pnode->nd_nprops) || (old_first != pnode->nd_first))
     *pneed_todo |= WRITE_NEW_NODESFILE;
 
+  if ((old_no_multinode != pnode->nd_no_multinode))
+    *pneed_todo |= WRITE_NEW_NODESFILE;
+
   if (pnode->nd_note != old_note)    /* not both NULL or with the same address */
     {
     if (pnode->nd_note == NULL || old_note == NULL)
@@ -615,6 +624,18 @@ int chk_characteristic(
       *pneed_todo |= WRITE_NEW_NODESFILE;
       }
     else if (strcmp(pnode->queue,old_queue))
+      {
+      *pneed_todo |= WRITE_NEW_NODESFILE;
+      }
+    }
+
+  if (pnode->cloud != old_cloud)
+    {
+    if (pnode->cloud == NULL || old_cloud == NULL)
+      {
+      *pneed_todo |= WRITE_NEW_NODESFILE;
+      }
+    else if (strcmp(pnode->cloud,old_cloud))
       {
       *pneed_todo |= WRITE_NEW_NODESFILE;
       }
@@ -670,6 +691,8 @@ int status_nodeattrib(
       atemp[i].at_val.at_short = pnode->nd_state;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_properties))
       atemp[i].at_val.at_arst = pnode->nd_prop;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_adproperties))
+      atemp[i].at_val.at_arst = pnode->x_ad_properties;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_status))
       atemp[i].at_val.at_arst = pnode->nd_status;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_ntype))
@@ -686,6 +709,10 @@ int status_nodeattrib(
       atemp[i].at_val.at_str = pnode->nd_note;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_queue))
       atemp[i].at_val.at_str = pnode->queue;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_cloud))
+      atemp[i].at_val.at_str = pnode->cloud;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_no_multinode_jobs))
+      atemp[i].at_val.at_long = pnode->nd_no_multinode;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_total))
 	  {
       clear_attr(&atemp[i],(padef+i));
@@ -830,10 +857,16 @@ static void initialize_pbsnode(
   pnode->nd_last    = pnode->nd_first;
   pnode->nd_f_st    = init_prop(pnode->nd_name);
   pnode->nd_l_st    = pnode->nd_f_st;
+
   pnode->nd_nprops  = 0;
   pnode->nd_nstatus = 0;
   pnode->nd_warnbad = 0;
-  pnode->queue = 0;
+  pnode->queue = NULL;
+  pnode->cloud = NULL;
+  pnode->nd_no_multinode = 0;
+  pnode->x_ad_prop = NULL;
+  pnode->x_ad_properties = NULL;
+
 
   for (i = 0;pul[i];i++)
     {
@@ -949,6 +982,8 @@ void effective_node_delete(
   rpp_close(pnode->nd_stream);
   free(pnode->nd_name);
 
+  free(pnode->x_ad_prop);
+
   pnode->nd_name    = NULL;
   pnode->nd_stream  = -1;
   pnode->nd_state   = INUSE_DELETED;
@@ -1014,10 +1049,23 @@ static int process_host_name_part(
 
   *pul = NULL;
 
-  if ((len >= 3) && !strcmp(&phostname[len - 3], ":ts"))
+  if (len >= 3)
     {
-    phostname[len - 3] = '\0';
-    *ntype = NTYPE_TIMESHARED;
+    if (!strcmp(&phostname[len - 3], ":ts"))
+      {
+      phostname[len - 3] = '\0';
+      *ntype = NTYPE_TIMESHARED;
+      }
+    else if (!strcmp(&phostname[len - 3], ":vi"))
+      {
+      phostname[len - 3] = '\0';
+      *ntype = NTYPE_VIRTUAL;
+      }
+    else if (!strcmp(&phostname[len - 3], ":cl"))
+      {
+      phostname[len - 3] = '\0';
+      *ntype = NTYPE_CLOUD;
+      }
     }
 
   if ((hp = gethostbyname(phostname)) == NULL)
@@ -1286,6 +1334,10 @@ update_nodes_file(void)
 
     if (np->nd_ntype == NTYPE_TIMESHARED)
       fprintf(nin, ":ts");
+    else if (np->nd_ntype == NTYPE_CLOUD)
+      fprintf(nin, ":cl");
+    else if (np->nd_ntype == NTYPE_VIRTUAL)
+      fprintf(nin, ":vi");
 
     /* if number of subnodes is gt 1, write that; if only one,   */
     /* don't write to maintain compatability with old style file */
@@ -1317,6 +1369,13 @@ update_nodes_file(void)
     /* write out queue */
     if (np->queue != NULL)
       fprintf(nin, " queue=%s", np->queue);
+
+    /* write out cloud */
+    if (np->cloud != NULL)
+      fprintf(nin, " cloud=%s", np->cloud);
+
+    if (np->nd_no_multinode)
+      fprintf(nin, " %s=1",ATTR_NODE_no_multinode_jobs);
 
     /* write out properties */
 
@@ -1675,6 +1734,16 @@ int create_pbs_node(
 
   recompute_ntype_cnts();
 
+  /* check the node for cloud */
+  if (pnode->cloud != NULL)
+    {
+    /* FIXME META reset alternative properties*/
+    }
+  else
+    {
+    /* FIXME META make sure no alternative properties are set */
+    }
+
   return(PBSE_NONE);     /*create completely successful*/
   }  /* END create_pbs_node() */
 
@@ -1921,7 +1990,7 @@ int setup_nodes(void)
         }
       else
         {
-        /* old style properity */
+        /* old style property */
 
         if (propstr[0] != '\0')
           strcat(propstr, ",");

@@ -1209,7 +1209,8 @@ main_loop(void)
            pjob != NULL;
            pjob = (job *)GET_NEXT(pjob->ji_alljobs))
         {
-        if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING)
+        if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING ||
+            pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
           {
           /* spread these out over the next JobStatRate seconds */
 

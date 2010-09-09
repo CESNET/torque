@@ -116,6 +116,7 @@
 #include "resmon.h"
 #include "mcom.h"
 #include "utils.h"
+#include "cloud.h"
 
 #include "assertions.h"
 
@@ -175,6 +176,7 @@ extern int            SvrNodeCt;
 #endif
 
 int hasprop(struct pbsnode *, struct prop *);
+int hasadprop(struct pbsnode *, struct prop *);
 void send_cluster_addrs(struct work_task *);
 int add_cluster_addrs(int);
 int is_compose(int, int);
@@ -2475,6 +2477,13 @@ int hasprop(
         break;  /* found it */
       }
 
+    if (pp == NULL) /* if its not a normal property, check aditional properties */
+    for (pp = pnode->x_ad_prop; pp != NULL; pp = pp->next)
+      {
+      if (strcmp(pp->name, need->name) == 0)
+        break; /* found it */
+      }
+
     if (pp == NULL)
       {
       return(0);
@@ -2485,8 +2494,32 @@ int hasprop(
   }  /* END hasprop() */
 
 
+/** Look through the additional property list and make sure that all those makred are contained in the node
+ *
+ */
+int hasadprop(struct pbsnode *pnode, struct prop *props)
+  {
+  struct prop *need;
 
+  for (need = props; need != NULL; need = need->next)
+    {
+    struct prop *pp;
 
+    if (need->mark == 0)
+      continue;
+
+    for (pp = pnode->x_ad_prop; pp != NULL; pp = pp->next)
+      {
+      if (strcmp(pp->name, need->name) == 0)
+        break;
+      }
+
+    if (pp == NULL)
+      return 0;
+    }
+
+  return 1;
+  }
 
 /*
  * see if node has the number of processors required
@@ -2597,7 +2630,8 @@ static int search(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype == NTYPE_CLUSTER)
+    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+        || pnode->nd_ntype == NTYPE_CLOUD)
       {
       if (pnode->nd_flag != okay)
         {
@@ -2614,7 +2648,7 @@ static int search(
               continue;
       */
 
-      if (!hasprop(pnode, glorf))
+      if (!(hasprop(pnode, glorf) || hasadprop(pnode, glorf)))
         continue;
 
       if ((skip == SKIP_NONE) || (skip == SKIP_NONE_REUSE))
@@ -2666,7 +2700,8 @@ static int search(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype == NTYPE_CLUSTER)
+    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+        || pnode->nd_ntype == NTYPE_CLOUD)
       {
       if (pnode->nd_flag != thinking)
         {
@@ -2685,7 +2720,7 @@ static int search(
           (vpreq < (pnode->nd_nsnfree + pnode->nd_nsnshared)))
         continue;
 
-      if (!hasprop(pnode, glorf))
+      if (!(hasprop(pnode, glorf) || hasadprop(pnode, glorf)))
         continue;
 
       pnode->nd_flag = conflict;
@@ -2978,9 +3013,10 @@ static int listelem(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype == NTYPE_CLUSTER)
+    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+        || pnode->nd_ntype == NTYPE_CLOUD)
       {
-      if (hasprop(pnode, prop) && hasppn(pnode, node_req, SKIP_NONE))
+      if ((hasprop(pnode, prop) || hasadprop(pnode, prop)) && hasppn(pnode, node_req, SKIP_NONE))
         hit++;
 
       if (hit == num)
@@ -3516,7 +3552,8 @@ static int node_spec(
         }
       }
 
-    if (pnode->nd_ntype == NTYPE_CLUSTER)
+    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+        || pnode->nd_ntype == NTYPE_CLOUD)
       {
       /* configured node located */
 
@@ -3634,7 +3671,8 @@ static int node_spec(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype != NTYPE_CLUSTER)
+    if (pnode->nd_ntype != NTYPE_CLUSTER && pnode->nd_ntype != NTYPE_VIRTUAL
+        && pnode->nd_ntype != NTYPE_CLOUD)
       {
       /* node is ok */
 
@@ -4468,7 +4506,8 @@ int node_avail(
       if (pn->nd_state & INUSE_DELETED)
         continue;
 
-      if ((pn->nd_ntype == NTYPE_CLUSTER) && hasprop(pn, prop))
+      if ((pn->nd_ntype == NTYPE_CLUSTER || pn->nd_ntype == NTYPE_VIRTUAL
+          || pn->nd_ntype == NTYPE_CLOUD) && (hasprop(pn, prop) || hasadprop(pn, prop)))
         {
         if (pn->nd_state & (INUSE_OFFLINE | INUSE_DOWN))
           ++xdown;
@@ -4960,7 +4999,8 @@ static void set_one_old(
       {
       /* Mark node as being IN USE ...  */
 
-      if (pnode->nd_ntype == NTYPE_CLUSTER)
+      if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+          || pnode->nd_ntype == NTYPE_CLOUD)
         {
         for (snp = pnode->nd_psn;snp;snp = snp->next)
           {
@@ -5048,6 +5088,9 @@ void set_old_nodes(
       }
 
     set_one_old(old, pjob, shared);
+
+    /* reset alternatives on nodes */
+    reset_alternative_on_node(pjob);
 
     free(old);
     }  /* END if ((pbsndmast != NULL) && ...) */

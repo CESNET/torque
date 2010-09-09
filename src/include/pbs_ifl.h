@@ -180,6 +180,9 @@
 #define ATTR_reported    "reported"
 #define ATTR_intcmd      "inter_cmd"
 #define ATTR_P           "proxy_user"
+#define ATTR_cloudmap    "cloudmap"
+#define ATTR_schedspec   "sched_nodespec"
+#define ATTR_vlanid      "vlan_id"
 
 #ifdef USEJOBCREATE
 #define ATTR_pagg         "pagg_id"
@@ -303,6 +306,7 @@
 #define ATTR_NODE_npfree        "npfree"
 #define ATTR_NODE_npshared      "npshared"
 #define ATTR_NODE_properties    "properties"
+#define ATTR_NODE_adproperties  "additional_properties"
 #define ATTR_NODE_ntype         "ntype"
 #define ATTR_NODE_jobs          "jobs"
 #define ATTR_NODE_status        "status"
@@ -311,6 +315,7 @@
 #define ATTR_NODE_resources_total "resources_total"
 #define ATTR_NODE_resources_used "resources_used"
 #define ATTR_NODE_queue         "queue"
+#define ATTR_NODE_cloud         "cloud"
 
 /* notification email formating */
 #define ATTR_mailsubjectfmt "mail_subject_fmt"
@@ -348,6 +353,8 @@
 #define ND_state_unknown "state-unknown"
 #define ND_timeshared  "time-shared"
 #define ND_cluster  "cluster"
+#define ND_virtual  "virtual"
+#define ND_cloud    "cloud"
 
 /* queue disallowed types */
 #define Q_DT_batch              "batch"

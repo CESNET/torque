@@ -109,6 +109,7 @@
 #include <pwd.h>
 #include "mom_func.h"
 #include "pbs_nodes.h"
+#include "cloud.h"
 
 /* External Functions Called: */
 
@@ -126,6 +127,7 @@ extern int PBSNodeCheckProlog;
 extern int internal_state;
 
 extern const char *PJobSubState[];
+extern tlist_head mom_polljobs;
 
 /* sync w/enum job_file TJobFileType[]) */
 
@@ -1022,6 +1024,15 @@ void req_commit(
   else
     {
     reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Commit);
+    }
+
+  if (is_cloud_job(pj) && pj->ji_numnodes == 1)
+    {
+    if (cloud_exec(pj, 1) == 0)
+      cloud_set_running(pj);
+
+    if (mom_do_poll(pj) != 0)
+      append_link(&mom_polljobs, &pj->ji_jobque, pj);
     }
 
   job_save(pj, SAVEJOB_FULL);

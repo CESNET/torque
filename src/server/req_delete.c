@@ -105,6 +105,7 @@
 #include "acct.h"
 #include "log.h"
 #include "svrfunc.h"
+#include "cloud.h"
 
 
 /* Global Data Items: */
@@ -287,6 +288,7 @@ void req_deletejob(
 
   struct work_task *pwtnew;
   struct work_task *pwtcheck;
+  struct work_task *ptask;
 
   int               rc;
   char             *sigt = "SIGTERM";
@@ -412,7 +414,8 @@ void req_deletejob(
     return;
     }
 
-  if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)
+  if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN ||
+      pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
     {
     /* being sent to MOM, wait till she gets it going */
     /* retry in one second                            */
@@ -435,10 +438,11 @@ void req_deletejob(
         goto jump;
         }
 
-      if (time_now - cycle_check_when > 20)
+      if (((!is_cloud_job(pjob)) && (time_now - cycle_check_when > 20)) ||
+          /* give up after 20 seconds if this is not a cloud job*/
+          (  is_cloud_job(pjob)  && (time_now - cycle_check_when > 300)))
+          /* give up after 5 minutes if this is a cloud job */
         {
-        /* give up after 20 seconds */
-
         cycle_check_jid[0] = '\0';
         cycle_check_when  = 0;
         }
@@ -471,6 +475,89 @@ void req_deletejob(
 
     return;
     }  /* END if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN) */
+
+  /* Special handling for cloud jobs
+   *
+   * If this is a request to delete a running cloud job, also delete all jobs inside the cloud.
+   */
+
+  if (is_cloud_job(pjob) && pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING)
+    {
+    job *ojob;
+    int cloud_bussy = 0;
+    char * name;
+
+    log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "Cloud job delete request received.");
+
+    /* job does not have name */
+    if ((pjob->ji_wattr[(int)JOB_ATR_jobname].at_flags & ATR_VFLAG_SET) == 0)
+      goto jump;
+
+    name = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
+
+    for (ojob = (job *)GET_NEXT(svr_alljobs);
+         ojob != NULL;
+         ojob = (job *)GET_NEXT(ojob->ji_alljobs))
+      {
+      resource * cluster;
+
+      if (ojob->ji_qs.ji_state == JOB_STATE_COMPLETE)
+        continue;
+
+      cluster = find_resc_entry(&ojob->ji_wattr[(int)JOB_ATR_resource],
+                             find_resc_def(svr_resc_def, "cluster", svr_resc_size));
+
+      if (cluster == NULL)
+          continue;
+
+      if ((cluster->rs_value.at_flags & ATR_VFLAG_SET) == 0)
+        continue;
+
+      if (strncmp(cluster->rs_value.at_val.at_str,name,strlen(name)) != 0)
+        continue;
+
+      cloud_bussy = 1;
+
+      if (ojob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING )
+        {
+        log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Signaling job in cloud.");
+        issue_signal(ojob,sigt,release_req,0);
+        }
+      else
+        {
+        log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Purging job from cloud.");
+        svr_setjobstate(ojob, JOB_STATE_COMPLETE, JOB_SUBSTATE_COMPLETE);
+        ptask = set_task(WORK_Immed, 0, on_job_exit, (void *)ojob);
+        if (ptask != NULL)
+          {
+          append_link(&ojob->ji_svrtask, &ptask->wt_linkobj, ptask);
+
+          if (LOGLEVEL >= 4)
+            {
+            log_event(
+              PBSEVENT_ERROR | PBSEVENT_JOB,
+              PBS_EVENTCLASS_JOB,
+              ojob->ji_qs.ji_jobid,
+              "on_job_exit task assigned to job");
+            }
+          }
+        }
+      }  /* END for (ojob) */
+
+    if (cloud_bussy)
+      {
+      pwtnew = set_task(
+                 WORK_Timed,
+                 time_now + 15, /* give the cloud some time to process this */
+                 post_delete_route,
+                 preq);
+
+      if (pwtnew == 0)
+        req_reject(PBSE_SYSTEM, 0, preq, NULL, NULL);
+
+      return;
+      }
+    }
 
 jump:
 
