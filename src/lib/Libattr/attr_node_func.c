@@ -363,11 +363,13 @@ encode_ntype(
 
   ntype = pattr->at_val.at_short & PBSNODE_NTYPE_MASK;
 
-  if (!ntype)
-    strcpy(ntype_str, ND_cluster);
-
-  else
-    strcpy(ntype_str, ND_timeshared);
+  switch (ntype)
+    {
+    case NTYPE_CLUSTER:     strcpy(ntype_str, ND_cluster);    break;
+    case NTYPE_TIMESHARED:  strcpy(ntype_str, ND_timeshared); break;
+    case NTYPE_CLOUD:       strcpy(ntype_str, ND_cloud);      break;
+    case NTYPE_VIRTUAL:     strcpy(ntype_str, ND_virtual);    break;
+    }
 
   pal = attrlist_create(aname, rname, (int)strlen(ntype_str) + 1);
 
@@ -1100,12 +1102,48 @@ int node_status_list(
   return(rc);
   }  /* END node_status_list() */
 
+
+/** Either derive a no_multinode attribute from the node or update node
+ *
+ * @param new
+ * @param pnode
+ * @param actmode
+ * @return
+ */
+int node_no_multinode(attribute *new, void *pnode, int actmode)
+  {
+  int rc = 0;
+  struct pbsnode  *np;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+      new->at_val.at_long  = np->nd_no_multinode;
+      new->at_flags       = ATR_VFLAG_SET;
+      new->at_type        = ATR_TYPE_LONG;
+      break;
+
+    case ATR_ACTION_ALTER:
+      np->nd_no_multinode = new->at_val.at_long;
+      break;
+
+    default:
+      rc = PBSE_INTERNAL;
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
+
 /** Either derive a queue attribute from the node or update node's queue
  *  from attribute's list
  *
- *  @new derive queue into this attribute
- *  @pnode pointer to a pbsnode struct
- *  @actmode NEW or ALTER
+ *  @param new derive queue into this attribute
+ *  @param pnode pointer to a pbsnode struct
+ *  @param actmode NEW or ALTER
  */
 int node_queue(attribute *new, void *pnode, int actmode)
   {

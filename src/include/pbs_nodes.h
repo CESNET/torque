@@ -161,6 +161,8 @@ struct pbsnode
   time_t                 nd_warnbad;
   time_t                 nd_lastupdate; /* time of last update. */
 
+  unsigned nd_no_multinode : 1;
+
   struct attribute attributes[2]; /* resources_total, resources_used */
   char *queue;
   };
@@ -225,14 +227,15 @@ int tlist(tree *, char *, int);
  */
 #define NTYPE_CLUSTER  0x00 /* Node is normal allocatable node */
 #define NTYPE_TIMESHARED 0x01 /* Node is Time Shared Node  */
+#define NTYPE_CLOUD      0x02 /* Node is a Cloud Node - contains virtual slave nodes */
+#define NTYPE_VIRTUAL    0x04 /* Node is a Virtual node (extra features) */
+
+#define PBSNODE_NTYPE_MASK 0xf   /* relevant ntype bits */
 
 #define TIMESHARED_SUFFIX "ts"
+#define CLOUD_SUFFIX "cl"
+#define VIRTUAL_SUFFIX "vi"
 #define PBS_MAXNODENAME 80 /* upper bound on the node name size    */
-
-#define PBSNODE_STATE  0x1   /* characteristic code */
-#define PBSNODE_PROPERTIES 0x2   /* characteristic code */
-#define PBSNODE_NTYPE  0x3   /* characteristic code */
-#define PBSNODE_NTYPE_MASK 0xf   /* relevant ntype bits */
 
 #define WRITENODE_STATE  0x1   /*associated w/ offline*/
 #define WRITE_NEW_NODESFILE 0x2 /*changed: deleted,ntype,or properties*/

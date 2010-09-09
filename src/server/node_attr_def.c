@@ -240,7 +240,7 @@ attribute_def node_attr_def[] =
     set_b,
     comp_b,
     free_null,
-    NULL_FUNC,
+    node_no_multinode,
     MGR_ONLY_SET,
     ATR_TYPE_LONG,
     PARENT_TYPE_NODE,

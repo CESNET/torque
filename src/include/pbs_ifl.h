@@ -348,6 +348,8 @@
 #define ND_state_unknown "state-unknown"
 #define ND_timeshared  "time-shared"
 #define ND_cluster  "cluster"
+#define ND_virtual  "virtual"
+#define ND_cloud    "cloud"
 
 /* queue disallowed types */
 #define Q_DT_batch              "batch"

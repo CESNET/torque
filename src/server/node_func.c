@@ -434,6 +434,7 @@ static char           *old_note    = NULL;              /*node's   note    */
 static char     *old_queue = NULL;
 static int old_np = 0;
 static struct attribute *old_resources = (struct attribute*)0;
+static unsigned old_no_multinode = 0;
 
 
 
@@ -461,6 +462,7 @@ void save_characteristic(
   old_first =   pnode->nd_first;
   old_f_st =    pnode->nd_f_st;
   old_np =    pnode->nd_nsn;
+  old_no_multinode = pnode->nd_no_multinode;
 
   /* if there was a previous note stored here, free it first */
 
@@ -584,6 +586,9 @@ int chk_characteristic(
   if ((old_nprops != pnode->nd_nprops) || (old_first != pnode->nd_first))
     *pneed_todo |= WRITE_NEW_NODESFILE;
 
+  if ((old_no_multinode != pnode->nd_no_multinode))
+    *pneed_todo |= WRITE_NEW_NODESFILE;
+
   if (pnode->nd_note != old_note)    /* not both NULL or with the same address */
     {
     if (pnode->nd_note == NULL || old_note == NULL)
@@ -686,6 +691,8 @@ int status_nodeattrib(
       atemp[i].at_val.at_str = pnode->nd_note;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_queue))
       atemp[i].at_val.at_str = pnode->queue;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_no_multinode_jobs))
+      atemp[i].at_val.at_long = pnode->nd_no_multinode;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_total))
 	  {
       clear_attr(&atemp[i],(padef+i));
@@ -834,6 +841,7 @@ static void initialize_pbsnode(
   pnode->nd_nstatus = 0;
   pnode->nd_warnbad = 0;
   pnode->queue = 0;
+  pnode->nd_no_multinode = 0;
 
   for (i = 0;pul[i];i++)
     {
@@ -1014,10 +1022,23 @@ static int process_host_name_part(
 
   *pul = NULL;
 
-  if ((len >= 3) && !strcmp(&phostname[len - 3], ":ts"))
+  if (len >= 3)
     {
-    phostname[len - 3] = '\0';
-    *ntype = NTYPE_TIMESHARED;
+    if (!strcmp(&phostname[len - 3], ":ts"))
+      {
+      phostname[len - 3] = '\0';
+      *ntype = NTYPE_TIMESHARED;
+      }
+    else if (!strcmp(&phostname[len - 3], ":vi"))
+      {
+      phostname[len - 3] = '\0';
+      *ntype = NTYPE_VIRTUAL;
+      }
+    else if (!strcmp(&phostname[len - 3], ":cl"))
+      {
+      phostname[len - 3] = '\0';
+      *ntype = NTYPE_CLOUD;
+      }
     }
 
   if ((hp = gethostbyname(phostname)) == NULL)
@@ -1286,6 +1307,10 @@ update_nodes_file(void)
 
     if (np->nd_ntype == NTYPE_TIMESHARED)
       fprintf(nin, ":ts");
+    else if (np->nd_ntype == NTYPE_CLOUD)
+      fprintf(nin, ":cl");
+    else if (np->nd_ntype == NTYPE_VIRTUAL)
+      fprintf(nin, ":vi");
 
     /* if number of subnodes is gt 1, write that; if only one,   */
     /* don't write to maintain compatability with old style file */
@@ -1317,6 +1342,9 @@ update_nodes_file(void)
     /* write out queue */
     if (np->queue != NULL)
       fprintf(nin, " queue=%s", np->queue);
+
+    if (np->nd_no_multinode)
+      fprintf(nin, " %s=1",ATTR_NODE_no_multinode_jobs);
 
     /* write out properties */
 
@@ -1921,7 +1949,7 @@ int setup_nodes(void)
         }
       else
         {
-        /* old style properity */
+        /* old style property */
 
         if (propstr[0] != '\0')
           strcat(propstr, ",");
