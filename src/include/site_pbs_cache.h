@@ -15,11 +15,11 @@
 #define CHECK_DATA 3
 
 
-struct  repository_alternatives{
+typedef struct  repository_alternatives{
 	char     *r_name;
 	char	 *r_proplist;
 	int 	r_mark;
-};
+} repository_alternatives;
 
 struct  repository_alternatives **get_bootable_alternatives(char *hostname,char *properties);
 struct repository_alternatives **dup_bootable_alternatives(struct repository_alternatives **old);
@@ -27,6 +27,7 @@ void free_bootable_alternatives(struct  repository_alternatives **list);
 int  alternative_has_property(struct  repository_alternatives *a, char *prop);
 struct repository_alternatives *find_alternative_with_property(struct  repository_alternatives **list,char *prop);
 char *get_alternative_properties(char *name);
+void retrieve_cluster_attr(char *metric, char *name, char **value);
 
 /* function for magrathea */
 int magrathea_decode(resource *res,long int *status,long int *count,long int *used,long int *m_free,long int *m_possible);
