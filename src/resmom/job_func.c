@@ -697,7 +697,7 @@ void job_purge(
   strcat(namebuf, pjob->ji_qs.ji_fileprefix);
   strcat(namebuf, JOB_SCRIPT_SUFFIX);
 
-  if (job_unlink_file(pjob, namebuf) < 0)
+  if (unlink(namebuf) < 0)
     {
     if (errno != ENOENT)
       log_err(errno, id, msg_err_purgejob);

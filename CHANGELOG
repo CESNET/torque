@@ -1,5 +1,10 @@
 c - crash     b - bug fix    e - enhancement    f - new feature n - note
 
+2.3.13
+  b - The patch for bug 61 was not complete. changed src/resmom/job_func.c
+      so it would properly unlink /dev/null.
+
+
 2.3.12
   b - Applied patch submitted for bug 61. pbs_mom changing /dev/null mode
       and perms
