@@ -10,6 +10,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - don't try to set the user id multiple times - (backported from 2.5.3)
   c - fix segfault in tracejob. It wasn't malloc'ing space for the null 
       terminator (back-ported from 2.5.3)
+  e - add the variables PBS_NUM_NODES and PBS_NPPN to the job environment
+      (backported from 2.5.3)
 
 2.4.10
   b - fix to get new pagg ID and add additional CSA records when restarting from
