@@ -186,8 +186,6 @@ char *rcvttype(
   {
   static char buf[PBS_TERM_BUF_SZ];
 
-  sleep(100);
-
   /* read terminal type as sent by qsub */
 
   if ((read_net(sock, buf, PBS_TERM_BUF_SZ) != PBS_TERM_BUF_SZ) ||
