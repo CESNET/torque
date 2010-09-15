@@ -2305,7 +2305,7 @@ int TMomFinalizeChild(
     /* only giving ourselves 5 seconds to connect to qsub
    	 * and get term settings */
 
-    alarm(5);
+    alarm(120);
     
     /* once we connect to qsub and open a pty, the user can send us
 	   * a ctrl-c.  It is important that we block this until we exec()
