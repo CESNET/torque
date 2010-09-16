@@ -11,7 +11,10 @@ Nval=
 Iflag=
 Gflag=
 Gval=
-while getopts W:N:IG:? name
+qsub_create_params=
+qsub_use_params=
+
+while getopts W:N:IG:l: name
 do
 	case $name in
         	W) Wflag=1
@@ -21,17 +24,12 @@ do
 		I) Iflag=1;;
 		G) Gflag=1
 		   Gval="$OPTARG";;
-		?) printf "Usage: %s: qsub params & args\n" $0
-		   printf "Processed parameters: -I -W -G -N\n"
-		   printf "Use -G group_name instead of -l group=group_name\n"
-		   exit 2;;
+		l)	qsub_create_params="$qsub_create_params -l $OPTARG";
+			qsub_use_params="$qsub_use_params -l $OPTARG";
+			;;
+			 
 	esac
 done
-
-shift $(($OPTIND - 1))
-
-qsub_create_params="$*"
-qsub_use_params="$*"
 
 if [ ! -z "$Wflag" ]; then
 	qsub_use_params="$qsub_use_params -W $Wval"
@@ -51,8 +49,19 @@ fi
 
 printf "Building cluster with: \"qsub $qsub_create_params\"\n"
 
-#qsub $qsub_create_params </dev/null
+outer_job_id=`qsub $qsub_create_params </dev/null`
+
+printf "Outer job id is %s\n" $outer_job_id
 
 printf "Submiting into cluster with: \"qsub $qsub_use_params\"\n"
 
-#qsub $qsub_use_params
+if [ ! -z "$Iflag" ]; then
+	qsub $qsub_use_params
+	qdel $outer_job_id
+else
+	inner_job_id=`qsub $qsub_use_params`
+	while [ `qstat $inner_job_id | grep $inner_job_id | awk '{ if ($5 == "C") { print 1 } else { print 0 } }'` -eq 0 ]; do
+		sleep 30;
+	done
+	qdel $outer_job_id
+fi
