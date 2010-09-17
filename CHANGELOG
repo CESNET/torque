@@ -10,7 +10,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - don't try to set the user id multiple times - (backported from 2.5.3)
   c - fix segfault in tracejob. It wasn't malloc'ing space for the null 
       terminator (back-ported from 2.5.3)
-  e - add the variables PBS_NUM_NODES and PBS_NPPN to the job environment
+  e - add the variables PBS_NUM_NODES and PBS_NUM_PPN to the job environment
       (backported from 2.5.3, TRQ-6)
   e - be able to append to the job's variable_list through the API 
       (backported from 2.5.3, TRQ-5)
