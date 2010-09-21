@@ -14,6 +14,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       (backported from 2.5.3, TRQ-6)
   e - be able to append to the job's variable_list through the API 
       (backported from 2.5.3, TRQ-5)
+  b - Added patch to fix bug 76, "blocking read does not time out using 
+      signal handler.
 
 2.4.10
   b - fix to get new pagg ID and add additional CSA records when restarting from
