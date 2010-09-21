@@ -36,7 +36,6 @@ EXTRA_DIST = man1/qalter.1.in man1/qdel.1.in man1/qhold.1.in man1/qmove.1.in \
 	     man7/pbs_resources_fujitsu.7.in \
 	     man7/pbs_resources_hpux10.7.in man7/pbs_resources_irix5.7.in \
 	     man7/pbs_resources_hpux11.7.in \
-	     man7/pbs_resources_irix5.7.in \
 	     man7/pbs_resources_irix6.7.in man7/pbs_resources_irix6array.7.in \
 	     man7/pbs_resources_linux.7.in man7/pbs_resources_netbsd.7.in \
 	     man7/pbs_resources_solaris5.7.in man7/pbs_resources_solaris7.7.in \
@@ -84,7 +83,6 @@ nodist_man7_MANS = man7/pbs_job_attributes.7 man7/pbs_queue_attributes.7 \
 		   man7/pbs_resources_freebsd.7 man7/pbs_resources_fujitsu.7 \
 		   man7/pbs_resources_hpux10.7 man7/pbs_resources_irix5.7 \
 		   man7/pbs_resources_hpux11.7 \
-		   man7/pbs_resources_irix5.7 \
 		   man7/pbs_resources_irix6.7 man7/pbs_resources_irix6array.7 \
 		   man7/pbs_resources_linux.7 man7/pbs_resources_netbsd.7 \
 		   man7/pbs_resources_solaris5.7 man7/pbs_resources_solaris7.7 \
