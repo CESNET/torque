@@ -184,6 +184,7 @@ extern  char *msg_daemonname;
 /* Private Functions in this file */
 
 static job *locate_new_job A_((int, char *));
+int svr_startjob(job *, struct batch_request *, char *, char *);
 
 #ifdef PNOT
 static int user_account_verify A_((char *, char *));
@@ -1616,6 +1617,24 @@ void req_commit(
       }
 
     return;
+    }
+
+  /* move and run request */
+  if (preq->rq_extend != NULL)
+    {
+    if (assign_hosts(pjob, preq->rq_extend, 1, NULL, NULL) != 0)
+      {
+      job_purge(pj);
+      req_reject(PBSE_SYSTEM, 0, preq, NULL, NULL);
+      return;
+      }
+
+    if (svr_startjob(pj, NULL, NULL, NULL) != 0)
+      {
+      job_purge(pj);
+      req_reject(PBSE_SYSTEM, 0, preq, NULL, NULL); /* failed to run */
+      return;
+      }
     }
 
   /*

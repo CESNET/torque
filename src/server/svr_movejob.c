@@ -597,6 +597,7 @@ int send_job(
   mbool_t        Timeout = FALSE;
 
   char          *pc;
+  char          *nodespec = NULL;
 
   sigemptyset(&child_set);
   sigaddset(&child_set, SIGCHLD);
@@ -977,7 +978,12 @@ int send_job(
     if (move_type != MOVE_TYPE_Exec) /* not if sending to MOM */
       job_purge(jobp);
 
-    if ((rc = PBSD_commit(con, job_id)) != 0)
+    if ((data != NULL) && (move_type != MOVE_TYPE_Exec))
+      {
+      nodespec = ((struct batch_request *)data)->rq_extend;
+      }
+
+    if ((rc = PBSD_commit(con, job_id, nodespec)) != 0)
       {
       int errno2;
 

@@ -152,7 +152,7 @@ char *pbs_submit(
 #endif
 #endif
 
-  if (PBSD_commit(c, return_jobid) != 0)
+  if (PBSD_commit(c, return_jobid, NULL) != 0)
     {
     return(NULL);
     }
