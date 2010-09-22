@@ -152,7 +152,8 @@ int PBSD_rdytocmt(
 int PBSD_commit(
 
   int   connect,  /* I */
-  char *jobid)    /* I */
+  char *jobid,    /* I */
+  char *extend)    /* I */
 
   {
 
@@ -166,7 +167,7 @@ int PBSD_commit(
 
   if ((rc = encode_DIS_ReqHdr(sock, PBS_BATCH_Commit, pbs_current_user)) ||
       (rc = encode_DIS_JobId(sock, jobid)) ||
-      (rc = encode_DIS_ReqExtend(sock, NULL)))
+      (rc = encode_DIS_ReqExtend(sock, extend)))
     {
     connection[connect].ch_errtxt = strdup(dis_emsg[rc]);
 

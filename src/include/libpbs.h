@@ -257,7 +257,7 @@ PBS_free_aopl A_((struct attropl * aoplp));
 
 
 int
-PBSD_commit A_((int connect, char *jobid));
+PBSD_commit A_((int connect, char *jobid, char *extend));
 
 int
 PBSD_jcred A_((int connect, char *buf, int len));
