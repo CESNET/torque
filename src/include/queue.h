@@ -138,6 +138,7 @@ enum queueattr
   QE_ATR_MaxGrpRun,
   QE_ATR_KeepCompleted,
   QE_ATR_is_transit,
+  QE_ATR_starving_support,
 
   /* The following attribute apply only to routing queues... */
 

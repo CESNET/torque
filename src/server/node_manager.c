@@ -4048,16 +4048,13 @@ int add_job_to_node(
     adjust_resources_use(pnode,jp,INCR);
 
     /* if no free VPs, set node state */
-    if (pnode->nd_nsnfree <= 0)
-      pnode->nd_state = newstate;
+    /* if (pnode->nd_nsnfree <= 0) TODO quick fix */
+    pnode->nd_state = newstate;
 
     if (snp->inuse == INUSE_FREE)
-      {
       snp->inuse = newstate;
-
-      if (!exclusive)
-        pnode->nd_nsnshared++;
-      }
+    if (snp->inuse & INUSE_JOBSHARE)
+      pnode->nd_nsnshared++;
     }
 
   /* decrement the amount of nodes needed */
@@ -4266,8 +4263,8 @@ int set_nodes(
     if (LOGLEVEL >= 1)
       {
       sprintf(log_buffer, "no nodes can be allocated to job %s",
-        pjob->ji_qs.ji_jobid);
 
+        pjob->ji_qs.ji_jobid);
       log_record(
         PBSEVENT_SCHED,
         PBS_EVENTCLASS_REQUEST,
@@ -4881,6 +4878,8 @@ void free_nodes(
         free(jp);
 
         pnode->nd_nsnfree++; /* up count of free */
+        if (np->inuse & INUSE_JOBSHARE)
+          pnode->nd_nsnshared--;
 
         if (LOGLEVEL >= 6)
           {
@@ -4895,19 +4894,17 @@ void free_nodes(
             log_buffer);
           }
 
-        pnode->nd_state &= ~(INUSE_JOB | INUSE_JOBSHARE);
+        /* adjust node state (turn off job-exclusive) */
+        pnode->nd_state &= ~INUSE_JOB;
+
+        /* adjust node state (turn off job-shared) */
+        if (pnode->nd_nsnshared == 0)
+          pnode->nd_state &= ~INUSE_JOBSHARE;
 
         /* if no jobs are associated with subnode, mark subnode as free */
 
         if (np->jobs == NULL)
-          {
-          if (np->inuse & INUSE_JOBSHARE)
-            pnode->nd_nsnshared--;
-
-          /* adjust node state (turn off job/job-exclusive) */
-
           np->inuse &= ~(INUSE_JOB | INUSE_JOBSHARE);
-          }
 
         break;
         }  /* END for (prev) */
