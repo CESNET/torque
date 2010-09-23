@@ -135,6 +135,7 @@ extern int  svr_authorize_jobreq A_((struct batch_request *, job *));
 extern int  svr_chkque A_((job *, pbs_queue *, char *, int, char *));
 extern int  job_route A_((job *));
 extern int node_avail_complex(char *, int *, int *, int *, int*);
+extern int  assign_hosts (job *, char *, int, char *, char *);
 
 /* Global Data Items: */
 

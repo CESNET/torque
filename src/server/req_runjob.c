@@ -137,7 +137,7 @@ static void post_sendmom A_((struct work_task *));
 static int  svr_stagein A_((job *, struct batch_request *, int, int));
 static int  svr_strtjob2 A_((job *, struct batch_request *));
 static job *chk_job_torun A_((struct batch_request *, int));
-static int  assign_hosts A_((job *, char *, int, char *, char *));
+int  assign_hosts A_((job *, char *, int, char *, char *));
 
 /* Global Data Items: */
 
@@ -1544,7 +1544,7 @@ static job *chk_job_torun(
  * 3. use default (local system or a single node).
  */
 
-static int assign_hosts(
+int assign_hosts(
 
   job  *pjob,           /* I (modified) */
   char *given,          /* I (optional) list of requested hosts */
