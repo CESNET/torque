@@ -6,6 +6,7 @@
 #include "log.h"
 #include "pbs_error.h"
 #include <stdlib.h>
+#include <stdio.h>
 
 /* TODO provide better solution, this is ugly */
 static char whereami[1024];
