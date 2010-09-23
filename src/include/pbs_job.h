@@ -90,6 +90,9 @@
 #ifndef PBS_JOB_H
 #define PBS_JOB_H 1
 
+#include <time.h>
+#include <sys/types.h>
+
 /* anything including job.h also needs array.h so lets just include it this way*/
 #include "array.h"
 
