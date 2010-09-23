@@ -842,7 +842,7 @@ int check_schlock(int connId, struct batch_request *request)
           return 2;
           }
 
-        log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK ACQUIRE", "--- fail --- another lock active ---");
+        log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK RELEASE", "--- fail --- another lock active ---");
         req_reject(PBSE_SCHLOCKACTIVE, 0, request, NULL, NULL);
         return 2;
 
