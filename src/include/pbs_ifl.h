@@ -226,6 +226,7 @@
 #define ATTR_keepcompleted "keep_completed"
 #define ATTR_disallowedtypes "disallowed_types"
 #define ATTR_is_transit  "is_transit"
+#define ATTR_starving_support "starving_support"
 
 /* additional server attributes names */
 
