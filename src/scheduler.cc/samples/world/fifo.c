@@ -433,10 +433,14 @@ int move_update_job(int sd, world_server_t* src, job_info* job,
   {
   char deststr[PBS_MAXSERVERNAME + PBS_MAXQUEUENAME + 2];
   int ret;
+  char *nodespec;
+
+  nodespec = nodes_preassign_string(job, dst->info->nodes, dst->info->num_nodes);
       
   sprintf(deststr, "%s@%s", dst_q->name, dst->info->name);
       
-  ret = pbs_movejob(sd,job->name,deststr,NULL);
+  ret = pbs_movejob(sd,job->name,deststr,nodespec);
+  free(nodespec);
   switch(ret)
     {
     case 0: 
