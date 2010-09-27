@@ -16,6 +16,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       (backported from 2.5.3, TRQ-5)
   b - Added patch to fix bug 76, "blocking read does not time out using 
       signal handler.
+  b - Bugzilla bug 84. Security bug on the way checkpoint is being handled.
+      (Robin R. - Miami Univ. of Ohio, back-ported from 2.5.3)
 
 2.4.10
   b - fix to get new pagg ID and add additional CSA records when restarting from
