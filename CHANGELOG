@@ -1,52 +1,31 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
-2.6.0
-# note for developers: the intermediate prelease fixes are here only because
-# there are users using the snapshots now. These will be removed pre-release
-  b - Fixed duplicate entry in /doc/Makefile.am which caused make 
-      install claiming it could not overwrite man7/pbs_resources_irix5.7 
-  e - Addeded autogen.sh go make life easier in a post Makefile.in
-      less world.
-  c - Avoid using uninitialized resources when configured with 
-      --enable-numa-support
+3.0.0
+  f - added --enable-numa-support for supporting NUMA-type architectures. We
+      have tested this build on UV and Altix machines. The server treats the
+      mom as a node with several special numa nodes embedded, and the pbs_mom
+      reports on these numa nodes instead of itself as a whole.
+  f - for numa configurations, pbs_mom creates cpusets for memory as well as
+      cpus
+  e - adapted the task manager interface to interact properly with NUMA 
+      systems, including tm_adopt
+  e - Addeded autogen.sh go make life easier in a Makefile.in-less world.
   e - Modified buildutils/pbs_mkdirs.in to create server_priv/nodes file
       at install time. The file only shows examples and a link to the
       TORQUE documentation.
-  c - do not attempt to add numa nodes to non-numa nodes
-  b - fix bug in qdel - was reporting "cannot contact node" for live nodes
-  b - propagate a master node's properties to its numa nodes
-  b - for NUMA, removing code to report ncpus, loadave, and netload, since
-      these cannot be discovered on a per "numa node" basis due to hardware
-      limitations
-  c - addresses are now propagated to numa nodes
-  b - correct the hostnames $PBS_NODEFILE
-  b - mark the numa nodes as down if the host node goes down 
-  b - fix the pbsnodes :prop functionality for numa nodes
-  b - make sure the node file is updated correctly when torque updates it
-  b - make the tm interface work when running as a single mom
-  b - have pbs_track add the new executable to the cpuset when cpusets
-      are enabled
-  b - only clear the mom state when actually running the 
-      health check script
-  e - get_hostaddr now more robust when checking if a node is numa or not
-  b - corrected pbs_track error messages 
-  b - correct a ports error that prevented pbsdsh/tm from working among
-      normal nodes
-  b - don't try to set the user id multiple times
-  e - No need to configure the server with --enable-numa-support, just make
-      the server flexible
-  c - fix segfault in tracejob. It wasn't malloc'ing space for the null 
-      terminator
   f - added ATTR_node_exclusive to allow a job to have a node exclusively. 
-  f - for NUMA added extra protocol to use get_weighted_memory_size() and 
-      kill jobs that exceed their memory limits
-  e - if different mom ports are configured for the main node, pass it down
-      to its numa nodes
+  f - added --enable-numa-mem-monitor to use an extra protocol in order to 
+      accurately track jobs that exceed over their memory limits and kill 
+      them 
   e - when ATTR_node_exclusive is set, reserve the entire node (or entire
       numa node if applicable) in the cpuset 
   n - Changed the protocol versions for all client-to-server, mom-to-server and
       mom-to-mom protocols from 1 to 2. The changes to the protocol in this version
       of TORQUE will make it incompatible with previous versions.
+  e - when a select statement is used, tally up the memory requests and mark
+      the total in the resource list. This allows memory enforcement for
+      NUMA jobs, but doesn't affect others as memory isn't enforced for 
+      multinode jobs
 
 2.5.3
   b - stop reporting errors on success when modifying array ranges
@@ -75,11 +54,6 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - Now saving serverdb as an xml file instead of a byte-dump, thus 
       allowing canned installations without qmgr scripts, as well as more
       portability. Able to upgrade automatically from 2.1, 2.3, and 2.4
-  e - when a select statement is used, tally up the memory requests and mark
-      the total in the resource list. This allows memory enforcement for
-      NUMA jobs, but doesn't affect others as memory isn't enforced for 
-      multinode jobs
-  
 
 2.5.2
   e - Allow the nodes file to use the syntax node[0-100] in the name to 
