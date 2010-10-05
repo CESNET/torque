@@ -1841,9 +1841,10 @@ int setup_nodes(void)
 
     if (err != 0)
       {
-      sprintf(log_buffer, "could not create node \"%s\", error = %d",
+      sprintf(log_buffer, "could not create node \"%s\", error = %d (%s)",
               nodename,
-              err);
+              err,
+              pbs_strerror(err));
 
       log_record(
         PBSEVENT_SCHED,
