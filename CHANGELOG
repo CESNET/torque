@@ -21,6 +21,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - make the tcp reading buffer able to grow dynamically to read larger 
       values in order to avoid "invalid protocol" messages (backported from
       2.5.3)
+  b - could not set the server HA parameters lock_file_update_time and 
+      lock_file_check_time previously. Fixed. (backported from 2.5.3)
 
 2.4.10
   b - fix to get new pagg ID and add additional CSA records when restarting from
