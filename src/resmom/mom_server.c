@@ -1291,7 +1291,11 @@ void mom_server_all_update_stat(void)
   {
   static char *id = "mom_server_all_update_stat";
 
+#ifndef NUMA_SUPPORT
   static char status_strings[16 * 1024];  /* Big but smaller than before in is_update_stat */
+#else
+  static char status_strings[MAXLINE << 7];
+#endif
   int sindex;
 
   /* We generate the status once, because this might be costly.
