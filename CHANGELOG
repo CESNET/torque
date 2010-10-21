@@ -26,6 +26,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - qpeek now has the options --ssh, --rsh, --spool, --host, -o, and 
       -e. Can now output both the STDOUT and STDERR files.  Eliminated 
       numlines, which didn't work. (backported from 2.5.3)
+  b - Modified the pbs_server startup routine to skip unknown hosts in the 
+      nodes file instead of terminating the server startup.
 
 2.4.10
   b - fix to get new pagg ID and add additional CSA records when restarting from
