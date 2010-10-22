@@ -26,6 +26,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       the total in the resource list. This allows memory enforcement for
       NUMA jobs, but doesn't affect others as memory isn't enforced for 
       multinode jobs
+  e - add an asynchronous option to qdel 
 
 2.5.3
   b - stop reporting errors on success when modifying array ranges
