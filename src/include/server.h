@@ -181,6 +181,11 @@ enum srv_atr
   SRV_ATR_JobForceCancelTime,
   SRV_ATR_MaxArraySize,
   SRV_ATR_MaxSlotLimit,
+  SRV_ATR_RecordJobInfo,
+  SRV_ATR_RecordJobScript,
+  SRV_ATR_JobLogFileMaxSize,
+  SRV_ATR_JobLogFileRollDepth,
+  SRV_ATR_JobLogKeepDays,
 #ifdef MUNGE_AUTH
   SRV_ATR_authusers,
 #endif

@@ -135,6 +135,7 @@
 
 /* external functions called */
 
+extern void job_log_roll(int max_depth);
 extern int  pbsd_init(int);
 extern void shutdown_ack();
 extern int  update_nodes_file(void);
@@ -152,6 +153,9 @@ extern void acct_cleanup(long);
 extern void check_children();
 #endif
 
+#ifndef MAX_LINE
+#define MAX_LINE 1024
+#endif
 #ifndef MAX_PATH_LEN
 #define MAX_PATH_LEN 256
 #endif
@@ -221,6 +225,7 @@ char        *path_nodestate;
 char        *path_nodenote;
 char        *path_nodenote_new;
 char        *path_checkpoint;
+char        *path_jobinfo_log;
 char        *ArgV[MAX_CMD_ARGS];
 extern char    *msg_daemonname;
 extern char *msg_info_server; /* Server information message   */
@@ -1073,6 +1078,7 @@ main_loop(void)
   void ping_nodes(struct work_task *);
   void check_nodes(struct work_task *);
   void check_log(struct work_task *);
+  void check_job_log(struct work_task *);
   void check_acct_log(struct work_task *);
 
   extern char *msg_startup2; /* log message   */
@@ -1797,6 +1803,81 @@ int main(
 
   exit(0);
   }  /* END main() */
+
+
+
+void check_job_log(
+
+  struct work_task *ptask) /* I */
+
+  {
+  long depth = 1;
+
+ /* remove logs older than LogKeepDays */
+
+ if ((server.sv_attr[(int)SRV_ATR_JobLogKeepDays].at_flags 
+     & ATR_VFLAG_SET) != 0)
+   {
+   snprintf(log_buffer,sizeof(log_buffer),"checking for old job logs in dir '%s' (older than %ld days)",
+     path_svrlog,
+     server.sv_attr[(int)SRV_ATR_JobLogKeepDays].at_val.at_long);
+ 
+   log_event(
+     PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+     PBS_EVENTCLASS_SERVER,
+     msg_daemonname,
+     log_buffer);
+
+   if (log_remove_old(path_jobinfo_log,server.sv_attr[(int)SRV_ATR_JobLogKeepDays].at_val.at_long * SECS_PER_DAY) != 0)
+     {
+     log_err(-1,"check_job_log","failure occurred when checking for old job logs");
+     }
+   }
+
+  if ((server.sv_attr[(int)SRV_ATR_JobLogFileMaxSize].at_flags
+       & ATR_VFLAG_SET) != 0)
+    {
+    if ((job_log_size() >= server.sv_attr[(int)SRV_ATR_JobLogFileMaxSize].at_val.at_long)
+       && (server.sv_attr[(int)SRV_ATR_JobLogFileMaxSize].at_val.at_long > 0))
+      {
+      log_event(
+        PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+        PBS_EVENTCLASS_SERVER,
+        msg_daemonname,
+        "Rolling job log file");
+
+      if ((server.sv_attr[(int)SRV_ATR_JobLogFileRollDepth].at_flags
+           & ATR_VFLAG_SET) != 0)
+        {
+        depth = server.sv_attr[(int)SRV_ATR_JobLogFileRollDepth].at_val.at_long;
+        }
+
+      if ((depth >= INT_MAX) || (depth < 1))
+        {
+        log_err(-1, "check_job_log", "job log roll cancelled, logfile depth is out of range");
+        }
+      else
+        {
+        job_log_roll(depth);
+        }
+      }
+    }
+
+  /* periodically record the version and loglevel */
+
+  sprintf(log_buffer, msg_info_server,
+    server.sv_attr[(int)SRV_ATR_version].at_val.at_str, LOGLEVEL);
+
+  log_event(
+    PBSEVENT_SYSTEM | PBSEVENT_FORCE,
+    PBS_EVENTCLASS_SERVER,
+    msg_daemonname,
+    log_buffer);
+
+  set_task(WORK_Timed, time_now + PBS_LOG_CHECK_RATE, check_job_log, NULL);
+
+  return;
+  } /* END check_job_log */
 
 
 

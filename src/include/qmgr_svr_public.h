@@ -163,6 +163,11 @@ ATTR_jobstarttimeout,
 ATTR_jobforcecanceltime,
 ATTR_maxarraysize,
 ATTR_maxslotlimit,
+ATTR_recordjobinfo,
+ATTR_recordjobscript,
+ATTR_joblogfilemaxsize,
+ATTR_joblogfilerolldepth,
+ATTR_joblogkeepdays,
 #ifdef MUNGE_AUTH
 ATTR_authusers,
 #endif
