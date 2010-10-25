@@ -28,6 +28,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       numlines, which didn't work. (backported from 2.5.3)
   b - Modified the pbs_server startup routine to skip unknown hosts in the 
       nodes file instead of terminating the server startup.
+  b - fix to prevent a possible segfault when using checkpointing (back-ported
+      from 2.5.3).
 
 2.4.10
   b - fix to get new pagg ID and add additional CSA records when restarting from
