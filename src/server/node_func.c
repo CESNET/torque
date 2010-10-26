@@ -1634,13 +1634,6 @@ int setup_numa_nodes(
     pn->nd_mom_port = pnode->nd_mom_port;
     pn->nd_mom_rm_port = pnode->nd_mom_rm_port;
 
-    /* set the number of processors */
-    if (np_ptr != NULL)
-      {
-      np_ptr = strtok(NULL,delim);
-      np = atoi(np_ptr);
-      }
-
     /* create the subnodes for this node */
     for (j = 0; j < np; j++)
       {
@@ -1651,6 +1644,13 @@ int setup_numa_nodes(
 
         return(PBSE_SYSTEM);
         }
+      }
+
+    /* set the number of processors */
+    if (np_ptr != NULL)
+      {
+      np_ptr = strtok(NULL,delim);
+      np = atoi(np_ptr);
       }
 
     copy_properties(pn,pnode);
