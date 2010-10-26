@@ -30,6 +30,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       nodes file instead of terminating the server startup.
   b - fix to prevent a possible segfault when using checkpointing (back-ported
       from 2.5.3).
+  b - fix to cleanup job files on mom after a BLCR job is checkpointed and held
+      (back-ported from 2.5.3)
 
 2.4.10
   b - fix to get new pagg ID and add additional CSA records when restarting from
