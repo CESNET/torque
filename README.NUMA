@@ -15,7 +15,12 @@ mem= should be the index of the memory nodes that are associated with that nodeb
 
 The mom will then report each of these numa nodes to the server. 
 
-NOTE: currently, processors are reported for the entire system, so numbers like cpu usage don't reflect an individual nodeboard but instead the entire system.
+If you need help discovering how to set up your mom.layout file, the following may help you:
+1. the topology command
+2. the contents of /sys/devices/system/node/node*/meminfo and /sys/devices/system/node/node*/cpulist The * is because there will be on directory for each memory node on the system.
+3. hwloc. hwloc is a library that discovers topology and has various different display options
+
+NOTE: currently, the operating system doesn't offer any information (like loadavg) on a per nodeboard basis, so these numbers are currently omitted for NUMA pbs_moms.
 
 #3 nodes:
 
@@ -26,6 +31,12 @@ num_numa_nodes=X
 X should be the number of different numa nodes that will be reported by that mom. For the above mom.layout example, this would be num_numa_nodes=3.
 
 np should be set for this node, and it should be the total number of cores on the machine, or the sum of those on all the numa nodes. In the above example, this would be 12.
+
+If your system has numa nodes with different numbers of cores, you will need to specify each core. You can do this by adding numa_node_str=<string> to your nodes file. It should be a comma separated list of numbers that correspond to each board sequentially. For example, if node 0 has 6 cores, node 1 has 8 cores, and node 2 has 12 cores, you would add 
+
+numa_node_str=6,8,12
+
+to your nodes file. If all of the numa nodes have the same amount of cores, this string is unnecessary.
 
 Once this is set up correctly, the mom will report the numa nodes to the server, and the numa nodes will appear in pbs_nodes output as though they were different nodes. TORQUE has the capability to execute jobs on this kind of system, but as with any other, a proper scheduler will be needed to make the most of things.
 
