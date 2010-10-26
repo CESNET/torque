@@ -504,6 +504,7 @@ if test "x$GCC" = "xyes" ;then
   AC_MSG_CHECKING([whether to support NUMA systems])
   if test "${enable_numa_support}" = "yes" ; then
     AC_MSG_RESULT([yes])
+    cpuset=1
     build_l26_cpuset=yes
     AC_DEFINE(PENABLE_LINUX26_CPUSETS, 1, [Define to enable Linux 2.6 cpusets])
     CFLAGS="$CFLAGS -DNUMA_SUPPORT"
