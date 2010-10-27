@@ -63,6 +63,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       -e. Can now output both the STDOUT and STDERR files.  Eliminated 
       numlines, which didn't work.
   b - fix to cleanup job files on mom after a BLCR job is checkpointed and held
+  b - fix so checkpoint files are transferred as the user, not as root.
+  f - Added configure option --with-servchkptdir which allows specifying path
+      for server's checkpoint files
+  b - fix to prevent a possible segfault when using checkpointing.
 
 2.5.2
   e - Allow the nodes file to use the syntax node[0-100] in the name to 
