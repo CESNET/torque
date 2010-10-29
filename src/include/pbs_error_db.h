@@ -193,6 +193,12 @@ PbsErrClient(PBSE_NOFAULTTOLERANT,   "Queue does not allow fault tolerant jobs")
 /* only fault tolerant jobs allowed in queue */
 PbsErrClient(PBSE_NOFAULTINTOLERANT, "Queue does not allow fault intolerant jobs")
 PbsErrClient(PBSE_NOJOBARRAYS, "Queue does not allow job arrays")
+/* Routine preconditions test failed */
+PbsErrClient(PBSE_PRECONDITION,      "Routine precondition failed.")
+/* Routine postconditions test failed */
+PbsErrClient(PBSE_POSTCONDITION,     "Routine postcondition failed.")
+/* Routine consistency test failed */
+PbsErrClient(PBSE_CONSISTENCY,       "Routine consistency check failed.")
 PbsErrClient(PBSE_KERBEROS_USER, "Effective user name does not match kerberos principal")
 PbsErrClient(PBSE_KERBEROS_TICKET, "Getting kerberos ticket for user failed")
 /* pbs client errors ceiling (max_client_err + 1) */
