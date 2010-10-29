@@ -122,6 +122,9 @@
 extern void  job_clone_wt A_((struct work_task *));
 extern int setup_array_struct(job *pjob);
 
+#ifdef GSSAPI
+#include "pbsgss.h"
+#endif
 
 /* External Functions Called: */
 
@@ -140,6 +143,10 @@ extern struct server server;
 extern char  server_name[];
 extern int   queue_rank;
 extern tlist_head svr_jobarrays;
+
+#ifdef GSSAPI
+extern struct connection svr_conn[PBS_NET_MAX_CONNECTIONS];
+#endif /* GSSAPI */
 
 extern const char *PJobSubState[];
 
@@ -582,6 +589,33 @@ void req_quejob(
    *
    * First, set some items based on who created the job...
    */
+
+#ifdef GSSAPI
+  /* save gssapi/krb5 creds for this job */
+  if (svr_conn[preq->rq_conn].cn_authen == PBS_NET_CONN_GSSAPIAUTH) { 
+      sprintf(log_buffer,"saving creds.  conn is %d, princ %s",
+          preq->rq_conn, svr_conn[preq->rq_conn].principal); 
+      log_event(PBSEVENT_DEBUG,
+            PBS_EVENTCLASS_SERVER,"req_quejob",log_buffer); 
+      
+      (void)job_attr_def[(int)JOB_SITE_ATR_krb_princ].at_decode(
+	&pj->ji_wattr[(int)JOB_SITE_ATR_krb_princ],
+        NULL, NULL, svr_conn[preq->rq_conn].principal);
+
+#if 0
+      /* verify match between effective user and kerberos principal */
+      if (pj->ji_wattr[(int)JOB_ATR_euser].at_flags & ATR_VFLAG_SET)
+      if (strncmp(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,
+      		      pj->ji_wattr[(int)JOB_SITE_ATR_krb_princ].at_val.at_str,
+      		      strlen(pj->ji_wattr[(int)JOB_ATR_euser].at_val.at_str)) != 0)
+        {
+      	  job_purge(pj);
+
+      	  req_reject(PBSE_KERBEROS_USER, 0, preq, NULL, NULL);
+        }
+#endif
+  }
+#endif /* GSSAPI */
 
   if (created_here)
     {

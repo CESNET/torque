@@ -130,6 +130,7 @@
 #include "net_connect.h"
 #include "log.h"
 #include "port_forwarding.h"
+#include "pbsgss.h"
 
 /* DefaultFilterPath is used to fall back on in order to maintain backwards compatibility.
    the new preferred path for the submit filter is ${libexecdir}/qsub_filter */
@@ -1200,6 +1201,7 @@ int z_opt = FALSE;
 int A_opt = FALSE;
 int C_opt = FALSE;
 int F_opt = FALSE;
+int K_opt = FALSE;
 int M_opt = FALSE;
 int N_opt = FALSE;
 int S_opt = FALSE;
@@ -1458,16 +1460,6 @@ int set_job_env(
     strcat(job_env, c);
     }
 
-/*
- * Commented out by dbeer
- * This isn't a reliable way to find the hostname because it doesn't
- * account for the interface over which the connection is happening,
- * or any aliasing on that interface. Letting the server discover 
- * PBS_O_HOST works better and the code is already there.
- *
- * Unless you are certain CRAY sites that want this value for PBS_O_HOST
- */
-#ifdef QSUBHOSTNAME
   if (qsub_host[0] != '\0' ||
      (rc = gethostname(qsub_host, PBS_MAXHOSTNAME + 1)) == 0)
     {
@@ -1477,7 +1469,6 @@ int set_job_env(
       strcat(job_env, qsub_host);
       }   
     }
-#endif
     
   if (rc != 0)
     {
@@ -2841,7 +2832,7 @@ int process_opts(
   char search_string[256];
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
-#define GETOPT_ARGS "a:A:b:c:C:d:D:e:fhIj:k:l:m:M:N:o:p:P:q:r:S:t:T:u:v:Vw:W:Xxz-:"
+#define GETOPT_ARGS "a:A:b:c:C:d:D:e:fhIj:k:Kl:m:M:N:o:p:P:q:r:S:t:T:u:v:Vw:W:Xxz-:"
 #else
 #define GETOPT_ARGS "a:A:c:C:e:hj:k:l:m:M:N:o:p:q:r:S:u:v:VW:z"
 #endif /* PBS_NO_POSIX_VIOLATION */
@@ -3271,6 +3262,14 @@ int process_opts(
             }
 
           set_attr(&attrib, ATTR_k, optarg);
+          }
+
+        break;
+
+      case 'K':
+        if_cmd_line(K_opt)
+          {
+          K_opt = passet;
           }
 
         break;
@@ -4612,7 +4611,8 @@ int main(
       [-C directive_prefix] [-d path] [-D path]\n\
       [-e path] [-h] [-I] [-j oe] [-k {oe}] [-l resource_list] [-m n|{abe}]\n\
       [-M user_list] [-N jobname] [-o path] [-p priority] [-P proxy_user] [-q queue] \n\
-      [-r y|n] [-S path] [-t number_to_submit] [-T type]  [-u user_list] [-w] path\n";
+      [-r y|n] [-S path] [-t number_to_submit] [-T type]  [-u user_list] [-w] path\n\
+      [-K]";
 
     /* need secondary usage since there appears to be a 512 byte size limit */
 
@@ -4623,6 +4623,13 @@ int main(
 
     exit(2);
     }
+#ifdef GSSAPI
+  if ((!pbsgss_can_get_creds()) && (!K_opt))
+    {
+    fprintf(stderr,"No kerberos credentials found.\n");
+    exit(2);
+    }
+#endif
 
   /* check to see if PBS_Filter exists.  If not then fall back to the old hard-coded file */
 

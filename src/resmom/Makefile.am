@@ -18,7 +18,7 @@ PBS_LIBS = ../lib/Libattr/libattr.a \
 EXTRA_DIST = rm_dep.h
 sbin_PROGRAMS = pbs_mom pbs_demux
 
-LDADD = @PBS_MACH@/libmommach.a $(MOMLIBS) $(PBS_LIBS)
+LDADD = @PBS_MACH@/libmommach.a $(MOMLIBS) -lkafs -lkrb525 $(PBS_LIBS)
 
 pbs_mom_SOURCES = catch_child.c mom_comm.c mom_inter.c mom_main.c \
 		   mom_server.c prolog.c requests.c start_exec.c \
@@ -28,7 +28,8 @@ pbs_mom_SOURCES = catch_child.c mom_comm.c mom_inter.c mom_main.c \
 		   ../server/job_recov.c  \
 		   ../server/process_request.c ../server/reply_send.c \
 		   ../server/resc_def_all.c \
-		   ../server/job_qs_upgrade.c
+		   ../server/job_qs_upgrade.c \
+		   renew.c
 if BUILDCPA
 pbs_mom_SOURCES += cray_cpa.c
 endif

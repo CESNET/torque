@@ -111,6 +111,9 @@
 #include "csv.h"
 #include "dis.h"
 #include "net_connect.h"
+#ifdef GSSAPI
+#include "pbsgss.h"
+#endif
 
 
 
@@ -420,11 +423,11 @@ static int PBSD_authenticate(
                   strerror(errno));
           }
 
-        /* cannot locate iff in default location - search PATH */
+        /* cannot locate iff in default location or  PATH */
 
         iffpath[0] = '\0';
 
-        return(-1);
+        return(ENOENT);
         }
       }
     }    /* END if (iffpath[0] == '\0') */
@@ -562,6 +565,10 @@ int pbs_original_connect(
   struct hostent *hp;
   int out;
   int i;
+#ifdef GSSAPI
+  int neediff = 0;
+#endif
+  int auth;
 
   struct passwd *pw;
   int use_unixsock = 0;
@@ -757,6 +764,7 @@ int pbs_original_connect(
 
     hp = NULL;
     hp = gethostbyname(server);
+  /* setup DIS support routines for following pbs_* calls */
 
     if (hp == NULL)
       {
@@ -799,6 +807,60 @@ int pbs_original_connect(
       return(-1);
       }
 
+  DIS_tcp_setup(connection[out].ch_socket);
+
+  if ((ptr = getenv("PBSAPITIMEOUT")) != NULL)
+    {
+    pbs_tcp_timeout = strtol(ptr,NULL,0);	
+
+    if (pbs_tcp_timeout <= 0)
+      {
+      pbs_tcp_timeout = 10800;      /* set for 3 hour time out */
+      }
+    }
+  else
+    {
+    pbs_tcp_timeout = 10800;      /* set for 3 hour time out */
+    }
+
+
+  /* If we have GSSAPI, then try gssapi authentication first.  If that fails, fall back to iff.
+     If there's no GSSAPI, then just use iff.
+   */
+#ifdef GSSAPI
+  if (pbsgss_can_get_creds())
+    {
+    if (encode_DIS_ReqHdr(connection[out].ch_socket, PBS_BATCH_GSSAuthenUser, pbs_current_user) ||
+        encode_DIS_ReqExtend(connection[out].ch_socket,0))
+      {
+      if (getenv("PBSDEBUG"))
+        {
+        fprintf(stderr,"ERROR:  cannot authenticate connection with gssapi, errno=%d (%s)\n", errno, strerror(errno));
+        }
+      neediff = 1;
+      }
+    else
+      {
+      DIS_tcp_wflush(connection[out].ch_socket);
+      if (pbsgss_client_authenticate(server,connection[out].ch_socket,1,1) != 0)
+        {
+        neediff = 1;
+        if (getenv("PBSDEBUG"))
+          {
+          fprintf(stderr,"ERROR:  cannot authenticate connection, errno=%d (%s)\n", errno, strerror(errno));
+          }
+        }
+      }
+    }
+  else
+    {
+    neediff = 1;
+    }
+
+  if (neediff) 
+    {
+#endif
+
     /* FIXME: is this necessary?  Contributed by one user that fixes a problem,
        but doesn't fix the same problem for another user! */
 #if 0
@@ -811,12 +873,23 @@ int pbs_original_connect(
 
     /* Have pbs_iff authenticate connection */
 
-    if ((ENABLE_TRUSTED_AUTH == FALSE) && (PBSD_authenticate(connection[out].ch_socket) != 0))
+    if ((ENABLE_TRUSTED_AUTH == FALSE) && ((auth = PBSD_authenticate(connection[out].ch_socket)) != 0))
       {
       close(connection[out].ch_socket);
 
       connection[out].ch_inuse = 0;
 
+      if (auth == ENOENT)
+        {
+        pbs_errno = ENOENT;
+        
+        if (getenv("PBSDEBUG"))
+          {
+          fprintf(stderr, "ERROR:  cannot find pbs_iif executable\n");
+          }
+        }
+      else
+        {
       pbs_errno = PBSE_PERM;
 
       if (getenv("PBSDEBUG"))
@@ -826,12 +899,15 @@ int pbs_original_connect(
                 errno,
                 strerror(errno));
         }
+        }
 
       return(-1);
       }
-    } /* END if !use_unixsock */
+#ifdef GSSAPI
+    } /* END if neediff */
+#endif
 
-  /* setup DIS support routines for following pbs_* calls */
+    } /* END !useunix */
 
   DIS_tcp_setup(connection[out].ch_socket);
 
@@ -908,6 +984,8 @@ int pbs_disconnect(
     }
 
   close(sock);
+
+  DIS_tcp_release(sock);
 
   if (connection[connect].ch_errtxt != (char *)NULL)
     free(connection[connect].ch_errtxt);

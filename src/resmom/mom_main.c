@@ -630,6 +630,7 @@ extern void exec_bail(job *, int);
 extern void check_state(int);
 extern void DIS_tcp_funcs();
 
+extern void stop_renewal(task *ptask);
 
 /* Local public functions */
 
@@ -5725,6 +5726,9 @@ int kill_job(
       ct += kill_task(ptask, sig, 0);
       }
 
+#ifdef GSSAPI
+    stop_renewal(ptask);
+#endif
     ptask = (task *)GET_NEXT(ptask->ti_jobtask);
     }  /* END while (ptask != NULL) */
 

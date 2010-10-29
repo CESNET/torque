@@ -109,6 +109,7 @@
 #include "server_limits.h"
 #include "net_connect.h"
 #include "log.h"
+#include "dis.h"
 
 extern int LOGLEVEL;
 
@@ -364,7 +365,7 @@ int init_network(
       return(-1);
       }
 
-    if (chmod(TSOCK_PATH, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH) != 0)
+    if (chmod(TSOCK_PATH, S_IRUSR | S_IWUSR) != 0)
       {
       close(unixsocket);
 
@@ -735,6 +736,8 @@ void close_conn(
    * GlobalSocketReadSet being initialized
    */
 
+  DIS_tcp_release(sd);  /* FIXME: only do this on TCP sockets */
+
   if (GlobalSocketReadSet != NULL)
   {
     FD_CLR(sd, GlobalSocketReadSet);
@@ -749,6 +752,9 @@ void close_conn(
   svr_conn[sd].cn_func = (void (*)())0;
 
   svr_conn[sd].cn_authen = 0;
+
+  free(svr_conn[sd].principal);
+  svr_conn[sd].principal = NULL;
 
   num_connections--;
 
