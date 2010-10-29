@@ -1,0 +1,30 @@
+#!/bin/bash
+
+# torque commands full paths
+qstat="/usr/local/bin/qstat"
+qdel="/usr/local/bin/qdel"
+qsub="/usr/local/bin/qsub"
+
+# pbs cache commands full paths
+list_cache="/usr/local/sbin/list_cache"
+delete_cache="/usr/local/sbin/delete_cache"
+
+# magrathea
+sbf="/software/magrathea/bin/sbf"
+timeout="/software/magrathea/amd64_linux26/bin/timeout"
+
+# system commands
+awk="awk"
+grep="grep"
+sed="sed"
+
+# helper functions
+
+# set jobid from name
+set_jobid()
+{
+	jobid=`$qstat -f | $grep "^Job\\|Job_Name\\|job_state" | $awk "{ if (\\$1 == \"Job\" && \\$2 == \"Id:\") { last_id = \\$3; } if (\\$1 == \"Job_Name\") { last_name = \\$3 } if (\\$1 == \"job_state\" && last_name == \"$1\") printf last_id \"\\n\" }"`
+	
+}
+
+

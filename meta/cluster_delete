@@ -1,0 +1,26 @@
+#!/bin/bash
+
+source $(dirname $0)/cluster_conf
+
+# ensure cluster name param
+if [ $# -ne 1 ]; then
+	printf "No cluster name given\n\n"
+	printf "Usage: $0 <cluster_name>\n\n"
+	exit 1
+fi
+
+
+set_jobid $1
+
+if [ "$jobid" = "" ]; then
+  printf "No such cluster\n\n"
+  exit 1
+fi
+
+printf "Deleting cluster $1 (Job ID $jobid)\n"
+
+$qdel $jobid 
+
+printf "\n"
+
+

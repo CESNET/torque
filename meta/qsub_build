@@ -1,0 +1,67 @@
+#!/bin/bash
+
+# Qsub wrapper for one step virtual cluster build/use
+
+# Parse parameters that are either cluster=create only or cluster=use only
+
+Wflag=
+Wval=
+Nflag=
+Nval=
+Iflag=
+Gflag=
+Gval=
+qsub_create_params=
+qsub_use_params=
+
+while getopts W:N:IG:l: name
+do
+	case $name in
+        	W) Wflag=1
+		   Wval="$OPTARG";;
+		N) Nflag=1
+		   Nval="$OPTARG";;
+		I) Iflag=1;;
+		G) Gflag=1
+		   Gval="$OPTARG";;
+		l)	qsub_create_params="$qsub_create_params -l $OPTARG";
+			qsub_use_params="$qsub_use_params -l $OPTARG";
+			;;
+			 
+	esac
+done
+
+if [ ! -z "$Wflag" ]; then
+	qsub_use_params="$qsub_use_params -W $Wval"
+fi
+
+if [ ! -z "$Iflag" ]; then
+	qsub_use_params="$qsub_use_params -I"
+fi
+
+if [ -z "$Nflag" ]; then
+	echo "Fatal error, no name specified."
+	exit 1
+else
+	qsub_create_params="$qsub_create_params -l cluster=create -N $Nval"
+	qsub_use_params="$qsub_use_params -l cluster=$Nval"
+fi
+
+printf "Building cluster with: \"qsub $qsub_create_params\"\n"
+
+outer_job_id=`qsub $qsub_create_params </dev/null`
+
+printf "Outer job id is %s\n" $outer_job_id
+
+printf "Submiting into cluster with: \"qsub $qsub_use_params\"\n"
+
+if [ ! -z "$Iflag" ]; then
+	qsub $qsub_use_params
+	qdel $outer_job_id
+else
+	inner_job_id=`qsub $qsub_use_params`
+	while [ `qstat $inner_job_id | grep $inner_job_id | awk '{ if ($5 == "C") { print 1 } else { print 0 } }'` -eq 0 ]; do
+		sleep 30;
+	done
+	qdel $outer_job_id
+fi

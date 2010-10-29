@@ -1,0 +1,83 @@
+#!/bin/bash
+
+source $(dirname $0)/cluster_conf
+
+showHelp()
+{
+cat << EndHelpHeader
+
+$0: qsub wrapper to submit cluster type jobs.
+
+Options:
+
+	-h | --help 		Show this help
+	-p | --private 		Request a private network for the cluster
+	-n | -N | --name	Cluster name
+	-l | --nodes		Number of nodes
+	-v | --verbose 		Debugging output
+
+EndHelpHeader
+}
+
+
+
+
+
+extra_param="";
+nodes="1";
+
+#cmdline parameters
+while test -n "$1"
+do
+	case "$1" in
+		"-h" | "--help") showHelp && exit 2 ;;
+		"-p" | "--private") extra_param="-l net=private" ;;
+		"-n" | "-N" | "--name") shift ; name=$1 ;;
+		"-l" | "--nodes") shift ; nodes=$1 ;;
+		"-v" | "--verbose") VDEBUG="1" ;;
+		*)	if [[ $1 =~ ^-.* ]]; then
+				printf "Ignoring unknown argument $1\n";
+			else
+				NAME=$1
+			fi ;;
+	esac
+	shift
+done
+
+#parameter tests
+if [ "$name" = "" ]; then
+	printf "Cluster name must be specified!\n";
+	exit 1;
+fi
+
+#whitespace test
+echo "$name" | $grep -E "[[:space:]]" &>/dev/null
+if [ $? -eq 0 ]; then
+        printf "Cluster name must not contain whitespace characters!\n";
+        exit 1;
+fi
+
+#test cache for cluster name uniqueness
+$list_cache $HOST cluster | $awk '{print $1}' | $grep -w "$name" > /dev/null
+if [ $? -eq 0 ]; then
+	printf "Cache record for cluster $name already exists!\n";
+	exit 1;
+fi
+
+#test qstat output for cluster name uniqueness
+set_jobid $name
+if [ "$jobid" != "" ]; then
+	printf "Qstat record for cluster $name already exists!\n";
+	exit 1;
+fi
+
+#sumbit cluster
+if [ "$VDEBUG" = "1" ]; then
+	echo $qsub -q reserved -l nodes=$nodes -l cluster=create $extra_param -N $name
+fi
+
+$qsub -q reserved -l nodes=$nodes -l cluster=create $extra_param -N $name<<EOF
+/bin/true
+EOF
+
+

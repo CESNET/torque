@@ -1,0 +1,12 @@
+#!/bin/bash
+
+source $(dirname $0)/cluster_conf
+
+printf "\nCluster name                   Cache record\n"
+printf "===================================================================\n"
+
+$list_cache $HOSTNAME cluster | $awk '{printf "%-30s(%s)\n",$1,$3}'
+
+printf "\n"
+
+

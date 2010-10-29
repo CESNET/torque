@@ -1,0 +1,32 @@
+#!/bin/bash
+
+source $(dirname $0)/cluster_conf
+
+# Req. argument
+if [ $# -ne 1 ]; then
+        printf "No cluster name given\n\n"
+	printf "Usage: $0 <cluster_name>\n\n"
+        exit 1
+fi
+
+set_jobid $1
+
+if [ "$jobid" = "" ]; then
+  printf "No such cluster known to qstat. Trying do delete all traces from cache\n\n"
+else
+  printf "Running qdel\n"
+  $qdel $jobid
+fi
+
+printf "Deleting node records from cache\n"
+$list_cache $HOSTNAME machine_cluster | $grep -w "$1" | $awk '{print $1}' | while read machinerecords; do
+	printf "< $machinerecords\n"
+	$delete_cache $HOSTNAME $machinerecords machine_cluster
+done
+
+printf "Deleting cluster record from cache\n"
+$delete_cache $HOSTNAME $1 cluster
+
+printf "\n"
+
+
