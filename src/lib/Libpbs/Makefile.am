@@ -88,4 +88,3 @@ if INCLUDE_GSSAPI
 libtorque_la_SOURCES  += ../Libifl/pbsgss.c
 endif
 
-
