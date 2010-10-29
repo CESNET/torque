@@ -857,9 +857,12 @@ static void chk_svr_resc_limit(
   static resource_def *nodectresc   = NULL;
   static resource_def *mppwidthresc = NULL;
   static resource_def *mppnppn      = NULL;
+  static resource_def *cluster      = NULL;
 
   static time_t UpdateTime = 0;
   static time_t now;
+
+  int is_cluster = 0;
 
   /* NOTE:  server limits are specified with server.resources_available */
 
@@ -879,6 +882,7 @@ static void chk_svr_resc_limit(
     nodectresc   = find_resc_def(svr_resc_def, "nodect",    svr_resc_size);
     mppwidthresc = find_resc_def(svr_resc_def, "mppwidth",  svr_resc_size);
     mppnppn      = find_resc_def(svr_resc_def, "mppnppn",   svr_resc_size);
+    cluster      = find_resc_def(svr_resc_def, "cluster",   svr_resc_size);
 
     SvrNodeCt = 0;
 
@@ -959,6 +963,11 @@ static void chk_svr_resc_limit(
               comp_resc_lt++;
             }
           }
+        }
+
+      if (jbrc->rs_defin == cluster) /* FIXME META quick fix for submitting cluster requests */
+        {
+        is_cluster = 1;
         }
 
 #ifdef NERSCDEV
@@ -1171,7 +1180,7 @@ static void chk_svr_resc_limit(
         IgnTest = 1;
       }
 
-    if (IgnTest == 0)
+    if (IgnTest == 0 && is_cluster == 0) /* FIXME META quick fix for cluster requests submit */
       {
       if (node_avail_complex(
             jbrc_nodes->rs_value.at_val.at_str,
@@ -2222,6 +2231,10 @@ void set_statechar(
       (pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend))
     {
     pjob->ji_wattr[JOB_ATR_state].at_val.at_char = suspend;
+    }
+  else if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
+    {
+    pjob->ji_wattr[JOB_ATR_state].at_val.at_char = 'T';
     }
   else
     {

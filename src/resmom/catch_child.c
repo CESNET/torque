@@ -110,6 +110,7 @@
 #include "pbs_error.h"
 #include "pbs_proto.h"
 #include "rpp.h"
+#include "cloud.h"
 #ifdef ENABLE_CPA
 #include "pbs_cpa.h"
 #endif
@@ -669,6 +670,9 @@ scan_for_exiting(void)
 
         continue;
         }
+
+      if (is_cloud_job(pjob)) /* cloud epilogue */
+        cloud_kill(pjob); /* we don't really care if the epilogue succeeded */
 
       if ((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) &&
           pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long)
@@ -1365,6 +1369,10 @@ static void preobit_reply(
     }
 
   /* child */
+  sleep(1);
+
+  if (is_cloud_job(pjob)) /* run cloud epilogue */
+    cloud_kill(pjob);
 
   /* check epilog script */
 
@@ -1823,6 +1831,7 @@ void init_abort_jobs(
     if ((recover != JOB_RECOV_RUNNING) && (recover != JOB_RECOV_DELETE) &&
         ((pj->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING) ||
          (pj->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN) ||
+         (pj->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD) ||
          (pj->ji_qs.ji_substate == JOB_SUBSTATE_SUSPEND) ||
          (pj->ji_qs.ji_substate == JOB_SUBSTATE_EXITED) ||
          (pj->ji_qs.ji_substate == JOB_SUBSTATE_NOTERM_REQUE) ||

@@ -214,6 +214,8 @@ struct connection
         char            *principal;      /* client principal for use with GSS auth */
         gss_cred_id_t   creds;           /* client creds, for use with GSS auth */
 #endif
+  unsigned int cn_schlock :1; /** < Is there an active lock on this connection?
+                            @see check_schlock() */
   };
 
 struct netcounter

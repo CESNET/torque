@@ -431,6 +431,20 @@ attribute_def que_attr_def[] =
       PARENT_TYPE_QUE_ALL
   },
 
+  /* QA_ATR_RequiredProperty */
+  { ATTR_required_property,
+    decode_str,
+    encode_str,
+    set_str,
+    comp_str,
+    free_str,
+    NULL_FUNC,
+    MGR_ONLY_SET,
+    ATR_TYPE_STR,
+    PARENT_TYPE_QUE_ALL
+  },
+
+
   /* for execution queues only */
 
 
@@ -566,7 +580,7 @@ attribute_def que_attr_def[] =
     ATR_TYPE_LONG,
     PARENT_TYPE_QUE_EXC
   },
-  /* QR_ATR_is_transit */
+  /* QE_ATR_is_transit */
   { ATTR_is_transit,
     decode_b,
     encode_b,
@@ -578,6 +592,19 @@ attribute_def que_attr_def[] =
     ATR_TYPE_LONG,
     PARENT_TYPE_QUE_EXC
   },
+  /* QE_ATR_starving_support */
+  { ATTR_starving_support,
+    decode_l,
+    encode_l,
+    set_l,
+    comp_l,
+    free_null,
+    NULL_FUNC,
+    MGR_ONLY_SET,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_QUE_EXC
+  },
+
   /* for routing queues */
 
   /* QR_ATR_RouteDestin */
@@ -652,6 +679,8 @@ attribute_def que_attr_def[] =
     ATR_TYPE_LONG,
     PARENT_TYPE_QUE_RTE
   },
+
+
   /* site supplied attribute definitions, if any, see site_que_attr_*.h */
 #include "site_que_attr_def.h"
 

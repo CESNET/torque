@@ -180,6 +180,9 @@
 #define ATTR_reported    "reported"
 #define ATTR_intcmd      "inter_cmd"
 #define ATTR_P           "proxy_user"
+#define ATTR_cloudmap    "cloudmap"
+#define ATTR_schedspec   "sched_nodespec"
+#define ATTR_vlanid      "vlan_id"
 
 #ifdef USEJOBCREATE
 #define ATTR_pagg         "pagg_id"
@@ -215,6 +218,7 @@
 #define ATTR_routewait   "route_waiting_jobs"
 #define ATTR_routeretry  "route_retry_time"
 #define ATTR_routelife   "route_lifetime"
+#define ATTR_required_property "required_property"
 #define ATTR_rsvexpdt    "reserved_expedite"
 #define ATTR_rsvsync     "reserved_sync"
 #define ATTR_start       "started"
@@ -225,6 +229,7 @@
 #define ATTR_keepcompleted "keep_completed"
 #define ATTR_disallowedtypes "disallowed_types"
 #define ATTR_is_transit  "is_transit"
+#define ATTR_starving_support "starving_support"
 
 /* additional server attributes names */
 
@@ -291,16 +296,27 @@
 #define ATTR_npdefault  "np_default"
 #define ATTR_jobstarttimeout "job_start_timeout"
 #define ATTR_jobforcecanceltime "job_force_cancel_time"
+#define ATTR_ResourcesToStore "node_resources_to_store"
+#define ATTR_ResourcesMappings "node_resources_mappings"
 
 /* additional node "attributes" names */
 
 #define ATTR_NODE_state         "state"
 #define ATTR_NODE_np            "np"
+#define ATTR_NODE_npfree        "npfree"
+#define ATTR_NODE_npshared      "npshared"
 #define ATTR_NODE_properties    "properties"
+#define ATTR_NODE_adproperties  "additional_properties"
 #define ATTR_NODE_ntype         "ntype"
 #define ATTR_NODE_jobs          "jobs"
 #define ATTR_NODE_status        "status"
 #define ATTR_NODE_note          "note"
+#define ATTR_NODE_no_multinode_jobs "no_multinode_jobs"
+#define ATTR_NODE_resources_total "resources_total"
+#define ATTR_NODE_resources_used "resources_used"
+#define ATTR_NODE_queue         "queue"
+#define ATTR_NODE_cloud         "cloud"
+#define ATTR_NODE_noautoresv    "no_starving_jobs"
 
 /* notification email formating */
 #define ATTR_mailsubjectfmt "mail_subject_fmt"
@@ -335,9 +351,12 @@
 #define ND_job_exclusive "job-exclusive"
 #define ND_job_sharing  "job-sharing"
 #define ND_busy   "busy"
+#define ND_frozen "frozen"
 #define ND_state_unknown "state-unknown"
 #define ND_timeshared  "time-shared"
 #define ND_cluster  "cluster"
+#define ND_virtual  "virtual"
+#define ND_cloud    "cloud"
 
 /* queue disallowed types */
 #define Q_DT_batch              "batch"
@@ -528,6 +547,8 @@ extern char *pbs_geterrmsg A_((int connect));
 extern int pbs_holdjob A_((int connect, char *job_id, char *hold_type, char *extend));
 extern int pbs_checkpointjob A_((int connect, char *job_id, char *extend));
 extern char *pbs_locjob A_((int connect, char *job_id, char *extend));
+
+extern int pbs_lock(int connect, int action, char *extend);
 
 extern int
   pbs_manager A_((int connect, int command, int obj_type, char *obj_name,

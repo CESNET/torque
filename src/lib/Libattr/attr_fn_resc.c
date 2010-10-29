@@ -199,6 +199,7 @@ int decode_resc(
   patr->at_flags |= ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 
   rv = prdef->rs_decode(&prsc->rs_value, name, rescn, val);
+  prsc->rs_value.at_flags |= ATR_VFLAG_FORCED;
 
   if (rv == 0)
     {
@@ -363,7 +364,7 @@ int set_resc(
       {
 
       /* call resource type dependent  set routine */
-
+      oldresc->rs_value.at_flags |= (newresc->rs_value.at_flags & ATR_VFLAG_FORCED);
       if ((rc = oldresc->rs_defin->rs_set(&oldresc->rs_value,
                                           &newresc->rs_value, local_op)) != 0)
         return (rc);
@@ -380,6 +381,36 @@ int set_resc(
 
   return(0);
   }
+
+
+
+/* count resources in list */
+int count_resc(struct attribute *attr)
+  {
+  resource *wiresc;
+  int count = 0;
+
+  if (attr == NULL)
+    {
+    /* FAILURE */
+
+    return(-1);
+    }
+
+  wiresc = (resource *)GET_NEXT(attr->at_val.at_list);
+
+  while (wiresc != NULL)
+    {
+    if ((wiresc->rs_value.at_flags & ATR_VFLAG_SET) &&
+        ((wiresc->rs_value.at_flags & ATR_VFLAG_DEFLT) == 0))
+      {
+      count++;
+      }
+    wiresc = (resource *)GET_NEXT(wiresc->rs_link);
+    }  /* END while() */
+
+  return(count);
+  }  /* END comp_resc() */
 
 
 
@@ -732,6 +763,11 @@ resource *find_resc_entry(
 
   {
   resource *pr;
+
+  /* TODO determine if this will help
+  if (!is_nonempty(pattr->at_val.at_list))
+    return NULL;
+  */
 
   pr = (resource *)GET_NEXT(pattr->at_val.at_list);
 

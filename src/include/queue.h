@@ -122,6 +122,7 @@ enum queueattr
   QA_ATR_AclGroupSloppy,
   QA_ATR_MTime,
   QA_ATR_DisallowedTypes,
+  QA_ATR_RequiredProperty,
 
   /* The following attributes apply only to execution queues */
 
@@ -137,6 +138,7 @@ enum queueattr
   QE_ATR_MaxGrpRun,
   QE_ATR_KeepCompleted,
   QE_ATR_is_transit,
+  QE_ATR_starving_support,
 
   /* The following attribute apply only to routing queues... */
 

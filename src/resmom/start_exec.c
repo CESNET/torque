@@ -121,6 +121,8 @@
 #include "mcom.h"
 #include "resource.h"
 
+#include "cloud.h"
+
 #ifdef ENABLE_CPA
 	#include "pbs_cpa.h"
 #endif
@@ -2303,7 +2305,7 @@ int TMomFinalizeChild(
     /* only giving ourselves 5 seconds to connect to qsub
    	 * and get term settings */
 
-    alarm(5);
+    alarm(120);
     
     /* once we connect to qsub and open a pty, the user can send us
 	   * a ctrl-c.  It is important that we block this until we exec()
@@ -5206,6 +5208,12 @@ void start_exec(
 			}
 		}	 /* END for (i) */
 	
+	if (is_cloud_job(pjob))
+	  {
+    log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"start_exec","Cloud job detected");
+    /*cloud_set_prerun(pjob);*/
+	  }
+
 	free_attrlist(&phead);
 	}	 /* END if (nodenum > 1) */
   else
@@ -5229,6 +5237,13 @@ void start_exec(
 	pjob->ji_stdout = -1;
 	pjob->ji_stderr = -1;
 	
+	if (is_cloud_job(pjob))
+	  {
+	  log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"start_exec","Cloud job detected");
+	  cloud_set_prerun(pjob);
+	  return;
+	  }
+
 	if (TMOMJobGetStartInfo(NULL, &TJE) == FAILURE)
 		{
 		sprintf(log_buffer, "ALERT:  cannot locate available job slot");

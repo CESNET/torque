@@ -1850,5 +1850,30 @@ job *find_job(
   return(pj);  /* may be NULL */
   }   /* END find_job() */
 
+
+/** Find job by name
+ *
+ * @param name Job name
+ * @return NULL if job not found or pointer to job struct
+ */
+job *find_job_by_name(char *name)
+  {
+  job *pj = NULL;
+
+  pj = (job *)GET_NEXT(svr_alljobs);
+
+  while (pj != NULL)
+    {
+    if (pj->ji_qs.ji_state != JOB_STATE_COMPLETE) /* ignore completed jobs */
+    if (pj->ji_wattr[(int)JOB_ATR_jobname].at_flags & ATR_VFLAG_SET)
+    if (!strcmp(name, pj->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str))
+      break;
+
+    pj = (job *)GET_NEXT(pj->ji_alljobs);
+    }
+
+  return pj;
+  }
+
 /* END job_func.c */
 

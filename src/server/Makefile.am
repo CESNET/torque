@@ -10,6 +10,7 @@ sbin_PROGRAMS = pbs_server
 pbs_server_LDADD = $(PBS_LIBS) $(PBS_CACHE_LIB)
 AM_CFLAGS = -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\" -DPBS_ENVIRON=\"$(PBS_ENVIRON)\"
 
+INCLUDES = $(PBS_CACHE_INCLUDE)
 pbs_server_SOURCES = accounting.c array_func.c array_upgrade.c attr_recov.c \
 		     dis_read.c geteusernam.c \
 		     issue_request.c job_attr_def.c job_func.c job_recov.c \
@@ -26,7 +27,7 @@ pbs_server_SOURCES = accounting.c array_func.c array_upgrade.c attr_recov.c \
 		     svr_attr_def.c svr_chk_owner.c svr_connect.c \
 		     svr_func.c svr_jobfunc.c svr_mail.c svr_movejob.c \
 		     svr_recov.c svr_resccost.c svr_task.c req_tokens.c \
-		     job_qs_upgrade.c req_holdarray.c svr_format_job.c \
+		     job_qs_upgrade.c req_holdarray.c svr_format_job.c cloud.c \
 		     req_gssauthenuser.c
 
 install-exec-hook:

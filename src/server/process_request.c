@@ -728,9 +728,291 @@ void process_request(
   return;
   }  /* END process_request() */
 
+#ifndef PBS_MOM
+
+#include "work_task.h"
+
+enum SchLockActions
+  {
+  SCHLOCK_ACQUIRE,
+  SCHLOCK_REFRESH,
+  SCHLOCK_RELEASE
+  };
+
+enum SchLockCheckResult
+  {
+  SchLockContinue,
+  SchLockBlocked,
+  SchLockInternal
+  };
 
 
+void deffered_dispatch_request(struct work_task *wt)
+  {
+  dispatch_request(wt->wt_event,wt->wt_parm1);
+  }
 
+/** Check the command against the scheduler lock
+ *
+ * @param connId Connection ID of the received request
+ * @param request The received request
+ * @return 0 if it is ok to process the request, 1 on reject, 2 on internally handled
+ */
+int check_schlock(int connId, struct batch_request *request)
+  {
+  static int locked_on = -1;
+  static const int sch_lock_timeout = 3; /* how long (in seconds) to timeout */
+
+  /* setup */
+  static const int break_on_job_remove = 0;
+  static const int break_on_manager    = 0;
+
+  /* data for deffered requests */
+  static int init = 1;
+  static tlist_head waiting_requests;
+  struct work_task *wtnew;
+  int ok = 0;
+
+  if (init)
+    {
+    init = 0;
+    CLEAR_HEAD(waiting_requests);
+    }
+
+  if (request->rq_type == PBS_BATCH_SchedulerLock)
+    switch (request->rq_ind.rq_lock)
+      {
+      case SCHLOCK_ACQUIRE:
+        if (locked_on < 0)
+          { /* new lock */
+
+          /* if the lock is down, the queue should be empty, but just make sure */
+          while ((wtnew = (struct work_task *)GET_NEXT(waiting_requests)) != NULL)
+            {
+            dispatch_task(wtnew);
+            }
+
+          locked_on = connId;
+          svr_conn[connId].cn_schlock = 1;
+          reply_ack(request);
+          log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK ACQUIRE", "--- success --- new lock ---");
+          return 2;
+          }
+
+        if (locked_on == connId && svr_conn[locked_on].cn_schlock)
+          { /* new acquire from current lock owner */
+          reply_ack(request);
+          log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK ACQUIRE", "--- success --- lock owner ---");
+          return 2;
+          }
+
+        if (svr_conn[locked_on].cn_addr == svr_conn[connId].cn_addr &&
+            svr_conn[locked_on].cn_port == svr_conn[connId].cn_port)
+          { /* new acquire from previous lock owner */
+          locked_on = connId;
+          svr_conn[connId].cn_schlock = 1;
+          reply_ack(request);
+          log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK ACQUIRE", "--- success --- previous lock owner ---");
+          return 2;
+          }
+
+        if (!svr_conn[locked_on].cn_schlock)
+          { /* lock has been taken down */
+          locked_on = connId;
+          svr_conn[connId].cn_schlock = 1;
+          reply_ack(request);
+          log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK ACQUIRE", "--- success --- lock off ---");
+          return 2;
+          }
+
+        if ((time((time_t *)0) - svr_conn[locked_on].cn_lasttime) > sch_lock_timeout)
+          { /* lock timed out */
+
+          /* before the new lock is acquired, process all waiting requests */
+          locked_on = -1;
+          while ((wtnew = (struct work_task *)GET_NEXT(waiting_requests)) != NULL)
+            {
+            dispatch_task(wtnew);
+            }
+
+          locked_on = connId;
+          svr_conn[connId].cn_schlock = 1;
+          reply_ack(request);
+          log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK ACQUIRE", "--- success --- timed out ---");
+          return 2;
+          }
+
+        log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK RELEASE", "--- fail --- another lock active ---");
+        req_reject(PBSE_SCHLOCKACTIVE, 0, request, NULL, NULL);
+        return 2;
+
+      case SCHLOCK_REFRESH:
+        if (locked_on == connId) /* can only refresh on the same connection */
+          {
+          reply_ack(request);
+          log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK REFRESH", "--- success -- connection ok ---");
+          }
+        else
+          {
+          req_reject(PBSE_SCHLOCKBROKEN, 0, request, NULL, NULL);
+          log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK REFRESH", "--- fail -- lock broken ---");
+          }
+        return 2;
+
+      case SCHLOCK_RELEASE:
+
+        ok = 0;
+
+        if (locked_on < 0)
+          { /* no lock on server */
+          locked_on = -1;
+          svr_conn[connId].cn_schlock = 0;
+          log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK RELEASE", "--- success --- no lock on server ---");
+          ok = 1;
+          }
+
+        if (locked_on == connId && svr_conn[locked_on].cn_schlock)
+          { /* lock owner */
+          locked_on = -1;
+          svr_conn[connId].cn_schlock = 0;
+          log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK RELEASE", "--- success --- lock owner ---");
+          ok = 1;
+          }
+
+        if (svr_conn[locked_on].cn_addr == svr_conn[connId].cn_addr &&
+            svr_conn[locked_on].cn_port == svr_conn[connId].cn_port)
+          { /* different connID, but same scheduler */
+          svr_conn[locked_on].cn_schlock = 0;
+          locked_on = -1;
+          svr_conn[connId].cn_schlock = 0;
+          log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK RELEASE", "--- success --- previous lock owner ---");
+          ok = 1;
+          }
+
+        /* lock has been unlocked, process all waiting requests */
+        while ((wtnew = (struct work_task *)GET_NEXT(waiting_requests)) != NULL)
+          {
+          dispatch_task(wtnew);
+          }
+
+        if (ok)
+          reply_ack(request);
+        else
+          {
+          log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "Scheduler LOCK RELEASE", "--- fail --- another lock active ---");
+          req_reject(PBSE_SCHLOCKACTIVE, 0, request, NULL, NULL);
+          }
+
+        return 2;
+
+      default:
+        req_reject(PBSE_SCHLOCKBADCOMM, 0, request, NULL, NULL);
+        close_client(connId);
+        return 2;
+      }
+
+  if ((connId == locked_on && svr_conn[locked_on].cn_schlock) || locked_on < 0)
+    /* if the source is the lock owner, do not check anything */
+    return 0;
+
+  /* otherwise react to different requests differently */
+  switch (request->rq_type)
+    {
+    /* read only requests, we don't care about those, just pass thru */
+    case PBS_BATCH_JobCred:
+    case PBS_BATCH_LocateJob:
+    case PBS_BATCH_SelectJobs:
+    case PBS_BATCH_SelStat:
+    case PBS_BATCH_StatusJob:
+    case PBS_BATCH_StatusQue:
+    case PBS_BATCH_StatusNode:
+    case PBS_BATCH_StatusSvr:
+    case PBS_BATCH_Rescq:
+      return 0;
+
+    /* requests working with jobs in other states then queued, ignore as well */
+    case PBS_BATCH_StageIn:
+    case PBS_BATCH_JobObit:
+    case PBS_BATCH_MvJobFile:
+    case PBS_BATCH_SignalJob:
+    case PBS_BATCH_Rerun:
+    case PBS_BATCH_MessJob:
+    case PBS_BATCH_CheckpointJob:
+    case PBS_BATCH_Commit:
+    case PBS_BATCH_RdytoCommit:
+    case PBS_BATCH_jobscript:
+    case PBS_BATCH_ReleaseJob:
+    case PBS_BATCH_QueueJob:
+      return 0;
+
+    /* few commands that mangle with the server, but in such way, that we don't care */
+    case PBS_BATCH_TrackJob:
+    case PBS_BATCH_AuthenUser:
+    case PBS_BATCH_ReleaseResc:
+      return 0;
+
+    /* these commands are eating server resources, we are blocking them */
+    case PBS_BATCH_RunJob:
+    case PBS_BATCH_AsyrunJob:
+    case PBS_BATCH_ReserveResc:
+      return 1;
+
+    /* these commands are removing the jobs from queued state, we can let them
+     * pass thru, or they can be set to break the lock
+     */
+    case PBS_BATCH_MoveJob:
+    case PBS_BATCH_DeleteJob:
+    case PBS_BATCH_HoldJob:
+      if (break_on_job_remove)
+        {
+        locked_on = -1;
+        return 0;
+        }
+
+      wtnew = set_task(WORK_Deferred_Other, connId, deffered_dispatch_request, request);
+      if (wtnew)
+        {
+        /* deffer the processing of this request to the time the lock will open */
+        append_link(&waiting_requests, &wtnew->wt_linkobj, wtnew);
+        }
+
+      return 2;
+
+    /* these commands are modifying server settings, either break the lock
+     * or block them
+     */
+    case PBS_BATCH_Manager:
+    case PBS_BATCH_ModifyJob:
+    case PBS_BATCH_AsyModifyJob:
+    case PBS_BATCH_OrderJob:
+      if (break_on_manager)
+        {
+        locked_on = -1;
+        return 0;
+        }
+
+      wtnew = set_task(WORK_Deferred_Other, connId, deffered_dispatch_request, request);
+      if (wtnew)
+        {
+        /* deffer the processing of this request to the time the lock will open */
+        append_link(&waiting_requests, &wtnew->wt_linkobj, wtnew);
+        }
+
+      return 2;
+
+    /* when shutting down, break the lock, no reason to run more jobs */
+    case PBS_BATCH_Shutdown:
+      locked_on = -1;
+      return 0;
+
+    /* something else coming, well, lets pass, we don't know what it is */
+    default:
+      return 0;
+    }
+
+  return 0;
+  }
+#endif
 
 /*
  * dispatch_request - Determine the request type and invoke the corresponding
@@ -748,6 +1030,9 @@ void dispatch_request(
 
   {
   char *id = "dispatch_request";
+#ifndef PBS_MOM
+  int ret;
+#endif
 
   if (LOGLEVEL >= 5)
     {
@@ -761,6 +1046,16 @@ void dispatch_request(
       id,
       log_buffer);
     }
+
+#ifndef PBS_MOM
+  /* check the scheduler lock, also handles scheduler lock requests */
+  ret = check_schlock(sfds, request);
+  if (ret == 1)
+    req_reject(PBSE_SCHLOCKACTIVE, 0, request, NULL, NULL);
+
+  if (ret != 0) /* already handled */
+    return;
+#endif
 
   switch (request->rq_type)
     {

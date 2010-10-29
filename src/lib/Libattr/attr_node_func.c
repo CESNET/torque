@@ -159,6 +159,7 @@ static struct node_state
   {INUSE_JOB,     ND_job_exclusive},
   {INUSE_JOBSHARE, ND_job_sharing},
   {INUSE_BUSY,    ND_busy},
+  {INUSE_FROZEN,  ND_frozen},
   {0,             NULL}
   };
 
@@ -235,6 +236,14 @@ int PNodeStateToString(
       strncat(Buf, ",", BufSize - strlen(Buf));
 
     strncat(Buf, ND_state_unknown, BufSize - strlen(Buf));
+    }
+
+  if (SBM & (INUSE_FROZEN))
+    {
+    if (Buf[0] != '\0')
+      strncat(Buf, ",", BufSize - strlen(Buf));
+
+    strncat(Buf, ND_frozen, BufSize - strlen(Buf));
     }
 
   if (Buf[0] == '\0')
@@ -363,11 +372,13 @@ encode_ntype(
 
   ntype = pattr->at_val.at_short & PBSNODE_NTYPE_MASK;
 
-  if (!ntype)
-    strcpy(ntype_str, ND_cluster);
-
-  else
-    strcpy(ntype_str, ND_timeshared);
+  switch (ntype)
+    {
+    case NTYPE_CLUSTER:     strcpy(ntype_str, ND_cluster);    break;
+    case NTYPE_TIMESHARED:  strcpy(ntype_str, ND_timeshared); break;
+    case NTYPE_CLOUD:       strcpy(ntype_str, ND_cloud);      break;
+    case NTYPE_VIRTUAL:     strcpy(ntype_str, ND_virtual);    break;
+    }
 
   pal = attrlist_create(aname, rname, (int)strlen(ntype_str) + 1);
 
@@ -836,6 +847,8 @@ static int set_nodeflag(
     *pflag = *pflag | INUSE_DOWN;
   else if (!strcmp(str, ND_reserve))
     *pflag = *pflag | INUSE_RESERVE;
+  else if (!strcmp(str, ND_frozen))
+    *pflag = *pflag | INUSE_FROZEN;
   else
     {
     rc = PBSE_BADNDATVAL;
@@ -1012,9 +1025,6 @@ int node_prop_list(
   return(rc);
   }  /* END node_prop_list() */
 
-
-
-
 /*
  * node_status_list - Either derive a "status list" attribute from the node
  *                 or update node's status list from attribute's status list.
@@ -1100,6 +1110,298 @@ int node_status_list(
   return(rc);
   }  /* END node_status_list() */
 
+
+/** Node additional properties list
+ *
+ * Either derive a "prop list" attribute from the node or update nodes prop list
+ * from attributes prop list.
+ */
+int node_adprop_list(
+
+  attribute *new, /*derive props into this attribute*/
+  void     *pnode, /*pointer to a pbsnode struct     */
+  int      actmode) /*action mode; "NEW" or "ALTER"   */
+
+  {
+  int   rc = 0;
+
+  struct pbsnode  *np;
+  attribute  temp;
+
+  np = (struct pbsnode*)pnode; /*because of at_action arg type*/
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+
+      /* if node has a property list, then copy array_strings    */
+      /* into temp to use to setup a copy, otherwise setup empty */
+
+      if (np->x_ad_properties != NULL)
+        {
+        /* setup temporary attribute with the array_strings */
+        /* from the node        */
+
+        temp.at_val.at_arst = np->x_ad_properties;
+        temp.at_flags = ATR_VFLAG_SET;
+        temp.at_type  = ATR_TYPE_ARST;
+
+        rc = set_arst(new, &temp, SET);
+        }
+      else
+        {
+        /* Node has no properties, setup empty attribute */
+
+        new->at_val.at_arst = 0;
+        new->at_flags       = 0;
+        new->at_type        = ATR_TYPE_ARST;
+        }
+
+      break;
+
+    case ATR_ACTION_ALTER:
+
+      /* update node with new attr_strings */
+
+      np->x_ad_properties = new->at_val.at_arst;
+
+      /* update number of properties listed in node */
+      /* does not include name and subnode property */
+
+      if (np->x_ad_properties)
+        np->xn_ad_prop = np->x_ad_properties->as_usedptr;
+      else
+        np->x_ad_properties = 0;
+
+      break;
+
+    default:
+
+      rc = PBSE_INTERNAL;
+
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }  /* END node_adprop_list() */
+
+
+/** Either derive a no_multinode attribute from the node or update node
+ *
+ * @param new
+ * @param pnode
+ * @param actmode
+ * @return
+ */
+int node_no_multinode(attribute *new, void *pnode, int actmode)
+  {
+  int rc = 0;
+  struct pbsnode  *np;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+      new->at_val.at_long  = np->nd_no_multinode;
+      new->at_flags       = ATR_VFLAG_SET;
+      new->at_type        = ATR_TYPE_LONG;
+      break;
+
+    case ATR_ACTION_ALTER:
+      np->nd_no_multinode = new->at_val.at_long;
+      break;
+
+    default:
+      rc = PBSE_INTERNAL;
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
+
+/** Either derive a no_starving_jobs attribute from the node or update node
+ *
+ * @param new
+ * @param pnode
+ * @param actmode
+ * @return
+ */
+int node_noautoresv(attribute *new, void *pnode, int actmode)
+  {
+  int rc = 0;
+  struct pbsnode  *np;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+      new->at_val.at_long  = np->nd_noautoresv;
+      new->at_flags       = ATR_VFLAG_SET;
+      new->at_type        = ATR_TYPE_LONG;
+      break;
+
+    case ATR_ACTION_ALTER:
+      np->nd_noautoresv = new->at_val.at_long;
+      break;
+
+    default:
+      rc = PBSE_INTERNAL;
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
+
+/** Either derive a cloud attribute from the node or update node's cloud
+ *  from attribute's list
+ *
+ *  @param new derive queue into this attribute
+ *  @param pnode pointer to a pbsnode struct
+ *  @param actmode NEW or ALTER
+ */
+int node_cloud(attribute *new, void *pnode, int actmode)
+  {
+  int              rc = 0;
+
+  struct pbsnode  *np;
+  attribute        temp;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+
+      /* if node has a queue, then copy string into temp  */
+      /* to use to setup a copy, otherwise setup empty   */
+
+      if (np->cloud != NULL)
+        {
+        /* setup temporary attribute with the string from the node */
+
+        temp.at_val.at_str = np->cloud;
+        temp.at_flags = ATR_VFLAG_SET;
+        temp.at_type  = ATR_TYPE_STR;
+
+        rc = set_note_str(new, &temp, SET); /* TODO change */
+        }
+      else
+        {
+        /* node has no properties, setup empty attribute */
+
+        new->at_val.at_str  = NULL;
+        new->at_flags       = 0;
+        new->at_type        = ATR_TYPE_STR;
+        }
+
+      break;
+
+    case ATR_ACTION_ALTER:
+
+      if (np->cloud != NULL)
+        {
+        free(np->cloud);
+
+        np->cloud = NULL;
+        }
+
+      /* update node with new string */
+
+      np->cloud = new->at_val.at_str;
+
+      new->at_val.at_str = NULL;
+
+      break;
+
+    default:
+
+      rc = PBSE_INTERNAL;
+
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
+
+
+/** Either derive a queue attribute from the node or update node's queue
+ *  from attribute's list
+ *
+ *  @param new derive queue into this attribute
+ *  @param pnode pointer to a pbsnode struct
+ *  @param actmode NEW or ALTER
+ */
+int node_queue(attribute *new, void *pnode, int actmode)
+  {
+  int              rc = 0;
+
+  struct pbsnode  *np;
+  attribute        temp;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+
+      /* if node has a queue, then copy string into temp  */
+      /* to use to setup a copy, otherwise setup empty   */
+
+      if (np->queue != NULL)
+        {
+        /* setup temporary attribute with the string from the node */
+
+        temp.at_val.at_str = np->queue;
+        temp.at_flags = ATR_VFLAG_SET;
+        temp.at_type  = ATR_TYPE_STR;
+
+        rc = set_note_str(new, &temp, SET); /* TODO change */
+        }
+      else
+        {
+        /* node has no properties, setup empty attribute */
+
+        new->at_val.at_str  = NULL;
+        new->at_flags       = 0;
+        new->at_type        = ATR_TYPE_STR;
+        }
+
+      break;
+
+    case ATR_ACTION_ALTER:
+
+      if (np->queue != NULL)
+        {
+        free(np->queue);
+
+        np->queue = NULL;
+        }
+
+      /* update node with new string */
+
+      np->queue = new->at_val.at_str;
+
+      new->at_val.at_str = NULL;
+
+      break;
+
+    default:
+
+      rc = PBSE_INTERNAL;
+
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
+
 /*
  * node_note - Either derive a note attribute from the node
  *             or update node's note from attribute's list.
@@ -1176,6 +1478,55 @@ int node_note(
   }  /* END node_note() */
 
 
+int set_queue_str(
+    struct attribute *attr,
+    struct attribute *new,
+    enum batch_op     op)
+  {
+  static char id[] = "set_queue_str";
+  size_t nsize;
+  int rc = 0;
+
+  assert(attr && new && new->at_val.at_str && (new->at_flags & ATR_VFLAG_SET));
+  nsize = strlen(new->at_val.at_str);    /* length of new note */
+
+  if (nsize > PBS_MAXQUEUENAME)
+    {
+    sprintf(log_buffer, "Warning: Client attempted to set queue with len (%d) > PBS_MAXQUEUENAME (%d)",
+            (int)nsize,
+            MAX_NOTE);
+
+    log_record(
+      PBSEVENT_SECURITY,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    rc = PBSE_BADNDATVAL;
+    }
+
+  if (strchr(new->at_val.at_str, '\n') != NULL)
+    {
+    sprintf(log_buffer, "Warning: Client attempted to set queue with a newline char");
+
+    log_record(
+      PBSEVENT_SECURITY,
+      PBS_EVENTCLASS_REQUEST,
+      id,
+      log_buffer);
+
+    rc = PBSE_BADNDATVAL;
+    }
+
+  if (rc != 0)
+    return(rc);
+
+  rc = set_str(attr, new, op);
+
+  return(rc);
+
+  }
+
 
 /*
  * a set_str() wrapper with sanity checks for notes
@@ -1230,6 +1581,7 @@ int set_note_str(
 
   return(rc);
   }  /* END set_note_str() */
+
 
 /* END attr_node_func.c */
 

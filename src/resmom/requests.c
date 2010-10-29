@@ -111,6 +111,7 @@
 #include "resmon.h"
 #include "net_connect.h"
 #include "utils.h"
+#include "cloud.h"
 #ifdef _CRAY
 #include <sys/category.h>
 #endif
@@ -644,6 +645,10 @@ static int return_file(
   struct batch_request *prq;
   int        rc = 0;
   int        seq = 0;
+
+  /*
+  if (is_cloud_job(pjob))
+    return 0;*/
 
   filename = std_file_name(pjob, which, &amt); /* amt is place holder */
 
@@ -1193,6 +1198,10 @@ void req_holdjob(
     {
     rc = PBSE_UNKJOBID;
     }
+  else if (is_cloud_job(pjob))
+    {
+    req_reject(PBSE_CLOUD_REQUEST,0,preq,mom_host,"cannot checkpoint job");    /* unable to start checkpoint */
+    }
   else
     {
     /* propagate servers hold state to job */
@@ -1240,6 +1249,11 @@ void req_checkpointjob(
     {
     rc = PBSE_UNKJOBID;
     req_reject(rc, 0, preq, mom_host, "job does not exist on mom");
+    }
+  else if (is_cloud_job(pjob))
+    {
+    rc = PBSE_CLOUD_REQUEST;
+    req_reject(rc, 0, preq, mom_host, "cannot checkpoint job");
     }
   else
     {
@@ -1366,6 +1380,12 @@ void req_messagejob(
   job  *pjob;
 
   pjob = find_job(preq->rq_ind.rq_message.rq_jid);
+
+  if (pjob && is_cloud_job(pjob))
+    {
+    ret = PBSE_CLOUD_REQUEST;
+    req_reject(ret, 0, preq, mom_host, "cannot message cloud jobs");
+    }
 
   if ((preq->rq_ind.rq_message.rq_file == PBS_BATCH_FileOpt_Default) ||
       (preq->rq_ind.rq_message.rq_file & PBS_BATCH_FileOpt_OFlg))

@@ -109,6 +109,7 @@
 #include "svrfunc.h"
 #include "net_connect.h"
 #include "pbs_proto.h"
+#include "cloud.h"
 
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -136,7 +137,7 @@ static void post_sendmom A_((struct work_task *));
 static int  svr_stagein A_((job *, struct batch_request *, int, int));
 static int  svr_strtjob2 A_((job *, struct batch_request *));
 static job *chk_job_torun A_((struct batch_request *, int));
-static int  assign_hosts A_((job *, char *, int, char *, char *));
+int  assign_hosts A_((job *, char *, int, char *, char *));
 
 /* Global Data Items: */
 
@@ -1019,7 +1020,10 @@ static int svr_strtjob2(
 
   /* send the job to MOM */
 
-  svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
+  if (is_cloud_job(pjob))
+    cloud_transition_into_prerun(pjob); /* FIXME META consider return value */
+  else
+    svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
 
   /* if job start timeout attribute is set use its value */
   
@@ -1369,6 +1373,7 @@ static job *chk_job_torun(
       (pjob->ji_qs.ji_state == JOB_STATE_EXITING) ||
       (pjob->ji_qs.ji_substate == JOB_SUBSTATE_STAGEGO) ||
       (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN)  ||
+      (pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD) ||
       (pjob->ji_qs.ji_substate == JOB_SUBSTATE_RUNNING))
     {
     /* FAILURE - job already started */
@@ -1539,7 +1544,7 @@ static job *chk_job_torun(
  * 3. use default (local system or a single node).
  */
 
-static int assign_hosts(
+int assign_hosts(
 
   job  *pjob,           /* I (modified) */
   char *given,          /* I (optional) list of requested hosts */
@@ -1641,12 +1646,28 @@ static int assign_hosts(
     hosttoalloc = PBS_DEFAULT_NODE;
     }
 
+  /* now we have a nodespec */
+  job_attr_def[(int)JOB_ATR_sched_spec].at_decode(
+               &pjob->ji_wattr[(int)JOB_ATR_sched_spec],
+               NULL,
+               NULL,
+               hosttoalloc); /* we don't really care if this fails */
+
   /* do we need to allocate the (cluster) node(s)? */
 
   if (svr_totnodes != 0)
     {
     if ((rc = is_ts_node(hosttoalloc)) != 0)
       {
+      /* cloud jobs support, analyze nodespec and switch virtual nodes
+       * to their cloud masters */
+      if (is_cloud_job(pjob))
+        {
+        log_record(PBSEVENT_SCHED,PBS_EVENTCLASS_REQUEST,
+                   "switch_nodespec_to_cloud","Detected cloud job, switching nodespec.");
+        hosttoalloc = switch_nodespec_to_cloud(pjob,hosttoalloc);
+        }
+
       rc = set_nodes(pjob, hosttoalloc, &list, FailHost, EMsg);
 
       set_exec_host = 1; /* maybe new VPs, must set */

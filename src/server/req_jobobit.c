@@ -108,6 +108,7 @@
 #include "svrfunc.h"
 #include "sched_cmds.h"
 #include "queue.h"
+#include "cloud.h"
 
 
 #define RESC_USED_BUF 2048
@@ -2593,9 +2594,79 @@ void req_jobobit(
     }
 
   /* What do we now do with the job... */
+  if (is_cloud_job(pjob))
+    {
+    job *ojob;
+    char * name;
 
-  if ((pjob->ji_qs.ji_substate != JOB_SUBSTATE_RERUN) &&
-      (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RERUN1))
+    log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "Cloud job obit received, purging cloud.");
+
+    /* job does not have name */
+    if ((pjob->ji_wattr[(int)JOB_ATR_jobname].at_flags & ATR_VFLAG_SET) == 0)
+      goto post_cloud;
+
+    name = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
+
+    cloud_transition_into_stopped(pjob);
+
+    /* all slave jobs that were running inside the cloud are definitely dead by now */
+    for (ojob = (job *)GET_NEXT(svr_alljobs);
+         ojob != NULL;
+         ojob = (job *)GET_NEXT(ojob->ji_alljobs))
+      {
+      resource * cluster;
+
+      if (ojob->ji_qs.ji_state == JOB_STATE_COMPLETE)
+        continue;
+
+      cluster = find_resc_entry(&ojob->ji_wattr[(int)JOB_ATR_resource],
+                            find_resc_def(svr_resc_def, "cluster", svr_resc_size));
+
+      if (cluster == NULL)
+        {
+        log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Not killing, not a cloud request.");
+        continue;
+        }
+
+
+      if ((cluster->rs_value.at_flags & ATR_VFLAG_SET) == 0)
+        {
+        log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Not killing, not a cloud request.");
+        continue;
+        }
+
+      if (strncmp(cluster->rs_value.at_val.at_str,name,strlen(name)) != 0)
+        {
+        log_event(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Not killing, does not belong to killed cloud.");
+        continue;
+        }
+
+      log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, ojob->ji_qs.ji_jobid, "Purging job from cloud.");
+
+      svr_setjobstate(ojob, JOB_STATE_COMPLETE, JOB_SUBSTATE_COMPLETE);
+      ptask = set_task(WORK_Immed, 0, on_job_exit, (void *)ojob);
+
+      if (ptask != NULL)
+        {
+        append_link(&ojob->ji_svrtask, &ptask->wt_linkobj, ptask);
+
+        if (LOGLEVEL >= 4)
+          {
+          log_event(
+            PBSEVENT_ERROR | PBSEVENT_JOB,
+            PBS_EVENTCLASS_JOB,
+            ojob->ji_qs.ji_jobid,
+            "on_job_exit task assigned to job");
+          }
+        }
+      }  /* END for (ojob) */
+    }
+
+post_cloud:
+
+  if (((pjob->ji_qs.ji_substate != JOB_SUBSTATE_RERUN) &&
+      (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RERUN1)) ||
+      is_cloud_job(pjob))
     {
     /* If job is terminating (not rerun), */
     /*  update state and send mail        */
@@ -2667,7 +2738,6 @@ void req_jobobit(
     }
   else
     {
-
     /* Rerunning job, if not checkpointed, clear "resources_used and requeue job */
 
     if ((pjob->ji_qs.ji_svrflags & (JOB_SVFLG_CHECKPOINT_FILE | JOB_SVFLG_CHECKPOINT_MIGRATEABLE)) == 0)

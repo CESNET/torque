@@ -105,6 +105,7 @@
 #include "net_connect.h"
 #include "pbs_nodes.h"
 #include "log.h"
+#include "cloud.h"
 
 /* Global Data Items: */
 
@@ -130,6 +131,7 @@ int status_attrib A_((svrattrl *, attribute_def *, attribute *, int, int, tlist_
 extern int   svr_connect A_((pbs_net_t, unsigned int, void (*)(int), enum conn_type));
 extern int status_nodeattrib(svrattrl *, attribute_def *, struct pbsnode *, int, int, tlist_head *, int*);
 extern int hasprop(struct pbsnode *, struct prop *);
+extern int hasadprop(struct pbsnode *, struct prop *);
 extern void rel_resc(job*);
 
 /* Private Data Definitions */
@@ -811,6 +813,9 @@ static void stat_update(
       {
       if ((pjob = find_job(pstatus->brp_objname)))
         {
+        if (is_cloud_job(pjob))
+          cloud_transition_into_running(pjob);
+
         sattrl = (svrattrl *)GET_NEXT(pstatus->brp_attr);
 
         oldsid = pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long;
@@ -1195,6 +1200,7 @@ void req_stat_node(
       {
       type = 2;
       props.name = name + 1;
+      props.value = NULL;
       props.mark = 1;
       props.next = NULL;
       }
@@ -1231,7 +1237,7 @@ void req_stat_node(
       {
       pnode = pbsndmast[i];
 
-      if ((type == 2) && !hasprop(pnode, &props))
+      if ((type == 2) && !(hasprop(pnode, &props) || hasadprop(pnode, &props)))
         continue;
 
       if ((rc = status_node(pnode, preq, &preply->brp_un.brp_status)) != 0)

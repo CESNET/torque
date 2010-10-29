@@ -68,6 +68,7 @@ libtorque_la_SOURCES = ../Libcsv/csv.c ../Libdis/dis.c \
 		    ../Libifl/pbsD_submit.c  ../Libifl/PBSD_submit_caps.c \
 		    ../Libifl/pbsD_termin.c ../Libifl/pbs_geterrmg.c \
 		    ../Libifl/pbs_statfree.c ../Libifl/rpp.c \
+		    ../Libifl/pbsD_lock.c ../Libifl/enc_Lock.c ../Libifl/dec_Lock.c \
 		    ../Libifl/tcp_dis.c ../Libifl/tm.c ../Libifl/list_link.c \
 		    ../Libcmds/ck_job_name.c ../Libcmds/cnt2server.c \
 		    ../Libcmds/cvtdate.c ../Libcmds/get_server.c \

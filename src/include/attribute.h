@@ -275,6 +275,7 @@ typedef struct attribute_def attribute_def;
 #define ATR_VFLAG_MODIFY 0x02 /* value has been modified */
 #define ATR_VFLAG_DEFLT  0x04 /* value is default value */
 #define ATR_VFLAG_SEND   0x08 /* value to be sent to server */
+#define ATR_VFLAG_FORCED 0x10 /* this value is forced by config */
 
 #define ATR_TRUE  "True"
 #define ATR_FALSE "False"
@@ -451,13 +452,23 @@ extern int      set_node_ntype  A_((attribute*, attribute*, enum batch_op));
 extern int      set_node_props  A_((attribute*, attribute*, enum batch_op));
 extern int      set_null A_((attribute*, attribute*, enum batch_op));
 extern int      node_state      A_((attribute*, void*, int));
+extern int node_resources_action(attribute*, void*, int);
 extern int      node_np_action  A_((attribute*, void*, int));
 extern int      node_ntype A_((attribute*, void*, int));
 extern int      node_prop_list A_((attribute*, void*, int));
+extern int      node_adprop_list (attribute*, void*, int);
 extern int      node_status_list A_((attribute*, void*, int));
 extern int      node_note        A_((attribute*, void*, int));
+extern int node_queue(attribute *new, void *pnode, int actmode);
+extern int node_cloud(attribute *new, void *pnode, int actmode);
+extern int node_no_multinode(attribute *new, void *pnode, int actmode);
+extern int node_noautoresv(attribute *new, void *pnode, int actmode);
+extern int 	 node_ncpu(attribute*, void*, int);
+extern int		 node_mem(attribute*, void*, int);
 extern int      set_note_str     A_((attribute *attr, attribute *new, enum batch_op));
+extern int set_queue_str(struct attribute *attr, struct attribute *new, enum batch_op op);
 extern void     replace_attr_string A_((attribute*, char*));
+extern int count_resc(attribute*);
 
 /* Token manipulation functions */
 

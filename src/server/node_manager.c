@@ -116,6 +116,10 @@
 #include "resmon.h"
 #include "mcom.h"
 #include "utils.h"
+#include "cloud.h"
+#include "api.h"
+
+#include "assertions.h"
 
 #define IS_VALID_STR(STR)  (((STR) != NULL) && ((STR)[0] != '\0'))
 
@@ -173,6 +177,7 @@ extern int            SvrNodeCt;
 #endif
 
 int hasprop(struct pbsnode *, struct prop *);
+int hasadprop(struct pbsnode *, struct prop *);
 void send_cluster_addrs(struct work_task *);
 int add_cluster_addrs(int);
 int is_compose(int, int);
@@ -180,6 +185,8 @@ int add_job_to_node(struct pbsnode *,struct pbssubn *,short,job *,int);
 int node_satisfies_request(struct pbsnode *,char *);
 int reserve_node(struct pbsnode *,short,job *,char *,struct howl **);
 int build_host_list(struct howl **,struct pbssubn *,struct pbsnode *);
+void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp,
+       enum batch_op op);
 
 /*
 
@@ -348,6 +355,8 @@ void update_node_state(
     np->nd_state &= ~INUSE_BUSY;
 
     np->nd_state &= ~INUSE_UNKNOWN;
+
+    np->nd_state &= ~INUSE_FROZEN;
 
 #ifdef BROKENVNODECHECKS
 
@@ -1263,6 +1272,73 @@ int is_stat_get(
 
           }
       }
+    else
+      {
+      resource_def *def;
+      resource *res;
+      int store = 0;
+      char *target_name = ret_info, *c = strchr(ret_info,'=');
+      if (c != NULL)
+        *c = '\0';
+
+      /* check if the resource is in the list specified in ATTR_ResourcesToStore */
+      if (server.sv_attr[SRV_ATR_ResourcesToStore].at_flags & ATR_VFLAG_SET)
+        {
+        int i;
+        struct array_strings *tmp =
+            server.sv_attr[SRV_ATR_ResourcesToStore].at_val.at_arst;
+
+        for (i = 0; i < tmp->as_usedptr; i++)
+          {
+          if (strcmp(tmp->as_string[i],ret_info) == 0)
+            {
+            store = 1;
+            break;
+            }
+          }
+        }
+
+      /* check if the resource is mapped to some other name */
+      if (store && (server.sv_attr[SRV_ATR_ResourcesMappings].at_flags & ATR_VFLAG_SET))
+        {
+        int i;
+        struct array_strings *tmp =
+            server.sv_attr[SRV_ATR_ResourcesMappings].at_val.at_arst;
+
+        for (i = 0; i < tmp->as_usedptr; i++)
+          {
+          if (strncmp(tmp->as_string[i],ret_info,strlen(ret_info)) == 0)
+            {
+            char *new_name = strchr(tmp->as_string[i],'=');
+
+            if (new_name == NULL) /* mallformed value */
+              continue;
+
+            target_name = ++new_name;
+            }
+          }
+        }
+
+      if (store)
+        {
+        def = find_resc_def(svr_resc_def,target_name,svr_resc_size);
+        if (def != 0)
+          {
+          res = find_resc_entry(&np->attributes[0],def);
+          if (res != 0)
+            {
+            if ((res->rs_value.at_flags & ATR_VFLAG_FORCED) == 0)
+              def->rs_decode(&res->rs_value,0,0,c+1);
+            }
+          else
+            {
+            res = add_resource_entry(&np->attributes[0],def);
+            def->rs_decode(&res->rs_value,0,0,c+1);
+            res->rs_value.at_flags &= ~ATR_VFLAG_FORCED;
+            }
+          }
+        }
+      }
     free(ret_info);
     }    /* END while (rc != DIS_EOD) */
 
@@ -1460,6 +1536,9 @@ void ping_nodes(
 
   static  int            startcount = 0;
 
+  void *ptable;
+  char *value;
+
   extern int RPPConfigure(int, int);
   extern int RPPReset(void);
 
@@ -1485,6 +1564,48 @@ void ping_nodes(
     PBS_EVENTCLASS_REQUEST,
     id,
     log_buffer);
+
+  /* read magrathea status from pbs_cache
+   * and set INUSE_FROZEN for frozen nodes
+   * flag is cleared only for nodes which are not down,
+   * otherwise is cleared when ping from node arrives
+   */
+  ptable=cache_hash_init();
+  if (cache_hash_fill_local("magrathea",ptable)==0)
+    {
+    for (i=0; i< svr_totnodes; i++)
+      {
+      value=cache_hash_find(ptable,pbsndmast[i]->nd_name);
+      if (value!=NULL)
+        {
+        struct pbsnode *nd;
+        nd=pbsndmast[i];
+
+        if (strstr(value,"frozen")!=NULL)
+          {
+          if (nd->nd_state & INUSE_FROZEN)
+            {
+            log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, nd->nd_name, "frozen flag already set");
+            }
+          else
+            {
+            nd->nd_state |= INUSE_FROZEN;
+            log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, nd->nd_name, "frozen flag set");
+            }
+          }
+        else
+          {
+          if ((nd->nd_state & INUSE_FROZEN))
+            {
+            nd->nd_state &= ~(INUSE_FROZEN);
+            log_event(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, nd->nd_name, "frozen flag removed");
+            }
+          }
+        free(value);
+        }
+      }
+    }
+
 
   /* change RPP to report node state quickly */
 
@@ -1709,7 +1830,7 @@ void check_nodes(
     {
     np = pbsndmast[i];
 
-    if (np->nd_state & (INUSE_DELETED | INUSE_DOWN))
+    if (np->nd_state & (INUSE_DELETED | INUSE_DOWN | INUSE_FROZEN))
       continue;
 
     if (np->nd_lastupdate < (time_now - chk_len))
@@ -1979,7 +2100,7 @@ found:
 
       /* CLUSTER_ADDRS successful */
 #endif
-      node->nd_state &= ~(INUSE_NEEDS_HELLO_PING);
+      node->nd_state &= ~(INUSE_NEEDS_HELLO_PING|INUSE_FROZEN|INUSE_DOWN);
 
       break;
 
@@ -2314,6 +2435,10 @@ static void free_prop(
     prop = pp->next;
 
     free(pp->name);
+
+    if (pp->value)
+      free(pp->value);
+
     free(pp);
     }  /* END for (pp) */
 
@@ -2400,6 +2525,13 @@ int hasprop(
         break;  /* found it */
       }
 
+    if (pp == NULL) /* if its not a normal property, check aditional properties */
+    for (pp = pnode->x_ad_prop; pp != NULL; pp = pp->next)
+      {
+      if (strcmp(pp->name, need->name) == 0)
+        break; /* found it */
+      }
+
     if (pp == NULL)
       {
       return(0);
@@ -2410,8 +2542,32 @@ int hasprop(
   }  /* END hasprop() */
 
 
+/** Look through the additional property list and make sure that all those makred are contained in the node
+ *
+ */
+int hasadprop(struct pbsnode *pnode, struct prop *props)
+  {
+  struct prop *need;
 
+  for (need = props; need != NULL; need = need->next)
+    {
+    struct prop *pp;
 
+    if (need->mark == 0)
+      continue;
+
+    for (pp = pnode->x_ad_prop; pp != NULL; pp = pp->next)
+      {
+      if (strcmp(pp->name, need->name) == 0)
+        break;
+      }
+
+    if (pp == NULL)
+      return 0;
+    }
+
+  return 1;
+  }
 
 /*
  * see if node has the number of processors required
@@ -2522,7 +2678,8 @@ static int search(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype == NTYPE_CLUSTER)
+    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+        || pnode->nd_ntype == NTYPE_CLOUD)
       {
       if (pnode->nd_flag != okay)
         {
@@ -2539,7 +2696,7 @@ static int search(
               continue;
       */
 
-      if (!hasprop(pnode, glorf))
+      if (!(hasprop(pnode, glorf) || hasadprop(pnode, glorf)))
         continue;
 
       if ((skip == SKIP_NONE) || (skip == SKIP_NONE_REUSE))
@@ -2591,7 +2748,8 @@ static int search(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype == NTYPE_CLUSTER)
+    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+        || pnode->nd_ntype == NTYPE_CLOUD)
       {
       if (pnode->nd_flag != thinking)
         {
@@ -2610,7 +2768,7 @@ static int search(
           (vpreq < (pnode->nd_nsnfree + pnode->nd_nsnshared)))
         continue;
 
-      if (!hasprop(pnode, glorf))
+      if (!(hasprop(pnode, glorf) || hasadprop(pnode, glorf)))
         continue;
 
       pnode->nd_flag = conflict;
@@ -2793,6 +2951,18 @@ static int proplist(
           return(1);
           }
         }
+      /* check if it is a known resource */
+      else if (find_resc_def(svr_resc_def,pname,svr_resc_size) != NULL)
+        {
+        pequal++;
+
+        pp = (struct prop *)malloc(sizeof(struct prop));
+        pp->mark = 0; /* TODO for now resources are marked not to be checked */
+        pp->name = strdup(pname);
+        pp->value = strdup(pequal);
+        pp->next = *plist;
+        *plist = pp;
+        }
       else
         {
         return(1); /* not recognized - error */
@@ -2804,6 +2974,7 @@ static int proplist(
 
       pp->mark = 1;
       pp->name = strdup(pname);
+      pp->value = NULL;
       pp->next = *plist;
 
       *plist = pp;
@@ -2890,9 +3061,10 @@ static int listelem(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype == NTYPE_CLUSTER)
+    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+        || pnode->nd_ntype == NTYPE_CLOUD)
       {
-      if (hasprop(pnode, prop) && hasppn(pnode, node_req, SKIP_NONE))
+      if ((hasprop(pnode, prop) || hasadprop(pnode, prop)) && hasppn(pnode, node_req, SKIP_NONE))
         hit++;
 
       if (hit == num)
@@ -2949,72 +3121,6 @@ done:
 
   return(ret);
   }  /* END listelem() */
-
-
-
-
-
-/*
-** Add the "global" spec to every sub-spec in "spec".
-**      RETURNS:  allocated string buffer (must be freed externally)
-*/
-
-static char *mod_spec(
-
-  char *spec,    /* I */
-  char *global)  /* I */
-
-  {
-  char  *line;
-  char *cp;
-  int    len;
-  int    nsubspec;
-
-  nsubspec = 1;
-
-  for (cp = spec;*cp != '\0';cp++)
-    {
-    if (*cp == '+')
-      {
-      nsubspec++;
-      }
-    }
-
-  len = strlen(global);
-
-  line = malloc(nsubspec * (len + 1) + strlen(spec) + 1);
-
-  if (line == NULL)
-    {
-    /* FAILURE */
-
-    return(NULL);
-    }
-
-  cp = line;
-
-  while (*spec)
-    {
-    if (*spec == '+')
-      {
-      *cp++ = ':';
-
-      strcpy(cp, global);
-
-      cp += len;
-      }
-
-    *cp++ = *spec++;
-    }
-
-  *cp++ = ':';
-
-  strcpy(cp, global);
-
-  return(line);
-  }  /* END mod_spec() */
-
-
 
 
 /* cntjons - count jobs on (shared) nodes */
@@ -3176,7 +3282,159 @@ int MSNPrintF(
   }  /* END MSNPrintF() */
 
 
+/** Count the parts in a nodespec
+ *
+ * (Only works for local specs)
+ *
+ * @param spec Nodespec to parse
+ * @return Count of parts
+ */
+static int nodespec_part_count(const char *spec)
+  {
+  int result = 1;
 
+  dbg_precondition(spec != NULL, "This function does not accept NULL");
+
+  while (*spec != '\0')
+    {
+    if (*spec == '+')
+      result++;
+    spec++;
+    }
+
+  return result;
+  }
+
+/** Append requirements to each part of a spec
+ *
+ * @param spec the spec to be modified
+ * @param app requirements to be appended
+ * @return Modified nodespec
+ */
+static char *nodespec_app(const char *spec, const char *app)
+  {
+  char *cp;
+  char *result;
+
+  result = malloc(nodespec_part_count(spec) * strlen(app+1) + strlen(spec) + 1);
+  if (result == NULL) /* alloc fail */
+    return NULL;
+
+  cp = result;
+
+  while (*spec)
+    {
+    if (*spec == '+') /* add the requirements before each '+' */
+      {
+      *cp++ = ':';
+
+      strcpy(cp, app);
+
+      cp += strlen(app);
+      }
+
+    *cp++ = *spec++;
+    }
+
+  *cp++ = ':'; /* and also after the last part of the spec */
+
+  strcpy(cp, app);
+
+  return(result);
+  }  /* END nodespec_app() */
+
+/** Expand nodespec
+ *
+ * Add the global nodespec part to local parts of nodespec and determine exclusivity.
+ *
+ * @param spec The spec to be parsed
+ * @param exclusive 0 if shared, 1 if exclusive, 2 if node exclusive
+ * @return NULL on failure or allocated modified spec
+ */
+static char *nodespec_expand(const char *spec, int *exclusive)
+  {
+  char *result, *globs, *cp, *tmp;
+  static char shared[] = "shared"; /* shared */
+  static char excl[] = "excl"; /* node exclusive */
+
+  result = strdup(spec);
+  if (result == NULL) /* alloc failure */
+    return NULL;
+
+  if ((globs = strchr(result, '#')) != NULL)
+    /*find the first #, everything behind is global nodespec */
+    {
+    *globs++ = '\0';
+
+    globs = strdup(globs);
+    if (globs == NULL) /* alloc failure */
+      {
+      free(result);
+      return NULL;
+      }
+
+    /* glob now stores the global part of the nodespec
+     * - go thru each part of the global spec and append
+     */
+    while ((cp = strrchr(globs, '#')) != NULL)
+      {
+      *cp++ = '\0';
+
+      if (!strcmp(cp, shared)) /* #shared */
+        {
+        *exclusive = 0;
+        continue;
+        }
+
+      if (!strcmp(cp, excl)) /* #excl */
+        {
+        *exclusive = 1;
+        continue;
+        }
+
+      tmp = nodespec_app(result, cp);
+      if (tmp == NULL) /* alloc failure */
+        {
+        free(result);
+        free(globs);
+        return NULL;
+        }
+
+      free(result);
+      result = tmp;
+      }
+
+    /* now parse the first part of the global nodespec */
+    if (!strcmp(globs, shared)) /* #shared */
+      {
+      *exclusive = 0;
+      free(globs);
+      return result;
+      }
+
+    if (!strcmp(globs, excl)) /* #excl */
+      {
+      *exclusive = 1;
+      free(globs);
+      return result;
+      }
+
+    tmp = nodespec_app(result, globs);
+    if (tmp == NULL) /* alloc failure */
+      {
+      free(result);
+      free(globs);
+      return NULL;
+      }
+
+    free(result);
+    result = tmp;
+
+    free(globs);
+    }  /* END if ((globs = strchr(spec,'#')) != NULL) */
+
+  return result;
+  }
 
 
 /*
@@ -3195,6 +3453,7 @@ static int node_spec(
   int    early,      /* I (boolean) */
   int    exactmatch, /* I (boolean) - NOT USED */
   char  *ProcBMStr,  /* I */
+  job   *pjob,       /* O (optional) */
   char  *FailNode,   /* O (optional,minsize=1024) */
   char  *EMsg)       /* O (optional,minsize=1024) */
 
@@ -3204,10 +3463,9 @@ static int node_spec(
   struct pbsnode *pnode;
 
   struct pbssubn *snp;
-  char *str, *globs, *cp, *hold;
+  char *str;
   int  i, num;
   int  rv;
-  static char shared[] = "shared";
 
   extern int PNodeStateToString(int, char *, int);
 
@@ -3219,132 +3477,62 @@ static int node_spec(
 
   if (LOGLEVEL >= 6)
     {
-    sprintf(log_buffer, "entered spec=%.4000s",
-      spec);
-
-    log_record(
-      PBSEVENT_SCHED,
-      PBS_EVENTCLASS_REQUEST,
-      id,
-      log_buffer);
-
-    DBPRT(("%s\n",
-      log_buffer));
+    sprintf(log_buffer, "entered spec=%.4000s", spec);
+    log_record(PBSEVENT_SCHED, PBS_EVENTCLASS_REQUEST, id, log_buffer);
+    DBPRT(("%s\n", log_buffer));
     }
 
   exclusive = 1; /* by default, nodes (VPs) are requested exclusively */
+  /* expand the global reqs into the local parts */
+  spec = nodespec_expand(spec,&exclusive);
 
-  spec = strdup(spec);
-
-  if (spec == NULL)
+  if (pjob != NULL) /* store the expanded nodespec */
     {
-    /* FAILURE */
+    if (pjob->ji_expanded_spec != NULL)
+      free(pjob->ji_expanded_spec);
+    pjob->ji_expanded_spec = strdup(spec);
+    }
 
+  if (spec == NULL) /* memory alloc fail */
+    {
     sprintf(log_buffer,"cannot alloc memory");
-
     if (LOGLEVEL >= 1)
-      {
-      log_record(
-        PBSEVENT_SCHED,
-        PBS_EVENTCLASS_REQUEST,
-        id,
-        log_buffer);
-      }
+      log_record(PBSEVENT_SCHED, PBS_EVENTCLASS_REQUEST, id, log_buffer);
 
     if (EMsg != NULL)
-      {
       strncpy(EMsg,log_buffer,1024);
-      }
 
     return(-1);
     }
 
-  if ((globs = strchr(spec, '#')) != NULL)
-    {
-    *globs++ = '\0';
-
-    globs = strdup(globs);
-
-    while ((cp = strrchr(globs, '#')) != NULL)
-      {
-      *cp++ = '\0';
-
-      if (strcmp(cp, shared) != 0)
-        {
-        hold = mod_spec(spec, cp);
-
-        free(spec);
-
-        spec = hold;
-        }
-      else
-        {
-        exclusive = 0;
-        }
-      }
-
-    if (strcmp(globs, shared) != 0)
-      {
-      hold = mod_spec(spec, globs);
-
-      free(spec);
-
-      spec = hold;
-      }
-    else
-      {
-      exclusive = 0;
-      }
-
-    free(globs);
-    }  /* END if ((globs = strchr(spec,'#')) != NULL) */
-
   str = spec;
-
+  /* count total nodes in the request */
   num = ctnodes(str);
 
-  if (num > svr_clnodes)
+  if (num > svr_clnodes) /* the request is for more nodes then the server has */
     {
-    /* FAILURE */
-
     free(spec);
 
-    sprintf(log_buffer, "job allocation request exceeds available cluster nodes, %d requested, %d available",
-      num,
-      svr_clnodes);
+    sprintf(log_buffer, "job allocation request exceeds available cluster"
+            " nodes, %d requested, %d available", num, svr_clnodes);
 
     if (LOGLEVEL >= 6)
-      {
-      log_record(
-        PBSEVENT_SCHED,
-        PBS_EVENTCLASS_REQUEST,
-        id,
-        log_buffer);
-      }
+      log_record(PBSEVENT_SCHED, PBS_EVENTCLASS_REQUEST, id, log_buffer);
 
     if (EMsg != NULL)
-      {
       strncpy(EMsg, log_buffer, 1024);
-      }
 
     return(-1);
     }
 
   if (LOGLEVEL >= 6)
     {
-    sprintf(log_buffer, "job allocation debug: %d requested, %d svr_clnodes, %d svr_totnodes",
-      num,
-      svr_clnodes,
-      svr_totnodes);
+    sprintf(log_buffer, "job allocation debug: %d requested, %d svr_clnodes,"
+            " %d svr_totnodes", num, svr_clnodes, svr_totnodes);
 
-    log_record(
-      PBSEVENT_SCHED,
-      PBS_EVENTCLASS_REQUEST,
-      id,
-      log_buffer);
+    log_record(PBSEVENT_SCHED, PBS_EVENTCLASS_REQUEST, id, log_buffer);
 
-    DBPRT(("%s\n",
-      log_buffer));
+    DBPRT(("%s\n", log_buffer));
     }
 
   /*
@@ -3412,7 +3600,8 @@ static int node_spec(
         }
       }
 
-    if (pnode->nd_ntype == NTYPE_CLUSTER)
+    if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+        || pnode->nd_ntype == NTYPE_CLOUD)
       {
       /* configured node located */
 
@@ -3530,7 +3719,8 @@ static int node_spec(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_ntype != NTYPE_CLUSTER)
+    if (pnode->nd_ntype != NTYPE_CLUSTER && pnode->nd_ntype != NTYPE_VIRTUAL
+        && pnode->nd_ntype != NTYPE_CLOUD)
       {
       /* node is ok */
 
@@ -3882,8 +4072,6 @@ int reserve_node(
 #endif /* GEOMETRY_REQUESTS */
 
 
-
-
 /**
  * adds this job to the node's list of jobs
  * checks to be sure not to add duplicates
@@ -3940,19 +4128,19 @@ int add_job_to_node(
     jp->next = snp->jobs;
     snp->jobs = jp;
     jp->job = pjob;
+    jp->order = pnode->nd_order;
+
     pnode->nd_nsnfree--;            /* reduce free count */
+    adjust_resources_use(pnode,jp,INCR);
 
     /* if no free VPs, set node state */
-    if (pnode->nd_nsnfree <= 0)     
-      pnode->nd_state = newstate;
+    /* if (pnode->nd_nsnfree <= 0) TODO quick fix */
+    pnode->nd_state = newstate;
 
     if (snp->inuse == INUSE_FREE)
-      {
       snp->inuse = newstate;
-
-      if (!exclusive)
-        pnode->nd_nsnshared++;
-      }
+    if (snp->inuse & INUSE_JOBSHARE)
+      pnode->nd_nsnshared++;
     }
 
   /* decrement the amount of nodes needed */
@@ -4067,7 +4255,7 @@ int set_nodes(
 
   /* allocate nodes */
 
-  if ((i = node_spec(spec, 1, 1, ProcBMStr, FailHost, EMsg)) == 0) /* check spec */
+  if ((i = node_spec(spec, 1, 1, ProcBMStr, pjob, FailHost, EMsg)) == 0) /* check spec */
     {
     /* no resources located, request failed */
 
@@ -4161,8 +4349,8 @@ int set_nodes(
     if (LOGLEVEL >= 1)
       {
       sprintf(log_buffer, "no nodes can be allocated to job %s",
-        pjob->ji_qs.ji_jobid);
 
+        pjob->ji_qs.ji_jobid);
       log_record(
         PBSEVENT_SCHED,
         PBS_EVENTCLASS_REQUEST,
@@ -4275,7 +4463,7 @@ int node_avail_complex(
 
   holdnum = svr_numnodes;
 
-  ret = node_spec(spec, 1, 0, NULL, NULL, NULL);
+  ret = node_spec(spec, 1, 0, NULL, NULL, NULL, NULL);
 
   svr_numnodes = holdnum;
 
@@ -4366,7 +4554,8 @@ int node_avail(
       if (pn->nd_state & INUSE_DELETED)
         continue;
 
-      if ((pn->nd_ntype == NTYPE_CLUSTER) && hasprop(pn, prop))
+      if ((pn->nd_ntype == NTYPE_CLUSTER || pn->nd_ntype == NTYPE_VIRTUAL
+          || pn->nd_ntype == NTYPE_CLOUD) && (hasprop(pn, prop) || hasadprop(pn, prop)))
         {
         if (pn->nd_state & (INUSE_OFFLINE | INUSE_DOWN))
           ++xdown;
@@ -4463,7 +4652,7 @@ int node_reserve(
     return(-1);
     }
 
-  if ((ret_val = node_spec(nspec, 0, 0, NULL, NULL, NULL)) >= 0)
+  if ((ret_val = node_spec(nspec, 0, 0, NULL, NULL, NULL, NULL)) >= 0)
     {
     /*
     ** Zero or more of the needed Nodes are available to be
@@ -4591,8 +4780,114 @@ find_ts_node(void)
   return(NULL);
   }  /* END find_ts_node() */
 
+/** Adjust the resources use on a node
+ *
+ * @param pnode Node with the resources
+ * @param jp Job info
+ * @param op Operation to do (increment, decrement)
+ */
+void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp,
+       enum batch_op op)
+  {
+  struct prop *prop = NULL, *iter = NULL;
+  char *str, *spec, *token;
+  int i,count,num;
 
+  if (jp->job->ji_expanded_spec == NULL)
+    return;
 
+  spec = strdup(jp->job->ji_expanded_spec);
+  token = spec;
+
+  /* determine the count of nodespec parts */
+  for (i = 1; token != NULL; i++)
+    {
+    token = strchr(token,'+');
+    if (token != NULL)
+      token++;
+    }
+
+  count = i;
+
+  token = spec;
+
+  /* record the starts of the node specs */
+  for (i = 1; token != NULL; i++)
+    {
+    if (i == jp->order)
+      {
+      str = token;
+      }
+
+    token = strchr(token,'+');
+    if (token != NULL)
+      {
+      *token = '\0';
+      token++;
+      }
+    }
+
+  if ((i = number(&str, &num)) == -1) /* get number */
+    return;
+
+  if (i == 0)
+    {
+    /* number exists */
+    if (*str == ':')
+      {
+      /* there are properties */
+      (str)++;
+
+      if (proplist(&str, &prop, &num))
+        return;
+      }
+    }
+  else
+    {
+    /* no number */
+    if (proplist(&str, &prop, &num))
+      return;
+    }
+
+  iter = prop;
+  while (iter != NULL)
+    {
+    resource_def *defin;
+    resource *val;
+    resource decoded;
+    int ret;
+
+    if (iter->value != NULL)
+    /* it is a resource */
+      if ((defin = find_resc_def(svr_resc_def,iter->name,svr_resc_size)))
+      /* it is a known resource */
+        {
+        ret = defin->rs_decode(&decoded.rs_value,0,iter->name,iter->value);
+        if (ret != 0)
+          continue; /* ignore if cannot decode */
+        if ((val = find_resc_entry(&pnode->attributes[1],defin)))
+        /* some value already present */
+          {
+          ret = defin->rs_set(&val->rs_value,&decoded.rs_value,op);
+          if (ret != 0)
+            continue; /* ignore if cannot set */
+          }
+        else
+          {
+          if (op == INCR) /* add new record only if increasing */
+            {
+            if ((val = add_resource_entry(&pnode->attributes[1],defin)))
+              {
+              ret = defin->rs_set(&val->rs_value,&decoded.rs_value,SET);
+              if (ret != 0)
+                continue; /* ignore if cannot set */
+              }
+            }
+          }
+        }
+    iter = iter->next;
+    }
+  }
 
 
 /*
@@ -4665,9 +4960,13 @@ void free_nodes(
         else
           prev->next = jp->next;
 
+        adjust_resources_use(pnode,jp,DECR);
+
         free(jp);
 
         pnode->nd_nsnfree++; /* up count of free */
+        if (np->inuse & INUSE_JOBSHARE)
+          pnode->nd_nsnshared--;
 
         if (LOGLEVEL >= 6)
           {
@@ -4682,19 +4981,17 @@ void free_nodes(
             log_buffer);
           }
 
-        pnode->nd_state &= ~(INUSE_JOB | INUSE_JOBSHARE);
+        /* adjust node state (turn off job-exclusive) */
+        pnode->nd_state &= ~INUSE_JOB;
+
+        /* adjust node state (turn off job-shared) */
+        if (pnode->nd_nsnshared == 0)
+          pnode->nd_state &= ~INUSE_JOBSHARE;
 
         /* if no jobs are associated with subnode, mark subnode as free */
 
         if (np->jobs == NULL)
-          {
-          if (np->inuse & INUSE_JOBSHARE)
-            pnode->nd_nsnshared--;
-
-          /* adjust node state (turn off job/job-exclusive) */
-
           np->inuse &= ~(INUSE_JOB | INUSE_JOBSHARE);
-          }
 
         break;
         }  /* END for (prev) */
@@ -4750,7 +5047,8 @@ static void set_one_old(
       {
       /* Mark node as being IN USE ...  */
 
-      if (pnode->nd_ntype == NTYPE_CLUSTER)
+      if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
+          || pnode->nd_ntype == NTYPE_CLOUD)
         {
         for (snp = pnode->nd_psn;snp;snp = snp->next)
           {
@@ -4838,6 +5136,9 @@ void set_old_nodes(
       }
 
     set_one_old(old, pjob, shared);
+
+    /* reset alternatives on nodes */
+    reset_alternative_on_node(pjob);
 
     free(old);
     }  /* END if ((pbsndmast != NULL) && ...) */

@@ -130,3 +130,6 @@ ATTR_disallowedtypes,
 ATTR_hostlist,
 ATTR_rerunnable,
 ATTR_is_transit,
+ATTR_starving_support,
+ATTR_required_property,
+

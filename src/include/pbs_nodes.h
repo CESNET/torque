@@ -85,6 +85,9 @@
 
 /* NOTE:  requires server_limits.h */
 
+#include "attribute.h"
+
+
 #define BM_ERROR    -20
 
 enum psit
@@ -98,6 +101,7 @@ enum psit
 struct prop
   {
   char *name;
+  char *value; /* for resources */
   short mark;
 
   struct prop *next;
@@ -107,23 +111,21 @@ struct jobinfo
   {
 
   struct job *job;
+  int order;
 
   struct jobinfo *next;
   };
 
 struct pbssubn
   {
-
   struct pbsnode *host;
-
   struct pbssubn *next;
-
-  struct jobinfo *jobs;     /* list of jobs allocating resources within subnode */
-  /* does this include suspended jobs? */
+  struct jobinfo *jobs;    /* list of jobs allocating resources within subnode */
+                           /* TODO does this include suspended jobs? */
   resource_t      allocto;
-  enum psit      flag;  /* XXX */
+  enum psit       flag;    /* XXX */
   unsigned short  inuse;
-  short           index;  /* subnode index */
+  short           index;   /* subnode index */
   };
 
 struct pbsnode
@@ -141,8 +143,7 @@ struct pbsnode
   struct prop           *nd_l_st;
   u_long  *nd_addrs; /* IP addresses of host */
 
-  struct array_strings *nd_prop; /* array of properities */
-
+  struct array_strings *nd_prop; /* array of properties */
   struct array_strings  *nd_status;
   char           *nd_note;  /* note set by administrator */
   int     nd_stream; /* RPP stream to Mom on host */
@@ -158,6 +159,17 @@ struct pbsnode
   short    nd_order; /* order of user's request */
   time_t                 nd_warnbad;
   time_t                 nd_lastupdate; /* time of last update. */
+
+  unsigned nd_no_multinode : 1;
+  unsigned nd_noautoresv : 1;
+
+  struct attribute attributes[2]; /* resources_total, resources_used */
+  char *queue;
+  char *cloud;
+
+  struct array_strings *x_ad_properties;
+  struct prop *x_ad_prop;
+  int xn_ad_prop;
   };
 
 struct howl
@@ -207,6 +219,7 @@ int tlist(tree *, char *, int);
 #define INUSE_JOB  0x10 /* VP   in use by job (exclusive use) */
 #define INUSE_JOBSHARE  0x20 /* VP   is use by job(s) (time shared) */
 #define INUSE_BUSY  0x40 /* Node is busy (high loadave)  */
+#define INUSE_FROZEN 0x80 /* Node is a frozen virtual machine */
 
 #define INUSE_UNKNOWN  0x100 /* Node has not been heard from yet */
 #define INUSE_NEEDS_HELLO_PING 0x200  /*node needs to be informed of a*/
@@ -220,14 +233,15 @@ int tlist(tree *, char *, int);
  */
 #define NTYPE_CLUSTER  0x00 /* Node is normal allocatable node */
 #define NTYPE_TIMESHARED 0x01 /* Node is Time Shared Node  */
+#define NTYPE_CLOUD      0x02 /* Node is a Cloud Node - contains virtual slave nodes */
+#define NTYPE_VIRTUAL    0x04 /* Node is a Virtual node (extra features) */
+
+#define PBSNODE_NTYPE_MASK 0xf   /* relevant ntype bits */
 
 #define TIMESHARED_SUFFIX "ts"
+#define CLOUD_SUFFIX "cl"
+#define VIRTUAL_SUFFIX "vi"
 #define PBS_MAXNODENAME 80 /* upper bound on the node name size    */
-
-#define PBSNODE_STATE  0x1   /* characteristic code */
-#define PBSNODE_PROPERTIES 0x2   /* characteristic code */
-#define PBSNODE_NTYPE  0x3   /* characteristic code */
-#define PBSNODE_NTYPE_MASK 0xf   /* relevant ntype bits */
 
 #define WRITENODE_STATE  0x1   /*associated w/ offline*/
 #define WRITE_NEW_NODESFILE 0x2 /*changed: deleted,ntype,or properties*/
@@ -250,11 +264,20 @@ enum nodeattr
   {
   ND_ATR_state,
   ND_ATR_np,
+  ND_ATR_npfree,
+  ND_ATR_npshared,
   ND_ATR_properties,
+  ND_ATR_adproperties,
   ND_ATR_ntype,
   ND_ATR_jobs,
   ND_ATR_status,
   ND_ATR_note,
+  ND_ATR_no_multinode_jobs,
+  ND_ATR_queue,
+  ND_ATR_cloud,
+  ND_ATR_noautoresv,
+  ND_ATR_resources_total,
+  ND_ATR_resources_used,
   ND_ATR_LAST
   }; /* WARNING: Must be the highest valued enum */
 
@@ -287,7 +310,8 @@ extern void free_prop_list A_((struct prop*));
 extern void     free_prop_attr  A_((attribute*));
 extern void recompute_ntype_cnts A_(());
 extern  int     create_pbs_node A_((char *, svrattrl *, int, int *));
-extern  int     mgr_set_node_attr A_((struct pbsnode *, attribute_def *, int, svrattrl *, int, int *, void *, int));
+extern  int mgr_set_node_attr(struct pbsnode *, attribute_def *, int, svrattrl *, int, int *, void *, int);
+extern  int mgr_set_attr(attribute *pattr, attribute_def*, int, svrattrl*, int, int*, void*, int, int);
 
 struct prop  *init_prop A_((char *pname));
 #endif /* BATCH_REQUEST_H */

@@ -257,7 +257,7 @@ PBS_free_aopl A_((struct attropl * aoplp));
 
 
 int
-PBSD_commit A_((int connect, char *jobid));
+PBSD_commit A_((int connect, char *jobid, char *extend));
 
 int
 PBSD_jcred A_((int connect, char *buf, int len));
@@ -322,6 +322,8 @@ extern int encode_DIS_SignalJob A_((int socket, char *jid, char *sig));
 extern int encode_DIS_Status A_((int socket, char *objid, struct attrl *));
 extern int encode_DIS_attrl A_((int socket, struct attrl *));
 extern int encode_DIS_attropl A_((int socket, struct attropl *));
+
+extern int encode_DIS_SchedLock(int socket, int action);
 
 extern int DIS_reply_read A_((int socket, struct batch_reply *preply));
 

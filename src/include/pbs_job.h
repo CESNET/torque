@@ -90,6 +90,9 @@
 #ifndef PBS_JOB_H
 #define PBS_JOB_H 1
 
+#include <time.h>
+#include <sys/types.h>
+
 /* anything including job.h also needs array.h so lets just include it this way*/
 #include "array.h"
 
@@ -296,6 +299,9 @@ enum job_atr
   JOB_ATR_jobtype,     /* opaque job type string */
   JOB_ATR_inter_cmd,      /* command for interactive job */
   JOB_ATR_proxy_user,
+  JOB_ATR_cloud_mapping,  /* cloud to virtual nodes mappings including alternatives */
+  JOB_ATR_sched_spec, /* schedulers nodespec sent during job run request */
+  JOB_ATR_vlan_id, /* vlan id used by cloud jobs */
 #ifdef USEJOBCREATE
   JOB_ATR_pagg_id,
 #endif /* USEJOBCREATE */
@@ -484,6 +490,8 @@ struct job
   job_array      *ji_arraystruct; /* pointer to job_array for this array */
   int  ji_isparent;    /* set to TRUE if this is a "parent job"*/
 #endif/* PBS_MOM */   /* END SERVER ONLY */
+
+  char *ji_expanded_spec; /* pre-parsed nodespec */
 
   /*
    * fixed size internal data - maintained via "quick save"
@@ -782,6 +790,7 @@ task *task_find A_((
 #define JOB_SUBSTATE_STARTING   41      /* job sent to MOM - job start finalizing */
 #define JOB_SUBSTATE_RUNNING 42 /* job running */
 #define JOB_SUBSTATE_SUSPEND 43 /* job suspended, CRAY only */
+#define JOB_SUBSTATE_PRERUN_CLOUD 44 /* job sent to MOM, cluster being constructed */
 
 #define JOB_SUBSTATE_EXITING 50 /* Start of job exiting processing */
 #define JOB_SUBSTATE_STAGEOUT 51 /* job staging out (other) files   */
@@ -839,7 +848,8 @@ extern void  depend_clrrdy A_((job *));
 extern int   depend_on_que A_((attribute *, void *, int));
 extern int   depend_on_exec A_((job *));
 extern int   depend_on_term A_((job *));
-extern job  *find_job A_((char *));
+extern job  *find_job(char *);
+extern job  *find_job_by_name(char *);
 extern char *get_egroup A_((job *));
 extern char *get_variable A_((job *, char *));
 extern int   init_chkmom A_((job *));
