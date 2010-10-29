@@ -1,0 +1,6 @@
+
+erebor:
+  ./pbs_cache -d -m pbsload -g load_one:10:skirit.ics.muni.cz -g load_one:10:manwe1.ics.muni.cz:8649 -m disk_free -m pbsload2 -D 120 -m magrathea
+
+odin:
+ ./pbs_cache -d -A "147.251.3.*" -m vmem -g disk_free:30:skirit.ics.muni.cz -M pbsload:120:skirit-f.ics.muni.cz -c load_one:45:erebor -w pbsload:20:erebor -w disk_free:10:erebor -w pbsload/pbsload2:20:erebor -c pbsload3/pbsload2:3:erebor:7878 -D 60 -m magrathea

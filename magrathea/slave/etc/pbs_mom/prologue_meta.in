@@ -1,0 +1,16 @@
+#! /bin/bash
+# $Id: prologue_meta.in,v 1.3 2007/12/10 23:17:01 xdenemar Exp $
+#
+# Started just before job execution by non-superior mom
+
+JOBID="$1"
+
+eval $(@PBS_MOM@/job_cpu.sh "$JOBID")
+
+if ! @SBIN_DIR@/magrathea-cmd startjob "$JOBID" $MY_CPUS; then
+    # resubmit
+    exit 2
+fi
+
+exit 0
+

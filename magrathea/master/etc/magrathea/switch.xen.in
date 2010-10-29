@@ -1,0 +1,180 @@
+#! /bin/bash
+#
+# $Id: switch.xen.in,v 1.10 2008/08/08 10:59:14 xdenemar Exp $
+#
+# Magrathea callback script for Xen.
+#
+
+# default configuration values
+XEN_PATH=/usr
+# memory:
+XEN_MEM_FREE=160
+XEN_MEM_RUNNING=0
+XEN_MEM_PREEMPTED=200
+# credit scheduler:
+XEN_CREDIT_FREE='-w 1 -c 0'
+XEN_CREDIT_RUNNING='-w 20 -c 0'
+XEN_CREDIT_PREEMPTED='-w 1 -c 0'
+# sedf scheduler (currently not used):
+XEN_SEDF_FREE='-l 0 -e 0 -w 1'
+XEN_SEDF_RUNNING='-l 0 -e 1 -w 20'
+XEN_SEDF_PREEMPTED='-l 0 -e 0 -w 2'
+
+CONFIG_FILE=@CONF_DIR@/master
+source @CONF_DIR@/parse-config.sh
+
+# mapping to internal variables
+MEM_FREE=$XEN_MEM_FREE
+MEM_RUNNING=$XEN_MEM_RUNNING
+MEM_PREEMPTED=$XEN_MEM_PREEMPTED
+SCHED_FREE=$XEN_CREDIT_FREE
+SCHED_RUNNING=$XEN_CREDIT_RUNNING
+SCHED_PREEMPTED=$XEN_CREDIT_PREEMPTED
+xm=$XEN_PATH/sbin/xm
+xentop=$XEN_PATH/sbin/xentop
+
+
+# get free Xen memory
+function get_free_memory() {
+    local mem=
+    
+    mem=$($xm info |
+              grep free_memory |
+              sed -e 's/.*: *\([0-9]\+\).*/\1/')
+
+    if [[ -z "$mem" || "$mem" -le 0 ]]; then
+        echo 0
+    else
+        echo $mem
+    fi
+}
+
+# get memory given to a domain
+function get_dom_memory() {
+    local domain=$1; shift
+    local mem=
+
+    if [[ "${domain//[0-9]}" == "" ]]; then
+        domain=$($xm domname $domain)
+    fi
+
+    mem=$($xentop -bi1 | awk "/^ *$domain /"'{print $5;}')
+
+    if [[ -z "$mem" || "$mem" -le 0 ]]; then
+        echo 0
+    else
+        echo $[mem/1024]
+    fi
+}
+
+# get maximum memory which can be given to a domain
+function get_dom_max_memory() {
+    local domain=$1; shift
+    local max=
+    local mem=
+
+    mem=$(get_dom_memory "$domain")
+    max=$($xm list --long "$domain" |
+              grep '(maxmem .*)' |
+              sed -e 's/.* \([0-9]\+\)).*/\1/')
+
+    if [[ -z "$max" || "$max" -le "$mem" ]]; then
+        echo "$mem"
+    else
+        echo "$max"
+    fi
+}
+
+# set maximum memory for a domain
+function set_memory() {
+    local domid=$1; shift
+    local memory=$1; shift
+
+    local domain=$($xm domname $domid)
+    local shrink=false
+    local act=$(get_dom_memory "$domain")
+    local last=0
+    local free=0
+    local rep=0
+
+    [[ $(get_dom_memory "$domain") -gt $memory ]] && shrink=true
+
+    echo "Setting memory for domain $domid to $memory MB"
+
+    $xm mem-set "$domid" $memory
+
+    if $shrink; then
+        TIMEFORMAT="Memory set to $memory MB after %lR"
+        time {
+            while [[ $(get_dom_memory "$domain") -gt $memory ]]; do
+                rep=$[rep + 1]
+                if [[ $rep -eq 5 ]]; then
+                    rep=0
+                    echo "Shrinking memory to $memory MB; current domain's memory is $(get_dom_memory "$domain") MB"
+                fi
+                sleep 3
+            done
+        }
+    fi
+}
+
+# set maximum cpu usage for a domain
+function set_cpu() {
+    local domain=$1; shift
+
+    echo "Setting scheduler parameters for domain $domain: $*"
+    # sedf: $xm sched-sedf "$domain" "$@"
+    $xm sched-credit -d "$domain" "$@"
+}
+
+
+if [[ $# -lt 1 ]]; then
+    echo "$0 ID:status:CPUs ..." >&2
+    echo "    status can be 'f' free, 'o' occupied, 'r' running or 'p' preempted" >&2
+    exit 1
+fi
+
+unset free occupied running preempted
+while [[ $# -gt 0 ]]; do
+    vm=$1; shift
+
+    id=${vm%%:*}
+
+    [[ "$id" ]] || continue
+
+    case "${vm#*:}" in
+    f*) free[${#free[*]}]=$id ;;
+    o*) occupied[${#occupied[*]}]=$id ;;
+    r*) running[${#running[*]}]=$id ;;
+    p*) preempted[${#preempted[*]}]=$id ;;
+    esac
+done
+
+for vm in ${free[*]} ${occupied[*]}; do
+    # give the domain more CPU power so that it can better shrink its memory
+    set_cpu $vm $SCHED_RUNNING
+    set_memory $vm $MEM_FREE
+    set_cpu $vm $SCHED_FREE
+done
+
+for vm in ${preempted[*]}; do
+    # give the domain more CPU power so that it can better shrink its memory
+    set_cpu $vm $SCHED_RUNNING
+    set_memory $vm $MEM_PREEMPTED
+    set_cpu $vm $SCHED_PREEMPTED
+done
+
+if [[ ${#running[*]} -eq 1 ]]; then
+    vm=$running
+    mem=$[$(get_free_memory) + $(get_dom_memory $vm)]
+    max=$(get_dom_max_memory $vm)
+
+    [[ $max -lt $mem ]] && mem=$max
+    [[ $MEM_RUNNING -gt 0 && $MEM_RUNNING -lt $mem ]] && mem=$MEM_RUNNING
+
+    set_memory $vm $mem
+    set_cpu $vm $SCHED_RUNNING
+elif [[ ${#running[*]} -gt 1 ]]; then
+    echo "Currently, at most one running VM is supported"
+fi
+

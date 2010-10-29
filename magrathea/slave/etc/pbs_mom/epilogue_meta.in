@@ -1,0 +1,9 @@
+#! /bin/bash
+# $Id: epilogue_meta.in,v 1.2 2007/12/10 23:17:01 xdenemar Exp $
+#
+# Started when job is finished by non-superior mom
+
+JOBID="$1"
+
+@SBIN_DIR@/magrathea-cmd stopjob "$JOBID" >&/dev/null
+

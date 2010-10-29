@@ -1,0 +1,4 @@
+# FQDN name priority address
+test1.localdomain test1 normal 1.2.3.4
+test2.localdomain test2 priority 1.2.3.5
+

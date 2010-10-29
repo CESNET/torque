@@ -1,0 +1,63 @@
+#! /bin/bash
+#
+# $Id: switch.vserver.in,v 1.5 2008/05/21 15:56:16 xdenemar Exp $
+#
+# Magrathea callback script for VServer
+#
+
+# default configuration values
+VSERVER_PATH=/usr
+# scheduler
+VSERVER_SCHED_FREE='--tokens-max 100 --tokens-min 1 --interval 10 --fill-rate 1 --idle-time --interval2 10 --fill-rate2 1'
+VSERVER_SCHED_RUNNING='--tokens-max 100 --tokens-min 1 --interval 10 --fill-rate 10 --idle-time --interval2 10 --fill-rate2 10'
+VSERVER_SCHED_PREEMPTED='--tokens-max 100 --tokens-min 1 --interval 10 --fill-rate 1'
+
+CONFIG_FILE=@CONF_DIR@/master
+source @CONF_DIR@/parse-config.sh
+
+vsched=$VSERVER_PATH/sbin/vsched
+
+
+# set scheduler parameters
+function set_sched() {
+    local xid=$1; shift
+
+    echo "Setting scheduler parameters for context $xid: $*"
+    $vsched --xid $xid "$@"
+}
+
+
+if [[ $# -lt 1 ]]; then
+    echo "$0 ID:status:CPUs ..." >&2
+    echo "    status can be 'f' free, 'o' occupied, 'r' running or 'p' preempted" >&2
+    exit 1
+fi
+
+unset free occupied running preempted
+while [[ $# -gt 0 ]]; do
+    vm=$1; shift
+
+    id=${vm%%:*}
+
+    [[ "$id" ]] || continue
+
+    case "${vm#*:}" in
+    f*) free[${#free[*]}]=$id ;;
+    o*) occupied[${#occupied[*]}]=$id ;;
+    r*) running[${#running[*]}]=$id ;;
+    p*) preempted[${#preempted[*]}]=$id ;;
+    esac
+done
+
+for vm in ${free[*]} ${occupied[*]}; do
+    set_sched $vm $VSERVER_SCHED_FREE
+done
+
+for vm in ${preempted[*]}; do
+    set_sched $vm $VSERVER_SCHED_PREEMPTED
+done
+
+for vm in ${running[*]}; do
+    set_sched $vm $VSERVER_SCHED_RUNNING
+done
+

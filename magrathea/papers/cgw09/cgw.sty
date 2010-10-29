@@ -1,0 +1,216 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% cgw.sty 08-Oct-2009 prepared for "CGW Workshop"
+%%% based on: 
+%%% `article.sty' (the standard LaTeX style [class]) 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Rafal Wcislo    (wcislo@agh.edu.pl)|
+%%% Stanislaw Polak (polak@agh.edu.pl) | http://galaxy.uci.agh.edu.pl/~polak/
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\def\fileversion{1.0}
+\def\filedate{2009/10/08}
+\ifx\documentclass\undefined
+  \wlog{LaTeX Style `CGW09' ver. \fileversion\space<\filedate> (SP, RW, MZ)}
+  \typeout{This is the `CGW09' style <2009/10/08> prepared for the "CGW'09" Workshop}
+\else
+  \NeedsTeXFormat{LaTeX2e}
+  \ProvidesPackage{cgw09}[\filedate\space ver. \fileversion\space
+                       package for the the "CGW'09" Workshop]
+  \typeout{This is the `CGW09' package <2009/10/08> prepared for the  "CGW'09" Workshop}
+\fi
+
+% NAMES...
+\def\literaturename{References}
+\def\acknowledgementname{Acknowledgements.}
+\def\contentsname{Table of Contents}
+\def\listoffiguresname{List of Figures}
+\def\figurename{Fig.}
+\def\listoftablesname{List of Tables}
+\def\tablename{Tab.}
+\def\abstractname{Abstract}
+
+% MAKE FIGURE & TABLE LABELS \small...
+\def\figure{\small\@float{figure}}
+\def\endfigure{\end@float}
+\def\table{\small\rm\@float{table}}
+\let\endtable\end@float
+
+% REDEFINE SECTION START SO EVERY PARAGRAPH STARTS WITH INDENT...
+\def\@startsection#1#2#3#4#5#6{\if@noskipsec \leavevmode \fi
+   \par \@tempskipa #4\relax
+   \@afterindenttrue
+   \ifdim \@tempskipa <\z@ \@tempskipa -\@tempskipa \@afterindenttrue\fi
+   \if@nobreak \everypar{}\else
+     \addpenalty{\@secpenalty}\addvspace{\@tempskipa}\fi \@ifstar
+     {\@ssect{#3}{#4}{#5}{#6}}{\@dblarg{\@sect{#1}{#2}{#3}{#4}{#5}{#6}}}}
+
+% REDEFINE \list TO REDUCE DISTANCE BETWEEN ITEMS...
+\def\list#1#2{\ifnum \@listdepth >5\relax \@toodeep
+     \else \global\advance\@listdepth\@ne \fi
+  \rightmargin \z@ \listparindent\z@ \itemindent\z@
+  \csname @list\romannumeral\the\@listdepth\endcsname
+  \def\@itemlabel{#1}\let\makelabel\@mklab \@nmbrlistfalse #2\relax
+  \parskip 0pt\itemsep 0pt\parsep 0pt \topsep 0pt%
+  \@trivlist
+  \parindent\listparindent
+  \advance\linewidth -\rightmargin \advance\linewidth -\leftmargin
+  \advance\@totalleftmargin \leftmargin
+  \parshape \@ne \@totalleftmargin \linewidth
+  \ignorespaces}
+
+
+% REDEFINE BIBLIOGRAPHY...
+\def\thebibliography#1{\section*{\literaturename}\small\list%
+  {\arabic{enumi}.}{\settowidth\labelwidth{9#1.}\leftmargin\labelwidth%
+    \advance\leftmargin\labelsep%
+    \usecounter{enumi}}%
+    \def\newblock{\hskip .11em plus .33em minus -.07em}%
+    \sloppy%
+    \sfcode`\.=1000\relax}
+\def\endthebibliography{\endlist\normalsize}
+
+
+% INTRODUCE \institute IN TITLE...
+
+\newcounter{@inst}
+\newcounter{@przec}
+
+\def\institute#1{\gdef\@institute{#1}}
+
+\def\inst#1{\unskip%
+  \setcounter{@przec}{0}%
+  \@for\@x:=#1\do%
+   {%
+    \ifnum\c@@przec=0\relax%
+    \else $^,$%
+    \fi%
+    \@ifundefined{r@\@x}{%
+        \unskip$^{\@x}$}%
+        {%
+    \unskip$^{\ref{\@x}}$}%
+    \addtocounter{@przec}{1}%
+   }%
+}
+
+\def\institutename{\par
+ \begingroup
+ \parskip=\z@
+ \parindent=\z@
+ \setcounter{@inst}{1}%
+ \def\and{\par\stepcounter{@inst}%
+ \noindent$^{\the@inst}$\enspace\ignorespaces}%
+%%
+\setbox0=\vbox{\def\thanks##1{}\@institute}%
+ \ifnum\c@@inst=1\relax
+ \else
+   \setcounter{footnote}{\c@@inst}%
+   \setcounter{@inst}{1}%
+   \def\@currentlabel{\the@inst}
+  \noindent$^{\the@inst}$\enspace
+ \fi
+ \ignorespaces
+%%
+\@institute\par
+ \endgroup}
+
+\def\maketitle{\par
+ \begingroup
+ \def\thefootnote{\fnsymbol{footnote}}
+ \def\@makefnmark{\hbox 
+ to 0pt{$^{\@thefnmark}$\hss}} 
+ \if@twocolumn 
+ \twocolumn[\@maketitle] 
+ \else \newpage
+ \global\@topnum\z@ \@maketitle \fi\thispagestyle{empty}\@thanks
+ \endgroup
+ \setcounter{footnote}{0}
+ \let\maketitle\relax
+ \let\@maketitle\relax
+ \gdef\@thanks{}\gdef\@author{}\gdef\@title{}\let\thanks\relax}
+
+\def\@maketitle{\newpage
+ \null
+ \vspace*{-1cm} \begin{center}
+ {\LARGE \bf \@title \par} \vskip 1.5em {\large \lineskip .5em
+%{\small\begin{tabular}[t]{c}
+% \@author 
+% \end{tabular}}\par}
+ {\center\small
+ \@author}\par}
+ \vskip 1em
+ \@ifundefined{@institute}{\relax}{\small\institutename}
+ \vskip 1em %{\large \@date} 
+ \end{center}
+ \par
+ \vskip 1.5em
+ } 
+
+
+% REDEFINE ABSTRACT...
+\renewenvironment{abstract}
+ {
+  \begin{center}
+  \begin{minipage}[t]{10cm}
+    \small
+    \begin{center}
+       \bf\abstractname
+    \end{center}
+    \vspace*{-1em}
+ }%
+ {
+  \end{minipage}
+  \end{center}
+ }
+
+% DEFINE acknowledgement ENVIRONMENT...
+\newenvironment{acknowledgement}
+ {
+  \vspace{\baselineskip}
+  \noindent{\small\bf\acknowledgementname}
+  \unskip\noindent}{}
+
+% FONT SIZES AND TEXT DIMANTIONS...
+\def\tiny{\@setsize\tiny{6pt}\vpt\@vpt}
+\def\large{\@setsize\large{13.2pt}\xipt\@xipt}
+\def\Large{\@setsize\Large{14.4pt}\xiipt\@xiipt}
+\def\LARGE{\@setsize\LARGE{16.8pt}\xivpt\@xivpt}
+\def\huge{\@setsize\huge{22pt}\xxpt\@xxpt}
+\def\Huge{\@setsize\Huge{30pt}\xxvpt\@xxvpt}
+
+\oddsidemargin  63pt 
+\evensidemargin 63pt
+\marginparwidth 90pt
+\marginparsep   11pt
+\topmargin      11pt 
+\headheight     12pt 
+\headsep        13.66pt
+%\footheight     12pt 
+\footskip       30pt
+\textwidth      12.2truecm
+\textheight     19.3truecm
+\columnsep      1cc 
+\columnseprule  0pt
+\tabcolsep      4pt
+\renewcommand{\arraystretch}{0.9}
+\footnotesep    7.7pt
+\skip\footins   9pt plus 4pt minus 2pt
+\floatsep       12pt plus 2pt minus 2pt
+\textfloatsep   8mm plus 2pt minus 4pt
+\intextsep      8mm plus 2pt minus 2pt
+%\@maxsep        8mm
+\dblfloatsep    12pt plus 2pt minus 2pt
+\dbltextfloatsep 20pt plus 2pt minus 4pt
+%\@dblmaxsep     20pt
+\@fptop         0pt plus 1fil \@fpsep 8pt plus 2fil \@fpbot 0pt plus 1fil
+\@dblfptop      0pt plus1fil \@dblfpsep8pt plus2fil\@dblfpbot 0pt plus1fil
+\marginparpush  5pt
+
+% REMOVE PAGE NUMBERS...
+\thispagestyle{empty}
+\pagestyle{empty}
+
+\renewcommand{\topfraction}{1.0}
+\renewcommand{\bottomfraction}{1.0}
+\renewcommand{\textfraction}{0.0}
+

@@ -1,0 +1,32 @@
+Magrathea--Scheduling Virtual Grids with Preemption
+
+Jiri Denemark, Mirek Ruda
+
+Virtual clusters, virtual grid or cloud computing have recently become
+well-known names for utilizing a single technology in grids---virtualization.
+Virtualization provides users with more flexible grid environment, where each
+of them can use her own environment, often optimized and tailored for her
+applications. This makes grids very flexible for end users. The price which is
+paid for higher flexibility is a slightly higher overhead and more scheduling
+complexity. However, using preemption it may enable resource-efficient
+coexistence of long-running jobs with services which only occasionally need to
+be awakened while consuming large portion of system resources.
+
+In this paper we describe the Magrathea system we have developed for enabling
+a batch scheduling system to schedule jobs into virtual machines and how
+various types of preemption techniques with respect to Xen virtual machine
+monitor may be used for running services or to allow scheduling of high
+priority jobs. Techniques, such as suspending/freezing a virtual machine and
+reducing memory and CPU power usable to a virtual machine are described
+together with their advantages and disadvantages. Preemption overhead, speed
+of preemption and resumption under different conditions including large memory
+and CPU intensive computations are presented together with solutions we have
+developed for the Magrathea system to reduce the overall overhead. Our work is
+also compared to related work of others, such as Nimbus (or Virtual
+Workspaces) or OpenNebula.
+
+In the future work, we will concentrate on integrating the Magrathea system
+with a virtual cluster system for enabling seamless coexistence between
+virtual clusters and normal jobs and allowing a single scheduler to manage
+both entities at the same time to achieve better resource efficiency.
+

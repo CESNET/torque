@@ -1,0 +1,5 @@
+# $Id: TODO,v 1.4 2008/05/21 15:56:16 xdenemar Exp $
+
+- master: ?? IP-based restrictions for defrosting frozen domains
+- master: memory management (similar to CPUs)
+

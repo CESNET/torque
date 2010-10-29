@@ -1,0 +1,123 @@
+#!/bin/bash
+#
+# $Id: magrathea_slave.in,v 1.2 2008/08/08 10:59:14 xdenemar Exp $
+#
+# magrathea     Initialize magrathea slave
+#
+# chkconfig: 2345 89 11
+# description: Setups slave end of magrathea.
+#
+### BEGIN INIT INFO
+# Provides: magrathea
+# Required-Start: pbs
+# Required-Stop: pbs
+# Default-Start: 3 5
+# Default-Stop: 0 1 2 6
+# Description: Initialize magrathea slave
+### END INIT INFO
+
+
+RUN=@RUN_DIR@
+
+# default values
+IFACE=
+HOSTNAME=$(hostname --fqdn)
+
+CONFIG_FILE=@CONF_DIR@/slave
+source @CONF_DIR@/parse-config.sh
+
+command=$1
+echo "Magrathea slave $command requested."
+
+
+function print
+{
+    echo "Magrathea slave $command: $*."
+}
+
+
+function check
+{
+    if grep -q ' magrathea=[^ ]*:[^ ]*' /proc/cmdline 2>/dev/null; then
+        local SUBST='s/.* magrathea=\([^: ]*\):\([^ :]*\).*/IFACE="\1";IP_SLAVE="\2"/'
+        eval $(sed -e "$SUBST" </proc/cmdline)
+
+        [[ "$IP_SLAVE" ]] || IFACE=
+    fi
+}
+
+
+function start_iface
+{
+    print "bringing up interface $IFACE"
+
+    ifconfig $IFACE $IP_SLAVE up    &&
+    sleep 5                         &&
+    ethtool -K $IFACE tx off
+}
+
+
+function stop_iface
+{
+    print "bringing down interface $IFACE"
+
+    ifconfig $IFACE down 2>/dev/null
+}
+
+
+function start
+{
+    mkdir -p "$RUN" >&/dev/null
+
+    [[ "$IFACE" ]] && start_iface
+
+    print "starting magrathea-slave daemon"
+
+    @SBIN_DIR@/magrathea-slave "$HOSTNAME" "$MASTER_ADDRESS"
+
+    if [[ $? -ne 0 ]]; then
+        print "failed to start magrathea-slave daemon"
+        return 1
+    fi
+
+    return 0
+}
+
+
+function stop
+{
+    print "stopping magrathea-slave daemon"
+
+    killall magrathea-slave 2>/dev/null
+    while killall -0 magrathea-slave 2>/dev/null; do
+        sleep 1
+    done
+    [[ $IFACE ]] && stop_iface
+
+    return 0
+}
+
+
+case "$1" in
+start)
+    check
+    start
+    ;;
+stop)
+    check
+    stop
+    ;;
+restart)
+    check
+    stop &&
+    sleep 2 &&
+    start
+    ;;
+*)
+    echo "Usage: $0 {start|stop|restart}"
+    exit 1
+    ;;
+esac
+
+exit $?
+

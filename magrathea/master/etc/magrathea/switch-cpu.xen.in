@@ -1,0 +1,35 @@
+#! /bin/bash
+#
+# $Id: switch-cpu.xen.in,v 1.4 2008/05/21 15:56:16 xdenemar Exp $
+#
+# Magrathea CPU set callback script for Xen.
+#
+
+# default configuration values
+XEN_PATH=/usr
+
+CONFIG_FILE=@CONF_DIR@/master
+source @CONF_DIR@/parse-config.sh
+
+# mapping to internal variables
+xm=$XEN_PATH/sbin/xm
+
+if [[ $# -lt 1 ]]; then
+    echo "$0 ID:status:CPUs ..." >&2
+    echo "    status can be 'f' free, 'o' occupied, 'r' running or 'p' preempted" >&2
+    exit 1
+fi
+
+while [[ $# -gt 0 ]]; do
+    vm=$1; shift
+
+    id=${vm%%:*}
+    cpus=${vm##*:}
+
+    [[ -z "$cpus" || $cpus -lt 0 || -z "$id" ]] && continue
+    [[ "$cpus" == 0 ]] && cpus=1
+
+    echo "Assigning $cpus CPUs to domain $id"
+    $xm vcpu-set "$id" $cpus
+done
+

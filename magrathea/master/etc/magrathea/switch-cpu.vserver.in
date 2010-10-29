@@ -1,0 +1,131 @@
+#! /bin/bash
+#
+# $Id: switch-cpu.vserver.in,v 1.3 2008/05/21 15:56:16 xdenemar Exp $
+#
+# Magrathea CPU set callback script for VServer
+#
+
+# default configuration values
+VSERVER_PATH=/usr
+
+CONFIG_FILE=@CONF_DIR@/master
+source @CONF_DIR@/parse-config.sh
+
+vsstat=$VSERVER_PATH/sbin/vserver-stat
+vsinfo=$VSERVER_PATH/sbin/vserver-info
+vcontext=$VSERVER_PATH/sbin/vcontext
+
+
+if [[ $# -lt 1 ]]; then
+    echo "$0 ID:status:CPUs ..." >&2
+    echo "    status can be 'f' free, 'o' occupied, 'r' running or 'p' preempted" >&2
+    exit 1
+fi
+
+if [[ ! -r /dev/cpuset/cpus ]]; then
+    echo "Missing cpuset support" >&2
+    exit 1
+fi
+
+
+function cpu_set()
+{
+    local name="$1"; shift
+    local list="$1"; shift
+
+    local tasks="/dev/cpuset/$name/tasks"
+    local cpus="/dev/cpuset/$name/cpus"
+
+    echo "$list" >$cpus &&
+    $vcontext --create --silent --xid 1 -- /bin/bash -c \
+        'for pid in $(<'$tasks'); do echo $pid >'$tasks'; done >&/dev/null'
+}
+
+
+CPUs=( $(cat /proc/cpuinfo | awk '/processor[ \t]*:/{print $3;}') )
+rr=0
+next_r=0
+next_p=0
+
+if [[ ${#CPUs[*]} -le 0 ]]; then
+    echo "No available CPUs found" >&2
+    exit 2
+fi
+
+
+function cpus_get_round_robin()
+{
+    local cpu=${CPUs[$rr]}
+
+    rr=$[rr + 1]
+    [[ $rr -eq ${#CPUs[*]} ]] && rr=0
+
+    echo $cpu
+}
+
+
+function cpus_get_next()
+{
+    local which=$1; shift
+    local count=$1; shift
+    local list=
+    local next=
+
+    if [[ $which == running ]]; then
+        next=$next_r
+    else
+        next=$next_p
+    fi
+
+    if [[ $[next + count - 1] -gt ${#CPUs[*]} ]]; then
+        echo "Not enough CPUs left" >&2
+        exit 2
+    fi
+
+    while [[ $count -gt 0 ]]; do
+        list="$list,${CPUs[$next]}"
+        next=$[next + 1]
+        count=$[count - 1]
+    done
+
+    if [[ $which == running ]]; then
+        next_r=$next
+    else
+        next_p=$next
+    fi
+
+    echo "${list#,}"
+}
+
+
+while [[ $# -gt 0 ]]; do
+    vm=$1; shift
+
+    id=${vm%%:*}
+    cpus=${vm##*:}
+
+    name=$($vsstat | awk '/'$id'/{print $8;}')
+    if [[ -z "$name" || "x$($vsinfo $name CONTEXT)" != "x$id" ]]; then
+        echo "Cannot get context's name: $id"
+        continue
+    fi
+
+    [[ -z "$cpus" || $cpus -lt 0 || -z "$id" ]] && continue
+
+    if [[ "$cpus" == 0 ]]; then
+        cpu=$(cpus_get_round_robin)
+        echo "Zero CPUs assigned to context $name ($id), assigning CPU $cpu"
+        cpu_set $name $cpu
+    else
+        case "${vm#*:}" in
+        f*) list=$(cpus_get_round_robin) ;;
+        o*) list=$(cpus_get_round_robin) ;;
+        r*) list=$(cpus_get_next running $cpus) ;;
+        p*) list=$(cpus_get_next preempted $cpus) ;;
+        esac
+
+        echo "Assigning $cpus CPUs to context $name ($id): $list"
+        cpu_set $name $list
+    fi
+done
+

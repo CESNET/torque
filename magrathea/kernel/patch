@@ -1,0 +1,107 @@
+#! /bin/bash
+#
+# $Id: patch,v 1.2 2008/05/29 14:51:49 xdenemar Exp $
+
+function usage()
+{
+    echo "$0 <kernel_source>" >&2
+    exit 1
+}
+
+
+function kernel_xen()
+{
+    local kernel="$1"; shift
+
+    if [[ ! -d "$kernel/drivers/xen" ]]; then
+        echo "Kernel $kernel is not a Xen kernel" >&2
+        exit 2
+    fi
+}
+
+
+function kernel_version()
+{
+    local makefile="$1/Makefile"; shift
+
+    if [[ ! -r "$makefile" ]]; then
+        echo "Invalid kernel source" >&2
+        exit 2
+    fi
+
+    ver=$(egrep '^(VERSION|PATCHLEVEL|SUBLEVEL)' "$makefile" |
+          tr -d ' \n' |
+          sed -e 's/^[^0-9]*//; s/[^0-9]\+/./g')
+
+    if grep -q '^[0-9]\.[0-9]\+\.[0-9]\+$' <<<$ver; then
+        echo "Kernel version $ver" >&2
+        echo "$ver"
+    else
+        echo "Cannot detect kernel version" >&2
+        exit 2
+    fi
+}
+
+
+function kernel_patch()
+{
+    local version=$1; shift
+
+    p=./patches/$version.patch
+
+    if [[ -r $p ]]; then
+        echo "Found patch for version $version: $p" >&2
+        echo $p
+        return 0
+    fi
+
+    list=$( ( cd ./patches &&
+              echo ${version%.*}.*.patch $version |
+              tr ' ' '\n' |
+              sort -n -t. -k3 |
+              fgrep -C1 $version |
+              sed -e 's/\.patch//' ) )
+    older=$(echo "$list" | head -n 1)
+    newer=$(echo "$list" | tail -n 1)
+
+    [[ "$older" == $version ]] && older=
+    [[ "$newer" == $version ]] && newer=
+
+    if [[ -z "$older" && -z "$newer" ]]; then
+        echo "No patch found for kernel $version" >&2
+        exit 2
+    elif [[ "$older" ]]; then
+        echo "Patch for older kernel $older found" >&2
+        p=./patches/$older.patch
+    else # [[ "$newer" ]]
+        echo "Patch for newer kernel $newer found" >&2
+        p=./patches/$newer.patch
+    fi
+
+    echo $p
+}
+
+
+[[ $# -eq 1 ]] || usage
+
+kernel="$1"; shift
+
+
+kernel_xen "$kernel"
+if [[ -d "$kernel/drivers/xen/magrathea" ]]; then
+    echo "Kernel already patched" >&2
+    exit 2
+fi
+
+version=`kernel_version "$kernel"`
+patchfile=`kernel_patch $version`
+
+echo "Patching kernel with $patchfile"
+cat "$patchfile" | ( cd "$kernel" && patch -p1 ) || exit 2
+
+echo "Creating drivers/xen/magrathea"
+cp -a module "$kernel/drivers/xen/magrathea" &&
+    rm -rf "$kernel/drivers/xen/magrathea/CVS" ||
+    exit 2
+( cd $kernel && find drivers/xen/magrathea )
+
