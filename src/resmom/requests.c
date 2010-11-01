@@ -614,11 +614,11 @@ static int return_file(
   filename = std_file_name(pjob, which, &amt); /* amt is place holder */
 
   /* We need to check for NULL which may be returned */
-  
+
   if (filename == NULL)
     {
     return(-1);
-    }  
+    }
 
   if (strcmp(filename, "/dev/null") == 0)
     {
@@ -1048,7 +1048,7 @@ static int is_file_going_to_dir(
     int complen = 0;
 
     /* Make sure the destination is a directory */
-    
+
     if (!S_ISDIR(sb1.st_mode))
       {
       /* destination is not a directory */
@@ -1056,21 +1056,21 @@ static int is_file_going_to_dir(
       }
 
     strcpy(filename,file);
-    
+
     /* Does directory match the files path? */
-    
+
     ptr1 = strrchr(filename, '/');
     if (ptr1 != NULL)
       {
       ptr1[0] = '\0';
-      
-      complen = strlen(destdir);      
+
+      complen = strlen(destdir);
       if (destdir[complen - 1] == '/')
         {
         /* don't include trailing slash (if any) in comparision */
         complen--;
         }
-      
+
       if (memcmp(filename, destdir, complen) == 0)
         {
         /* file is going to directory*/
@@ -2185,7 +2185,7 @@ void req_signaljob(
   /*
    * When kill_job is launched, processes are killed and waitpid() should harvest the process
    * and takes action to send an obit. If no matching process exists, then an obit may never be
-   * sent due to the current way that TORQUE's state machine works. 
+   * sent due to the current way that TORQUE's state machine works.
    */
 
   numprocs = kill_job(pjob, sig, id, "killing job");
@@ -2498,7 +2498,7 @@ static int del_files(
   if (path==NULL)
     {
     add_bad_list(pbadfile,"malloc failed",1);
- 
+
     return(-1);
     }
 
@@ -2552,10 +2552,10 @@ static int del_files(
           strerror(errno));
 
         add_bad_list(pbadfile,log_buffer,1);
- 
+
         return(-1);
         }
-      
+
       if (setgid(usergid) != 0 && EUID0 == TRUE)
         {
         snprintf(log_buffer,sizeof(log_buffer),
@@ -2583,7 +2583,7 @@ static int del_files(
 
         return(-1);
       }
-	      
+
       EUID0 = FALSE;
       UID0 = FALSE;
 
@@ -2720,7 +2720,7 @@ static int del_files(
      * path to remove the jobs checkpoint directory not just the checkpoint itself.
      * Do not remove if it is in the remote checkpoint directory list
      */
-     
+
     if (del_dir)
       {
       char *ptr;
@@ -2773,7 +2773,7 @@ static int del_files(
         }
       }
     }
-    
+
 
   return(rc);
   }  /* END del_files() */
@@ -3495,9 +3495,9 @@ void req_cpyfile(
       else if (pair->fp_flag == JOBCKPFILE)
         {
         strncpy(localname, pair->fp_local, sizeof(localname) - 1);  /* from location */
-        
+
         replace_checkpoint_path(localname);
-        
+
         /*
          * If the checkpoint directory
          * is in the the TRemChkptDirList then we do not transfer since directory
@@ -3563,9 +3563,9 @@ void req_cpyfile(
       if (pair->fp_flag == JOBCKPFILE)
         {
         int path_changed = 0;
-       
+
         path_changed = replace_checkpoint_path(arg3);
-        
+
         /*
          * If the checkpoint directory
          * is in the the TRemChkptDirList then we do not transfer since directory
@@ -3575,7 +3575,7 @@ void req_cpyfile(
           {
           continue;
           }
-        
+
         /*
          * We may need to create the directory for this inbound checkpoint /
          * restart file.  If we changed the path and the last segment of the
@@ -3586,22 +3586,22 @@ void req_cpyfile(
           char needdir[MAXPATHLEN + 1];
           int saveumask;
           char *ptr;
-          
+
           strcpy(needdir,arg3);
           ptr = strrchr(needdir,'/');
           if (ptr != NULL)
           {
           ptr[0] = '\0';
           }
-          
+
           saveumask = umask(0000);
 
-          if ((mkdir(needdir, 0777) == -1) && (errno != EEXIST))
+          if ((mkdir(needdir, 1777) == -1) && (errno != EEXIST))
             {
             log_err(errno, id, "Failed to create jobs checkpoint directory");
             }
 
-          umask(saveumask); 
+          umask(saveumask);
           }
         }  /* END if (pair->fp_flag == JOBCKPFILE) */
 
@@ -3672,7 +3672,7 @@ void req_cpyfile(
           wordfree(&arg3exp);
 
           wordexperr = 0;
-          
+
           break; /* Successful */
           }
 
@@ -3871,7 +3871,7 @@ error:
         /* if we are using the default checkpoint path then we need to clean
          * up the job directory
          */
-         
+
         if (strncmp(localname, path_checkpoint, strlen(path_checkpoint)) == 0)
           {
           char *ptr1;
@@ -3891,7 +3891,7 @@ error:
             {
             continue;
             }
-          
+
           if (LOGLEVEL >= 7)
             {
             sprintf(log_buffer,"removing checkpoint file directory (%s)\n", localname);
