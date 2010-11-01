@@ -442,6 +442,40 @@
 /* someday the PBS_*_PORT definition will go away and only the */
 /* PBS_*_SERVICE_NAME form will be used, maybe   */
 
+#if TORQUE_PORTS == 1
+
+#define PBS_BATCH_SERVICE_NAME  "torque"
+
+#ifndef PBS_BATCH_SERVICE_PORT
+#define PBS_BATCH_SERVICE_PORT  15051
+#endif /* PBS_BATCH_SERVICE_PORT */
+
+#define PBS_BATCH_SERVICE_NAME_DIS "torque_dis" /* new DIS port   */
+
+#ifndef PBS_BATCH_SERVICE_PORT_DIS
+#define PBS_BATCH_SERVICE_PORT_DIS 15051  /* new DIS port   */
+#endif /* PBS_BATCH_SERVICE_PORT_DIS */
+
+#define PBS_MOM_SERVICE_NAME  "torque_mom"
+
+#ifndef PBS_MOM_SERVICE_PORT
+#define PBS_MOM_SERVICE_PORT  15052
+#endif /* PBS_MOM_SERVICE_PORT */
+
+#define PBS_MANAGER_SERVICE_NAME "torque_resmon"
+
+#ifndef PBS_MANAGER_SERVICE_PORT
+#define PBS_MANAGER_SERVICE_PORT 15053
+#endif /* PBS_MANAGER_SERVICE_PORT */
+
+#define PBS_SCHEDULER_SERVICE_NAME "torque_sched"
+
+#ifndef PBS_SCHEDULER_SERVICE_PORT
+#define PBS_SCHEDULER_SERVICE_PORT 15054
+#endif /* PBS_SCHEDULER_SERVICE_PORT */
+
+#else
+
 #define PBS_BATCH_SERVICE_NAME  "pbs"
 
 #ifndef PBS_BATCH_SERVICE_PORT
@@ -471,6 +505,8 @@
 #ifndef PBS_SCHEDULER_SERVICE_PORT
 #define PBS_SCHEDULER_SERVICE_PORT 15004
 #endif /* PBS_SCHEDULER_SERVICE_PORT */
+
+#endif
 
 /*
  * Other misc checkpoint defines
