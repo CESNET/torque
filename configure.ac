@@ -835,6 +835,23 @@ AC_SUBST([PBS_CACHE_INCLUDE])
 
 dnl
 dnl  ######################################################################
+dnl  Torque ports (use different ports then PRO)
+dnl
+
+AC_ARG_ENABLE(torque-ports,
+[
+  --enable-torque-ports   use Torque ports instead of PBS Pro ports],
+[case "${enableval}" in
+  yes) TORQUE_PORTS=1 ;;
+  no)  TORQUE_PORTS=0 ;;
+  *)   AC_MSG_ERROR(--enable-torque-ports cannot take a value) ;;
+esac],[TORQUE_PORTS=0])dnl
+AC_DEFINE_UNQUOTED(TORQUE_PORTS, ${TORQUE_PORTS}, [Define to enable Torque ports])
+AM_CONDITIONAL(USING_TORQUE_PORTS, [ test "$TORQUE_PORTS" = "1"])
+
+
+dnl
+dnl  ######################################################################
 dnl  Global settings
 dnl
 AC_MSG_NOTICE([Checking global settings...])
@@ -1599,6 +1616,11 @@ echo "Default server: $PBS_DEFAULT_SERVER"
 echo "Unix Domain sockets: $ENABLE_UNIX_SOCKETS"
 echo "Tcl: `test "$TCL" = "1" && echo $MY_TCL_INCS $MY_TCL_LIBS || echo disabled`"
 echo "Tk: `test "$TK" = "1" && echo $MY_TCLTK_INCS $MY_TCLTK_LIBS || echo disabled`"
+echo 
+echo "Metacentrum extensions"
+echo "Kerberos: `test "$buildgssapi" = "yes" && echo $GSSAPIROOT || echo disabled`"
+echo "PBS Cache: `test "$PBS_CACHE" != none && echo $PBS_CACHE_INCLUDE $PBS_CACHE_LIB || echo disabled`"
+echo "Torque ports: `test "$TORQUE_PORTS" = "1" && echo using custom torque ports || echo disabled`"
 echo
 
 if test "x$gccwarnings" = "xyes" ;then
