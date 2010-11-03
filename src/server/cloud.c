@@ -11,8 +11,8 @@
 
 
 extern struct pbsnode *find_nodebyname(char *);
-extern char *start_sbf_vlan(char *clusterid, char *nodelist);
-extern int stop_sbf_vlan(char *vlanid);
+extern char *start_sbf_vlan(char *clusterid, char *nodelist, char *netresc);
+extern int stop_sbf_vlan(char *vlanid, char *netresc);
 extern void free_prop_list(struct prop*);
 extern struct prop  *init_prop(char *pname);
 
@@ -54,14 +54,26 @@ int is_cloud_job(job *pjob)
   return(0);
 }
 
-int is_cloud_job_private(job *pjob)
+/** Determine the type of private network usage
+ * 
+ * 0 - no VPN
+ * 1 - new VPN
+ * 2 - id provided - attach to existing VPN
+ */
+int is_cloud_job_private(job *pjob, char* netresc)
   {
   resource *pres = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],
 		   find_resc_def(svr_resc_def,"net",svr_resc_size));
 
-  if (pres != NULL && (pres->rs_value.at_flags & ATR_VFLAG_SET) &&
-      strcmp(pres->rs_value.at_val.at_str,"private") == 0)
-    return 1;
+  if (pres != NULL && (pres->rs_value.at_flags & ATR_VFLAG_SET))
+    {
+    netresc = pres->rs_value.at_val.at_str;
+
+    if (strcmp(pres->rs_value.at_val.at_str,"private") == 0)
+      return 1;
+    else
+      return 2;
+    }
   
   return 0;
   }
@@ -309,12 +321,14 @@ int cloud_transition_into_prerun(job *pjob)
   char     *cached = NULL;
   resource *pres = NULL;
   char     *tmp = NULL, *owner = NULL, *jowner = NULL;
+  char     *netresc = NULL;
 
   svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN_CLOUD);
-  if (is_cloud_job_private(pjob))
+  if (is_cloud_job_private(pjob,netresc))
     {
     vlanid=start_sbf_vlan(pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str,
-                          pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
+                          pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,
+			  netresc);
     if (vlanid !=NULL)
       {
       job_attr_def[(int)JOB_ATR_vlan_id].at_decode(&pjob->ji_wattr[(int)JOB_ATR_vlan_id],
@@ -424,6 +438,7 @@ void cloud_transition_into_stopped(job *pjob)
   {
   pars_spec *ps;
   pars_spec_node *iter;
+  char *netresc = NULL;
 
   dbg_consistency(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_flags & ATR_VFLAG_SET,
       "JOB_ATR_sched_spec has to be set at this point");
@@ -457,10 +472,11 @@ void cloud_transition_into_stopped(job *pjob)
 
   free_parsed_nodespec(ps);
 
-  if (is_cloud_job_private(pjob))
+  if (is_cloud_job_private(pjob,netresc))
     {
     if (pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str != NULL)
-      stop_sbf_vlan(pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str);
+      stop_sbf_vlan(pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str,
+		    netresc);
     }
 
   cache_remove_local(pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str,"cluster");
@@ -472,7 +488,7 @@ void cloud_transition_into_stopped(job *pjob)
 /* start_sbf_vlan
  * start SBF vlan, pass list of hosts to SBF, read vlanid back
  */
-char *start_sbf_vlan(char *clusterid, char *nodelist)
+char *start_sbf_vlan(char *clusterid, char *nodelist, char *netresc)
 { FILE *fp;
   char buf[256];
   char execbuf[10024]; /* TODO FIX */
@@ -485,6 +501,14 @@ char *start_sbf_vlan(char *clusterid, char *nodelist)
 
   strcpy(execbuf,SBF_START);
   strcat(execbuf," ");
+
+  if (strcmp(netresc,"private") != 0)
+    {
+    strcat(execbuf,"-v ");
+    strcat(execbuf,netresc);
+    strcat(execbuf," ");
+    }
+
   strcat(execbuf,clusterid);
   strcat(execbuf," ");
 
@@ -527,7 +551,7 @@ char *start_sbf_vlan(char *clusterid, char *nodelist)
 /* stop_sbf_vlan
  * stop SBF vlan created by start_sbf_vlan()
  */
-int stop_sbf_vlan(char *vlanid)
+int stop_sbf_vlan(char *vlanid, char *netresc)
 { FILE *fp;
   char buf[256];
   int ret=0;
@@ -535,6 +559,12 @@ int stop_sbf_vlan(char *vlanid)
 
   strcpy(execbuf,SBF_STOP);
   strcat(execbuf," ");
+
+  if (strcmp(netresc,"private") != 0)
+    {
+    strcat(execbuf,"-k ");
+    }
+
   strcat(execbuf,vlanid);
 
   if( (fp = popen(execbuf,"r")) != NULL ) {
