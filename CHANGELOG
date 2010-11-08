@@ -29,6 +29,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - add an asynchronous option to qdel 
   b - do not reply when an asynchronous reply has already been sent
 
+2.5.4
+  b - clean up job mom checkpoint directory on checkpoint failure
+
 2.5.3
   b - stop reporting errors on success when modifying array ranges
   b - don't try to set the user id multiple times
