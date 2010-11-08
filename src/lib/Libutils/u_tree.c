@@ -329,49 +329,54 @@ AvlTree AVL_delete_node(
  * return -1 if Buffer is too small 
  * return 1 if Buf or T are null 
  */ 
-int AVL_list( AvlTree tree, char *Buf, uint32_t BufSize )
-{
-	uint32_t len;
+int AVL_list( 
+
+  AvlTree tree, 
+  char *Buf,
+  long BufSize )
+
+  {
+	long len;
 	char     tmpLine[32];
 	int rc;
 
 	if( tree == NULL || Buf == NULL || BufSize == 0 )
-	{
-		return( 1 );
-	}
+    {
+    return( 1 );
+    }
 
 	len = BufSize;
 
 	/* start down the left side */
 	if( tree->left != NULL )
-	{
-		rc = AVL_list( tree->left, Buf, len );
-		if( rc )
-		{
-			return( rc );
-		}
-		len -= strlen( Buf );
-	}
+    {
+    rc = AVL_list( tree->left, Buf, len );
+    if( rc )
+      {
+      return( rc );
+      }
+    len -= strlen( Buf );
+    }
 
 	/* now go right */
 	if( tree->right != NULL )
-	{
-		rc = AVL_list( tree->right, Buf, len );
-		if( rc )
-		{
+    {
+    rc = AVL_list( tree->right, Buf, len );
+    if( rc )
+      {
 			return( rc );
-		}
-		len -= strlen( Buf );
-	}
+      }
+    len -= strlen( Buf );
+    }
 
 	/* each entry can be a maximum of 21 bytes plus one for
 	   NULL termination and one for a ','. We need at least 23 bytes to make
 	   this work. (entry format XXX.XXX.XXX.XXX:XXXXX --
 	   This does not work for IPV6 )*/
 	if( len < 23 )
-	{
-	   return( -1 );
-	}
+    {
+    return( -1 );
+    }
 
 	sprintf( tmpLine, "%ld.%ld.%ld.%ld:%d",
 			 (tree->key & 0xFF000000) >> 24,
@@ -394,5 +399,5 @@ int AVL_list( AvlTree tree, char *Buf, uint32_t BufSize )
 	  }
 
 	return( 0 );
-} /* end AVL_list */
+  } /* end AVL_list */
 
