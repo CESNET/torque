@@ -12,7 +12,7 @@
 
 extern struct pbsnode *find_nodebyname(char *);
 extern char *start_sbf_vlan(char *clusterid, char *nodelist, char *netresc);
-extern int stop_sbf_vlan(char *vlanid, char *netresc);
+extern int stop_sbf_vlan(char *vlanid, char *nodelist, char *netresc);
 extern void free_prop_list(struct prop*);
 extern struct prop  *init_prop(char *pname);
 
@@ -476,6 +476,7 @@ void cloud_transition_into_stopped(job *pjob)
     {
     if (pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str != NULL)
       stop_sbf_vlan(pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str,
+		    pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,
 		    netresc);
     }
 
@@ -551,11 +552,17 @@ char *start_sbf_vlan(char *clusterid, char *nodelist, char *netresc)
 /* stop_sbf_vlan
  * stop SBF vlan created by start_sbf_vlan()
  */
-int stop_sbf_vlan(char *vlanid, char *netresc)
+int stop_sbf_vlan(char *vlanid, char *nodelist, char *netresc)
 { FILE *fp;
   char buf[256];
   int ret=0;
   char execbuf[1024];
+  char *c,*s,*ss,*cc;
+  char delim[2];
+
+  ss=s=strdup(nodelist);
+  delim[0]='+';
+  delim[1]='\0';
 
   strcpy(execbuf,SBF_STOP);
   strcat(execbuf," ");
@@ -566,6 +573,23 @@ int stop_sbf_vlan(char *vlanid, char *netresc)
     }
 
   strcat(execbuf,vlanid);
+  strcat(execbuf," ");
+
+  while (((c=strsep(&s,delim))!=NULL) ) {
+        cc=strchr(c,'/');
+        if (cc!=NULL)
+          *cc='\0';
+        cc=strchr(c,':');
+        if (cc!=NULL)
+          *cc='\0';
+        cc=strchr(c,'[');
+        if (cc!=NULL)
+          *cc='\0';
+
+        strcat(execbuf," ");
+  strcat(execbuf,c);
+  }
+  free(ss);
 
   if( (fp = popen(execbuf,"r")) != NULL ) {
       if( fgets(buf, 256, fp) != NULL ) {
