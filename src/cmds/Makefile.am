@@ -3,7 +3,7 @@ include $(top_srcdir)/buildutils/config.mk
 PBS_LIBS = ../lib/Libpbs/libtorque.la \
 					 ../lib/Libutils/libutils.a
 
-dist_bin_SCRIPTS = nqs2pbs
+dist_bin_SCRIPTS = nqs2pbs ../../meta/cluster_conf  ../../meta/cluster_delete  ../../meta/cluster_list ../../meta/cluster_purge  ../../meta/cluster_status  ../../meta/cluster_submit ../../meta/qsub_build
 bin_PROGRAMS = qalter qdel qhold qmove qorder qmsg qrerun qrls qselect qsig \
 	       qstat qsub pbsdsh qdisable qenable qrun qstart qstop qterm \
 	       pbsnodes qmgr qchkpt pbs_track @PBSPOE@
