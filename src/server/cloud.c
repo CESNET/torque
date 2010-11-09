@@ -502,7 +502,7 @@ char *start_sbf_vlan(char *clusterid, char *nodelist, char *netresc)
   strcpy(execbuf,SBF_START);
   strcat(execbuf," ");
 
-  if (strcmp(netresc,"private") != 0)
+  if (netresc != NULL && strcmp(netresc,"private") != 0)
     {
     strcat(execbuf,"-v ");
     strcat(execbuf,netresc);
@@ -560,7 +560,7 @@ int stop_sbf_vlan(char *vlanid, char *netresc)
   strcpy(execbuf,SBF_STOP);
   strcat(execbuf," ");
 
-  if (strcmp(netresc,"private") != 0)
+  if (netresc != NULL && strcmp(netresc,"private") != 0)
     {
     strcat(execbuf,"-k ");
     }
