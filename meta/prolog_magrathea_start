@@ -9,7 +9,6 @@ PATH=$PATH:/software/remctl-2.14/bin:/usr/heimdal/bin:/usr/heimdal/sbin
 
 set -x
 
-
 FAKE_VERSION=0
 FAST_FAKE_VERSION=0
 MAGRATHEA_VERSION=1
@@ -20,7 +19,7 @@ if [ -f /etc/pbs.conf ];
 elif [ -f /usr/spool/PBS/server_name ]; then
  PBS_SERVER=`cat /usr/spool/PBS/server_name`
 else
- PBS_SERVER=torque1.ics.muni.cz
+ PBS_SERVER=`cat /var/spool/torque/server_name`
 fi
 
 PROG=$0;
