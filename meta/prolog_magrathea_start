@@ -40,7 +40,7 @@ NCPU=1
 
 #TODO obalit i sleep
 
-ADMIN_COMMAND=/usr/local/sbin/magrathea-admin
+ADMIN_COMMAND=/usr/sbin/magrathea-admin
 CACHE_LIST=/software/pbs-7.0.0/cache/list_cache
 CACHE_UPDATE=/software/pbs-7.0.0/cache/update_cache
 
