@@ -60,14 +60,14 @@ int is_cloud_job(job *pjob)
  * 1 - new VPN
  * 2 - id provided - attach to existing VPN
  */
-int is_cloud_job_private(job *pjob, char* netresc)
+int is_cloud_job_private(job *pjob, char** netresc)
   {
   resource *pres = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],
 		   find_resc_def(svr_resc_def,"net",svr_resc_size));
 
   if (pres != NULL && (pres->rs_value.at_flags & ATR_VFLAG_SET))
     {
-    netresc = pres->rs_value.at_val.at_str;
+    *netresc = pres->rs_value.at_val.at_str;
 
     if (strcmp(pres->rs_value.at_val.at_str,"private") == 0)
       return 1;
@@ -324,7 +324,7 @@ int cloud_transition_into_prerun(job *pjob)
   char     *netresc = NULL;
 
   svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN_CLOUD);
-  if (is_cloud_job_private(pjob,netresc))
+  if (is_cloud_job_private(pjob,&netresc))
     {
     vlanid=start_sbf_vlan(pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str,
                           pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,
@@ -472,7 +472,7 @@ void cloud_transition_into_stopped(job *pjob)
 
   free_parsed_nodespec(ps);
 
-  if (is_cloud_job_private(pjob,netresc))
+  if (is_cloud_job_private(pjob,&netresc))
     {
     if (pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str != NULL)
       stop_sbf_vlan(pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str,
