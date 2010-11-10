@@ -168,8 +168,10 @@ static char *all_nodes = "_All_";
  * Returns: NULL if all ok or name of bad attribute if not ok
  */
 
-static char *
-check_que_attr(pbs_queue *pque)
+static char *check_que_attr(
+    
+  pbs_queue *pque)
+
   {
   int   i;
   int   type;
@@ -199,19 +201,19 @@ check_que_attr(pbs_queue *pque)
     }
 
   return ((char *)0); /* all attributes are ok */
-  }
+  } /* END check_que_attr() */
 
 /*
  * check_que_enable - check if attempt to enable incompletely defined queue
  * This is the at_action() routine for QA_ATR_Enabled
  */
 
-int
-check_que_enable(
+int check_que_enable(
+
   attribute *pattr,
   void *pque, /* actually a queue* */
-  int mode
-)
+  int mode)
+
   {
   attribute *datr;
 
@@ -235,8 +237,11 @@ check_que_enable(
       }
     }
 
-  return (0); /* ok to enable queue */
-  }
+  return(PBSE_NONE); /* ok to enable queue */
+  } /* END check_que_enable() */
+
+
+
 
 /*
  * set_queue_type - check the requested value of the queue type attribute
@@ -244,8 +249,12 @@ check_que_enable(
  * This is the at_action() routine for QA_ATR_QType
  */
 
-int
-set_queue_type(attribute *pattr, void *pque, int mode)
+int set_queue_type(
+    
+  attribute *pattr,
+  void *pque,
+  int mode)
+
   {
   int   i;
   char *pca;
@@ -298,25 +307,27 @@ set_queue_type(attribute *pattr, void *pque, int mode)
 
       (void)strcpy(pattr->at_val.at_str, qt[i].name);
 
-      return (0);
+      return(PBSE_NONE);
       }
     }
 
   return (PBSE_BADATVAL);
-  }
+  } /* set_queue_type() */
+
+
 
 
 /*
  * mgr_log_attr - log the change of an attribute
  */
 
-static void
-mgr_log_attr(
+static void mgr_log_attr(
+
   char *msg,
   struct svrattrl *plist,
-  int logclass, /* see log.h */
-  char *objname /* object being modified */
-)
+  int logclass,           /* see log.h */
+  char *objname)          /* object being modified */
+
   {
   char *pstr;
 
@@ -350,7 +361,7 @@ mgr_log_attr(
 
     plist = (struct svrattrl *)GET_NEXT(plist->al_link);
     }
-  }
+  } /* END mgr_log_attr() */
 
 
 
@@ -666,6 +677,7 @@ int mgr_set_node_attr(
   void  *parent, /*may go unused in this function */
   int   mode)  /*passed to attrib's action func */
 /*not used by this func at this time*/
+
   {
   int   i;
   int   index;
@@ -1017,7 +1029,7 @@ void mgr_queue_create(
     }
 
   return;
-  }
+  } /* END mgr_queue_create() */
 
 
 
@@ -1612,7 +1624,7 @@ void mgr_node_set(
   int  bad = 0;
   svrattrl *plist;
 
-  struct pbsnode  *pnode;
+  struct pbsnode  *pnode = NULL;
   char  *nodename = NULL;
   int  rc;
 
@@ -2520,6 +2532,7 @@ int servername_chk(
 void on_extra_resc(
 
   struct work_task *ptask)
+
   {
   init_resc_defs();
   }
@@ -2625,7 +2638,7 @@ int disallowed_types_chk(
 static int mgr_long_action_helper(
 
   attribute *pattr,
-  int      actmode,
+  int        actmode,
   long       minimum,
   long       maximum)
 
@@ -2666,7 +2679,7 @@ int schiter_chk(
 
   attribute *pattr,
   void      *pobject,
-  int      actmode)
+  int        actmode)
 
   {
   return(mgr_long_action_helper(pattr, actmode, 1, PBS_SCHEDULE_CYCLE));

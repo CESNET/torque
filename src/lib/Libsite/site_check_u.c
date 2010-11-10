@@ -174,8 +174,8 @@ int site_check_user_map(
     return(-1);
     }
 
-  if ((server.sv_attr[(int)SRV_ATR_AllowProxyUser].at_flags & ATR_VFLAG_SET) && \
-      (server.sv_attr[(int)SRV_ATR_AllowProxyUser].at_val.at_long == 1))
+  if ((server.sv_attr[SRV_ATR_AllowProxyUser].at_flags & ATR_VFLAG_SET) && \
+      (server.sv_attr[SRV_ATR_AllowProxyUser].at_val.at_long == 1))
     {
     ProxyAllowed = 1;
     }
@@ -227,14 +227,14 @@ int site_check_user_map(
     }
 
   if ((HostAllowed == 0) &&
-      (server.sv_attr[(int)SRV_ATR_SubmitHosts].at_flags & ATR_VFLAG_SET))
+      (server.sv_attr[SRV_ATR_SubmitHosts].at_flags & ATR_VFLAG_SET))
     {
 
     struct array_strings *submithosts = NULL;
     char                 *testhost;
     int                   hostnum = 0;
 
-    submithosts = server.sv_attr[(int)SRV_ATR_SubmitHosts].at_val.at_arst;
+    submithosts = server.sv_attr[SRV_ATR_SubmitHosts].at_val.at_arst;
 
     for (hostnum = 0;hostnum < submithosts->as_usedptr;hostnum++)
       {

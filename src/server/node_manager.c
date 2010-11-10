@@ -2676,7 +2676,8 @@ static int hasppn(
     return(1);
     }
 
-  if (!free && (pnode->nd_nsn >= node_req))
+  if ((free == SKIP_NONE) && 
+      (pnode->nd_nsn >= node_req))
     {
     return(1);
     }
@@ -2684,6 +2685,36 @@ static int hasppn(
   return(0);
   }  /* END hasppn() */
 
+
+
+
+
+
+/* 
+ * see if pnode has the number of gpus required 
+ */
+static int hasgpu(
+
+  struct pbsnode *pnode,
+  int             gpu_req,
+  int             free)
+
+  {
+  if ((free != SKIP_NONE) &&
+      (free != SKIP_NONE_REUSE) &&
+      (pnode->nd_ngpus_free >= gpu_req))
+    {
+    return(TRUE);
+    }
+  
+  if ((free == SKIP_NONE) &&
+      (pnode->nd_ngpus >= gpu_req))
+    {
+    return(TRUE);
+    }
+
+  return(FALSE);
+  } /* END hasgpu() */
 
 
 
@@ -2738,7 +2769,8 @@ int search_acceptable(
   struct pbsnode *pnode,
   struct prop    *glorf,
   int             skip,
-  int             vpreq)
+  int             vpreq,
+  int             gpureq)
 
   {
   if (pnode->nd_state & INUSE_DELETED)
@@ -2768,15 +2800,19 @@ int search_acceptable(
       {
       if (vpreq > pnode->nd_nsn)
         return(FALSE);
+      else if (gpureq > pnode->nd_ngpus)
+        return(FALSE);
       }
     else if ((skip == SKIP_ANYINUSE) &&
-             ((pnode->nd_state & INUSE_SUBNODE_MASK) || (vpreq > pnode->nd_nsnfree)))
+             ((pnode->nd_state & INUSE_SUBNODE_MASK) || (vpreq > pnode->nd_nsnfree) ||
+             (pnode->nd_ngpus_free < gpureq)))
       {
       return(FALSE);
       }
     else if ((skip == SKIP_EXCLUSIVE) &&
              ((pnode->nd_state & INUSE_SUBNODE_MASK) ||
-              (vpreq > (pnode->nd_nsnfree + pnode->nd_nsnshared))))
+              (vpreq > (pnode->nd_nsnfree + pnode->nd_nsnshared)) ||
+              (gpureq > pnode->nd_ngpus_free)))
       {
       return(FALSE);
       }
@@ -2806,6 +2842,7 @@ int can_reshuffle(
   struct prop    *glorf,
   int             skip,
   int             vpreq,
+  int             gpureq,
   int             pass)
 
   {
@@ -2825,11 +2862,14 @@ int can_reshuffle(
     if (pnode->nd_state & pass)
       return(FALSE);
 
-    if ((skip == SKIP_EXCLUSIVE) && (vpreq < pnode->nd_nsnfree))
+    if ((skip == SKIP_EXCLUSIVE) && 
+        (vpreq < pnode->nd_nsnfree) &&
+        (gpureq < pnode->nd_ngpus_free))
       return(FALSE);
 
     if ((skip == SKIP_ANYINUSE) &&
-        (vpreq < (pnode->nd_nsnfree + pnode->nd_nsnshared)))
+        (vpreq < (pnode->nd_nsnfree + pnode->nd_nsnshared)) &&
+        (gpureq < pnode->nd_ngpus_free))
       return(FALSE);
 
     if (!hasprop(pnode, glorf))
@@ -2861,6 +2901,7 @@ static int search(
 
   struct prop  *glorf,  /* properties */
   int    vpreq,  /* VPs needed */
+  int    gpureq, /* GPUs needed */
   int    skip,
   int    order,
   int    depth)
@@ -2884,13 +2925,15 @@ static int search(
 
   while ((pnode = next_node(&iter)) != NULL)
     {
-    if (search_acceptable(pnode,glorf,skip,vpreq) == TRUE)
+    if (search_acceptable(pnode,glorf,skip,vpreq,gpureq) == TRUE)
       {
       pnode->nd_flag = thinking;
 
       mark(pnode, glorf);
 
       pnode->nd_needed = vpreq;
+
+      pnode->nd_ngpus_needed = gpureq;
 
       pnode->nd_order  = order;
 
@@ -2912,7 +2955,7 @@ static int search(
 
   while ((pnode = next_node(&iter)) != NULL)
     {
-    if (can_reshuffle(pnode,glorf,skip,vpreq,pass) == TRUE)
+    if (can_reshuffle(pnode,glorf,skip,vpreq,gpureq,pass) == TRUE)
       {
       pnode->nd_flag = conflict;
 
@@ -2921,6 +2964,7 @@ static int search(
       found = search(
                 pnode->nd_first,
                 pnode->nd_needed,
+                pnode->nd_ngpus_needed,
                 skip,
                 pnode->nd_order,
                 depth);
@@ -2933,6 +2977,7 @@ static int search(
         mark(pnode, glorf);
 
         pnode->nd_needed = vpreq;
+        pnode->nd_ngpus_needed = gpureq;
         pnode->nd_order  = order;
 
         return(1);
@@ -3055,7 +3100,8 @@ static int proplist(
 
   char  **str,
   struct prop **plist,
-  int   *node_req)
+  int   *node_req,
+  int   *gpu_req)
 
   {
 
@@ -3089,6 +3135,15 @@ static int proplist(
         pequal++;
 
         if ((number(&pequal, node_req) != 0) || (*pequal != '\0'))
+          {
+          return(1);
+          }
+        }
+      else if (strcmp(pname, "gpus") == 0)
+        {
+        pequal++;
+
+        if ((number(&pequal, gpu_req) != 0) || (*pequal != '\0'))
           {
           return(1);
           }
@@ -3143,6 +3198,7 @@ static int listelem(
 
   struct pbsnode *pnode;
   int node_req = 1;
+  int gpu_req = 0;
 
   node_iterator iter;
 
@@ -3163,7 +3219,7 @@ static int listelem(
 
       (*str)++;
 
-      if (proplist(str, &prop, &node_req))
+      if (proplist(str, &prop, &node_req, &gpu_req))
         {
         return(ret);
         }
@@ -3173,7 +3229,7 @@ static int listelem(
     {
     /* no number */
 
-    if (proplist(str, &prop, &node_req))
+    if (proplist(str, &prop, &node_req, &gpu_req))
       {
       /* must be a prop list with no number in front */
 
@@ -3194,7 +3250,9 @@ static int listelem(
 
     if (pnode->nd_ntype == NTYPE_CLUSTER)
       {
-      if (hasprop(pnode, prop) && hasppn(pnode, node_req, SKIP_NONE))
+      if ((hasprop(pnode, prop)) && 
+          (hasppn(pnode, node_req, SKIP_NONE)) &&
+          (hasgpu(pnode, gpu_req, SKIP_NONE)))
         hit++;
 
       if (hit == num)
@@ -3229,12 +3287,12 @@ static int listelem(
     {
     if (SvrNodeCt == 0)
       {
-      if (search(prop, node_req, SKIP_NONE, order, 0))
+      if (search(prop, node_req, gpu_req, SKIP_NONE, order, 0))
         continue;
       }
     else
       {
-      if (search(prop, node_req, SKIP_NONE_REUSE, order, 0))
+      if (search(prop, node_req, gpu_req, SKIP_NONE_REUSE, order, 0))
         continue;
       }
 
@@ -3903,17 +3961,23 @@ static int node_spec(
       {
       if (pnode->nd_needed <= pnode->nd_nsnfree)
         {
-        /* adequate virtual nodes available - node is ok */
-
-        continue;
+        if (pnode->nd_ngpus_needed <= pnode->nd_ngpus_free)
+          {
+          /* adequate virtual nodes available - node is ok */
+          
+          continue;
+          }
         }
 
       if (!exclusive &&
           (pnode->nd_needed < pnode->nd_nsnfree + pnode->nd_nsnshared))
         {
-        /* shared node - node is ok */
+        if (pnode->nd_ngpus_needed <= pnode->nd_ngpus_free)
+          {
+          /* shared node - node is ok */
 
-        continue;
+          continue;
+          }
         }
       }
     else
@@ -3921,9 +3985,12 @@ static int node_spec(
       if (!exclusive &&
           (pnode->nd_needed <= pnode->nd_nsnfree + pnode->nd_nsnshared))
         {
-        /* shared node - node is ok */
+        if (pnode->nd_ngpus_needed <= pnode->nd_ngpus_free)
+          {
+          /* shared node - node is ok */
 
-        continue;
+          continue;
+          }
         }
       }
 
@@ -3936,6 +4003,7 @@ static int node_spec(
     if (search(
           pnode->nd_first,
           pnode->nd_needed,
+          pnode->nd_ngpus_needed,
           (exclusive != 0) ? SKIP_ANYINUSE : SKIP_EXCLUSIVE,
           pnode->nd_order,
           0))
@@ -3992,10 +4060,12 @@ static int node_spec(
           nindex++;
           }  /* END for (np) */
 
-        snprintf(log_buffer, sizeof(log_buffer), "cannot allocate node '%s' to job - node not currently available (nps needed/free: %d/%d,  joblist: %s)",
+        snprintf(log_buffer, sizeof(log_buffer), "cannot allocate node '%s' to job - node not currently available (nps needed/free: %d/%d, gpus needed/free: %d/%d, joblist: %s)",
                  pnode->nd_name,
                  pnode->nd_needed,
                  pnode->nd_nsnfree,
+                 pnode->nd_ngpus_needed,
+                 pnode->nd_ngpus_free,
                  JobList);
 
 #ifdef BROKENVNODECHECKS
@@ -4004,6 +4074,7 @@ static int node_spec(
         if (JobList[0] == '\0')
           {
           pnode->nd_nsnfree = pnode->nd_nsn;
+          pnode->nd_ngpus_free = pnode->nd_ngpus;
           }
 
 #endif
@@ -4317,6 +4388,25 @@ int add_job_to_node(
   }
 
 
+    
+
+int add_job_to_gpu_subnode(
+    
+  struct pbsnode *pnode,
+  struct gpusubn *gn,
+  job            *pjob)
+
+  {
+  /* update the gpu subnode */
+  gn->pjob = pjob;
+  gn->inuse = TRUE;
+
+  /* update the main node */
+  pnode->nd_ngpus_free--;
+  pnode->nd_ngpus_needed--;
+
+  return(PBSE_NONE);
+  } /* END add_job_to_gpu_subnode() */
 
 /**
  * builds the host list (hlist)
@@ -4363,6 +4453,54 @@ int build_host_list(
 
 
 
+
+int add_gpu_to_hostlist(
+    
+  struct howl    **hlistptr,
+  struct gpusubn  *gn,
+  struct pbsnode  *pnode)
+
+  {
+  struct howl *curr;
+  struct howl *prev;
+  struct howl *hp;
+  char        *gpu_name;
+  static char *gpu = "gpu";
+
+  /* create gpu_name */
+  gpu_name = malloc(strlen(pnode->nd_name) + strlen(gpu) + 2);
+  sprintf(gpu_name, "%s-%s", pnode->nd_name, gpu);
+
+
+  /* initialize the pointers */
+  curr = (struct howl *)malloc(sizeof(struct howl));
+  curr->order = pnode->nd_order;
+  curr->name  = gpu_name;
+  curr->index = gn->index;
+  curr->port = pnode->nd_mom_rm_port;
+
+  /* find the proper place in the list */
+  for (prev = NULL, hp = *hlistptr;hp;prev = hp, hp = hp->next)
+    {
+    if (curr->order <= hp->order)
+      break;
+    }  /* END for (prev) */
+
+  /* set the correct pointers in the list */
+  curr->next = hp;
+
+  if (prev == NULL)
+    *hlistptr = curr;
+  else
+    prev->next = curr;
+
+  return(SUCCESS);
+  } /* END add_gpu_to_hostlist() */
+
+
+
+
+
 /*
  * set_nodes() - Call node_spec() to allocate nodes then set them inuse.
  * Build list of allocated nodes to pass back in rtnlist.
@@ -4383,9 +4521,11 @@ int set_nodes(
 
   struct howl *hp;
   struct howl *hlist;
+  struct howl *gpu_list;
   struct howl *nxt;
 
   int     i;
+  int     j;
   int     count;
   int     procs_needed = 0;
   short   newstate;
@@ -4401,6 +4541,7 @@ int set_nodes(
   node_iterator  *iter;
   char           *nodelist;
   char           *portlist;
+  char           *gpu_str = NULL;
 
   char   ProcBMStr[MAX_BM];
 
@@ -4463,6 +4604,7 @@ int set_nodes(
     svr_numnodes -= i;
 
   hlist = NULL;
+  gpu_list = NULL;
 
   newstate = exclusive ? INUSE_JOB : INUSE_JOBSHARE;
 
@@ -4498,6 +4640,18 @@ int set_nodes(
       }
 #endif /* GEOMETRY_REQUESTS */
 
+    /* place the gpus in the hostlist as well */
+    for (j = 0; j < pnode->nd_ngpus && pnode->nd_ngpus_needed > 0; j++)
+      {
+      struct gpusubn *gn = pnode->nd_gpusn + j;
+      if (gn->inuse == TRUE)
+        continue;
+
+      add_job_to_gpu_subnode(pnode,gn,pjob);
+      add_gpu_to_hostlist(&gpu_list,gn,pnode);
+      }
+
+    /* place the subnodes (nps) in the hostlist */
     for (snp = pnode->nd_psn;snp && pnode->nd_needed;snp = snp->next)
       {
       if (exclusive)
@@ -4613,6 +4767,14 @@ int set_nodes(
 
   nodelist = malloc(++i);
 
+  /* allocate the gpu list */
+  i = 1;
+  for (hp = gpu_list; hp != NULL; hp = hp->next)
+    i += strlen(hp->name) + 6;
+
+  if ( i > 1)
+    gpu_str = malloc(i+1);
+
   if (nodelist == NULL)
     {
     sprintf(log_buffer, "no nodes can be allocated to job %s - no memory",
@@ -4673,6 +4835,38 @@ int set_nodes(
     free(hp);
     }
 
+  /* now do the same for the gpu_str, if necessary
+   * add the gpu_str directly to the job */
+  if (gpu_str != NULL)
+    {
+    gpu_str[0] = '\0';
+
+    for (hp = gpu_list; hp != NULL; hp = nxt)
+      {
+      sprintf(gpu_str + strlen(gpu_str), "%s/%d+",
+        hp->name,
+        hp->index);
+
+      nxt = hp->next;
+
+      free(hp);
+      }
+
+    /* strip trailing '+' */
+    gpu_str[strlen(gpu_str) - 1] = '\0';
+      
+      job_attr_def[JOB_ATR_exec_gpus].at_free(
+        &pjob->ji_wattr[JOB_ATR_exec_gpus]);
+
+      job_attr_def[JOB_ATR_exec_gpus].at_decode(
+        &pjob->ji_wattr[JOB_ATR_exec_gpus],
+        NULL,
+        NULL,
+        gpu_str);  /* O */
+
+    free(gpu_str);
+    }
+
   *(nodelist + strlen(nodelist) - 1) = '\0'; /* strip trailing + */
   *(portlist + strlen(portlist) - 1) = 0;
 
@@ -4703,11 +4897,14 @@ int set_nodes(
  * return processors requested on success
  * return -1 on error 
  */ 
-int procs_requested(char *spec)
+int procs_requested(
+    
+  char *spec)
+
   {
   char *id = "procs_requested";
   char *str, *globs, *cp, *hold;
-  int num_nodes = 0, num_procs = 0, total_procs = 0;
+  int num_nodes = 0, num_procs = 0, total_procs = 0, num_gpus = 0;
   int i;
   static char shared[] = "shared";
   struct prop *prop = NULL;
@@ -4794,7 +4991,7 @@ int procs_requested(char *spec)
 
         str++;
 
-        if (proplist(&str, &prop, &num_procs))
+        if (proplist(&str, &prop, &num_procs, &num_gpus))
           {
           return(-1);
           }
@@ -4804,7 +5001,7 @@ int procs_requested(char *spec)
       {
       /* no number */
       num_nodes = 1;
-      if (proplist(&str, &prop, &num_procs))
+      if (proplist(&str, &prop, &num_procs, &num_gpus))
         {
         /* must be a prop list with no number in front */
 
@@ -4894,6 +5091,7 @@ int node_avail(
   register int xresvd;
   register int xdown;
   int          node_req = 1;
+  int          gpu_req = 0;
 
   node_iterator iter;
 
@@ -4921,7 +5119,7 @@ int node_avail(
 
     if (*pc)
       {
-      if (proplist(&pc, &prop, &node_req))
+      if (proplist(&pc, &prop, &node_req, &gpu_req))
         {
         return(RM_ERR_BADPARAM);
         }
@@ -5180,6 +5378,8 @@ void free_nodes(
 
   struct jobinfo *jp, *prev;
 
+  int i;
+
   node_iterator iter;
 
   if (LOGLEVEL >= 3)
@@ -5201,6 +5401,18 @@ void free_nodes(
     {
     if (pnode->nd_state & INUSE_DELETED)
       continue;
+
+    for (i = 0; i < pnode->nd_ngpus; i++)
+      {
+      struct gpusubn *gn = pnode->nd_gpusn + i;
+      if (gn->pjob == pjob)
+        {
+        gn->inuse = FALSE;
+        gn->pjob = NULL;
+
+        pnode->nd_ngpus_free++;
+        }
+      }
 
     /* examine all subnodes in node */
 
@@ -5267,7 +5479,7 @@ void free_nodes(
         break;
         }  /* END for (prev) */
       }    /* END for (np) */
-    }      /* END for (i) */
+    }      /* END for each node */
 
   pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_HasNodes;
 
