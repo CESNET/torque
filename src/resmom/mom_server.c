@@ -1216,13 +1216,13 @@ void mom_server_update_stat(
     }
 
   ret = diswus(pms->SStream, pbs_mom_port);
-  if(ret)
+  if (ret)
     {
     return;
     }
   
   ret = diswus(pms->SStream, pbs_rm_port);
-  if(ret)
+  if (ret)
     {
     return;
     }
@@ -1416,13 +1416,13 @@ int mom_server_send_hello(
     }
 
   ret = diswus(pms->SStream, pbs_mom_port);
-  if(ret)
+  if (ret)
     {
     return(-1);
     }
   
   ret = diswus(pms->SStream, pbs_rm_port);
-  if(ret)
+  if (ret)
     {
     return(-1);
     }
@@ -2515,13 +2515,13 @@ void state_to_server(
     }
 
   ret = diswus(pms->SStream, pbs_mom_port);
-  if(ret)
+  if (ret)
     {
     return;
     }
   
   ret = diswus(pms->SStream, pbs_rm_port);
-  if(ret)
+  if (ret)
     {
     return;
     }
