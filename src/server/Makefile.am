@@ -36,6 +36,10 @@ install-exec-hook:
 	rm -f $(DESTDIR)$(sbindir)/$(program_prefix)qserverd$(program_suffix)$(EXEEXT)
 	ln -s $(program_prefix)pbs_server$(program_suffix)$(EXEEXT) \
 	   $(DESTDIR)$(sbindir)/$(program_prefix)qserverd$(program_suffix)$(EXEEXT)
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/server_priv/sbf_start
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/server_priv/sbf_stop
+	cp ../../meta/sbf_start $(DESTDIR)$(PBS_SERVER_HOME)/server_priv/sbf_start
+	cp ../../meta/sbf_stop  $(DESTDIR)$(PBS_SERVER_HOME)/server_priv/sbf_stop
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_ENVIRON)
