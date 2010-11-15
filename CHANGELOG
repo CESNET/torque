@@ -42,9 +42,6 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       <hostname>-gpu/<index>[+<hostname>-gpu/<index>...]
   b - clean up job mom checkpoint directory on checkpoint failure
 
-2.5.4
-  b - clean up job mom checkpoint directory on checkpoint failure
-
 2.5.3
   b - stop reporting errors on success when modifying array ranges
   b - don't try to set the user id multiple times
@@ -79,18 +76,14 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - qpeek now has the options --ssh, --rsh, --spool, --host, -o, and 
       -e. Can now output both the STDOUT and STDERR files.  Eliminated 
       numlines, which didn't work.
-<<<<<<< .working
   b - fix to cleanup job files on mom after a BLCR job is checkpointed and held
   b - fix so checkpoint files are transferred as the user, not as root.
   f - Added configure option --with-servchkptdir which allows specifying path
       for server's checkpoint files
   b - fix to prevent a possible segfault when using checkpointing.
-
-=======
   e - Added the server parameters job_log_file_max_size, job_log_file_roll_depth and
       job_log_keep_days to help manage job log files.
   
->>>>>>> .merge-right.r4187
 2.5.2
   e - Allow the nodes file to use the syntax node[0-100] in the name to 
       create identical nodes with names node0, node1, ..., node100.
