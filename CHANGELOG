@@ -14,7 +14,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       at install time. The file only shows examples and a link to the
       TORQUE documentation.
   f - added ATTR_node_exclusive to allow a job to have a node exclusively. 
-  f - added --enable-memacctd to use an extra protocol in order to 
+  f - added --enable-memacct to use an extra protocol in order to 
       accurately track jobs that exceed over their memory limits and kill 
       them 
   e - when ATTR_node_exclusive is set, reserve the entire node (or entire
@@ -32,6 +32,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - move the memory monitor functionality to linux/mom_mach.c in order to store the 
       more accurate statistics for usage, and still use it for applying limits.
       Contributed by Dr. Bernd Kallies
+  e - when pbs_mom is compiled to use cpusets, instead of looking at all processes, 
+      only examine the ones in cpuset task files. For busy machines (especially large
+      systems like UVs) this can exponentially reduce job monitoring/harvesting times.
   
 2.5.4
   f - added the ability to track gpus. Users set gpus=X in the nodes file for
