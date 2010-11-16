@@ -94,8 +94,10 @@ case $PROG in
     if [ $INVOKE_BOOOT = 1 ]; then
         if [ $FAKE_VERSION -eq 2 -o $MAGRATHEA_VERSION = 1 ]; then
           #sometimes --dont-create-fs
-	  /afs/ics.muni.cz/software/booot/booot create ${DOM/\.*/} >/tmp/booot.log 2>&1
-	  #/afs/ics.muni.cz/software/booot/booot create --dont-create-fs  ${DOM/\.*/} >/tmp/booot.log  2>&1
+	  #/afs/ics.muni.cz/software/booot/booot create ${DOM/\.*/} >/tmp/booot.log 2>&1
+	  /afs/ics.muni.cz/software/booot/booot create --dont-create-fs  ${DOM/\.*/} >/tmp/booot.log  2>&1
+	  if [ $? != 0 ]; then exit 9; fi
+	  . /tmp/booot.params
         else
           exit 8
         fi
@@ -116,7 +118,7 @@ case $PROG in
     else 
        STATUS=`$ADMIN_COMMAND status| grep $DOMAIN| awk '// {print $2}'| sed 's/;.*//'`
        if [ -z $STATUS ]; then
-		$ADMIN_COMMAND create $DOMAIN ${DOMAIN/.*} normal `host $DOMAIN | awk '// {print $4}'`
+		$ADMIN_COMMAND create $DOMAIN ${DOMAIN/.*} normal `host $DOMAIN | awk '// {print $4}'` ${MAGRATHEA_DOMAIN_FOREIGN}
                 STATUS=`$ADMIN_COMMAND status| grep $DOMAIN| awk '// {print $2}'| sed 's/;.*//'`
 		if [ -z $STATUS ]; then
 			exit 7
@@ -185,7 +187,8 @@ case $PROG in
 
     if [ $INVOKE_BOOOT = 1 ]; then
         if [ $FAKE_VERSION -eq 2 -o $MAGRATHEA_VERSION = 1 ]; then
-	   /afs/ics.muni.cz/software/booot/booot delete ${DOM/\.*/} >/tmp/booot.log 2>&1
+	   #/afs/ics.muni.cz/software/booot/booot delete ${DOM/\.*/} >/tmp/booot.log 2>&1
+	   /afs/ics.muni.cz/software/booot/booot delete --dont-delete-lv ${DOM/\.*/} >/tmp/booot.log 2>&1
         else
            exit 8
 	fi
