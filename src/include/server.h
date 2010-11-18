@@ -189,6 +189,7 @@ enum srv_atr
 #ifdef MUNGE_AUTH
   SRV_ATR_authusers,
 #endif
+  SRV_ATR_MoabArrayCompatible,
 
 #include "site_svr_attr_enum.h"
   /* This must be last */
