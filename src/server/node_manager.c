@@ -4868,9 +4868,19 @@ void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp,
         if ((val = find_resc_entry(&pnode->attributes[1],defin)))
         /* some value already present */
           {
-          ret = defin->rs_set(&val->rs_value,&decoded.rs_value,op);
-          if (ret != 0)
-            continue; /* ignore if cannot set */
+          /* if the resulting value is zero, then remove completely */
+          if (defin->rs_comp(&val->rs_value,&decoded.rs_value) == 0 && op == DECR)
+            {
+            ret = defin->rs_free(&val->rs_value);
+            if (ret != 0)
+              continue;
+            }
+          else
+            {
+            ret = defin->rs_set(&val->rs_value,&decoded.rs_value,op);
+            if (ret != 0)
+              continue; /* ignore if cannot set */
+            }
           }
         else
           {
