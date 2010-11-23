@@ -36,6 +36,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       (backported from 2.5.4)
   b - fix a potential memory corruption for walltime remaining for jobs
       (Vikentsi Lapa, backported from 2.5.4)
+  b - fix potential buffer overrun in pbs_sched (Bugzilla #98, patch from 
+      Stephen Usher @ University of Oxford, backported from 2.5.4)
 
 2.4.10
   b - fix to get new pagg ID and add additional CSA records when restarting from
