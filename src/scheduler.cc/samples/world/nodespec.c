@@ -373,14 +373,14 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
               "Node %s not used, node is Timesharing or Cloud.", ninfo->name);
     return 0;
     }
-
+#if 0 /* allow submit into free virtual nodes */
   if (ninfo->type == NodeVirtual && (!jinfo->is_cluster))
     {
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
               "Node %s not used, node is virtual, but job doesn't require virtual cluster.", ninfo->name);
     return 0;
     }
-
+#endif
   if (ninfo->type == NodeCluster && jinfo->is_cluster)
     {
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
