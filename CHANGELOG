@@ -29,6 +29,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - add an asynchronous option to qdel 
   b - do not reply when an asynchronous reply has already been sent
   e - make the mem, vmem, and cput usage available on a per-mom basis using momctl -d2
+      (Dr. Bernd Kallies)
   e - move the memory monitor functionality to linux/mom_mach.c in order to store the 
       more accurate statistics for usage, and still use it for applying limits.
       (Dr. Bernd Kallies)
@@ -42,6 +43,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       which a job becomes a problem. If duration is set, the job will be killed if
       it exceeds the threshold for the configured number of checks. If duration isn't 
       set, then an arror is logged.
+      (Dr. Bernd Kallies)
+  e - change pbs_track to look for the executable in the existing path so it doesn't always
+      need a complete path.
       (Dr. Bernd Kallies)
   
 2.5.4
