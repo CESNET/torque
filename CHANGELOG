@@ -66,6 +66,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       completes or is deleted, one of the held jobs is freed.
   b - fix a potential memory corruption for walltime remaining for jobs
       (Vikentsi Lapa)
+  e - check if a process still exists before killing it and sleeping. This speeds up
+      the time for killing a task exponentially, although this will show mostly for
+      SMP/NUMA systems, but it will help everywhere.
+      (Dr. Bernd Kallies)
 
 2.5.3
   b - stop reporting errors on success when modifying array ranges
