@@ -1,6 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
 3.0.0
+  e - serverdb is now stored as xml, this is no longer configurable.
   f - added --enable-numa-support for supporting NUMA-type architectures. We
       have tested this build on UV and Altix machines. The server treats the
       mom as a node with several special numa nodes embedded, and the pbs_mom
@@ -46,6 +47,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       (Dr. Bernd Kallies)
   e - change pbs_track to look for the executable in the existing path so it doesn't always
       need a complete path.
+      (Dr. Bernd Kallies)
+  e - report sessions on a per numa node basis when NUMA is enabled
       (Dr. Bernd Kallies)
   
 2.5.4
