@@ -38,7 +38,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
        - Basic working configuration automatically generated at install-time
        - Reduce the number of unnecessary subpackages by consolidating where
          it makes sense and using existing RPM features (e.g.,
-         --excludedocs).
+         --excludedocs).  
+  b - Merged revision 4325 from 2.5-fixes. Fixed a problem where the -m n 
+      (request no mail on qsub) was not always being recongnized.
 
 2.4.11 
   b - changed type cast for calloc of ioenv from sizeof(char) to sizof(char *)
