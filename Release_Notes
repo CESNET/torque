@@ -9,6 +9,12 @@ Release notes concerning some of the new features of this release.
 
 		                   	-------- WARNING! --------
 
+TORQUE 3.0 Communication Changes - WARNING: TORQUE 3.0 has upgraded the 
+communication protocol to version 2 in order to accomodate the multi-mom
+feature (explained below). pbs_server 3.0 will not be able to communicate with
+pbs_moms pre-3.0, and vice versa. Additionally, schedulers will need to use the
+updated TORQUE libraries in order to communicate with the updated TORQUE
+
 TORQUE 2.5 Array Changes - WARNING: TORQUE 2.5 Job Arrays are not backwards
 compatible, you MUST NOT upgrade to this from 2.3 or 2.4 while you have job
 arrays queued - See README.array_changes for more details.
@@ -26,6 +32,10 @@ CONTENTS
 --------------------------------------------------------------------------
 OVERVIEW
 
+    The two main features of 3.0 are NUMA support and multi-mom capability.
+    There are also several other minor enhancements and big fixes.
+    For a complete list of changes see CHANGELOG.
+
     Enhanced job array functionality and Cygwin compatibility are the two
     main new features of TORQUE 2.5.0. Several other minor enhancements 
     have also been added to TORQUE 2.5.0 along with several bug fixes.
@@ -33,6 +43,18 @@ OVERVIEW
     
 ---------------------------------------------------------------------------
 WHAT'S NEW
+
+    There is now a --enable-numa-support configure option to make pbs_mom
+    compatible with NUMA systems. This has been extensively tested on UltraViolet
+    and Altix hardware, and is currently in production at several sites.
+    
+    Essentially, this option allows pbs_mom to report "numa nodes" to the 
+    server as subnodes of itself, and in turn the server reports those 
+    "numa nodes" in the pbsnodes output. Numa support also creates cpusets
+    around each job for its memory and cpus. There are many other features
+    that accompany the NUMA support, so please refer to:
+
+    New from 2.5:
 
     Completed job information can now be logged. A new Boolean server parameter 
     record_job_info can be set to TRUE and a log file will be created
