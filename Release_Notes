@@ -54,6 +54,10 @@ WHAT'S NEW
     around each job for its memory and cpus. There are many other features
     that accompany the NUMA support, so please refer to:
 
+    New in 3.0 is the ability to run multiple pbs_mom daemons from the same 
+    host. To learn more about the multi-mom capability see section 1.7
+    of the TORQUE documentation found at http://www.clusterresources.com/products/torque/docs/index.shtml
+
     New from 2.5:
 
     Completed job information can now be logged. A new Boolean server parameter 
