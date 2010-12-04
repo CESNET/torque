@@ -36,10 +36,8 @@ OVERVIEW
     There are also several other minor enhancements and big fixes.
     For a complete list of changes see CHANGELOG.
 
-    Enhanced job array functionality and Cygwin compatibility are the two
-    main new features of TORQUE 2.5.0. Several other minor enhancements 
-    have also been added to TORQUE 2.5.0 along with several bug fixes.
-    For a complete list of changes see CHANGELOG.
+    TORQUE 3.0 is not backward compatitble with any previous version of TORQUE.
+    
     
 ---------------------------------------------------------------------------
 WHAT'S NEW
