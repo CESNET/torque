@@ -51,6 +51,7 @@ WHAT'S NEW
     "numa nodes" in the pbsnodes output. Numa support also creates cpusets
     around each job for its memory and cpus. There are many other features
     that accompany the NUMA support, so please refer to:
+    http://www.clusterresources.com/products/torque/docs/1.7torqueonnuma.shtml
 
     New in 3.0 is the ability to run multiple pbs_mom daemons from the same 
     host. To learn more about the multi-mom capability see section 1.7
