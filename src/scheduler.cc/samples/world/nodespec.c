@@ -413,7 +413,11 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
     }
 
   if (ninfo->temp_assign != NULL) /* node already assigned */
+  {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Node %s not used, node already assigned.", ninfo->name);
     return 0;
+  }
 
   if (preassign_starving == 0) /* only for non-starving jobs */
     {
@@ -434,7 +438,11 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
 
   /* refresh and check magrathea status */
   if (refresh_magrathea_status(ninfo,jinfo,preassign_starving) == 0)
+  {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Node %s not used, could not refresh magrathea status.", ninfo->name);
     return 0;
+  }
 
   /* virtual clusters support */
   if (jinfo->is_cluster && jinfo->cluster_mode == ClusterCreate)
@@ -491,6 +499,7 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
         {
         sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
                   "Node %s not used, cloud node has other jobs", ninfo->name);
+	return 0;
         }
       }
 
@@ -557,7 +566,11 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
         }
 
       if (*ra == NULL)
+        {
+        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+	          "Node %s not used, could not find suitable alternative/properties/resources.", ninfo->name);
         continue; /* no alternative matching the spec */
+        }
       }
     else /* else just do simple iteration */
       {
@@ -571,12 +584,20 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
         }
 
       if (iter != NULL) /* one of the properties not found */
+        {
+        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+	          "Node %s not used, could not find some properties/resources.", ninfo->name);
         continue;
+        }
       }
 
     if (jinfo->cluster_mode != ClusterUse && /* do not check user accounts inside virtual clusters */
         site_user_has_account(jinfo->account,ninfo_arr[i]->name,ninfo_arr[i]->cluster_name) == CHECK_NO)
+      {
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                "Node %s not used, user does not have account on this node.", ninfo->name);
       continue;
+      }
 
     if (preassign_starving)
       ninfo_arr[i]->starving_job = jinfo;
