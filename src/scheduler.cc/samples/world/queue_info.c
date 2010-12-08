@@ -223,34 +223,24 @@ queue_info **query_queues(int pbs_sd, server_info *sinfo)
 
 static void push_excl_node(queue_info *qinfo, node_info *ninfo)
   {
-  if (qinfo->excl_node_capacity == 0)
+  if (qinfo->excl_node_capacity == qinfo->excl_node_count)
     {
-    qinfo->excl_nodes = malloc(sizeof(node_info*)*10);
-    if (qinfo->excl_nodes != NULL)
-      {
-      qinfo->excl_node_capacity = 10;
-      qinfo->excl_node_count = 1;
-      qinfo->excl_nodes[0] = ninfo;
-      ninfo->excl_queue = qinfo;
-      }
+    node_info **tmp;
+  
+    /* if capacity == zero, increase to 5 */
+    qinfo->excl_node_capacity += 5 * (qinfo->excl_node_capacity == 0);
+  
+    tmp = realloc(qinfo->excl_nodes,sizeof(node_info*)*qinfo->excl_node_capacity*2);
+    if (tmp == NULL) return; /* no better handling possible right now */
+      
+    qinfo->excl_node_capacity *= 2;
+    qinfo->excl_nodes = tmp;
     }
-  else
-    {
-    if (qinfo->excl_node_capacity == qinfo->excl_node_count)
-      {
-      node_info **tmp = realloc(qinfo->excl_nodes,
-          sizeof(node_info*)*qinfo->excl_node_capacity*2);
-
-      if (tmp == NULL) return; /* skip this one */
-
-      qinfo->excl_node_capacity *= 2;
-      tmp[qinfo->excl_node_count] = ninfo;
-      qinfo->excl_node_count++;
-      qinfo->excl_nodes = tmp;
-      ninfo->excl_queue = qinfo;
-      }
-    }
-  }
+    
+  qinfo->excl_node_capacity[qinfo->excl_node_count] = ninfo;
+  qinfo->excl_node_count++;
+  ninfo->excl_queue = qinfo;
+  }   
 
 /*
  *
