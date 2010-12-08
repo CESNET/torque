@@ -237,7 +237,7 @@ static void push_excl_node(queue_info *qinfo, node_info *ninfo)
     qinfo->excl_nodes = tmp;
     }
     
-  qinfo->excl_node_capacity[qinfo->excl_node_count] = ninfo;
+  qinfo->excl_nodes[qinfo->excl_node_count] = ninfo;
   qinfo->excl_node_count++;
   ninfo->excl_queue = qinfo;
   }   
