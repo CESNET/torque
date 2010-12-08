@@ -574,7 +574,8 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
         continue;
       }
 
-    if (site_user_has_account(jinfo->account,ninfo_arr[i]->name,ninfo_arr[i]->cluster_name) == CHECK_NO)
+    if (jinfo->cluster_mode != ClusterUse && /* do not check user accounts inside virtual clusters */
+        site_user_has_account(jinfo->account,ninfo_arr[i]->name,ninfo_arr[i]->cluster_name) == CHECK_NO)
       continue;
 
     if (preassign_starving)
