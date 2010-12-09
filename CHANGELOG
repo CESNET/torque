@@ -41,6 +41,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
          --excludedocs).  
   b - Merged revision 4325 from 2.5-fixes. Fixed a problem where the -m n 
       (request no mail on qsub) was not always being recongnized.
+  b - Fix for reque failures on mom.  Forked pbs_mom would silently segfault and
+      job was left in Exiting state. (backported from 2.5.4)
 
 2.4.11 
   b - changed type cast for calloc of ioenv from sizeof(char) to sizof(char *)
