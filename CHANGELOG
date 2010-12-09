@@ -1,5 +1,8 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
+3.0.1
+  e - updated qsub's man page to include ATTR_node_exclusive
+
 3.0.0
   e - serverdb is now stored as xml, this is no longer configurable.
   f - added --enable-numa-support for supporting NUMA-type architectures. We
