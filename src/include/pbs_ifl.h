@@ -312,6 +312,7 @@
 #define ATTR_NODE_status        "status"
 #define ATTR_NODE_note          "note"
 #define ATTR_NODE_no_multinode_jobs "no_multinode_jobs"
+#define ATTR_NODE_exclusively_assigned "exclusively_assigned"
 #define ATTR_NODE_resources_total "resources_total"
 #define ATTR_NODE_resources_used "resources_used"
 #define ATTR_NODE_queue         "queue"

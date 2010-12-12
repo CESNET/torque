@@ -713,6 +713,8 @@ int status_nodeattrib(
       atemp[i].at_val.at_str = pnode->cloud;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_no_multinode_jobs))
       atemp[i].at_val.at_long = pnode->nd_no_multinode;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_exclusively_assigned))
+      atemp[i].at_val.at_long = pnode->nd_exclusive;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_noautoresv))
       atemp[i].at_val.at_long = pnode->nd_noautoresv;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_total))
@@ -866,6 +868,7 @@ static void initialize_pbsnode(
   pnode->queue = NULL;
   pnode->cloud = NULL;
   pnode->nd_no_multinode = 0;
+  pnode->nd_exclusive = 0;
   pnode->x_ad_prop = NULL;
   pnode->x_ad_properties = NULL;
 
