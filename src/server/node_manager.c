@@ -3414,7 +3414,7 @@ static char *nodespec_expand(const char *spec, int *exclusive)
 
     if (!strcmp(globs, excl)) /* #excl */
       {
-      *exclusive = 1;
+      *exclusive = 2; /* node exclusive */
       free(globs);
       return result;
       }
