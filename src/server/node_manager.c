@@ -4114,6 +4114,11 @@ int add_job_to_node(
     DBPRT(("%s\n", log_buffer));
     }
 
+  if (exclusive == 2) /* node exclusive job */
+    {
+    pnode->nd_exclusive = 1;
+    }
+
   for (jp = snp->jobs;jp != NULL;jp = jp->next)
     {
     if (jp->job == pjob)
@@ -4968,6 +4973,9 @@ void free_nodes(
         else
           prev->next = jp->next;
 
+        if (pnode->nd_exclusive == 1) /* if taken exclusively, free */
+          pnode->nd_exclusive = 0;
+
         adjust_resources_use(pnode,jp,DECR);
 
         free(jp);
@@ -5023,7 +5031,8 @@ static void set_one_old(
 
   char *name,
   job  *pjob,
-  int   shared) /* how used flag, either INUSE_JOB or INUSE_JOBSHARE */
+  int   shared, /* how used flag, either INUSE_JOB or INUSE_JOBSHARE */
+  int   exclusivity)
 
   {
   int  i;
@@ -5054,6 +5063,8 @@ static void set_one_old(
     if (strcmp(name, pnode->nd_name) == 0)
       {
       /* Mark node as being IN USE ...  */
+
+      pnode->nd_exclusive = exclusivity;
 
       if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
           || pnode->nd_ntype == NTYPE_CLOUD)
@@ -5108,6 +5119,7 @@ void set_old_nodes(
   char *po;
   resource *presc;
   int   shared = INUSE_JOB;
+  int   exclusivity = 0;
 
   if ((pbsndmast != NULL) &&
       (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_flags & ATR_VFLAG_SET))
@@ -5124,6 +5136,9 @@ void set_old_nodes(
         {
         if (strstr(++po, "shared") != NULL)
           shared = INUSE_JOBSHARE;
+
+        if (strstr(po, "excl") != NULL)
+          exclusivity = 1;
         }
       }
 
@@ -5140,10 +5155,10 @@ void set_old_nodes(
       {
       *po++ = '\0';
 
-      set_one_old(po, pjob, shared);
+      set_one_old(po, pjob, shared, exclusivity);
       }
 
-    set_one_old(old, pjob, shared);
+    set_one_old(old, pjob, shared, exclusivity);
 
     /* reset alternatives on nodes */
     reset_alternative_on_node(pjob);
