@@ -34,7 +34,6 @@ enum ResourceCheckMode { MaxOnly, Avail };
 
 static int node_has_enough_np(node_info *ninfo, char *value, enum ResourceCheckMode mode)
   {
-#if 0
   long amount = res_to_num(value);
   switch(mode)
     {
@@ -43,16 +42,13 @@ static int node_has_enough_np(node_info *ninfo, char *value, enum ResourceCheckM
         return 1;
       break;
     case Avail:
-      if (ninfo->np - ninfo->npshared >= amount &&
-          ninfo->npfree >= amount)
+      if (ninfo->npfree >= amount)
         return 1;
       else
         return 0;
       break;
     }
   return 0; /* default is no */
-#endif
-  return 1; /* np support turned of for a while */
   }
 
 static int node_has_enough_resource(node_info *ninfo, char *name, char *value,
