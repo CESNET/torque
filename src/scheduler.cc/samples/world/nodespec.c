@@ -433,7 +433,7 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
       return 0; /* skip non-empty nodes for exclusive requests */
       }
 
-    if (ninfo->is_exclusive)
+    if (ninfo->is_exclusively_assigned)
       {
       sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
                 "Node %s not used, node is already running an exclusive job.", ninfo->name);
@@ -856,17 +856,7 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count)
 
   dbg_consistency(str != NULL, "At this point, the target must be set.");
 
-  if (!jinfo->is_exclusive)
-    {
-    char *tmp = malloc(strlen(str)+strlen("#shared")+1);
-    if (tmp == NULL)
-      return NULL;
-
-    sprintf(tmp,"%s%s",str,"#shared");
-    free(str);
-    str = tmp;
-    }
-  else
+  if (jinfo->is_exclusive)
     {
     char *tmp = malloc(strlen(str)+strlen("#excl")+1);
     if (tmp == NULL)
@@ -875,7 +865,6 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count)
     sprintf(tmp,"%s%s",str,"#excl");
     free(str);
     str = tmp;
-
     }
 
   return str;
