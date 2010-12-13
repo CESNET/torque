@@ -275,9 +275,9 @@ if test "$DEBUG_SYMBOLS" = 'yes'; then
       ;;
     *)
       if test "$CFLAGS" = ''; then
-        CFLAGS="-g"
+        CFLAGS="-ggdb3"
       else
-        CFLAGS="-g $CFLAGS"
+        CFLAGS="-ggdb3 $CFLAGS"
       fi
       ;;
   esac
