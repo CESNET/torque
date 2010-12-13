@@ -162,6 +162,7 @@ struct pbsnode
 
   unsigned nd_no_multinode : 1;
   unsigned nd_noautoresv : 1;
+  unsigned nd_exclusive : 1;
 
   struct attribute attributes[2]; /* resources_total, resources_used */
   char *queue;
@@ -273,6 +274,7 @@ enum nodeattr
   ND_ATR_status,
   ND_ATR_note,
   ND_ATR_no_multinode_jobs,
+  ND_ATR_exclusively_assigned,
   ND_ATR_queue,
   ND_ATR_cloud,
   ND_ATR_noautoresv,
