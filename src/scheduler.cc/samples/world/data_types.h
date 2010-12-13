@@ -324,6 +324,9 @@ unsigned no_starving_jobs:
 unsigned is_bootable:
   1;
 
+unsigned is_exclusively_assigned :
+  1;
+
   node_type type; /**<type of the node (cluster,timeshared,virtual,cloud) */
 
   char *name;   /* name of the node */
