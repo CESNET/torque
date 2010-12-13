@@ -2678,6 +2678,9 @@ static int search(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
+    if (pnode->nd_exclusive) /* the node is already exclusively assigned, skip */
+      continue;
+
     if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
         || pnode->nd_ntype == NTYPE_CLOUD)
       {
@@ -4139,13 +4142,16 @@ int add_job_to_node(
     adjust_resources_use(pnode,jp,INCR);
 
     /* if no free VPs, set node state */
-    /* if (pnode->nd_nsnfree <= 0) TODO quick fix */
-    pnode->nd_state = newstate;
+    if (pnode->nd_nsnfree <= 0)
+      pnode->nd_state = newstate;
 
     if (snp->inuse == INUSE_FREE)
+      {
       snp->inuse = newstate;
-    if (snp->inuse & INUSE_JOBSHARE)
-      pnode->nd_nsnshared++;
+
+      if (!exclusive)
+        pnode->nd_nsnshared++;
+      }
     }
 
   /* decrement the amount of nodes needed */
