@@ -224,16 +224,17 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
       ninfo -> big_status = break_comma_list(attrp -> value);
 
     else if (!strcmp(attrp -> name, ATTR_NODE_no_multinode_jobs))
-      ninfo -> no_multinode_jobs = atoi(attrp -> value);
+      ninfo -> no_multinode_jobs = !strcmp(attrp -> value,"True");
 
     else if (!strcmp(attrp -> name, ATTR_NODE_queue))
       {
       ninfo->queue = strdup(attrp->value);
       }
     else if (!strcmp(attrp -> name, ATTR_NODE_noautoresv))
-      {
-      ninfo -> no_starving_jobs = atoi(attrp->value);
-      }
+      ninfo -> no_starving_jobs = !strcmp(attrp->value,"True");
+
+    else if (!strcmp(attrp -> name, ATTR_NODE_exclusively_assigned))
+      ninfo -> is_exclusively_assigned = !strcmp(attrp->value,"True");
 
     else if (!strcmp(attrp -> name, ATTR_NODE_resources_total))
       {
@@ -343,6 +344,8 @@ node_info *new_node_info()
   new -> alternatives = NULL;
 
   new -> is_bootable = 0;
+
+  new -> is_exclusively_assigned  = 0;
 
   return new;
   }
