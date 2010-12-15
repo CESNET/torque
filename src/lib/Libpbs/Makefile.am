@@ -7,7 +7,7 @@ EXTRA_DIST = ../Libdis/dis_.h
 lib_LTLIBRARIES = libtorque.la
 
 #libtorque_la_LDFLAGS = -version-info 2:0:0 -L/usr/heimdal-1.3.1/lib -lgssapi -lheimntlm -lkrb5 -lhx509 -lcom_err -lcrypto -lasn1 -lwind -lroken -lcrypt -ldl -lresolv -pthread
-libtorque_la_LDFLAGS = -version-info 2:0:0 -L/usr/heimdal/lib -lgssapi -lkrb5 -lasn1 -lcom_err -lcrypto -lroken -lcrypt -ldl -lresolv -pthread
+libtorque_la_LDFLAGS = -version-info 2:0:0 $(K5LIBS)
 
 libtorque_la_SOURCES = ../Libcsv/csv.c ../Libdis/dis.c \
             ../Libdis/discui_.c ../Libdis/discul_.c \
