@@ -771,7 +771,7 @@ AC_ARG_WITH(gssapi,
                                 k5confopts=gssapi
                         fi
                         K5CFLAGS="`$KRB5CONF --cflags $k5confopts`"
-                        K5LIBS="`$KRB5CONF --libs $k5confopts`"
+                        K5LIBS="`$KRB5CONF --libs $k5confopts` -lkrb525"
                         CPPFLAGS="$CPPFLAGS $K5CFLAGS"
 			LDFLAGS="$LDFLAGS -Wl,-R${GSSAPIROOT}/lib $K5LIBS"
                         AC_MSG_CHECKING(whether we are using Heimdal)
@@ -794,7 +794,7 @@ AC_ARG_WITH(gssapi,
 
         ]
 )
-AC_SUBST(K5LIBS)
+AC_SUBST([K5LIBS])
 AM_CONDITIONAL(INCLUDE_GSSAPI, [test "$buildgssapi" = "yes"])
 
 if test "$buildgssapi" = "yes" ;then
