@@ -51,7 +51,7 @@ qterm_SOURCES = qterm.c
 qchkpt_SOURCES = qchkpt.c
 pbs_track_SOURCES = pbs_track.c
 
-CLEANFILES = $(dist_bin_SCRIPTS)
+CLEANFILES = nqs2pbs
 
 do_subst = sed -e 's,[@]AWK[@],$(AWK),g'
 

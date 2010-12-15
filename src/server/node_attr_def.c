@@ -259,6 +259,19 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE,
   },
 
+  /* ND_ATR_exclusively_assigned */
+  { ATTR_NODE_exclusively_assigned,
+    decode_b,
+    encode_b,
+    set_b,
+    comp_b,
+    free_null,
+    node_exclusively_assigned,
+    READ_ONLY,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_NODE,  	
+  },
+
   /* ND_ATR_queue */
   { ATTR_NODE_queue,
     decode_str,

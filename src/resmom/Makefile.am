@@ -49,6 +49,10 @@ install-exec-hook:
 	cp ../../meta/prolog_magrathea_start $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_start
 	ln -s prolog_magrathea_start $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_stop
 	ln -s prolog_magrathea_start $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_status
+	cp ../../meta/prologue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue
+	cp ../../meta/epilogue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue
+	ln -s prologue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue.parallel
+	ln -s epilogue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_ENVIRON)
@@ -56,5 +60,9 @@ uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_start
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_status
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_stop
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue.parallel
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
 
 
