@@ -167,22 +167,28 @@ void free_bootable_alternatives(struct  repository_alternatives **list)
   return;
 }  
 
+/* TODO rewrite using char** - change repository alternatives */
 int  alternative_has_property(struct  repository_alternatives *r, char *prop)
 { char *c;
   char *cc;
+  char *list;
 
   if (r->r_proplist==NULL)
       return 0;
-  /* TODO rewrite using strtok */
-  c=strstr(r->r_proplist,prop);
-  if (c) {
-      if ((c==r->r_proplist) || (*(c-1)==',')) {
-	  cc=c+strlen(prop);
-	  if ((*cc == '\0') || (*cc==',')) {
-	      return 1;
-	  }
+
+  list = r->r_proplist;
+  while ((c = strstr(list,prop)))
+    {
+    /* it can only begin on the start of the string, or after another property */
+    if (c == list || c[-1] == ',')
+      {
+      cc = c+strlen(prop);
+      if (cc[0] == '\0' || c[0] == ',')
+        return 1;
       }
-  }
+    list = c+1; /* move one char past the occurence */
+    }
+
   return 0;
 }
 
