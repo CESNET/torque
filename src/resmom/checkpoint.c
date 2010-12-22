@@ -2045,7 +2045,10 @@ int mom_checkpoint_job_has_checkpoint(
           }
         }
 
-      log_ext(-1, "mom_checkpoint_job_has_checkpoint", "TRUE", LOG_DEBUG);
+      if (LOGLEVEL >= 7)
+	      {
+        log_ext(-1, "mom_checkpoint_job_has_checkpoint", "TRUE", LOG_DEBUG);
+	      }
 
       return(TRUE); /* Yes, there is a checkpoint. */
       break;
@@ -2054,14 +2057,20 @@ int mom_checkpoint_job_has_checkpoint(
 
       if (pjob->ji_wattr[JOB_ATR_checkpoint_name].at_flags & ATR_VFLAG_SET)
         {
-        log_ext(-1, "mom_checkpoint_job_has_checkpoint", "TRUE", LOG_DEBUG);
+        if (LOGLEVEL >= 7)
+	        {
+          log_ext(-1, "mom_checkpoint_job_has_checkpoint", "TRUE", LOG_DEBUG);
+	        }
         return(TRUE);
         }
 
       break;
     }
 
-  log_ext(-1, "mom_checkpoint_job_has_checkpoint", "FALSE", LOG_DEBUG);
+  if (LOGLEVEL >= 7)
+    {
+    log_ext(-1, "mom_checkpoint_job_has_checkpoint", "FALSE", LOG_DEBUG);
+    }
 
   return(FALSE); /* No checkpoint attribute on job. */
   }
