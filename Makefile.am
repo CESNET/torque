@@ -40,7 +40,7 @@ srpm: dist
 	rpmbuild -ts $(distdir).tar.gz
 
 rpm: dist
-	rpmbuild $(RPMOPTS) -tb $(distdir).tar.gz
+	rpmbuild $(RPM_AC_OPTS) $(RPMOPTS) -tb $(distdir).tar.gz
 
 #
 # Used by the 'packages' target below
@@ -141,7 +141,6 @@ if INSTALL_MODULEFILES
 install-data-hook:
 	$(INSTALL_DATA) -D ./buildutils/modulefiles $(DESTDIR)$(MODULEFILES_DIR)/$(PACKAGE_NAME)/$(PACKAGE_VERSION)
 	$(INSTALL_DATA) ./buildutils/modulefiles.vers $(DESTDIR)$(MODULEFILES_DIR)/$(PACKAGE_NAME)/.version
-	
 
 
 uninstall-hook:
