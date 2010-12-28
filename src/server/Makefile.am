@@ -38,9 +38,11 @@ install-exec-hook:
 	   $(DESTDIR)$(sbindir)/$(program_prefix)qserverd$(program_suffix)$(EXEEXT)
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/server_priv/sbf_start
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/server_priv/sbf_stop
-	cp ../../meta/sbf_start $(DESTDIR)$(PBS_SERVER_HOME)/server_priv/sbf_start
-	cp ../../meta/sbf_stop  $(DESTDIR)$(PBS_SERVER_HOME)/server_priv/sbf_stop
+	cp $(top_srcdir)/meta/sbf_start $(DESTDIR)$(PBS_SERVER_HOME)/server_priv/sbf_start
+	cp $(top_srcdir)/meta/sbf_stop  $(DESTDIR)$(PBS_SERVER_HOME)/server_priv/sbf_stop
+	ln -s /etc/init.d/torque-meta-server $(DESTDIR)/etc/init.d/pbs_server
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_ENVIRON)
 	rm -f $(DESTDIR)$(sbindir)/$(program_prefix)qserverd$(program_suffix)$(EXEEXT)
+	rm -f $(DESTDIR)/etc/init.d/pbs_server
