@@ -655,6 +655,10 @@ decode_ntype(
     tmp = NTYPE_TIMESHARED;
   else if (!strcmp(val, ND_cluster))
     tmp = NTYPE_CLUSTER;
+  else if (!strcmp(val, ND_cloud))
+    tmp = NTYPE_CLOUD;
+  else if (!strcmp(val, ND_virtual))
+  	tmp = NTYPE_VIRTUAL;
   else
     rc = (PBSE_BADNDATVAL);
 
