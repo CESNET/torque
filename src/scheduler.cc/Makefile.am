@@ -15,6 +15,7 @@ install-exec-hook:
 	rm -f $(DESTDIR)$(sbindir)/$(program_prefix)qschedd$(program_suffix)$(EXEEXT)
 	ln -s $(program_prefix)pbs_sched$(program_suffix)$(EXEEXT) \
 	  $(DESTDIR)$(sbindir)/$(program_prefix)qschedd$(program_suffix)$(EXEEXT)
+	rm -f $(DESTDIR)/etc/init.d/pbs_sched
 	ln -s /etc/init.d/torque-meta-scheduler $(DESTDIR)/etc/init.d/pbs_sched
 
 uninstall-hook:
