@@ -40,6 +40,7 @@ install-exec-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/server_priv/sbf_stop
 	cp $(top_srcdir)/meta/sbf_start $(DESTDIR)$(PBS_SERVER_HOME)/server_priv/sbf_start
 	cp $(top_srcdir)/meta/sbf_stop  $(DESTDIR)$(PBS_SERVER_HOME)/server_priv/sbf_stop
+	rm -f $(DESTDIR)/etc/init.d/pbs_server
 	ln -s /etc/init.d/torque-meta-server $(DESTDIR)/etc/init.d/pbs_server
 
 uninstall-hook:
