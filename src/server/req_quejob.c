@@ -195,7 +195,47 @@ static int user_account_read_user A_((char *));
 
 static char *pbs_o_que = "PBS_O_QUEUE=";
 
+static int filter_job(job *pj)
+  {
+  /* find ncpus in the resource list (nodespec only) and replace */
+  if (pj->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET)
+    {
+    resource_def *d_nodes;
 
+    if ((d_nodes = find_resc_def(svr_resc_def,"nodes",svr_resc_size)) != 0)
+      {
+      resource *nodes;
+      /* is node resource present? */
+      if ((nodes = find_resc_entry(&pj->ji_wattr[(int)JOB_ATR_resource],d_nodes)) != 0)
+        {
+        /* go through the old nodestr and construct a new one */
+        char *nodestr, *newnodestr, *p;
+
+        nodestr = nodes->rs_value.at_val.at_str;
+        newnodestr = malloc(strlen(nodestr)+1);
+        if (newnodestr == NULL)
+          return 1;
+
+        memset(newnodestr,0,strlen(nodestr)+1);
+
+        while ((p = strstr(nodestr,"ncpus")) != NULL)
+          {
+          strncat(newnodestr,nodestr,p-nodestr); /* copy the necesary number of characters */
+          strcat(newnodestr,"ppn");
+          nodestr += strlen("ncpus"); /* move past the ncpus */
+          }
+
+        /* concat the rest */
+        strcat(newnodestr,nodestr);
+
+        free(nodes->rs_value.at_val.at_str);
+        nodes->rs_value.at_val.at_str = newnodestr;
+        }
+      }
+    }
+
+  return 0;
+  }
 
 
 /*
@@ -910,6 +950,14 @@ void req_quejob(
     NULL,
     NULL,
     server_name);
+
+  /* filter/modify the received job */
+  if (filter_job(pj) != 0)
+    {
+    job_purge(pj);
+    req_reject(PBSE_SYSTEM, 0, preq, NULL, "couldn't allocate memory for filtered nodespec");
+    return;
+    }
 
   /*
    * See if the job is qualified to go into the requested queue.
