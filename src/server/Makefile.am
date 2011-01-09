@@ -29,7 +29,7 @@ pbs_server_SOURCES = accounting.c array_func.c array_upgrade.c attr_recov.c \
 		     job_qs_upgrade.c req_holdarray.c svr_format_job.c
 
 if INCLUDE_GSSAPI
-		     pbs_server_SOURCES += req_gssauthenuser.c
+pbs_server_SOURCES += req_gssauthenuser.c
 endif
 
 
