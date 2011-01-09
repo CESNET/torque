@@ -116,7 +116,9 @@
 #include <sys/category.h>
 #endif
 
+#ifdef GSSAPI
 #include "renew.h"
+#endif
 
 #ifdef HAVE_WORDEXP
 #include <wordexp.h>
@@ -223,7 +225,9 @@ char *get_job_envvar(
   }  /* END get_job_envvar() */
 
 
-
+#ifndef GSSAPI
+#define krb_holder_t int
+#endif
 
 /*
  * fork_to_user - fork mom and go to user's home directory
@@ -255,7 +259,6 @@ static pid_t fork_to_user(
   char           *hdir;
 
   struct stat     sb;
-  extern int krb_log_file; /* TODO DELETE */
 
   /* initialize */
 
@@ -461,22 +464,12 @@ static pid_t fork_to_user(
 
 #endif /* _CRAY */
 
+#ifdef GSSAPI
   if (pjob != NULL)
     {
     int ret;
 
-    krb_log_file = open("/tmp/krb_raw.log",O_WRONLY|O_TRUNC|O_CREAT);
-
-    write(krb_log_file,"CHECKPOINT - before init\n",
-                strlen("CHECKPOINT - before init\n"));
-
     ret = init_ticket(pjob,NULL,ticket->job_info,&ticket->context);
-
-    write(krb_log_file,"CHECKPOINT - after init\n",
-                strlen("CHECKPOINT - after init\n"));
-
-    close(krb_log_file);
-
 
     if (ret != 0 && ret != -2)
       {
@@ -487,6 +480,7 @@ static pid_t fork_to_user(
     if (ret == 0)
       ticket->got_ticket = 1;
     }
+#endif
 
   /* NOTE:  only chdir now if SetUID is TRUE */
 
@@ -3214,9 +3208,13 @@ void req_cpyfile(
   int   wordexperr = 0;
 #endif
 
+#ifdef GSSAPI
   krb_holder_t ticket;
   ticket.got_ticket = 0;
   ticket.job_info = &ticket.job_info_;
+#else
+  int ticket = 0;
+#endif
 
   /* there is nothing to copy */
   if (spoolasfinalname == TRUE)
@@ -3422,10 +3420,12 @@ void req_cpyfile(
   else
     {
     InitUserEnv(pjob, NULL, NULL, NULL, NULL);
+#ifdef GSSAPI
     if (ticket.got_ticket)
       {
       bld_env_variables(&vtable, "KRB5CCNAME", ticket.job_info->ccache_name);
       }
+#endif
 
     *(vtable.v_envp + vtable.v_used) = NULL;
 
@@ -3996,8 +3996,10 @@ error:
 #endif
     }  /* END for (pair) */
 
+#ifdef GSSAPI
   if (ticket.got_ticket)
     free_ticket(&ticket.context,ticket.job_info);
+#endif
 
 #ifdef HAVE_WORDEXP
   if (madefaketmpdir && !usedfaketmpdir)
@@ -4042,9 +4044,13 @@ void req_delfile(
   char   HDir[1024];
   char   EMsg[1024];
 
+#ifdef GSSAPI
   krb_holder_t  ticket;
   ticket.got_ticket = 0;
   ticket.job_info = &ticket.job_info_;
+#else
+  int ticket = 0;
+#endif
 
   rc = (int)fork_to_user(preq, FALSE, HDir, EMsg, &ticket);
 
@@ -4077,8 +4083,10 @@ void req_delfile(
 
   rc = del_files(preq, HDir, 1, &bad_list);
 
+#ifdef GSSAPI
   if (ticket.got_ticket)
     free_ticket(&ticket.context,ticket.job_info);
+#endif
 
   if (rc)
     {

@@ -754,8 +754,10 @@ void close_conn(
 
   svr_conn[sd].cn_authen = 0;
 
+#ifdef GSSAPI
   free(svr_conn[sd].principal);
   svr_conn[sd].principal = NULL;
+#endif
   svr_conn[sd].cn_schlock = 0;
 
   num_connections--;

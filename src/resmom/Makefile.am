@@ -18,7 +18,11 @@ PBS_LIBS = ../lib/Libattr/libattr.a \
 EXTRA_DIST = rm_dep.h
 sbin_PROGRAMS = pbs_mom pbs_demux
 
-LDADD = @PBS_MACH@/libmommach.a $(MOMLIBS) -lkafs $(PBS_LIBS)
+LDADD = @PBS_MACH@/libmommach.a $(MOMLIBS) $(PBS_LIBS)
+
+if INCLUDE_GSSAPI
+LDADD += -lkafs
+endif
 
 pbs_mom_SOURCES = catch_child.c mom_comm.c mom_inter.c mom_main.c \
 		   mom_server.c prolog.c requests.c start_exec.c \
@@ -29,11 +33,16 @@ pbs_mom_SOURCES = catch_child.c mom_comm.c mom_inter.c mom_main.c \
 		   ../server/job_recov.c  \
 		   ../server/process_request.c ../server/reply_send.c \
 		   ../server/resc_def_all.c \
-		   ../server/job_qs_upgrade.c \
-		   renew.c
+		   ../server/job_qs_upgrade.c
+
 if BUILDCPA
 pbs_mom_SOURCES += cray_cpa.c
 endif
+
+if INCLUDE_GSSAPI
+pbs_mom_SOURCES += renew.c
+endif
+
 
 pbs_demux_SOURCES = pbs_demux.c
 
