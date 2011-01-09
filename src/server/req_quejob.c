@@ -222,7 +222,7 @@ static int filter_job(job *pj)
           {
           strncat(newnodestr,nodestr,p-nodestr); /* copy the necesary number of characters */
           strcat(newnodestr,"ppn");
-          nodestr += strlen("ncpus"); /* move past the ncpus */
+          nodestr = p + strlen("ncpus"); /* move past the ncpus */
           }
 
         /* concat the rest */
