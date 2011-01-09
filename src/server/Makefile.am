@@ -26,8 +26,12 @@ pbs_server_SOURCES = accounting.c array_func.c array_upgrade.c attr_recov.c \
 		     svr_attr_def.c svr_chk_owner.c svr_connect.c \
 		     svr_func.c svr_jobfunc.c svr_mail.c svr_movejob.c \
 		     svr_recov.c svr_resccost.c svr_task.c req_tokens.c \
-		     job_qs_upgrade.c req_holdarray.c svr_format_job.c \
-		     req_gssauthenuser.c
+		     job_qs_upgrade.c req_holdarray.c svr_format_job.c
+
+if INCLUDE_GSSAPI
+		     pbs_server_SOURCES += req_gssauthenuser.c
+endif
+
 
 install-exec-hook:
 	$(PBS_MKDIRS) aux || :
