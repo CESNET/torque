@@ -384,7 +384,7 @@ queue_info *query_queue_info(struct batch_status *queue, server_info *sinfo)
       for (i = 0; i < sinfo->num_nodes; i++)
         {
         if (get_node_has_property(sinfo->nodes[i],attrp->value) != 0
-            && sinfo->nodes[i].queue == NULL) /* ignore nodes with queue=... */
+            && sinfo->nodes[i]->queue == NULL) /* ignore nodes with queue=... */
           push_excl_node(qinfo,sinfo->nodes[i]);
         }
       }
