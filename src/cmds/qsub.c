@@ -130,7 +130,9 @@
 #include "net_connect.h"
 #include "log.h"
 #include "port_forwarding.h"
+#ifdef GSSAPI
 #include "pbsgss.h"
+#endif
 
 /* DefaultFilterPath is used to fall back on in order to maintain backwards compatibility.
    the new preferred path for the submit filter is ${libexecdir}/qsub_filter */
