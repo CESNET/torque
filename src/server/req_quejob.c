@@ -232,6 +232,37 @@ static int filter_job(job *pj)
         nodes->rs_value.at_val.at_str = newnodestr;
         }
       }
+
+      if ((d_nodes = find_resc_def(svr_resc_def,"neednodes",svr_resc_size)) != 0)
+        {
+        resource *nodes;
+        /* is node resource present? */
+        if ((nodes = find_resc_entry(&pj->ji_wattr[(int)JOB_ATR_resource],d_nodes)) != 0)
+          {
+          /* go through the old nodestr and construct a new one */
+          char *nodestr, *newnodestr, *p;
+
+          nodestr = nodes->rs_value.at_val.at_str;
+          newnodestr = malloc(strlen(nodestr)+1);
+          if (newnodestr == NULL)
+            return 1;
+
+          memset(newnodestr,0,strlen(nodestr)+1);
+
+          while ((p = strstr(nodestr,"ncpus")) != NULL)
+            {
+            strncat(newnodestr,nodestr,p-nodestr); /* copy the necesary number of characters */
+            strcat(newnodestr,"ppn");
+            nodestr = p + strlen("ncpus"); /* move past the ncpus */
+            }
+
+          /* concat the rest */
+          strcat(newnodestr,nodestr);
+
+          free(nodes->rs_value.at_val.at_str);
+          nodes->rs_value.at_val.at_str = newnodestr;
+          }
+        }
     }
 
   return 0;
