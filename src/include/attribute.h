@@ -106,7 +106,7 @@
 
 /* define the size of fields in the structures */
 
-#define ATRFLAG 16
+#define ATRFLAG 18
 #define ATRTYPE  6  /* sync w/ATR_TYPE_*  (see #defines below) */
 #define ATRPART  3
 
@@ -261,6 +261,9 @@ typedef struct attribute_def attribute_def;
 #define ATR_DFLAG_SELEQ  0x2000 /* attribute is only selectable eq/ne      */
 #define ATR_DFLAG_RASSN  0x4000 /* resc to be summed in resources_used      */
 #define ATR_DFLAG_RMOMIG 0x8000 /* resource to be ignored by mom      */
+
+#define ATR_DFLAG_SELECT_PROC 0x10000 /* per-proc resource in the select and nodespec statements */
+#define ATR_DFLAG_SELECT_MOM  0x20000 /* per-node resource in the select and nodespec statements */
 
 /* combination defines for permission field */
 

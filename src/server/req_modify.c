@@ -127,7 +127,7 @@ extern char *PJobState[];
 
 extern void cleanup_restart_file(job *);
 extern void rel_resc(job *);
-
+extern void regenerate_total_resources(job * pjob);
 
 /*
  * post_modify_req - clean up after sending modify request to MOM
@@ -533,6 +533,8 @@ void req_modifyjob(
   /* Reset any defaults resource limit which might have been unset */
 
   set_resc_deflt(pjob, NULL);
+
+  regenerate_total_resources(pjob);
 
   /* if job is not running, may need to change its state */
 
