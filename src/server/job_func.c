@@ -661,6 +661,8 @@ void job_free(
     bp = (badplace *)GET_NEXT(pj->ji_rejectdest);
     }
 
+  free(pj->ji_expanded_spec);
+
   /* now free the main structure */
 
   free((char *)pj);

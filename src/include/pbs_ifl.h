@@ -182,6 +182,7 @@
 #define ATTR_P           "proxy_user"
 #define ATTR_cloudmap    "cloudmap"
 #define ATTR_schedspec   "sched_nodespec"
+#define ATTR_total_resources "total_resources"
 #define ATTR_vlanid      "vlan_id"
 
 #ifdef USEJOBCREATE

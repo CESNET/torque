@@ -176,16 +176,16 @@ extern int            SvrNodeCt;
 #define MAX_BM   64
 #endif
 
-int hasprop(struct pbsnode *, struct prop *);
+int hasprop(struct pbsnode *, struct prop *, int proc_count);
 int hasadprop(struct pbsnode *, struct prop *);
 void send_cluster_addrs(struct work_task *);
 int add_cluster_addrs(int);
 int is_compose(int, int);
-int add_job_to_node(struct pbsnode *,struct pbssubn *,short,job *,int);
+int add_job_to_node(struct pbsnode *,struct pbssubn *,short,job *,int,int);
 int node_satisfies_request(struct pbsnode *,char *);
 int reserve_node(struct pbsnode *,short,job *,char *,struct howl **);
 int build_host_list(struct howl **,struct pbssubn *,struct pbsnode *);
-void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp,
+void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp, int,
        enum batch_op op);
 
 /*
@@ -2496,6 +2496,70 @@ void node_unreserve(
 
 
 
+int hasres(struct pbsnode *pnode, char  *name, char *value, int proc_count)
+  {
+  resource_def *rd;
+  resource *total, *used, req, tmp;
+  int rc;
+
+  rd = find_resc_def(svr_resc_def,name,svr_resc_size);
+
+  if (rd == NULL) /* unknown resource */
+    return 0;
+
+  if ((rd->rs_flags & (ATR_DFLAG_SELECT_PROC | ATR_DFLAG_SELECT_MOM)) == 0)
+    return 1; /* this resource is not per-proc or per-node and therefore not checked */
+
+  total = find_resc_entry(&pnode->attributes[0],rd);
+
+  if (total == NULL) /* resource not present on node */
+    return 0;
+
+  used = find_resc_entry(&pnode->attributes[1],rd);
+
+  rd->rs_decode(&req.rs_value,0,name,value); /* encode the request into resource */
+
+  /* now we need to determine if this resource is per-proc or per-node */
+  /* if it is per-proc, we need to multiply the value accordingly by the number of procs */
+  /* because there is no universal logic for this, we simply have to manually multiply the value */
+  if ((rd->rs_flags & ATR_DFLAG_SELECT_PROC) != 0)
+    {
+    switch (rd->rs_type)
+      {
+      case ATR_TYPE_LONG:
+        req.rs_value.at_val.at_long *= proc_count;
+        break;
+      case ATR_TYPE_LL:
+        req.rs_value.at_val.at_ll *= proc_count;
+        break;
+      case ATR_TYPE_SHORT:
+        req.rs_value.at_val.at_short *= proc_count;
+        break;
+      case ATR_TYPE_SIZE:
+        /* keep it in the same unit */
+        req.rs_value.at_val.at_size.atsv_num *= proc_count;
+        break;
+      default: /* we can't multiply non-numeric values */
+        break; /* ATR_TYPE_JINFOP, ATR_TYPE_ACL, ATR_TYPE_RESC, ATR_TYPE_CHAR, ATR_TYPE_STR, ATR_TYPE_ARST, ATR_TYPE_LIST */
+      }
+    }
+
+  rd->rs_set(&tmp.rs_value,&total->rs_value,SET); /* set the total */
+
+  if (used != NULL)
+    rd->rs_set(&tmp.rs_value,&used->rs_value,DECR); /* decrement the used amount */
+
+  rc = rd->rs_comp(&tmp.rs_value,&req.rs_value); /* finally compare the result */
+
+  rd->rs_free(&tmp.rs_value);
+  rd->rs_free(&req.rs_value);
+
+  if (rc >= 0)
+    return 1;
+  else
+    return 0;
+  }
+
 
 /*
 ** Look through the property list and make sure that all
@@ -2503,9 +2567,9 @@ void node_unreserve(
 */
 
 int hasprop(
-
   struct pbsnode *pnode,
-  struct prop    *props)
+  struct prop    *props,
+  int proc_count )
 
   {
 
@@ -2516,25 +2580,26 @@ int hasprop(
 
     struct prop *pp;
 
-    if (need->mark == 0) /* not marked, skip */
-      continue;
+    if (need->mark == 0 && (props->value == NULL)) /* not marked, skip */
+      continue;                                    /* do not skip resources */
 
-    for (pp = pnode->nd_first;pp != NULL;pp = pp->next)
+    if (props->value == NULL)
       {
-      if (strcmp(pp->name, need->name) == 0)
-        break;  /* found it */
+      for (pp = pnode->nd_first;pp != NULL;pp = pp->next)
+        {
+        if (strcmp(pp->name, need->name) == 0)
+          break;  /* found it */
+        }
+
+      if (pp == NULL)
+        {
+        return(0);
+        }
       }
-
-    if (pp == NULL) /* if its not a normal property, check aditional properties */
-    for (pp = pnode->x_ad_prop; pp != NULL; pp = pp->next)
+    else
       {
-      if (strcmp(pp->name, need->name) == 0)
-        break; /* found it */
-      }
-
-    if (pp == NULL)
-      {
-      return(0);
+      if (!hasres(pnode,props->name,props->value,proc_count))
+        return 0;
       }
     }
 
@@ -2699,7 +2764,7 @@ static int search(
               continue;
       */
 
-      if (!(hasprop(pnode, glorf) || hasadprop(pnode, glorf)))
+      if (!(hasprop(pnode, glorf, vpreq) || hasadprop(pnode, glorf)))
         continue;
 
       if ((skip == SKIP_NONE) || (skip == SKIP_NONE_REUSE))
@@ -2771,7 +2836,7 @@ static int search(
           (vpreq < (pnode->nd_nsnfree + pnode->nd_nsnshared)))
         continue;
 
-      if (!(hasprop(pnode, glorf) || hasadprop(pnode, glorf)))
+      if (!(hasprop(pnode, glorf, vpreq) || hasadprop(pnode, glorf)))
         continue;
 
       pnode->nd_flag = conflict;
@@ -2992,7 +3057,194 @@ static int proplist(
   return 0;
   }  /* END proplist() */
 
+static int nodespec_to_proplist(char **str, int *cnodes, int *cprocs, struct prop **list)
+  {
+  int i = 0;
 
+  /* determine number of nodes */
+  if ((i = number(str, cnodes)) == -1)
+    {
+    return -1;
+    }
+
+  if (i == 0) /* number exists */
+    {
+    if (**str == ':')
+      {
+      /* there are properties */
+      (*str)++;
+
+      if (proplist(str, list, cprocs))
+        {
+        return -1;
+        }
+      }
+    }
+  else /* no number */
+    {
+    if (proplist(str, list, cprocs))
+      {
+      /* must be a prop list with no number in front */
+
+      return -1;
+      }
+    }
+
+  return 0;
+  }
+
+void regenerate_total_resources(job * pjob)
+  {
+  int cnodes = 0;
+  int cprocs = 0;
+
+  /* cleanup any previous values */
+  job_attr_def[(int)JOB_ATR_total_resources].
+    at_free(&pjob->ji_wattr[(int)JOB_ATR_total_resources]);
+
+  /* pass 1.
+   * - find nodespec
+   * - add each part that represents a counted resource into total resources
+   * - calculate total amount of procs and nodes
+   */
+  if ((pjob->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET) != 0)
+    {
+    resource_def *rd;
+    resource *rs;
+
+    rd = find_resc_def(svr_resc_def,"nodes",svr_resc_size);
+    if (rd != NULL)
+      rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],rd);
+
+    if (rd != NULL && rs != NULL)
+      {
+      char *buf, *part, *next;
+
+      next = buf = part = strdup(rs->rs_value.at_val.at_str);
+      if (buf == NULL)
+        return;
+
+      /* process each nodespec part (between + signs) */
+      do
+        {
+        int procs = 1, nodes = 1;
+        struct prop *prop = NULL, *iter;
+
+        part = next;
+
+        next = strchr(part,'+');
+        if (next != NULL)
+          {
+          *next = '\0';
+          next++;
+          }
+
+        /* parse this nodespec part */
+        if (nodespec_to_proplist(&part,&nodes,&procs,&prop) == -1)
+          {
+          free(buf);
+          return;
+          }
+
+        /* for each property determine if it is a counted resource */
+        for (iter = prop;iter;iter = iter->next)
+          {
+          int total_count = 0;
+          int i, ret;
+          resource *value;
+          resource decoded;
+          resource_def *defin = find_resc_def(svr_resc_def,iter->name,svr_resc_size);
+
+          if (defin != NULL)
+            {
+            /* only count per proc and per node resources in the nodespec */
+            if ((defin->rs_flags & ATR_DFLAG_SELECT_MOM) != 0)
+              total_count = nodes;
+            if ((defin->rs_flags & ATR_DFLAG_SELECT_PROC) != 0)
+              total_count = nodes * procs;
+
+            ret = defin->rs_decode(&decoded.rs_value,0,iter->name,iter->value);
+            if (ret != 0)
+              return;
+
+            value = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],defin);
+
+            for (i = 0;i < total_count;i++)
+              {
+              if (value == NULL)
+                {
+                value = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],defin);
+                ret = defin->rs_set(&value->rs_value,&decoded.rs_value,SET);
+                if (ret != 0)
+                  return;
+                continue;
+                }
+
+              ret = defin->rs_set(&value->rs_value,&decoded.rs_value,INCR);
+              if (ret != 0)
+                return;
+              }
+            }
+          }
+
+        cnodes += nodes;
+        cprocs += nodes*procs;
+        }
+      while (next != NULL);
+
+      free(buf);
+      }
+    else
+      {
+      /* if there is no nodes request, assume 1 proc and 1 node */
+      cnodes = 1;
+      cprocs = 1;
+      }
+    }
+
+  /* pass 2.
+   * - process all counted resources
+   */
+  if ((pjob->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET) != 0)
+    {
+    resource *jbrc = (resource *)GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
+
+    while (jbrc != NULL)
+      {
+      int total_count = 1;
+      int i, ret;
+      resource *value;
+
+      if ((jbrc->rs_defin->rs_flags & ATR_DFLAG_SELECT_MOM) != 0)
+        total_count = cnodes;
+      if ((jbrc->rs_defin->rs_flags & ATR_DFLAG_SELECT_PROC) != 0)
+        total_count = cprocs;
+
+      value = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],jbrc->rs_defin);
+
+      for (i = 0;i < total_count;i++)
+        {
+        if (value == NULL)
+          {
+          value = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],jbrc->rs_defin);
+          ret = jbrc->rs_defin->rs_set(&value->rs_value,&jbrc->rs_value,SET);
+          if (ret != 0)
+            return;
+          continue;
+          }
+
+        ret = jbrc->rs_defin->rs_set(&value->rs_value,&jbrc->rs_value,INCR);
+        if (ret != 0)
+          return;
+        }
+
+
+      jbrc = (resource*)GET_NEXT(jbrc->rs_link);
+      }
+    }
+
+  return;
+  }
 
 
 /*
@@ -3067,7 +3319,7 @@ static int listelem(
     if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
         || pnode->nd_ntype == NTYPE_CLOUD)
       {
-      if ((hasprop(pnode, prop) || hasadprop(pnode, prop)) && hasppn(pnode, node_req, SKIP_NONE))
+      if ((hasprop(pnode, prop, node_req) || hasadprop(pnode, prop)) && hasppn(pnode, node_req, SKIP_NONE))
         hit++;
 
       if (hit == num)
@@ -3354,7 +3606,7 @@ static char *nodespec_app(const char *spec, const char *app)
  * @param exclusive 0 if shared, 1 if exclusive, 2 if node exclusive
  * @return NULL on failure or allocated modified spec
  */
-static char *nodespec_expand(const char *spec, int *exclusive)
+static char *nodespec_expand(job *pjob, const char *spec, int *exclusive)
   {
   char *result, *globs, *cp, *tmp;
   static char shared[] = "shared"; /* shared */
@@ -3371,10 +3623,7 @@ static char *nodespec_expand(const char *spec, int *exclusive)
 
     globs = strdup(globs);
     if (globs == NULL) /* alloc failure */
-      {
-      free(result);
-      return NULL;
-      }
+      goto fail;
 
     /* glob now stores the global part of the nodespec
      * - go thru each part of the global spec and append
@@ -3398,9 +3647,8 @@ static char *nodespec_expand(const char *spec, int *exclusive)
       tmp = nodespec_app(result, cp);
       if (tmp == NULL) /* alloc failure */
         {
-        free(result);
         free(globs);
-        return NULL;
+        goto fail;
         }
 
       free(result);
@@ -3412,22 +3660,21 @@ static char *nodespec_expand(const char *spec, int *exclusive)
       {
       *exclusive = 0;
       free(globs);
-      return result;
+      goto done_stage1;
       }
 
     if (!strcmp(globs, excl)) /* #excl */
       {
       *exclusive = 2; /* node exclusive */
       free(globs);
-      return result;
+      goto done_stage1;
       }
 
     tmp = nodespec_app(result, globs);
     if (tmp == NULL) /* alloc failure */
       {
-      free(result);
       free(globs);
-      return NULL;
+      goto fail;
       }
 
     free(result);
@@ -3436,7 +3683,64 @@ static char *nodespec_expand(const char *spec, int *exclusive)
     free(globs);
     }  /* END if ((globs = strchr(spec,'#')) != NULL) */
 
+done_stage1:
+
+  /* if job is provided, also add each of the requested resources in the job resource list */
+  if (pjob != NULL && (pjob->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET) != 0)
+    {
+    resource *jbrc = (resource *)GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
+
+    while (jbrc != NULL)
+      {
+      tlist_head head;
+      svrattrl *patlist;
+      char     *buff, *tmp;
+      int       len;
+
+      /* only add resources that are per-proc or per-node */
+      if ((jbrc->rs_defin->rs_flags & (ATR_DFLAG_SELECT_MOM | ATR_DFLAG_SELECT_PROC)) == 0)
+        {
+        jbrc = (resource *)GET_NEXT(jbrc->rs_link);
+        continue;
+        }
+
+      /* convert resource into char* */
+      CLEAR_HEAD(head);
+      jbrc->rs_defin->rs_encode(&jbrc->rs_value,&head,"ignored",
+            jbrc->rs_defin->rs_name,ATR_ENCODE_CLIENT);
+      patlist = (svrattrl *)GET_NEXT(head);
+
+      if (patlist == NULL)
+        goto fail;
+
+      len  = strlen(patlist->al_atopl.resource);
+      len += strlen(patlist->al_atopl.value);
+      len += 2; /* '=' and '\0' */
+      buff = malloc(len);
+
+      if (buff == NULL)
+        goto fail;
+
+      sprintf(buff,"%s=%s",patlist->al_atopl.resource,patlist->al_atopl.value);
+
+      /* append to each part of the nodespec */
+      tmp = nodespec_app(result, buff);
+      if (tmp == NULL)
+        goto fail;
+
+      free(buff);
+      free(result);
+      result = tmp;
+
+      jbrc = (resource *)GET_NEXT(jbrc->rs_link);
+      }
+    }
+
   return result;
+
+fail:
+  free(result);
+  return NULL;
   }
 
 
@@ -3487,7 +3791,7 @@ static int node_spec(
 
   exclusive = 1; /* by default, nodes (VPs) are requested exclusively */
   /* expand the global reqs into the local parts */
-  spec = nodespec_expand(spec,&exclusive);
+  spec = nodespec_expand(pjob, spec,&exclusive);
 
   if (pjob != NULL) /* store the expanded nodespec */
     {
@@ -4094,7 +4398,8 @@ int add_job_to_node(
   struct pbssubn *snp,       /* I/O */
   short           newstate,  /* I */
   job            *pjob,      /* I */
-  int             exclusive) /* I */
+  int             exclusive, /* I */
+  int             first)
 
   {
   char *id = "add_job_to_node";
@@ -4139,7 +4444,7 @@ int add_job_to_node(
     jp->order = pnode->nd_order;
 
     pnode->nd_nsnfree--;            /* reduce free count */
-    adjust_resources_use(pnode,jp,INCR);
+    adjust_resources_use(pnode,jp,first,INCR);
 
     /* if no free VPs, set node state */
     if (pnode->nd_nsnfree <= 0)
@@ -4240,6 +4545,8 @@ int set_nodes(
 
   char   ProcBMStr[MAX_BM];
 
+  int    first;
+
   if (FailHost != NULL)
     FailHost[0] = '\0';
 
@@ -4333,6 +4640,7 @@ int set_nodes(
       }
 #endif /* GEOMETRY_REQUESTS */
 
+    first = 1;
     for (snp = pnode->nd_psn;snp && pnode->nd_needed;snp = snp->next)
       {
       if (exclusive)
@@ -4348,7 +4656,8 @@ int set_nodes(
 
       /* Mark subnode as being IN USE */
 
-      add_job_to_node(pnode,snp,newstate,pjob,exclusive);
+      add_job_to_node(pnode,snp,newstate,pjob,exclusive,first);
+      first = 0;
   
       build_host_list(&hlist,snp,pnode);
       }  /* END for (snp) */
@@ -4360,8 +4669,8 @@ int set_nodes(
     if (LOGLEVEL >= 1)
       {
       sprintf(log_buffer, "no nodes can be allocated to job %s",
-
         pjob->ji_qs.ji_jobid);
+
       log_record(
         PBSEVENT_SCHED,
         PBS_EVENTCLASS_REQUEST,
@@ -4566,7 +4875,7 @@ int node_avail(
         continue;
 
       if ((pn->nd_ntype == NTYPE_CLUSTER || pn->nd_ntype == NTYPE_VIRTUAL
-          || pn->nd_ntype == NTYPE_CLOUD) && (hasprop(pn, prop) || hasadprop(pn, prop)))
+          || pn->nd_ntype == NTYPE_CLOUD) && (hasprop(pn, prop, node_req) || hasadprop(pn, prop)))
         {
         if (pn->nd_state & (INUSE_OFFLINE | INUSE_DOWN))
           ++xdown;
@@ -4791,13 +5100,70 @@ find_ts_node(void)
   return(NULL);
   }  /* END find_ts_node() */
 
+/** Adjust a node resource value
+ *
+ * @param pattr  Attribute holding the resources
+ * @param name   Name of the resource
+ * @param value  Value by which to adjust
+ * @param first  1 if this the first adjustment on node, 0 if not
+ * @param op     Operation, INCR or DECR
+ */
+static void adjust_resource_value(attribute *pattr, char *name, char *value, int first, enum batch_op op)
+  {
+  resource_def *defin;
+  resource *val;
+  resource decoded;
+  int ret;
+
+  if (value == NULL)
+    return;
+
+  defin = find_resc_def(svr_resc_def,name,svr_resc_size);
+
+  if (defin == NULL) /* not a known resource */
+    return;
+
+  /* if this is not a per-proc or per-node resource, ignore */
+  if ((defin->rs_flags & (ATR_DFLAG_SELECT_MOM | ATR_DFLAG_SELECT_PROC)) == 0)
+    return;
+
+  /* if this is not the first adjustment on node and the resources is not per-proc, ignore */
+  if ((defin->rs_flags & ATR_DFLAG_SELECT_PROC) == 0 && first == 0)
+    return;
+
+  ret = defin->rs_decode(&decoded.rs_value,0,name,value);
+
+  if (ret != 0) /* could not decode value */
+    return;
+
+  val = find_resc_entry(pattr,defin);
+
+  if (val == NULL && op == INCR)
+    { /* if increasing the value and the resource is not yet present, add new entry */
+    val = add_resource_entry(pattr,defin);
+
+    if (val == NULL)
+      return;
+
+    ret = defin->rs_set(&val->rs_value,&decoded.rs_value,SET);
+    }
+  else if (val != NULL)
+    {
+    ret = defin->rs_set(&val->rs_value,&decoded.rs_value,op);
+    }
+  }
+
+
+
+
 /** Adjust the resources use on a node
  *
  * @param pnode Node with the resources
  * @param jp Job info
+ * @param first Determines if this is the first adjustment for this node
  * @param op Operation to do (increment, decrement)
  */
-void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp,
+void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp, int first,
        enum batch_op op)
   {
   struct prop *prop = NULL, *iter = NULL;
@@ -4860,50 +5226,11 @@ void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp,
       return;
     }
 
-  iter = prop;
+  iter = prop; /* iterating through resources in nodespec */
   while (iter != NULL)
     {
-    resource_def *defin;
-    resource *val;
-    resource decoded;
-    int ret;
-
-    if (iter->value != NULL)
-    /* it is a resource */
-      if ((defin = find_resc_def(svr_resc_def,iter->name,svr_resc_size)))
-      /* it is a known resource */
-        {
-        ret = defin->rs_decode(&decoded.rs_value,0,iter->name,iter->value);
-        if (ret != 0)
-          continue; /* ignore if cannot decode */
-        if ((val = find_resc_entry(&pnode->attributes[1],defin)))
-        /* some value already present */
-          {
-          /* if the resulting value is zero, then remove completely */
-          if (defin->rs_comp(&val->rs_value,&decoded.rs_value) == 0 && op == DECR)
-            {
-            defin->rs_free(&val->rs_value);
-            }
-          else
-            {
-            ret = defin->rs_set(&val->rs_value,&decoded.rs_value,op);
-            if (ret != 0)
-              continue; /* ignore if cannot set */
-            }
-          }
-        else
-          {
-          if (op == INCR) /* add new record only if increasing */
-            {
-            if ((val = add_resource_entry(&pnode->attributes[1],defin)))
-              {
-              ret = defin->rs_set(&val->rs_value,&decoded.rs_value,SET);
-              if (ret != 0)
-                continue; /* ignore if cannot set */
-              }
-            }
-          }
-        }
+    /* adjust the value */
+    adjust_resource_value(&pnode->attributes[1],iter->name,iter->value,first,op);
     iter = iter->next;
     }
   }
@@ -4926,6 +5253,7 @@ void free_nodes(
 
   struct jobinfo *jp, *prev;
   int             i;
+  int first;
 
   if (LOGLEVEL >= 3)
     {
@@ -4950,6 +5278,7 @@ void free_nodes(
 
     /* examine all subnodes in node */
 
+    first = 1;
     for (np = pnode->nd_psn;np != NULL;np = np->next)
       {
       /* examine all jobs allocated to subnode */
@@ -4982,7 +5311,8 @@ void free_nodes(
         if (pnode->nd_exclusive == 1) /* if taken exclusively, free */
           pnode->nd_exclusive = 0;
 
-        adjust_resources_use(pnode,jp,DECR);
+        adjust_resources_use(pnode,jp,first,DECR);
+        first = 0;
 
         free(jp);
 
@@ -5038,7 +5368,9 @@ static void set_one_old(
   char *name,
   job  *pjob,
   int   shared, /* how used flag, either INUSE_JOB or INUSE_JOBSHARE */
-  int   exclusivity)
+  int   exclusivity,
+  int   order,
+  int   first)
 
   {
   int  i;
@@ -5092,7 +5424,10 @@ static void set_one_old(
               snp->jobs = jp;
 
               jp->job = pjob;
+              jp->order = order;
               }
+
+            adjust_resources_use(pnode,jp,first,INCR);
 
             if (--pnode->nd_nsnfree <= 0)
               pnode->nd_state |= shared;
@@ -5121,11 +5456,13 @@ void set_old_nodes(
   job *pjob)  /* I (modified) */
 
   {
-  char *old;
-  char *po;
+  char *old = NULL, *fold = NULL;
+  char *po, *ps;
+  char *spec = NULL, *fspec = NULL;
   resource *presc;
   int   shared = INUSE_JOB;
   int   exclusivity = 0;
+  int order = 1, remaining = 0;
 
   if ((pbsndmast != NULL) &&
       (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_flags & ATR_VFLAG_SET))
@@ -5148,28 +5485,90 @@ void set_old_nodes(
         }
       }
 
-    old = strdup(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
+    /* reset the jobs expanded nodespec from job attribute */
+    if ((pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_flags & ATR_VFLAG_SET) != 0)
+      {
+      free(pjob->ji_expanded_spec);
+      pjob->ji_expanded_spec = nodespec_expand(pjob, pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str,&excl);
+      }
 
-    if (old == NULL)
+    /* duplicate the expanded nodespec, so we can work with it */
+    if (pjob->ji_expanded_spec != NULL)
+      {
+      spec = strdup(pjob->ji_expanded_spec);
+      fspec = spec;
+      ps = spec;
+      }
+
+    old = strdup(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
+    fold = old;
+    po = old;
+
+    if (old == NULL || spec == NULL)
       {
       /* FAILURE - cannot alloc memory */
 
       return;
       }
 
-    while ((po = strrchr(old, (int)'+')) != NULL)
+    /* nodes in exec host are in the right order, but we don't know
+     * how many belong to each of the nodespec parts
+     * we have to cut out the ppn=value and also the number of nodes */
+
+    do /* for each part of the nodespec */
       {
-      *po++ = '\0';
+      char *ppn = NULL;
+      int ppn_count = 0;
 
-      set_one_old(po, pjob, shared, exclusivity);
+      spec = ps; /* swap for the next part */
+
+      remaining = atoi(spec); /* determine number of nodes requested */
+      if (remaining == 0)
+        remaining = 1;
+
+      ps = strchr(ps,'+'); /* find next part */
+      if (ps != NULL)
+        {
+        *ps = '\0'; ps++;
+        }
+
+      /* determine ppn */
+      ppn = strstr(spec,"ppn=");
+      if (ppn != NULL) /* there is ppn */
+        {
+        ppn+=4; /* move beyond ppn= */
+
+        ppn_count = atoi(ppn);
+        if (ppn_count == 0) /* should not happen */
+          ppn_count = 1;
+
+        remaining *= ppn_count; /* vps are requested for each node */
+        }
+
+      do /* for each remaining, eat part from exec host */
+        {
+        old = po;
+
+        po = strchr(po,'+');
+        if (po != NULL)
+          {
+          *po = '\0'; po++;
+          }
+
+        set_one_old(old, pjob, shared, order, (remaining % ppn_count == 0) ? 1 : 0);
+        remaining--;
+        }
+      while (remaining > 0 && po != NULL);
+
+      order++;
       }
-
-    set_one_old(old, pjob, shared, exclusivity);
+    while (ps != NULL);
 
     /* reset alternatives on nodes */
     reset_alternative_on_node(pjob);
 
-    free(old);
+    free(fold);
+    free(fspec);
     }  /* END if ((pbsndmast != NULL) && ...) */
 
   return;

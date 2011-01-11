@@ -959,6 +959,19 @@ attribute_def job_attr_def[] =
     PARENT_TYPE_JOB
   },
 
+  /* JOB_ATR_total_resources */
+  { ATTR_total_resources,   /* "total_resources" */
+    decode_resc,
+    encode_resc,
+    set_resc,
+    comp_resc,
+    free_resc,
+    action_resc,
+    READ_ONLY,
+    ATR_TYPE_RESC,
+    PARENT_TYPE_JOB
+  },
+
   /* JOB_ATR_vlan_id */
   { ATTR_vlanid, /* vlan_id */
     decode_str,

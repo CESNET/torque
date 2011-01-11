@@ -136,6 +136,7 @@ extern int  svr_chkque A_((job *, pbs_queue *, char *, int, char *));
 extern int  job_route A_((job *));
 extern int node_avail_complex(char *, int *, int *, int *, int*);
 extern int  assign_hosts (job *, char *, int, char *, char *);
+void regenerate_total_resources(job *);
 
 /* Global Data Items: */
 
@@ -990,6 +991,13 @@ void req_quejob(
     return;
     }
 
+  /* Generate the resources total job attribute
+   *
+   * This attribute contains all counted resources
+   * from both the nodespec request and resource requests.
+   */
+  regenerate_total_resources(pj);
+
   /*
    * See if the job is qualified to go into the requested queue.
    * Note, if an execution queue, then ji_qs.ji_un.ji_exect is set up
@@ -1040,6 +1048,8 @@ void req_quejob(
   pj->ji_qs.ji_un.ji_newt.ji_fromaddr = get_connectaddr(sock);
 
   pj->ji_qs.ji_un.ji_newt.ji_scriptsz = 0;
+
+  pj->ji_expanded_spec = NULL;
 
   /* acknowledge the request with the job id */
 
@@ -1831,8 +1841,6 @@ void req_commit(
 
   return;
   }  /* END req_commit() */
-
-
 
 
 /*
