@@ -1453,9 +1453,9 @@ recompute_ntype_cnts(void)
       if (pnode->nd_state & INUSE_DELETED)
         continue;
 
-      if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_type == NTYPE_VIRTUAL)
+      if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL)
         svr_loc_clnodes++;
-        //svr_loc_clnodes += pnode->nd_nsn;
+        /*svr_loc_clnodes += pnode->nd_nsn;*/
       else if (pnode->nd_ntype == NTYPE_TIMESHARED)
         svr_loc_tsnodes++;
       }
