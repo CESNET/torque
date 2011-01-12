@@ -185,10 +185,11 @@ static int tcp_resize_buff (
   char *id = "tcp_resize_buff";
 #endif
 
-  int leadpct, trailpct; 
+  int leadpct, trailpct, eod;
   char *temp;
   leadpct = (int)(tp->tdis_thebuf - tp->tdis_leadp);
   trailpct = (int)(tp->tdis_thebuf - tp->tdis_trailp);
+  eod = (int)(tp->tdis_thebuf - tp->tdis_eod);
   temp = (char *)malloc(newbufsize);
   if(!temp)
     {
@@ -209,6 +210,7 @@ static int tcp_resize_buff (
   tp->tdis_bufsize = newbufsize;
   tp->tdis_leadp = tp->tdis_thebuf - leadpct;
   tp->tdis_trailp = tp->tdis_thebuf - trailpct;
+  tp->tdis_eod = tp->tdis_thebuf - eod;
   return 0;
 } /* END tcp_resize_buff */
 
