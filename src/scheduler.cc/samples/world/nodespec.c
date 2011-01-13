@@ -361,11 +361,14 @@ int refresh_magrathea_status(node_info *ninfo, job_info *jinfo, int preassign_st
 /** Check basic node suitability for job */
 static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_starving)
   {
-  if ((ninfo->is_offline || ninfo->is_down || ninfo->is_unknown) && !(ninfo->type == NodeVirtual && jinfo->cluster_mode == ClusterCreate))
+  if (ninfo->is_offline || ninfo->is_down || ninfo->is_unknown)
     {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-            "Node %s not used, node is down and is not virtual.", ninfo->name);
-    return 0;
+    if (jinfo->cluster_mode != ClusterCreate)
+      {
+	  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                "Node %s not used, node is down and job isn't cluster create", ninfo->name);
+      return 0;
+      }
     }
 
   if (ninfo->type == NodeTimeshared || ninfo->type == NodeCloud)
