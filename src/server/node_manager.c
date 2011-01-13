@@ -1243,6 +1243,7 @@ int is_stat_get(
    */
 
   memset(&temp, 0, sizeof(temp));
+  memset(date_attrib, 0, 100);
 
   rc = DIS_SUCCESS;
 
@@ -4909,10 +4910,11 @@ int procs_requested(
   int i;
   static char shared[] = "shared";
   struct prop *prop = NULL;
+  char *tmp_spec;
 
-  spec = strdup(spec);  
+  tmp_spec = strdup(spec);  
 
-  if (spec == NULL)
+  if (tmp_spec == NULL)
     {
     /* FAILURE */
 
@@ -4931,7 +4933,7 @@ int procs_requested(
     }
 
   /* Check to see if we have a global modifier */
-  if ((globs = strchr(spec, '#')) != NULL)
+  if ((globs = strchr(tmp_spec, '#')) != NULL)
     {
     *globs++ = '\0';
 
@@ -4945,9 +4947,9 @@ int procs_requested(
         {
         hold = mod_spec(spec, cp);
 
-        free(spec);
+        free(tmp_spec);
 
-        spec = hold;
+        tmp_spec = hold;
         }
       else
         {
@@ -4957,11 +4959,11 @@ int procs_requested(
 
     if (strcmp(globs, shared) != 0)
       {
-      hold = mod_spec(spec, globs);
+      hold = mod_spec(tmp_spec, globs);
 
-      free(spec);
+      free(tmp_spec);
 
-      spec = hold;
+      tmp_spec = hold;
       }
     else
       {
@@ -4971,7 +4973,7 @@ int procs_requested(
     free(globs);
     }  /* END if ((globs = strchr(spec,'#')) != NULL) */
 
-  str = spec;
+  str = tmp_spec;
 
   do
     {
@@ -5011,6 +5013,8 @@ int procs_requested(
       }
     total_procs += num_procs * num_nodes;
     } while(*str++ == '+');
+
+    free(tmp_spec);
 
     return(total_procs);
   }
