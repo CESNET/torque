@@ -2,25 +2,52 @@ include $(top_srcdir)/buildutils/config.mk
 
 SUBDIRS = src doc
 
-EXTRA_DIST = CHANGELOG INSTALL.GNU README.configure README.mpiexec \
-             README.torque README.cygwin Release_Notes torque.setup buildutils/torque.spec.in \
-             DEVELOPMENT PBS_License.txt torque.spec \
-	     buildutils/self-extract-head-sh.in \
-	     buildutils/pbs_mkdirs.in buildutils/pbs_mach_type \
-	     buildutils/config.mk \
-	     buildutils/modulefiles.in buildutils/modulefiles.vers.in \
-	     contrib/README.pestat contrib/README.pbstop \
-	     contrib/README.qpeek contrib/pestat-1.0/pestat.c \
-	     contrib/pestat-1.0/README contrib/pestat-1.0/Makefile \
-	     contrib/README.pbs_ganglia_jobmonarch contrib/pam_authuser.tar.gz \
-	     contrib/README.pam_authuser contrib/pbstop \
-	     contrib/README.pbs_python contrib/README.pbs_weblite \
-	     contrib/qpeek contrib/init.d/pbs_mom contrib/init.d/pbs_server \
-	     contrib/init.d/pbs_sched contrib/init.d/suse.pbs_mom \
-	     contrib/init.d/suse.pbs_server contrib/init.d/suse.pbs_sched \
-			 contrib/init.d/debian.pbs_mom contrib/init.d/debian.pbs_server \
-			 contrib/init.d/debian.pbs_sched \
-	     contrib/blcr/checkpoint_script contrib/blcr/restart_script
+EXTRA_DIST = CHANGELOG \
+	INSTALL.GNU \
+	PBS_License.txt \
+	README.array_changes \
+	README.configure \
+	README.cygwin \
+	README.torque \
+	Release_Notes \
+	torque.setup \
+	torque.spec \
+	buildutils/config.mk \
+	buildutils/modulefiles.in \
+	buildutils/modulefiles.vers.in \
+	buildutils/pbs_mach_type \
+	buildutils/pbs_mkdirs.in \
+	buildutils/self-extract-head-sh.in \
+	buildutils/torque.spec.in \
+	contrib/AddPrivileges \
+	contrib/blcr/checkpoint_script \
+	contrib/blcr/restart_script \
+	contrib/init.d/debian.pbs_mom \
+	contrib/init.d/debian.pbs_sched \
+	contrib/init.d/debian.pbs_server \
+	contrib/init.d/pbs_mom \
+	contrib/init.d/pbs_sched \
+	contrib/init.d/pbs_server \
+	contrib/init.d/suse.pbs_mom \
+	contrib/init.d/suse.pbs_sched \
+	contrib/init.d/suse.pbs_server \
+	contrib/pam_authuser.tar.gz \
+	contrib/pbstop \
+	contrib/pbsweb-lite-0.95.tar.gz \
+	contrib/pestat-1.0/Makefile \
+	contrib/pestat-1.0/pestat.c \
+	contrib/pestat-1.0/README \
+	contrib/qpeek \
+	contrib/qpool.gz \
+	contrib/README.pam_authuser \
+	contrib/README.pbs_ganglia_jobmonarch \
+	contrib/README.pbs_python \
+	contrib/README.pbstools \
+	contrib/README.pbstop \
+	contrib/README.pbs_weblite \
+	contrib/README.pestat \
+	contrib/README.qpeek \
+	contrib/showjobs
 
 bin_SCRIPTS = pbs-config
 
@@ -32,6 +59,13 @@ snap:
 	$(MAKE) VERSION=$(VERSION)-snap.$${snapstamp:-`date +%Y%m%d%H%M`} dist
 
 dist-hook:
+	spec_version=`echo $(VERSION) | sed 's/-snap.*//'`; \
+	spec_snap=""; \
+	if test "$$spec_version" != "$(VERSION)" ;then \
+	  spec_snap="%define snap `echo $(VERSION) | sed 's/.*-snap.//'`"; \
+	  sed -e 's/.*dist_spec_snap.*/'"$$spec_snap"/ < $(distdir)/torque.spec > $(distdir)/torque.spec~ ; \
+	  mv $(distdir)/torque.spec~ $(distdir)/torque.spec; \
+	fi; \
 	chmod u+w $(distdir)/README.torque $(distdir)/configure $(distdir)/torque.spec
 	sed -e 's/TORQUE .* README .*/TORQUE $(VERSION) README (released '"`date '+%b, %d %Y'`"')/' < $(srcdir)/README.torque > $(distdir)/README.torque
 	sed -e 's/VERSION=.*/VERSION=$(VERSION)/' < $(srcdir)/configure > $(distdir)/configure
