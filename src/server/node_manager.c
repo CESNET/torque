@@ -3243,6 +3243,40 @@ void regenerate_total_resources(job * pjob)
       }
     }
 
+  /* pass 3.
+   * - add total number of processes
+   */
+  if (cprocs > 0) /* always true */
+    {
+    resource_def *rd;
+    resource *value;
+    attribute attr;
+    char buf[32] = { 0 };
+    int ret;
+
+    /* find the definition and decode the value */
+    rd = find_resc_def(svr_resc_def, "procs", svr_resc_size);
+    sprintf(buf,"%d",cprocs);
+    rd->rs_decode(&attr,"procs","",buf);
+
+    /* check if procs are present */
+    value = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+    if (value == NULL)
+      {
+      value = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+      ret = rd->rs_set(&value->rs_value,&attr,SET); 
+      if (ret != 0)
+        return;
+      }
+    else
+      {
+      ret = rd->rs_set(&value->rs_value,&attr,INCR);
+      if (ret != 0)
+        return;
+      }
+    }
+  
+
   return;
   }
 
@@ -5489,7 +5523,7 @@ void set_old_nodes(
     if ((pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_flags & ATR_VFLAG_SET) != 0)
       {
       free(pjob->ji_expanded_spec);
-      pjob->ji_expanded_spec = nodespec_expand(pjob, pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str,&excl);
+      pjob->ji_expanded_spec = nodespec_expand(pjob, pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str,&exclusivity);
       }
 
     /* duplicate the expanded nodespec, so we can work with it */
@@ -5555,7 +5589,7 @@ void set_old_nodes(
           *po = '\0'; po++;
           }
 
-        set_one_old(old, pjob, shared, order, (remaining % ppn_count == 0) ? 1 : 0);
+        set_one_old(old, pjob, shared, exclusivity, order, (remaining % ppn_count == 0) ? 1 : 0);
         remaining--;
         }
       while (remaining > 0 && po != NULL);
