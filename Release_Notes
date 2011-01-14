@@ -1,6 +1,24 @@
 This file contains a few notes on building and installing TORQUE and 
 Release notes for each release.
 
+NEW in 2.4.12
+--------------
+
+The buildutils/torque.spec.in file has been modified to comply more closely with RPM
+standards. Users may experience some unexpected behavior from what they have experienced
+in past versions of TORQUE. Please post your questions, problems and concerns to
+the mailing list at torqueuers@supercluster.org
+
+While Adaptive Computing distributes the files need to build RPMs as part of the build 
+it does not support those files. Not every Linux distribution uses RPM. Adaptive Computing 
+provides a single solution using make and make install that works across all Linux 
+distributions and most UNIX systems. We recognize the RPM format provides many advantages 
+for deployment but it is up to the indiviual site to repackage the TORQUE installation 
+to match their individual needs.
+
+If you have issues with the new spec files please post the issue or questions to the 
+torque users (torqueusers@supercluster.org) mailing list
+
 
 REQUIREMENTS
 ------------
