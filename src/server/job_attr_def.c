@@ -960,7 +960,7 @@ attribute_def job_attr_def[] =
   },
 
   /* JOB_ATR_total_resources */
-  { ATTR_total_resources,   /* "total_resources" */
+  { ATTR_total_resources,   /* "resources_total" */
     decode_resc,
     encode_resc,
     set_resc,
