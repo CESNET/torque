@@ -2546,7 +2546,7 @@ int hasres(struct pbsnode *pnode, char  *name, char *value, int proc_count)
 
   rd->rs_set(&tmp.rs_value,&total->rs_value,SET); /* set the total */
 
-  if (used != NULL)
+  if (used != NULL && (used->rs_value.at_flags & ATR_VFLAG_SET))
     rd->rs_set(&tmp.rs_value,&used->rs_value,DECR); /* decrement the used amount */
 
   rc = rd->rs_comp(&tmp.rs_value,&req.rs_value); /* finally compare the result */
