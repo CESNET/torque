@@ -18,7 +18,6 @@ EXTRA_DIST = CHANGELOG \
 	buildutils/pbs_mkdirs.in \
 	buildutils/self-extract-head-sh.in \
 	buildutils/torque.spec.in \
-	contrib/AddPrivileges \
 	contrib/blcr/checkpoint_script \
 	contrib/blcr/restart_script \
 	contrib/init.d/debian.pbs_mom \
@@ -45,8 +44,7 @@ EXTRA_DIST = CHANGELOG \
 	contrib/README.pbstop \
 	contrib/README.pbs_weblite \
 	contrib/README.pestat \
-	contrib/README.qpeek \
-	contrib/showjobs
+	contrib/README.qpeek 
 
 bin_SCRIPTS = pbs-config
 
