@@ -220,7 +220,7 @@ resource_def svr_resc_def_const[] =
     comp_size,
     free_null,
     NULL_FUNC,
-    READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_ALTRUN | ATR_DFLAG_RASSN,
+    READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_ALTRUN | ATR_DFLAG_RASSN | ATR_DFLAG_SELECT_MOM,
     ATR_TYPE_SIZE
   },
   { "pvmem",
