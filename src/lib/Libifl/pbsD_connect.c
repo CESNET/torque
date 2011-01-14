@@ -938,7 +938,6 @@ int pbs_disconnect(
 
   {
   int  sock;
-  static char x[THE_BUF_SIZE / 4];
 
   /* send close-connection message */
 

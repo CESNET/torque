@@ -1730,7 +1730,7 @@ int svr_chkque(
 
     /* 6. resources of the job must be in the limits of the queue */
 
-    if ((i = chk_resc_limits(&pjob->ji_wattr[(int)JOB_ATR_resource], pque, EMsg)) != 0)
+    if ((i = chk_resc_limits(&pjob->ji_wattr[(int)JOB_ATR_total_resources], pque, EMsg)) != 0)
       {
       /* FAILURE */
 
