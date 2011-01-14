@@ -5,7 +5,6 @@ SUBDIRS = src doc
 EXTRA_DIST = CHANGELOG \
 	INSTALL.GNU \
 	PBS_License.txt \
-	README.array_changes \
 	README.configure \
 	README.cygwin \
 	README.torque \
