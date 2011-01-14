@@ -5183,7 +5183,15 @@ static void adjust_resource_value(attribute *pattr, char *name, char *value, int
     }
   else if (val != NULL)
     {
-    ret = defin->rs_set(&val->rs_value,&decoded.rs_value,op);
+    /* if the resulting value is zero, then remove completely */
+    if (defin->rs_comp(&val->rs_value,&decoded.rs_value) == 0 && op == DECR)
+      {
+      defin->rs_free(&val->rs_value);
+      }
+    else
+      {
+      ret = defin->rs_set(&val->rs_value,&decoded.rs_value,op);
+      }
     }
   }
 
