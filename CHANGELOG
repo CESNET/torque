@@ -46,6 +46,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - prevent the nodes file from being overwritten when running make packages 
   b - change so "mom_checkpoint_job_has_checkpoint" and "execing command" log
       messages do not always get logged (back-ported from 2.5.4)
+  b - remove the use of a GNU specific function. (back-ported from 2.5.5)
 
 2.4.11 
   b - changed type cast for calloc of ioenv from sizeof(char) to sizof(char *)
