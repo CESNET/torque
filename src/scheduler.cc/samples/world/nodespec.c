@@ -174,8 +174,6 @@ int get_node_has_property(node_info *ninfo, const char* property)
   dbg_precondition(property != NULL, "This functions does not accept NULL.");
   dbg_precondition(ninfo != NULL, "This functions does not accept NULL.");
 
-  printf("DEBUG: Checking property %s\n",property);
-
   /* resource/ppn support */
   if ((delim = strchr(property,'=')) != NULL)
     {
@@ -201,8 +199,6 @@ int get_node_has_property(node_info *ninfo, const char* property)
       {
       struct resource *res;
       int i;
-
-      printf("DEBUG Checking generic resource %s\n",property);
 
       for (i = 0; i < num_res; i++)
         {
@@ -400,13 +396,16 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
     }
 
   if ((ninfo->starving_job != NULL) && /* already assigned to a starving job */
-      (strcmp(ninfo->starving_job->name,jinfo->name) != 0) && /* and not this job */
-      (ninfo->starving_job->queue->priority >= jinfo->queue->priority)) /* job priority is not higher */
+      (strcmp(ninfo->starving_job->name,jinfo->name) != 0)) /* and not this job */
     {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-              "Node %s not used, node allocated to a higher priority starving job %s.",
-              ninfo->name, ninfo->starving_job->name);
-    return 0;
+    if (ninfo->starving_job->queue->priority > jinfo->queue->priority || /* starving job ma vyssi prioritu */
+       (ninfo->starving_job->queue->priority == jinfo->queue->priority && !jinfo->is_starving)) /* nebo ma stejnou a ja nejsem starving */
+      {
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                "Node %s not used, node allocated to a higher priority starving job %s.",
+                ninfo->name, ninfo->starving_job->name);
+      return 0;
+      }
     }
 
   if (jinfo->is_multinode && ninfo->no_multinode_jobs)
