@@ -74,6 +74,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - make it so that even if an array request has multiple consecutive '%' the slot 
       limit will be set correctly
   b - remove the use of a GNU specific function, and fix an error for solaris builds
+  b - Updated PBS_License.txt to remove the implication that the software
+      is not freely redistributable. 
 
 2.5.4
   f - added the ability to track gpus. Users set gpus=X in the nodes file for
