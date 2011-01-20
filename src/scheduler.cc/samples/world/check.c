@@ -186,10 +186,10 @@ int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
 
   if ((rc = check_ded_time_boundry(jinfo)))
     return rc;
-
+#if 0
   if ((rc = check_starvation(jinfo)))
     return rc;
-
+#endif
   if ((rc = cloud_check(jinfo)))
     return rc;
 

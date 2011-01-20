@@ -432,7 +432,6 @@ void query_external_cache(server_info *sinfo)
                res -> avail = res_to_num(value);
                res -> str_avail = value;
                res -> assigned = 0;
-               printf("[pbs_cache] got new numeric value %s = %ld", res->name, (long)res->avail);
                }
              else
                {
@@ -440,7 +439,6 @@ void query_external_cache(server_info *sinfo)
                res -> str_avail = value;
                res -> avail = 0;
                res -> assigned = 0;
-               printf("[pbs_cache] got new string value %s = %s", res->name, res->str_avail);
                }
              }
            }
