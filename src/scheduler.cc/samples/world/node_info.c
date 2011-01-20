@@ -284,7 +284,6 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
     attrp = attrp -> next;
     }
 
-  print_node(ninfo,0);
   return ninfo;
   }
 
@@ -446,8 +445,6 @@ int set_node_type(node_info *ninfo, char *ntype)
 int set_node_state(node_info *ninfo, char *state)
   {
   char *tok;    /* used with strtok() */
-
-  printf(state);
 
   if (ninfo != NULL && state != NULL)
     {

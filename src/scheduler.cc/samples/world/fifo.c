@@ -292,10 +292,10 @@ int init_scheduling_cycle(world_server_t* server)
       sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SERVER, "", "Usage Sync");
       }
     }
-
+#if 0
   if (cstat.help_starving_jobs)
     cstat.starving_job = update_starvation(server -> info -> jobs);
-
+#endif
   /* sort queues by priority if requested */
 
   if (cstat.sort_queues)
@@ -501,6 +501,7 @@ int scheduling_cycle(
   char log_msg[MAX_LOG_SIZE]; /* used to log an message about job */
   char comment[MAX_COMMENT_SIZE]; /* used to update comment of job */
   int i, j, lock = 1;
+  int max_starving = 10;
 
   sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_REQUEST, "", "Entering Schedule");
 
@@ -557,13 +558,14 @@ int scheduling_cycle(
       return(0);
       }
 
-    while ((jinfo = next_job(server->info, 0)) != NULL)
+    while ((jinfo = next_job(server->info, 0)) != NULL && max_starving > 0)
       {
       if (jinfo->is_starving) /* set in update_starvation() */
         {
         sched_log(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER,
                   jinfo->name, "Considering starving job.");
         is_ok_to_run_job(sd, server->info, jinfo->queue, jinfo, 1);
+        max_starving--;
         }
       }
     } /* end starving jobs support */
