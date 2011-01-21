@@ -116,6 +116,8 @@ extern char     *AllocParCmd;
 
 extern int      multi_mom;
 
+extern unsigned short pbs_rm_port;
+
 /* Private variables */
 
 #define TMAX_TJCACHESIZE 128

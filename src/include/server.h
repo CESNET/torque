@@ -97,6 +97,10 @@
 
 #include "server_limits.h"
 
+#ifndef ulong
+#define ulong unsigned long
+#endif
+
 #define NO_BUFFER_SPACE -2
 #define NO_ATTR_DATA    1
 #define ATTR_NOT_FOUND  -2
