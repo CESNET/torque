@@ -718,15 +718,9 @@ int status_nodeattrib(
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_noautoresv))
       atemp[i].at_val.at_long = pnode->nd_noautoresv;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_total))
-	  {
-      clear_attr(&atemp[i],(padef+i));
-      (padef+i)->at_set(&atemp[i],&pnode->attributes[0],SET);
-	  }
+      atemp[i].at_val.at_list = pnode->attributes[0].at_val.at_list;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_used))
-      {
-      clear_attr(&atemp[i],(padef+i));
-      (padef+i)->at_set(&atemp[i],&pnode->attributes[1],SET);
-      }
+      atemp[i].at_val.at_list = pnode->attributes[1].at_val.at_list;
     else
       {
       /*we don't ever expect this*/
