@@ -3604,7 +3604,7 @@ static char *nodespec_app(const char *spec, const char *app)
   char *cp;
   char *result;
 
-  result = malloc(nodespec_part_count(spec) * strlen(app+1) + strlen(spec) + 1);
+  result = malloc(nodespec_part_count(spec) * (strlen(app) + 1) + strlen(spec) + 1);
   if (result == NULL) /* alloc fail */
     return NULL;
 
