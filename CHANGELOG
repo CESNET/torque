@@ -1,5 +1,9 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
+2.4.13
+  e - change so blcr checkpoint jobs can restart on different node. Use
+      configure --enable-blcr to allow. (Bugzilla 68, backported from 2.5.5)
+
 2.4.12
   b - Bugzilla bug 84. Security bug on the way checkpoint is being handled.
       (Robin R. - Miami Univ. of Ohio, back-ported from 2.5.3)
@@ -227,7 +231,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       would successfully compile on sun system. Tcl still does not successfully
       compile. configure needs to be done with the --disable-gui option.
       01/21/2010.
-  e - Moved the function prepare_child_tasks_for_delete() from the mom_mach.c
+  e - Moved the function p  e - change so blcr checkpoint jobs can restart on different node. Use
+      configure --enable-blcr to allow.
+repare_child_tasks_for_delete() from the mom_mach.c
       files for Linux and Solaris5. This routine is not platform dependent. 
       No other platform had the function yet.
       01/22/2010
