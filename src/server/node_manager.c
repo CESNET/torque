@@ -2577,13 +2577,12 @@ int hasprop(
 
   for (need = props;need;need = need->next)
     {
-
     struct prop *pp;
 
-    if (need->mark == 0 && (props->value == NULL)) /* not marked, skip */
+    if (need->mark == 0 && (need->value == NULL)) /* not marked, skip */
       continue;                                    /* do not skip resources */
 
-    if (props->value == NULL)
+    if (need->value == NULL)
       {
       for (pp = pnode->nd_first;pp != NULL;pp = pp->next)
         {
@@ -2598,7 +2597,7 @@ int hasprop(
       }
     else
       {
-      if (!hasres(pnode,props->name,props->value,proc_count))
+      if (!hasres(pnode,need->name,need->value,proc_count))
         return 0;
       }
     }
