@@ -561,13 +561,13 @@ stop_renewal(task *ptask)
       return;
 
    if (fscanf(fd, "%d", &pid) < 1) {
-      fclose(fd);
-      return;
+     pid = -1;
    }
 
    fclose(fd);
 
-   kill(pid, SIGTERM);
+   if (pid >= 0)
+     kill(pid, SIGTERM);
 
    if (stat(pid_file, &cache_info) == 0) {
       unlink(pid_file);
