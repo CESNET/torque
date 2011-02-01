@@ -212,30 +212,31 @@ check_env()
 	if [ ! -f $PBS_ENVIRON ] ; then
 		install_dir `dirname $PBS_ENVIRON` || return 1
 		echo "PATH=/bin:/usr/bin" > $PBS_ENVIRON || return 1
-		if [ X$TZ != X ] ; then
-			echo "TZ=$TZ" >> $PBS_ENVIRON || return 1
-		fi
-		if [ X$LANG != X ] ; then
-			echo "LANG=$LANG" >> $PBS_ENVIRON || return 1
-		fi
-		if [ X$LC_ALL != X ] ; then
-			echo "LC_ALL=$LC_ALL" >> $PBS_ENVIRON || return 1
-		fi
-		if [ X$LC_COLLATE != X ] ; then
-			echo "LC_COLLATE=$LC_COLLATE" >> $PBS_ENVIRON || return 1
-		fi
-		if [ X$LC_CTYPE != X ] ; then
-			echo "LC_CTYPE=$LC_CTYPE" >> $PBS_ENVIRON || return 1
-		fi
-		if [ X$LC_MONETARY != X ] ; then
-			echo "LC_MONETARY=$LC_MONETARY" >> $PBS_ENVIRON || return 1
-		fi
-		if [ X$LC_NUMERIC != X ] ; then
-			echo "LC_NUMERIC=$LC_NUMERIC" >> $PBS_ENVIRON || return 1
-		fi
-		if [ X$LC_TIME != X ] ; then
-			echo "LC_TIME=$LC_TIME" >> $PBS_ENVIRON || return 1
-		fi
+		echo "LANG=C" >> $PBS_ENVIRON || return 1
+#		if [ X$TZ != X ] ; then
+#			echo "TZ=$TZ" >> $PBS_ENVIRON || return 1
+#		fi
+#		if [ X$LANG != X ] ; then
+#			echo "LANG=$LANG" >> $PBS_ENVIRON || return 1
+#		fi
+#		if [ X$LC_ALL != X ] ; then
+#			echo "LC_ALL=$LC_ALL" >> $PBS_ENVIRON || return 1
+#		fi
+#		if [ X$LC_COLLATE != X ] ; then
+#			echo "LC_COLLATE=$LC_COLLATE" >> $PBS_ENVIRON || return 1
+#		fi
+#		if [ X$LC_CTYPE != X ] ; then
+#			echo "LC_CTYPE=$LC_CTYPE" >> $PBS_ENVIRON || return 1
+#		fi
+#		if [ X$LC_MONETARY != X ] ; then
+#			echo "LC_MONETARY=$LC_MONETARY" >> $PBS_ENVIRON || return 1
+#		fi
+#		if [ X$LC_NUMERIC != X ] ; then
+#			echo "LC_NUMERIC=$LC_NUMERIC" >> $PBS_ENVIRON || return 1
+#		fi
+#		if [ X$LC_TIME != X ] ; then
+#			echo "LC_TIME=$LC_TIME" >> $PBS_ENVIRON || return 1
+#		fi
 		chmod 644 $PBS_ENVIRON || return 1
 	fi
 }
