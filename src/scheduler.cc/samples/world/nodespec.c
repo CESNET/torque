@@ -32,17 +32,16 @@ int get_req_vps(pars_spec_node *spec)
 
 enum ResourceCheckMode { MaxOnly, Avail };
 
-static int node_has_enough_np(node_info *ninfo, char *value, enum ResourceCheckMode mode)
+static int node_has_enough_np(node_info *ninfo, int ppn, enum ResourceCheckMode mode)
   {
-  long amount = res_to_num(value);
   switch(mode)
     {
     case MaxOnly:
-      if (ninfo->np >= amount)
+      if (ninfo->np >= ppn)
         return 1;
       break;
     case Avail:
-      if (ninfo->npfree >= amount)
+      if (ninfo->npfree >= ppn)
         return 1;
       else
         return 0;
@@ -109,6 +108,11 @@ static int node_has_enough_resource(node_info *ninfo, char *name, char *value,
   return 0; /* by default, the node does not have enough */
   }
 
+int get_node_has_ppn(node_info *ninfo, unsigned ppn, int preassign_starving)
+  {
+  return node_has_enough_np(ninfo, ppn, preassign_starving?MaxOnly:Avail);
+  }
+
 int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starving)
   {
   dbg_precondition(property != NULL, "This functions does not accept NULL.");
@@ -151,16 +155,8 @@ int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starv
     }
   else /* resource or ppn */
     {
-    if (strcmp("ppn",property->name) == 0)
-      {
-      return node_has_enough_np(ninfo, property->value,
-               preassign_starving?MaxOnly:Avail);
-      }
-    else
-      {
-      return node_has_enough_resource(ninfo,property->name, property->value,
-               preassign_starving?MaxOnly:Avail);
-      }
+    return node_has_enough_resource(ninfo,property->name, property->value,
+             preassign_starving?MaxOnly:Avail);
     }
 
   return 0;
@@ -556,7 +552,8 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
         iter = spec->properties;
         while (iter != NULL)
           {
-          if ((get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0) &&
+          if ((get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0) &&
+              (get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0) &&
               (alternative_has_property(*ra,iter->name) == 0))
             break; /* break out of the cycle if not found property */
 
@@ -622,17 +619,12 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
 
 int check_nodespec(job_info *jinfo, int nodecount, node_info **ninfo_arr, int preassign_starving)
   {
-  const char *node_spec;
-  resource_req *res;
   int missed_nodes = 0;
-
-  res = find_resource_req(jinfo -> resreq, "nodes");
-  if (res != NULL)
-    node_spec = res->res_str;
+  const char *node_spec = jinfo->nodespec;
 
   /* TODO provide better fix (with respect to resource requests) */
-  if (res == NULL || node_spec == NULL || node_spec[0] == '\0')
-    node_spec = "1"; /* if there is no nodespec,
+  if ( node_spec == NULL || node_spec[0] == '\0')
+    node_spec = "1:ppn=1"; /* if there is no nodespec,
                         then assume its a request for one node */
 #if 0
   if (res != NULL && node_spec != NULL)

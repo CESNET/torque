@@ -270,19 +270,23 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
           jinfo->cluster_name = strdup(attrp->value);
           }
         }
-      else
+      else if (strcmp(attrp->resource,"processed_nodes") == 0)
         {
-        resreq = find_alloc_resource_req(attrp -> resource, jinfo -> resreq);
-
-        if (resreq != NULL)
-          {
-          resreq -> res_str = strdup(attrp -> value);
-          resreq -> amount = res_to_num(attrp -> value);
-          }
-
-        if (jinfo -> resreq == NULL)
-          jinfo -> resreq = resreq;
+        jinfo->nodespec = strdup(attrp->value);
         }
+      }
+    else if (!strcmp(attrp -> name, ATTR_total_resources))
+      {
+      resreq = find_alloc_resource_req(attrp -> resource, jinfo -> resreq);
+
+      if (resreq != NULL)
+        {
+        resreq -> res_str = strdup(attrp -> value);
+        resreq -> amount = res_to_num(attrp -> value);
+        }
+
+      if (jinfo -> resreq == NULL)
+        jinfo -> resreq = resreq;
       }
     else if (!strcmp(attrp -> name, ATTR_used))    /* resources used */
       {
@@ -369,6 +373,8 @@ job_info *new_job_info()
   jinfo -> is_cluster = 0;
   jinfo -> cluster_mode = ClusterNone;
   jinfo -> cluster_name = NULL;
+
+  jinfo -> nodespec = NULL;
 
   return jinfo;
   }
@@ -458,6 +464,7 @@ void free_job_info(job_info *jinfo)
   free_resource_req_list(jinfo -> resreq);
   free_resource_req_list(jinfo -> resused);
   free(jinfo -> cluster_name);
+  free(jinfo -> nodespec);
   free(jinfo);
   }
 
