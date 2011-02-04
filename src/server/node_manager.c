@@ -3572,44 +3572,6 @@ static int nodespec_part_count(const char *spec)
   return result;
   }
 
-/** Append requirements to each part of a spec
- *
- * @param spec the spec to be modified
- * @param app requirements to be appended
- * @return Modified nodespec
- */
-static char *nodespec_app(const char *spec, const char *app)
-  {
-  char *cp;
-  char *result;
-
-  result = malloc(nodespec_part_count(spec) * (strlen(app) + 1) + strlen(spec) + 1);
-  if (result == NULL) /* alloc fail */
-    return NULL;
-
-  cp = result;
-
-  while (*spec)
-    {
-    if (*spec == '+') /* add the requirements before each '+' */
-      {
-      *cp++ = ':';
-
-      strcpy(cp, app);
-
-      cp += strlen(app);
-      }
-
-    *cp++ = *spec++;
-    }
-
-  *cp++ = ':'; /* and also after the last part of the spec */
-
-  strcpy(cp, app);
-
-  return(result);
-  }  /* END nodespec_app() */
-
 /** Expand nodespec
  *
  * Add the global nodespec part to local parts of nodespec and determine exclusivity.
@@ -3626,7 +3588,7 @@ static char *nodespec_expand(job *pjob, const char *spec, int *exclusive)
   expand_nodespec(pspec);
   expanded = concat_nodespec(pspec);
   if (exclusive != NULL)
-    exclusive = pspec->is_exclusive;
+    *exclusive = pspec->is_exclusive;
 
   return expanded;
   }
