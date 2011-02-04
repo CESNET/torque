@@ -120,6 +120,7 @@
 #include "api.h"
 
 #include "assertions.h"
+#include "nodespec.h"
 
 #define IS_VALID_STR(STR)  (((STR) != NULL) && ((STR)[0] != '\0'))
 
@@ -3056,225 +3057,205 @@ static int proplist(
   return 0;
   }  /* END proplist() */
 
-static int nodespec_to_proplist(char **str, int *cnodes, int *cprocs, struct prop **list)
-  {
-  int i = 0;
-
-  /* determine number of nodes */
-  if ((i = number(str, cnodes)) == -1)
-    {
-    return -1;
-    }
-
-  if (i == 0) /* number exists */
-    {
-    if (**str == ':')
-      {
-      /* there are properties */
-      (*str)++;
-
-      if (proplist(str, list, cprocs))
-        {
-        return -1;
-        }
-      }
-    }
-  else /* no number */
-    {
-    if (proplist(str, list, cprocs))
-      {
-      /* must be a prop list with no number in front */
-
-      return -1;
-      }
-    }
-
-  return 0;
-  }
-
+/** Recalculate real nodespec and total resources
+ *
+ * real nodespec   - nodespec containing all resources
+ * total resources - total amount of counted resources
+ */
 void regenerate_total_resources(job * pjob)
   {
-  int cnodes = 0;
-  int cprocs = 0;
+  pars_spec *spec = NULL;
+  resource_def *rd;
+  resource *rs;
+  pars_spec_node *node = NULL;
+  pars_prop *prop = NULL;
+  int i, ret;
 
+  /* Step (1)
+   * - find nodespec and parse
+   */
+  if ((pjob->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET) != 0)
+    {
+    if ((rd = find_resc_def(svr_resc_def,"nodes",svr_resc_size)) == NULL)
+      return;
+
+    if ((rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],rd)) == NULL)
+      return;
+
+    spec = parse_nodespec(rs->rs_value.at_val.at_str);
+    }
+
+  /* Step (2)
+   * - free up previous total resources
+   */
   /* cleanup any previous values */
   job_attr_def[(int)JOB_ATR_total_resources].
     at_free(&pjob->ji_wattr[(int)JOB_ATR_total_resources]);
 
-  /* pass 1.
-   * - find nodespec
-   * - add each part that represents a counted resource into total resources
-   * - calculate total amount of procs and nodes
+  /* Step (3)
+   * - go through normal resources
    */
-  if ((pjob->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET) != 0)
-    {
-    resource_def *rd;
-    resource *rs;
+  expand_nodespec(spec); /* expand the nodespec (add the global part into the local parts) */
 
-    rd = find_resc_def(svr_resc_def,"nodes",svr_resc_size);
-    if (rd != NULL)
-      rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],rd);
-
-    if (rd != NULL && rs != NULL)
-      {
-      char *buf, *part, *next;
-
-      next = buf = part = strdup(rs->rs_value.at_val.at_str);
-      if (buf == NULL)
-        return;
-
-      /* process each nodespec part (between + signs) */
-      do
-        {
-        int procs = 1, nodes = 1;
-        struct prop *prop = NULL, *iter;
-
-        part = next;
-
-        next = strchr(part,'+');
-        if (next != NULL)
-          {
-          *next = '\0';
-          next++;
-          }
-
-        /* parse this nodespec part */
-        if (nodespec_to_proplist(&part,&nodes,&procs,&prop) == -1)
-          {
-          free(buf);
-          return;
-          }
-
-        /* for each property determine if it is a counted resource */
-        for (iter = prop;iter;iter = iter->next)
-          {
-          int total_count = 0;
-          int i, ret;
-          resource *value;
-          resource decoded;
-          resource_def *defin = find_resc_def(svr_resc_def,iter->name,svr_resc_size);
-
-          if (defin != NULL)
-            {
-            /* only count per proc and per node resources in the nodespec */
-            if ((defin->rs_flags & ATR_DFLAG_SELECT_MOM) != 0)
-              total_count = nodes;
-            if ((defin->rs_flags & ATR_DFLAG_SELECT_PROC) != 0)
-              total_count = nodes * procs;
-
-            ret = defin->rs_decode(&decoded.rs_value,0,iter->name,iter->value);
-            if (ret != 0)
-              return;
-
-            value = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],defin);
-
-            for (i = 0;i < total_count;i++)
-              {
-              if (value == NULL)
-                {
-                value = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],defin);
-                ret = defin->rs_set(&value->rs_value,&decoded.rs_value,SET);
-                if (ret != 0)
-                  return;
-                continue;
-                }
-
-              ret = defin->rs_set(&value->rs_value,&decoded.rs_value,INCR);
-              if (ret != 0)
-                return;
-              }
-            }
-          }
-
-        cnodes += nodes;
-        cprocs += nodes*procs;
-        }
-      while (next != NULL);
-
-      free(buf);
-      }
-    else
-      {
-      /* if there is no nodes request, assume 1 proc and 1 node */
-      cnodes = 1;
-      cprocs = 1;
-      }
-    }
-
-  /* pass 2.
-   * - process all counted resources
-   */
   if ((pjob->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET) != 0)
     {
     resource *jbrc = (resource *)GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
-
+    rd = jbrc->rs_defin;
     while (jbrc != NULL)
       {
-      int total_count = 1;
-      int i, ret;
-      resource *value;
-
-      if ((jbrc->rs_defin->rs_flags & ATR_DFLAG_SELECT_MOM) != 0)
-        total_count = cnodes;
-      if ((jbrc->rs_defin->rs_flags & ATR_DFLAG_SELECT_PROC) != 0)
-        total_count = cprocs;
-
-      value = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],jbrc->rs_defin);
-
-      for (i = 0;i < total_count;i++)
+      switch (rd->rs_type)
         {
-        if (value == NULL)
+        case ATR_TYPE_LONG: case ATR_TYPE_LL: case ATR_TYPE_SHORT: case ATR_TYPE_SIZE:
           {
-          value = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],jbrc->rs_defin);
-          ret = jbrc->rs_defin->rs_set(&value->rs_value,&jbrc->rs_value,SET);
-          if (ret != 0)
-            return;
-          continue;
+          tlist_head head;
+          svrattrl *patlist;
+
+          if (!((rd->rs_flags & ATR_DFLAG_SELECT_MOM) || (rd->rs_flags & ATR_DFLAG_SELECT_PROC)))
+            { /* if the resource is per job then add into total resources */
+            if ((rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd)) == NULL)
+              {
+              rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+              ret = rd->rs_set(&rs->rs_value,&jbrc->rs_value,SET);
+              if (ret != 0)
+                return;
+              }
+            else
+              {
+              ret = jbrc->rs_defin->rs_set(&rs->rs_value,&jbrc->rs_value,INCR);
+              if (ret != 0)
+                return;
+              }
+            break;
+            }
+
+          CLEAR_HEAD(head);
+          rd->rs_encode(&jbrc->rs_value,&head,"ignored",rd->rs_name,ATR_ENCODE_CLIENT);
+          patlist = (svrattrl *)GET_NEXT(head);
+          add_res_to_nodespec(spec,patlist->al_atopl.resource,patlist->al_atopl.value);
+          free_attrlist(&head);
+          break;
           }
-
-        ret = jbrc->rs_defin->rs_set(&value->rs_value,&jbrc->rs_value,INCR);
-        if (ret != 0)
-          return;
         }
-
-
       jbrc = (resource*)GET_NEXT(jbrc->rs_link);
       }
     }
 
-  /* pass 3.
-   * - add total number of processes
+  /* Step (4)
+   * - construct the processed_nodes resource
    */
-  if (cprocs > 0) /* always true */
+  if ((rd = find_resc_def(svr_resc_def,"processed_nodes",svr_resc_size)) != NULL)
     {
-    resource_def *rd;
-    resource *value;
-    attribute attr;
-    char buf[32] = { 0 };
-    int ret;
-
-    /* find the definition and decode the value */
-    rd = find_resc_def(svr_resc_def, "procs", svr_resc_size);
-    sprintf(buf,"%d",cprocs);
-    rd->rs_decode(&attr,"procs","",buf);
-
-    /* check if procs are present */
-    value = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
-    if (value == NULL)
+    if ((rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],rd)) != NULL)
       {
-      value = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
-      ret = rd->rs_set(&value->rs_value,&attr,SET); 
-      if (ret != 0)
-        return;
+      char *buf = concat_nodespec(spec);
+      rd->rs_free(&rs->rs_value);
+      rd->rs_decode(&rs->rs_value,NULL,NULL,buf);
+      free(buf);
       }
     else
       {
-      ret = rd->rs_set(&value->rs_value,&attr,INCR);
-      if (ret != 0)
-        return;
+      if ((rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],rd)) != NULL)
+        {
+        char *buf = concat_nodespec(spec);
+        rd->rs_decode(&rs->rs_value,NULL,NULL,buf);
+        free(buf);
+        }
       }
     }
-  
+
+  /* Step (5)
+   * - go through the parsed spec and add counted parts into the total resources
+   */
+
+  node = spec->nodes;
+  while (node != NULL)
+    {
+    prop = node->properties;
+    while (prop != NULL)
+      {
+      if (prop->value != NULL && (rd = find_resc_def(svr_resc_def,prop->name,svr_resc_size)) != NULL)
+        {
+        resource decoded;
+        int total_count = 1;
+
+        /* only count per proc and per node resources in the nodespec */
+        if ((rd->rs_flags & ATR_DFLAG_SELECT_MOM) != 0)
+          total_count = node->node_count;
+        if ((rd->rs_flags & ATR_DFLAG_SELECT_PROC) != 0)
+          total_count = node->node_count * node->procs;
+
+        switch (rd->rs_type)
+          {
+          case ATR_TYPE_LONG: case ATR_TYPE_LL: case ATR_TYPE_SHORT: case ATR_TYPE_SIZE:
+            break;
+          default: total_count = 0; break;
+          }
+
+        if (total_count == 0)
+          continue;
+
+        ret = rd->rs_decode(&decoded.rs_value,0,prop->name,prop->value);
+        if (ret != 0)
+          return;
+
+        rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+
+        for (i = 0;i < total_count;i++)
+          {
+          if (rs == NULL)
+            {
+            rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+            ret = rd->rs_set(&rs->rs_value,&decoded.rs_value,SET);
+            if (ret != 0)
+              return;
+            continue;
+            }
+
+          ret = rd->rs_set(&rs->rs_value,&decoded.rs_value,INCR);
+          if (ret != 0)
+            return;
+          }
+        }
+      prop = prop->next;
+      }
+    node = node->next;
+    }
+
+  /* Step (6)
+   * - add procs and nodect
+   */
+    {
+    char buf[128];
+    attribute attr;
+
+    /* find the definition and decode the value */
+    rd = find_resc_def(svr_resc_def, "procs", svr_resc_size);
+    sprintf(buf,"%d",spec->total_procs);
+    rd->rs_decode(&attr,"procs","",buf);
+
+    /* check if procs are present */
+    rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+    if (rs == NULL)
+      rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+
+    ret = rd->rs_set(&rs->rs_value,&attr,SET);
+    if (ret != 0)
+      return;
+
+    /* find the definition and decode the value */
+    rd = find_resc_def(svr_resc_def, "nodect", svr_resc_size);
+    sprintf(buf,"%d",spec->total_nodes);
+    rd->rs_decode(&attr,"nodect","",buf);
+
+    /* check if procs are present */
+    rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+    if (rs == NULL)
+      rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+
+    ret = rd->rs_set(&rs->rs_value,&attr,SET);
+    if (ret != 0)
+      return;
+    }
 
   return;
   }
