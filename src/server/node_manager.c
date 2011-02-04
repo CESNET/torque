@@ -119,7 +119,6 @@
 #include "cloud.h"
 #include "api.h"
 
-#include "assertions.h"
 #include "nodespec.h"
 
 #define IS_VALID_STR(STR)  (((STR) != NULL) && ((STR)[0] != '\0'))
@@ -3100,18 +3099,25 @@ void regenerate_total_resources(job * pjob)
   if ((pjob->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET) != 0)
     {
     resource *jbrc = (resource *)GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
-    rd = jbrc->rs_defin;
     while (jbrc != NULL)
       {
-      switch (rd->rs_type)
-        {
-        case ATR_TYPE_LONG: case ATR_TYPE_LL: case ATR_TYPE_SHORT: case ATR_TYPE_SIZE:
+      rd = jbrc->rs_defin;
+      if ((rd->rs_flags & ATR_DFLAG_SELECT_MOM) || (rd->rs_flags & ATR_DFLAG_SELECT_PROC)) /* per proc or per node resource */
+        { /* always add to nodespec */
+        tlist_head head;
+        svrattrl *patlist;
+        CLEAR_HEAD(head);
+        rd->rs_encode(&jbrc->rs_value,&head,"ignored",rd->rs_name,ATR_ENCODE_CLIENT);
+        patlist = (svrattrl *)GET_NEXT(head);
+        add_res_to_nodespec(spec,patlist->al_atopl.resource,patlist->al_atopl.value);
+        free_attrlist(&head);
+        }
+      else
+        { /* per job resource, if counted, add to total resources */
+        switch (rd->rs_type)
           {
-          tlist_head head;
-          svrattrl *patlist;
-
-          if (!((rd->rs_flags & ATR_DFLAG_SELECT_MOM) || (rd->rs_flags & ATR_DFLAG_SELECT_PROC)))
-            { /* if the resource is per job then add into total resources */
+          case ATR_TYPE_LONG: case ATR_TYPE_LL: case ATR_TYPE_SHORT: case ATR_TYPE_SIZE:
+            {
             if ((rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd)) == NULL)
               {
               rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
@@ -3125,15 +3131,7 @@ void regenerate_total_resources(job * pjob)
               if (ret != 0)
                 return;
               }
-            break;
             }
-
-          CLEAR_HEAD(head);
-          rd->rs_encode(&jbrc->rs_value,&head,"ignored",rd->rs_name,ATR_ENCODE_CLIENT);
-          patlist = (svrattrl *)GET_NEXT(head);
-          add_res_to_nodespec(spec,patlist->al_atopl.resource,patlist->al_atopl.value);
-          free_attrlist(&head);
-          break;
           }
         }
       jbrc = (resource*)GET_NEXT(jbrc->rs_link);
@@ -3178,7 +3176,6 @@ void regenerate_total_resources(job * pjob)
         resource decoded;
         int total_count = 1;
 
-        /* only count per proc and per node resources in the nodespec */
         if ((rd->rs_flags & ATR_DFLAG_SELECT_MOM) != 0)
           total_count = node->node_count;
         if ((rd->rs_flags & ATR_DFLAG_SELECT_PROC) != 0)
@@ -3550,68 +3547,6 @@ int MSNPrintF(
   return(SUCCESS);
   }  /* END MSNPrintF() */
 
-
-/** Count the parts in a nodespec
- *
- * (Only works for local specs)
- *
- * @param spec Nodespec to parse
- * @return Count of parts
- */
-static int nodespec_part_count(const char *spec)
-  {
-  int result = 1;
-
-  dbg_precondition(spec != NULL, "This function does not accept NULL");
-
-  while (*spec != '\0')
-    {
-    if (*spec == '+')
-      result++;
-    spec++;
-    }
-
-  return result;
-  }
-
-/** Append requirements to each part of a spec
- *
- * @param spec the spec to be modified
- * @param app requirements to be appended
- * @return Modified nodespec
- */
-static char *nodespec_app(const char *spec, const char *app)
-  {
-  char *cp;
-  char *result;
-
-  result = malloc(nodespec_part_count(spec) * (strlen(app) + 1) + strlen(spec) + 1);
-  if (result == NULL) /* alloc fail */
-    return NULL;
-
-  cp = result;
-
-  while (*spec)
-    {
-    if (*spec == '+') /* add the requirements before each '+' */
-      {
-      *cp++ = ':';
-
-      strcpy(cp, app);
-
-      cp += strlen(app);
-      }
-
-    *cp++ = *spec++;
-    }
-
-  *cp++ = ':'; /* and also after the last part of the spec */
-
-  strcpy(cp, app);
-
-  return(result);
-  }  /* END nodespec_app() */
-
 /** Expand nodespec
  *
  * Add the global nodespec part to local parts of nodespec and determine exclusivity.
@@ -3622,141 +3557,16 @@ static char *nodespec_app(const char *spec, const char *app)
  */
 static char *nodespec_expand(job *pjob, const char *spec, int *exclusive)
   {
-  char *result, *globs, *cp, *tmp;
-  static char shared[] = "shared"; /* shared */
-  static char excl[] = "excl"; /* node exclusive */
+  char *expanded;
+  pars_spec *pspec = parse_nodespec(spec);
 
-  result = strdup(spec);
-  if (result == NULL) /* alloc failure */
-    return NULL;
+  expand_nodespec(pspec);
+  expanded = concat_nodespec(pspec);
+  if (exclusive != NULL)
+    *exclusive = pspec->is_exclusive;
 
-  if ((globs = strchr(result, '#')) != NULL)
-    /*find the first #, everything behind is global nodespec */
-    {
-    *globs++ = '\0';
-
-    globs = strdup(globs);
-    if (globs == NULL) /* alloc failure */
-      goto fail;
-
-    /* glob now stores the global part of the nodespec
-     * - go thru each part of the global spec and append
-     */
-    while ((cp = strrchr(globs, '#')) != NULL)
-      {
-      *cp++ = '\0';
-
-      if (!strcmp(cp, shared)) /* #shared */
-        {
-        *exclusive = 0;
-        continue;
-        }
-
-      if (!strcmp(cp, excl)) /* #excl */
-        {
-        *exclusive = 1;
-        continue;
-        }
-
-      tmp = nodespec_app(result, cp);
-      if (tmp == NULL) /* alloc failure */
-        {
-        free(globs);
-        goto fail;
-        }
-
-      free(result);
-      result = tmp;
-      }
-
-    /* now parse the first part of the global nodespec */
-    if (!strcmp(globs, shared)) /* #shared */
-      {
-      *exclusive = 0;
-      free(globs);
-      goto done_stage1;
-      }
-
-    if (!strcmp(globs, excl)) /* #excl */
-      {
-      *exclusive = 2; /* node exclusive */
-      free(globs);
-      goto done_stage1;
-      }
-
-    tmp = nodespec_app(result, globs);
-    if (tmp == NULL) /* alloc failure */
-      {
-      free(globs);
-      goto fail;
-      }
-
-    free(result);
-    result = tmp;
-
-    free(globs);
-    }  /* END if ((globs = strchr(spec,'#')) != NULL) */
-
-done_stage1:
-
-  /* if job is provided, also add each of the requested resources in the job resource list */
-  if (pjob != NULL && (pjob->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET) != 0)
-    {
-    resource *jbrc = (resource *)GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
-
-    while (jbrc != NULL)
-      {
-      tlist_head head;
-      svrattrl *patlist;
-      char     *buff, *tmp;
-      int       len;
-
-      /* only add resources that are per-proc or per-node */
-      if ((jbrc->rs_defin->rs_flags & (ATR_DFLAG_SELECT_MOM | ATR_DFLAG_SELECT_PROC)) == 0)
-        {
-        jbrc = (resource *)GET_NEXT(jbrc->rs_link);
-        continue;
-        }
-
-      /* convert resource into char* */
-      CLEAR_HEAD(head);
-      jbrc->rs_defin->rs_encode(&jbrc->rs_value,&head,"ignored",
-            jbrc->rs_defin->rs_name,ATR_ENCODE_CLIENT);
-      patlist = (svrattrl *)GET_NEXT(head);
-
-      if (patlist == NULL)
-        goto fail;
-
-      len  = strlen(patlist->al_atopl.resource);
-      len += strlen(patlist->al_atopl.value);
-      len += 2; /* '=' and '\0' */
-      buff = malloc(len);
-
-      if (buff == NULL)
-        goto fail;
-
-      sprintf(buff,"%s=%s",patlist->al_atopl.resource,patlist->al_atopl.value);
-
-      /* append to each part of the nodespec */
-      tmp = nodespec_app(result, buff);
-      if (tmp == NULL)
-        goto fail;
-
-      free(buff);
-      free(result);
-      result = tmp;
-
-      jbrc = (resource *)GET_NEXT(jbrc->rs_link);
-      }
-    }
-
-  return result;
-
-fail:
-  free(result);
-  return NULL;
+  return expanded;
   }
-
 
 /*
  * Test a node specification.
