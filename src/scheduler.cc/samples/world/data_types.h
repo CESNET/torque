@@ -274,6 +274,9 @@ char *cluster_name; /**< cluster name passed from -l cluster=...*/
   char *group;   /* groupname of the owner of the job */
   char *custom_name; /**< user selected job/cluster name */
 
+
+  char *nodespec; /**< processed nodespec from the server */
+
   struct queue_info *queue; /* queue where job resides */
   int priority;   /* PBS priority of job */
   int sch_priority;  /* internal scheduler priority */
