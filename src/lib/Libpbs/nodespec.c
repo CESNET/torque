@@ -1,4 +1,4 @@
-/* 
+/*
 (c) Simon Toth 2010 for CESNET
 
 Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
@@ -10,115 +10,13 @@ Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.p
 #include "assertions.h"
 #include "nodespec.h"
 
-static const char *shared = "shared";
 static const char *excl = "excl";
-
-static void free_pars_prop(pars_prop **prop);
-
-/** Count the parts in a nodespec
- *
- * (Only works for local specs)
- *
- * @param spec Nodespec to parse
- * @return Count of parts
- */
-static int nodespec_part_count(const char *spec)
-  {
-  int result = 1;
-
-  dbg_precondition(spec != NULL, "This function does not accept NULL");
-
-  while (*spec != '\0')
-    {
-    if (*spec == '+')
-      result++;
-    spec++;
-    }
-
-  return result;
-  }
-
-/** Append requirements to each part of a spec
- *
- * @param spec the spec to be modified
- * @param app requirements to be appended
- * @return Modified nodespec
- */
-static char *nodespec_app(const char *spec, const char *app)
-  {
-  char *cp, *result;
-  unsigned len = nodespec_part_count(spec) * (strlen(app) + 1) + strlen(spec) + 1;
-  /* number of local specs * (appended length + ':' ) + lenght of local specs + '\0' */
-
-  result = (char*)malloc(len);
-  if (result == NULL) /* alloc fail */
-    return NULL;
-
-  cp = result;
-
-  while (*spec)
-    {
-    if (*spec == '+') /* add the requirements before each '+' */
-      {
-      *cp = ':'; cp++;
-
-      strcpy(cp, app);
-
-      cp += strlen(app);
-      }
-
-    *cp = *spec; cp++; spec++;
-    } /* END while (*spec) */
-
-  *cp = ':'; cp++; /* and also after the last part of the spec */
-
-  strcpy(cp, app);
-
-  return(result);
-  }  /* END nodespec_app() */
-
-
-/** Alloc and init a new parsed spec instance
- *
- * @return Allocated instance or NULL on error
- */
-static pars_spec *init_pars_spec()
-  {
-
-  pars_spec *spec = (pars_spec*)malloc(sizeof(pars_spec));
-  if (spec == NULL)
-    return NULL;
-
-  spec->is_exclusive = 0;
-  spec->nodes = NULL;
-  spec->total_nodes = 0;
-
-  return spec;
-  }
-
-/** Alloc and init a new parsed one node spec instance
- *
- * @return Allocated instance or NULL on error
- */
-static pars_spec_node *init_pars_spec_node()
-  {
-  pars_spec_node *spec = (pars_spec_node*)malloc(sizeof(pars_spec_node));
-  if (spec == NULL)
-    return NULL;
-
-  spec->alternative = NULL;
-  spec->node_count = 0;
-  spec->next = NULL;
-  spec->properties = NULL;
-
-  return spec;
-  }
 
 /** Alloc and init a new parsed property instance
  *
  * @return Allocated instance or NULL on error
  */
-static pars_prop *init_pars_prop()
+pars_prop *init_pars_prop()
   {
   pars_prop *prop = (pars_prop*)malloc(sizeof(pars_prop));
   if (prop == NULL)
@@ -127,75 +25,16 @@ static pars_prop *init_pars_prop()
   prop->name = NULL;
   prop->value = NULL;
   prop->next = NULL;
+  prop->prev = NULL;
 
   return prop;
   }
-
-/** Clone parsed properties
- *
- * @param prop Properties to clone
- * @return Cloned properties or NULL on error
- */
-static pars_prop *clone_pars_prop(pars_prop *prop)
-  {
-  pars_prop *iter = prop, *result = NULL;
-  while (iter != NULL)
-    {
-    pars_prop *tmp = result;
-
-    if ((result = init_pars_prop()) == NULL)
-      {
-      free_pars_prop(&tmp);
-      return NULL;
-      }
-
-    if ((result->name = strdup(iter->name)) == NULL)
-      {
-      free_pars_prop(&tmp);
-      return NULL;
-      }
-
-    if (iter->value != NULL)
-    if ((result->value = strdup(iter->value)) == NULL)
-      {
-      free(result->name);
-      free_pars_prop(&tmp);
-      return NULL;
-      }
-
-    result->next = tmp;
-    iter = iter->next;
-    }
-
-  return result;
-  }
-
-pars_spec_node *clone_pars_spec_node(pars_spec_node *node)
-  {
-  pars_spec_node *result;
-	if ((result = init_pars_spec_node()) == NULL)
-    return NULL;
-
-  result->node_count = node->node_count;
-  if (node->alternative != NULL)
-    result->alternative = strdup(node->alternative);
-
-  if ((result->properties = clone_pars_prop(node->properties)) == NULL &&
-      node->properties != NULL)
-    {
-    free_pars_spec_node(&result);
-	  return NULL;
-    }
-
-  return result;
-  }
-
 
 /** Free one parsed property from the list of properties
  *
  * @param prop List of properties
  */
-static void free_pars_prop(pars_prop **prop)
+void free_pars_prop(pars_prop **prop)
   {
   pars_prop *tmp;
 
@@ -203,6 +42,16 @@ static void free_pars_prop(pars_prop **prop)
       "This function does not accept NULL param");
 
   tmp = *prop;
+  /* keep the list linked */
+  if (tmp->prev != NULL)
+    {
+    tmp->prev->next = tmp->next;
+    }
+  if (tmp->next != NULL)
+    {
+    tmp->next->prev = tmp->prev;
+    }
+
   *prop = (*prop)->next;
 
   free(tmp->name);
@@ -210,28 +59,57 @@ static void free_pars_prop(pars_prop **prop)
   free(tmp);
   }
 
-/** Free one node spec from the list of node specs
+/** Clone parsed properties
  *
- * @param node List of node specs
+ * @param prop Properties to clone
+ * @return Cloned properties or NULL on error
  */
-void free_pars_spec_node(pars_spec_node **node)
+pars_prop *clone_pars_prop(pars_prop *prop, pars_prop **prop_last)
   {
-  pars_spec_node *tmp;
-
-  dbg_precondition(node != NULL && (*node) != NULL,
-        "This function does not accept NULL param");
-
-  free((*node)->alternative);
-  (*node)->alternative = NULL;
-
-  while ((*node)->properties != NULL)
+  pars_prop *iter = prop, *result = NULL, *last = NULL;
+  while (iter != NULL)
     {
-    free_pars_prop(&(*node)->properties);
+    pars_prop *tmp;
+
+    if ((tmp = init_pars_prop()) == NULL)
+      {
+      free_pars_prop(&result);
+      return NULL;
+      }
+
+    if ((tmp->name = strdup(iter->name)) == NULL)
+      {
+      free_pars_prop(&result);
+      return NULL;
+      }
+
+    if (iter->value != NULL)
+    if ((tmp->value = strdup(iter->value)) == NULL)
+      {
+      free(tmp->name);
+      free_pars_prop(&result);
+      return NULL;
+      }
+
+    tmp->prev = last;
+    if (result == NULL)
+      {
+      result = tmp;
+      last = result;
+      if (prop_last != NULL)
+        *prop_last = last;
+      }
+    else
+      {
+      last->next = tmp;
+      last = tmp;
+      if (prop_last != NULL)
+        *prop_last = last;
+      }
+    iter = iter->next;
     }
 
-  tmp = *node;
-  *node = (*node)->next;
-  free(tmp);
+  return result;
   }
 
 /** Parse a text property representation
@@ -239,7 +117,7 @@ void free_pars_spec_node(pars_spec_node **node)
  * @param prop Property
  * @return Parsed property or NULL on error
  */
-static pars_prop *parse_prop(char *prop)
+pars_prop *parse_prop(char *prop)
   {
   char *delim;
   pars_prop *result = init_pars_prop();
@@ -269,20 +147,101 @@ static pars_prop *parse_prop(char *prop)
   return result;
   }
 
+/** Alloc and init a new parsed one node spec instance
+ *
+ * @return Allocated instance or NULL on error
+ */
+pars_spec_node *init_pars_spec_node()
+  {
+  pars_spec_node *spec = (pars_spec_node*)malloc(sizeof(pars_spec_node));
+  if (spec == NULL)
+    return NULL;
+
+  spec->alternative = NULL;
+  spec->node_count = 0;
+  spec->procs = 0;
+  spec->host = NULL;
+  spec->next = NULL;
+  spec->prev = NULL;
+  spec->properties = NULL;
+  spec->properties_end = NULL;
+
+  return spec;
+  }
+
+pars_spec_node *clone_pars_spec_node(pars_spec_node *node)
+  {
+  pars_spec_node *result;
+	if ((result = init_pars_spec_node()) == NULL)
+    return NULL;
+
+  result->node_count = node->node_count;
+  if (node->alternative != NULL)
+    result->alternative = strdup(node->alternative);
+  if (node->host != NULL)
+    result->host = strdup(node->host);
+
+  if ((result->properties = clone_pars_prop(node->properties,&result->properties_end)) == NULL &&
+      node->properties != NULL)
+    {
+    free_pars_spec_node(&result);
+	  return NULL;
+    }
+
+  return result;
+  }
+
+/** Free one node spec from the list of node specs
+ *
+ * @param node List of node specs
+ */
+void free_pars_spec_node(pars_spec_node **node)
+  {
+  pars_spec_node *tmp;
+
+  dbg_precondition(node != NULL && (*node) != NULL,
+        "This function does not accept NULL param");
+
+  free((*node)->alternative);
+  (*node)->alternative = NULL;
+  free((*node)->host);
+  (*node)->host = NULL;
+
+  while ((*node)->properties != NULL)
+    {
+    free_pars_prop(&(*node)->properties);
+    }
+
+  tmp = *node;
+  if (tmp->prev != NULL)
+    {
+    tmp->prev->next = tmp->next;
+    }
+  if (tmp->next != NULL)
+    {
+    tmp->next->prev = tmp->prev;
+    }
+  *node = (*node)->next;
+  free(tmp);
+  }
+
 /** Parse a text representation of one node spec
  *
  * @param node One node spec
  * @return Parsed one node spec or NULL on error
  */
-static pars_spec_node *parse_spec_node(char *node)
+pars_spec_node *parse_spec_node(char *node)
   {
   char *iter, *delim;
+  pars_prop *end = NULL;
   pars_spec_node *result;
 
   /* nodespec can start with a number */
   int count = strtol(node,&iter,10);
   if (*iter == ':' && count > 0) /* ok */
+    {
     iter++;
+    }
   else if (*iter == '\0' && count > 0)
     {
     result = init_pars_spec_node();
@@ -290,17 +249,21 @@ static pars_spec_node *parse_spec_node(char *node)
       return NULL;
 
     result->node_count = count;
+    result->procs = 1;
 
     return result;
     }
   else
+    {
     count = 1;
+    }
 
   result = init_pars_spec_node();
   if (result == NULL)
     return NULL;
 
   result->node_count = count;
+  result->procs = 1;
   delim = iter;
 
   while (delim != NULL)
@@ -328,10 +291,32 @@ static pars_spec_node *parse_spec_node(char *node)
       prop->value = NULL;
       free_pars_prop(&prop);
       }
+    else if (strcmp(prop->name,"host") == 0 && prop->value != NULL)
+      {
+      result->host = prop->value;
+      prop->value = NULL;
+      free_pars_prop(&prop);
+      }
+    else if (strcmp(prop->name,"ppn") == 0 && prop->value != NULL)
+      {
+      result->procs = atoi(prop->value);
+      free_pars_prop(&prop);
+      }
     else
       {
-      prop->next = result->properties;
-      result->properties = prop;
+      if (result->properties == NULL)
+        {
+        result->properties = prop;
+        end = prop;
+        result->properties_end = end;
+        }
+      else
+        {
+        end->next = prop;
+        prop->prev = end;
+        end = prop;
+        result->properties_end = end;
+        }
       }
 
     iter = delim;
@@ -340,54 +325,26 @@ static pars_spec_node *parse_spec_node(char *node)
   return result;
   }
 
-pars_spec *parse_nodespec(const char *nodespec)
+/** Alloc and init a new parsed spec instance
+ *
+ * @return Allocated instance or NULL on error
+ */
+pars_spec *init_pars_spec()
   {
-  int is_exclusive;
-  char *expanded, *iter, *delim;
-  pars_spec *parsed;
-  pars_spec_node *node;
 
-  expanded = expand_nodespec(nodespec,&is_exclusive);
-
-  if (expanded == NULL)
+  pars_spec *spec = (pars_spec*)malloc(sizeof(pars_spec));
+  if (spec == NULL)
     return NULL;
 
-  if ((parsed = init_pars_spec()) == NULL)
-  {
-    free(expanded);
-    return NULL;
-  }
+  spec->is_exclusive = 0;
+  spec->nodes = NULL;
+  spec->nodes_end = NULL;
+  spec->global = NULL;
+  spec->global_end = NULL;
+  spec->total_nodes = 0;
+  spec->total_procs = 0;
 
-  parsed->is_exclusive = is_exclusive;
-
-  iter = expanded;
-  delim = iter;
-
-  while (delim != NULL)
-    {
-    delim = strchr(iter,'+');
-    if (delim != NULL)
-      {
-      *delim = '\0';
-      delim++;
-      }
-
-    node = parse_spec_node(iter);
-    if (node == NULL)
-      {
-      free(expanded);
-      free_parsed_nodespec(parsed);
-      return NULL;
-      }
-
-    node->next = parsed->nodes;
-    parsed->nodes = node;
-    parsed->total_nodes += node->node_count;
-    iter = delim;
-    }
-
-  free(expanded);
-  return parsed;
+  return spec;
   }
 
 void free_parsed_nodespec(pars_spec *nodespec)
@@ -399,163 +356,361 @@ void free_parsed_nodespec(pars_spec *nodespec)
     free_pars_spec_node(&nodespec->nodes);
     }
 
+  while (nodespec->global != NULL)
+    {
+    free_pars_prop(&nodespec->global);
+    }
+
   free(nodespec);
   }
+
+pars_spec *parse_nodespec(const char *nodespec)
+  {
+  pars_spec *result = NULL;
+  pars_spec_node *last = NULL;
+  char *spec = NULL, *global = NULL, *iter = NULL, *delim = NULL;
+
+  spec = strdup(nodespec);
+  if (spec == NULL)
+    return NULL;
+
+  result = init_pars_spec();
+
+  /* parse global part of the nodespec */
+  global = strchr(spec,'#');
+  if (global != NULL)
+    {
+    pars_prop *curr = NULL, *end = NULL;
+    global[0] = '\0';
+
+    do
+      {
+      global++;
+      iter = strpbrk(global,"#:");
+      if (iter != NULL)
+        iter[0] = '\0';
+
+      if (strcmp(global,excl) == 0)
+        { /* exclusive access */
+        result->is_exclusive = 1;
+        }
+      else
+        { /* properties */
+        curr = parse_prop(global);
+        if (curr == NULL)
+          {
+          free(spec);
+          free_parsed_nodespec(result);
+          return NULL;
+          }
+
+        if (result->global == NULL)
+          {
+          result->global = curr;
+          end = curr;
+          result->global_end = end;
+          }
+        else
+          {
+          end->next = curr;
+          curr->prev = end;
+          end = curr;
+          result->global_end = end;
+          }
+        }
+
+      global = iter;
+      }
+    while (iter != NULL);
+
+    }
+
+  /* parse nodes */
+  iter = spec;
+  delim = iter;
+
+  while (delim != NULL)
+    {
+    pars_spec_node *node;
+
+    delim = strchr(iter,'+');
+    if (delim != NULL)
+      {
+      *delim = '\0';
+      delim++;
+      }
+
+    node = parse_spec_node(iter);
+    if (node == NULL)
+      {
+      free(spec);
+      free_parsed_nodespec(result);
+      return NULL;
+      }
+
+    if (result->nodes == NULL)
+      {
+      last = node;
+      result->nodes = node;
+      result->nodes_end = last;
+      }
+    else
+      {
+      node->prev = last;
+      last->next = node;
+      last = node;
+      result->nodes_end = last;
+      }
+
+    result->total_nodes += node->node_count;
+    result->total_procs += node->node_count*node->procs;
+    iter = delim;
+    }
+
+  free(spec);
+  return result;
+  }
+
+
+int concat_prop(pars_prop *prop, char *buff, int buff_size, int sep)
+  {
+  int req_size = sep;
+
+  dbg_precondition(prop != NULL && buff != NULL,"This function requires a non-null param.");
+
+  req_size += strlen(prop->name);
+  if (prop->value != NULL)
+    {
+    req_size += 1; /* = */
+    req_size += strlen(prop->value);
+    }
+
+  if (req_size >= buff_size)
+    return -1;
+  else
+    {
+    if (sep) strcat(buff,":");
+    strcat(buff,prop->name);
+    if (prop->value != NULL)
+      {
+      strcat(buff,"=");
+      strcat(buff,prop->value);
+      }
+    return req_size;
+    }
+  }
+
+int concat_node(pars_spec_node *node, char *buff, int buff_size)
+  {
+  pars_prop *prop = node->properties;
+  int old_size = buff_size, curr_size = buff_size, diff = 0;
+
+  dbg_precondition(node != NULL && buff != NULL,"This function requires a non-null param.");
+
+  if ((diff = snprintf(buff,curr_size,"%d:ppn=%d",node->node_count,node->procs)) >= curr_size)
+    return -1;
+  curr_size -= diff;
+  buff += diff;
+
+  if (node->host != NULL)
+    {
+    if ((diff = snprintf(buff,curr_size,":host=%s",node->host)) >= curr_size)
+      return -1;
+    curr_size -= diff;
+    buff += diff;
+    }
+
+  if (node->alternative != NULL)
+    {
+    if ((diff = snprintf(buff,curr_size,":alternative=%s",node->alternative)) >= curr_size)
+      return -1;
+    curr_size -= diff;
+    buff += diff;
+    }
+
+  while (prop != NULL)
+    {
+    if ((diff = concat_prop(prop,buff,curr_size,1)) < 0)
+      return -1;
+    curr_size -= diff;
+    buff += diff;
+    prop = prop->next;
+    }
+
+  return old_size-curr_size;
+  }
+
 
 #define CONCAT_BUFF_SIZE (4*1024)
 
 char *concat_nodespec(pars_spec *nodespec)
-  { /* TODO needs polishing and cleanup */
-  pars_spec_node* iter_n;
-  pars_prop* iter_p;
-
-  char *buff;
-  int buff_size = 0;
+  {
+  pars_spec_node *node;
+  pars_prop *prop;
+  char *buff, *iter, *result;
+  int buff_size = CONCAT_BUFF_SIZE, diff;
 
   if ((buff = (char*)malloc(CONCAT_BUFF_SIZE)) == NULL)
     {
     return NULL;
     }
+  iter = buff;
 
   memset(buff,0,CONCAT_BUFF_SIZE);
 
-  iter_n = nodespec->nodes;
-  while (iter_n != NULL)
+  node = nodespec->nodes;
+  while (node != NULL)
     {
-    int node_begin = 1;
-
-    if (buff_size != 0) /* not the first node, add '+' */
+    if (node != nodespec->nodes)
       {
-      /* fast and ugly checking for now */
-      dbg_consistency(buff_size+1 < CONCAT_BUFF_SIZE,"Out of memory in buffer.");
-      strcat(buff,"+");
-      buff_size++;
-      }
-
-    if (iter_n->node_count > 0)
-      {
-      int chars = sprintf(buff+strlen(buff),"%d",iter_n->node_count);
-      dbg_consistency(chars < CONCAT_BUFF_SIZE-buff_size,"Out of memory in buffer.");
-      node_begin = 0;
-      }
-
-    iter_p = iter_n->properties;
-    while (iter_p != NULL)
-      {
-      if (node_begin == 0)
+      if (buff_size > 1)
         {
-        dbg_consistency(buff_size+1 < CONCAT_BUFF_SIZE,"Out of memory in buffer.");
-        strcat(buff,":");
-        buff_size++;
+        strcat(iter,"+");
+        buff_size--;
+        iter++;
         }
-
-      node_begin = 0;
-      dbg_consistency(buff_size+strlen(iter_p->name) < CONCAT_BUFF_SIZE,"Out of memory in buffer.");
-      strcat(buff,iter_p->name);
-      buff_size+=strlen(iter_p->name);
-
-      if (iter_p->value != NULL)
+      else
         {
-        dbg_consistency(buff_size+strlen(iter_p->value)+1 < CONCAT_BUFF_SIZE,"Out of memory in buffer.");
-        strcat(buff,"=");
-        strcat(buff,iter_p->value);
-        buff_size++;
-        buff_size+=strlen(iter_p->value);
-        }
-
-      iter_p = iter_p->next;
-      }
-    iter_n = iter_n->next;
-    }
-
-  return buff;
-  }
-
-char *expand_nodespec(const char* nodespec, int *is_exclusive)
-  {
-  char *result, *globs;
-
-  dbg_precondition(nodespec != NULL, "This function does not accept NULL nodespec.");
-
-  if (is_exclusive != NULL)
-    *is_exclusive = NODESPEC_DEFAULT_EXCLUSIVE;
-
-  if ((result = strdup(nodespec)) == NULL) /* memory alloc fail */
-    return NULL;
-
-  if ((globs = strchr(result, '#')) != NULL) /* is there a global part? */
-    {
-    char *cp, *tmp;
-
-    *globs++ = '\0';
-
-    if ((globs = strdup(globs)) == NULL) /* memory alloc fail */
-      {
-      free(result);
-      return NULL;
-      }
-
-    /* now parse all global parts */
-    while ((cp = strrchr(globs, '#')) != NULL)
-      {
-      *cp++ = '\0';
-
-      if (!strcmp(cp, shared)) /* #shared */
-        {
-        if (is_exclusive != NULL)
-          *is_exclusive = 0;
-        continue;
-        }
-
-      if (!strcmp(cp, excl)) /* #excl */
-        {
-        if (is_exclusive != NULL)
-          *is_exclusive = 1;
-        continue;
-        }
-
-      tmp = nodespec_app(result, cp);
-      if (tmp == NULL) /* alloc failure */
-        {
-        free(result);
-        free(globs);
+        free(buff);
         return NULL;
         }
-
-      free(result);
-      result = tmp;
-      } /* END while ((cp = strrchr(globs, '#')) != NULL) */
-
-    /* now parse the first part of the global nodespec */
-    if (!strcmp(globs, shared)) /* #shared */
-      {
-      if (is_exclusive != NULL)
-        *is_exclusive = 0;
-      free(globs);
-      return result;
       }
 
-    if (!strcmp(globs, excl)) /* #excl */
+    if ((diff = concat_node(node, iter, buff_size)) < 0)
+      { free(buff); return NULL; }
+
+    buff_size -= diff;
+    iter += diff;
+    node = node->next;
+    }
+
+  if (nodespec->is_exclusive)
+    {
+    if (buff_size > 5)
       {
-      if (is_exclusive != NULL)
-        *is_exclusive = 1;
-      free(globs);
-      return result;
+      strcat(iter,"#excl");
+      buff_size--;
+      iter++;
       }
+    else
+      { free(buff); return NULL; }
+    }
 
-    tmp = nodespec_app(result, globs);
-    if (tmp == NULL) /* alloc failure */
+  if (nodespec->global != NULL)
+    {
+    if (buff_size > 1)
       {
-      free(result);
-      free(globs);
-      return NULL;
+      strcat(iter,"#");
+      buff_size--;
+      iter++;
       }
+    else
+      { free(buff); return NULL; }
+    }
 
-    free(result);
-    result = tmp;
+  prop = nodespec->global;
+  while (prop != NULL)
+    {
+    if ((diff = concat_prop(prop,iter,buff_size,(prop != nodespec->global))) < 0)
+      { free(buff); return NULL; }
 
-    free(globs);
-    }  /* END if ((globs = strchr(spec,'#')) != NULL) */
+    buff_size -= diff;
+    iter += diff;
+    prop = prop->next;
+    }
 
+  result = strdup(buff);
+  free(buff);
   return result;
+  }
+
+pars_prop* find_parsed_prop(pars_prop *prop, char *name)
+  {
+  pars_prop *iter = prop;
+
+  while (iter != NULL)
+    {
+    if (strcmp(prop->name,name) == 0)
+      return iter;
+    iter = iter->next;
+    }
+  return NULL;
+  }
+
+void add_prop_to_nodespec(pars_spec *spec, pars_prop *prop)
+  {
+  pars_spec_node *node;
+  pars_prop *tmp;
+
+  node = spec->nodes;
+  while (node != NULL)
+    {
+    tmp = clone_pars_prop(prop,NULL);
+    if (node->properties_end == NULL && node->properties == NULL)
+      {
+      node->properties = tmp;
+      node->properties_end = tmp;
+      }
+    else
+      {
+      if (find_parsed_prop(node->properties,tmp->name) == NULL)
+        {
+        node->properties_end->next = tmp;
+        tmp->prev = node->properties_end;
+        node->properties_end = tmp;
+        }
+      }
+    node = node->next;
+    }
+  }
+
+void add_res_to_nodespec(pars_spec *spec, char* name, char* value)
+  {
+
+  pars_prop *prop = init_pars_prop();
+  prop->name = strdup(name);
+  if (value != NULL)
+    {
+    prop->value = strdup(value);
+    }
+  else
+    {
+    prop->value = NULL;
+    }
+  add_prop_to_nodespec(spec,prop);
+  free_pars_prop(&prop);
+  }
+
+void expand_nodespec(pars_spec *spec)
+  {
+  pars_prop *prop = spec->global, *tmp, *last;
+  pars_spec_node *node;
+
+  if (spec->global == NULL)
+    return;
+
+  node = spec->nodes;
+  while (node != NULL)
+    {
+    tmp = clone_pars_prop(prop,&last);
+    if (node->properties_end == NULL && node->properties == NULL)
+      {
+      node->properties = tmp;
+      node->properties_end = last;
+      }
+    else
+      {
+      node->properties_end->next = tmp;
+      tmp->prev = node->properties_end;
+      node->properties_end = last;
+      }
+    node = node->next;
+    }
+
+  while (spec->global != NULL)
+    {
+    free_pars_prop(&spec->global);
+    }
+
+  spec->global_end = NULL;
   }
