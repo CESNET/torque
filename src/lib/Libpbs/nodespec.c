@@ -630,7 +630,7 @@ pars_prop* find_parsed_prop(pars_prop *prop, char *name)
 
   while (iter != NULL)
     {
-    if (strcmp(prop->name,name) == 0)
+    if (strcmp(iter->name,name) == 0)
       return iter;
     iter = iter->next;
     }
