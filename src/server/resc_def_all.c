@@ -310,7 +310,7 @@ resource_def svr_resc_def_const[] =
     comp_str,
     free_str,
     NULL_FUNC,
-    READ_ONLY | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG,
+    READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG,
     ATR_TYPE_STR
   },
   { "nodect",   /* count of number of nodes requested */
