@@ -3103,15 +3103,22 @@ void regenerate_total_resources(job * pjob)
     rd = jbrc->rs_defin;
     while (jbrc != NULL)
       {
-      switch (rd->rs_type)
-        {
-        case ATR_TYPE_LONG: case ATR_TYPE_LL: case ATR_TYPE_SHORT: case ATR_TYPE_SIZE:
+      if ((rd->rs_flags & ATR_DFLAG_SELECT_MOM) || (rd->rs_flags & ATR_DFLAG_SELECT_PROC)) /* per proc or per node resource */
+        { /* always add to nodespec */
+        tlist_head head;
+        svrattrl *patlist;
+        CLEAR_HEAD(head);
+        rd->rs_encode(&jbrc->rs_value,&head,"ignored",rd->rs_name,ATR_ENCODE_CLIENT);
+        patlist = (svrattrl *)GET_NEXT(head);
+        add_res_to_nodespec(spec,patlist->al_atopl.resource,patlist->al_atopl.value);
+        free_attrlist(&head);
+        }
+      else
+        { /* per job resource, if counted, add to total resources */
+        switch (rd->rs_type)
           {
-          tlist_head head;
-          svrattrl *patlist;
-
-          if (!((rd->rs_flags & ATR_DFLAG_SELECT_MOM) || (rd->rs_flags & ATR_DFLAG_SELECT_PROC)))
-            { /* if the resource is per job then add into total resources */
+          case ATR_TYPE_LONG: case ATR_TYPE_LL: case ATR_TYPE_SHORT: case ATR_TYPE_SIZE:
+            {
             if ((rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd)) == NULL)
               {
               rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
@@ -3125,15 +3132,7 @@ void regenerate_total_resources(job * pjob)
               if (ret != 0)
                 return;
               }
-            break;
             }
-
-          CLEAR_HEAD(head);
-          rd->rs_encode(&jbrc->rs_value,&head,"ignored",rd->rs_name,ATR_ENCODE_CLIENT);
-          patlist = (svrattrl *)GET_NEXT(head);
-          add_res_to_nodespec(spec,patlist->al_atopl.resource,patlist->al_atopl.value);
-          free_attrlist(&head);
-          break;
           }
         }
       jbrc = (resource*)GET_NEXT(jbrc->rs_link);
@@ -3178,7 +3177,6 @@ void regenerate_total_resources(job * pjob)
         resource decoded;
         int total_count = 1;
 
-        /* only count per proc and per node resources in the nodespec */
         if ((rd->rs_flags & ATR_DFLAG_SELECT_MOM) != 0)
           total_count = node->node_count;
         if ((rd->rs_flags & ATR_DFLAG_SELECT_PROC) != 0)
