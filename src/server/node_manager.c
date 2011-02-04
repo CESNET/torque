@@ -919,6 +919,7 @@ void update_job_data(
         log_err(-1, id, log_buffer);
 
         }
+      }
     }
 
   free(jobdata);
