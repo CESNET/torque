@@ -3620,141 +3620,16 @@ static char *nodespec_app(const char *spec, const char *app)
  */
 static char *nodespec_expand(job *pjob, const char *spec, int *exclusive)
   {
-  char *result, *globs, *cp, *tmp;
-  static char shared[] = "shared"; /* shared */
-  static char excl[] = "excl"; /* node exclusive */
+  char *expanded;
+  pars_spec *pspec = parse_nodespec(spec);
 
-  result = strdup(spec);
-  if (result == NULL) /* alloc failure */
-    return NULL;
+  expand_nodespec(pspec);
+  expanded = concat_nodespec(pspec);
+  if (exclusive != NULL)
+    exclusive = pspec->is_exclusive;
 
-  if ((globs = strchr(result, '#')) != NULL)
-    /*find the first #, everything behind is global nodespec */
-    {
-    *globs++ = '\0';
-
-    globs = strdup(globs);
-    if (globs == NULL) /* alloc failure */
-      goto fail;
-
-    /* glob now stores the global part of the nodespec
-     * - go thru each part of the global spec and append
-     */
-    while ((cp = strrchr(globs, '#')) != NULL)
-      {
-      *cp++ = '\0';
-
-      if (!strcmp(cp, shared)) /* #shared */
-        {
-        *exclusive = 0;
-        continue;
-        }
-
-      if (!strcmp(cp, excl)) /* #excl */
-        {
-        *exclusive = 1;
-        continue;
-        }
-
-      tmp = nodespec_app(result, cp);
-      if (tmp == NULL) /* alloc failure */
-        {
-        free(globs);
-        goto fail;
-        }
-
-      free(result);
-      result = tmp;
-      }
-
-    /* now parse the first part of the global nodespec */
-    if (!strcmp(globs, shared)) /* #shared */
-      {
-      *exclusive = 0;
-      free(globs);
-      goto done_stage1;
-      }
-
-    if (!strcmp(globs, excl)) /* #excl */
-      {
-      *exclusive = 2; /* node exclusive */
-      free(globs);
-      goto done_stage1;
-      }
-
-    tmp = nodespec_app(result, globs);
-    if (tmp == NULL) /* alloc failure */
-      {
-      free(globs);
-      goto fail;
-      }
-
-    free(result);
-    result = tmp;
-
-    free(globs);
-    }  /* END if ((globs = strchr(spec,'#')) != NULL) */
-
-done_stage1:
-
-  /* if job is provided, also add each of the requested resources in the job resource list */
-  if (pjob != NULL && (pjob->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET) != 0)
-    {
-    resource *jbrc = (resource *)GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
-
-    while (jbrc != NULL)
-      {
-      tlist_head head;
-      svrattrl *patlist;
-      char     *buff, *tmp;
-      int       len;
-
-      /* only add resources that are per-proc or per-node */
-      if ((jbrc->rs_defin->rs_flags & (ATR_DFLAG_SELECT_MOM | ATR_DFLAG_SELECT_PROC)) == 0)
-        {
-        jbrc = (resource *)GET_NEXT(jbrc->rs_link);
-        continue;
-        }
-
-      /* convert resource into char* */
-      CLEAR_HEAD(head);
-      jbrc->rs_defin->rs_encode(&jbrc->rs_value,&head,"ignored",
-            jbrc->rs_defin->rs_name,ATR_ENCODE_CLIENT);
-      patlist = (svrattrl *)GET_NEXT(head);
-
-      if (patlist == NULL)
-        goto fail;
-
-      len  = strlen(patlist->al_atopl.resource);
-      len += strlen(patlist->al_atopl.value);
-      len += 2; /* '=' and '\0' */
-      buff = malloc(len);
-
-      if (buff == NULL)
-        goto fail;
-
-      sprintf(buff,"%s=%s",patlist->al_atopl.resource,patlist->al_atopl.value);
-
-      /* append to each part of the nodespec */
-      tmp = nodespec_app(result, buff);
-      if (tmp == NULL)
-        goto fail;
-
-      free(buff);
-      free(result);
-      result = tmp;
-
-      jbrc = (resource *)GET_NEXT(jbrc->rs_link);
-      }
-    }
-
-  return result;
-
-fail:
-  free(result);
-  return NULL;
+  return expanded;
   }
-
 
 /*
  * Test a node specification.
