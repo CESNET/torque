@@ -3100,9 +3100,9 @@ void regenerate_total_resources(job * pjob)
   if ((pjob->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET) != 0)
     {
     resource *jbrc = (resource *)GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
-    rd = jbrc->rs_defin;
     while (jbrc != NULL)
       {
+      rd = jbrc->rs_defin;
       if ((rd->rs_flags & ATR_DFLAG_SELECT_MOM) || (rd->rs_flags & ATR_DFLAG_SELECT_PROC)) /* per proc or per node resource */
         { /* always add to nodespec */
         tlist_head head;
