@@ -119,7 +119,6 @@
 #include "cloud.h"
 #include "api.h"
 
-#include "assertions.h"
 #include "nodespec.h"
 
 #define IS_VALID_STR(STR)  (((STR) != NULL) && ((STR)[0] != '\0'))
@@ -920,7 +919,6 @@ void update_job_data(
         log_err(-1, id, log_buffer);
 
         }
-      }
     }
 
   free(jobdata);
@@ -3547,30 +3545,6 @@ int MSNPrintF(
 
   return(SUCCESS);
   }  /* END MSNPrintF() */
-
-
-/** Count the parts in a nodespec
- *
- * (Only works for local specs)
- *
- * @param spec Nodespec to parse
- * @return Count of parts
- */
-static int nodespec_part_count(const char *spec)
-  {
-  int result = 1;
-
-  dbg_precondition(spec != NULL, "This function does not accept NULL");
-
-  while (*spec != '\0')
-    {
-    if (*spec == '+')
-      result++;
-    spec++;
-    }
-
-  return result;
-  }
 
 /** Expand nodespec
  *
