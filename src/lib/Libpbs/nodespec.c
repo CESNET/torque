@@ -700,9 +700,26 @@ void expand_nodespec(pars_spec *spec)
       }
     else
       {
-      node->properties_end->next = tmp;
-      tmp->prev = node->properties_end;
-      node->properties_end = last;
+      pars_prop *iter = tmp;
+      tmp = tmp->next;
+
+      while (iter != NULL)
+        {
+        iter->prev = NULL;
+        iter->next = NULL;
+        if (find_parsed_prop(node->properties,iter->name) == NULL)
+          {
+          node->properties_end->next = iter;
+          iter->prev = node->properties_end;
+          node->properties_end = iter;
+          }
+        else
+          {
+          free_pars_prop(&iter);
+          }
+        iter = tmp;
+        tmp = tmp->next;
+        }
       }
     node = node->next;
     }
