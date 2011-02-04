@@ -20,13 +20,6 @@ extern struct prop  *init_prop(char *pname);
 static pars_prop *get_name_prop(pars_spec_node *node)
   {
   pars_prop *iter = node->properties;
-
-  if (iter == NULL)
-    return NULL;
-
-  while (iter->next != NULL)
-    iter = iter->next;
-
   return iter;
   }
 

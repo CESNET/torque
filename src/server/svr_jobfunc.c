@@ -261,8 +261,7 @@ const char *PJobSubState[] =
 
 
 
-
-
+extern void regenerate_total_resources(job * pjob);
 
 /*
  * svr_enquejob() - enqueue job into specified queue
@@ -404,6 +403,7 @@ int svr_enquejob(
    */
 
   set_resc_deflt(pjob, NULL);
+  regenerate_total_resources(pjob);
 
   /* See if we need to do anything special based on type of queue */
 

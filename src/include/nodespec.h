@@ -24,26 +24,53 @@ struct pars_prop
   char *name; /**< property name */
   char *value; /**< property value */
   struct pars_prop *next;
+  struct pars_prop *prev;
   };
 
 struct pars_spec_node
   {
   unsigned node_count; /**< count of nodes requested for this spec */
   char *alternative; /**< selected alternative name (if present) */
+  char *host; /**< selected host name (if present) */
+  unsigned procs; /**< count of procs */
   struct pars_prop *properties;
+  struct pars_prop *properties_end;
   struct pars_spec_node *next;
+  struct pars_spec_node *prev;
   };
 
 struct pars_spec
   {
   unsigned is_exclusive : 1; /**< exclusive request flag */
   struct pars_spec_node *nodes;
+  struct pars_spec_node *nodes_end;
+  struct pars_prop *global;
+  struct pars_prop *global_end;
   unsigned total_nodes;
+  unsigned total_procs;
   };
 
 typedef struct pars_prop pars_prop;
 typedef struct pars_spec_node pars_spec_node;
 typedef struct pars_spec pars_spec;
+
+pars_prop *init_pars_prop();
+void free_pars_prop(pars_prop **prop);
+pars_prop *clone_pars_prop(pars_prop *prop, pars_prop **prop_last);
+pars_prop *parse_prop(char *prop);
+
+pars_spec_node *init_pars_spec_node();
+
+/** Clone the selected one node spec
+ *
+ * @param node Node spec to be cloned
+ * @return Copy of the spec
+ */
+pars_spec_node *clone_pars_spec_node(pars_spec_node *node);
+void free_pars_spec_node(pars_spec_node **node);
+pars_spec_node *parse_spec_node(char *node);
+
+pars_spec *init_pars_spec();
 
 /** Parse text nodespec representation
  *
@@ -57,32 +84,16 @@ pars_spec *parse_nodespec(const char *nodespec);
  * @param nodespec Parsed nodespec to be freed
  */
 void free_parsed_nodespec(pars_spec *nodespec);
+/*pars_spec *clone_pars_spec(pars_spec *spec, pars_spec_node **node_last, pars_prop **prop_last);*/
 
-/** Expand function, that expands all global nodespec parts into local parts
- *
- * Function determines the exclusivity request (shared/exclusive nodes) and
- * expands all global nodespec parts (#prop) into all local parts.
- *
- * @see NODESPEC_DEFAULT_EXCLUSIVE
- *
- * @param nodespec Nodespec to be expanded
- * @param is_exclusive Output variable, exclusivity is stored here
- * @return Expanded nodespec
- */
-char *expand_nodespec(const char* nodespec, int *is_exclusive);
+int concat_prop(pars_prop *prop, char *buff, int buff_size, int sep);
+int concat_node(pars_spec_node *node, char *buff, int buff_size);
 
-/** Free one node spec from the list of node specs
- *
- * @param node List of node specs
- */
-void free_pars_spec_node(pars_spec_node **node);
+void expand_nodespec(pars_spec *spec);
+void add_prop_to_nodespec(pars_spec *spec, pars_prop *prop);
+void add_res_to_nodespec(pars_spec *spec, char* name, char* value);
 
-/** Clone the selected one node spec
- *
- * @param node Node spec to be cloned
- * @return Copy of the spec
- */
-pars_spec_node *clone_pars_spec_node(pars_spec_node *node);
+pars_prop* find_parsed_prop(pars_prop *prop, char *name);
 
 /** Concat the parsed nodespec back to the string representation
  *
