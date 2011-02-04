@@ -303,6 +303,16 @@ resource_def svr_resc_def_const[] =
     ATR_DFLAG_MGRD | ATR_DFLAG_MGWR | ATR_DFLAG_SvWR | ATR_DFLAG_RMOMIG | ATR_DFLAG_MOM | ATR_DFLAG_ALTRUN,
     ATR_TYPE_STR
   },
+  { "processed_nodes",
+    decode_str,
+    encode_str,
+    set_str,
+    comp_str,
+    free_str,
+    NULL_FUNC,
+    READ_ONLY | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG,
+    ATR_TYPE_STR
+  },
   { "nodect",   /* count of number of nodes requested */
     decode_l,   /* read-only, set by server whenever  */
     encode_l,   /* "nodes" is set, for use by sched   */
@@ -753,6 +763,8 @@ resource_def svr_resc_def_const[] =
   { "net", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_STR },
   /* group resource for virtual clusters */
   { "group", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_STR },
+  /* scratch (disk space) resource */
+  { "scratch", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG | ATR_DFLAG_SELECT_MOM, ATR_TYPE_LONG },
 
   /* the definition for the "unknown" resource MUST be last */
 
