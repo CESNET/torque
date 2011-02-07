@@ -115,26 +115,47 @@ int get_node_has_ppn(node_info *ninfo, unsigned ppn, int preassign_starving)
 
 int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starving)
   {
+  unsigned negative = 0;
+  char *name, *value;
+
   dbg_precondition(property != NULL, "This functions does not accept NULL.");
   dbg_precondition(ninfo != NULL, "This functions does not accept NULL.");
 
-  if (property->value == NULL) /* property */
+  name = property->name;
+  value = property->value;
+
+  if (name[0] == '^')
+    {
+    negative = 1;
+    name++;
+    }
+
+  if (property->value == NULL) /* property, not a resource */
     {
     char **iter;
 
-    /* the property is not a resource */
-
     /* first check if it is node name */
-    if (strcmp(ninfo->name,property->name) == 0)
-      return 1;
+    if (strcmp(ninfo->name,name) == 0 ||
+        (value != NULL && strcmp(name,"host") && strcmp(value,ninfo->name)))
+      {
+      if (negative)
+        return 0; /* negative property found, return false */
+      else
+        return 1; /* positive property found, return true */
+      }
 
     iter = ninfo->properties;
 
     if (iter != NULL)
     while (*iter != NULL)
       {
-      if (strcmp(*iter,property->name) == 0)
-        return 1;
+      if (strcmp(*iter,name) == 0)
+        {
+        if (negative)
+          return 0;
+        else
+          return 1;
+        }
 
       iter++;
       }
@@ -146,8 +167,13 @@ int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starv
 
     while (*iter != NULL)
       {
-      if (strcmp(*iter,property->name) == 0)
-        return 1;
+      if (strcmp(*iter,name) == 0)
+        {
+        if (negative)
+          return 0;
+        else
+          return 1;
+        }
 
       iter++;
       }
@@ -155,11 +181,10 @@ int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starv
     }
   else /* resource or ppn */
     {
-    return node_has_enough_resource(ninfo,property->name, property->value,
-             preassign_starving?MaxOnly:Avail);
+    return node_has_enough_resource(ninfo, name, value, preassign_starving?MaxOnly:Avail);
     }
 
-  return 0;
+  return negative; /* if negative property and not found -> return 1 */
   }
 
 int get_node_has_property(node_info *ninfo, const char* property)
@@ -552,8 +577,9 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
         iter = spec->properties;
         while (iter != NULL)
           {
-          if ((get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0) &&
-              (get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0) &&
+          if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0) /* not enough cpu */
+            break;
+          if ((get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0) &&
               (alternative_has_property(*ra,iter->name) == 0))
             break; /* break out of the cycle if not found property */
 
@@ -577,6 +603,8 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
       iter = spec->properties;
       while (iter != NULL)
         {
+        if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0) /* not enough cpu */
+          break;
         if (get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0)
           break; /* break out of the cycle if not found property */
 
