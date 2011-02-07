@@ -3,6 +3,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 2.4.13
   e - change so blcr checkpoint jobs can restart on different node. Use
       configure --enable-blcr to allow. (Bugzilla 68, backported from 2.5.5)
+  e - Add code to verify the group list as well when VALIDATEGROUPS is set in torque.cfg
+      (backported from 3.0.1)
 
 2.4.12
   b - Bugzilla bug 84. Security bug on the way checkpoint is being handled.
