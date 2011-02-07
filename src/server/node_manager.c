@@ -2653,7 +2653,7 @@ int hasadprop(struct pbsnode *pnode, struct prop *props)
 
     for (pp = pnode->x_ad_prop; pp != NULL; pp = pp->next)
       {
-      if (strcmp(pp->name, need->name) == 0)
+      if (strcmp(pp->name, name) == 0)
         {
         if (negative)
           return 0;
@@ -2970,7 +2970,7 @@ static int property(
   char* str = *ptr;
   int i = 0;
 
-  if (!isalpha(*str))
+  if (!isalpha(*str) && *str != '^')
     {
     sprintf(log_buffer,
             "first character of property (%s) not a letter",
@@ -2979,7 +2979,7 @@ static int property(
     return(1);
     }
 
-  while (isalnum(*str) || *str == '-' || *str == '.' || *str == '=' || *str == '_')
+  while (isalnum(*str) || *str == '-' || *str == '.' || *str == '=' || *str == '_' || *str == '^')
     name[i++] = *str++;
 
   name[i] = '\0';
