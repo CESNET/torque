@@ -2560,7 +2560,6 @@ int hasres(struct pbsnode *pnode, char  *name, char *value, int proc_count)
     return 0;
   }
 
-
 /*
 ** Look through the property list and make sure that all
 ** those marked are contained in the node.
@@ -2578,22 +2577,43 @@ int hasprop(
   for (need = props;need;need = need->next)
     {
     struct prop *pp;
+    unsigned negative = 0;
+    char *name, *value;
 
-    if (need->mark == 0 && (need->value == NULL)) /* not marked, skip */
+    name = need->name;
+    value = need->value;
+
+    if (name[0] == '^')
+      {
+      negative = 1;
+      name++;
+      }
+
+    if (need->mark == 0 && (value == NULL)) /* not marked, skip */
       continue;                                    /* do not skip resources */
 
-    if (need->value == NULL)
+    if (strcmp(pnode->nd_name,name) == 0 ||
+        (value != NULL && strcmp(name,"host") && strcmp(value,pnode->nd_name)))
+      {
+      if (negative)
+        return 0;
+      }
+
+    if (value == NULL)
       {
       for (pp = pnode->nd_first;pp != NULL;pp = pp->next)
         {
-        if (strcmp(pp->name, need->name) == 0)
+        if (strcmp(pp->name, name) == 0)
+          {
+          if (negative)
+            return 0;
           break;  /* found it */
+          }
         }
 
-      if (pp == NULL)
-        {
+      if (pp == NULL && !negative)
         return(0);
-        }
+
       }
     else
       {
@@ -2616,6 +2636,17 @@ int hasadprop(struct pbsnode *pnode, struct prop *props)
   for (need = props; need != NULL; need = need->next)
     {
     struct prop *pp;
+    unsigned negative = 0;
+    char *name, *value;
+
+    name = need->name;
+    value = need->value;
+
+    if (name[0] == '^')
+      {
+      negative = 1;
+      name++;
+      }
 
     if (need->mark == 0)
       continue;
@@ -2623,10 +2654,14 @@ int hasadprop(struct pbsnode *pnode, struct prop *props)
     for (pp = pnode->x_ad_prop; pp != NULL; pp = pp->next)
       {
       if (strcmp(pp->name, need->name) == 0)
+        {
+        if (negative)
+          return 0;
         break;
+        }
       }
 
-    if (pp == NULL)
+    if (pp == NULL && !negative)
       return 0;
     }
 
