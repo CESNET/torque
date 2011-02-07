@@ -138,10 +138,7 @@ int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starv
     if (strcmp(ninfo->name,name) == 0 ||
         (value != NULL && strcmp(name,"host") && strcmp(value,ninfo->name)))
       {
-      if (negative)
-        return 0; /* negative property found, return false */
-      else
-        return 1; /* positive property found, return true */
+      return !negative;
       }
 
     iter = ninfo->properties;
@@ -150,12 +147,7 @@ int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starv
     while (*iter != NULL)
       {
       if (strcmp(*iter,name) == 0)
-        {
-        if (negative)
-          return 0;
-        else
-          return 1;
-        }
+        return !negative;
 
       iter++;
       }
@@ -163,17 +155,12 @@ int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starv
     iter = ninfo->adproperties;
 
     if (iter == NULL)
-      return 0;
+      return negative;
 
     while (*iter != NULL)
       {
       if (strcmp(*iter,name) == 0)
-        {
-        if (negative)
-          return 0;
-        else
-          return 1;
-        }
+        return !negative;
 
       iter++;
       }
