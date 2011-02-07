@@ -10,6 +10,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       bug 110.
   e - make gpus compatible with NUMA systems, and add the node attribute
       numa_gpu_node_str for an additional way to specify gpus on node boards
+  e - Add code to verify the group list as well when VALIDATEGROUPS is set in torque.cfg
 
 3.0.0
   e - serverdb is now stored as xml, this is no longer configurable.
