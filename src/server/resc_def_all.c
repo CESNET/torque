@@ -901,6 +901,9 @@ static int decode_nodes(
     while (isspace(*pc))
       ++pc;
 
+    if (*pc == '^')
+      pc++;
+
     if (!isalnum(*pc))
       {
       return(PBSE_BADATVAL);
@@ -927,7 +930,7 @@ static int decode_nodes(
 
       while (*pc != '\0')
         {
-        if (isalnum(*pc) || strchr("-.=_^", *pc))
+        if (isalnum(*pc) || strchr("-.=_", *pc))
           pc++;
         else
           break;
