@@ -3289,6 +3289,8 @@ void regenerate_total_resources(job * pjob)
       return;
     }
 
+  free_parsed_nodespec(spec);
+
   return;
   }
 
@@ -3599,6 +3601,8 @@ static char *nodespec_expand(job *pjob, const char *spec, int *exclusive)
   expanded = concat_nodespec(pspec);
   if (exclusive != NULL)
     *exclusive = pspec->is_exclusive;
+
+  free_parsed_nodespec(pspec);
 
   return expanded;
   }
