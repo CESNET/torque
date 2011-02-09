@@ -66,8 +66,6 @@ install-exec-hook:
 	cp $(top_srcdir)/meta/epilogue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue
 	ln -s prologue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue.parallel
 	ln -s epilogue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
-	rm -f $(DESTDIR)/etc/init.d/pbs_mom
-	ln -s /etc/init.d/torque-meta-mom $(DESTDIR)/etc/init.d/pbs_mom
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_ENVIRON)
@@ -79,6 +77,4 @@ uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue.parallel
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
-	rm -f $(DESTDIR)/etc/init.d/pbs_mom
-
 
