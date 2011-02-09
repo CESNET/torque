@@ -1091,18 +1091,6 @@ void remove_job_delete_nanny(
     return;
     }
 
-  if (pjob->ji_svrtask.ll_next == NULL)
-    {
-    /* no nanny, nothing to delete */
-    return;
-    }
-
-  if (pjob->ji_svrtask.ll_next == NULL)
-    {
-    /* no nanny, nothing to delete */
-    return;
-    }
-
   pwtiter = (struct work_task *)GET_NEXT(pjob->ji_svrtask);
 
   while (pwtiter != NULL)
