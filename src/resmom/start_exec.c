@@ -1988,6 +1988,9 @@ int use_cpusets(
   job *pjob)	/* I */
 
   {
+#ifdef ALWAYS_USE_CPUSETS
+  return(TRUE);
+#else
 #ifdef GEOMETRY_REQUESTS
   resource     *presc;
   resource_def *prd;
@@ -2009,6 +2012,7 @@ int use_cpusets(
 #else
   return(TRUE);
 #endif /* GEOMETRY_REQUESTS */
+#endif /* ALWAYS_USE_CPUSETS */
   }	/* END use_cpusets() */
 #endif /* PENABLE_LINUX26_CPUSETS */
 
@@ -2220,9 +2224,7 @@ int TMomFinalizeChild(
   
 #ifdef PENABLE_LINUX26_CPUSETS
 
-#ifndef ALWAYS_USE_CPUSETS  
   if (use_cpusets(pjob) == TRUE)
-#endif /* ALWAYS_USE_CPUSETS */
     {
     sprintf(log_buffer, "about to create cpuset for job %s.\n",
       pjob->ji_qs.ji_jobid);
