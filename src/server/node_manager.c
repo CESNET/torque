@@ -3123,6 +3123,13 @@ void regenerate_total_resources(job * pjob)
       return;
 
     spec = parse_nodespec(rs->rs_value.at_val.at_str);
+
+    if (spec == NULL)
+      return;
+    }
+  else
+    {
+    return;
     }
 
   /* Step (2)
