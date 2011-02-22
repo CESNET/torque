@@ -3613,7 +3613,7 @@ static char *nodespec_expand(job *pjob, const char *spec, int *exclusive)
   expand_nodespec(pspec);
   expanded = concat_nodespec(pspec);
   if (exclusive != NULL)
-    *exclusive = pspec->is_exclusive;
+    *exclusive = pspec->is_exclusive + 1;
 
   free_parsed_nodespec(pspec);
 
