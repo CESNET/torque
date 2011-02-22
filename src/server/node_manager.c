@@ -3116,7 +3116,20 @@ void regenerate_total_resources(job * pjob)
     if ((rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],rd)) == NULL)
       return;
 
+    if ((rs->rs_value.at_flags & ATR_VFLAG_SET) == 0)
+      return;
+
+    if (rs->rs_value.at_val.at_str == NULL)
+      return;
+
     spec = parse_nodespec(rs->rs_value.at_val.at_str);
+
+    if (spec == NULL)
+      return;
+    }
+  else
+    {
+    return;
     }
 
   /* Step (2)
