@@ -21,6 +21,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       compatibility with Moab.
   b - preserve the order on array strings in TORQUE, like the route_destinations for a 
       routing queue 
+  b - fix bugzilla #111, multi-line environment variables causing errors in TORQUE.
+      (backported from 3.0.1)
+  b - allow apostrophes in Mail_Users attributes, as apostrophes are rare but legal email
+      characters (backported from 3.0.1)
 
 3.0.0
   e - serverdb is now stored as xml, this is no longer configurable.
