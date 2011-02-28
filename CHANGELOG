@@ -9,6 +9,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       wasn't deleted unless a geometry request was made. (backported from 3.0.1)
   b - Fix a race condition for pbs_mom -q, exitstatus was getting overwritten and as a result 
       pbs_server wasn't always re-queued, but were being deleted instead. (backported from 3.0.1)
+  b - allow apostrophes in Mail_Users attributes, as apostrophes are rare but legal email
+      characters (backported from 3.0.1)
 
 2.4.12
   b - Bugzilla bug 84. Security bug on the way checkpoint is being handled.
