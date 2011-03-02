@@ -1621,7 +1621,10 @@ static char *parse_node_token(
 
   *term = *pt;
 
-  *pt++ = '\0';
+  if(*pt != '\0')
+    {
+    *pt++ = '\0';
+    }
 
   return(ts);
   }  /* END parse_node_token() */
