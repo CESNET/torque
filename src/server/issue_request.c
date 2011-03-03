@@ -120,7 +120,8 @@ extern unsigned int pbs_mom_port;
 extern unsigned int pbs_server_port_dis;
 
 extern struct  connection svr_conn[];
-extern struct pbsnode *tfind_addr(const u_long); 
+extern struct pbsnode *tfind_addr(const u_long);
+extern char *get_job_principal(char *jobid);
 
 extern int       LOGLEVEL;
 
@@ -602,7 +603,7 @@ int issue_Drequest(
       if ((rc = encode_DIS_CopyFiles(sock, request)))
         break;
 
-      if ((rc = encode_DIS_ReqExtend(sock, 0)))
+      if ((rc = encode_DIS_ReqExtend(sock, get_job_principal(request->rq_ind.rq_cpyfile.rq_jobid))))
         break;
 
       rc = DIS_tcp_wflush(sock);

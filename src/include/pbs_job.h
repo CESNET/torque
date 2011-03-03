@@ -876,6 +876,8 @@ extern void  set_resc_deflt A_((job *, attribute *));
 extern void  set_statechar A_((job *));
 extern int   svr_setjobstate A_((job *, int, int));
 
+extern char *get_job_principal(char *jobid);
+
 #ifdef BATCH_REQUEST_H
 extern job  *chk_job_request A_((char *, struct batch_request *));
 extern int   net_move A_((job *, struct batch_request *));
