@@ -1877,5 +1877,19 @@ job *find_job_by_name(char *name)
   return pj;
   }
 
-/* END job_func.c */
+char *get_job_principal(char *jobid)
+  {
+  job *pjob;
 
+  if ((pjob = find_job(jobid)) == NULL)
+    return NULL;
+
+  if ((pjob->ji_wattr[(int)JOB_SITE_ATR_krb_princ].at_flags & ATR_VFLAG_SET) != 0)
+    {
+    return pjob->ji_wattr[(int)JOB_SITE_ATR_krb_princ].at_val.at_str;
+    }
+
+  return NULL;
+  }
+
+/* END job_func.c */

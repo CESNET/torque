@@ -30,7 +30,7 @@ typedef struct krb_holder
   } krb_holder_t;
 
 
-int init_ticket(job *pjob, task *ptask, eexec_job_info job_info, krb5_context* context);
+int init_ticket(job *pjob, char *principal, task *ptask, eexec_job_info job_info, krb5_context* context);
 int free_ticket(krb5_context* context, eexec_job_info job_info);
 
 
