@@ -59,10 +59,10 @@ static int received_signal = -1;
 int krb_log_file;
 
 int
-get_job_info(job *pjob, task *ptask, eexec_job_info job_info)
+get_job_info_from_job(job *pjob, task *ptask, eexec_job_info job_info)
 {
   char                 *qsub_msg = NULL;
-  char                 *id = "get_job_info";
+  char                 *id = "get_job_info_from_job";
   char                 *ccname;
   krb5_context         context;
 
@@ -75,7 +75,7 @@ get_job_info(job *pjob, task *ptask, eexec_job_info job_info)
 
   /* job_info.pid = getpid(); */
   job_info->job_uid = pjob->ji_qs.ji_un.ji_momt.ji_exuid;
-  job_info->username = pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str;
+  job_info->username = strdup(pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str);
   if (ptask == NULL)
     {
     asprintf(&ccname, "FILE:/tmp/krb5cc_pbsjob_%s_jobwide",
@@ -96,6 +96,42 @@ get_job_info(job *pjob, task *ptask, eexec_job_info job_info)
 
   return(0);
 }
+
+int
+get_job_info_from_principal(char *principal, task *ptask, eexec_job_info job_info)
+  {
+  char                 *qsub_msg = NULL;
+  char                 *id = "get_job_info_from_principal";
+  char                 *ccname;
+  krb5_context         context;
+  char                 login[PBS_MAXUSER+1];
+  char                 *c;
+  struct passwd *pw;
+
+  memset(login,0,PBS_MAXUSER+1);
+  if ((qsub_msg = principal) == NULL)
+  { log_err(-1, id, "no ticket provided"); return -2; }
+
+  strcpy(login,principal);
+  if ((c = strchr(principal,'@')) != NULL)
+  { c[0] = '\0'; }
+
+  if ((pw = getpwnam(login)) == NULL)
+  { log_err(-1,id,"couldn't find user in /etc/passwd"); return -2; }
+
+  job_info->job_uid = pw->pw_uid;
+  job_info->username = strdup(login);
+  asprintf(&ccname, "FILE:/tmp/krb5cc_pbsjob_%s_jobwide","orphan");
+  job_info->ccache_name = ccname;
+
+  krb5_init_context(&context);
+  krb5_parse_name(context,qsub_msg,&job_info->client);
+  job_info->princ=strdup(qsub_msg);
+  job_info->realm=strdup(krb5_principal_get_realm(context,job_info->client));
+  krb5_free_context(context);
+
+  return(0);
+  }
 
 krb5_error_code
 get_ticket(krb5_context context, eexec_job_info job_info)
@@ -316,7 +352,7 @@ register_signal(int signal)
  *  @param context Context to be filled
  *  @return -2 if principal is present, -3 if get_job_info failed, -4 if krb5_init_context failed, -5 if get_renewed_creds failed
  */
-int init_ticket(job *pjob, task *ptask, eexec_job_info job_info, krb5_context* context)
+int init_ticket(job *pjob, char* principal, task *ptask, eexec_job_info job_info, krb5_context* context)
   {
   int ret;
   char buf[512];
@@ -324,15 +360,31 @@ int init_ticket(job *pjob, task *ptask, eexec_job_info job_info, krb5_context* c
 
   memset(job_info, 0, sizeof(*job_info));
 
-  if ((ret = get_job_info(pjob, ptask, job_info)) != 0)
+  if (pjob != NULL)
     {
-    snprintf(buf, sizeof(buf), "get_job_info returned %d",ret);
-    log_err(errno, id, buf);
-    if (ret == -2)
-      return -2;
-    else
-      return -3;
+    if ((ret = get_job_info_from_job(pjob, ptask, job_info)) != 0)
+      {
+      snprintf(buf, sizeof(buf), "get_job_info_from_job returned %d",ret);
+      log_err(errno, id, buf);
+      if (ret == -2)
+        return -2;
+      else
+        return -3;
+      }
     }
+  else
+    {
+    if ((ret = get_job_info_from_principal(principal, ptask, job_info)) != 0)
+      {
+      snprintf(buf, sizeof(buf), "get_job_info_from_principal returned %d",ret);
+      log_err(errno, id, buf);
+      if (ret == -2)
+        return -2;
+      else
+        return -3;
+      }
+    }
+
 
   if (k_hasafs())
       k_setpag();
@@ -476,7 +528,7 @@ start_renewal(task *ptask, int fd1, int fd2)
      return -1;
   }
 
-  ret = init_ticket(pjob, ptask, job_info, &context);
+  ret = init_ticket(pjob, NULL, ptask, job_info, &context);
   if (ret == -2) /* job without a principal */
     {
     close(fd);

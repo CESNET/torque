@@ -469,13 +469,16 @@ static pid_t fork_to_user(
     {
     int ret;
 
-    ret = init_ticket(pjob,NULL,ticket->job_info,&ticket->context);
+    ret = init_ticket(pjob,NULL,NULL,ticket->job_info,&ticket->context);
 
-    if (ret != 0 && ret != -2)
-      {
-/*      log_err(PBSE_KERBEROS_TICKET,"fork_to_user","Could not get user ticket");
-      return(-PBSE_KERBEROS_TICKET);*/
-      }
+    if (ret == 0)
+      ticket->got_ticket = 1;
+    }
+  else
+    {
+    int ret;
+
+    ret = init_ticket(NULL,preq->rq_extend,NULL,ticket->job_info,&ticket->context);
 
     if (ret == 0)
       ticket->got_ticket = 1;
