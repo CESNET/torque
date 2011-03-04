@@ -1,0 +1,24 @@
+#!/bin/bash
+
+
+# MM 11/2006 Pokud chci vypsat vsechny uzly co jsou mimo PBS, ukaz i uzly
+# v maintenace rezimu (pro PBS se tvari jako pouzitelne uzly)
+
+if [ "$1" = "-l" ]
+then
+        /software/torque-2.4/bin/pbsnodes.bin -a | awk\
+        '\
+                /^[a-z]/ {host=$1;c="";q="";} \
+                /state =/ {state=$3;} \
+                /comment =/ {$1="";$2="";c=$0; gsub("^  *", "", c); }\
+                /queue =/ {q=$3;}\
+                /^$/ {\
+                        if (state!="free" && state!="job-busy" && \
+                                        state!="job-exclusive" )\
+                                print host"\t"state,c;\
+                        else if (q!="") print host"\t"q;\
+        }'
+else
+        /software/torque-2.4/bin/pbsnodes.bin $@
+fi
+

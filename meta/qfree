@@ -1,0 +1,380 @@
+# qfree - tool for finding free processors in PBS pool
+#
+# nov. 2003 - MM p.t. (ja v potu tvare :)
+
+
+#!/bin/bash
+
+CHECK_LICENSE=checklic_client
+PBS_SERVER_IP=147.251.3.72
+lic_options=(fluentall MARC MARC_Parallel Maple10 Maple11)
+lic_desc=("Fluent:" "Marc  :" "MarcN :" "Maple10:" "Maple11:")
+
+
+function usage {
+	cat <<eof
+	
+Usage: qfree [-v|-vv]
+       qfree -l node_property[:node_property...] [-q queue_name] [-v]
+       qfree -i
+
+Returns list of free PBS resources.
+
+  -v, -vv               increase verbosity level
+  -l node_property      print free nodes with properties PROP
+                        properties are separated by colon
+  -q queue_name         name of queue via which user wants access nodes
+  -i                    print free licences
+
+eof
+}
+
+function count {
+	echo "$data" | awk -v user=$user '\
+		BEGIN {
+			CONVFMT="%.3g";
+			nfree=0; 	# free nodes accessible via PBS 
+			noff=0; 	# offline or down nodes
+			nofffree=0; 	# not used offline of down nodes 
+			total=0; 	# all CPU registered in PBS
+			used=0;		# all working CPUs
+			
+			excl=0;		# job-exclusive sign
+			off=0;
+		} 
+		/host/	{host=$2}
+		/state/ { 
+			if (match($2,"down") || match($2,"offline") ||
+					match($2,"state-unknown")) 
+				off=1;
+			if (match($2,"job-exclusive"))
+				excl=1;
+		}
+		/cpu_avail/ {avail=$2;}
+		/cpu_used/ {assig=$2;}
+		/    }/ {
+				if (excl == 1)
+					assig=avail;
+				if (off == 0) 
+					nfree=nfree+(avail-assig); 
+				else {
+					nofffree=nofffree+(avail-assig);
+					noff=noff+avail;
+				}
+				used=used+assig;
+				total=total+avail; 
+			off=0;
+			excl=0;
+		} 
+		END {
+		print  ""
+		print  "Processors available:"
+		printf(" |->total\t\t\t\t\t%4d CPUs\n", total)
+		printf(" |->down/offline/reserved\t\t\t%4d CPUs\n",noff)
+		print  " |"
+		printf(" `->free for user %s\t\t\t\t%4d CPUs\n",user,nfree)
+		print  ""
+		}'
+}
+
+function countv {
+	echo "$data" | awk '\
+		BEGIN { name="" }
+		/cluster/ { name=$2 }
+		/state/ { 
+			if (match($2,"down") || match($2,"offline") || \
+			    match($2,"job-exclusive") || \
+			    match($2,"state-unknown"))
+				assig=-1;
+		}
+		/cpu_avail/ {avail=$2} 
+		/cpu_used/ {
+			if (assig == -1) 
+				assig=avail;
+			else
+				assig=$2;
+		}
+		/    }/ {
+			cluster[name]+=(avail-assig);
+			name=""
+		}
+		END { 
+			for (i in cluster) {
+				printf("\tCluster %12-s - %3d free CPUs\n",
+					i, cluster[i])
+			}
+		}'	
+}
+
+function countvv {
+	echo "$data" | awk '\
+		/host/ {name=$2} 
+		/state/ { 
+			if (match($2,"down") || match($2,"offline") || \
+			    match($2,"job-exclusive") || \
+			    match($2,"state-unknown")) 
+				assig=-1;
+		}
+		/cpu_avail/ {avail=$2} 
+		/cpu_used/ {
+			if (assig == -1) 
+				assig=avail;
+			else
+				assig=$2;
+		}
+		/proper/ {prop=$2} 
+		/queues/ {queue=$2} 
+		/    }/ {
+			if ( (avail-assig) > 0) {
+				printf("%22-s\n",name);
+				printf(" |->processors free:    %d\n",
+					avail-assig);
+				print " |->properties:   \t"prop 
+				print " `->queues:       \t"queue 
+			}
+			prop="";
+		}'
+}
+
+
+function list {
+	 echo "$data" | awk $@ '\
+		BEGIN {
+			for (i=0; i<129; i++) CPU[i]=0;
+			ppn=0;
+			found_q=1;
+			split(wanted_properties,A,":");
+			if (match(wanted_properties,"ppn=")) {
+				rest=substr(wanted_properties,RSTART+RLENGTH);
+				match(rest,"[0-9]*");
+				ppn=substr(rest,0,RLENGTH) + 0;
+				for (i in A)
+					if (match(A[i], "ppn=")) {
+					delete A[i];
+				}
+			}
+		}
+		/host/ {name=$2}
+		/state/ { 
+			if (match($2,"down") || match($2,"offline") || \
+			    match($2,"job-exclusive") || \
+			    match($2,"state-unknown"))
+				assig=-1;
+		}
+		/cpu_avail/ {avail=$2}
+		/cpu_used/ {
+			if (assig == -1) 
+				assig=avail;
+			else
+				assig=$2;
+		}
+		/queues/ {
+			queues=$2
+			if (queue) {
+				split(queues,B,",");
+				found_q=0;
+				for ( i in B ) {
+					 if ( match(queue,"^"B[i]"$") ) {
+					 	found_q=1;
+						break;
+					}
+				}
+			}
+		} 
+		/proper/ {
+			prop=$2
+			found=1;
+			for ( i in A ) {
+				if ( !match(prop,A[i]) || 
+				     (substr(prop,RSTART+RLENGTH,1) != "," &&
+				     substr(prop,RSTART+RLENGTH,1) != ""))
+				{
+					found=0;
+					break;
+				}
+			}
+		}
+		/    }/ {
+				if ( (avail-assig) > 0 && found && found_q ) {
+		      			CPU[(avail-assig)]++
+				}
+			}
+		END {
+			already="";
+			if (ppn == 0) {
+				for (i=0; i<129; i++) {
+					if ( CPU[i] > 0 ) {
+						if ( already == "+") {
+							printf("+%d:ppn=%d",
+								CPU[i],i);
+							for (j in A) printf(":%s",A[j]);
+						}
+						else {
+							printf("nodes=%d:ppn=%d",
+								CPU[i],i);
+							for (j in A) printf(":%s",A[j]);
+						}
+						already="+";
+					}
+				}
+			}
+			else {
+				all=0;
+				for (i=ppn; i<129; i++) 
+					all+=CPU[i];	
+				printf("nodes=%d:ppn=%d",
+					all,ppn);
+				for (j in A) printf(":%s",A[j]);
+				already="+";
+			}
+			if (already == "+") printf("\n");
+		}'
+}
+
+
+
+function listv {
+	echo "$data" | awk $@ '\
+		BEGIN {
+			found_q=1;
+			ppn=0;
+			split(wanted_properties,A,":");
+			if (match(wanted_properties,"ppn=")) {
+				rest=substr(wanted_properties,RSTART+RLENGTH);
+				match(rest,"[0-9]*");
+				ppn=substr(rest,0,RLENGTH) + 0;
+				for (i in A)
+					if (match(A[i], "ppn=")) {
+					delete A[i];
+				}
+			}
+		}
+		/host/ {name=$2} 
+		/state/ { 
+			if (match($2,"down") || match($2,"offline") || \
+			    match($2,"job-exclusive") || \
+			    match($2,"state-unknown"))
+				assig=-1;
+		}
+		/cpu_avail/ {avail=$2} 
+		/cpu_used/ {
+			if (assig == -1) 
+				assig=avail;
+			else
+				assig=$2;
+		}
+		/queues/ {
+			queues=$2
+			if (queue) {
+				split(queues,B,",");
+				found_q=0;
+				for ( i in B ) {
+					 if ( match(queue,"^"B[i]"$") ) {
+					 	found_q=1;
+						break;
+					}
+				}
+			}
+		} 
+		/proper/ {
+			prop=$2
+			if (wanted_properties) {
+			split(prop,AA,",");
+			for ( i in A ) {
+				found=0;
+				for ( j in AA ) {
+					if ( match(AA[j],"^"A[i]"$"))  
+					{
+						found = 1;
+						break;
+					}
+				}
+				if (found == 0) break;
+			}
+			}
+			else { found=1; }
+		} 
+		/    }/ {
+			if ( (avail-assig) > 0 && found && found_q &&
+			     (ppn == 0 || ppn <= (avail-assig)) ) {
+				printf("%22-s\n",name);
+				printf(" |->processors free:    %d\n",
+					avail-assig);
+				print " |->properties:   \t"prop 
+				print " `->queues:       \t"queues
+			}
+			prop="";
+		}'
+}
+
+
+function print_licenses {
+	INDEX=0
+
+	echo
+	for str in ${lic_options[*]}
+	do
+		echo -n "	${lic_desc[$INDEX]} ";
+		num=`$CHECK_LICENSE $PBS_SERVER_IP $str`
+		printf "%3d free licenses\n" $num
+		INDEX=$INDEX+1
+	done
+}
+
+
+verb=0;
+ask=0;
+
+
+while getopts q:l:hiv c; do
+	case $c in
+		v)
+			verb=$(($verb + 1))  
+			;;
+		l)
+			ask=1
+			prop="-v wanted_properties=$OPTARG"
+			;;
+		q)
+			ask=1
+			queue="-v queue=$OPTARG"
+			;;
+
+		i)
+			print_licenses
+			exit 0
+			;;
+		\? | h | * )
+			usage >&2
+			exit 2
+			;;
+	esac
+done
+
+SERVER=arien.ics.muni.cz
+if [ -f /var/spool/torque/server_name ]; then SERVER=`cat /var/spool/torque/server_name`; fi
+if [ "$PBS_SERVER" ]; then SERVER=$PBS_SERVER; fi
+if [ "`echo $queue| grep '@'`" ]; then SERVER=`host ${queue/*@/} | grep address |awk '{print $1}'`; queue=${queue/@*/}; fi
+
+user=`whoami`
+wget_output=`wget --timeout=10 --tries=1 -q -O - "http://$SERVER:6666/milos?user=$user&pretty=true"`
+data=`echo "$wget_output" | sed 's/"//g'| sed 's/,$//' | sed 's/://'`
+
+#data=`cat /tmp/out | sed 's/"//g'| sed 's/,$//' | sed 's/://'`
+
+if [ $ask -eq  1 ] ; then 
+	if [ $verb -eq 0 ] ; then
+		list $prop $queue
+	else
+		listv $prop $queue
+	fi
+else
+	if [ $verb -eq 0 ]; then
+		count
+	elif [ $verb -eq 1 ]; then
+		countv
+	else
+		countvv
+	fi
+fi
+	

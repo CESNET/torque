@@ -1,0 +1,10 @@
+#!/bin/bash
+
+if [ $# -ge 1 ]; 
+then
+	exec /software/torque-2.4/bin/qstat.bin $@
+	exit $?
+else
+	/software/torque-2.4/bin/qstat.bin
+	/software/torque-2.4/bin/qfree
+fi
