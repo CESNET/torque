@@ -3,10 +3,10 @@ include $(top_srcdir)/buildutils/config.mk
 PBS_LIBS = ../lib/Libpbs/libtorque.la \
 					 ../lib/Libutils/libutils.a
 
-dist_bin_SCRIPTS = nqs2pbs ../../meta/cluster_conf  ../../meta/cluster_delete  ../../meta/cluster_list ../../meta/cluster_purge  ../../meta/cluster_status  ../../meta/cluster_submit ../../meta/qsub_build
+dist_bin_SCRIPTS = nqs2pbs ../../meta/cluster_conf  ../../meta/cluster_delete  ../../meta/cluster_list ../../meta/cluster_purge  ../../meta/cluster_status  ../../meta/cluster_submit ../../meta/qsub_build ../../meta/qfree ../../meta/pbsnodes ../../meta/qstat
 bin_PROGRAMS = qalter qdel qhold qmove qorder qmsg qrerun qrls qselect qsig \
-	       qstat qsub pbsdsh qdisable qenable qrun qstart qstop qterm \
-	       pbsnodes qmgr qchkpt pbs_track @PBSPOE@
+	       qstat.bin qsub pbsdsh qdisable qenable qrun qstart qstop qterm \
+	       pbsnodes.bin qmgr qchkpt pbs_track @PBSPOE@
 EXTRA_PROGRAMS = pbspd pbspoe
 EXTRA_DIST = nqs2pbs.in sample.qstatrc
 
@@ -16,8 +16,8 @@ if USE_TCLQSTAT
 TCLQSTATLIBS = $(MY_TCL_LIBS)
 TCLQSTATCFLAGS = $(MY_TCL_INCS)
 endif
-qstat_LDADD = $(PBS_LIBS) $(TCLQSTATLIBS)
-qstat_CFLAGS = $(TCLQSTATCFLAGS)
+qstat_bin_LDADD = $(PBS_LIBS) $(TCLQSTATLIBS)
+qstat_bin_CFLAGS = $(TCLQSTATCFLAGS)
 
 qmgr_LDADD = $(PBS_LIBS) $(READLINE_LIBS)
 
@@ -26,7 +26,7 @@ qsub_CFLAGS = -DSUBMIT_FILTER_PATH=\"$(SUBMIT_FILTER_PATH)\" \
               -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\"
 
 pbsdsh_SOURCES = pbsdsh.c
-pbsnodes_SOURCES = pbsnodes.c MXML.c
+pbsnodes_bin_SOURCES = pbsnodes.c MXML.c
 pbspd_SOURCES = pbspd.c
 pbspoe_SOURCES = pbspoe.c
 qalter_SOURCES = qalter.c
@@ -44,7 +44,7 @@ qrun_SOURCES = qrun.c
 qselect_SOURCES = qselect.c
 qsig_SOURCES = qsig.c
 qstart_SOURCES = qstart.c
-qstat_SOURCES = qstat.c MXML.c
+qstat_bin_SOURCES = qstat.c MXML.c
 qstop_SOURCES = qstop.c
 qsub_SOURCES = qsub.c
 qterm_SOURCES = qterm.c
