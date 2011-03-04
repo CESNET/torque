@@ -3420,7 +3420,7 @@ void req_cpyfile(
         }
       }
 
-    setenv("KRB5CCNAME",ticket.job_info->ccache_name);
+    setenv("KRB5CCNAME",ticket.job_info->ccache_name,1);
     }
   else
     {

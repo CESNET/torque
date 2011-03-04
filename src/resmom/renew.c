@@ -113,7 +113,7 @@ get_job_info_from_principal(char *principal, char* jobid, task *ptask, eexec_job
   { log_err(-1, id, "no ticket provided"); return -2; }
 
   strcpy(login,principal);
-  if ((c = strchr(principal,'@')) != NULL)
+  if ((c = strchr(login,'@')) != NULL)
   { c[0] = '\0'; }
 
   if ((pw = getpwnam(login)) == NULL)
