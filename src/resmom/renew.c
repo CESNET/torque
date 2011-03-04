@@ -98,7 +98,7 @@ get_job_info_from_job(job *pjob, task *ptask, eexec_job_info job_info)
 }
 
 int
-get_job_info_from_principal(char *principal, task *ptask, eexec_job_info job_info)
+get_job_info_from_principal(char *principal, char* jobid, task *ptask, eexec_job_info job_info)
   {
   char                 *qsub_msg = NULL;
   char                 *id = "get_job_info_from_principal";
@@ -121,7 +121,7 @@ get_job_info_from_principal(char *principal, task *ptask, eexec_job_info job_inf
 
   job_info->job_uid = pw->pw_uid;
   job_info->username = strdup(login);
-  asprintf(&ccname, "FILE:/tmp/krb5cc_pbsjob_%s_jobwide","orphan");
+  asprintf(&ccname, "FILE:/tmp/krb5cc_pbsjob_%s_jobwide",jobid);
   job_info->ccache_name = ccname;
 
   krb5_init_context(&context);
@@ -352,7 +352,7 @@ register_signal(int signal)
  *  @param context Context to be filled
  *  @return -2 if principal is present, -3 if get_job_info failed, -4 if krb5_init_context failed, -5 if get_renewed_creds failed
  */
-int init_ticket(job *pjob, char* principal, task *ptask, eexec_job_info job_info, krb5_context* context)
+int init_ticket(job *pjob, char* principal, char *jobid, task *ptask, eexec_job_info job_info, krb5_context* context)
   {
   int ret;
   char buf[512];
@@ -374,7 +374,7 @@ int init_ticket(job *pjob, char* principal, task *ptask, eexec_job_info job_info
     }
   else
     {
-    if ((ret = get_job_info_from_principal(principal, ptask, job_info)) != 0)
+    if ((ret = get_job_info_from_principal(principal, jobid, ptask, job_info)) != 0)
       {
       snprintf(buf, sizeof(buf), "get_job_info_from_principal returned %d",ret);
       log_err(errno, id, buf);
@@ -528,7 +528,7 @@ start_renewal(task *ptask, int fd1, int fd2)
      return -1;
   }
 
-  ret = init_ticket(pjob, NULL, ptask, job_info, &context);
+  ret = init_ticket(pjob, NULL, NULL, ptask, job_info, &context);
   if (ret == -2) /* job without a principal */
     {
     close(fd);
