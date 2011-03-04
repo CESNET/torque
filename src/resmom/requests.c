@@ -469,7 +469,7 @@ static pid_t fork_to_user(
     {
     int ret;
 
-    ret = init_ticket(pjob,NULL,NULL,ticket->job_info,&ticket->context);
+    ret = init_ticket(pjob,NULL,NULL,NULL,ticket->job_info,&ticket->context);
 
     if (ret == 0)
       ticket->got_ticket = 1;
@@ -478,7 +478,7 @@ static pid_t fork_to_user(
     {
     int ret;
 
-    ret = init_ticket(NULL,preq->rq_extend,NULL,ticket->job_info,&ticket->context);
+    ret = init_ticket(NULL,preq->rq_extend,preq->rq_ind.rq_cpyfile.rq_jobid,NULL,ticket->job_info,&ticket->context);
 
     if (ret == 0)
       ticket->got_ticket = 1;
@@ -3419,6 +3419,8 @@ void req_cpyfile(
         madefaketmpdir = 1;
         }
       }
+
+    setenv("KRB5CCNAME",ticket.job_info->ccache_name,1);
     }
   else
     {
