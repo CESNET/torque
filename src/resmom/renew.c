@@ -581,6 +581,8 @@ out:
 	  close(fd1);
   if (fd2 >= 0)
 	  close(fd2);
+  if (setsid() != 0)
+  	log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, id, "could not setsid");
   do_renewal(context, job_info);
 
   exit(0);
