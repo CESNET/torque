@@ -2280,6 +2280,15 @@ int TMomFinalizeChild(
   if (LOGLEVEL >= 10)
     log_ext(-1, id, "system vars set", LOG_DEBUG);
   
+#ifdef GSSAPI
+  if (start_renewal(ptask,-1,-1))
+    {
+    starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
+    /*NOTREACHED*/
+    return(-1);
+    }
+#endif
+
   umask(determine_umask(pjob->ji_qs.ji_un.ji_momt.ji_exuid));
 
   if (TJE->is_interactive == TRUE)
@@ -3021,15 +3030,6 @@ int TMomFinalizeChild(
 	  }
 	}
 
-#ifdef GSSAPI
-  if (start_renewal(ptask,-1,-1))
-    {
-    starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr); 
-    /*NOTREACHED*/
-    return(-1);
-    }
-#endif 
-  
   /*
    * become the user, execv the shell and become the real job
    */
@@ -4452,6 +4452,11 @@ int start_process(
   if (LOGLEVEL >= 10)
 	  log_ext(-1, id, "about to perform set_job", LOG_DEBUG);
   
+#ifdef GSSAPI
+  if (start_renewal(ptask,kid_write,kid_read))
+      starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
+#endif
+
   j = set_job(pjob, &sjr);
   
   if (j < 0)
@@ -4533,11 +4538,6 @@ int start_process(
 	  }
 	}
     
-#ifdef GSSAPI
-  if (start_renewal(ptask,kid_write,kid_read))
-      starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-#endif
-
   /* become the user and execv the shell and become the real job */
   
   if (setgroups(pjob->ji_grpcache->gc_ngroup,
