@@ -14,6 +14,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - Fixed a problem in parse_node_token where the local static variable pt would be advanced
       past the end of the line input if there is no newline character at the end of the nodes 
       file.
+  b - Updated torque.spec.in to be able to handle the snapshot 
+      names of builds.
+
 
 2.4.12
   b - Bugzilla bug 84. Security bug on the way checkpoint is being handled.
