@@ -25,7 +25,7 @@ dnl by David Beer (dbeer@adaptivecomputing.com)
 dnl
 
 AC_PREREQ(2.53)
-AC_INIT([torque], [3.0.0], [torqueusers@supercluster.org])
+AC_INIT([torque], [2.5.6], [torqueusers@supercluster.org])
 AC_REVISION($Revision$)
 AC_CONFIG_SRCDIR([src/cmds/qrun.c])
 AC_CONFIG_AUX_DIR([buildutils])
@@ -49,6 +49,7 @@ fi
 AC_SUBST(program_prefix)
 AC_SUBST(program_suffix)
 
+RPM_AC_OPTS=""
 
 dnl  Instead of putting a long list of defines on the command line
 dnl  for each compile, use a file called "pbs_config.h" that will
@@ -186,7 +187,7 @@ AC_SUBST(build_clients)
 
 AC_MSG_CHECKING([whether to build DRMAA lib])
 AC_ARG_ENABLE(drmaa,
-    [  --disable-drmaa         do not build the DRMAA 1.0 library (default is off)],
+    [  --enable-drmaa          build the DRMAA 1.0 library (default is off)],
     build_drmaa=$enableval, build_drmaa=no)
 AC_MSG_RESULT($build_drmaa)
 AM_CONDITIONAL(INCLUDE_DRMAA, [test "x$build_drmaa" = "xyes"])
@@ -322,24 +323,20 @@ if test "x$GCC" = "xyes" ;then
   fi
 fi
 
-
-
-dnl ###########################################
-dnl Make only top dir mode?
+dnl Configure saving the server as xml instead of bytes
 dnl
 
-AC_ARG_ENABLE(top_tempdir_only, [
-  --enable-top-tempdir-only  Creates only the top directory when creating the temporary dir for the job])
+AC_ARG_ENABLE(server_xml, [
+  --enable-server-xml  Tells the server to save the serverdb in xml format])
 if test "x$GCC" = "xyes" ; then
-  AC_MSG_CHECKING([whether to create only the top temporary job directory])
-  if test "${enable_top_tempdir_only}" == "yes" ; then
+  AC_MSG_CHECKING([whether to save the serverdb in legacy format or xml format])
+  if test "${enable_server_xml}" == "yes" ; then
     AC_MSG_RESULT([yes])
-    CFLAGS="$CFLAGS -DTOP_TEMPDIR_ONLY"
+    CFLAGS="$CFLAGS -DSERVER_XML"
   else
     AC_MSG_RESULT([no])
   fi
-  fi
-
+fi
 
 dnl
 
@@ -492,87 +489,6 @@ dnl    AC_DEFINE(GEOMETRY_REQUESTS, 1, [Define to allow job specific geometry re
     AC_MSG_RESULT([no])
   fi
 fi
-
-dnl compile for NUMA systems - allows the site to configure:
-dnl 1. cpusets and multi-moms
-dnl 2. memory fences to only access close memory
-dnl
-dnl --enable-numa-support
-AC_ARG_ENABLE(numa_support, [
-  --enable-numa-support   Specifies that the mom report itself as several numa nodes instead of one node, while adding numa reporting and numa cpusets, which include memory fencing])
-if test "x$GCC" = "xyes" ;then
-  AC_MSG_CHECKING([whether to support NUMA systems])
-  if test "${enable_numa_support}" = "yes" ; then
-    AC_MSG_RESULT([yes])
-    cpuset=1
-    build_l26_cpuset=yes
-    AC_DEFINE(PENABLE_LINUX26_CPUSETS, 1, [Define to enable Linux 2.6 cpusets])
-    CFLAGS="$CFLAGS -DNUMA_SUPPORT"
-  else
-    AC_MSG_RESULT([no])
-  fi
-fi
-
-
-
-
-dnl enable pbs_mom to use the cpuset API from libcpuset
-dnl makes only sense with --enable-numa-support
-AC_ARG_ENABLE(libcpuset, [  --enable-libcpuset      Allows pbs_mom to use the cpuset API from libcpuset])
-if test "x$GCC" = "xyes"; then
-AC_MSG_CHECKING([whether to enable libcpuset support])
-  if test "${enable_libcpuset}" = "yes" ; then
-    if test "$build_l26_cpuset" = "yes" ;then
-      AC_DEFINE([USELIBCPUSET], 1, [Define to enable libcpuset support])
-      AC_CHECK_LIB([cpuset],[cpuset_version],
-          [MOMLIBS="$MOMLIBS -lcpuset"],
-          [AC_MSG_ERROR([--enable-libcpuset requires libcpuset support]) ])
-    else
-      AC_MSG_RESULT([no because we are not using cpusets])
-    fi
-  else
-    AC_MSG_RESULT([no])
-  fi
-fi
-
-
-
-
-dnl enable pbs_mom to query SGI memacctd to get rss values that are more reliable
-dnl
-dnl --enable-memacct
-AC_MSG_CHECKING([whether to enable memacct support])
-AC_ARG_ENABLE(memacct, [
-  --enable-memacct       Allows pbs_mom to query SGI memacctd in order to better monitor job memory consumption],
-    MEMACCT=$enableval,MEMACCT=no)
-AC_MSG_RESULT($MEMACCT)
-
-case "$MEMACCT" in
-  yes) AC_DEFINE([USELIBMEMACCT], 1, [Define to enable memacct support])
-      AC_CHECK_LIB([memacct],[get_weighted_memory_size],
-        [MOMLIBS="$MOMLIBS -lmemacct"],
-        [AC_MSG_ERROR([--enable-memacct requires libmemacct support]) ])
-      ;;
-  no) : ;;
-  *) AC_MSG_ERROR([--enable-memacct should be yes or no]) ;;
-esac
-
-dnl fixes errors relating to unaligned memory accesses
-dnl some systems experience these errors
-dnl 
-dnl --enable-align-memory
-AC_ARG_ENABLE(align_memory, [
-  --enable-align-memory  Change compile flags to get rid of unaligned memory access errors])
-if test "x$GCC" = "xyes" ;then
-  AC_MSG_CHECKING([whether add memory alignment flags])
-  if test "${enable_align_memory}" = "yes" ; then
-    AC_MSG_RESULT([yes])
-    CFLAGS="$CFLAGS -fstack-protector -Wformat -Wformat-security -DFORTIFY_SOURCE=2"
-  else
-    AC_MSG_RESULT([no])
-  fi
-fi
-
 AM_CONDITIONAL([BUILD_L26_CPUSETS], test "$build_l26_cpuset" = yes)
 
 dnl  irix6 can be changed to irix6array explicitly with an
@@ -927,10 +843,10 @@ AC_DEFINE_UNQUOTED(PLOCK_DAEMONS, ${PLOCK_DAEMONS},
 AC_ARG_ENABLE(syslog, [
   --enable-syslog         enable (default) the use of syslog for error reporting],
 [case "${enableval}" in
-  yes) SYSLOG=1 ;;
-  no)  SYSLOG=0 ;;
+  yes) SYSLOG=1 ; RPM_AC_OPTS="$RPM_AC_OPTS --with syslog" ;;
+  no)  SYSLOG=0 ; RPM_AC_OPTS="$RPM_AC_OPTS --without syslog" ;;
   *)   AC_MSG_ERROR(--enable-syslog cannot take a value.) ;;
-esac],[SYSLOG=1])dnl
+esac],[SYSLOG=1 ; RPM_AC_OPTS="$RPM_AC_OPTS --with syslog"])dnl
 AC_DEFINE_UNQUOTED(SYSLOG, ${SYSLOG}, [Define to enable syslog])
 AM_CONDITIONAL(USING_SYSLOG, [test "$SYSLOG" = "1"])
 
@@ -1060,7 +976,7 @@ torque_cv_have_cmsg="no"
     [torque_cv_have_cmsg="yes"])
 AC_MSG_RESULT([$torque_cv_have_cmsg])
 
-AC_MSG_CHECKING([if enabling Unix Domain socket support])
+AC_MSG_CHECKING([if enabling Unix Domain socket supprt])
 ENABLE_UNIX_SOCKETS=$torque_cv_have_cmsg
 AC_ARG_ENABLE(unixsockets, [
   --enable-unixsockets    enable the use of Unix Domain sockets for authentication.],
@@ -1078,7 +994,8 @@ AC_MSG_RESULT([$ENABLE_UNIX_SOCKETS])
 AC_ARG_WITH(server_home, [
   --with-server-home=DIR  set the server home/spool directory for PBS use
                           defaults to /var/spool/torque],
-    [PBS_SERVER_HOME="${withval}"], [PBS_SERVER_HOME="/var/spool/torque"])
+    [PBS_SERVER_HOME="${withval}" ; RPM_AC_OPTS="$RPM_AC_OPTS --define \"torque_home ${withval}\"" ],
+    [PBS_SERVER_HOME="/var/spool/torque"])
 AC_SUBST(PBS_SERVER_HOME)
 
     dnl [PBS_SERVER_HOME="${withval}"], [PBS_SERVER_HOME="$localstatedir/spool/torque"])
@@ -1122,7 +1039,8 @@ AC_ARG_WITH(default_server, [
                           access when no machine name is specified as part
                           of the queue name. It defaults to the hostname
                           of the machine on which PBS is being compiled.],
-[PBS_DEFAULT_SERVER="${withval}"], [PBS_DEFAULT_SERVER="`uname -n`"])
+[PBS_DEFAULT_SERVER="${withval}" ; RPM_AC_OPTS="$RPM_AC_OPTS --define \"torque_server ${withval}\"" ],
+[PBS_DEFAULT_SERVER="`uname -n`"])
 AC_DEFINE_UNQUOTED(PBS_DEFAULT_SERVER, "${PBS_DEFAULT_SERVER}",
 	[Define to the name of the default PBS server])
 AC_SUBST(PBS_DEFAULT_SERVER)
@@ -1210,6 +1128,9 @@ if test "x$RCP_PATH" = "x" ;then
   AC_PATH_PROG(RCP_PATH, scp, error)
   if test "x$RCP_PATH" = "xerror" ;then
     RCP_PATH=mom_rcp
+    RPM_AC_OPTS="$RPM_AC_OPTS --without scp"
+  else
+    RPM_AC_OPTS="$RPM_AC_OPTS --with scp"
   fi
 fi
 
@@ -1276,6 +1197,11 @@ case "$pammoddir" in
   /*) ;;
   *) AC_MSG_ERROR([--with-pam takes a full path to a directory $pammoddir]);;
 esac
+if test "x$pammoddir" = "xdisabled" ; then
+  RPM_AC_OPTS="$RPM_AC_OPTS --without pam"
+else
+  RPM_AC_OPTS="$RPM_AC_OPTS --with pam"
+fi
 AC_MSG_RESULT([$pammoddir])
 AC_SUBST(pammoddir)
 AM_CONDITIONAL(INCLUDE_PAM, [test "x$pammoddir" != "xdisabled"])
@@ -1512,10 +1438,12 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdarg.h>]],
   AC_MSG_RESULT([no])
 ])
 
- build_drmaa_docs=yes
+  build_drmaa_docs=yes
+  RPM_AC_OPTS="$RPM_AC_OPTS --with drmaa"
 else  
   DOXYGEN=none
- build_drmaa_docs=no
+  build_drmaa_docs=no
+  RPM_AC_OPTS="$RPM_AC_OPTS --without drmaa"
 fi
 AM_CONDITIONAL(DRMAA_DOCS, [test "$DOXYGEN" != "none"])
 AC_SUBST(build_drmaa_docs)
@@ -1531,28 +1459,11 @@ dnl
 AC_CREATE_GENERIC_CONFIG([pbs],[-ltorque])
 
 dnl these are quoted, and this removes them
-spec_name=$PACKAGE_TARNAME
-spec_version=`echo $PACKAGE_VERSION | sed 's/-snap.*//'`
-spec_snap=""
-if test "$spec_version" != "$PACKAGE_VERSION" ;then
-  spec_snap="%define snap `echo $PACKAGE_VERSION | sed 's/.*-snap.//'`"
-fi
-AC_SUBST(spec_name)
-AC_SUBST(spec_version)
-AC_SUBST(spec_snap)
-AC_SUBST(ac_configure_args)
-rpmlibdir=`eval eval echo $libdir`
-rpmmandir=`eval eval echo $mandir`
-rpmbindir=`eval eval echo $bindir`
-rpmsbindir=`eval eval echo $sbindir`
-rpmincludedir=`eval eval echo $includedir`
-rpmdrmaadocdir=`eval eval echo $drmaadocdir`
-AC_SUBST(rpmlibdir)
-AC_SUBST(rpmmandir)
-AC_SUBST(rpmbindir)
-AC_SUBST(rpmsbindir)
-AC_SUBST(rpmincludedir)
-AC_SUBST(rpmdrmaadocdir)
+SPEC_NAME=$PACKAGE_TARNAME
+SPEC_VERSION=$PACKAGE_VERSION
+AC_SUBST(SPEC_NAME)
+AC_SUBST(SPEC_VERSION)
+AC_SUBST(RPM_AC_OPTS)
 
 dnl  Head and bottom for the config-file
 AH_TOP([#ifndef _PBS_CONFIG_H_
@@ -1591,8 +1502,7 @@ AC_DEFINE_UNQUOTED([PBS_CONFIG_ARGS],"${ac_configure_args}",[Define to the insta
 AC_DEFINE_UNQUOTED([PBS_CFLAGS],"${CFLAGS}",[Define to the install directory])
 
 AC_CONFIG_FILES([torque.spec:buildutils/torque.spec.in])
-AC_OUTPUT(buildutils/torque.spec.dist
-	  buildutils/pbs_mkdirs
+AC_OUTPUT(buildutils/pbs_mkdirs
 	  buildutils/self-extract-head-sh
 	  buildutils/modulefiles
 	  buildutils/modulefiles.vers
