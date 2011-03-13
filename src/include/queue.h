@@ -139,6 +139,7 @@ enum queueattr
   QE_ATR_KeepCompleted,
   QE_ATR_is_transit,
   QE_ATR_starving_support,
+  QE_ATR_admin_queue,
 
   /* The following attribute apply only to routing queues... */
 
