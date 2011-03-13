@@ -132,4 +132,5 @@ ATTR_rerunnable,
 ATTR_is_transit,
 ATTR_starving_support,
 ATTR_required_property,
+ATTR_admin_queue,
 
