@@ -54,7 +54,7 @@ int check_and_read_config(char *filename, config_line_s **lines,
 
   if (stat(filename, &statbuf))
     {
-    perror(filename);
+/*    perror(filename); */
     *last_line = -1;
     *last_modification = 0;
     return -1;
