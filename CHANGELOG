@@ -16,6 +16,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       file.
   b - Updated torque.spec.in to be able to handle the snapshot 
       names of builds.
+  b - fix pbs_mom -q to work with parallel jobs (backported from 3.0.1)
 
 
 2.4.12
