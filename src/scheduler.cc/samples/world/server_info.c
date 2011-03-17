@@ -650,7 +650,7 @@ void update_node_on_run(node_info *ninfo, job_info *jinfo)
     ninfo->is_free = 0;
     ninfo->is_exclusively_assigned = 0;
     ninfo->is_sharing = 1;
-    ninfo->npfree -= get_req_vps(ninfo->temp_assign);
+    ninfo->npfree -= ninfo->temp_assign->procs;
     }
 
   update_resource_node_use(ninfo);
