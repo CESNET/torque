@@ -12,24 +12,6 @@
 #include "site_pbs_cache.h"
 #include "api.h"
 
-/* get the number of requested virtual cpus */
-int get_req_vps(pars_spec_node *spec)
-  {
-  pars_prop *iter = spec->properties;
-
-  while (iter != NULL)
-    {
-    if ((strcmp(iter->name,"ppn") == 0) && (iter->value != NULL))
-      {
-      return atoi(iter->value);
-      }
-
-    iter = iter->next;
-    }
-
-  return 1;
-  }
-
 enum ResourceCheckMode { MaxOnly, Avail };
 
 static int node_has_enough_np(node_info *ninfo, int ppn, enum ResourceCheckMode mode)
@@ -721,6 +703,7 @@ static char *get_target(node_info *ninfo, int mode)
   int len = 0;
 
   len += strlen(ninfo->name) + 1;
+  len += 50; /* ppn = ... */
 
   iter = ninfo->temp_assign->properties;
 
@@ -750,9 +733,7 @@ static char *get_target(node_info *ninfo, int mode)
 
   iter = ninfo->temp_assign->properties;
   cp = str;
-
-  strcpy(cp,ninfo->name);
-  cp += strlen(ninfo->name);
+  cp += sprintf(str,"%s:ppn=%d",ninfo->name,ninfo->temp_assign->procs);
 
   while (iter != NULL)
     {

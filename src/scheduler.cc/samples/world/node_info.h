@@ -151,7 +151,6 @@ void print_node(node_info *ninfo, int brief);
 char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count);
 void nodes_preassign_clean(node_info **ninfo_arr, int count);
 int nodes_preassign(const char *matching_spec, node_info **ninfo_arr, int count, int needcount);
-int get_req_vps(pars_spec_node *spec);
 
 
 #endif
