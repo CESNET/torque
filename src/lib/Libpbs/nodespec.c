@@ -176,6 +176,7 @@ pars_spec_node *clone_pars_spec_node(pars_spec_node *node)
     return NULL;
 
   result->node_count = node->node_count;
+  result->procs      = node->procs;
   if (node->alternative != NULL)
     result->alternative = strdup(node->alternative);
   if (node->host != NULL)
@@ -520,6 +521,7 @@ int concat_node(pars_spec_node *node, char *buff, int buff_size)
     buff += diff;
     }
 
+#if 0
   if (node->alternative != NULL)
     {
     if ((diff = snprintf(buff,curr_size,":alternative=%s",node->alternative)) >= curr_size)
@@ -527,6 +529,7 @@ int concat_node(pars_spec_node *node, char *buff, int buff_size)
     curr_size -= diff;
     buff += diff;
     }
+#endif
 
   while (prop != NULL)
     {
