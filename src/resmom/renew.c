@@ -440,6 +440,8 @@ do_renewal(krb5_context context, eexec_job_info job_info)
    memset(&sa,0,sizeof(sa));
    sa.sa_handler = register_signal;
    sigaction(SIGTERM, &sa, NULL);
+   sa.sa_handler = SIG_IGN;
+   sigaction(SIGHUP, &sa, NULL);
 
    while (received_signal == -1) {
      krb5_timeofday(context, &now);
