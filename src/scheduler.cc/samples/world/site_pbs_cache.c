@@ -183,7 +183,7 @@ int  alternative_has_property(struct  repository_alternatives *r, char *prop)
     if (c == list || c[-1] == ',')
       {
       cc = c+strlen(prop);
-      if (cc[0] == '\0' || c[0] == ',')
+      if (cc[0] == '\0' || cc[0] == ',')
         return 1;
       }
     list = c+1; /* move one char past the occurence */
