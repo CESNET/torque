@@ -744,63 +744,85 @@ dnl ######################################################################
 dnl GSSAPI/Krb5
 dnl 
 
-GSSAPI_MSG="no"
-AC_ARG_WITH(gssapi,
-        [  --with-gssapi=PATH   Enable GSSAPI/Krb5 support.],
-        [ if test "x$withval" != "xno" ; then
-                buildgssapi=yes
-                if test "x$withval" = "xyes" ; then
-                        GSSAPIROOT="/usr"
-                else
-                        GSSAPIROOT=${withval}
-                fi
+GSSAPIBIN=
+GSSAPILIB=
+GSSAPIINC=
+GSSAPIROOT=
+K5CFLAGS=
+K5LIBS=
 
-                AC_MSG_CHECKING(for krb5-config)
-                if test -x  $GSSAPIROOT/bin/krb5-config ; then
-                        KRB5CONF=$GSSAPIROOT/bin/krb5-config
-                        AC_MSG_RESULT($KRB5CONF)
+AC_ARG_WITH([gssapi_bin], AS_HELP_STRING([--with-gssapi_bin=PATH],[Set GSSAPI/Krb5 binaries path.]),
+[ GSSAPIBIN=$withval ])
 
-                        AC_MSG_CHECKING(for gssapi support)
-                        if $KRB5CONF | grep gssapi >/dev/null ; then
-                                AC_MSG_RESULT(yes)
-                                AC_DEFINE(GSSAPI,1,[Use GSSAPI/Krb5])
-                                GSSAPI_MSG="yes"
-                                k5confopts=gssapi
-                        fi
-                        K5CFLAGS="`$KRB5CONF --cflags $k5confopts`"
-                        K5LIBS="`$KRB5CONF --libs $k5confopts` -lkrb525"
-                        CPPFLAGS="$CPPFLAGS $K5CFLAGS"
-			LDFLAGS="$LDFLAGS -Wl,-R${GSSAPIROOT}/lib $K5LIBS"
-                        AC_MSG_CHECKING(whether we are using Heimdal)
-                        AC_TRY_COMPILE([ #include <krb5.h> ],
-                                       [ const char *tmp = heimdal_version; tmp=NULL;],
-                                       [ AC_MSG_RESULT(yes)
-                                         AC_DEFINE(HEIMDAL,1,[Using Heimdal instead of MIT krb]) ],
-                                         AC_MSG_RESULT(no)
-                        )
-                fi
-                if test ! -z "$need_dash_r" ; then
-                        LDFLAGS="$LDFLAGS -R${GSSAPIROOT}/lib"
-                fi
-                if test ! -z "$blibpath" ; then
-                        blibpath="$blibpath:${GSSAPIROOT}/lib"
-                fi
-        fi
+AC_ARG_WITH([gssapi_lib], AS_HELP_STRING([--with-gssapi_lib=PATH],[Set GSSAPI/Krb5 libraries path.]),
+[
+GSSAPILIB=$withval
+K5LIBS="-Wl,-R${GSSAPILIB} -L$withval -lgssapi -lheimntlm -lkrb5 -lkrb525"
+buildgssapi=yes
+])
 
-        AC_CHECK_HEADERS(gssapi.h gssapi/gssapi.h)
+AC_ARG_WITH([gssapi_inc], AS_HELP_STRING([--with-gssapi_inc=PATH],[Set GSSAPI/Krb5 include path.]),
+[
+GSSAPIINC=$withval
+K5CFLAGS="-I$withval"
+])
 
-        ]
-)
+
+AC_ARG_WITH([gssapi],	AS_HELP_STRING([--with-gssapi=PATH],	[Enable GSSAPI/Krb5 support.]),
+[
+if test "x$withval" != "xno" ; then
+	buildgssapi=yes
+
+    if test "x$withval" = "xyes" ; then
+		GSSAPIROOT="/usr"
+	else
+		GSSAPIROOT=${withval}
+	fi
+
+	GSSAPIBIN=$GSSAPIROOT/bin
+	GSSAPILIB=$GSSAPIROOT/lib
+	GSSAPIINC=$GSSAPIROOT/inc
+
+	AC_MSG_CHECKING(for krb5-config)
+        if test -x $GSSAPIBIN/krb5-config ; then
+		KRB5CONF=$GSSAPIBIN/krb5-config
+		AC_MSG_RESULT($KRB5CONF)
+
+		AC_MSG_CHECKING(for gssapi support)
+		if $KRB5CONF | grep gssapi >/dev/null ; then
+			AC_MSG_RESULT(yes)
+			k5confopts=gssapi
+		fi
+
+		K5CFLAGS="`$KRB5CONF --cflags $k5confopts`"
+		K5LIBS="-Wl,-R${GSSAPILIB} `$KRB5CONF --libs $k5confopts` -lkrb525"
+	fi
+
+fi
+
+
+])
+
 AC_SUBST([K5LIBS])
 AM_CONDITIONAL(INCLUDE_GSSAPI, [test "$buildgssapi" = "yes"])
 
 if test "$buildgssapi" = "yes" ;then
-     AC_PATH_PROGS(KRB5KDESTROY, kdestroy, kdestroy,$PATH:$GSSAPIROOT/bin)
-     AC_PATH_PROGS(KRB5KINIT, kinit, kinit,$PATH:$GSSAPIROOT/bin)
-     AC_PATH_PROGS(AKLOG, afslog, afslog,$PATH:$GSSAPIROOT/bin)
-     AC_DEFINE_UNQUOTED([KRB5_KDESTROY],"${KRB5KDESTROY}",[Path to kdestroy])
-     AC_DEFINE_UNQUOTED([KRB5_KINIT],"${KRB5KINIT}",[Path to kinit])
-     AC_DEFINE_UNQUOTED([AKLOG_PATH],"${AKLOG}",[Path to afslog])
+	AC_CHECK_HEADERS(gssapi.h gssapi/gssapi.h)
+	AC_DEFINE(GSSAPI,1,[Use GSSAPI/Krb5])
+
+	AC_PATH_PROGS(KRB5KDESTROY,	kdestroy,	kdestroy,	$PATH:$GSSAPIBIN)
+	AC_PATH_PROGS(KRB5KINIT,		kinit,		kinit,		$PATH:$GSSAPIBIN)
+	AC_PATH_PROGS(AKLOG,		afslog,		afslog,		$PATH:$GSSAPIBIN)
+
+	AC_DEFINE_UNQUOTED([KRB5_KDESTROY],	"${KRB5KDESTROY}",	[Path to kdestroy])
+	AC_DEFINE_UNQUOTED([KRB5_KINIT],		"${KRB5KINIT}",		[Path to kinit])
+	AC_DEFINE_UNQUOTED([AKLOG_PATH],		"${AKLOG}",		[Path to afslog])
+
+	CPPFLAGS="$CPPFLAGS $K5CFLAGS"
+	LDFLAGS="$LDFLAGS $K5LIBS"
+
+	if test ! -z "$need_dash_r";	then	LDFLAGS="$LDFLAGS -R${GSSAPILIB}";	fi
+	if test ! -z "$blibpath";	then	blibpath="$blibpath:${GSSAPILIB}"; 	fi
 fi
 
 dnl
@@ -1616,7 +1638,7 @@ echo "Tcl: `test "$TCL" = "1" && echo $MY_TCL_INCS $MY_TCL_LIBS || echo disabled
 echo "Tk: `test "$TK" = "1" && echo $MY_TCLTK_INCS $MY_TCLTK_LIBS || echo disabled`"
 echo 
 echo "Metacentrum extensions"
-echo "Kerberos: `test "$buildgssapi" = "yes" && echo $GSSAPIROOT || echo disabled`"
+echo "Kerberos: `test "$buildgssapi" = "yes" && echo "$GSSAPIBIN $GSSAPILIB $GSSAPIINC" || echo disabled`"
 echo "PBS Cache: `test "$PBS_CACHE" != none && echo $PBS_CACHE_INCLUDE $PBS_CACHE_LIB || echo disabled`"
 echo "Torque ports: `test "$TORQUE_PORTS" = "1" && echo using custom torque ports || echo disabled`"
 echo
