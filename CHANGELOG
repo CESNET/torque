@@ -16,6 +16,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       file.
   b - Updated torque.spec.in to be able to handle the snapshot 
       names of builds.
+  b - Merged revisions 4555, 4556 and 4557 from 2.5-fixes branch. This revisions fix problems in
+      High availability mode and also a problem where the MOM was not releasing the lock on 
+      mom.lock on exit.
   b - fix pbs_mom -q to work with parallel jobs (backported from 3.0.1)
 
 
