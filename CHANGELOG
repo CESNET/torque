@@ -28,6 +28,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - Updated torque.spec.in to be able to handle the snapshot 
       names of builds.
   b - fix pbs_mom -q to work with parallel jobs
+  b - Added code to free the mom.lock file during MOM shutdown.
+  b - Added code to free the mom.lock file during MOM shutdown.
 
 
 3.0.0
@@ -95,6 +97,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
         - Reduce the number of unnecessary subpackages by consolidating where
           it makes sense and using existing RPM features (e.g., --excludedocs).
  
+      
+
 2.5.5
   e - make it so that even if an array request has multiple consecutive '%' the slot 
       limit will be set correctly
