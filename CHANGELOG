@@ -20,6 +20,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       High availability mode and also a problem where the MOM was not releasing the lock on 
       mom.lock on exit.
   b - fix pbs_mom -q to work with parallel jobs (backported from 3.0.1)
+  b - fixed a bug in set_resources that prevented the last resource in a list from being
+      checked. As a result the last item in the list would always be added 
+      without regard to previous entries.
+
 
 
 2.4.12
