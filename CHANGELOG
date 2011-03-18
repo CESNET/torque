@@ -30,7 +30,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - fix pbs_mom -q to work with parallel jobs
   b - Added code to free the mom.lock file during MOM shutdown.
   b - Added code to free the mom.lock file during MOM shutdown.
-
+  e - Added new MOM configure option job_starter. This options will execute
+      the script submitted in qsub to the executable or script provided
 
 3.0.0
   e - serverdb is now stored as xml, this is no longer configurable.
