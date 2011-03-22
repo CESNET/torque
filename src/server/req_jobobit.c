@@ -874,7 +874,7 @@ void on_job_exit(
        * job can be restarted from a checkpoint file.
        */
 
-      if (ptask->wt_type != WORK_Deferred_Reply)
+      if (ptask->wt_type != WORK_Deferred_Reply && !is_cloud_job(pjob))
         {
         /* this is the very first call, have mom return the files */
 
@@ -1049,7 +1049,7 @@ void on_job_exit(
 
       IsFaked = 0;
 
-      if (ptask->wt_type != WORK_Deferred_Reply)
+      if (ptask->wt_type != WORK_Deferred_Reply && !is_cloud_job(pjob))
         {
         /* this is the very first call, have mom copy files */
         /* first check the standard files: output & error   */
