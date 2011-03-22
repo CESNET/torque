@@ -517,7 +517,7 @@ static void post_stagein(
 
   free(preq->rq_extra);
 
-  if (pjob != NULL)
+  if (pjob != NULL && pjob->ji_qs.ji_state != JOB_STATE_COMPLETE)
     {
     if (code != 0)
       {
