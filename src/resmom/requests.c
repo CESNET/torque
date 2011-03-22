@@ -3420,7 +3420,9 @@ void req_cpyfile(
         }
       }
 
+#ifdef GSSAPI
     setenv("KRB5CCNAME",ticket.job_info->ccache_name,1);
+#endif
     }
   else
     {
