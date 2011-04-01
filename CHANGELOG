@@ -35,6 +35,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - fixed a bug in set_resources that prevented the last resource in a list from being
       checked. As a result the last item in the list would always be added
       without regard to previous entries.
+  e - altered the prologue/epilogue code to allow root squashing
+  f - added the mom config parameter $reduce_prolog_checks. This makes it so TORQUE only checks
+      to verify that the file is a regular file and is executable.
 
 3.0.0
   e - serverdb is now stored as xml, this is no longer configurable.
