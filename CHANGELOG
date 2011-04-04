@@ -38,6 +38,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - altered the prologue/epilogue code to allow root squashing
   f - added the mom config parameter $reduce_prolog_checks. This makes it so TORQUE only checks
       to verify that the file is a regular file and is executable.
+  e - allow more than 5 concurrent connections to TORQUE using pbsD_connect. Increase it to 10
 
 3.0.0
   e - serverdb is now stored as xml, this is no longer configurable.
