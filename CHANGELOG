@@ -23,6 +23,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - fixed a bug in set_resources that prevented the last resource in a list from being
       checked. As a result the last item in the list would always be added 
       without regard to previous entries.
+  e - allow more than 5 concurrent connections to TORQUE using pbsD_connect. Increase it to 10
+      (backported from 3.0.1)
 
 
 
