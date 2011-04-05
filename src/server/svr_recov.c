@@ -343,7 +343,7 @@ int attr_to_str(
   int               XML)    /* I */
 
   {
-  int rc;
+  int rc = 0;
 
   if ((attr.at_flags & ATR_VFLAG_SET) == FALSE)
     return(NO_ATTR_DATA);
