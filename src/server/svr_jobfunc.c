@@ -692,7 +692,8 @@ void svr_evaljobstate(
   {
   if ((forceeval == 0) &&
       ((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) ||
-       (pjob->ji_qs.ji_state == JOB_STATE_TRANSIT)))
+       (pjob->ji_qs.ji_state == JOB_STATE_TRANSIT) ||
+       (pjob->ji_qs.ji_state == JOB_STATE_COMPLETE)))
     {
     *newstate = pjob->ji_qs.ji_state; /* leave as is */
     *newsub   = pjob->ji_qs.ji_substate;

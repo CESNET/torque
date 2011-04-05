@@ -16,7 +16,7 @@
 #include <kafs.h>
 #include <krb525.h>
 #include <krb525_convert.h>
-
+#include <krb5-protos.h>
 
 #include "libpbs.h"
 #include "portability.h"
