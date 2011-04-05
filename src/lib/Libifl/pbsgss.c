@@ -71,6 +71,7 @@
 #include <stdlib.h>
 
 #include <krb5.h>
+#include <gssapi/gssapi_krb5.h>
 
 #ifdef HAVE_AFS_PARAM_H
 #include <afs/param.h>
