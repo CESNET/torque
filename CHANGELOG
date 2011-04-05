@@ -25,10 +25,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - allow apostrophes in Mail_Users attributes, as apostrophes are rare but legal email
       characters 
   b - restored functionality for -W umask as reported in bugzilla 115
-  b - Updated torque.spec.in to be able to handle the snapshot 
-      names of builds.
+  b - Updated torque.spec.in to be able to handle the snapshot names of builds.
   b - fix pbs_mom -q to work with parallel jobs
-  b - Added code to free the mom.lock file during MOM shutdown.
   b - Added code to free the mom.lock file during MOM shutdown.
   e - Added new MOM configure option job_starter. This options will execute
       the script submitted in qsub to the executable or script provided
