@@ -13,13 +13,16 @@ int main(int argc,char **argv)
 
   if (argc!=4) {
       printf("bad number of parameters\n%s\n",
-	     "delete_cache server hostname metric");
+	     "delete_cache server|local hostname metric");
       return 1;
   }
 
-  net_proto(NPROTO_AUTO);
-
-  stream=cache_connect_net(argv[1],PBS_CACHE_PORT);
+  if (strcmp(argv[1],"local")==0) {
+      stream=cache_connect_local();
+  } else { 
+      net_proto(NPROTO_AUTO); 
+      stream=cache_connect_net(argv[1],PBS_CACHE_PORT);
+  }
   if (stream!=NULL) {
       ret=cache_remove(stream,argv[2],argv[3]);
       if (ret)
