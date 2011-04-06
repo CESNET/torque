@@ -298,8 +298,8 @@ hnodent *get_node(
  *   JOB_SUBSTATE_OBIT (58) - preobit_reply()
  */
 
-void
-scan_for_exiting(void)
+void scan_for_exiting(void)
+
   {
   char         *id = "scan_for_exiting";
 

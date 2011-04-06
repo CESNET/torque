@@ -49,8 +49,6 @@ fi
 AC_SUBST(program_prefix)
 AC_SUBST(program_suffix)
 
-RPM_AC_OPTS=""
-
 dnl  Instead of putting a long list of defines on the command line
 dnl  for each compile, use a file called "pbs_config.h" that will
 dnl  be created in the include directory.
