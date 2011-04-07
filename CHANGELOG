@@ -25,8 +25,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       without regard to previous entries.
   e - allow more than 5 concurrent connections to TORQUE using pbsD_connect. Increase it to 10
       (backported from 3.0.1)
-
-
+  b - fix a segfault when receiving an obit for a job that no longer exists (backported from 3.0.1)
 
 2.4.12
   b - Bugzilla bug 84. Security bug on the way checkpoint is being handled.

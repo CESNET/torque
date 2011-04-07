@@ -744,9 +744,7 @@ void on_job_exit(
   {
   int    handle = -1;
   job   *pjob;
-#ifdef VNODETESTING
   job   *pj;
-#endif
 
   struct batch_request *preq;
 
@@ -776,9 +774,7 @@ void on_job_exit(
     pjob = (job *)preq->rq_extra;
     }
 
-#ifdef VNODETESTING
-  /* FIXME: there might be a race with calling on_job_exit after a job has
-   * already been free'd.  This is temp code */
+  /* make sure the job is actually still there */
 
   pj = (job *)GET_NEXT(svr_alljobs);
 
@@ -790,30 +786,13 @@ void on_job_exit(
     pj = (job *)GET_NEXT(pj->ji_alljobs);
     }
 
+  /* if the job doesn't exist, just exit */
   if (pj == NULL)
     {
-    sprintf(log_buffer, "%s called with INVALID pjob: %p",
-      id,
-      pjob);
+    log_event(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"NULL","processing exit for a non-existent job. Skiping");
+
+    return;
     }
-  else
-    {
-    sprintf(log_buffer, "%s valid pjob: %p (substate=%d)",
-      id,
-      pjob,
-      pjob->ji_qs.ji_substate);
-    }
-
-  log_event(
-
-    PBSEVENT_JOB,
-    PBS_EVENTCLASS_JOB,
-    pjob->ji_qs.ji_jobid,
-    log_buffer);
-
-  DBPRT(("%s\n",
-         log_buffer));
-#endif /* END VNODETESTING */
 
   /*
    * we don't need a handle if we are complete. On starting up we will NOT have
