@@ -338,6 +338,88 @@ fi
 
 dnl
 
+
+dnl compile for NUMA systems - allows the site to configure:
+dnl 1. cpusets and multi-moms
+dnl 2. memory fences to only access close memory
+dnl
+dnl --enable-numa-support
+AC_ARG_ENABLE(numa_support, [
+  --enable-numa-support   Specifies that the mom report itself as several numa nodes instead of one node, while adding numa reporting and numa cpusets, which include memory fencing])
+if test "x$GCC" = "xyes" ;then
+  AC_MSG_CHECKING([whether to support NUMA systems])
+  if test "${enable_numa_support}" = "yes" ; then
+    AC_MSG_RESULT([yes])
+    build_l26_cpuset=yes
+dnl    cpuset=1
+    AC_DEFINE(PENABLE_LINUX26_CPUSETS, 1, [Define to enable Linux 2.6 cpusets])
+    CFLAGS="$CFLAGS -DNUMA_SUPPORT"
+  else
+    AC_MSG_RESULT([no])
+  fi
+fi
+
+
+
+
+dnl enable pbs_mom to use the cpuset API from libcpuset
+dnl makes only sense with --enable-numa-support
+AC_ARG_ENABLE(libcpuset, [  --enable-libcpuset      Allows pbs_mom to use the cpuset API from libcpuset])
+if test "x$GCC" = "xyes"; then
+AC_MSG_CHECKING([whether to enable libcpuset support])
+  if test "${enable_libcpuset}" = "yes" ; then
+    if test "$build_l26_cpuset" = "yes" ;then
+      build_l26_cpuset=yes
+      AC_DEFINE([USELIBCPUSET], 1, [Define to enable libcpuset support])
+      AC_CHECK_LIB([cpuset],[cpuset_version],
+          [MOMLIBS="$MOMLIBS -lcpuset"],
+          [AC_MSG_ERROR([--enable-libcpuset requires libcpuset support]) ])
+    else
+      AC_MSG_RESULT([no because we are not using cpusets])
+    fi
+  else
+    AC_MSG_RESULT([no])
+  fi
+fi
+
+
+
+
+dnl enable pbs_mom to query SGI memacctd to get rss values that are more reliable
+dnl
+dnl --enable-memacct
+AC_MSG_CHECKING([whether to enable memacct support])
+AC_ARG_ENABLE(memacct, [
+  --enable-memacct       Allows pbs_mom to query SGI memacctd in order to better monitor job memory consumption],
+    MEMACCT=$enableval,MEMACCT=no)
+AC_MSG_RESULT($MEMACCT)
+
+case "$MEMACCT" in
+  yes) AC_DEFINE([USELIBMEMACCT], 1, [Define to enable memacct support])
+      AC_CHECK_LIB([memacct],[get_weighted_memory_size],
+        [MOMLIBS="$MOMLIBS -lmemacct"],
+        [AC_MSG_ERROR([--enable-memacct requires libmemacct support]) ])
+      ;;
+  no) : ;;
+  *) AC_MSG_ERROR([--enable-memacct should be yes or no]) ;;
+esac
+
+dnl fixes errors relating to unaligned memory accesses
+dnl some systems experience these errors
+dnl 
+dnl --enable-align-memory
+AC_ARG_ENABLE(align_memory, [
+  --enable-align-memory  Change compile flags to get rid of unaligned memory access errors])
+if test "x$GCC" = "xyes" ;then
+  AC_MSG_CHECKING([whether add memory alignment flags])
+  if test "${enable_align_memory}" = "yes" ; then
+    AC_MSG_RESULT([yes])
+    CFLAGS="$CFLAGS -fstack-protector -Wformat -Wformat-security -DFORTIFY_SOURCE=2"
+  else
+    AC_MSG_RESULT([no])
+  fi
+fi
+
 dnl If hpux and gcc, force the XOPEN interface.
 AC_MSG_CHECKING([whether to force XOPEN networking stack])
 AC_ARG_ENABLE(xopen_networking, [
