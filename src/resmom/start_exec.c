@@ -530,6 +530,7 @@ struct passwd *check_pwd(
  */
 
 void exec_bail(
+
   job *pjob,	/* I */
   int  code)	/* I */
 
@@ -542,14 +543,14 @@ void exec_bail(
   nodecount = send_sisters(pjob, IM_ABORT_JOB);
   
   if (nodecount != pjob->ji_numnodes - 1)
-	{
-	sprintf(log_buffer, "%s: sent %d ABORT requests, should be %d",
-					id,
-					nodecount,
-					pjob->ji_numnodes - 1);
-	
-	log_err(-1, id, log_buffer);
-	}
+    {
+    sprintf(log_buffer, "%s: sent %d ABORT requests, should be %d",
+      id,
+      nodecount,
+      pjob->ji_numnodes - 1);
+    
+    log_err(-1, id, log_buffer);
+    }
   
   /* inform non-MS nodes that job is aborting */
   
@@ -1402,6 +1403,7 @@ int InitUserEnv(
  * @see TMomFinalizeChild
  */
 int mom_jobstarter_execute_job(job *pjob, char *shell, char *arg[], struct var_table *vtable)
+
   {
   static char          *id = "mom_jobstarter_execute_job";
 
