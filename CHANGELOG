@@ -107,6 +107,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
         - Basic working configuration automatically generated at install-time
         - Reduce the number of unnecessary subpackages by consolidating where
           it makes sense and using existing RPM features (e.g., --excludedocs).
+  c - fix a segfault when queue has acl_group_enable and acl_group_sloppy set
+      true and no acl_groups are defined.
  
 2.5.6
   b - Made changes to record_jobinfo and supporting functions to be
