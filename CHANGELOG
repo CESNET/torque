@@ -29,6 +29,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - Fixed a problem with minimum sizes in queues. Minimum sizes were not getting enforced because
       the logic checking the queue against the user request used and && when it need a || in the 
       comparison.
+  c - fix a segfault when queue has acl_group_enable and acl_group_sloppy set
+      true and no acl_groups are defined. (backported from 3.0.1)
 
 2.4.12
   b - Bugzilla bug 84. Security bug on the way checkpoint is being handled.
