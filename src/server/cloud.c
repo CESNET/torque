@@ -138,9 +138,9 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
   job_attr_def[(int)JOB_ATR_cloud_mapping].at_decode(&pjob->ji_wattr[(int)JOB_ATR_cloud_mapping],
                                                       (char *)0, (char *)0, mapping);
 
-  sprintf(log_buffer,"Source: %s Target: %s",nodespec,concat_nodespec(ps,1));
+  sprintf(log_buffer,"Source: %s Target: %s",nodespec,concat_nodespec(ps,1,NULL));
   log_record(PBSEVENT_SCHED,PBS_EVENTCLASS_REQUEST,"switch_nodespec_to_cloud",log_buffer);
-  return concat_nodespec(ps,1); /* FIXME META needs fortification and fix of memory leak */
+  return concat_nodespec(ps,1,NULL); /* FIXME META needs fortification and fix of memory leak */
   }
 
 extern int check_and_read_config(char *filename,config_line_s **lines,time_t *last_modification,int *last_line);
