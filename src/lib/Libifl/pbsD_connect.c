@@ -760,6 +760,9 @@ int pbs_original_connect(
       return(-1);
       }
 
+    /* connection succeeded re-mark as used */
+    connection[out].ch_inuse = 1;
+
     server_addr.sin_family = AF_INET;
 
     hp = NULL;
