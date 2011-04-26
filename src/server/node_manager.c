@@ -5286,7 +5286,7 @@ static void set_one_old(
       {
       /* Mark node as being IN USE ...  */
 
-      pnode->nd_exclusive = exclusivity;
+      pnode->nd_exclusive = !!exclusivity; /* make sure that 2 is interpeted as true */
 
       if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
           || pnode->nd_ntype == NTYPE_CLOUD)
