@@ -1029,6 +1029,21 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg)
         sprintf(log_msg, INFO_CLUSTER_PERMISSIONS);
         break;
 
+      case INSUFICIENT_SERVER_RESOURCE:
+        strcpy(comment_msg, COMMENT_INSUFICIENT_SERVER_RESOURCE);
+        sprintf(log_msg, INFO_INSUFICIENT_SERVER_RESOURCE);
+        break;
+
+      case INSUFICIENT_QUEUE_RESOURCE:
+        strcpy(comment_msg, COMMENT_INSUFICIENT_QUEUE_RESOURCE);
+        sprintf(log_msg, INFO_INSUFICIENT_QUEUE_RESOURCE);
+        break;
+
+      case INSUFICIENT_DYNAMIC_RESOURCE:
+        strcpy(comment_msg, COMMENT_INSUFICIENT_DYNAMIC_RESOURCE);
+        sprintf(log_msg, INFO_INSUFICIENT_DYNAMIC_RESOURCE);
+        break;
+
       default:
         rc = 0;
         comment_msg[0] = '\0';

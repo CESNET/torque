@@ -269,7 +269,6 @@ void toolong(
 
   log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id,
              "scheduling iteration took too long");
-  DBPRT(("scheduling iteration too long\n"))
 
   if (connector >= 0 && server_disconnect(connector))
     log_err(errno, id, "server_disconnect");

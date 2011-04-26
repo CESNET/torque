@@ -525,8 +525,6 @@ int scheduling_cycle(
   /* create the server / queue / job / node structures */
   if ((sinfo = query_server(sd)) == NULL)
     {
-    fprintf(stderr, "Problem with creating server data strucutre\n");
-
     return(0);
     }
 
@@ -804,7 +802,8 @@ int run_update_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
   int ret;    /* return code from pbs_runjob() */
   node_info *best_node = NULL;  /* best node to run job on */
   char *best_node_name = NULL;  /* name of best node */
-  char buf[256] = {'\0'};  /* generic buffer - comments & logging*/
+#define BUF_SIZE 2*1024
+  char buf[BUF_SIZE] = {'\0'};  /* generic buffer - comments & logging*/
   char timebuf[128];   /* buffer to hold the time and date */
   resource_req *res;   /* ptr to the resource of ncpus */
   int ncpus;    /* numeric amount of resource ncpus */
@@ -819,7 +818,7 @@ int run_update_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
     if (best_node != NULL)
       {
       best_node_name = strdup(best_node -> name);
-      sprintf(buf, "Job run on node %s - %s", best_node_name, timebuf);
+      snprintf(buf, BUF_SIZE, "Job run on node %s - %s", best_node_name, timebuf);
       }
     }
 
@@ -827,10 +826,8 @@ int run_update_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
   if (best_node_name == NULL)
     best_node_name = nodes_preassign_string(jinfo, sinfo->nodes, sinfo->num_nodes);
 
-  printf("Target nodes are: %s\n",best_node_name);
-
   if (best_node == NULL)
-    sprintf(buf, "Job %s", timebuf);
+    snprintf(buf, BUF_SIZE, "Job %s", timebuf);
 
   update_job_comment(pbs_sd, jinfo, buf);
 
@@ -880,7 +877,7 @@ int run_update_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
   else
     {
     errmsg = pbs_geterrmsg(pbs_sd);
-    sprintf(buf, "Not Running - PBS Error: %s", errmsg);
+    snprintf(buf, BUF_SIZE, "Not Running - PBS Error: %s", errmsg);
     update_job_comment(pbs_sd, jinfo, buf);
     }
 

@@ -104,7 +104,15 @@ const struct rescheck res_to_check[] = {
   { "cput",  "Not Running: The job time requirement is over the max time limit", "The job time requirement is over the max time limit", ResCheckStat },
   { "scratch", "Not Running: Not enough scratch space available", "Not enough scratch space available", ResCheckCache },
   { "machine_cluster", " ", " ", ResCheckCache },
-  { "magrathea", " ", " ", ResCheckCache }
+  { "magrathea", " ", " ", ResCheckCache },
+  { "matlab", " ", " ", ResCheckDynamic },
+  { "fluent", " ", " ", ResCheckDynamic },
+  { "ansys", " ", " ", ResCheckDynamic },
+  { "marc", " ", " ", ResCheckDynamic },
+  { "marcn", " ", " ", ResCheckDynamic },
+  { "maple10", " ", " ", ResCheckDynamic },
+  { "maple10p", " ", " ", ResCheckDynamic },
+  { "maple11", " ", " ", ResCheckDynamic },
   };
 
 /*
