@@ -99,3 +99,9 @@ endif
 todo:
 	 grep -h TODO *c *h |sed 's/.*TODO//' |sort -r >TODO
 
+install: pbs_cache update_cache delete_cache list_cache list_client libpbscache.a libpbscache.so
+	install -m 0644 libpbscache.* $(DESTDIR)/usr/lib
+	install -m 0644 api.h $(DESTDIR)/usr/include/pbs_cache_api.h
+	install -m 0744 *_cache $(DESTDIR)/usr/sbin
+
+.PHONY: install
