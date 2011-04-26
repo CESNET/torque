@@ -344,7 +344,9 @@ node_info *new_node_info()
 
   new -> is_bootable = 0;
 
-  new -> is_exclusively_assigned  = 0;
+  new->is_exclusively_assigned  = 0;
+  new->is_usable_for_boot = 1;
+  new->is_usable_for_run  = 1;
 
   return new;
   }

@@ -115,7 +115,6 @@ prev_job_info *create_prev_job_info(job_info **jinfo_arr, int size)
 
   if ((new = (prev_job_info *) malloc(sizeof(prev_job_info)  * local_size)) == NULL)
     {
-    fprintf(stderr, "Error allocating memory\n");
     return NULL;
     }
 

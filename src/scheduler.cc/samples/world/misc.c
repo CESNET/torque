@@ -92,8 +92,9 @@
 #include "fairshare.h"
 #include "api.h"
 #include "utility.h"
-#include "site_pbs_cache.h"
+#include "site_pbs_cache_scheduler.h"
 #include "assertions.h"
+#include "node_info.h"
 #include <stdarg.h>
 
 /*
@@ -465,6 +466,38 @@ void query_external_cache(server_info *sinfo)
       }
     }
   cache_hash_destroy(ptable);
+
+  /* read server dynamic resources */
+  ptable=cache_hash_init();
+  if (cache_hash_fill_local("dynamic_resources",ptable)==0)
+    for( j = 0; j < num_res; j++ )
+      {
+      if (res_to_check[j].source == ResCheckDynamic)
+        {
+        value=cache_hash_find(ptable,res_to_check[j].name);
+        if (value != NULL)
+          {
+          res = find_alloc_resource( sinfo->dyn_res, res_to_check[j].name );
+          if (sinfo->dyn_res == NULL)
+            sinfo->dyn_res = res;
+          if (res != NULL)
+            {
+            res->avail = res_to_num(value);
+            if (res->str_avail != NULL)
+              free(res->str_avail);
+            res->str_avail = value;
+            }
+          }
+        }
+      }
+  cache_hash_destroy(ptable);
+
+  /* decode magrathea status */
+  for (i=0; i<sinfo->num_nodes; i++)
+    {
+    node=sinfo->nodes[i];
+    node_set_magrathea_status(node);
+    }
 
   return;
   }

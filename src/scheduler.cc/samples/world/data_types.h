@@ -85,6 +85,7 @@
 #include "constant.h"
 #include "config.h"
 #include "nodespec.h"
+#include "site_pbs_cache.h"
 
 struct server_info;
 
@@ -136,6 +137,23 @@ typedef RESOURCE_TYPE sch_resource_t;
 /* since resource values and usage values are linked */
 typedef sch_resource_t usage_t;
 
+typedef enum {
+  MagratheaStateNone,
+  MagratheaStateRemoved,
+  MagratheaStateDown,
+  MagratheaStateDownBootable,
+  MagratheaStateBooting,
+  MagratheaStateFree,
+  MagratheaStateOccupiedWouldPreempt,
+  MagratheaStateOccupied,
+  MagratheaStateRunningPreemptible,
+  MagratheaStateRunning,
+  MagratheaStateRunningCluster,
+  MagratheaStatePreempted,
+  MagratheaStateFrozen
+} MagratheaState;
+
+
 struct token
   {
   char* identifier;             /* Token identifier */
@@ -161,6 +179,7 @@ struct server_info
   char *name;   /* name of server */
 
   struct resource *res;  /* list of resources */
+  struct resource *dyn_res; /* list of dynamic resources */
   char *default_queue;  /* the default queue atribute of the server */
   int max_run;   /* max jobs that can be run at one time */
   int max_user_run;  /* max jobs a user can run at one time */
@@ -330,6 +349,9 @@ unsigned is_bootable:
 unsigned is_exclusively_assigned :
   1;
 
+unsigned is_usable_for_run  : 1; /* node is usable for running jobs */
+unsigned is_usable_for_boot : 1; /* node is usable for booting jobs */
+
   node_type type; /**<type of the node (cluster,timeshared,virtual,cloud) */
 
   char *name;   /* name of the node */
@@ -359,6 +381,7 @@ unsigned is_exclusively_assigned :
 
   char *cluster_name;
 
+  MagratheaState magrathea_status;
   struct repository_alternatives ** alternatives;
 
   pars_spec_node *temp_assign; /**< Temporary job assignment */
@@ -604,7 +627,7 @@ unsigned is_ded_time:
   };
 
 /** resources check mode */
-typedef enum { ResCheckNone, ResCheckStat, ResCheckCache, ResCheckBoth } reschecksource;
+typedef enum { ResCheckNone, ResCheckStat, ResCheckCache, ResCheckBoth, ResCheckDynamic } reschecksource;
 
 /* static data types */
 struct rescheck
