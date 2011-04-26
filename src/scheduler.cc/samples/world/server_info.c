@@ -93,6 +93,7 @@
 #include "globals.h"
 #include "utility.h"
 #include "site_pbs_cache.h"
+#include "nodespec_sch.h"
 #include "sort.h"
 
 /*
@@ -378,6 +379,7 @@ void free_server_info(server_info *sinfo)
     free(sinfo -> timesharing_nodes);
 
   free_resource_list(sinfo -> res);
+  free_resource_list(sinfo -> dyn_res);
 
   free(sinfo);
   }
@@ -440,6 +442,8 @@ server_info *new_server_info()
   sinfo -> name = NULL;
 
   sinfo -> res = NULL;
+
+  sinfo -> dyn_res = NULL;
 
   sinfo -> default_queue = NULL;
 
@@ -610,18 +614,11 @@ void update_resource_node_use(node_info *ninfo)
 
   while (iter != NULL)
     {
-    int i;
 
     if (iter->value == NULL)
       { iter = iter->next; continue; }
 
-    for (i = 0; i < num_res; i++)
-      {
-      if (strcmp(iter->name,res_to_check[i].name) == 0)
-        break;
-      }
-
-    if (i != num_res)
+    if (res_check_type(iter->name) != ResCheckNone)
       {
       res = find_resource(ninfo->res,iter->name);
       if (res != NULL)
@@ -677,6 +674,7 @@ void update_server_on_run(server_info *sinfo, queue_info *qinfo, job_info *jinfo
   sinfo -> sc.running++;
   sinfo -> sc.queued--;
 
+  /* count total used resources */
   resreq = jinfo -> resreq;
 
   while (resreq != NULL)
@@ -685,6 +683,19 @@ void update_server_on_run(server_info *sinfo, queue_info *qinfo, job_info *jinfo
 
     if (res)
       res -> assigned += resreq -> amount;
+
+    resreq = resreq -> next;
+    }
+
+  /* count dynamic resources */
+  resreq = jinfo -> resreq;
+
+  while (resreq != NULL)
+    {
+    res = find_resource(sinfo -> dyn_res, resreq -> name);
+
+    if (res)
+      res -> avail -= resreq -> amount;
 
     resreq = resreq -> next;
     }

@@ -103,7 +103,7 @@ int check_queue_remote_local(queue_info *qinfo);
 int check_node_availability(job_info *jinfo, node_info **ninfo_arr);
 int check_starvation(job_info *jinfo);
 int check_ded_time_boundry(job_info *jinfo);
-int check_nodespec(job_info *jinfo, int nodecount, node_info **ninfo_arr, int preassign_starving);
+int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info **ninfo_arr, int preassign_starving);
 
 
 
@@ -201,20 +201,23 @@ int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
 
   if ((jinfo->queue->excl_node_count != 0) || (jinfo->queue->excl_nodes_only != 0))
     {
-    if ((rc = check_nodespec(jinfo, jinfo->queue->excl_node_count, jinfo->queue->excl_nodes, preassign_starving)) != SUCCESS)
+    if ((rc = check_nodespec(sinfo, jinfo, jinfo->queue->excl_node_count, jinfo->queue->excl_nodes, preassign_starving)) != SUCCESS)
       return rc;
     }
   else
     {
-    if ((rc = check_nodespec(jinfo, sinfo->num_nodes, sinfo->nodes, preassign_starving)) != SUCCESS)
+    if ((rc = check_nodespec(sinfo, jinfo, sinfo->num_nodes, sinfo->nodes, preassign_starving)) != SUCCESS)
       return rc;
     }
 
   if ((rc = check_avail_resources(qinfo -> qres, jinfo)) != SUCCESS)
-    return rc;
+    return INSUFICIENT_QUEUE_RESOURCE;
 
   if ((rc = check_avail_resources(sinfo -> res, jinfo)) != SUCCESS)
-    return rc;
+    return INSUFICIENT_SERVER_RESOURCE;
+
+  if ((rc = check_dynamic_resources(sinfo -> dyn_res, jinfo)) != SUCCESS)
+    return INSUFICIENT_DYNAMIC_RESOURCE;
 
   if ((rc = check_token_utilization(sinfo, jinfo)) != SUCCESS)
     return rc;
@@ -328,6 +331,44 @@ int check_server_max_group_run(server_info *sinfo, char *group)
     return 0;
 
   return SERVER_GROUP_LIMIT_REACHED;
+  }
+
+
+/** check_dynamic_resources - check if there are enough dynamic resources to run a job on the server
+ *
+ * - only checks for dynamic resources \c ResCheckDynamic
+ * - if a dynamic resource is not present, it is considered to have a 0 value
+ *
+ * @param reslist Resources provider (server, queue)
+ * @param jinfo   Job with resource requests
+ * @return SUCCESS if met, failure otherwise
+ */
+int check_dynamic_resources(resource *reslist, job_info *jinfo)
+  {
+  resource_req *resreq;
+  resource     *res;
+  int i;
+
+  for (i = 0; i < num_res; i++)
+    {
+    /* skip non-dynamic resource */
+    if (res_to_check[i].source != ResCheckDynamic)
+      continue;
+
+    /* no request for this resource */
+    if ((resreq = find_resource_req(jinfo -> resreq, res_to_check[i].name)) == NULL)
+      continue;
+
+    /* there is a request, but the resource is not present at all */
+    if ((res = find_resource(reslist, res_to_check[i].name)) == NULL)
+      return INSUFICIENT_DYNAMIC_RESOURCE;
+
+    /* not enough of this resource */
+    if (res->avail < resreq->amount)
+      return INSUFICIENT_DYNAMIC_RESOURCE;
+    }
+
+  return SUCCESS;
   }
 
 /*

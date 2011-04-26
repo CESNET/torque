@@ -16,6 +16,59 @@
 #include "site_pbs_cache.h"
 #include "log.h"
 
+/* New magrathea decode */
+int magrathea_decode_new(resource *res, MagratheaState *state)
+  {
+  char *s, *c;
+
+  if (state != NULL)
+    *state = MagratheaStateNone;
+
+  if (res == NULL || res->str_avail == NULL)
+    return -1;
+
+  if ((s = strdup(res->str_avail)) == NULL)
+    return -1;
+  if ((c = strpbrk(s,":;")) != NULL)
+    *c = '\0';
+
+  if (state == NULL)
+    goto done;
+
+  if (strcmp(s,"removed") == 0)
+    *state = MagratheaStateRemoved;
+  else if (strcmp(s,"down") == 0)
+    *state = MagratheaStateDown;
+  else if (strcmp(s,"down-bootable") == 0)
+    *state = MagratheaStateDownBootable;
+  else if (strcmp(s,"booting") == 0)
+    *state = MagratheaStateBooting;
+  else if (strcmp(s,"free") == 0)
+    *state = MagratheaStateFree;
+  else if (strcmp(s,"occupied-would-preempt") == 0)
+    *state = MagratheaStateOccupiedWouldPreempt;
+  else if (strcmp(s,"occupied") == 0)
+    *state = MagratheaStateOccupied;
+  else if (strcmp(s,"running-preemptible") == 0)
+    *state = MagratheaStateRunningPreemptible;
+  else if (strcmp(s,"running") == 0)
+    *state = MagratheaStateRunning;
+  else if (strcmp(s,"runnig-cluster") == 0)
+    *state = MagratheaStateRunningCluster;
+  else if (strcmp(s,"preempted") == 0)
+    *state = MagratheaStatePreempted;
+  else if (strcmp(s,"frozen") == 0)
+    *state = MagratheaStateFrozen;
+  else
+    {
+    free(s);
+    return -1; /* unknown state */
+    }
+
+done:
+  free(s);
+  return 0;
+  }
 
 
 /* 

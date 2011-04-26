@@ -9,8 +9,123 @@
 #include <string.h>
 #include <ctype.h>
 #include <assertions.h>
-#include "site_pbs_cache.h"
+#include "site_pbs_cache_scheduler.h"
 #include "api.h"
+
+reschecksource res_check_type(const char * res_name)
+  {
+  int i;
+  for (i = 0; i < num_res; i++)
+    {
+    if (strcmp(res_name,res_to_check[i].name) == 0)
+      return res_to_check[i].source;
+    }
+
+  return ResCheckNone;
+  }
+
+static int node_is_suitable_for_run(node_info *ninfo)
+  {
+  if (!ninfo->is_usable_for_run)
+    return 0;
+
+  if (ninfo->type == NodeTimeshared || ninfo->type == NodeCloud)
+    {
+    ninfo->is_usable_for_run = 0;
+    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
+              "Node marked as incapable of running jobs, because Timesharing or Cloud.");
+    return 0;
+    }
+
+  if (ninfo->type == NodeVirtual)
+    {
+    switch (ninfo->magrathea_status)
+      {
+      case MagratheaStateBooting:
+      case MagratheaStateFree:
+      case MagratheaStateOccupiedWouldPreempt:
+      case MagratheaStateRunning:
+      case MagratheaStateRunningPreemptible:
+      case MagratheaStateRunningCluster:
+        break;
+
+      case MagratheaStateNone:
+      case MagratheaStateDown:
+      case MagratheaStateDownBootable:
+      case MagratheaStateFrozen:
+      case MagratheaStateOccupied:
+      case MagratheaStatePreempted:
+      case MagratheaStateRemoved:
+        ninfo->is_usable_for_run = 0;
+        sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
+                  "Node marked as incapable of running jobs, because it has bad Magrathea state.");
+        return 0;
+      }
+    }
+
+  if (ninfo->type == NodeCluster)
+    {
+    if (ninfo->is_offline || ninfo->is_down || ninfo->is_unknown)
+      {
+      ninfo->is_usable_for_run = 0;
+      sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
+                "Node marked as incapable of running jobs, because it has wrong state.");
+      return 0;
+      }
+    }
+
+  return 1;
+  }
+
+static int node_is_suitable_for_boot(node_info *ninfo)
+  {
+  if (!ninfo->is_usable_for_boot)
+    return 0;
+
+  if (ninfo->type == NodeTimeshared || ninfo->type == NodeCloud || ninfo->type == NodeCluster)
+    {
+    ninfo->is_usable_for_boot = 0;
+    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
+              "Node marked as incapable of booting jobs, because Timesharing or Cloud or Cluster.");
+    return 0;
+    }
+
+  if (ninfo->type == NodeVirtual)
+    {
+    switch (ninfo->magrathea_status)
+      {
+      case MagratheaStateDownBootable:
+        break;
+
+      case MagratheaStateBooting:
+      case MagratheaStateFree:
+      case MagratheaStateOccupiedWouldPreempt:
+      case MagratheaStateRunning:
+      case MagratheaStateRunningPreemptible:
+      case MagratheaStateRunningCluster:
+      case MagratheaStateNone:
+      case MagratheaStateDown:
+      case MagratheaStateFrozen:
+      case MagratheaStateOccupied:
+      case MagratheaStatePreempted:
+      case MagratheaStateRemoved:
+        ninfo->is_usable_for_run = 0;
+        sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
+                  "Node marked as incapable of booting jobs, because it has bad Magrathea state.");
+        return 0;
+      }
+    }
+
+  if (ninfo->alternatives == NULL || ninfo->alternatives[0] == NULL)
+    {
+    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
+              "Node marked as incapable of booting jobs, because it doesn't have alternatives.");
+    return 0; 
+    }
+
+  return 1;
+  }
+
 
 enum ResourceCheckMode { MaxOnly, Avail };
 
@@ -36,19 +151,10 @@ static int node_has_enough_resource(node_info *ninfo, char *name, char *value,
     enum ResourceCheckMode mode)
   {
   struct resource *res;
-  int i;
   long amount = 0;
 
-  for (i = 0; i < num_res; i++)
-    {
-    if (strcmp(name,res_to_check[i].name) == 0)
-      break;
-    }
-
-  if (i == num_res) /* not checking this resource */
-    {
+  if (res_check_type(name) == ResCheckNone) /* not checking this resource */
     return 1;
-    }
 
   if ((res = find_resource(ninfo->res, name)) == NULL)
     return 0;
@@ -188,21 +294,14 @@ int get_node_has_property(node_info *ninfo, const char* property)
     else /* generic resource */
       {
       struct resource *res;
-      int i;
 
-      for (i = 0; i < num_res; i++)
-        {
-        if (!(strcmp(name,res_to_check[i].name)))
-          break;
-        }
-
-      if (i == num_res) /* not checking this resource */
+      if (res_check_type(name) == ResCheckNone)
         {
         printf("DEBUG: Resource not in res_to_check\n");
         return 1;
         }
 
-      res = find_resource(ninfo->res, res_to_check[i].name);
+      res = find_resource(ninfo->res, name);
 
       if (res == NULL)
         return 0;
@@ -244,52 +343,37 @@ int get_node_has_property(node_info *ninfo, const char* property)
   return 0;
   }
 
+/** Phony test, real test done in check.c */
+int server_has_dynamic_resource(server_info *sinfo, pars_prop* property)
+  {
+  if (res_check_type(property->name) == ResCheckDynamic)
+    return 1;
+  else
+    return 0;
+  }
+
+void node_set_magrathea_status(node_info *ninfo)
+  {
+  resource *res_magrathea;
+  res_magrathea = find_resource(ninfo->res, "magrathea");
+
+  if (res_magrathea != NULL)
+    {
+    if (magrathea_decode_new(res_magrathea,&ninfo->magrathea_status) != 0)
+      ninfo->magrathea_status = MagratheaStateNone;
+    }
+  else
+    {
+    ninfo->magrathea_status = MagratheaStateNone;
+    }
+  }
+
 /** Refresh magrathea status for node */
 int refresh_magrathea_status(node_info *ninfo, job_info *jinfo, int preassign_starving)
   {
-  resource *res_machine, *res_magrathea;
+  resource *res_machine;
 
   res_machine = find_resource(ninfo->res, "machine_cluster");
-  res_magrathea = find_resource(ninfo->res, "magrathea");
-
-  if (preassign_starving == 0)
-    {
-    if ((res_magrathea != NULL) && res_magrathea->str_avail != NULL)
-      { /* update magrathea status */
-      int ret;
-      long int m_status, m_count, m_used, m_free, m_possible;
-
-      ret=magrathea_decode(res_magrathea,&m_status,&m_count,&m_used,&m_free,&m_possible);
-      if ((ret) || (strcmp(res_magrathea->str_avail,"external")==0))
-        {
-        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                  "Node %s not used, magrathea state is %s",
-                  ninfo->name,res_magrathea->str_avail);
-        return 0;
-        }
-
-      if ((ninfo->type == NodeVirtual) && (m_possible == 1) && (ninfo->is_down))
-        { ninfo->is_bootable=1; }
-      else
-        { ninfo->is_bootable=0; }
-
-      if (m_status < 1)
-        {
-        if ((jinfo->cluster_mode == ClusterCreate) && ninfo->is_bootable)
-          {
-          /* ok */
-          }
-        else
-          {
-          sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                    "Node %s is not used due to magrathea: %s",
-                    ninfo->name, res_magrathea->str_avail);
-          return 0;
-          }
-        }
-
-      }
-    }
 
   /* cloud support
    * should be used also in simulation
@@ -347,30 +431,17 @@ int refresh_magrathea_status(node_info *ninfo, job_info *jinfo, int preassign_st
 /** Check basic node suitability for job */
 static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_starving)
   {
-  if (ninfo->is_offline || ninfo->is_down || ninfo->is_unknown)
+  if (jinfo->cluster_mode == ClusterCreate)
     {
-    if (jinfo->cluster_mode != ClusterCreate)
-      {
-	  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, node is down and job isn't cluster create", ninfo->name);
+    if (!node_is_suitable_for_boot(ninfo))
       return 0;
-      }
+    }
+  else
+    {
+    if (!node_is_suitable_for_run(ninfo))
+      return 0;
     }
 
-  if (ninfo->type == NodeTimeshared || ninfo->type == NodeCloud)
-    {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-              "Node %s not used, node is Timesharing or Cloud.", ninfo->name);
-    return 0;
-    }
-#if 0 /* allow submit into free virtual nodes */
-  if (ninfo->type == NodeVirtual && (!jinfo->is_cluster))
-    {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-              "Node %s not used, node is virtual, but job doesn't require virtual cluster.", ninfo->name);
-    return 0;
-    }
-#endif
   if (ninfo->type == NodeCluster && jinfo->is_cluster)
     {
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
@@ -385,6 +456,13 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
     return 0;
     }
 
+  if (jinfo->is_multinode && ninfo->no_multinode_jobs)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Node %s not used, node does not allow multinode jobs.", ninfo->name);
+    return 0;
+    }
+
   if ((ninfo->starving_job != NULL) && /* already assigned to a starving job */
       (strcmp(ninfo->starving_job->name,jinfo->name) != 0)) /* and not this job */
     {
@@ -396,13 +474,6 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
                 ninfo->name, ninfo->starving_job->name);
       return 0;
       }
-    }
-
-  if (jinfo->is_multinode && ninfo->no_multinode_jobs)
-    {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-              "Node %s not used, node does not allow multinode jobs.", ninfo->name);
-    return 0;
     }
 
   if (ninfo->temp_assign != NULL) /* node already assigned */
@@ -521,7 +592,7 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
   return 1;
   }
 
-static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
+static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec, int exclusivity,
                        int avail_nodes, node_info **ninfo_arr, int preassign_starving)
   {
   int i, ret = 1;
@@ -549,7 +620,8 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
           if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0) /* not enough cpu */
             break;
           if ((get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0) &&
-              (alternative_has_property(*ra,iter->name) == 0))
+              (alternative_has_property(*ra,iter->name) == 0) &&
+              (server_has_dynamic_resource(sinfo, iter) == 0))
             break; /* break out of the cycle if not found property */
 
           iter = iter->next;
@@ -574,7 +646,8 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
         {
         if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0) /* not enough cpu */
           break;
-        if (get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0)
+        if (get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0 &&
+            server_has_dynamic_resource(sinfo, iter) == 0)
           break; /* break out of the cycle if not found property */
 
         iter = iter->next;
@@ -614,7 +687,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int exclusivity,
   return ret;
   }
 
-int check_nodespec(job_info *jinfo, int nodecount, node_info **ninfo_arr, int preassign_starving)
+int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info **ninfo_arr, int preassign_starving)
   {
   int missed_nodes = 0;
   const char *node_spec = jinfo->nodespec;
@@ -648,12 +721,14 @@ int check_nodespec(job_info *jinfo, int nodecount, node_info **ninfo_arr, int pr
 
       for (i = 0; i < iter->node_count; i++)
         {
-        missed_nodes += assign_node(jinfo, iter, spec->is_exclusive, nodecount,
+        missed_nodes += assign_node(sinfo, jinfo, iter, spec->is_exclusive, nodecount,
                                     ninfo_arr, preassign_starving);
         }
 
       iter = iter->next;
       }
+
+    free_parsed_nodespec(spec);
 
     if (preassign_starving == 0)
     if (missed_nodes > 0) /* try reassigns */
@@ -700,7 +775,7 @@ static char *get_target(node_info *ninfo, int mode)
   {
   char *str = NULL, *cp;
   pars_prop *iter;
-  int len = 0;
+  int len = 0, skip = 0;
 
   len += strlen(ninfo->name) + 1;
   len += 50; /* ppn = ... */
@@ -709,9 +784,16 @@ static char *get_target(node_info *ninfo, int mode)
 
   while (iter != NULL)
     {
-    len += strlen(iter->name) + 1; /* :prop */
-    if (iter->value != NULL)
-      len += strlen(iter->value) + 1; /* =value */
+    skip = 0;
+    if (res_check_type(iter->name) == ResCheckDynamic)
+      skip = 1;
+
+    if (!skip)
+      {
+      len += strlen(iter->name) + 1; /* :prop */
+      if (iter->value != NULL)
+        len += strlen(iter->value) + 1; /* =value */
+      }
     iter = iter->next;
     }
 
@@ -737,9 +819,14 @@ static char *get_target(node_info *ninfo, int mode)
 
   while (iter != NULL)
     {
-    if (mode == 0 || /* in mode 0 - normal nodespec */
+    skip = 0;
+
+    if (res_check_type(iter->name) == ResCheckDynamic)
+      skip = 1;
+
+    if ((!skip) && (mode == 0 || /* in mode 0 - normal nodespec */
         (mode == 1 && iter->value != NULL) || /* in mode 1 - properties only */
-        (mode == 2 && iter->value != NULL && atoi(iter->value) > 0)) /* in mode 2 - integer properties only */
+        (mode == 2 && iter->value != NULL && atoi(iter->value) > 0))) /* in mode 2 - integer properties only */
       {
       strcpy(cp,":"); cp++;
       strcpy(cp,iter->name); cp += strlen(iter->name);
