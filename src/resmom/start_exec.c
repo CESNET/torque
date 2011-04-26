@@ -1140,7 +1140,7 @@ int InitUserEnv(
   
   vtable.v_used = 0;
   
-  vtable.v_envp = malloc(vtable.v_ensize * sizeof(char *));
+  vtable.v_envp = malloc((vtable.v_ensize + 1) * sizeof(char *));
   
   if (vtable.v_envp == NULL)
 	{
@@ -6289,6 +6289,8 @@ void bld_env_variables(
 	vtable->v_block += amt;
 	
 	vtable->v_bsize -= amt;
+
+        *(vtable->v_envp + vtable->v_used) = NULL;
 	
 	return;
 	}	 /* END bld_env_variables() */

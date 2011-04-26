@@ -546,7 +546,7 @@ int concat_node(pars_spec_node *node, char *buff, int buff_size)
 
 #define CONCAT_BUFF_SIZE (4*1024)
 
-char *concat_nodespec(pars_spec *nodespec, int with_excl)
+char *concat_nodespec(pars_spec *nodespec, int with_excl, const char** ign_props)
   {
   pars_spec_node *node;
   pars_prop *prop;

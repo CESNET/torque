@@ -766,6 +766,16 @@ resource_def svr_resc_def_const[] =
   /* scratch (disk space) resource */
   { "scratch", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG | ATR_DFLAG_SELECT_MOM, ATR_TYPE_LONG },
 
+  /* licenses */
+  { "matlab", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "fluent", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "ansys", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "marc", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "marcn", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "maple10", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "maple10p", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "maple11", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+
   /* the definition for the "unknown" resource MUST be last */
 
   { "|unknown|", decode_unkn, encode_unkn, set_unkn, comp_unkn, free_unkn, NULL_FUNC, READ_WRITE, ATR_TYPE_LIST }
