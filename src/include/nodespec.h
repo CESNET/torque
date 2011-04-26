@@ -100,6 +100,6 @@ pars_prop* find_parsed_prop(pars_prop *prop, char *name);
  * @param nodespec Node spec to be concated
  * @return concated nodespec
  */
-char *concat_nodespec(pars_spec *nodespec, int with_excl);
+char *concat_nodespec(pars_spec *nodespec, int with_excl, const char ** ign_props);
 
 #endif /* NODESPEC_H_ */
