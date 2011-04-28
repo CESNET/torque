@@ -2228,13 +2228,14 @@ static unsigned long prologalarm(
 
   {
   int i;
-
+/* TODO properly fix this for now loging is disabled */
+#if 0
   log_record(
     PBSEVENT_SYSTEM,
     PBS_EVENTCLASS_SERVER,
     "prologalarm",
     value);
-
+#endif
   i = (int)atoi(value);
 
   if (i <= 0)
@@ -4158,19 +4159,18 @@ process_hup(void)
 ** dependent code.
 */
 
-void toolong(
-
-  int sig)
-
+void toolong(int sig)
   {
+#if 0
   char *id = "toolong";
+/* TODO properly fix this problem, for now, logging is commented out */
 
-  log_record(PBSEVENT_SYSTEM, 0, id, "alarm call");
+log_record(PBSEVENT_SYSTEM, 0, id, "alarm call");
 
   if (LOGLEVEL >= 1)
     DBPRT(("alarm call\n"))
-
-    return;
+#endif
+  return;
   }  /* END toolong() */
 
 
