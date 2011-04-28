@@ -46,6 +46,7 @@ static int node_is_suitable_for_run(node_info *ninfo)
       case MagratheaStateOccupiedWouldPreempt:
       case MagratheaStateRunning:
       case MagratheaStateRunningPreemptible:
+      case MagratheaStateRunningPriority:
       case MagratheaStateRunningCluster:
         break;
 
@@ -102,6 +103,7 @@ static int node_is_suitable_for_boot(node_info *ninfo)
       case MagratheaStateOccupiedWouldPreempt:
       case MagratheaStateRunning:
       case MagratheaStateRunningPreemptible:
+      case MagratheaStateRunningPriority:
       case MagratheaStateRunningCluster:
       case MagratheaStateNone:
       case MagratheaStateDown:
