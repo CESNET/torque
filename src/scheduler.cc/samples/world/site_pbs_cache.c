@@ -51,6 +51,8 @@ int magrathea_decode_new(resource *res, MagratheaState *state)
     *state = MagratheaStateOccupied;
   else if (strcmp(s,"running-preemptible") == 0)
     *state = MagratheaStateRunningPreemptible;
+  else if (strcmp(s,"running-priority") == 0)
+    *state = MagratheaStateRunningPriority;
   else if (strcmp(s,"running") == 0)
     *state = MagratheaStateRunning;
   else if (strcmp(s,"runnig-cluster") == 0)

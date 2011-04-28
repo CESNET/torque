@@ -147,6 +147,7 @@ typedef enum {
   MagratheaStateOccupiedWouldPreempt,
   MagratheaStateOccupied,
   MagratheaStateRunningPreemptible,
+  MagratheaStateRunningPriority,
   MagratheaStateRunning,
   MagratheaStateRunningCluster,
   MagratheaStatePreempted,
