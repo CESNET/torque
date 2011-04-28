@@ -349,12 +349,15 @@ static void no_hang(
   int sig)	 /* I (not used) */
 
   {
+/* TODO properly fix this problem, for now, logging is commented out */
+
+#if 0
   LOG_EVENT(
 				   PBSEVENT_JOB,
 				   PBS_EVENTCLASS_REQUEST,
 				   " ",
 				   "alarm timed-out connect to qsub");
-  
+#endif
   return;
   }	 /* END no_hang() */
 
