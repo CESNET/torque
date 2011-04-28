@@ -1,8 +1,14 @@
 #!/bin/bash
 
 JOBID="$1"
-QSTAT="/software/torque-2.4/bin/qstat"
-export PATH=/software/torque-2.4/sbin:$PATH
+QSTAT=
+if [ -x /usr/bin/qstat.bin ]; then
+	QSTAT="/usr/bin/qstat.bin";
+elif [ -x /software/torque-2.4/bin/qstat.bin ]; then
+	QSTAT="/software/torque-2.4/bin/qstat.bin";
+else
+	exit 1;
+fi
 
 # Determine if this is a cluster job, if it is, don't do anything
 if [ `$QSTAT -f $JOBID | grep "Resource_List.cluster" | wc -l` -ne 0 ]; then

@@ -4,27 +4,30 @@
 # Started just before job execution by superior mom
 
 JOBID="$1"
-QSTAT="/software/torque-2.4/bin/qstat"
-export PATH=/software/torque-2.4/sbin:$PATH
+QSTAT=
+if [ -x /usr/bin/qstat.bin ]; then
+	QSTAT="/usr/bin/qstat.bin";
+elif [ -x /software/torque-2.4/bin/qstat.bin ]; then
+	QSTAT="/software/torque-2.4/bin/qstat.bin";
+else
+	exit 1;
+fi
 
 # Determine if this is a cluster job, if it is, don't do anything
 if [ `$QSTAT -f $JOBID | grep "Resource_List.cluster" | wc -l` -ne 0 ]; then
 	exit 0;
 fi
 
-if [ `$QSTAT -f $JOBID | sed -n 's/[ ]*exec_host[ ]*=[ ]*//p' | sed -n 's/[/][0-9]*[+]*/\n/gp' | uniq | wc -l` -gt 1 ]; then
+if [ `$QSTAT -f $JOBID | sed -n 's/[ ]*resc_req_total.nodect[ ]*=[ ]*//p'` -gt 1 ]; then
 	preempt=
 else
 	preempt='-preemptible'
 fi
 
 /usr/sbin/magrathea-cmd startjob$preempt "$JOBID" "1" &>/dev/null
-
-# TODO - reportuj korektni pocet CPU
-# TODO - navratova hodnota
-# resubmit
-#    exit 2
-#fi
+if [$? -ne 0 ]; then
+	exit 2;
+fi
 
 exit 0
 
