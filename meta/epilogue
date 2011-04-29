@@ -1,11 +1,16 @@
 #!/bin/bash
 
+if [ ! -x /usr/sbin/magrathea-cmd ]; then
+	exit 0;
+fi
+
 JOBID="$1"
 QSTAT=
 if [ -x /usr/bin/qstat.bin ]; then
 	QSTAT="/usr/bin/qstat.bin";
 elif [ -x /software/torque-2.4/bin/qstat.bin ]; then
 	QSTAT="/software/torque-2.4/bin/qstat.bin";
+	PATH=/software/torque-2.4/sbin:$PATH;
 else
 	exit 1;
 fi
