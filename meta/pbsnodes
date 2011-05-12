@@ -1,12 +1,23 @@
 #!/bin/bash
 
+QNODES=
+if [ -x /usr/bin/pbsnodes.bin ]; then
+	QNODES=/usr/bin/pbsnodes.bin
+elif [ -x /software/torque-2.4/bin/pbsnodes.bin ]; then
+	QNODES=/software/torque-2.4/bin/pbsnodes.bin
+fi
+
+if [ "$QNODES" == "" ]; then
+	echo "Couldn't find pbsnodes binary in /usr/bin/ or /software/torque-2.4/bin";
+	exit 1;
+fi
 
 # MM 11/2006 Pokud chci vypsat vsechny uzly co jsou mimo PBS, ukaz i uzly
 # v maintenace rezimu (pro PBS se tvari jako pouzitelne uzly)
 
 if [ "$1" = "-l" ]
 then
-        /software/torque-2.4/bin/pbsnodes.bin -a | awk\
+        $QNODES -a | awk\
         '\
                 /^[a-z]/ {host=$1;c="";q="";} \
                 /state =/ {state=$3;} \
@@ -19,6 +30,6 @@ then
                         else if (q!="") print host"\t"q;\
         }'
 else
-        /software/torque-2.4/bin/pbsnodes.bin $@
+        $QNODES $@
 fi
 
