@@ -31,6 +31,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       comparison.
   c - fix a segfault when queue has acl_group_enable and acl_group_sloppy set
       true and no acl_groups are defined. (backported from 3.0.1)
+  e - To fix Bugzilla Bug 121 I created a thread in job_purge on the mom in the file src/resmom/job_func.c
+      All job purging now happens on its own thread. If any of the system calls fail to return
+      the thread will hang but the MOM will still be able to process work.
 
 2.4.12
   b - Bugzilla bug 84. Security bug on the way checkpoint is being handled.

@@ -590,6 +590,8 @@ case "$CSA" in
   *) AC_MSG_ERROR([--enable-csa should be yes or no]) ;;
 esac
 
+dnl We need pthreads by default in the MOM
+  AC_CHECK_LIB(pthread, pthread_create, MOMLIBS="$MOMLIBS -lpthread")
 
 
 dnl
