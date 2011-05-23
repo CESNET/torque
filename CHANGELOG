@@ -36,6 +36,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       the thread will hang but the MOM will still be able to process work.
   e - Updated Makefile.in, configure, etc. to reflect change in configure.ac to add
       libpthread to the build. This was done for the fix for Bugzilla Bug 121.
+  b - Added patch from Michael Jennings to buildutils/torque.spec.in. This patch
+      allows an rpm configured with DRMAA to complete even if all of the
+      support files are not present on the system.
 
 2.4.12
   b - Bugzilla bug 84. Security bug on the way checkpoint is being handled.
