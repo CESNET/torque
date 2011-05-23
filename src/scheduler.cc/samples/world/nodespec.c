@@ -64,7 +64,7 @@ static int node_is_suitable_for_run(node_info *ninfo)
       }
     }
 
-  if (ninfo->type == NodeCluster)
+  if (ninfo->type == NodeCluster || ninfo->type == NodeVirtual)
     {
     if (ninfo->is_offline || ninfo->is_down || ninfo->is_unknown)
       {
