@@ -3237,7 +3237,10 @@ void regenerate_total_resources(job * pjob)
           }
 
         if (total_count == 0)
+          {
+          prop = prop->next;
           continue;
+          }
 
         ret = rd->rs_decode(&decoded.rs_value,0,prop->name,prop->value);
         if (ret != 0)
