@@ -4161,9 +4161,10 @@ process_hup(void)
 
 void toolong(int sig)
   {
+#if 0
   char *id = "toolong";
 /* TODO properly fix this problem, for now, logging is commented out */
-#if 0
+
 log_record(PBSEVENT_SYSTEM, 0, id, "alarm call");
 
   if (LOGLEVEL >= 1)
