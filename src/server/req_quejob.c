@@ -419,6 +419,7 @@ void req_quejob(
     }
   else
     {
+    /* Create a job id */
     char host_server[PBS_MAXSERVERNAME + 1];
     int  server_suffix = TRUE;
 
