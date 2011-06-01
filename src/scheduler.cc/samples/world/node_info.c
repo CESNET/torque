@@ -347,6 +347,7 @@ node_info *new_node_info()
   new->is_exclusively_assigned  = 0;
   new->is_usable_for_boot = 1;
   new->is_usable_for_run  = 1;
+  new->is_full            = 0;
 
   return new;
   }
