@@ -433,6 +433,7 @@ void query_external_cache(server_info *sinfo)
                res -> avail = res_to_num(value);
                res -> str_avail = value;
                res -> assigned = 0;
+               res -> max = UNSPECIFIED;
                }
              else
                {
