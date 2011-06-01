@@ -1000,34 +1000,37 @@ void on_job_exit(
 
         }
 
-      /* here we have a reply (maybe faked) from MOM about the request */
-      if (preq->rq_reply.brp_code != 0)
+      if (preq != NULL)
         {
-        if (LOGLEVEL >= 3)
+        /* here we have a reply (maybe faked) from MOM about the request */
+        if (preq->rq_reply.brp_code != 0)
           {
-          snprintf(log_buffer, LOG_BUF_SIZE, "request to return spool files failed on node '%s' for job %s%s",
-                   pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,
-                   pjob->ji_qs.ji_jobid,
-                   (IsFaked == 1) ? "*" : "");
+          if (LOGLEVEL >= 3)
+            {
+            snprintf(log_buffer, LOG_BUF_SIZE, "request to return spool files failed on node '%s' for job %s%s",
+                    pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,
+                    pjob->ji_qs.ji_jobid,
+                    (IsFaked == 1) ? "*" : "");
 
-          log_event(
-            PBSEVENT_ERROR | PBSEVENT_ADMIN | PBSEVENT_JOB,
-            PBS_EVENTCLASS_JOB,
-            pjob->ji_qs.ji_jobid,
-            log_buffer);
-          }
-        } /* end if (preq->rq_reply.brp_code != 0) */
+            log_event(
+                PBSEVENT_ERROR | PBSEVENT_ADMIN | PBSEVENT_JOB,
+                PBS_EVENTCLASS_JOB,
+                pjob->ji_qs.ji_jobid,
+                log_buffer);
+            }
+          } /* end if (preq->rq_reply.brp_code != 0) */
 
 
-      /*
-       * files (generally) moved ok, move on to the next phase by
-       * "faking" the immediate work task and falling through to
-       * the next case.
-       */
+        /*
+         * files (generally) moved ok, move on to the next phase by
+         * "faking" the immediate work task and falling through to
+         * the next case.
+         */
 
-      free_br(preq);
+        free_br(preq);
 
-      preq = NULL;
+        preq = NULL;
+        }
 
       svr_setjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_STAGEOUT);
 
@@ -1137,123 +1140,126 @@ void on_job_exit(
           }
         }    /* END if (ptask->wt_type != WORK_Deferred_Reply) */
 
-      /* here we have a reply (maybe faked) from MOM about the copy */
 
-      if (preq->rq_reply.brp_code != 0)
+      if (preq != NULL)
         {
-        int bad;
-
-        svrattrl tA;
-
-        /* error from MOM */
-
-        snprintf(log_buffer, LOG_BUF_SIZE, msg_obitnocpy,
-                 pjob->ji_qs.ji_jobid,
-                 pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
-
-        log_event(
-          PBSEVENT_ERROR | PBSEVENT_ADMIN | PBSEVENT_JOB,
-          PBS_EVENTCLASS_JOB,
-          pjob->ji_qs.ji_jobid,
-          log_buffer);
-
-        if (LOGLEVEL >= 3)
+        /* here we have a reply (maybe faked) from MOM about the copy */
+        if (preq->rq_reply.brp_code != 0)
           {
-          snprintf(log_buffer, LOG_BUF_SIZE, "request to copy stageout files failed on node '%s' for job %s%s",
-                   pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,
+          int bad;
+
+          svrattrl tA;
+
+          /* error from MOM */
+
+          snprintf(log_buffer, LOG_BUF_SIZE, msg_obitnocpy,
                    pjob->ji_qs.ji_jobid,
-                   (IsFaked == 1) ? "*" : "");
+                   pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
 
           log_event(
             PBSEVENT_ERROR | PBSEVENT_ADMIN | PBSEVENT_JOB,
             PBS_EVENTCLASS_JOB,
             pjob->ji_qs.ji_jobid,
             log_buffer);
-          }
 
-        if (preq->rq_reply.brp_choice == BATCH_REPLY_CHOICE_Text)
+          if (LOGLEVEL >= 3)
+            {
+            snprintf(log_buffer, LOG_BUF_SIZE, "request to copy stageout files failed on node '%s' for job %s%s",
+                     pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str,
+                     pjob->ji_qs.ji_jobid,
+                     (IsFaked == 1) ? "*" : "");
+
+            log_event(
+              PBSEVENT_ERROR | PBSEVENT_ADMIN | PBSEVENT_JOB,
+              PBS_EVENTCLASS_JOB,
+              pjob->ji_qs.ji_jobid,
+              log_buffer);
+            }
+
+          if (preq->rq_reply.brp_choice == BATCH_REPLY_CHOICE_Text)
+            {
+            strncat(
+              log_buffer,
+              preq->rq_reply.brp_un.brp_txt.brp_str,
+              LOG_BUF_SIZE - strlen(log_buffer) - 1);
+            }
+
+          svr_mailowner(pjob, MAIL_OTHER, MAIL_FORCE, log_buffer);
+
+          memset(&tA, 0, sizeof(tA));
+
+          tA.al_name  = "sched_hint";
+          tA.al_resc  = "";
+          tA.al_value = log_buffer;
+          tA.al_op    = SET;
+
+          modify_job_attr(
+            pjob,
+            &tA,                              /* I: ATTR_sched_hint - svrattrl */
+            ATR_DFLAG_MGWR | ATR_DFLAG_SvWR,
+            &bad);
+          }  /* END if (preq->rq_reply.brp_code != 0) */
+
+        /*
+         * files (generally) copied ok, move on to the next phase by
+         * "faking" the immediate work task.
+         */
+
+
+        /* check to see if we have saved the spool files, that means
+           the mom and server are sharing this spool directory.
+        pbs_server should take ownership of these files and rename them
+        see  JOB_SUBSTATE_RETURNSTD above*/
+
+        strcpy(namebuf, path_spool);
+
+        strcat(namebuf, pjob->ji_qs.ji_fileprefix);
+
+        strcat(namebuf, JOB_STDOUT_SUFFIX);
+
+        /* allocate space for the string name plus ".SAV" */
+        namebuf2 = malloc((strlen(namebuf) + 5) * sizeof(char));
+
+        strcpy(namebuf2, namebuf);
+
+        strcat(namebuf2, ".SAV");
+
+        spool_file_exists = access(namebuf2, F_OK);
+
+        if (spool_file_exists == 0)
           {
-          strncat(
-            log_buffer,
-            preq->rq_reply.brp_un.brp_txt.brp_str,
-            LOG_BUF_SIZE - strlen(log_buffer) - 1);
+          if (link(namebuf2, namebuf))
+            {
+            log_err(errno,id,strerror(errno));
+            }
+          unlink(namebuf2);
           }
 
-        svr_mailowner(pjob, MAIL_OTHER, MAIL_FORCE, log_buffer);
-
-        memset(&tA, 0, sizeof(tA));
-
-        tA.al_name  = "sched_hint";
-        tA.al_resc  = "";
-        tA.al_value = log_buffer;
-        tA.al_op    = SET;
-
-        modify_job_attr(
-          pjob,
-          &tA,                              /* I: ATTR_sched_hint - svrattrl */
-          ATR_DFLAG_MGWR | ATR_DFLAG_SvWR,
-          &bad);
-        }  /* END if (preq->rq_reply.brp_code != 0) */
-
-      /*
-       * files (generally) copied ok, move on to the next phase by
-       * "faking" the immediate work task.
-       */
 
 
-      /* check to see if we have saved the spool files, that means
-         the mom and server are sharing this spool directory.
-      pbs_server should take ownership of these files and rename them
-      see  JOB_SUBSTATE_RETURNSTD above*/
+        namebuf[strlen(namebuf) - strlen(JOB_STDOUT_SUFFIX)] = '\0';
 
-      strcpy(namebuf, path_spool);
+        strcat(namebuf, JOB_STDERR_SUFFIX);
+        strcpy(namebuf2, namebuf);
+        strcat(namebuf2, ".SAV");
 
-      strcat(namebuf, pjob->ji_qs.ji_fileprefix);
+        spool_file_exists = access(namebuf2, F_OK);
 
-      strcat(namebuf, JOB_STDOUT_SUFFIX);
-
-      /* allocate space for the string name plus ".SAV" */
-      namebuf2 = malloc((strlen(namebuf) + 5) * sizeof(char));
-
-      strcpy(namebuf2, namebuf);
-
-      strcat(namebuf2, ".SAV");
-
-      spool_file_exists = access(namebuf2, F_OK);
-
-      if (spool_file_exists == 0)
-        {
-        if (link(namebuf2, namebuf))
+        if (spool_file_exists == 0)
           {
-          log_err(errno,id,strerror(errno));
+
+          if (link(namebuf2, namebuf))
+            {
+            log_err(errno,id,strerror(errno));
+            }
+          unlink(namebuf2);
           }
-        unlink(namebuf2);
-        }
+
+        free(namebuf2);
 
 
-
-      namebuf[strlen(namebuf) - strlen(JOB_STDOUT_SUFFIX)] = '\0';
-
-      strcat(namebuf, JOB_STDERR_SUFFIX);
-      strcpy(namebuf2, namebuf);
-      strcat(namebuf2, ".SAV");
-
-      spool_file_exists = access(namebuf2, F_OK);
-
-      if (spool_file_exists == 0)
-        {
-
-        if (link(namebuf2, namebuf))
-          {
-          log_err(errno,id,strerror(errno));
-          }
-        unlink(namebuf2);
-        }
-
-      free(namebuf2);
-
-
-      free_br(preq);
+        free_br(preq);
+      }
 
       preq = NULL;
 
