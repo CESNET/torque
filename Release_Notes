@@ -1,6 +1,13 @@
 This file contains a few notes on building and installing TORQUE and 
 Release notes for each release.
 
+New in 2.4.13
+-------------
+
+2.4.13 is a collection of bug fixes to the 2.4-fixes branch of TORQUE. To see a 
+complete list of changes to 2.4.13 see the CHANGELOG in the distribution or you 
+can view them at http://www.clusterresources.com/downloads/torque/CHANGELOGS/torque-2.4.13.CHANGELOG
+
 NEW in 2.4.12
 --------------
 
