@@ -352,6 +352,7 @@ unsigned is_exclusively_assigned :
 
 unsigned is_usable_for_run  : 1; /* node is usable for running jobs */
 unsigned is_usable_for_boot : 1; /* node is usable for booting jobs */
+unsigned is_full            : 1; /* node is full (all slots used or exclusively assigned */
 
   node_type type; /**<type of the node (cluster,timeshared,virtual,cloud) */
 

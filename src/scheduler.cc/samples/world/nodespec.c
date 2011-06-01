@@ -111,7 +111,7 @@ static int node_is_suitable_for_boot(node_info *ninfo)
       case MagratheaStateOccupied:
       case MagratheaStatePreempted:
       case MagratheaStateRemoved:
-        ninfo->is_usable_for_run = 0;
+        ninfo->is_usable_for_boot = 0;
         sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
                   "Node marked as incapable of booting jobs, because it has bad Magrathea state.");
         return 0;
@@ -120,6 +120,7 @@ static int node_is_suitable_for_boot(node_info *ninfo)
 
   if (ninfo->alternatives == NULL || ninfo->alternatives[0] == NULL)
     {
+    ninfo->is_usable_for_boot = 0;
     sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
               "Node marked as incapable of booting jobs, because it doesn't have alternatives.");
     return 0; 
@@ -127,6 +128,30 @@ static int node_is_suitable_for_boot(node_info *ninfo)
 
   return 1;
   }
+
+static int node_is_not_full(node_info *ninfo)
+  {
+  if (ninfo->is_full)
+    return 0;
+
+  if (ninfo->is_exclusively_assigned)
+    {
+    ninfo->is_full = 1;
+    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
+              "Node marked as full, because it is already exclusively assigned.");
+    return 0;
+    }
+
+  if (ninfo->npfree == 0)
+    {
+    ninfo->is_full = 1;
+    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
+              "Node marked as full, because it has no free slots.");
+    }
+
+  return 1;
+  }
+
 
 
 enum ResourceCheckMode { MaxOnly, Avail };
@@ -266,87 +291,23 @@ int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starv
 
 int get_node_has_property(node_info *ninfo, const char* property)
   {
-  char **iter;
-  char *delim = NULL;
+  char *buf;
+  pars_prop *prop;
+  int ret;
 
   dbg_precondition(property != NULL, "This functions does not accept NULL.");
   dbg_precondition(ninfo != NULL, "This functions does not accept NULL.");
 
-  /* resource/ppn support */
-  if ((delim = strchr(property,'=')) != NULL)
-    {
-    long amount = 0;
-    char *name;
+  buf = strdup(property);
+  prop = parse_prop(buf);
+  ret = get_node_has_prop(ninfo,prop,0);
+  free(buf);
 
-    name = strndup(property,delim-property);
-    delim++;
-
-    amount = res_to_num(delim);
-    /* TODO what about string resources? */
-    dbg_consistency(amount > 0,"resource conversion to number should not fail");
-
-    if (!(strcmp("ppn",name)))
-      {
-      if (ninfo->np - ninfo->npshared >= amount &&
-          ninfo->npfree >= amount)
-        return 1;
-      else
-        return 0;
-      }
-    else /* generic resource */
-      {
-      struct resource *res;
-
-      if (res_check_type(name) == ResCheckNone)
-        {
-        printf("DEBUG: Resource not in res_to_check\n");
-        return 1;
-        }
-
-      res = find_resource(ninfo->res, name);
-
-      if (res == NULL)
-        return 0;
-
-      if (res->max - res->assigned >= amount)
-        return 1;
-      }
-
-    free(name);
-    }
-
-  /* the property is not a resource */
-  iter = ninfo->properties;
-
-  if (iter != NULL)
-  while (*iter != NULL)
-    {
-    if (strcmp(*iter,property) == 0)
-      {
-      return 1;
-      }
-
-    iter++;
-    }
-
-  iter = ninfo->adproperties;
-
-  if (iter != NULL)
-  while (*iter != NULL)
-    {
-    if (strcmp(*iter,property) == 0)
-      {
-      return 1;
-      }
-
-    iter++;
-    }
-
-  return 0;
+  return ret;
   }
 
 /** Phony test, real test done in check.c */
-int server_has_dynamic_resource(server_info *sinfo, pars_prop* property)
+int is_dynamic_resource(pars_prop* property)
   {
   if (res_check_type(property->name) == ResCheckDynamic)
     return 1;
@@ -442,6 +403,9 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
     {
     if (!node_is_suitable_for_run(ninfo))
       return 0;
+
+    if (preassign_starving == 0 (!node_is_not_full(ninfo)))
+      return 0;
     }
 
   if (ninfo->type == NodeCluster && jinfo->is_cluster)
@@ -492,13 +456,6 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
       sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
                 "Node %s not used, job is exclusive and node is not fully empty.", ninfo->name);
       return 0; /* skip non-empty nodes for exclusive requests */
-      }
-
-    if (ninfo->is_exclusively_assigned)
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, node is already running an exclusive job.", ninfo->name);
-      return 0;
       }
     }
 
@@ -613,7 +570,7 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
           {
           if ((get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0) &&
               (alternative_has_property(*ra,iter->name) == 0) &&
-              (server_has_dynamic_resource(sinfo, iter) == 0))
+              (is_dynamic_resource(iter) == 0))
             break; /* break out of the cycle if not found property */
 
           iter = iter->next;
@@ -637,7 +594,7 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
       while (iter != NULL)
         {
         if (get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0 &&
-            server_has_dynamic_resource(sinfo, iter) == 0)
+            is_dynamic_resource(iter) == 0)
           break; /* break out of the cycle if not found property */
 
         iter = iter->next;
