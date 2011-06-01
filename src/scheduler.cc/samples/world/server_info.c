@@ -131,7 +131,7 @@ server_info *query_server(int pbs_sd)
 
   /* get the nodes, if any */
   sinfo -> nodes = query_nodes(pbs_sd, sinfo);
-  query_external_cache(sinfo);
+  query_external_cache(sinfo,0);
   find_bootable_alternatives(sinfo);
   sort_nodes(sinfo,cmp_magrathea);
 

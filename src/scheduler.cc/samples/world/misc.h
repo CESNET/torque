@@ -147,7 +147,7 @@ int cstrcmp(char *s1, char *s2);
 /** Query pbs_cache for additional information
  * @param sinfo Server info to modify
  */
-void query_external_cache(server_info *sinfo);
+void query_external_cache(server_info *sinfo, int dynamic);
 
 /** check if string contains a number */
 int is_num(const char* value);

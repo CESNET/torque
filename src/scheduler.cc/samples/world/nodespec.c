@@ -111,7 +111,7 @@ static int node_is_suitable_for_boot(node_info *ninfo)
       case MagratheaStateOccupied:
       case MagratheaStatePreempted:
       case MagratheaStateRemoved:
-        ninfo->is_usable_for_run = 0;
+        ninfo->is_usable_for_boot = 0;
         sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
                   "Node marked as incapable of booting jobs, because it has bad Magrathea state.");
         return 0;
@@ -120,6 +120,7 @@ static int node_is_suitable_for_boot(node_info *ninfo)
 
   if (ninfo->alternatives == NULL || ninfo->alternatives[0] == NULL)
     {
+    ninfo->is_usable_for_boot = 0;
     sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
               "Node marked as incapable of booting jobs, because it doesn't have alternatives.");
     return 0; 
@@ -127,6 +128,30 @@ static int node_is_suitable_for_boot(node_info *ninfo)
 
   return 1;
   }
+
+static int node_is_not_full(node_info *ninfo)
+  {
+  if (ninfo->is_full)
+    return 0;
+
+  if (ninfo->is_exclusively_assigned)
+    {
+    ninfo->is_full = 1;
+    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
+              "Node marked as full, because it is already exclusively assigned.");
+    return 0;
+    }
+
+  if (ninfo->npfree == 0)
+    {
+    ninfo->is_full = 1;
+    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
+              "Node marked as full, because it has no free slots.");
+    }
+
+  return 1;
+  }
+
 
 
 enum ResourceCheckMode { MaxOnly, Avail };
@@ -266,87 +291,24 @@ int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starv
 
 int get_node_has_property(node_info *ninfo, const char* property)
   {
-  char **iter;
-  char *delim = NULL;
+  char *buf;
+  pars_prop *prop;
+  int ret;
 
   dbg_precondition(property != NULL, "This functions does not accept NULL.");
   dbg_precondition(ninfo != NULL, "This functions does not accept NULL.");
 
-  /* resource/ppn support */
-  if ((delim = strchr(property,'=')) != NULL)
-    {
-    long amount = 0;
-    char *name;
+  buf = strdup(property);
+  prop = parse_prop(buf);
+  ret = get_node_has_prop(ninfo,prop,0);
+  free_pars_prop(&prop);
+  free(buf);
 
-    name = strndup(property,delim-property);
-    delim++;
-
-    amount = res_to_num(delim);
-    /* TODO what about string resources? */
-    dbg_consistency(amount > 0,"resource conversion to number should not fail");
-
-    if (!(strcmp("ppn",name)))
-      {
-      if (ninfo->np - ninfo->npshared >= amount &&
-          ninfo->npfree >= amount)
-        return 1;
-      else
-        return 0;
-      }
-    else /* generic resource */
-      {
-      struct resource *res;
-
-      if (res_check_type(name) == ResCheckNone)
-        {
-        printf("DEBUG: Resource not in res_to_check\n");
-        return 1;
-        }
-
-      res = find_resource(ninfo->res, name);
-
-      if (res == NULL)
-        return 0;
-
-      if (res->max - res->assigned >= amount)
-        return 1;
-      }
-
-    free(name);
-    }
-
-  /* the property is not a resource */
-  iter = ninfo->properties;
-
-  if (iter != NULL)
-  while (*iter != NULL)
-    {
-    if (strcmp(*iter,property) == 0)
-      {
-      return 1;
-      }
-
-    iter++;
-    }
-
-  iter = ninfo->adproperties;
-
-  if (iter != NULL)
-  while (*iter != NULL)
-    {
-    if (strcmp(*iter,property) == 0)
-      {
-      return 1;
-      }
-
-    iter++;
-    }
-
-  return 0;
+  return ret;
   }
 
 /** Phony test, real test done in check.c */
-int server_has_dynamic_resource(server_info *sinfo, pars_prop* property)
+int is_dynamic_resource(pars_prop* property)
   {
   if (res_check_type(property->name) == ResCheckDynamic)
     return 1;
@@ -373,13 +335,7 @@ void node_set_magrathea_status(node_info *ninfo)
 /** Refresh magrathea status for node */
 int refresh_magrathea_status(node_info *ninfo, job_info *jinfo, int preassign_starving)
   {
-  resource *res_machine;
-
-  res_machine = find_resource(ninfo->res, "machine_cluster");
-
-  /* cloud support
-   * should be used also in simulation
-   */
+  resource *res_machine = find_resource(ninfo->res, "machine_cluster");
 
   if (jinfo->cluster_mode == ClusterNone)
     {
@@ -442,6 +398,9 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
     {
     if (!node_is_suitable_for_run(ninfo))
       return 0;
+
+    if (preassign_starving == 0 && (!node_is_not_full(ninfo)))
+      return 0;
     }
 
   if (ninfo->type == NodeCluster && jinfo->is_cluster)
@@ -493,13 +452,14 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
                 "Node %s not used, job is exclusive and node is not fully empty.", ninfo->name);
       return 0; /* skip non-empty nodes for exclusive requests */
       }
+    }
 
-    if (ninfo->is_exclusively_assigned)
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, node is already running an exclusive job.", ninfo->name);
-      return 0;
-      }
+  if (jinfo->cluster_mode != ClusterUse && /* do not check user accounts inside virtual clusters */
+      site_user_has_account(jinfo->account,ninfo->name,ninfo->cluster_name) == CHECK_NO)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Node %s not used, user does not have account on this node.", ninfo->name);
+    return 0;
     }
 
   /* refresh and check magrathea status */
@@ -513,14 +473,6 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
   /* virtual clusters support */
   if (jinfo->is_cluster && jinfo->cluster_mode == ClusterCreate)
     {
-
-    if (!ninfo->is_bootable)
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, 
-                "Node %s not used, because not bootable.",ninfo->name);
-      return 0;
-      }
-
     if (ninfo->type == NodeVirtual) /* always true, checked before */
       {
       char *cmom;
@@ -565,29 +517,8 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
         {
         sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
                   "Node %s not used, cloud node has other jobs", ninfo->name);
-	return 0;
+	      return 0;
         }
-      }
-
-#if 0 /* node states broken right now */
-    if (node -> is_free)
-      {
-      /* TODO, cloud - free, already running node. Can cloud used it? */
-      }
-#endif
-
-    if (ninfo->np != ninfo->npfree)
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, cloud requests require whole node, but node already contains a job.", ninfo->name);
-      return 0;
-      }
-
-    if ((ninfo->is_bootable) && ((ninfo->alternatives == NULL) || (ninfo->alternatives[0] == NULL)))
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, bootable node without alternatives.", ninfo->name);
-      return 0;
       }
     }
 
@@ -597,14 +528,24 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
 static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec, int exclusivity,
                        int avail_nodes, node_info **ninfo_arr, int preassign_starving)
   {
-  int i, ret = 1;
+  int i;
   pars_prop *iter = NULL;
   repository_alternatives** ra;
+  int fit_suit = 0, fit_ppn = 0, fit_prop = 0;
 
   for (i = 0; i < avail_nodes; i++) /* for each node */
     {
     if (!is_node_suitable(ninfo_arr[i],jinfo,preassign_starving)) /* check node suitability */
+      {
+      fit_suit++;
       continue;
+      }
+
+    if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0)
+      {
+      fit_ppn++;
+      continue;
+      }
 
     /* check nodespec */
     ra = NULL;
@@ -619,11 +560,9 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
         iter = spec->properties;
         while (iter != NULL)
           {
-          if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0) /* not enough cpu */
-            break;
           if ((get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0) &&
               (alternative_has_property(*ra,iter->name) == 0) &&
-              (server_has_dynamic_resource(sinfo, iter) == 0))
+              (is_dynamic_resource(iter) == 0))
             break; /* break out of the cycle if not found property */
 
           iter = iter->next;
@@ -636,8 +575,7 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
 
       if (*ra == NULL)
         {
-        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-	          "Node %s not used, could not find suitable alternative/properties/resources.", ninfo_arr[i]->name);
+        fit_prop++;
         continue; /* no alternative matching the spec */
         }
       }
@@ -646,10 +584,8 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
       iter = spec->properties;
       while (iter != NULL)
         {
-        if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0) /* not enough cpu */
-          break;
         if (get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0 &&
-            server_has_dynamic_resource(sinfo, iter) == 0)
+            is_dynamic_resource(iter) == 0)
           break; /* break out of the cycle if not found property */
 
         iter = iter->next;
@@ -657,18 +593,9 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
 
       if (iter != NULL) /* one of the properties not found */
         {
-        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-	          "Node %s not used, could not find some properties/resources.", ninfo_arr[i]->name);
+        fit_prop++;
         continue;
         }
-      }
-
-    if (jinfo->cluster_mode != ClusterUse && /* do not check user accounts inside virtual clusters */
-        site_user_has_account(jinfo->account,ninfo_arr[i]->name,ninfo_arr[i]->cluster_name) == CHECK_NO)
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, user does not have account on this node.", ninfo_arr[i]->name);
-      continue;
       }
 
     if (preassign_starving)
@@ -682,11 +609,13 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
         ninfo_arr[i]->temp_assign_alternative = NULL; /* FIXME META Prepsat do citelneho stavu */
       }
 
-    ret = 0;
-    break;
+    return 0;
     }
 
-  return ret;
+  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+            "Nodespec not matched: [%d/%d] nodes are not suitable for job, [%d/%d] don't have enough free CPU, [%d/%d] nodes don't match some properties/resources requested.",
+            fit_suit, avail_nodes, fit_ppn, avail_nodes, fit_prop, avail_nodes);
+  return 1;
   }
 
 int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info **ninfo_arr, int preassign_starving)

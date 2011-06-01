@@ -398,7 +398,7 @@ int cstrcmp(char *s1, char *s2)
   return strcmp(s1, s2);
   }
 
-void query_external_cache(server_info *sinfo)
+void query_external_cache(server_info *sinfo, int dynamic)
   {
   resource *res;
   node_info *node;
@@ -453,45 +453,48 @@ void query_external_cache(server_info *sinfo)
       cache_hash_destroy(ptable);
     }
 
-  /* read cluster info */
-  ptable=cache_hash_init();
-  if (cache_hash_fill_local("phys_cluster",ptable)==0)
-  for (i=0;i<sinfo -> num_nodes;i++)
+  if (!dynamic)
     {
-    node=sinfo -> nodes[i];
-    value=cache_hash_find(ptable,node->name);
-    if (value != NULL)
+    /* read cluster info */
+    ptable=cache_hash_init();
+    if (cache_hash_fill_local("phys_cluster",ptable)==0)
+    for (i=0;i<sinfo -> num_nodes;i++)
       {
-      free(node->cluster_name);
-      node->cluster_name = value;
-      }
-    }
-  cache_hash_destroy(ptable);
-
-  /* read server dynamic resources */
-  ptable=cache_hash_init();
-  if (cache_hash_fill_local("dynamic_resources",ptable)==0)
-    for( j = 0; j < num_res; j++ )
-      {
-      if (res_to_check[j].source == ResCheckDynamic)
+      node=sinfo -> nodes[i];
+      value=cache_hash_find(ptable,node->name);
+      if (value != NULL)
         {
-        value=cache_hash_find(ptable,res_to_check[j].name);
-        if (value != NULL)
+        free(node->cluster_name);
+        node->cluster_name = value;
+        }
+      }
+    cache_hash_destroy(ptable);
+
+    /* read server dynamic resources */
+    ptable=cache_hash_init();
+    if (cache_hash_fill_local("dynamic_resources",ptable)==0)
+      for( j = 0; j < num_res; j++ )
+        {
+        if (res_to_check[j].source == ResCheckDynamic)
           {
-          res = find_alloc_resource( sinfo->dyn_res, res_to_check[j].name );
-          if (sinfo->dyn_res == NULL)
-            sinfo->dyn_res = res;
-          if (res != NULL)
+          value=cache_hash_find(ptable,res_to_check[j].name);
+          if (value != NULL)
             {
-            res->avail = res_to_num(value);
-            if (res->str_avail != NULL)
-              free(res->str_avail);
-            res->str_avail = value;
+            res = find_alloc_resource( sinfo->dyn_res, res_to_check[j].name );
+            if (sinfo->dyn_res == NULL)
+              sinfo->dyn_res = res;
+            if (res != NULL)
+              {
+              res->avail = res_to_num(value);
+              if (res->str_avail != NULL)
+                free(res->str_avail);
+              res->str_avail = value;
+              }
             }
           }
         }
-      }
-  cache_hash_destroy(ptable);
+    cache_hash_destroy(ptable);
+    }
 
   /* decode magrathea status */
   for (i=0; i<sinfo->num_nodes; i++)

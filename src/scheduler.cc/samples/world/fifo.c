@@ -604,7 +604,6 @@ int scheduling_cycle(
       continue;
       }
 
-    query_external_cache(server->info);
     if ((ret = is_ok_to_run_job(sd, server->info, jinfo->queue, jinfo, 0)) == SUCCESS)
       {
       sched_log(
