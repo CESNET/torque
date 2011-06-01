@@ -513,14 +513,6 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
   /* virtual clusters support */
   if (jinfo->is_cluster && jinfo->cluster_mode == ClusterCreate)
     {
-
-    if (!ninfo->is_bootable)
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, 
-                "Node %s not used, because not bootable.",ninfo->name);
-      return 0;
-      }
-
     if (ninfo->type == NodeVirtual) /* always true, checked before */
       {
       char *cmom;
@@ -582,13 +574,6 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
                 "Node %s not used, cloud requests require whole node, but node already contains a job.", ninfo->name);
       return 0;
       }
-
-    if ((ninfo->is_bootable) && ((ninfo->alternatives == NULL) || (ninfo->alternatives[0] == NULL)))
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, bootable node without alternatives.", ninfo->name);
-      return 0;
-      }
     }
 
   return 1;
@@ -606,6 +591,13 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
     if (!is_node_suitable(ninfo_arr[i],jinfo,preassign_starving)) /* check node suitability */
       continue;
 
+    if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0)
+      {
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+                "Node %s not used, not enough cpu.", ninfo_arr[i]->name);
+      continue;
+      }
+
     /* check nodespec */
     ra = NULL;
 
@@ -619,8 +611,6 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
         iter = spec->properties;
         while (iter != NULL)
           {
-          if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0) /* not enough cpu */
-            break;
           if ((get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0) &&
               (alternative_has_property(*ra,iter->name) == 0) &&
               (server_has_dynamic_resource(sinfo, iter) == 0))
@@ -646,8 +636,6 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
       iter = spec->properties;
       while (iter != NULL)
         {
-        if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0) /* not enough cpu */
-          break;
         if (get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0 &&
             server_has_dynamic_resource(sinfo, iter) == 0)
           break; /* break out of the cycle if not found property */
