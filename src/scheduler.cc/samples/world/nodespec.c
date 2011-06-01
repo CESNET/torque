@@ -334,13 +334,7 @@ void node_set_magrathea_status(node_info *ninfo)
 /** Refresh magrathea status for node */
 int refresh_magrathea_status(node_info *ninfo, job_info *jinfo, int preassign_starving)
   {
-  resource *res_machine;
-
-  res_machine = find_resource(ninfo->res, "machine_cluster");
-
-  /* cloud support
-   * should be used also in simulation
-   */
+  resource *res_machine = find_resource(ninfo->res, "machine_cluster");
 
   if (jinfo->cluster_mode == ClusterNone)
     {
@@ -404,7 +398,7 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
     if (!node_is_suitable_for_run(ninfo))
       return 0;
 
-    if (preassign_starving == 0 (!node_is_not_full(ninfo)))
+    if (preassign_starving == 0 && (!node_is_not_full(ninfo)))
       return 0;
     }
 
@@ -457,6 +451,14 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
                 "Node %s not used, job is exclusive and node is not fully empty.", ninfo->name);
       return 0; /* skip non-empty nodes for exclusive requests */
       }
+    }
+
+  if (jinfo->cluster_mode != ClusterUse && /* do not check user accounts inside virtual clusters */
+      site_user_has_account(jinfo->account,ninfo->name,ninfo->cluster_name) == CHECK_NO)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Node %s not used, user does not have account on this node.", ninfo_arr[i]->name);
+    continue;
     }
 
   /* refresh and check magrathea status */
@@ -514,22 +516,8 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
         {
         sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
                   "Node %s not used, cloud node has other jobs", ninfo->name);
-	return 0;
+	      return 0;
         }
-      }
-
-#if 0 /* node states broken right now */
-    if (node -> is_free)
-      {
-      /* TODO, cloud - free, already running node. Can cloud used it? */
-      }
-#endif
-
-    if (ninfo->np != ninfo->npfree)
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, cloud requests require whole node, but node already contains a job.", ninfo->name);
-      return 0;
       }
     }
 
@@ -606,14 +594,6 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
 	          "Node %s not used, could not find some properties/resources.", ninfo_arr[i]->name);
         continue;
         }
-      }
-
-    if (jinfo->cluster_mode != ClusterUse && /* do not check user accounts inside virtual clusters */
-        site_user_has_account(jinfo->account,ninfo_arr[i]->name,ninfo_arr[i]->cluster_name) == CHECK_NO)
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, user does not have account on this node.", ninfo_arr[i]->name);
-      continue;
       }
 
     if (preassign_starving)
