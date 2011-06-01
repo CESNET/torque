@@ -169,6 +169,13 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - Fixed problem where calling qstat with a non-existent job id would hang the qstat
       command. This was only a problem when configured with MUNGE.
   b - fix a potential buffer overflow security issue in job names and host address names
+  e - Applied patch submitted by Eric Roman. This patch addresses some build issues
+      with BLCR, and fixes an error where BLCR would report -ENOSUPPORT when trying
+      to checkpoint a parallel job. The patch adds a --with-blcr option to configure
+      to find the path to the BLCR libaries.  There are --with-blcr-include,
+      --with-blcr-lib and --with-blcr-bin to override the search paths, if necessary.
+      The last option, --with-blcr-bin is used to generate contrib/blcr/checkpoint_script
+      and contrib/blcr/restart_script from the information supplied at configure time.
 
 
 2.5.5
