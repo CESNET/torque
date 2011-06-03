@@ -102,4 +102,6 @@ pars_prop* find_parsed_prop(pars_prop *prop, char *name);
  */
 char *concat_nodespec(pars_spec *nodespec, int with_excl, const char ** ign_props);
 
+void free_pars_prop(pars_prop **prop);
+
 #endif /* NODESPEC_H_ */
