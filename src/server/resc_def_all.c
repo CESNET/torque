@@ -320,7 +320,7 @@ resource_def svr_resc_def_const[] =
     comp_l,
     free_null,
     NULL_FUNC,
-    READ_ONLY | ATR_DFLAG_MGWR | ATR_DFLAG_RASSN | ATR_DFLAG_RMOMIG,
+    READ_ONLY | ATR_DFLAG_MGWR | ATR_DFLAG_RASSN | ATR_DFLAG_RMOMIG | ATR_DFLAG_MOM,
     ATR_TYPE_LONG
   },
     {
