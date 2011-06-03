@@ -412,6 +412,7 @@ void req_quejob(
       {
       if (psatl->al_resc)
         {
+#if 0   /* don't mark resources as default on nodes, we need all resources stored in the jobfile */
         resource     *presc;
         resource_def *prdef;
 
@@ -430,6 +431,7 @@ void req_quejob(
 
         if (presc != NULL)
           presc->rs_value.at_flags |= ATR_VFLAG_DEFLT;
+#endif
         }
       else
         {
