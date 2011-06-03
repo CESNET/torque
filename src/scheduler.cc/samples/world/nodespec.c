@@ -301,6 +301,7 @@ int get_node_has_property(node_info *ninfo, const char* property)
   buf = strdup(property);
   prop = parse_prop(buf);
   ret = get_node_has_prop(ninfo,prop,0);
+  free_pars_prop(&prop);
   free(buf);
 
   return ret;
@@ -457,8 +458,8 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
       site_user_has_account(jinfo->account,ninfo->name,ninfo->cluster_name) == CHECK_NO)
     {
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-              "Node %s not used, user does not have account on this node.", ninfo_arr[i]->name);
-    continue;
+              "Node %s not used, user does not have account on this node.", ninfo->name);
+    return 0;
     }
 
   /* refresh and check magrathea status */
