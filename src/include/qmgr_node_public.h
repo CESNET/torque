@@ -99,4 +99,5 @@ ATTR_NODE_note,
 ATTR_NODE_queue,
 ATTR_NODE_resources_total,
 ATTR_NODE_adproperties,
-
+ATTR_NODE_no_multinode_jobs,
+ATTR_NODE_noautoresv,
