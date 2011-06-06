@@ -1125,6 +1125,20 @@ attribute_def svr_attr_def[] =
       ATR_TYPE_ARST,
       PARENT_TYPE_SERVER
   },
+
+  /* SVR_ATR_krb_realm_submit_acl */
+  {   ATTR_krb_realm_submit_acl, /* "krb_realm_submit_acl" */
+      decode_arst,
+      encode_arst,
+      set_hostacl,
+      comp_arst,
+      free_arst,
+      NULL_FUNC,
+      MGR_ONLY_SET,
+      ATR_TYPE_ACL,
+      PARENT_TYPE_SERVER,
+  },
+
   /* site supplied server attribute definitions if any, see site_svr_attr_*.h  */
 #include "site_svr_attr_def.h"
 
