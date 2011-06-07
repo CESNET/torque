@@ -117,6 +117,7 @@ extern int set_tokens (struct attribute *attr, struct attribute *new,
 extern int extra_resc_chk (attribute * pattr, void *pobject, int actmode);
 extern void free_extraresc (attribute * attr);
 extern void restore_attr_default (struct attribute *);
+extern int update_gpus (attribute * pattr, void *pobject, int actmode);
 
 /* DIAGTODO: write diag_attr_def.c */
 

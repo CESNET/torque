@@ -203,6 +203,10 @@ int get_job_struct(
   tm_node_id nodeid);
 int run_prologue_scripts(job *pjob);
  
+#ifdef NVIDIA_GPUS
+extern int  setup_gpus_for_job(job *pjob);
+#endif  /* NVIDIA_GPUS */
+
 #ifdef PENABLE_LINUX26_CPUSETS
 extern int use_cpusets(job *);
 #endif /* PENABLE_LINUX26_CPUSETS */
@@ -2371,6 +2375,19 @@ void im_request(
         momport = pbs_rm_port;
         }
       
+#ifdef NVIDIA_GPUS
+      if (setup_gpus_for_job(pjob) == -1)
+        {
+        job_purge(pjob);
+
+        log_err(-1, id, "cannot set up gpus");
+
+        SEND_ERR(PBSE_SYSTEM)
+
+        goto done;
+        }
+#endif  /* NVIDIA_GPUS */
+
       job_save(pjob, SAVEJOB_FULL, momport);
       
       sprintf(log_buffer, "JOIN JOB as node %d",

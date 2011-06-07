@@ -147,6 +147,7 @@ void job_purge(job *);
 
 /* External functions */
 extern void mom_checkpoint_delete_files(job *pjob);
+extern void mom_server_all_update_gpustat(void);
 
 #if IBM_SP2==2  /* IBM SP PSSP 3.1 */
 void unload_sp_switch(job *pjob);
@@ -820,6 +821,18 @@ void job_purge(
   pthread_attr_t attr;
   pthread_t *thread;
   int rc;
+
+#ifdef NVIDIA_GPUS
+  /*
+   * Did this job have a gpuid assigned?
+   * if so, then update gpu status
+   */
+  if (((pjob->ji_wattr[JOB_ATR_exec_gpus].at_flags & ATR_VFLAG_SET) != 0) &&
+      (pjob->ji_wattr[JOB_ATR_exec_gpus].at_val.at_str != NULL))
+    {
+    mom_server_all_update_gpustat();
+    }
+#endif  /* NVIDIA_GPUS */
 
   rc = pthread_attr_init( &attr );
   if(rc)
