@@ -981,7 +981,7 @@ void job_clone_wt(
       pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long = ++queue_rank;
       pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_flags |= ATR_VFLAG_SET;
 
-      if ((rc = svr_enquejob(pjobclone)))
+      if ((rc = svr_enquejob(pjobclone,0)))
         {
         job_purge(pjobclone);
         }

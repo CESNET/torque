@@ -303,8 +303,8 @@ void req_orderjob(
     (void)strcpy(pjob2->ji_qs.ji_queue, tmpqn);
     svr_dequejob(pjob1);
     svr_dequejob(pjob2);
-    (void)svr_enquejob(pjob1);
-    (void)svr_enquejob(pjob2);
+    (void)svr_enquejob(pjob1,0);
+    (void)svr_enquejob(pjob2,0);
 
     }
   else
