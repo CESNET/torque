@@ -269,7 +269,8 @@ extern void regenerate_total_resources(job * pjob);
 
 int svr_enquejob(
 
-  job *pjob)  /* I */
+  job *pjob,
+  int skip_depend)  /* I */
 
   {
   attribute     *pattrjb;
@@ -426,7 +427,7 @@ int svr_enquejob(
 
     /* do anything needed doing regarding job dependencies */
 
-    if (pjob->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET)
+    if (!skip_depend && (pjob->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET))
       {
       if ((rc = depend_on_que(&
                               pjob->ji_wattr[(int)JOB_ATR_depend],

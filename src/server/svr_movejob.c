@@ -305,7 +305,7 @@ static int local_move(
 
   jobp->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long = ++queue_rank;
 
-  pbs_errno = svr_enquejob(jobp);
+  pbs_errno = svr_enquejob(jobp,0);
 
   if (pbs_errno != 0)
     {
