@@ -1198,6 +1198,28 @@ int pbsd_init(
       }
     }
 
+  /* now, that we have all jobs, regenerate job dependencies */
+  pjob = (job *)GET_NEXT(svr_alljobs);
+
+  while (pjob != NULL)
+    {
+    if (pjob->ji_wattr[(int)JOB_ATR_depend].at_flags & ATR_VFLAG_SET)
+      {
+      if ((rc = depend_on_que(&
+                              pjob->ji_wattr[(int)JOB_ATR_depend],
+                              pjob,
+                              ATR_ACTION_NOOP)) != 0)
+        {
+        /* return(rc); silently ignore errors for now */
+        }
+      }
+
+    job_save(pjob, SAVEJOB_FULL);
+
+    pjob = (job *)GET_NEXT(pjob->ji_alljobs);
+    }
+
+
   /* look for empty arrays and delete them
      also look for arrays that weren't fully built and setup a work task to
      continue the cloning process*/
@@ -1700,7 +1722,7 @@ static void pbsd_init_reque(
     set_statechar(pjob);
     }
 
-  if (svr_enquejob(pjob) == 0)
+  if (svr_enquejob(pjob,1) == 0)
     {
     strcat(logbuf, msg_init_queued);
     strcat(logbuf, pjob->ji_qs.ji_queue);
