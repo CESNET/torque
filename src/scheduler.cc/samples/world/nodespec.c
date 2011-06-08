@@ -531,16 +531,19 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
   int i, ret = 1;
   pars_prop *iter = NULL;
   repository_alternatives** ra;
+  int fit_suit = 0, fit_ppn = 0, fit_prop = 0;
 
   for (i = 0; i < avail_nodes; i++) /* for each node */
     {
     if (!is_node_suitable(ninfo_arr[i],jinfo,preassign_starving)) /* check node suitability */
+      {
+      fit_suit++;
       continue;
+      }
 
     if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0)
       {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, not enough cpu.", ninfo_arr[i]->name);
+      fit_ppn++;
       continue;
       }
 
@@ -572,8 +575,7 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
 
       if (*ra == NULL)
         {
-        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-	          "Node %s not used, could not find suitable alternative/properties/resources.", ninfo_arr[i]->name);
+        fit_prop++;
         continue; /* no alternative matching the spec */
         }
       }
@@ -591,8 +593,7 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
 
       if (iter != NULL) /* one of the properties not found */
         {
-        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-	          "Node %s not used, could not find some properties/resources.", ninfo_arr[i]->name);
+        fit_prop++;
         continue;
         }
       }
@@ -608,11 +609,13 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
         ninfo_arr[i]->temp_assign_alternative = NULL; /* FIXME META Prepsat do citelneho stavu */
       }
 
-    ret = 0;
-    break;
+    return 0;
     }
 
-  return ret;
+  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+            "Nodespec not matched: [%d/%d] nodes are not suitable for job, [%d/%d] don't have enough free CPU, [%d/%d] nodes don't match some properties/resources requested.",
+            fit_suit, avail_nodes, fit_ppn, avail_nodes, fit_prop, avail_nodes);
+  return 1;
   }
 
 int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info **ninfo_arr, int preassign_starving)
