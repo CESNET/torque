@@ -528,7 +528,7 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
 static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec, int exclusivity,
                        int avail_nodes, node_info **ninfo_arr, int preassign_starving)
   {
-  int i, ret = 1;
+  int i;
   pars_prop *iter = NULL;
   repository_alternatives** ra;
   int fit_suit = 0, fit_ppn = 0, fit_prop = 0;
