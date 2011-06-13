@@ -580,11 +580,8 @@ jump:
        * Create a new batch request and fill it in. It will be freed by reply_ack
        */
 
-      LOG_EVENT(
-        PBSEVENT_JOB,
-        PBS_EVENTCLASS_JOB,
-        pjob->ji_qs.ji_jobid,
-        log_buffer);
+      snprintf(log_buffer,sizeof(log_buffer), "Deleting job asynchronously");
+      log_event(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,pjob->ji_qs.ji_jobid,log_buffer);
 
       preq_tmp = alloc_br(PBS_BATCH_DeleteJob);
       preq_tmp->rq_perm = preq->rq_perm;

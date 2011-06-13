@@ -20,7 +20,6 @@
 #include "pbs_job.h"
 #include "pbs_nodes.h"
 #include "log.h"
-#include "threadpool.h"
 
 /* NOTE: move these three things to utils when lib is checked in */
 #ifndef MAXPATHLEN
@@ -62,12 +61,15 @@ int init_jobset(char *,job *,mode_t,char *);
 /* end private functions */
 
 
+
+
 /**
  * deletes a cpuset
  *
- * @param cpusetname - name of cpuset to be deleted
- * @return -1 on failure, 0 otherwise
+ * @param vp = cpusetname - name of cpuset to be deleted
+ * @return (void *)-1 on failure, NULL otherwise
  */
+
 int delete_cpuset(
 
   char *cpusetname)  /* I */
@@ -75,7 +77,6 @@ int delete_cpuset(
   {
   char   path[MAXPATHLEN + 1];
   char   childpath[MAXPATHLEN + 1];
-  char  *alloced_path;
   pid_t  killpids;
   FILE  *fd;
   DIR   *dir;
@@ -96,7 +97,7 @@ int delete_cpuset(
     {
     /* cpuset does not exist... no one cares! */
 
-    return(-1);
+    return(PBSE_NONE);
     }
 
   while ((pdirent = readdir(dir)) != NULL)
@@ -116,9 +117,9 @@ int delete_cpuset(
 
     /* If a directory is found try to get cpuset info about it. */
 
-    if (statbuf.st_mode&S_IFDIR)
+    if (statbuf.st_mode & S_IFDIR)
       {
-      if (delete_cpuset(childpath) == 0)
+      if (delete_cpuset(childpath) == PBSE_NONE)
         {
         sprintf(log_buffer, "Unused cpuset '%s' deleted.",
                 childpath);
@@ -160,9 +161,7 @@ int delete_cpuset(
 
   closedir(dir);
 
-  alloced_path = strdup(path);
-
-  if (alloced_path == NULL)
+  if (rmdir(path) != 0)
     {
     /* FAILURE */
     snprintf(log_buffer,sizeof(log_buffer),
@@ -172,12 +171,9 @@ int delete_cpuset(
 
     return(-1);
     }
-  else
-    enqueue_threadpool_request(remove_dir,alloced_path);
 
   /* SUCCESS */
-
-  return(0);
+  return(PBSE_NONE);
   }  /* END delete_cpuset() */
 
 
