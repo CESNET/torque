@@ -20,6 +20,7 @@
 #include "pbs_job.h"
 #include "pbs_nodes.h"
 #include "log.h"
+#include "threadpool.h"
 
 /* NOTE: move these three things to utils when lib is checked in */
 #ifndef MAXPATHLEN
@@ -50,6 +51,8 @@ extern char    mom_short_name[];
 
 extern long     system_ncpus;
 
+void *remove_dir(void *);
+
 /* private functions */
 void remove_defunct_cpusets();
 int get_cpu_string(job *pjob,char *);
@@ -72,6 +75,7 @@ int delete_cpuset(
   {
   char   path[MAXPATHLEN + 1];
   char   childpath[MAXPATHLEN + 1];
+  char  *alloced_path;
   pid_t  killpids;
   FILE  *fd;
   DIR   *dir;
@@ -156,7 +160,9 @@ int delete_cpuset(
 
   closedir(dir);
 
-  if (rmdir(path) != 0)
+  alloced_path = strdup(path);
+
+  if (alloced_path == NULL)
     {
     /* FAILURE */
     snprintf(log_buffer,sizeof(log_buffer),
@@ -166,6 +172,8 @@ int delete_cpuset(
 
     return(-1);
     }
+  else
+    enqueue_threadpool_request(remove_dir,alloced_path);
 
   /* SUCCESS */
 
