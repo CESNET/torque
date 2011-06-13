@@ -3,6 +3,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 2.4.14
   b - fix a potential buffer overflow security issue in job names and host address names
       (backported from 3.0.2)
+  b - fix bugzilla #134, qmgr -= was deleting all entries (backported from 3.0.2)
 
 2.4.13
   e - change so blcr checkpoint jobs can restart on different node. Use
