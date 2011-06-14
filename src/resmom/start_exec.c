@@ -5733,15 +5733,6 @@ char *std_file_name(
 	
 		/* put into spool directory unless NO_SPOOL_OUTPUT is defined */
 	
-		if (LOGLEVEL >= 10)
-			{
-			sprintf(log_buffer, "%s path before NO_SPOOL_OUTPUT: %s",
-			id,
-			path);
-	
-			log_ext(-1, id, log_buffer, LOG_DEBUG);
-			}
-	
 	#if NO_SPOOL_OUTPUT == 1
 	
 		if (spoolasfinalname == FALSE)
@@ -5772,15 +5763,6 @@ char *std_file_name(
 				strncat(path, "/", sizeof(path));
 		
 			*keeping = 1;
-		
-			if (LOGLEVEL >= 10)
-				{
-				sprintf(log_buffer, "%s path in NO_SPOOL_OUTPUT: %s",
-					id,
-					path);
-		
-				log_ext(-1, id, log_buffer, LOG_DEBUG);
-				}
 			} /* END if (spoolasfinalname == FALSE) */
 	
 	#else /* NO_SPOOL_OUTPUT */
@@ -5855,15 +5837,6 @@ char *std_file_name(
 			} /* END if (spoolasfinalname == FALSE) */
 	
 		*keeping = 0;
-	
-		if (LOGLEVEL >= 10)
-			{
-			sprintf(log_buffer, "%s path in else NO_SPOOL_OUTPUT: %s",
-			id,
-			path);
-	
-			log_ext(-1, id, log_buffer, LOG_DEBUG);
-			}
 	
 	#endif /* NO_SPOOL_OUTPUT */
 		if (spoolasfinalname == FALSE)
