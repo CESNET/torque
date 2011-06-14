@@ -1011,6 +1011,18 @@ attribute_def job_attr_def[] =
   },
 #endif /* USEJOBCREATE */
 
+  /* JOB_ATR_job_id */
+  {ATTR_J,      /* job_id */
+   decode_str,
+   encode_str,
+   set_str,
+   comp_str,
+   free_str,
+   NULL_FUNC,
+   ATR_DFLAG_Creat | ATR_DFLAG_MGRD | ATR_DFLAG_USRD | ATR_DFLAG_OPRD,
+   ATR_TYPE_STR,
+   PARENT_TYPE_JOB},
+
 #ifdef NVIDIA_GPUS
   /* JOB_ATR_gpu_flags */
   {ATTR_gpu_flags,		/* "gpu_flags" - mode and reset flags */
@@ -1036,7 +1048,6 @@ attribute_def job_attr_def[] =
    READ_WRITE | ATR_DFLAG_SELEQ | ATR_DFLAG_MOM,
    ATR_TYPE_STR,
    PARENT_TYPE_JOB},
-
 
   /* Site defined attributes if any, see site_job_attr_*.h  */
 #include "site_job_attr_def.h"

@@ -1529,6 +1529,7 @@ const char *TJobAttr[] =
 #ifdef USEJOBCREATE
   "pagg_id",
 #endif /* USEJOBCREATE */
+  "job_id",
 #ifdef NVIDIA_GPUS
   "gpu_flags",
 #endif  /* NVIDIA_GPUS */

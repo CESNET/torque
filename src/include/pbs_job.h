@@ -349,6 +349,7 @@ enum job_atr
 #ifdef USEJOBCREATE
   JOB_ATR_pagg_id,
 #endif /* USEJOBCREATE */
+  JOB_ATR_job_id,
 #ifdef NVIDIA_GPUS
   JOB_ATR_gpu_flags,		/* gpu flags - mode and reset flags */
 #endif  /* NVIDIA_GPUS */
