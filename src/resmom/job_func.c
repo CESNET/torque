@@ -675,12 +675,7 @@ void *delete_job_files(
     } /* END code to remove temp dir */
 
 #ifdef PENABLE_LINUX26_CPUSETS
-  if (use_cpusets(pjob) == TRUE)
-    {
-    extern void delete_cpuset(char *);
-
     /* Delete the cpuset for the job. */
-    delete_cpuset(pjob->ji_qs.ji_jobid);
     delete_cpuset(jfdi->jobid);
     }
 #endif /* PENABLE_LINUX26_CPUSETS */
