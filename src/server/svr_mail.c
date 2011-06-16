@@ -98,6 +98,7 @@
 #include "log.h"
 #include "server.h"
 #include "rpp.h"
+#include "cloud.h"
 
 
 /* External Functions Called */
