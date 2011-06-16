@@ -535,15 +535,22 @@ int memory_load(char * name, FILE *file,int remote)
 int memory_load_s(struct metric *m, FILE *file,int remote)
 {
   int ret=0;
-  char buf[1024*8];
+  char *line=NULL;
+  size_t linesize=0;
   char hostname[1024];
-  char value[1024];
+  char *value=NULL;
   time_t timestamp;
 
-  while (fgets(buf,1024*8-1,file)!=NULL) {
-    if ((remote) && (strncmp(buf,"201 OK",6)==0))
+  while (getline(&line,&linesize,file)>0) {
+    if ((remote) && (strncmp(line,"201 OK",6)==0))
 	break;
-        sscanf(buf,"%s\t%ld\t%s",hostname,&timestamp,value);
+        value=(char *)malloc(linesize);
+	if (value==NULL) {
+		if (conf.debug)
+			my_log(LOG_DEBUG,"memory load, malloc failed");
+		break;
+	}
+        sscanf(line,"%s\t%ld\t%s",hostname,&timestamp,value);
 	if (remote)
 		memory_update_s(m,hostname,value,timestamp, 1);
 	else {
@@ -551,8 +558,12 @@ int memory_load_s(struct metric *m, FILE *file,int remote)
 		memory_insert(m,hostname,value,timestamp);
 		MUTEXUNLOCK(m->lock,m->name)
 	}
+	if (value!=NULL)
+		free(value);
 	ret++;
   }
+  if (line!=NULL)
+	  free(line);
 
   if (conf.debug)
       my_log(LOG_DEBUG,"memory load OK, %s %d lines",m->name,ret);

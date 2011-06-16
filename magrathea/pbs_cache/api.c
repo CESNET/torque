@@ -25,6 +25,8 @@
 #define M_UPDATE 5
 #define M_DIST 6
 
+#define CLIENT_TIMEOUT 10
+
 /*
  * cache_connect_net 
  * connect to remote pbs_cache server, using TCP
@@ -33,11 +35,14 @@ FILE *cache_connect_net(char *hostname,int port)
 { int s;
   FILE *stream;
   char buf[1024];
+  int one=1;
 
   s = net_connect_name(hostname, port, 0);
   if (s == -1) {
       return NULL;
   }
+
+  setsockopt(s, SOL_SOCKET, SO_KEEPALIVE, (void *)&one, sizeof(int));
 
   stream = fdopen(s, "w+");
   if (stream!=NULL) {
@@ -103,17 +108,48 @@ void cache_close(FILE *stream)
  */
 int cache_store(FILE *stream,char *hostname,char *name,char *value)
 { char buf[1024];
+  struct sigaction sa, osa;
+  int fd=fileno(stream); 
+  struct timeval tv = { CLIENT_TIMEOUT , 0 }; 
+  fd_set rdfs; 
+  int ret=0;
+
 
   if (stream==NULL) 
       return 1;
 
-  fprintf(stream,"add\t%s\t\%s\t\%s\n",hostname,name,value);
-  fgets(buf,1023,stream);
+  if (sigaction(SIGPIPE, NULL, &osa) == -1)
+	  return 1;
+  
+  memset(&sa, 0, sizeof(sa));
+  sigemptyset(&sa.sa_mask);
+  sa.sa_handler =SIG_IGN;
+  sa.sa_flags = 0;
+  sigaction(SIGPIPE,&sa,NULL);
 
-  if (strncmp(buf,"201 OK add",10)==0)
-      return 0;
-  else
-      return 1;
+  if (fprintf(stream,"add\t%s\t\%s\t\%s\n",hostname,name,value)<0) 
+	  ret=1;
+  
+  if ((ret==0) && (CLIENT_TIMEOUT>0)) {
+	  int r;
+	  FD_ZERO(&rdfs);
+	  FD_SET(fd, &rdfs);
+	  if ((r = select(fd + 1, &rdfs, NULL, NULL,&tv))== -1) {
+		  ret=1; 
+	  }
+	  if (r==0)
+		  ret=1;
+  }
+
+  if ((ret==0) && (fgets(buf,1023,stream)==NULL))
+	  ret=1;
+
+  sigaction(SIGPIPE,&osa,NULL);
+
+  if ((ret==0) && (strncmp(buf,"201 OK add",10)!=0))
+	  ret=1;
+
+  return ret;
 } 
 
 /* 
@@ -198,18 +234,25 @@ int cache_remove_local(char *hostname,char *name)
  * connection must be setup with cache_connect_{local,net}
  */
 char *cache_get(FILE *stream,char *hostname,char *name)
-{ char buf[1024];
+{ char *line=NULL;
+  size_t linesize=0;
+  char *ret=NULL;
 
   if (stream==NULL) 
       return NULL;
 
   fprintf(stream,"show\t%s\t\%s\n",hostname,name);
-  fgets(buf,1023,stream);
+  if (getline(&line,&linesize,stream)<0)
+	  return NULL;
 
-  if (strncmp(buf,"201",3)!=0)
-      return NULL;
+  if (strncmp(line,"201",3)!=0)
+      ret=NULL;
   else
-      return strdup(buf+4);
+      ret=strdup(line+4);
+
+  if (line!=NULL)
+	  free(line);
+  return ret;
 }
 
 /*
@@ -328,7 +371,9 @@ void cache_hash_destroy(void *p_table)
 
 
 static int cache_list_internal(FILE *stream,char *metric,FILE *ostream,void *p_table)
-{ char buf[1024];
+{ char buf[1024]; 
+  char *line=NULL;
+  size_t linesize=0;
 
   if (stream==NULL)
             return -1;
@@ -336,19 +381,19 @@ static int cache_list_internal(FILE *stream,char *metric,FILE *ostream,void *p_t
   fprintf(stream," list %s\n",metric);
   fgets(buf,1023,stream);
   if (strncmp(buf,"205 list ok",11)==0) {
-      while(fgets(buf,1023,stream)!=NULL) {
-	  if (strncmp(buf,"201 OK",6)==0) {
+      while(getline(&line,&linesize,stream)>0) {
+	  if (strncmp(line,"201 OK",6)==0) {
 	      return 0;
 	  }
 	  if (ostream) 
-	      fprintf(ostream,"%s",buf);
+	      fprintf(ostream,"%s",line);
 	  if (p_table) {
 	      int ret;
 	      char *data;
               char *c;
               char *c1;
 
-	      c=strchr(buf,'\t');
+	      c=strchr(line,'\t');
 	      if (c==NULL) 
 		  return -1;
 	      *c='\0';
@@ -366,14 +411,16 @@ static int cache_list_internal(FILE *stream,char *metric,FILE *ostream,void *p_t
 		  /* fprintf(stderr,"error in strdup\n"); */
 		  return -1;
 	      }
-	      /* fprintf(stderr,"ukladam %s->%s",buf,data); */
-	      ret=ght_insert(p_table,data,sizeof(char)*strlen(buf),buf);
+	      /* fprintf(stderr,"ukladam %s->%s",line,data); */
+	      ret=ght_insert(p_table,data,sizeof(char)*strlen(line),line);
 	      if (ret) {
 		  /* fprintf(stderr,"error in ght_insert\n"); */
 		  return -1;
 	      }
 	  }
       }
+      if (line!=NULL)
+	      free(line);
   }
   return -1;
 }
