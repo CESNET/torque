@@ -764,8 +764,8 @@ int check_schlock(int connId, struct batch_request *request)
   static const int sch_lock_timeout = 3; /* how long (in seconds) to timeout */
 
   /* setup */
-  static const int break_on_job_remove = 0;
-  static const int break_on_manager    = 0;
+  static const int break_on_job_remove = 1;
+  static const int break_on_manager    = 1;
 
   /* data for deffered requests */
   static int init = 1;
