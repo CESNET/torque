@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include "api.h"
 #include "../net.h"
 
@@ -27,7 +28,17 @@ int main(int argc,char **argv)
   stream=cache_connect_net("odin.ics.muni.cz",PBS_CACHE_PORT);
 
   if (stream!=NULL) {
-     cache_store(stream,"erebor","magrathea","2:3");
+     if (cache_store(stream,"erebor","magrathea","2:3")!=0) {
+	     printf("cache_store failed\n");
+	     return 1;
+     }
+     value=cache_get(stream,"erebor","magrathea");
+     printf("%s\n",value);
+     sleep(10);
+     if (cache_store(stream,"erebor","magrathea","20")!=0) {
+	     printf("cache_store failed\n"); 
+	     return 1; 
+     }
      value=cache_get(stream,"erebor","magrathea");
      printf("%s\n",value);
      free(value);

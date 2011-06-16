@@ -225,7 +225,8 @@ int handle_request(FILE *stream,int priv)
  * handle on connection, read commands, send respose ..
  */
 void *handle_proces(void *arg)
-{ char line[8*1024];
+{ char *line=NULL;
+  size_t linesize=0;
   char *cookie;
   char sep[] = " \n\t\r";
   char *cmd;
@@ -260,7 +261,8 @@ void *handle_proces(void *arg)
 	}
 
 	//fprintf(stderr,"pred fgets\n");
-	if ((fgets(line, 8*1024-1, stream)) == NULL)
+	//if ((fgets(line, 8*1024-1, stream)) == NULL)
+	if (getline(&line,&linesize,stream)<0)
 	                            break;
 	//fprintf(stderr,"handle: %s",line);
 	fflush(stream);
@@ -556,6 +558,9 @@ void *handle_proces(void *arg)
 	 TODO LATER add command for metric removal, will require locking
 	 */
   }
+
+  if (line!=NULL)
+	  free(line);
 
   //fprintf(stderr,"konec\n");
 
