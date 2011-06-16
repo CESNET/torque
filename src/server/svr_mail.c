@@ -326,9 +326,19 @@ void svr_mailowner(
     {
     bodyfmt =  strcpy(bodyfmtbuf, "PBS Job Id: %i\n"
                                   "Job Name:   %j\n");
-    if (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_flags & ATR_VFLAG_SET)
+    if (is_cloud_job(pjob))
       {
-      strcat(bodyfmt, "Exec host:  %h\n");
+      if (pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_flags & ATR_VFLAG_SET)
+        {
+        strcat(bodyfmt, "Cloud mapping:  %h\n");
+        }
+      }
+    else
+      {
+      if (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_flags & ATR_VFLAG_SET)
+        {
+        strcat(bodyfmt, "Exec host:  %h\n");
+        }
       }
 
     strcat(bodyfmt, "%m\n");

@@ -814,7 +814,11 @@ static void stat_update(
       if ((pjob = find_job(pstatus->brp_objname)))
         {
         if (is_cloud_job(pjob))
+          {
           cloud_transition_into_running(pjob);
+
+          svr_mailowner(pjob, MAIL_BEGIN, MAIL_NORMAL, NULL);
+          }
 
         sattrl = (svrattrl *)GET_NEXT(pstatus->brp_attr);
 
