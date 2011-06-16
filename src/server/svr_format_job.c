@@ -19,6 +19,7 @@
 #include "log.h"
 #include "server.h"
 #include "rpp.h"
+#include "cloud.h"
 
 /* Global Data */
 
@@ -137,9 +138,19 @@ void svr_format_job(
               p += 2;
               break;
             case 'h':  /* host */
-              if (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str != NULL)
+              if (is_cloud_job(pjob))
                 {
-                fprintf(fh, "%s", pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
+                if (pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str != NULL)
+                  {
+                  fprintf(fh, "%s", pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str);
+                  }
+                }
+              else
+                {
+                if (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str != NULL)
+                  {
+                  fprintf(fh, "%s", pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str);
+                  }
                 }
               p += 2;
               break;

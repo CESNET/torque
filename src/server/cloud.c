@@ -380,7 +380,10 @@ void cloud_transition_into_running(job *pjob)
   char *cloud_name;
 
   if (is_cloud_job(pjob) && pjob->ji_qs.ji_substate == JOB_SUBSTATE_PRERUN_CLOUD)
+    {
     svr_setjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_RUNNING);
+    svr_mailowner(pjob, MAIL_BEGIN, MAIL_NORMAL, NULL);
+    }
 
   dbg_consistency(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_flags & ATR_VFLAG_SET,
       "JOB_ATR_sched_spec has to be set at this point");
