@@ -778,7 +778,7 @@ int main(
   int  schedule A_((int com, int connector));
 
   glob_argv = argv;
-  alarm_time = 180;
+  alarm_time = 15*60;
 
   /* The following is code to reduce security risks                */
   /* move this to a place where nss_ldap doesn't hold a socket yet */
