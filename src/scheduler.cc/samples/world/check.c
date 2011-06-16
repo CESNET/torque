@@ -167,22 +167,46 @@ int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
   int rc;                       /* Return Code */
 
   if ((rc = check_server_max_run(sinfo)))
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Server limit of running jobs already reached.");
     return rc;
+    }
 
   if ((rc = check_server_max_user_run(sinfo, jinfo -> account)))
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Server limit of per user running jobs already reached.");
     return rc;
+    }
 
   if ((rc = check_server_max_group_run(sinfo, jinfo -> group)))
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Server limit of per group running jobs already reached.");
     return rc;
+    }
 
   if ((rc = check_queue_max_run(qinfo)))
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Queue limit of running jobs already reached.");
     return rc;
+    }
 
   if ((rc = check_queue_max_user_run(qinfo, jinfo -> account)))
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Queue limit of per user running jobs already reached.");
     return rc;
+    }
 
   if ((rc = check_queue_max_group_run(qinfo, jinfo -> group)))
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Queue limit of per group running jobs already reached.");
     return rc;
+    }
 
   if ((rc = check_ded_time_boundry(jinfo)))
     return rc;
@@ -191,7 +215,11 @@ int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
     return rc;
 #endif
   if ((rc = cloud_check(jinfo)))
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Cloud to be built already exists, or can't submit into selected cloud.");
     return rc;
+    }
 
 #if 0
   if (pbs_sd >= 0) /* only for local checks */
@@ -199,6 +227,32 @@ int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
     return rc;
 #endif
 
+
+  if ((rc = check_avail_resources(qinfo -> qres, jinfo)) != SUCCESS)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Not enough queue resources.");
+    return INSUFICIENT_QUEUE_RESOURCE;
+    }
+
+  if ((rc = check_avail_resources(sinfo -> res, jinfo)) != SUCCESS)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Not enough server resources.");
+    return INSUFICIENT_SERVER_RESOURCE;
+    }
+
+  if ((rc = check_dynamic_resources(sinfo -> dyn_res, jinfo)) != SUCCESS)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Not enough dynamic resources.");
+    return INSUFICIENT_DYNAMIC_RESOURCE;
+    }
+
+  if ((rc = check_token_utilization(sinfo, jinfo)) != SUCCESS)
+    return rc;
+
+  query_external_cache(sinfo,1);
   if ((jinfo->queue->excl_node_count != 0) || (jinfo->queue->excl_nodes_only != 0))
     {
     if ((rc = check_nodespec(sinfo, jinfo, jinfo->queue->excl_node_count, jinfo->queue->excl_nodes, preassign_starving)) != SUCCESS)
@@ -209,18 +263,6 @@ int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
     if ((rc = check_nodespec(sinfo, jinfo, sinfo->num_nodes, sinfo->nodes, preassign_starving)) != SUCCESS)
       return rc;
     }
-
-  if ((rc = check_avail_resources(qinfo -> qres, jinfo)) != SUCCESS)
-    return INSUFICIENT_QUEUE_RESOURCE;
-
-  if ((rc = check_avail_resources(sinfo -> res, jinfo)) != SUCCESS)
-    return INSUFICIENT_SERVER_RESOURCE;
-
-  if ((rc = check_dynamic_resources(sinfo -> dyn_res, jinfo)) != SUCCESS)
-    return INSUFICIENT_DYNAMIC_RESOURCE;
-
-  if ((rc = check_token_utilization(sinfo, jinfo)) != SUCCESS)
-    return rc;
 
   return SUCCESS;
   }
