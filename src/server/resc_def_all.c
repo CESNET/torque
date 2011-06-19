@@ -765,6 +765,8 @@ resource_def svr_resc_def_const[] =
   { "group", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_STR },
   /* scratch (disk space) resource */
   { "scratch", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG | ATR_DFLAG_SELECT_MOM, ATR_TYPE_LONG },
+  /* room (for infiniband coupling */
+  { "room", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
 
   /* licenses */
   { "matlab", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
