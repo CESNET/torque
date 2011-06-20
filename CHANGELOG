@@ -5,6 +5,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       (backported from 3.0.2)
   b - fix bugzilla #134, qmgr -= was deleting all entries (backported from 3.0.2)
   b - do not prepend ${HOME} with the current dir for -o and -e in qsub (backported from 3.0.2)
+  b - Fixed a potential buffer overflow problem in src/resmom/checkpoint.c function
+      mom_checkpoint_recover. I modified the code to change strcpy and strcat to strncpy
+      and strncpy.
 
 2.4.13
   e - change so blcr checkpoint jobs can restart on different node. Use
