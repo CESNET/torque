@@ -259,6 +259,7 @@ int   server_init_type = RECOV_WARM;
 char         server_name[PBS_MAXSERVERNAME + 1]; /* host_name[:service|port] */
 int  svr_delay_entry = 0;
 int  svr_do_schedule = SCH_SCHEDULE_NULL;
+extern int  listener_command;
 tlist_head svr_queues;            /* list of queues                   */
 tlist_head svr_alljobs;           /* list of all jobs in server       */
 tlist_head svr_newjobs;           /* list of incoming new jobs        */
@@ -476,6 +477,7 @@ clear_listeners(void)   /* I */
     listener_conns[i].address = 0;
     listener_conns[i].port = 0;
     listener_conns[i].sock = -1;
+    listener_conns[i].first_time = 1;
     }
 
   return;
@@ -753,6 +755,8 @@ void parse_command_line(int argc, char *argv[])
 
       case 'l':
 
+        clear_listeners();
+
         if (get_port(
               optarg,
               &listener_port,
@@ -978,7 +982,10 @@ static time_t next_task()
   /* should the scheduler be run?  If so, adjust the delay time  */
 
   if ((delay = server.sv_next_schedule - time_now) <= 0)
+    {
     svr_do_schedule = SCH_SCHEDULE_TIME;
+    listener_command = SCH_SCHEDULE_TIME;
+    }
   else if (delay < tilwhen)
     tilwhen = delay;
 

@@ -147,6 +147,7 @@ extern tlist_head svr_queues;
 extern int    comp_resc_lt;
 extern int    comp_resc_gt;
 extern int    svr_do_schedule;
+extern int    listener_command;
 extern int    LOGLEVEL;
 
 extern time_t time_now;
@@ -448,6 +449,7 @@ int svr_enquejob(
       
     /* notify the scheduler we have a new job */
     svr_do_schedule = SCH_SCHEDULE_NEW;
+    listener_command = SCH_SCHEDULE_NEW;
     }
   else if (pque->qu_qs.qu_type == QTYPE_RoutePush)
     {
@@ -553,6 +555,7 @@ void svr_dequejob(
   /* notify scheduler a job has been removed */
 
   svr_do_schedule = SCH_SCHEDULE_TERM;
+  listener_command = SCH_SCHEDULE_TERM;
 
   return;
   }  /* END svr_dequejob() */
@@ -628,6 +631,7 @@ int svr_setjobstate(
             (newstate == JOB_STATE_QUEUED))
           {
           svr_do_schedule = SCH_SCHEDULE_NEW;
+          listener_command = SCH_SCHEDULE_NEW;
 
           if ((pjob->ji_wattr[(int)JOB_ATR_etime].at_flags & ATR_VFLAG_SET) == 0)
             {

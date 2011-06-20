@@ -102,6 +102,7 @@
 
 extern int    scheduler_sock;
 extern int    svr_do_schedule;
+extern int    listener_command;
 extern time_t time_now;
 
 /*
@@ -440,6 +441,7 @@ int poke_scheduler(
     {
     if (pattr->at_val.at_long)
       svr_do_schedule = SCH_SCHEDULE_CMD;
+      listener_command = SCH_SCHEDULE_CMD;
     }
 
   return(0);
