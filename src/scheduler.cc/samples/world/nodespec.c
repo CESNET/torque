@@ -810,13 +810,22 @@ static char *get_target_full(job_info *jinfo, node_info *ninfo)
  * @param ninfo_arr List of nodes to parse
  * @return Allocated string containing the targets
  */
-char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count)
+char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, int *booting)
   {
   char *str = NULL;
   int i;
 
   if (ninfo_arr == NULL)
     return str;
+
+  for (i = 0; i < count && ninfo_arr[i] != NULL; i++)
+    {
+    if (ninfo_arr[i]->temp_assign != NULL && ninfo_arr[i]->magrathea_status == MagratheaStateBooting)
+      {
+      *booting = 1;
+      return NULL;
+      }
+    }
 
   for (i = 0; i < count && ninfo_arr[i] != NULL; i++)
     {
