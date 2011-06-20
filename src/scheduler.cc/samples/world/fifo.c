@@ -623,6 +623,9 @@ int scheduling_cycle(
           "Trying to run locally.");
       if (run_update_job(sd, server->info, jinfo->queue, jinfo) != 0)
         jinfo->can_not_run = 1;
+
+      /* refresh magrathea state after run succeeded or failed */
+      query_external_cache(sinfo,1);
       }
     else
       {

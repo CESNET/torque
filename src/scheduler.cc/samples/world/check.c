@@ -252,7 +252,6 @@ int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
   if ((rc = check_token_utilization(sinfo, jinfo)) != SUCCESS)
     return rc;
 
-  query_external_cache(sinfo,1);
   if ((jinfo->queue->excl_node_count != 0) || (jinfo->queue->excl_nodes_only != 0))
     {
     if ((rc = check_nodespec(sinfo, jinfo, jinfo->queue->excl_node_count, jinfo->queue->excl_nodes, preassign_starving)) != SUCCESS)
