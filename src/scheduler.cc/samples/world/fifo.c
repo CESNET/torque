@@ -434,20 +434,30 @@ int move_update_job(int sd, world_server_t* src, job_info* job,
   char deststr[PBS_MAXSERVERNAME + PBS_MAXQUEUENAME + 2];
   int ret;
   char *nodespec;
+  int booting = 0;
 
-  nodespec = nodes_preassign_string(job, dst->info->nodes, dst->info->num_nodes);
+  nodespec = nodes_preassign_string(job, dst->info->nodes, dst->info->num_nodes, &booting);
       
   sprintf(deststr, "%s@%s", dst_q->name, dst->info->name);
       
-  ret = pbs_movejob(sd,job->name,deststr,nodespec);
-  free(nodespec);
+  if (!booting)
+    {
+    ret = pbs_movejob(sd,job->name,deststr,nodespec);
+    free(nodespec);
+    }
+  else
+    {
+    ret = 0;
+    }
+
   switch(ret)
     {
-    case 0: 
-      sched_log(PBSEVENT_DEBUG2,
-                PBS_EVENTCLASS_SERVER,
-                deststr,
-                "Move successfull.");
+    case 0:
+      if (!booting)
+        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SERVER, deststr, "Move successfull.");
+      else
+        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SERVER, deststr, "Move delayed.");
+
       update_server_on_move(dst->info,dst_q,job);
       update_queue_on_move(dst_q,job);
       update_job_on_move(job);
@@ -807,6 +817,7 @@ int run_update_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
   resource_req *res;   /* ptr to the resource of ncpus */
   int ncpus;    /* numeric amount of resource ncpus */
   char *errmsg;    /* used for pbs_geterrmsg() */
+  int booting = 0;
 
   strftime(timebuf, 128, "started on %a %b %d at %H:%M", localtime(&cstat.current_time));
 
@@ -823,19 +834,29 @@ int run_update_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
 
   /* construct nodespec assignments */
   if (best_node_name == NULL)
-    best_node_name = nodes_preassign_string(jinfo, sinfo->nodes, sinfo->num_nodes);
+    {
+    best_node_name = nodes_preassign_string(jinfo, sinfo->nodes, sinfo->num_nodes, &booting);
+    }
 
-  if (best_node == NULL)
-    snprintf(buf, BUF_SIZE, "Job %s", timebuf);
+  if (!booting)
+    {
+    if (best_node == NULL)
+      snprintf(buf, BUF_SIZE, "Job %s", timebuf);
 
-  update_job_comment(pbs_sd, jinfo, buf);
+    update_job_comment(pbs_sd, jinfo, buf);
 
-  buf[0] = '\0';
+    buf[0] = '\0';
 
-  ret = pbs_runjob(pbs_sd, jinfo -> name, best_node_name, NULL);
+    ret = pbs_runjob(pbs_sd, jinfo -> name, best_node_name, NULL);
 
-  /* cleanup */
-  free(best_node_name);
+    /* cleanup */
+    free(best_node_name);
+    }
+  else
+    {
+    update_job_comment(pbs_sd, jinfo, COMMENT_NODE_STILL_BOOTING);
+    ret = 0;
+    }
 
   if (ret == 0)
     {
@@ -852,7 +873,14 @@ int run_update_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
       best_node -> loadave += ncpus;
       }
 
-    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_JOB, jinfo -> name, "Job Run");
+    if (!booting)
+      {
+      sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_JOB, jinfo -> name, "Job Run");
+      }
+    else
+      {
+      sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_JOB, jinfo -> name, "Job Delayed");
+      }
 
     update_server_on_run(sinfo, qinfo, jinfo);
 
@@ -860,7 +888,7 @@ int run_update_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
 
     update_job_on_run(pbs_sd, jinfo);
 
-    if (cstat.fair_share)
+    if (!booting && cstat.fair_share)
       update_usage_on_run(jinfo);
 
     free(sinfo -> running_jobs);
