@@ -281,7 +281,13 @@ void req_register(
     }
   else
     {
-    strcpy(preq->rq_ind.rq_register.rq_svr, preq->rq_host);
+    /* We ignore what qsub sent us for the host. We need to use the 
+     * server_name so we know we can connect to the active server.
+     * This is an high availability consideration */
+    if(server_name != NULL)
+      strcpy(preq->rq_ind.rq_register.rq_svr, server_name);
+    else
+      strcpy(preq->rq_ind.rq_register.rq_svr, preq->rq_host);
     }
 
   /* Register a dependency */
@@ -383,7 +389,10 @@ void req_register(
                 {
                 /* has prior register, update it */
 
-                strcpy(pdj->dc_svr, preq->rq_ind.rq_register.rq_svr);
+                if(server_name != NULL)
+                  strncpy(pdj->dc_svr, server_name, PBS_MAXSERVERNAME);
+                else
+                  strncpy(pdj->dc_svr, preq->rq_ind.rq_register.rq_svr, PBS_MAXSERVERNAME);
                 }
               }
             else if ((rc = register_dep(pattr, preq, type, &made)) == 0)
@@ -815,7 +824,10 @@ int register_array_depend(
     CLEAR_LINK(pdj->dc_link);
 
     snprintf(pdj->dc_child,sizeof(pdj->dc_child),"%s",preq->rq_ind.rq_register.rq_child);
-    snprintf(pdj->dc_svr,sizeof(pdj->dc_svr),"%s",preq->rq_ind.rq_register.rq_svr);
+    if(server_name != NULL)
+      snprintf(pdj->dc_svr,sizeof(pdj->dc_svr),"%s",server_name);
+    else
+      snprintf(pdj->dc_svr,sizeof(pdj->dc_svr),"%s",preq->rq_ind.rq_register.rq_svr);
 
     if (num_jobs == -1)
       {
@@ -1779,7 +1791,10 @@ static int register_sync(
     {
     /* existing regist., just update the location of the child */
 
-    strcpy(pdj->dc_svr, host);
+    if(server_name != NULL)
+      strcpy(pdj->dc_svr, server_name);
+    else
+      strcpy(pdj->dc_svr, host);
 
     return(0);
     }
@@ -1844,7 +1859,10 @@ static int register_dep(
 
   if ((pdj = find_dependjob(pdep, preq->rq_ind.rq_register.rq_child)))
     {
-    strcpy(pdj->dc_svr, preq->rq_ind.rq_register.rq_svr);
+    if(server_name != NULL)
+      strcpy(pdj->dc_svr, server_name);
+    else
+      strcpy(pdj->dc_svr, preq->rq_ind.rq_register.rq_svr);
 
     *made = 0;
 
@@ -2000,7 +2018,10 @@ static struct depend_job *make_dependjob(
     pdj->dc_cost  = 0;
 
     strcpy(pdj->dc_child, jobid);
-    strcpy(pdj->dc_svr, host);
+    if(server_name != NULL)
+      strcpy(pdj->dc_svr, server_name);
+    else
+      strcpy(pdj->dc_svr, host);
 
     append_link(&pdep->dp_jobs, &pdj->dc_link, pdj);
     }
@@ -2852,7 +2873,10 @@ static int build_depend(
 
           if (pwhere)
             {
-            (void)strcpy(pdjb->dc_svr, pwhere + 1);
+            if(server_name != NULL)
+              (void)strcpy(pdjb->dc_svr, server_name);
+            else
+              (void)strcpy(pdjb->dc_svr, pwhere + 1);
             }
           else
             {
