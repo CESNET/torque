@@ -1044,6 +1044,11 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg)
         sprintf(log_msg, INFO_INSUFICIENT_DYNAMIC_RESOURCE);
         break;
 
+      case NODE_STILL_BOOTING:
+        strcpy(comment_msg, COMMENT_NODE_STILL_BOOTING);
+        sprintf(log_msg, INFO_NODE_STILL_BOOTING);
+        break;
+
       default:
         rc = 0;
         comment_msg[0] = '\0';

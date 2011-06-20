@@ -168,6 +168,7 @@
 #define INFO_INSUFICIENT_SERVER_RESOURCE "Resource request couldn't be satisfied using server resources."
 #define INFO_INSUFICIENT_QUEUE_RESOURCE "Resource request couldn't be satisfied using queue resources."
 #define INFO_INSUFICIENT_DYNAMIC_RESOURCE "Dynamic resource request couldn't be satisfied."
+#define INFO_NODE_STILL_BOOTING "One of desired nodes is still booting."
 
 #define COMMENT_QUEUE_NOT_STARTED "Not Running: Queue not started."
 #define COMMENT_QUEUE_NOT_EXEC    "Not Running: Queue not an execution queue."
@@ -196,5 +197,6 @@
 #define COMMENT_INSUFICIENT_SERVER_RESOURCE "Not Running: Resource request couldn't be satisfied using server resources."
 #define COMMENT_INSUFICIENT_QUEUE_RESOURCE "Not Running: Resource request couldn't be satisfied using queue resources."
 #define COMMENT_INSUFICIENT_DYNAMIC_RESOURCE "Not Running: Dynamic resource request couldn't be satisfied."
+#define COMMENT_NODE_STILL_BOOTING "Not Running: One of desired nodes is still booting."
 
 #endif
