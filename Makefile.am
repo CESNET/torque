@@ -3,6 +3,7 @@ include $(top_srcdir)/buildutils/config.mk
 SUBDIRS = src doc contrib/blcr
 
 EXTRA_DIST = CHANGELOG \
+	autogen.sh \
 	INSTALL.GNU \
 	PBS_License_2.5.txt \
 	README.array_changes \
