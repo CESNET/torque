@@ -602,9 +602,9 @@ struct job
       struct   /* if in execution queue .. */
         {
         pbs_net_t ji_momaddr;  /* host addr of Server */
+        int       ji_exitstat; /* job exit status from MOM */
         unsigned short ji_momport;  /* host port of Server default 15002 */
         unsigned short ji_mom_rmport; /* host mom manager port of Server default 15003 */
-        int       ji_exitstat; /* job exit status from MOM */
         } ji_exect;
 
       struct
