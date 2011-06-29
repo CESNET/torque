@@ -1,6 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
 3.0.3
+  b - fix for bugzilla #141 - qsub was overwriting the path variable in PBSD_authenticate
 
 3.0.2
   c - check if the file pointer to /dev/console can be opened. If not, don't attempt to write it
