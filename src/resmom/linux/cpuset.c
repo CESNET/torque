@@ -428,7 +428,9 @@ initialize_root_cpuset(void)
   struct stat    statbuf;
 
   char           cpuset_buf[MAXPATHLEN];
-  FILE           *fp;
+  FILE          *fp;
+  char           cmd[MAXPATHLEN];
+  FILE          *pipe;
 
   sprintf(log_buffer, "Init TORQUE cpuset %s.",
           TTORQUECPUSET_PATH);
@@ -440,23 +442,29 @@ initialize_root_cpuset(void)
 
   /* make sure cpusets are available */
 
-  sprintf(path, "%s/cpus",
-          TROOTCPUSET_PATH);
+  sprintf(path, "%s/cpus", TROOTCPUSET_PATH);
 
   if (lstat(path, &statbuf) != 0)
     {
-    sprintf(log_buffer, "cannot locate %s - cpusets not configured/enabled on host\n",
-            path);
-
-    log_err(-1, id, log_buffer);
-
-    /* FAILURE */
-
-    return;
+    /* create cpuset base directory */
+    mkdir(TROOTCPUSET_PATH,0755);
+ 
+    /* now mount it */
+    sprintf(cmd,"mount -t cpuset none %s", TROOTCPUSET_PATH);
+    
+    pipe = popen(cmd,"r");
+    
+    if (pipe == NULL)
+      {
+      fprintf(stderr,"Cannot mount directory '%s'\n",TROOTCPUSET_PATH);
+      }
+    else
+      {
+      pclose(pipe);
+      }
     }
 
-  sprintf(path, "%s",
-          TTORQUECPUSET_PATH);
+  sprintf(path, "%s", TTORQUECPUSET_PATH);
 
   if (lstat(path, &statbuf) != 0)
     {
