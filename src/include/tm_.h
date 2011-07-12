@@ -96,6 +96,7 @@ typedef int  tm_node_id; /* job-relative node id */
 typedef int  tm_event_t; /* event handle, > 0 for real events */
 #define TM_NULL_EVENT ((tm_event_t)0)
 #define TM_ERROR_EVENT ((tm_event_t)-1)
+#define TM_ABORT_EVENT ((tm_event_t)-2)
 
 typedef unsigned int tm_task_id;
 #define TM_NULL_TASK (tm_task_id)0
