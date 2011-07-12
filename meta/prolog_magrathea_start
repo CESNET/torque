@@ -1,48 +1,89 @@
 #!/bin/bash
 
-#super debuging, return exit code immediately
-#exit 0
+# exit when unitialized variable is detected
+set -u
 
-exec 1>>/tmp/log 2>&1
-. /etc/profile
-PATH=$PATH:/software/remctl-2.14/bin:/usr/heimdal/bin:/usr/heimdal/sbin
+###########################################################
+# set mode to switch between                              #
+###########################################################
+# 1 - straight exit 0                                     #
+# 2 - sleep 10, then exit 0                               #
+# 3 - fake magrathea (xm and update cache)                #
+# 4 - magrathea without boot                              #
+# 5 - magrathea with boot                                 #
+###########################################################
+mode=5
 
-set -x
+###########################################################
+# configure variables                                     #
+###########################################################
 
-FAKE_VERSION=0
-FAST_FAKE_VERSION=0
-MAGRATHEA_VERSION=1
-INVOKE_BOOOT=1
-
-if [ -f /etc/pbs.conf ]; 
- then . /etc/pbs.conf
-elif [ -f /usr/spool/PBS/server_name ]; then
- PBS_SERVER=`cat /usr/spool/PBS/server_name`
-else
- PBS_SERVER=`cat /var/spool/torque/server_name`
+if [ "$PBS_SERVER" == "" ]; then
+	PBS_SERVER=`cat /var/spool/torque/server_name`;
 fi
 
-PROG=$0;
+#########################
+## prologue parameters ##
+#########################
+PROG=$0
 JOBID=$1
 USER=$2
-#username and usergroup not used
+GROUP=$3
 JOBNAME=$4
 DOMAIN=$5
-DOM=${DOMAIN/*=/};
+
+#########################
+## derived values      ##
+#########################
 ALTERNATIVE=$MAGRATHEA_VIRTUAL_ALTERNATIVE
 VLANID=$MAGRATHEA_VLANID
+CLOUDTYPE=$MAGRATHEA_TYPE
+NCPU=1 # TODO change after resources are reregistered on nodes
 
 export PBS_ALTERNATIVE=$ALTERNATIVE
 export PBS_VLANID=$MAGRATHEA_VLANID
 
-#TODO lepe
-NCPU=1
-
-#TODO obalit i sleep
-
+#########################
+## commands and path   ##
+#########################
 ADMIN_COMMAND=/usr/sbin/magrathea-admin
 CACHE_LIST=/software/pbs-7.0.0/cache/list_cache
 CACHE_UPDATE=/software/pbs-7.0.0/cache/update_cache
+
+#########################
+## load system presets ##
+#########################
+. /etc/profile
+
+###########################################################
+# error codes                                             #
+###########################################################
+
+STATUS_EMPTY=1
+STATUS_BAD=2
+
+FAKE_CANT_BOOT=11
+FAKE_CANT_STATUS=12
+FAKE_CANT_STOP=13
+FAKE_CANT_FORCESTOP=113
+
+MAGRATHEA_DOMAIN_DOESNT_EXIST_CANT_CREATE=21
+MAGRATHEA_BAD_STATUS_FOR_BOOT=22
+MAGRATHEA_CANT_BOOT=23
+MAGRATHEA_BOOT_TIMEOUT=24
+MAGRATHEA_CANT_SET_DOWN_FATAL=125
+MAGRATHEA_CANT_START_CLUSTER=26
+MAGRATHEA_BOOT_TIMEOUT=27
+
+CACHE_CANT_UPDATE=51
+CACHE_CANT_UPDATE_FATAL=151
+
+BOOT_FAILURE=91
+BOOT_CLEANUP_FAILURE=92
+
+###########################################################
+# setup logging                                           #
+###########################################################
 
 date >>/tmp/mujtrace
 echo $0 >>/tmp/mujtrace
@@ -50,151 +91,206 @@ echo "$*" >>/tmp/mujtrace
 env >>/tmp/mujtrace
 echo "--------------------------">>/tmp/mujtrace
 
+exec 1>>/tmp/log 2>&1
+set -x
+
+###########################################################
+# main code                                               #
+###########################################################
+
+[[ $mode -eq 2 ]] && sleep 10;
+[[ $mode -le 2 ]] && exit 0;
+
+#########################
+## status checks       ##
+#########################
+
+STATUS=
+
+# status without magrathea
+fake_status()
+{
+	[[ -z "`/usr/sbin/xm list ${DOMAIN/\.*/} | grep -e '-b----'`" ]] && exit $FAKE_CANT_STATUS; # check the xen status
+	STATUS=`$CACHE_LIST $PBS_SERVER magrathea | awk -F"[ \t;]+" '/^'$DOMAIN'/ { print $3 }'`;        # get status string from cache
+}
+
+# status with magrathea
+magrathea_status()
+{
+	STATUS=`$ADMIN_COMMAND status $DOMAIN | awk -F"[ \t;]+" '/^'$DOMAIN'/ { print $2 }'`;
+}
+
+#########################
+## start               ##
+#########################
+
+# invoke booot
+invoke_booot()
+{
+	/afs/ics.muni.cz/software/booot/booot create --dont-create-fs ${DOMAIN/\.*/} >/tmp/booot.log 2>&1
+	[[ $? -ne 0 ]] && exit $BOOT_FAILURE;
+	. /tmp/booot.params
+}
+
+# start domU without magrathea
+fake_start()
+{
+	/usr/sbin/xm create ${DOMAIN/\.*/} 2>/dev/null
+	[[ $? -ne 0 ]] && exit $FAKE_CANT_BOOT;
+
+	NOW=`date +%s`
+	$CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "running-cluster;0;changed=$NOW"
+	[[ $? -eq 0 ]] && exit 0;
+
+	/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
+	[[ $? -ne 0 ]] && exit $FAKE_CANT_FORCESTOP;
+	
+	exit $CACHE_CANT_UPDATE;
+}
+
+# start domU using magrathea
+magrathea_start()
+{
+	# check if domain exists, if not create
+	magrathea_status;
+	[[ -z $STATUS ]] && $ADMIN_COMMAND create $DOMAIN ${DOMAIN/\.*/} normal `host $DOMAIN | awk '// { print $4 }'` $MAGRATHEA_DOMAIN_FOREIGN;
+	
+	# check if creation went ok
+	magrathea_status;
+	[[ -z $STATUS ]] && exit $MAGRATHEA_DOMAIN_DOESNT_EXIST_CANT_CREATE;
+
+	if [ $STATUS != "down-bootable" ]; then # inconsistent state detected - scheduler/magrathea mismatch
+		NOW=`date +%s`
+		$CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "inconsistent;0;changed=$NOW" # overwrite magrathea state
+		[[ $? -ne 0 ]] && exit $CACHE_CANT_UPDATE_FATAL;
+		exit $MAGRATHEA_BAD_STATUS_FOR_BOOT;
+	fi
+	
+	# try to boot machine
+	$ADMIN_COMMAND force-boot $DOMAIN;
+	[[ $? -ne 0 ]] && exit $MAGRATHEA_CANT_BOOT;
+
+	# check state each 10 seconds for 2 minutes total until in free state
+	for i in `seq 1 12`; do
+		magrathea_status;
+		[[ "$STATUS" = "free" ]] && break;
+		sleep 10;
+	done
+
+	magrathea_status;
+	if [ "$STATUS" != "free" ]; then # still not online, try to cleanup
+		/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
+		[[ $? -ne 0 ]] && exit $FAKE_CANT_FORCESTOP;
+		$ADMIN_COMMAND down $DOMAIN;
+		[[ $? -ne 0 ]] && exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
+
+		exit $MAGRATHEA_BOOT_TIMEOUT;
+	fi
+
+	$ADMIN_COMMAND startcluster $DOMAIN $JOBNAME $NCPU;
+	if [ $? -ne 0 ]; then # try to cleanup
+		/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
+		[[ $? -ne 0 ]] && exit $FAKE_CANT_FORCESTOP;
+		$ADMIN_COMMAND down $DOMAIN;
+		[[ $? -ne 0 ]] && exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
+
+		exit $MAGRATHEA_CANT_START_CLUSTER;
+	fi
+}
+
+#########################
+## stop                ##
+#########################
+
+fake_stop()
+{
+	NOW=`date +%s`
+	$CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "down-bootable;changed=$NOW"
+	if [ $? -ne 0 ]; then # can't update cache, try to cleanup
+		/usr/sbin/xm destroy ${DOMAIN/\.*/};
+		# ignore return of xm
+		exit $CACHE_CANT_UPDATE_FATAL;
+	fi
+	
+	/usr/sbin/xm shutdown -w ${DOMAIN/\.*/};
+	if [ $? -ne 0 ]; then # can't shutdown, try to cleanup
+		/usr/sbin/xm destroy ${DOMAIN/\.*/};
+		#ignore return of xm
+		exit $FAKE_CANT_STOP;
+	fi
+}
+
+magrathea_stop()
+{
+	magrathea_status;
+	if [ "$STATUS" = "running-cluster" ]; then # if not running cluster, don't try to shutdown
+
+		$ADMIN_COMMAND stopcluster $DOMAIN $JOBNAME $NCPU;
+		if [ $? -ne 0 ]; then
+			# we could cleanup cache here, but can't right now, since we can't do cache delete
+		fi
+
+		$ADMIN_COMMAND force-down $DOMAIN;
+		if [ $? -ne 0 ]; then
+			/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
+			[[ $? -ne 0 ]] && exit $FAKE_CANT_FORCESTOP;
+			$ADMIN_COMMAND down $DOMAIN;
+			[[ $? -ne 0 ]] && exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
+		fi
+	fi
+
+	for i in `seq 1 12`; do
+		magrathea_status;
+		[[ "$STATUS" = "down-bootable" ]] && break;
+		sleep 10;
+	done
+
+	magrathea_status;
+	if [ "$STATUS" != "down-bootable" ]; then
+		/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
+		[[ $? -ne 0 ]] && exit $FAKE_CANT_FORCESTOP;
+		$ADMIN_COMMAND down $DOMAIN;
+		[[ $? -ne 0 ]] && exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
+
+		exit $MAGRATHEA_BOOT_TIMEOUT;
+	fi
+}
+
+cleanup_boot()
+{
+	/afs/ics.muni.cz/software/booot/booot delete --dont-delete-lv ${DOMAIN} >/tmp/booot.log 2>&1
+	[[ $? -ne 0 ]] && exit $BOOT_CLEANUP_FAILURE;
+}
+
 if [ -z $5 ]; then
   exit 3
 fi
 
 case $PROG in
  *status)
-    if [ $FAST_FAKE_VERSION = 1 ]; then
-	sleep 10;
-        exit 0;
-    fi 
+    STATUS=""
+    [[ $mode -le 3 ]] && fake_status;
+    [[ $mode -ge 4 ]] && magrathea_status;
 
-    if [ $FAKE_VERSION = 1 -o $FAKE_VERSION = 2 ] || [ $INVOKE_BOOOT = 1 ]; then
-	if [ -z "/usr/sbin/xm list /etc/xen/${DOM/\.*/} | grep -e '-b----'" ]; then
-		exit 4;
-	fi
-    fi
+    [[ -z $STATUS ]] && exit $STATUS_EMPTY;			# empty status, shouldn't happen
 
-    if [ $MAGRATHEA_VERSION = 1 ]; then
-       STATUS=`$ADMIN_COMMAND status $DOMAIN`
-    else
-       if [ $FAKE_VERSION = 1 -o $FAKE_VERSION = 2 ]; then
-       STATUS=`$CACHE_LIST $PBS_SERVER magrathea|grep $DOMAIN|cut -f3`
-       fi
-    fi
-
-    if [ "x$STATUS" = "x" ]; then exit 3;fi
-    stat=`expr match $STATUS "running-cluster"`
-    if [ $stat -gt 0 ] 
-          then
-            exit 0;
-          else
-            exit 2;
-    fi
-    exit 0;
+    [[ "$STATUS" = "running-cluster" ]] && exit 0;
+	exit $STATUS_BAD;
     ;;
  *start)
-    if [ $FAST_FAKE_VERSION = 1 ]; then
-	sleep 10;
-        exit 0;
-    fi 
-
-    if [ $INVOKE_BOOOT = 1 ]; then
-        if [ $FAKE_VERSION -eq 2 -o $MAGRATHEA_VERSION = 1 ]; then
-          #sometimes --dont-create-fs
-	  #/afs/ics.muni.cz/software/booot/booot create ${DOM/\.*/} >/tmp/booot.log 2>&1
-	  /afs/ics.muni.cz/software/booot/booot create --dont-create-fs  ${DOM/\.*/} >/tmp/booot.log  2>&1
-	  if [ $? != 0 ]; then exit 9; fi
-	  . /tmp/booot.params
-        else
-          exit 8
-        fi
-    fi
- 
-    if [ $MAGRATHEA_VERSION = 0 ]; then
-       if [ $FAKE_VERSION -eq 2 ]; then
-	  /usr/sbin/xm create /etc/xen/${DOM/\.*/} 2>/dev/null
-       fi
-
-       NOW=`date +%s`
-       $CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "running-cluster;0;changed=$NOW"
-       if [ $? != 0 ]
-          then
-           exit 2;
-       fi
-       exit 0;
-    else 
-       STATUS=`$ADMIN_COMMAND status| grep $DOMAIN| awk '// {print $2}'| sed 's/;.*//'`
-       if [ -z $STATUS ]; then
-		$ADMIN_COMMAND create $DOMAIN ${DOMAIN/.*} normal `host $DOMAIN | awk '// {print $4}'` ${MAGRATHEA_DOMAIN_FOREIGN}
-                STATUS=`$ADMIN_COMMAND status| grep $DOMAIN| awk '// {print $2}'| sed 's/;.*//'`
-		if [ -z $STATUS ]; then
-			exit 7
-                fi
-       fi
-
-       
-       if [ ${STATUS:0:13} != "down-bootable" -a ${STATUS:0:13} != "down-possible" ]; then exit 5; fi
-
-       $ADMIN_COMMAND force-boot $DOMAIN  || exit 2
-       # wait max. 2 minutes
-       for i in `seq 1 12`; do
-		STATUS=`$ADMIN_COMMAND status| grep $DOMAIN| awk '// {print $2}'| sed 's/;.*//'`
-		if [ "${STATUS:0:4}" = "free" ]; then break; fi
-		sleep 10;
-       done
-       if [ "${STATUS:0:4}" = "free" ]; then
-		$ADMIN_COMMAND startcluster $DOMAIN $JOBNAME $NCPU || exit 3
-       else
- 		exit 6
-       fi
-    fi 
+ 	[[ $mode -ge 5 ]] && invoke_booot;
+ 	[[ $mode -le 3 ]] && fake_start;
+ 	[[ $mode -ge 4 ]] && magrathea_start;
 
     exit 0;
     ;;
  *stop)
-    if [ $FAST_FAKE_VERSION = 1 ]; then
-	sleep 10;
-        exit 0;
-    fi 
-
-    if [ $MAGRATHEA_VERSION = 0 ]; then
-        if [ $FAKE_VERSION = 1 ]; then
-           NOW=`date +%s`
-           $CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "free;0;changed=$NOW"
-        elif [ $FAKE_VERSION = 2 ]; then
-           NOW=`date +%s`
-           $CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "down-possible;changed=$NOW"
-           /usr/sbin/xm shutdown -w ${DOM/\.*/}
-        fi
-        if [ $? != 0 ]
-        then
-           exit 2;
-        fi
-    else
-        STATUS=`$ADMIN_COMMAND status| grep $DOMAIN| awk '// {print $2}'| sed 's/;.*//'`
-        RET=0
-        if [ "${STATUS:0:15}" != "running-cluster" ]; then RET=5; fi
-        $ADMIN_COMMAND stopcluster $DOMAIN $JOBNAME $NCPU || [ $RET -ne 0 ] || RET=3
-        $ADMIN_COMMAND force-down $DOMAIN  || [ $RET -ne 0 ] || RET=2
-        if [ $RET -ne 0 ]; then
-          exit $RET
-        fi
- 
- 
-        # wait max. 2 minutes
-        for i in `seq 1 12`; do
-		STATUS=`$ADMIN_COMMAND status| grep $DOMAIN| awk '// {print $2}'| sed 's/;.*//'`
-		if [ "${STATUS:0:13}" = "down-bootable" -o "${STATUS:0:13}" = "down-possible" ]; then break; fi
-		sleep 10;
-        done
-        if ! [ "${STATUS:0:13}" = "down-bootable" -o "${STATUS:0:13}" = "down-possible" ]; then 
-		exit 6
-        fi
-    fi
-
-    if [ $INVOKE_BOOOT = 1 ]; then
-        if [ $FAKE_VERSION -eq 2 -o $MAGRATHEA_VERSION = 1 ]; then
-	   #/afs/ics.muni.cz/software/booot/booot delete ${DOM/\.*/} >/tmp/booot.log 2>&1
-	   /afs/ics.muni.cz/software/booot/booot delete --dont-delete-lv ${DOM/\.*/} >/tmp/booot.log 2>&1
-        else
-           exit 8
-	fi
-    fi
+ 	[[ $mode -le 3 ]] && fake_stop;
+	[[ $mode -ge 4 ]] && magrathea_stop;
+	[[ $mode -ge 5 ]] && cleanup_boot;
 
     exit 0;
     ;;
 esac;
+
 exit 2
