@@ -3447,8 +3447,13 @@ void im_request(
         }
 
       reply = 0;
+      pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-      job_purge(pjob);
+      pjob->ji_obit = TM_NULL_EVENT;
+
+      job_save(pjob, SAVEJOB_QUICK);
+
+      exiting_tasks = 1;
 
       break;
 
