@@ -230,7 +230,7 @@
 #define ATTR_keepcompleted "keep_completed"
 #define ATTR_disallowedtypes "disallowed_types"
 #define ATTR_is_transit  "is_transit"
-#define ATTR_starving_support "starving_support"
+#define ATTR_starving_support "jobs_starving_after"
 #define ATTR_admin_queue "admin_queue"
 
 /* additional server attributes names */

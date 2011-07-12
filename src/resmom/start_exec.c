@@ -5027,7 +5027,8 @@ void start_exec(
   /* Step 3.0 Validate/Initialize Environment */
   
   /* check creds early because we need the uid/gid for TMakeTmpDir() */
-  
+
+  if (!is_cloud_job(pjob)) /* skip this test for cloud jobs (they only run as root) */
   if (!check_pwd(pjob))
 	{
 	log_err(-1, id, log_buffer);
@@ -5038,7 +5039,7 @@ void start_exec(
 	}
   
   /* should we make a tmpdir? */
-  
+  if (!is_cloud_job(pjob)) /* skip this for cloud jobs (no need to create temp directory */
   if (TTmpDirName(pjob, tmpdir))
 	{
 	if (!TMakeTmpDir(pjob, tmpdir))
