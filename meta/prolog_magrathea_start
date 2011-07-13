@@ -148,6 +148,12 @@ fake_start()
 	exit $CACHE_CANT_UPDATE;
 }
 
+clean_exit()
+{
+	cleanup_boot;
+	exit $1;
+}
+
 # start domU using magrathea
 magrathea_start()
 {
@@ -157,18 +163,18 @@ magrathea_start()
 	
 	# check if creation went ok
 	magrathea_status;
-	[[ -z $STATUS ]] && exit $MAGRATHEA_DOMAIN_DOESNT_EXIST_CANT_CREATE;
-
+	[[ -z $STATUS ]] && clean_exit $MAGRATHEA_DOMAIN_DOESNT_EXIST_CANT_CREATE;
+	
 	if [ $STATUS != "down-bootable" ]; then # inconsistent state detected - scheduler/magrathea mismatch
 		NOW=`date +%s`
 		$CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "inconsistent;0;changed=$NOW" # overwrite magrathea state
-		[[ $? -ne 0 ]] && exit $CACHE_CANT_UPDATE_FATAL;
-		exit $MAGRATHEA_BAD_STATUS_FOR_BOOT;
+		[[ $? -ne 0 ]] && clean_exit $CACHE_CANT_UPDATE_FATAL;
+		clean_exit $MAGRATHEA_BAD_STATUS_FOR_BOOT;
 	fi
 	
 	# try to boot machine
 	$ADMIN_COMMAND force-boot $DOMAIN;
-	[[ $? -ne 0 ]] && exit $MAGRATHEA_CANT_BOOT;
+	[[ $? -ne 0 ]] && clean_exit $MAGRATHEA_CANT_BOOT;
 
 	# check state each 10 seconds for 2 minutes total until in free state
 	for i in `seq 1 12`; do
@@ -180,21 +186,21 @@ magrathea_start()
 	magrathea_status;
 	if [ "$STATUS" != "free" ]; then # still not online, try to cleanup
 		/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
-		[[ $? -ne 0 ]] && exit $FAKE_CANT_FORCESTOP;
+		[[ $? -ne 0 ]] && clean_exit $FAKE_CANT_FORCESTOP;
 		$ADMIN_COMMAND down $DOMAIN;
-		[[ $? -ne 0 ]] && exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
+		[[ $? -ne 0 ]] && clean_exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
 
-		exit $MAGRATHEA_BOOT_TIMEOUT;
+		clean_exit $MAGRATHEA_BOOT_TIMEOUT;
 	fi
 
 	$ADMIN_COMMAND startcluster $DOMAIN $JOBNAME $NCPU;
 	if [ $? -ne 0 ]; then # try to cleanup
 		/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
-		[[ $? -ne 0 ]] && exit $FAKE_CANT_FORCESTOP;
+		[[ $? -ne 0 ]] && clean_exit $FAKE_CANT_FORCESTOP;
 		$ADMIN_COMMAND down $DOMAIN;
-		[[ $? -ne 0 ]] && exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
+		[[ $? -ne 0 ]] && clean_exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
 
-		exit $MAGRATHEA_CANT_START_CLUSTER;
+		clean_exit $MAGRATHEA_CANT_START_CLUSTER;
 	fi
 }
 
@@ -233,9 +239,9 @@ magrathea_stop()
 		$ADMIN_COMMAND force-down $DOMAIN;
 		if [ $? -ne 0 ]; then
 			/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
-			[[ $? -ne 0 ]] && exit $FAKE_CANT_FORCESTOP;
+			[[ $? -ne 0 ]] && clean_exit $FAKE_CANT_FORCESTOP;
 			$ADMIN_COMMAND down $DOMAIN;
-			[[ $? -ne 0 ]] && exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
+			[[ $? -ne 0 ]] && clean_exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
 		fi
 	fi
 
@@ -248,18 +254,20 @@ magrathea_stop()
 	magrathea_status;
 	if [ "$STATUS" != "down-bootable" ]; then
 		/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
-		[[ $? -ne 0 ]] && exit $FAKE_CANT_FORCESTOP;
+		[[ $? -ne 0 ]] && clean_exit $FAKE_CANT_FORCESTOP;
 		$ADMIN_COMMAND down $DOMAIN;
-		[[ $? -ne 0 ]] && exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
+		[[ $? -ne 0 ]] && clean_exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
 
-		exit $MAGRATHEA_BOOT_TIMEOUT;
+		clean_exit $MAGRATHEA_BOOT_TIMEOUT;
 	fi
 }
 
 cleanup_boot()
 {
-	/afs/ics.muni.cz/software/booot/booot delete --dont-delete-lv ${DOMAIN} >/tmp/booot.log 2>&1
-	[[ $? -ne 0 ]] && exit $BOOT_CLEANUP_FAILURE;
+	if [ $mode -eq 5 ]; then
+		/afs/ics.muni.cz/software/booot/booot delete --dont-delete-lv ${DOMAIN} >/tmp/booot.log 2>&1
+		[[ $? -ne 0 ]] && exit $BOOT_CLEANUP_FAILURE;
+	fi
 }
 
 if [ -z $5 ]; then
@@ -278,7 +286,7 @@ case $PROG in
 	exit $STATUS_BAD;
     ;;
  *start)
- 	[[ $mode -ge 5 ]] && invoke_booot;
+ 	[[ $mode -eq 5 ]] && invoke_booot;
  	[[ $mode -le 3 ]] && fake_start;
  	[[ $mode -ge 4 ]] && magrathea_start;
 
@@ -287,9 +295,8 @@ case $PROG in
  *stop)
  	[[ $mode -le 3 ]] && fake_stop;
 	[[ $mode -ge 4 ]] && magrathea_stop;
-	[[ $mode -ge 5 ]] && cleanup_boot;
 
-    exit 0;
+    clean_exit 0;
     ;;
 esac;
 
