@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # exit when unitialized variable is detected
-set -u
+#set -u
 
 ###########################################################
 # set mode to switch between                              #
@@ -117,7 +117,7 @@ fake_status()
 # status with magrathea
 magrathea_status()
 {
-	STATUS=`$ADMIN_COMMAND status $DOMAIN | awk -F"[ \t;]+" '/^'$DOMAIN'/ { print $2 }'`;
+	STATUS=`$ADMIN_COMMAND status | awk -F"[ \t;]+" '/^'$DOMAIN'/ { print $2 }'`;
 }
 
 #########################
@@ -127,8 +127,8 @@ magrathea_status()
 # invoke booot
 invoke_booot()
 {
-	/afs/ics.muni.cz/software/booot/booot create --dont-create-fs ${DOMAIN/\.*/} >/tmp/booot.log 2>&1
-	[[ $? -ne 0 ]] && exit $BOOT_FAILURE;
+	/afs/ics.muni.cz/software/booot/booot create ${DOMAIN/\.*/} >/tmp/booot.log 2>&1
+	[[ $? -ne 0 ]] && clean_exit $BOOT_FAILURE;
 	. /tmp/booot.params
 }
 
@@ -234,6 +234,7 @@ magrathea_stop()
 		$ADMIN_COMMAND stopcluster $DOMAIN $JOBNAME $NCPU;
 		if [ $? -ne 0 ]; then
 			# we could cleanup cache here, but can't right now, since we can't do cache delete
+			:
 		fi
 
 		$ADMIN_COMMAND force-down $DOMAIN;
@@ -265,7 +266,7 @@ magrathea_stop()
 cleanup_boot()
 {
 	if [ $mode -eq 5 ]; then
-		/afs/ics.muni.cz/software/booot/booot delete --dont-delete-lv ${DOMAIN} >/tmp/booot.log 2>&1
+		/afs/ics.muni.cz/software/booot/booot delete ${DOMAIN/\.*/} >/tmp/booot.log 2>&1
 		[[ $? -ne 0 ]] && exit $BOOT_CLEANUP_FAILURE;
 	fi
 }
