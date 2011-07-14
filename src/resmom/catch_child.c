@@ -707,22 +707,24 @@ scan_for_exiting(void)
       ** reply to the mother superior and get rid of
       ** the job.
       */
+      if (pjob->ji_obit != TM_ABORT_EVENT) /* don't send anything for abort */
+        {
+        im_compose(
+          stream,
+          pjob->ji_qs.ji_jobid,
+          cookie,
+          IM_ALL_OKAY,
+          pjob->ji_obit,
+          TM_NULL_TASK);
 
-      im_compose(
-        stream,
-        pjob->ji_qs.ji_jobid,
-        cookie,
-        IM_ALL_OKAY,
-        pjob->ji_obit,
-        TM_NULL_TASK);
+        diswul(stream, resc_used(pjob, "cput", gettime));
 
-      diswul(stream, resc_used(pjob, "cput", gettime));
+        diswul(stream, resc_used(pjob, "mem", getsize));
 
-      diswul(stream, resc_used(pjob, "mem", getsize));
+        diswul(stream, resc_used(pjob, "vmem", getsize));
 
-      diswul(stream, resc_used(pjob, "vmem", getsize));
-
-      rpp_flush(stream);
+        rpp_flush(stream);
+        }
 
       if (LOGLEVEL >= 6)
         {
