@@ -3449,7 +3449,7 @@ void im_request(
       reply = 0;
       pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
 
-      pjob->ji_obit = TM_NULL_EVENT;
+      pjob->ji_obit = TM_ABORT_EVENT;
 
       job_save(pjob, SAVEJOB_QUICK);
 
