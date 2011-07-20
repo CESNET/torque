@@ -118,7 +118,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <netdb.h>
-#include <pthread.h>
 
 #include "pbs_ifl.h"
 #include "list_link.h"
@@ -607,11 +606,84 @@ static void job_init_wattr(
   }   /* END job_init_wattr() */
 
 
+/*
+ * tmpdir_purge - purge a jobs $TMPDIR
+ *
+ * Only called from job_purge if there is a job's $TMPDIR to purge.
+ * Forks a child process to purge the job and returns to the parent.
+ */
+
+void tmpdir_purge(
+
+  char *tmpdir, /* I (unmodified) */
+  job *pjob)    /* I (unmodified) */
+
+
+  {
+  pid_t process_id;  /* return value of fork() */
+  int           rc;  /* return code of remtree() */
+
+  process_id=fork();
+
+  if(0 > process_id)
+  {
+      sprintf(log_buffer,
+        "fork for removal of job transient tmpdir %s failed",
+        tmpdir);
+
+      log_err(errno, "recursive (r)rmdir",
+        log_buffer);
+
+     return;
+  }
+    
+  if(0 != process_id)
+  {
+     /* We are the parent, so return to carry on with the rest */
+     return;
+  }
+
+  sprintf(log_buffer, "removing transient job directory %s",
+    tmpdir);
+
+  log_record(
+    PBSEVENT_DEBUG,
+    PBS_EVENTCLASS_JOB,
+    pjob->ji_qs.ji_jobid,
+    log_buffer);
+
+  if ((setegid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1) ||
+      (seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) == -1))
+    {
+    /* FAILURE */
+
+    exit(1);
+    }
+
+  rc = remtree(tmpdir);
+
+  seteuid(0);
+  setegid(pbsgroup);
+
+  if ((rc != 0) && (LOGLEVEL >= 5))
+    {
+    sprintf(log_buffer,
+      "recursive remove of job transient tmpdir %s failed",
+      tmpdir);
+
+    log_err(errno, "recursive (r)rmdir",
+      log_buffer);
+    exit(1);
+    }
+
+  exit(0);
+
+  } /* END: tmpdir_purge */
 
 
 
 /*
- * job_purge_thread - purge job from system
+ * job_purge - purge job from system
  *
  * The job is dequeued; the job control file, script file and any spooled
  * output files are unlinked, and the job structure is freed.
@@ -619,53 +691,21 @@ static void job_init_wattr(
  * removed.
  */
 
-void *job_purge_thread(void *jobtopurge)
+void job_purge(
+  job *pjob) /* I (modified) */
   {
-  static char   id[] = "job_purge_thread";
-  job *pjob;
+  static char   id[] = "job_purge";
   char          namebuf[MAXPATHLEN + 1];
   extern char  *msg_err_purgejob;
-  int           rc;
   extern void MOMCheckRestart A_((void));
 
-  pjob = (job *)jobtopurge;
 
-  if (pjob->ji_flags & MOM_HAS_TMPDIR)
+  /* Only remove job directory on mother superior - CS @ VLSCI 2011/07/12 */
+  if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) && (pjob->ji_flags & MOM_HAS_TMPDIR))
     {
     if (TTmpDirName(pjob, namebuf))
       {
-      sprintf(log_buffer, "removing transient job directory %s",
-        namebuf);
-
-      log_record(
-        PBSEVENT_DEBUG,
-        PBS_EVENTCLASS_JOB,
-        pjob->ji_qs.ji_jobid,
-        log_buffer);
-
-      if ((setegid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1) ||
-          (seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) == -1))
-        {
-        /* FAILURE */
-
-        pthread_exit(NULL);
-        }
-
-      rc = remtree(namebuf);
-
-      seteuid(0);
-      setegid(pbsgroup);
-
-      if ((rc != 0) && (LOGLEVEL >= 5))
-        {
-        sprintf(log_buffer,
-          "recursive remove of job transient tmpdir %s failed",
-          namebuf);
-
-        log_err(errno, "recursive (r)rmdir",
-          log_buffer);
-        }
-
+      tmpdir_purge(namebuf,pjob);
       pjob->ji_flags &= ~MOM_HAS_TMPDIR;
       }
     }
@@ -778,55 +818,7 @@ void *job_purge_thread(void *jobtopurge)
   if (((job *)GET_NEXT(svr_alljobs)) == NULL)
     MOMCheckRestart();
 
-  pthread_exit(NULL);
   }
-
-void job_purge(
-
-  job *pjob)  /* I (modified) */
-
-  {
-  static char   id[] = "job_purge";
-  pthread_attr_t attr;
-  pthread_t *thread;
-  int rc;
-
-  rc = pthread_attr_init( &attr );
-  if(rc)
-    {
-    sprintf(log_buffer, "pthread_attr_init failded. job number %s", pjob->ji_qs.ji_jobid);
-    log_err(rc, id, log_buffer);
-    return;
-    }
-
-  rc = pthread_attr_setdetachstate(
-     &attr, PTHREAD_CREATE_DETACHED );
-  if(rc)
-    {
-    sprintf(log_buffer, "pthread_attr_setdetachstate failded. job number %s", pjob->ji_qs.ji_jobid);
-    log_err(rc, id, log_buffer);
-    return;
-    }
-  thread = (pthread_t *)malloc(sizeof(pthread_t));
-  if(thread == NULL) 
-    {
-    sprintf(log_buffer, "Could not allocate memory for job_purge thread");
-    log_err(errno, id, log_buffer);
-    return;
-    }
-
-  rc = pthread_create(thread, &attr, &job_purge_thread, pjob);
-  if(rc)
-    {
-    sprintf(log_buffer, "pthread_create failed: %d", rc);
-    log_err(rc, id, log_buffer);
-    }
-
-  return;
-  }  /* END job_purge() */
-
-
-
 
 
 /*
