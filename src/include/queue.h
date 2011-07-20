@@ -140,6 +140,7 @@ enum queueattr
   QE_ATR_is_transit,
   QE_ATR_starving_support,
   QE_ATR_admin_queue,
+  QE_ATR_queue_purpose,
 
   /* The following attribute apply only to routing queues... */
 

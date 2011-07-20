@@ -290,9 +290,24 @@ pbs_queue *find_queuebyname(
   return(pque);
   }  /* END find_queuebyname() */
 
+/** Decode queue purpose attribute
+ *
+ * Only four values allowed:
+ * - normal
+ * - maintenance
+ * - reserved
+ * - testing
+ */
+int decode_queue_purpose(struct attribute *patr, char *name, char *rescn, char *val)
+  {
+  if (strcmp(val,"normal") != 0 &&
+      strcmp(val,"maintenance") != 0 &&
+      strcmp(val,"reserved") != 0 &&
+      strcmp(val, "testing") != 0)
+    return PBSE_BADATVAL;
 
-
-
+  return decode_str(patr,name,rescn,val);
+  }
 
 /*
  * get_dfltque - get the default queue (if declared)
