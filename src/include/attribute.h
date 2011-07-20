@@ -473,6 +473,7 @@ extern int      set_note_str     A_((attribute *attr, attribute *new, enum batch
 extern int set_queue_str(struct attribute *attr, struct attribute *new, enum batch_op op);
 extern void     replace_attr_string A_((attribute*, char*));
 extern int count_resc(attribute*);
+extern int decode_queue_purpose(struct attribute *patr, char *name, char *rescn, char *val);
 
 /* Token manipulation functions */
 
