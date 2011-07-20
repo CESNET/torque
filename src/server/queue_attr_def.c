@@ -616,6 +616,18 @@ attribute_def que_attr_def[] =
     ATR_TYPE_LONG,
     PARENT_TYPE_QUE_EXC
   },
+  /* QE_ATR_queue_purpose */
+  { ATTR_queue_purpose,
+    decode_queue_purpose,
+    encode_str,
+    set_str,
+    comp_str,
+    free_null,
+    NULL_FUNC,
+    NO_USER_SET,
+    ATR_TYPE_STR,
+    PARENT_TYPE_QUE_EXC
+  },
 
   /* for routing queues */
 
