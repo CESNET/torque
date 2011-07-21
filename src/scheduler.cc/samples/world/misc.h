@@ -101,14 +101,14 @@ int skip_line(char *line);
 /** Write a log entry to the scheduler log file using log_record
  *
  * @param event The event type
- * @param class The event class
+ * @param event_class The event class
  * @param name The name of the object
  * @param text The text of the message
  *
  * returns nothing
  *
  */
-void sched_log(int event, int class, const char *name, const char *text, ...);
+void sched_log(int event, int event_class, const char *name, const char *text, ...);
 
 /*
  *      break_comma_list - break apart a comma delemetd string into an arary

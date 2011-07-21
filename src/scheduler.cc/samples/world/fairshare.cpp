@@ -195,27 +195,27 @@ group_info *find_alloc_ginfo(char *name)
  */
 group_info *new_group_info()
   {
-  group_info *new;  /* the new group */
+  group_info *tmp;  /* the new group */
 
-  if ((new = malloc(sizeof(group_info))) == NULL)
+  if ((tmp = (group_info *) malloc(sizeof(group_info))) == NULL)
     {
     perror("Error allocating memory");
     return NULL ;
     }
 
-  new -> name = NULL;
+  tmp -> name = NULL;
 
-  new -> resgroup = UNSPECIFIED;
-  new -> cresgroup = UNSPECIFIED;
-  new -> shares = UNSPECIFIED;
-  new -> percentage = 0.0;
-  new -> usage = 1;
-  new -> temp_usage = 1;
-  new -> parent = NULL;
-  new -> sibling = NULL;
-  new -> child = NULL;
+  tmp -> resgroup = UNSPECIFIED;
+  tmp -> cresgroup = UNSPECIFIED;
+  tmp -> shares = UNSPECIFIED;
+  tmp -> percentage = 0.0;
+  tmp -> usage = 1;
+  tmp -> temp_usage = 1;
+  tmp -> parent = NULL;
+  tmp -> sibling = NULL;
+  tmp -> child = NULL;
 
-  return new;
+  return tmp;
   }
 
 /*
@@ -358,13 +358,13 @@ preload_tree(void)
   if ((unknown = new_group_info()) == NULL)
     return 0;
 
-  if ((conf.group_root -> name = malloc(5 * sizeof(char))) == NULL)
+  if ((conf.group_root -> name = (char*) malloc(5 * sizeof(char))) == NULL)
     {
     perror("Memory allocation error");
     return 0;
     }
 
-  if ((unknown -> name = (char *) malloc(8 * sizeof(char))) == NULL)
+  if ((unknown -> name = (char*) malloc(8 * sizeof(char))) == NULL)
     {
     perror("Memory Allocation Error");
     return 0;

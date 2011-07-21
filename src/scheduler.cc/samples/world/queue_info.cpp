@@ -80,9 +80,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "pbs_error.h"
-#include "pbs_ifl.h"
-#include "log.h"
+#include "torque.h"
 #include "queue_info.h"
 #include "constant.h"
 #include "misc.h"
@@ -230,7 +228,7 @@ static void push_excl_node(queue_info *qinfo, node_info *ninfo)
     /* if capacity == zero, increase to 5 */
     qinfo->excl_node_capacity += 5 * (qinfo->excl_node_capacity == 0);
   
-    tmp = realloc(qinfo->excl_nodes,sizeof(node_info*)*qinfo->excl_node_capacity*2);
+    tmp = (node_info**) realloc(qinfo->excl_nodes,sizeof(node_info*)*qinfo->excl_node_capacity*2);
     if (tmp == NULL) return; /* no better handling possible right now */
       
     qinfo->excl_node_capacity *= 2;
@@ -415,7 +413,7 @@ queue_info *new_queue_info()
   {
   queue_info *qinfo;
 
-  if ((qinfo = malloc(sizeof(queue_info))) == NULL)
+  if ((qinfo = (queue_info*) malloc(sizeof(queue_info))) == NULL)
     return NULL;
 
   qinfo -> is_started  = 0;

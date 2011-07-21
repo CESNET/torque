@@ -81,11 +81,13 @@
 #define DATA_TYPES_H
 
 #include <time.h>
-#include "pbs_ifl.h"
+#include "torque.h"
 #include "constant.h"
 #include "config.h"
+extern "C" {
 #include "nodespec.h"
 #include "site_pbs_cache.h"
+}
 
 struct server_info;
 
@@ -306,8 +308,6 @@ char *cluster_name; /**< cluster name passed from -l cluster=...*/
   group_info *ginfo;  /* the fair share node for the owner */
   node_info *job_node;  /* node the job is running on */
   };
-
-#include "site_pbs_cache.h"
 
 typedef enum node_type { NodeTimeshared, NodeCluster, NodeVirtual, NodeCloud } node_type;
 

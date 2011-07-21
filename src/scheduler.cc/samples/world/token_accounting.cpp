@@ -18,11 +18,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
+extern "C" {
 #include "list_link.h"
 #include "attribute.h"
+}
 #include "server_limits.h"
+extern "C" {
 #include "pbs_job.h"
-#include "log.h"
+}
 #include "queue.h"
 #include "token_acct.h"
 

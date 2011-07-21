@@ -81,7 +81,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
-#include "pbs_ifl.h"
+#include "torque.h"
 #include "queue_info.h"
 #include "job_info.h"
 #include "constant.h"
@@ -787,7 +787,7 @@ int update_job_comment(int pbs_sd, job_info *jinfo, char *comment)
 
   struct attrl attr =
     {
-    NULL, ATTR_comment, NULL, NULL, 0
+    NULL, ATTR_comment, NULL, NULL, SET
     };
 
   if (jinfo == NULL)
@@ -881,7 +881,7 @@ job_info **job_filter(job_info** jobs, int size,
   job_info **new_jobs = NULL;   /* new array of jobs */
   int i, j = 0;
 
-  if ((new_jobs = malloc((size + 1) * sizeof(job_info *))) == NULL)
+  if ((new_jobs = (job_info**)malloc((size + 1) * sizeof(job_info *))) == NULL)
     {
     perror("Memory allocation error");
     return NULL;
@@ -896,7 +896,7 @@ job_info **job_filter(job_info** jobs, int size,
       }
     }
 
-  if ((new_jobs = realloc(new_jobs, (j + 1) * sizeof(job_info *))) == NULL)
+  if ((new_jobs = (job_info**) realloc(new_jobs, (j + 1) * sizeof(job_info *))) == NULL)
     {
     perror("Memory Allocation Error");
     return NULL;

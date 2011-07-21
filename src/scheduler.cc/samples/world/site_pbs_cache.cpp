@@ -13,8 +13,9 @@
 #include <signal.h>
 
 #include "data_types.h"
+extern "C" {
 #include "site_pbs_cache.h"
-#include "log.h"
+}
 
 /* New magrathea decode */
 int magrathea_decode_new(resource *res, MagratheaState *state)
@@ -188,7 +189,7 @@ struct repository_alternatives **dup_bootable_alternatives(struct repository_alt
             return NULL;
   }
   for(num=0;old[num]!=NULL;num++){
-      r[num]=malloc(sizeof(struct repository_alternatives));
+      r[num]=(repository_alternatives*) malloc(sizeof(struct repository_alternatives));
       if (r[num]==NULL) { 
 	  log_err(errno, "get_bootable_alternatives", "Error allocating memory"); 
 	  return NULL; 
