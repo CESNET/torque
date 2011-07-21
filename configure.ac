@@ -781,7 +781,7 @@ if test "x$withval" != "xno" ; then
 
 	GSSAPIBIN=$GSSAPIROOT/bin
 	GSSAPILIB=$GSSAPIROOT/lib
-	GSSAPIINC=$GSSAPIROOT/inc
+	GSSAPIINC=$GSSAPIROOT/include
 
 	AC_MSG_CHECKING(for krb5-config)
         if test -x $GSSAPIBIN/krb5-config ; then
