@@ -26,10 +26,12 @@ dnl
 
 AC_PREREQ(2.53)
 AC_INIT([torque], [2.4.11], [torqueusers@supercluster.org])
+m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
 AC_REVISION($Revision$)
 AC_CONFIG_SRCDIR([src/cmds/qrun.c])
 AC_CONFIG_AUX_DIR([buildutils])
 AC_CANONICAL_HOST
+AC_PROG_CXX
 
 
 AC_CHECK_PROGS(MAKE,$MAKE make gmake,error)
