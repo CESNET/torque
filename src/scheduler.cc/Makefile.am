@@ -10,6 +10,7 @@ pbs_sched_LDADD = samples/@SCHD_CODE@/libfoo.la $(PBS_LIBS) $(PBS_CACHE_LIB)
 AM_CFLAGS = -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\" -DPBS_ENVIRON=\"$(PBS_ENVIRON)\"
 
 pbs_sched_SOURCES = pbs_sched.c get_4byte.c
+nodist_EXTRA_pbs_sched_SOURCES = dummy.cxx
 
 install-exec-hook:
 	rm -f $(DESTDIR)$(sbindir)/$(program_prefix)qschedd$(program_suffix)$(EXEEXT)

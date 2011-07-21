@@ -14,6 +14,10 @@ extern "C" {
 #include "nodespec.h"
 }
 
+#include <sstream>
+#include <cassert>
+using namespace std;
+
 reschecksource res_check_type(const char * res_name)
   {
   int i;
@@ -223,6 +227,30 @@ static int node_has_enough_resource(node_info *ninfo, char *name, char *value,
       break;
     }
   return 0; /* by default, the node does not have enough */
+  }
+
+int get_node_has_mem(node_info *ninfo, pars_spec_node* spec, int preassign_starving)
+  {
+  struct resource *mem, *vmem;
+
+  if ((mem = find_resource(ninfo->res, "mem")) == NULL && spec->mem != 0)
+    return 0;
+
+  if ((vmem = find_resource(ninfo->res, "vmem")) == NULL && spec->vmem != 0)
+    return 0;
+
+  if (preassign_starving)
+    {
+    if (spec->mem > mem->max || spec->vmem > vmem->max)
+      return 0;
+    }
+  else
+    {
+    if (spec->mem > mem->max - mem->assigned || spec->vmem > vmem->max - vmem->assigned)
+      return 0;
+    }
+
+  return 1;
   }
 
 int get_node_has_ppn(node_info *ninfo, unsigned ppn, int preassign_starving)
@@ -533,7 +561,7 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
   int i;
   pars_prop *iter = NULL;
   repository_alternatives** ra;
-  int fit_suit = 0, fit_ppn = 0, fit_prop = 0;
+  int fit_suit = 0, fit_ppn = 0, fit_mem = 0, fit_prop = 0;
 
   for (i = 0; i < avail_nodes; i++) /* for each node */
     {
@@ -546,6 +574,12 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
     if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0)
       {
       fit_ppn++;
+      continue;
+      }
+
+    if (get_node_has_mem(ninfo_arr[i],spec,preassign_starving) == 0)
+      {
+      fit_mem++;
       continue;
       }
 
@@ -615,8 +649,8 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
     }
 
   sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-            "Nodespec not matched: [%d/%d] nodes are not suitable for job, [%d/%d] don't have enough free CPU, [%d/%d] nodes don't match some properties/resources requested.",
-            fit_suit, avail_nodes, fit_ppn, avail_nodes, fit_prop, avail_nodes);
+            "Nodespec not matched: [%d/%d] nodes are not suitable for job, [%d/%d] don't have enough free CPU, [%d/%d] don't have enough memory, [%d/%d] nodes don't match some properties/resources requested.",
+            fit_suit, avail_nodes, fit_ppn, avail_nodes, fit_mem, avail_nodes, fit_prop, avail_nodes);
   return 1;
   }
 
@@ -704,52 +738,16 @@ void nodes_preassign_clean(node_info **ninfo_arr, int count)
  * @param mode Type of operation 0 - normal, 1 - no properties, 2 - only integer resources
  * @return New constructed nodespec part
  */
-static char *get_target(node_info *ninfo, int mode)
+static void get_target(stringstream& s, node_info *ninfo, int mode)
   {
-  char *str = NULL, *cp;
+  int skip;
   pars_prop *iter;
-  int len = 0, skip = 0;
 
-  len += strlen(ninfo->name) + 1;
-  len += 50; /* ppn = ... */
-
-  iter = ninfo->temp_assign->properties;
-
-  while (iter != NULL)
-    {
-    skip = 0;
-    if (res_check_type(iter->name) == ResCheckDynamic)
-      skip = 1;
-
-    if (!skip)
-      {
-      len += strlen(iter->name) + 1; /* :prop */
-      if (iter->value != NULL)
-        len += strlen(iter->value) + 1; /* =value */
-      }
-    iter = iter->next;
-    }
-
-  if (ninfo->alternatives != NULL && ninfo->alternatives[0] != NULL)
-    {
-    len += strlen("alternative") + 1; /* :alternative */
-    if (ninfo->temp_assign_alternative != NULL)
-      {
-      len += strlen(ninfo->temp_assign_alternative->r_name) + 1; /* =name */
-      }
-    else
-      {
-      len += strlen(ninfo->alternatives[0]->r_name) + 1;
-      }
-    }
-
-  if ((str = (char*) malloc(len)) == NULL)
-    return NULL;
+  s << ninfo->name << ":ppn=" << ninfo->temp_assign->procs;
+  s << ":mem=" << ninfo->temp_assign->mem << "KB";
+  s << ":vmem=" << ninfo->temp_assign->vmem << "KB";
 
   iter = ninfo->temp_assign->properties;
-  cp = str;
-  cp += sprintf(str,"%s:ppn=%d",ninfo->name,ninfo->temp_assign->procs);
-
   while (iter != NULL)
     {
     skip = 0;
@@ -761,50 +759,41 @@ static char *get_target(node_info *ninfo, int mode)
         (mode == 1 && iter->value != NULL) || /* in mode 1 - properties only */
         (mode == 2 && iter->value != NULL && atoi(iter->value) > 0))) /* in mode 2 - integer properties only */
       {
-      strcpy(cp,":"); cp++;
-      strcpy(cp,iter->name); cp += strlen(iter->name);
+      s << ":" << iter->name;
       if (iter->value != NULL)
-        {
-        strcpy(cp,"="); cp++;
-        strcpy(cp,iter->value); cp += strlen(iter->value);
-        }
+        s << "=" << iter->value;
       }
     iter = iter->next;
     }
 
   if (ninfo->alternatives != NULL && ninfo->alternatives[0] != NULL)
     {
-    strcpy(cp,":alternative="); cp += strlen(":alternative=");
+    s << ":alternative=";
 
     if (ninfo->temp_assign_alternative != NULL)
-      {
-      strcpy(cp,ninfo->temp_assign_alternative->r_name); cp += strlen(ninfo->temp_assign_alternative->r_name);
-      }
+      s << ninfo->temp_assign_alternative->r_name;
     else
-      {
-      strcpy(cp,ninfo->alternatives[0]->r_name); cp += strlen(ninfo->alternatives[0]->r_name);
-      }
+      s << ninfo->alternatives[0]->r_name;
     }
 
-  return str;
   }
 
 /** Construct a full target node specification (hostname:nodespec)
  *
  * @note Expects a valid node info
  */
-static char *get_target_full(job_info *jinfo, node_info *ninfo)
+static void get_target_full(stringstream& s, job_info *jinfo, node_info *ninfo)
   {
   dbg_precondition(jinfo != NULL, "This function does not accept NULL.");
   dbg_precondition(ninfo != NULL, "This function does not accept NULL.");
 
   if (ninfo->temp_assign == NULL)
-    return NULL;
+    return;
 
   if (jinfo->cluster_mode == ClusterCreate)
-    return get_target(ninfo,1);
+    get_target(s,ninfo,1);
   else
-    return get_target(ninfo,0);
+    get_target(s,ninfo,0);
   }
 
 /** Get the target string from preassigned nodes
@@ -814,11 +803,11 @@ static char *get_target_full(job_info *jinfo, node_info *ninfo)
  */
 char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, int *booting)
   {
-  char *str = NULL;
+  stringstream s;
+  bool first = true;
   int i;
 
-  if (ninfo_arr == NULL)
-    return str;
+  assert(ninfo_arr != NULL);
 
   for (i = 0; i < count && ninfo_arr[i] != NULL; i++)
     {
@@ -833,54 +822,14 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, 
     {
     if (ninfo_arr[i]->temp_assign != NULL)
       {
-      if (str == NULL)
-        {
-        str = get_target_full(jinfo, ninfo_arr[i]);
-
-        if (str == NULL) /* alloc failure */
-          return NULL;
-        }
-      else
-        {
-        char *tmp;
-        char *append;
-
-        /* get the full spec for this node */
-        append = get_target_full(jinfo,ninfo_arr[i]);
-        if (append == NULL)
-          {
-          free(str);
-          return NULL;
-          }
-
-        tmp = (char*) malloc(strlen(str)+strlen(append)+2);
-        if (tmp == NULL) /* alloc failure */
-          {
-          free(append);
-          free(str);
-          return NULL;
-          }
-
-        sprintf(tmp,"%s+%s",str,append);
-        free(append);
-        free(str);
-        str = tmp;
-        }
+      if (!first) s << "+";
+      first = false;
+      get_target_full(s,jinfo,ninfo_arr[i]);
       }
     }
 
-  dbg_consistency(str != NULL, "At this point, the target must be set.");
-
   if (jinfo->is_exclusive)
-    {
-    char *tmp = (char*) malloc(strlen(str)+strlen("#excl")+1);
-    if (tmp == NULL)
-      return NULL;
+    s << "#excl";
 
-    sprintf(tmp,"%s%s",str,"#excl");
-    free(str);
-    str = tmp;
-    }
-
-  return str;
+  return strdup(s.str().c_str());
   }
