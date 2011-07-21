@@ -8,7 +8,9 @@
 #ifndef SITE_PBS_CACHE_SCHEDULER_H_
 #define SITE_PBS_CACHE_SCHEDULER_H_
 
+extern "C" {
 #include "site_pbs_cache.h"
+}
 #include "data_types.h"
 
 /** \brief Decode magrathea resource */

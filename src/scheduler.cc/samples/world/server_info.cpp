@@ -80,8 +80,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "pbs_ifl.h"
-#include "pbs_error.h"
+#include "torque.h"
 #include "server_info.h"
 #include "constant.h"
 #include "queue_info.h"
@@ -92,7 +91,9 @@
 #include "assertions.h"
 #include "globals.h"
 #include "utility.h"
+extern "C" {
 #include "site_pbs_cache.h"
+}
 #include "nodespec_sch.h"
 #include "sort.h"
 
@@ -485,7 +486,7 @@ resource *new_resource()
   {
   resource *resp;  /* the new resource */
 
-  if ((resp = malloc(sizeof(resource))) == NULL)
+  if ((resp = (resource*) malloc(sizeof(resource))) == NULL)
     return NULL;
 
   resp -> next = NULL;

@@ -80,7 +80,7 @@
 #ifndef QUEUE_INFO_H
 #define QUEUE_INFO_H
 
-#include "pbs_ifl.h"
+#include "torque.h"
 #include "data_types.h"
 
 
