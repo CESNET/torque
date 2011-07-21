@@ -80,123 +80,95 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "pbs_error.h"
-#include "pbs_ifl.h"
-#include "log.h"
-#include "state_count.h"
-#include "constant.h"
-#include "misc.h"
-
+#include "prev_job_info.h"
+#include "job_info.h"
 
 
 /*
  *
- * print_state_count - print out a state_count struct
+ * create_prev_job_info - create the prev_job_info array from an array
+ *    of jobs
  *
- *   sc - the struct to print
+ *   jinfo_arr - job_info array
+ *   size - size of jinfo_arr or UNSPECIFIED if unknown
  *
- * returns nothing
+ * returns new prev_job_array
+ *
+ * NOTE: jinfo_arr is modified
  *
  */
-void print_state_count(state_count *sc)
+prev_job_info *create_prev_job_info(job_info **jinfo_arr, int size)
   {
-  printf("running: %d\n", sc -> running);
-  printf("queued: %d\n", sc -> queued);
-  printf("transit: %d\n", sc -> transit);
-  printf("exiting: %d\n", sc -> exiting);
-  printf("held: %d\n", sc -> held);
-  printf("waiting: %d\n", sc -> waiting);
-  printf("suspended: %d\n", sc -> suspended);
-  printf("completed: %d\n", sc -> completed);
-  printf("total: %d\n", sc -> total);
+  prev_job_info *tmp;  /* new prev_job_info array */
+  int local_size;  /* the size of the array */
+  int i;
+
+  if (size == UNSPECIFIED)
+    {
+    for (i = 0; jinfo_arr[i] != NULL; i++)
+      ;
+
+    local_size = i;
+    }
+  else
+    local_size = size;
+
+  if ((tmp = (prev_job_info *) malloc(sizeof(prev_job_info)  * local_size)) == NULL)
+    {
+    return NULL;
+    }
+
+  for (i = 0; jinfo_arr[i] != NULL; i++)
+    {
+    /* changed into deep copies */
+    tmp[i].name = strdup(jinfo_arr[i] -> name);
+    tmp[i].resused = clone_resource_req_list(jinfo_arr[i] -> resused);
+    tmp[i].account = strdup(jinfo_arr[i] -> account);
+    tmp[i].ginfo = jinfo_arr[i] -> ginfo; /* no need to deep copy,
+                                          just a pointer to elsewhere */
+    }
+
+  return tmp;
   }
 
 /*
  *
- * init_state_count - initalize state count struct
+ * free_prev_job_info - free a prev_job_info struct
  *
- *   sc - the struct to initalize
+ *   pjinfo - prev_job_info to free
  *
  * returns nothing
  *
  */
-void init_state_count(state_count *sc)
+void free_prev_job_info(prev_job_info *pjinfo)
   {
-  sc -> running = 0;
-  sc -> queued = 0;
-  sc -> transit = 0;
-  sc -> exiting = 0;
-  sc -> held = 0;
-  sc -> waiting = 0;
-  sc -> suspended = 0;
-  sc -> completed = 0;
-  sc -> total = 0;
+  if (pjinfo -> name != NULL)
+    free(pjinfo -> name);
+
+  if (pjinfo -> account != NULL)
+    free(pjinfo -> account);
+
+  free_resource_req_list(pjinfo -> resused);
   }
 
 /*
  *
- * count_states - count the jobs in each state and set the state counts
+ * free_pjobs - free a list of prev_job_info structs
  *
- *   jobs - array of jobs
- *   sc   - state count structure passed by reference
+ *   pjinfo_arr - array of prev_job_info structs to free
  *
  * returns nothing
  *
  */
-void count_states(job_info **jobs, state_count *sc)
+void free_pjobs(prev_job_info *pjinfo_arr, int size)
   {
   int i;
 
-  if (jobs  != NULL)
-    {
-    for (i = 0; jobs[i] != NULL; i++)
-      {
-      if (jobs[i] -> is_queued)
-        sc -> queued++;
-      else if (jobs[i] -> is_running)
-        sc -> running++;
-      else if (jobs[i]-> is_transit)
-        sc -> transit++;
-      else if (jobs[i] -> is_exiting)
-        sc -> exiting++;
-      else if (jobs[i] -> is_held)
-        sc -> held++;
-      else if (jobs[i] -> is_waiting)
-        sc -> waiting++;
-      else if (jobs[i] -> is_suspended)
-        sc -> suspended++;
-      else if (jobs[i] -> is_completed)
-        sc -> completed++;
-      else
-        sched_log(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, jobs[i] -> name, "Job in unknown state");
-      }
-    }
+  if (pjinfo_arr == NULL)
+    return;
 
-  sc -> total = sc -> queued + sc -> running + sc -> transit + sc -> exiting + sc -> held + sc -> waiting + sc -> suspended + sc -> completed;
+  for (i = 0; i < size; i++)
+    free_prev_job_info(&pjinfo_arr[i]);
 
+  free(pjinfo_arr);
   }
-
-/*
- *
- * total_states - add the states from sc2 to the states in sc1
- *         i.e. sc1 += sc2
- *
- *   sc1 - the accumlator
- *   sc2 - what is being totaled
- *
- * returns nothing
- *
- */
-void total_states(state_count *sc1, state_count *sc2)
-  {
-  sc1 -> running += sc2 -> running;
-  sc1 -> queued += sc2 -> queued;
-  sc1 -> held += sc2 -> held;
-  sc1 -> waiting += sc2 -> waiting;
-  sc1 -> exiting += sc2 -> exiting;
-  sc1 -> transit += sc2 -> transit;
-  sc1 -> suspended += sc2 -> suspended;
-  sc1 -> completed += sc2 -> completed;
-  sc1 -> total += sc2 -> total;
-  }
-

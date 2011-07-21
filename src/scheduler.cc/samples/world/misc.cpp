@@ -83,14 +83,15 @@
 #include <ctype.h>
 #include <string.h>
 #include <grp.h>
-#include "pbs_ifl.h"
-#include "log.h"
+#include "torque.h"
 #include "config.h"
 #include "constant.h"
 #include "misc.h"
 #include "globals.h"
 #include "fairshare.h"
+extern "C" {
 #include "api.h"
+}
 #include "utility.h"
 #include "site_pbs_cache_scheduler.h"
 #include "assertions.h"
@@ -197,14 +198,14 @@ int skip_line(char *line)
   }
 
 /* Write a log entry to the scheduler log file using log_record */
-void sched_log(int event, int class, const char *name, const char *text,...)
+void sched_log(int event, int event_class, const char *name, const char *text,...)
   {
   if (!(conf.log_filter & event) && text[0] != '\0')
     {
     va_list extras;
     va_start(extras,text);
     vsprintf(log_buffer,text,extras);
-    log_record(event, class, (char*)name, (char*)log_buffer);
+    log_record(event, event_class, (char*)name, (char*)log_buffer);
     /* TODO quick fix, log_record doesn't take const */
     va_end(extras);
     }
@@ -566,7 +567,7 @@ int cloud_check(job_info *jinfo)
     }
   else
     {
-    jowner = malloc(tmp-jinfo->account+1);
+    jowner = (char*) malloc(tmp-jinfo->account+1);
     strncpy(jowner,jinfo->account,tmp-jinfo->account);
     jowner[tmp-jinfo->account] = '\0';
     }

@@ -4,13 +4,15 @@
 #include "job_info.h"
 #include "misc.h"
 #include "globals.h"
-#include "nodespec.h"
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
 #include <assertions.h>
 #include "site_pbs_cache_scheduler.h"
+extern "C" {
 #include "api.h"
+#include "nodespec.h"
+}
 
 reschecksource res_check_type(const char * res_name)
   {
@@ -741,7 +743,7 @@ static char *get_target(node_info *ninfo, int mode)
       }
     }
 
-  if ((str = malloc(len)) == NULL)
+  if ((str = (char*) malloc(len)) == NULL)
     return NULL;
 
   iter = ninfo->temp_assign->properties;
@@ -851,7 +853,7 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, 
           return NULL;
           }
 
-        tmp = malloc(strlen(str)+strlen(append)+2);
+        tmp = (char*) malloc(strlen(str)+strlen(append)+2);
         if (tmp == NULL) /* alloc failure */
           {
           free(append);
@@ -871,7 +873,7 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, 
 
   if (jinfo->is_exclusive)
     {
-    char *tmp = malloc(strlen(str)+strlen("#excl")+1);
+    char *tmp = (char*) malloc(strlen(str)+strlen("#excl")+1);
     if (tmp == NULL)
       return NULL;
 

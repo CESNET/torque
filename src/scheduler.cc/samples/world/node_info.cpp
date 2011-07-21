@@ -82,9 +82,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/types.h>
-#include "pbs_ifl.h"
-#include "log.h"
-#include "rm.h"
+#include "torque.h"
 #include "node_info.h"
 #include "misc.h"
 #include "globals.h"
@@ -296,60 +294,60 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
  */
 node_info *new_node_info()
   {
-  node_info *new;
+  node_info *tmp;
 
-  if ((new = (node_info *) malloc(sizeof(node_info))) == NULL)
+  if ((tmp = (node_info *) malloc(sizeof(node_info))) == NULL)
     {
     perror("Memory Allocation Error");
     return NULL;
     }
 
-  new -> is_down = 0;
+  tmp -> is_down = 0;
 
-  new -> is_free = 0;
-  new -> is_offline = 0;
-  new -> is_unknown = 0;
-  new -> is_reserved = 0;
-  new -> is_exclusive = 0;
-  new -> is_sharing = 0;
-  new -> no_multinode_jobs = 0;
+  tmp -> is_free = 0;
+  tmp -> is_offline = 0;
+  tmp -> is_unknown = 0;
+  tmp -> is_reserved = 0;
+  tmp -> is_exclusive = 0;
+  tmp -> is_sharing = 0;
+  tmp -> no_multinode_jobs = 0;
 
-  new -> name = NULL;
-  new -> properties = NULL;
-  new -> adproperties = NULL;
-  new -> jobs = NULL;
-  new -> big_status = NULL;
-  new -> queue = NULL;
+  tmp -> name = NULL;
+  tmp -> properties = NULL;
+  tmp -> adproperties = NULL;
+  tmp -> jobs = NULL;
+  tmp -> big_status = NULL;
+  tmp -> queue = NULL;
 
-  new -> max_load = 0.0;
-  new -> ideal_load = 0.0;
-  new -> arch = NULL;
-  new -> ncpus = 0;
-  new -> physmem = 0;
-  new -> loadave = 0.0;
+  tmp -> max_load = 0.0;
+  tmp -> ideal_load = 0.0;
+  tmp -> arch = NULL;
+  tmp -> ncpus = 0;
+  tmp -> physmem = 0;
+  tmp -> loadave = 0.0;
 
-  new -> np = 0;
-  new -> npfree = 0;
-  new -> npshared = 0;
+  tmp -> np = 0;
+  tmp -> npfree = 0;
+  tmp -> npshared = 0;
 
-  new -> temp_assign = NULL;
+  tmp -> temp_assign = NULL;
 
-  new -> res = NULL;
+  tmp -> res = NULL;
 
-  new -> starving_job = NULL;
+  tmp -> starving_job = NULL;
 
-  new -> cluster_name = NULL;
+  tmp -> cluster_name = NULL;
 
-  new -> alternatives = NULL;
+  tmp -> alternatives = NULL;
 
-  new -> is_bootable = 0;
+  tmp -> is_bootable = 0;
 
-  new->is_exclusively_assigned  = 0;
-  new->is_usable_for_boot = 1;
-  new->is_usable_for_run  = 1;
-  new->is_full            = 0;
+  tmp->is_exclusively_assigned  = 0;
+  tmp->is_usable_for_boot = 1;
+  tmp->is_usable_for_run  = 1;
+  tmp->is_full            = 0;
 
-  return new;
+  return tmp;
   }
 
 /*
@@ -634,7 +632,7 @@ node_info **node_filter(node_info **nodes, int size,
     free(new_nodes);
     new_nodes = NULL;
     }
-  else if ((new_nodes = realloc(new_nodes, (j + 1) * sizeof(node_info *))) == NULL)
+  else if ((new_nodes = (node_info **) realloc(new_nodes, (j + 1) * sizeof(node_info *))) == NULL)
     {
     perror("Memory Allocation Error");
     free(new_nodes);

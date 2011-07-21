@@ -85,14 +85,14 @@
 /*
  *      schedinit - initialize conf struct and parse conf files
  */
-int schedinit(int argc, char *argv[]);
+extern "C" int schedinit(int argc, char *argv[]);
 
 /*
  *      schedule - this function gets called to start each scheduling cycle
  *                 It will handle the difference cases that caused a
  *                 scheduling cycle
  */
-int schedule(int cmd, int sd);
+extern "C" int schedule(int cmd, int sd);
 
 /*
  *      scheduling_cycle - the controling function of the scheduling cycle

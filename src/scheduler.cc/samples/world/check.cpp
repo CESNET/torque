@@ -79,8 +79,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
-#include "pbs_ifl.h"
-#include "log.h"
+#include "torque.h"
 #include <string.h>
 #include <ctype.h>
 #include "check.h"
@@ -621,7 +620,7 @@ int check_nodes(int pbs_sd, job_info *jinfo, node_info **ninfo_arr)
      */
 
     /* 7 = strlen("nodes=")  + '\0' */
-    if ((node_str = malloc(strlen(nodes -> res_str) + 7)) == NULL)
+    if ((node_str = (char*) malloc(strlen(nodes -> res_str) + 7)) == NULL)
       return SCHD_ERROR;
 
     sprintf(node_str, "nodes=%s", nodes -> res_str);
