@@ -124,12 +124,12 @@ typedef list_link tlist_head;
 
 /* function prototypes */
 
-extern void insert_link(list_link *old, list_link *new, void *pobj, int pos);
-extern void append_link(tlist_head *head, list_link *new, void *pnewobj);
+extern void insert_link(list_link *old, list_link *lnew, void *pobj, int pos);
+extern void append_link(tlist_head *head, list_link *lnew, void *pnewobj);
 extern void delete_link(list_link *old);
 extern void swap_link(list_link *, list_link *);
 extern int  is_linked(list_link *head, list_link *old);
-extern void list_move(tlist_head *old, tlist_head *new);
+extern void list_move(tlist_head *old, tlist_head *lnew);
 
 #ifndef NDEBUG
 extern void *get_next(list_link, char *file, int line);

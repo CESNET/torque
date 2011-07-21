@@ -207,7 +207,7 @@ struct attribute_def
   int (*at_decode)A_((attribute *patr, char *name, char *rn, char *val));
   int (*at_encode)A_((attribute *pattr, tlist_head *phead,
                       char *aname, char *rsname, int mode));
-  int (*at_set)A_((attribute *pattr, attribute *new, enum batch_op));
+  int (*at_set)A_((attribute *pattr, attribute *anew, enum batch_op));
   int (*at_comp)A_((attribute *pattr, attribute *with));
   void (*at_free)A_((attribute *pattr));
   int (*at_action)A_((attribute *pattr, void *pobject, int actmode));
@@ -343,10 +343,10 @@ extern svrattrl *attrlist_alloc A_((int szname, int szresc, int szval));
 extern svrattrl *attrlist_create A_((char *aname, char *rname, int szval));
 extern void free_attrlist A_((tlist_head *attrhead));
 extern int  attr_atomic_set A_((svrattrl *plist, attribute *old,
-                                  attribute *new, attribute_def *pdef, int limit,
+                                  attribute *anew, attribute_def *pdef, int limit,
                                   int unkn, int privil, int *badattr));
 extern int  attr_atomic_node_set A_((svrattrl *plist, attribute *old,
-                                       attribute *new, attribute_def *pdef, int limit,
+                                       attribute *anew, attribute_def *pdef, int limit,
                                        int unkn, int privil, int *badattr));
 extern void attr_atomic_kill A_((attribute *temp, attribute_def *pdef, int));
 
@@ -393,18 +393,18 @@ extern int encode_depend A_((attribute *attr, tlist_head *phead, char *atname,
 extern int encode_hold A_((attribute *attr, tlist_head *phead, char *atname,
                              char *rsname, int mode));
 
-extern int set_b A_((attribute *attr, attribute *new, enum batch_op));
-extern int set_c A_((attribute *attr, attribute *new, enum batch_op));
-extern int set_l A_((attribute *attr, attribute *new, enum batch_op));
-extern int set_ll A_((attribute *attr, attribute *new, enum batch_op));
-extern int set_size  A_((attribute *attr, attribute *new, enum batch_op));
-extern int set_str  A_((attribute *attr, attribute *new, enum batch_op));
-extern int set_arst A_((attribute *attr, attribute *new, enum batch_op));
-extern int set_resc A_((attribute *attr, attribute *new, enum batch_op));
-extern int set_hostacl  A_((attribute *attr, attribute *new, enum batch_op));
-extern int set_uacl  A_((attribute *attr, attribute *new, enum batch_op));
-extern int set_unkn A_((attribute *attr, attribute *new, enum batch_op));
-extern int set_depend A_((attribute *attr, attribute *new, enum batch_op));
+extern int set_b A_((attribute *attr, attribute *anew, enum batch_op));
+extern int set_c A_((attribute *attr, attribute *anew, enum batch_op));
+extern int set_l A_((attribute *attr, attribute *anew, enum batch_op));
+extern int set_ll A_((attribute *attr, attribute *anew, enum batch_op));
+extern int set_size  A_((attribute *attr, attribute *anew, enum batch_op));
+extern int set_str  A_((attribute *attr, attribute *anew, enum batch_op));
+extern int set_arst A_((attribute *attr, attribute *anew, enum batch_op));
+extern int set_resc A_((attribute *attr, attribute *anew, enum batch_op));
+extern int set_hostacl  A_((attribute *attr, attribute *anew, enum batch_op));
+extern int set_uacl  A_((attribute *attr, attribute *anew, enum batch_op));
+extern int set_unkn A_((attribute *attr, attribute *anew, enum batch_op));
+extern int set_depend A_((attribute *attr, attribute *anew, enum batch_op));
 
 extern int comp_b A_((attribute *, attribute *));
 extern int comp_c A_((attribute *, attribute *));
@@ -462,15 +462,15 @@ extern int      node_prop_list A_((attribute*, void*, int));
 extern int      node_adprop_list (attribute*, void*, int);
 extern int      node_status_list A_((attribute*, void*, int));
 extern int      node_note        A_((attribute*, void*, int));
-extern int node_queue(attribute *new, void *pnode, int actmode);
-extern int node_cloud(attribute *new, void *pnode, int actmode);
-extern int node_no_multinode(attribute *new, void *pnode, int actmode);
-extern int node_exclusively_assigned(attribute *new, void *pnode, int actmode);
-extern int node_noautoresv(attribute *new, void *pnode, int actmode);
+extern int node_queue(attribute *anew, void *pnode, int actmode);
+extern int node_cloud(attribute *anew, void *pnode, int actmode);
+extern int node_no_multinode(attribute *anew, void *pnode, int actmode);
+extern int node_exclusively_assigned(attribute *anew, void *pnode, int actmode);
+extern int node_noautoresv(attribute *anew, void *pnode, int actmode);
 extern int 	 node_ncpu(attribute*, void*, int);
 extern int		 node_mem(attribute*, void*, int);
-extern int      set_note_str     A_((attribute *attr, attribute *new, enum batch_op));
-extern int set_queue_str(struct attribute *attr, struct attribute *new, enum batch_op op);
+extern int      set_note_str     A_((attribute *attr, attribute *anew, enum batch_op));
+extern int set_queue_str(struct attribute *attr, struct attribute *anew, enum batch_op op);
 extern void     replace_attr_string A_((attribute*, char*));
 extern int count_resc(attribute*);
 extern int decode_queue_purpose(struct attribute *patr, char *name, char *rescn, char *val);
