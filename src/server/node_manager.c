@@ -3103,6 +3103,7 @@ void regenerate_total_resources(job * pjob)
   resource *rs;
   pars_spec_node *node = NULL;
   pars_prop *prop = NULL;
+  unsigned mem = 0, vmem = 0;
   int i, ret;
 
   /* Step (1)
@@ -3296,6 +3297,50 @@ void regenerate_total_resources(job * pjob)
     rd->rs_decode(&attr,"nodect","",buf);
 
     /* check if procs are present */
+    rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+    if (rs == NULL)
+      rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+
+    ret = rd->rs_set(&rs->rs_value,&attr,SET);
+    if (ret != 0)
+      return;
+    }
+
+  /* Step (7)
+   * - add mem and vmem
+   */
+  node = spec->nodes;
+  while (node != NULL)
+    {
+    mem += node->node_count * node->mem;
+    vmem += node->node_count * node->vmem;
+    node = node->next;
+    }
+
+    {
+    char buf[128];
+    attribute attr;
+
+    /* find the definition and decode the value */
+    rd = find_resc_def(svr_resc_def, "mem", svr_resc_size);
+    sprintf(buf,"%dKB",mem);
+    rd->rs_decode(&attr,"mem","",buf);
+
+    /* check if mem is already present (shouldn't be) */
+    rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+    if (rs == NULL)
+      rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+
+    ret = rd->rs_set(&rs->rs_value,&attr,SET);
+    if (ret != 0)
+      return;
+
+    /* find the definition and decode the value */
+    rd = find_resc_def(svr_resc_def, "vmem", svr_resc_size);
+    sprintf(buf,"%dKB",vmem);
+    rd->rs_decode(&attr,"vmem","",buf);
+
+    /* check if vmem is already present (shouldn't be) */
     rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
     if (rs == NULL)
       rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);

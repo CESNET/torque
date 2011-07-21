@@ -3,12 +3,18 @@
 
 Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.php
 */
-#include <string.h>
-#include <stdio.h>
-#include <stdlib.h>
 
+extern "C" {
 #include "assertions.h"
 #include "nodespec.h"
+}
+
+#include <cstring>
+#include <cstdio>
+#include <cstdlib>
+#include <cassert>
+#include <sstream>
+using namespace std;
 
 static const char *excl = "excl";
 
@@ -59,6 +65,31 @@ void free_pars_prop(pars_prop **prop)
   free(tmp);
   }
 
+pars_prop *clone_one_pars_prop(pars_prop *prop)
+  {
+  pars_prop *result = init_pars_prop();
+  if (result == NULL) return NULL;
+
+  result->name = strdup(prop->name);
+  if (result->name == NULL)
+    {
+    free_pars_prop(&result);
+    return NULL;
+    }
+
+  if (prop->value != NULL)
+    {
+    result->value = strdup(prop->value);
+    if (result->value == NULL)
+      {
+      free_pars_prop(&result);
+      return NULL;
+      }
+    }
+
+  return result;
+  }
+
 /** Clone parsed properties
  *
  * @param prop Properties to clone
@@ -69,24 +100,9 @@ pars_prop *clone_pars_prop(pars_prop *prop, pars_prop **prop_last)
   pars_prop *iter = prop, *result = NULL, *last = NULL;
   while (iter != NULL)
     {
-    pars_prop *tmp;
-
-    if ((tmp = init_pars_prop()) == NULL)
+    pars_prop *tmp = clone_one_pars_prop(iter);
+    if (tmp == NULL)
       {
-      free_pars_prop(&result);
-      return NULL;
-      }
-
-    if ((tmp->name = strdup(iter->name)) == NULL)
-      {
-      free_pars_prop(&result);
-      return NULL;
-      }
-
-    if (iter->value != NULL)
-    if ((tmp->value = strdup(iter->value)) == NULL)
-      {
-      free(tmp->name);
       free_pars_prop(&result);
       return NULL;
       }
@@ -160,6 +176,8 @@ pars_spec_node *init_pars_spec_node()
   spec->alternative = NULL;
   spec->node_count = 0;
   spec->procs = 0;
+  spec->mem = 0;
+  spec->vmem = 0;
   spec->host = NULL;
   spec->next = NULL;
   spec->prev = NULL;
@@ -177,6 +195,8 @@ pars_spec_node *clone_pars_spec_node(pars_spec_node *node)
 
   result->node_count = node->node_count;
   result->procs      = node->procs;
+  result->mem        = node->mem;
+  result->vmem       = node->vmem;
   if (node->alternative != NULL)
     result->alternative = strdup(node->alternative);
   if (node->host != NULL)
@@ -224,6 +244,90 @@ void free_pars_spec_node(pars_spec_node **node)
     }
   *node = (*node)->next;
   free(tmp);
+  }
+
+#define SIZE_OF_WORD 8
+
+int str_res_to_num(const char *res, unsigned *value)
+  {
+  unsigned result = 0;
+  char *tail;
+
+  result = strtol(res,&tail,10);
+
+  if (tail == res)
+    return 1;
+
+  switch (*tail)
+    {
+    case ':': /* time resource */
+      {
+      unsigned minutes;
+      char *tail2;
+
+      minutes = strtol(tail+1,&tail2,10);
+
+      if (tail2 == tail+1)
+        return 1;
+
+      if (*tail2 == ':')
+        {
+        unsigned seconds;
+        char *tail3;
+
+        seconds = strtol(tail2+1,&tail3,10);
+
+        if (tail3 == tail2+1)
+          return 1;
+
+        if (*tail3 != '\0')
+          return 1;
+
+        *value = result*60*60 + minutes*60 + seconds;
+        return 0;
+        }
+      else if (*tail2 == '\0') /* MM:SS format */
+        {
+        *value = result*60 + minutes;
+        }
+      else
+        return 1;
+
+      break;
+      }
+    case 'K': case 'k':
+      {
+      /* keep */
+      break;
+      }
+    case 'M': case 'm':
+      {
+      result *= 1024;
+      break;
+      }
+    case 'G': case 'g':
+      {
+      result *= 1024*1024;
+      break;
+      }
+    case 'B': case 'b':
+      {
+      result /= 1024;
+      break;
+      }
+    case 'w':
+      {
+      result /= 1024/SIZE_OF_WORD;
+      break;
+      }
+    }
+
+  if (tail[0] != '\0' && tail[1] == 'w')
+    result *= SIZE_OF_WORD;
+
+  *value = result;
+
+  return 0;
   }
 
 /** Parse a text representation of one node spec
@@ -301,6 +405,16 @@ pars_spec_node *parse_spec_node(char *node)
     else if (strcmp(prop->name,"ppn") == 0 && prop->value != NULL)
       {
       result->procs = atoi(prop->value);
+      free_pars_prop(&prop);
+      }
+    else if (strcmp(prop->name,"mem") == 0 && prop->value != NULL)
+      {
+      str_res_to_num(prop->value,&result->mem);
+      free_pars_prop(&prop);
+      }
+    else if (strcmp(prop->name,"vmem") == 0 && prop->value != NULL)
+      {
+      str_res_to_num(prop->value,&result->vmem);
       free_pars_prop(&prop);
       }
     else
@@ -472,160 +586,69 @@ pars_spec *parse_nodespec(const char *nodespec)
   return result;
   }
 
-
-int concat_prop(pars_prop *prop, char *buff, int buff_size, int sep)
+static void concat_prop(stringstream& s, pars_prop *prop, bool add_sep)
   {
-  int req_size = sep;
+  assert(prop != NULL);
 
-  dbg_precondition(prop != NULL && buff != NULL,"This function requires a non-null param.");
-
-  req_size += strlen(prop->name);
+  if (add_sep) s << ":";
+  s << prop->name;
   if (prop->value != NULL)
-    {
-    req_size += 1; /* = */
-    req_size += strlen(prop->value);
-    }
-
-  if (req_size >= buff_size)
-    return -1;
-  else
-    {
-    if (sep) strcat(buff,":");
-    strcat(buff,prop->name);
-    if (prop->value != NULL)
-      {
-      strcat(buff,"=");
-      strcat(buff,prop->value);
-      }
-    return req_size;
-    }
+    s << "=" << prop->value;
   }
 
-int concat_node(pars_spec_node *node, char *buff, int buff_size)
+static void concat_node(stringstream& s, pars_spec_node *node, enum_alter_flag with_alter)
   {
-  pars_prop *prop = node->properties;
-  int old_size = buff_size, curr_size = buff_size, diff = 0;
+  assert(node != NULL);
 
-  dbg_precondition(node != NULL && buff != NULL,"This function requires a non-null param.");
-
-  if ((diff = snprintf(buff,curr_size,"%d:ppn=%d",node->node_count,node->procs)) >= curr_size)
-    return -1;
-  curr_size -= diff;
-  buff += diff;
+  s << node->node_count << ":ppn=" << node->procs;
+  s << ":mem=" << node->mem << "KB";
+  s << ":vmem=" << node->vmem << "KB";
 
   if (node->host != NULL)
-    {
-    if ((diff = snprintf(buff,curr_size,":host=%s",node->host)) >= curr_size)
-      return -1;
-    curr_size -= diff;
-    buff += diff;
-    }
+    s << ":host=" << node->host;
 
-#if 0
-  if (node->alternative != NULL)
-    {
-    if ((diff = snprintf(buff,curr_size,":alternative=%s",node->alternative)) >= curr_size)
-      return -1;
-    curr_size -= diff;
-    buff += diff;
-    }
-#endif
+  if (node->alternative != NULL && alter == with_alternative)
+    s << ":alternative=" << node->alternative;
 
+  pars_prop *prop = node->properties;
   while (prop != NULL)
     {
-    if ((diff = concat_prop(prop,buff,curr_size,1)) < 0)
-      return -1;
-    curr_size -= diff;
-    buff += diff;
+    concat_prop(s,prop,true);
     prop = prop->next;
     }
-
-  return old_size-curr_size;
   }
 
-
-#define CONCAT_BUFF_SIZE (256*1024)
-
-char *concat_nodespec(pars_spec *nodespec, int with_excl, const char** ign_props)
+char *concat_nodespec(pars_spec *nodespec, int with_excl, enum alter_flag with_alter, const char** ign_props)
   {
-  pars_spec_node *node;
-  pars_prop *prop;
-  char *buff, *iter, *result;
-  int buff_size = CONCAT_BUFF_SIZE, diff;
+  stringstream s;
 
-  if ((buff = (char*)malloc(CONCAT_BUFF_SIZE)) == NULL)
-    {
-    return NULL;
-    }
-  iter = buff;
-
-  memset(buff,0,CONCAT_BUFF_SIZE);
-
-  node = nodespec->nodes;
+  pars_spec_node *node = nodespec->nodes;
+  bool first = true;
   while (node != NULL)
     {
-    if (node != nodespec->nodes)
-      {
-      if (buff_size > 1)
-        {
-        strcat(iter,"+");
-        buff_size--;
-        iter++;
-        }
-      else
-        {
-        free(buff);
-        return NULL;
-        }
-      }
+    if (!first) s << "+";
+    first = false;
 
-    if ((diff = concat_node(node, iter, buff_size)) < 0)
-      { free(buff); return NULL; }
-
-    buff_size -= diff;
-    iter += diff;
+    concat_node(s,node,with_alter);
     node = node->next;
     }
 
-  if (with_excl)
-  if (nodespec->is_exclusive)
-    {
-    if (buff_size > 5)
-      {
-      strcat(iter,"#excl");
-      buff_size--;
-      iter++;
-      }
-    else
-      { free(buff); return NULL; }
-    }
+  if (with_excl && nodespec->is_exclusive)
+    s << "#excl";
 
   if (nodespec->global != NULL)
-    {
-    if (buff_size > 1)
-      {
-      strcat(iter,"#");
-      buff_size--;
-      iter++;
-      }
-    else
-      { free(buff); return NULL; }
-    }
+    s << "#";
 
-  prop = nodespec->global;
+  pars_prop *prop = nodespec->global;
+  first = true;
   while (prop != NULL)
     {
-    if ((diff = concat_prop(prop,iter,buff_size,(prop != nodespec->global))) < 0)
-      { free(buff); return NULL; }
-
-    buff_size -= diff;
-    iter += diff;
+    concat_prop(s,prop,!first);
+    first = false;
     prop = prop->next;
     }
 
-  result = strdup(buff);
-  free(buff);
-  return result;
+  return strdup(s.str().c_str());
   }
 
 pars_prop* find_parsed_prop(pars_prop *prop, char *name)
@@ -649,7 +672,23 @@ void add_prop_to_nodespec(pars_spec *spec, pars_prop *prop)
   node = spec->nodes;
   while (node != NULL)
     {
-    tmp = clone_pars_prop(prop,NULL);
+    if (strcmp(prop->name,"mem") == 0)
+      {
+      if (node->mem == 0)
+        str_res_to_num(prop->value,&node->mem);
+      node = node->next;
+      continue;
+      }
+
+    if (strcmp(prop->name,"vmem") == 0)
+      {
+      if (node->vmem == 0)
+        str_res_to_num(prop->value,&node->vmem);
+      node = node->next;
+      continue;
+      }
+
+    tmp = clone_one_pars_prop(prop);
     if (node->properties_end == NULL && node->properties == NULL)
       {
       node->properties = tmp;
@@ -690,41 +729,10 @@ void expand_nodespec(pars_spec *spec)
   pars_prop *prop = spec->global, *tmp, *last;
   pars_spec_node *node;
 
-  if (spec->global == NULL)
-    return;
-
-  node = spec->nodes;
-  while (node != NULL)
+  while (prop != NULL)
     {
-    tmp = clone_pars_prop(prop,&last);
-    if (node->properties_end == NULL && node->properties == NULL)
-      {
-      node->properties = tmp;
-      node->properties_end = last;
-      }
-    else
-      {
-      pars_prop *iter = tmp;
-
-      while (iter != NULL)
-        {
-        tmp = tmp->next;
-        iter->prev = NULL;
-        iter->next = NULL;
-        if (find_parsed_prop(node->properties,iter->name) == NULL)
-          {
-          node->properties_end->next = iter;
-          iter->prev = node->properties_end;
-          node->properties_end = iter;
-          }
-        else
-          {
-          free_pars_prop(&iter);
-          }
-        iter = tmp;
-        }
-      }
-    node = node->next;
+    add_prop_to_nodespec(spec,prop);
+    prop = prop->next;
     }
 
   while (spec->global != NULL)

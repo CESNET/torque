@@ -33,6 +33,8 @@ struct pars_spec_node
   char *alternative; /**< selected alternative name (if present) */
   char *host; /**< selected host name (if present) */
   unsigned procs; /**< count of procs */
+  unsigned mem; /**< memory in megabytes */
+  unsigned vmem; /**< virtual memory in megabytes */
   struct pars_prop *properties;
   struct pars_prop *properties_end;
   struct pars_spec_node *next;
@@ -86,21 +88,19 @@ pars_spec *parse_nodespec(const char *nodespec);
 void free_parsed_nodespec(pars_spec *nodespec);
 /*pars_spec *clone_pars_spec(pars_spec *spec, pars_spec_node **node_last, pars_prop **prop_last);*/
 
-int concat_prop(pars_prop *prop, char *buff, int buff_size, int sep);
-int concat_node(pars_spec_node *node, char *buff, int buff_size);
-
 void expand_nodespec(pars_spec *spec);
 void add_prop_to_nodespec(pars_spec *spec, pars_prop *prop);
 void add_res_to_nodespec(pars_spec *spec, char* name, char* value);
 
 pars_prop* find_parsed_prop(pars_prop *prop, char *name);
 
+enum alter_flag { with_alternative, without_alternative };
 /** Concat the parsed nodespec back to the string representation
  *
  * @param nodespec Node spec to be concated
  * @return concated nodespec
  */
-char *concat_nodespec(pars_spec *nodespec, int with_excl, const char ** ign_props);
+char *concat_nodespec(pars_spec *nodespec, int with_excl, enum alter_flag with_alter, const char ** ign_props);
 
 void free_pars_prop(pars_prop **prop);
 
