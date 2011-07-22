@@ -596,7 +596,7 @@ static void concat_prop(stringstream& s, pars_prop *prop, bool add_sep)
     s << "=" << prop->value;
   }
 
-static void concat_node(stringstream& s, pars_spec_node *node, enum_alter_flag with_alter)
+static void concat_node(stringstream& s, pars_spec_node *node, alter_flag with_alter)
   {
   assert(node != NULL);
 
@@ -607,7 +607,7 @@ static void concat_node(stringstream& s, pars_spec_node *node, enum_alter_flag w
   if (node->host != NULL)
     s << ":host=" << node->host;
 
-  if (node->alternative != NULL && alter == with_alternative)
+  if (node->alternative != NULL && with_alter == with_alternative)
     s << ":alternative=" << node->alternative;
 
   pars_prop *prop = node->properties;
@@ -618,7 +618,7 @@ static void concat_node(stringstream& s, pars_spec_node *node, enum_alter_flag w
     }
   }
 
-char *concat_nodespec(pars_spec *nodespec, int with_excl, enum alter_flag with_alter, const char** ign_props)
+char *concat_nodespec(pars_spec *nodespec, int with_excl, alter_flag with_alter, const char** ign_props)
   {
   stringstream s;
 

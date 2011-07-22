@@ -3194,7 +3194,7 @@ void regenerate_total_resources(job * pjob)
     {
     if ((rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],rd)) != NULL)
       {
-      char *buf = concat_nodespec(spec,1,NULL);
+      char *buf = concat_nodespec(spec,1,without_alternative,NULL);
       rd->rs_free(&rs->rs_value);
       rd->rs_decode(&rs->rs_value,NULL,NULL,buf);
       free(buf);
@@ -3203,7 +3203,7 @@ void regenerate_total_resources(job * pjob)
       {
       if ((rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],rd)) != NULL)
         {
-        char *buf = concat_nodespec(spec,1,NULL);
+        char *buf = concat_nodespec(spec,1,without_alternative,NULL);
         rd->rs_decode(&rs->rs_value,NULL,NULL,buf);
         free(buf);
         }
@@ -3659,7 +3659,7 @@ static char *nodespec_expand(job *pjob, const char *spec, int *exclusive)
   pars_spec *pspec = parse_nodespec(spec);
 
   expand_nodespec(pspec);
-  expanded = concat_nodespec(pspec,0,NULL);
+  expanded = concat_nodespec(pspec,0,without_alternative,NULL);
   if (exclusive != NULL)
     *exclusive = pspec->is_exclusive + 1;
 
