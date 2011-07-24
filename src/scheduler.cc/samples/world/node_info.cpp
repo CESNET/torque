@@ -234,6 +234,9 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
     else if (!strcmp(attrp -> name, ATTR_NODE_exclusively_assigned))
       ninfo -> is_exclusively_assigned = !strcmp(attrp->value,"True");
 
+    else if (!strcmp(attrp -> name, ATTR_NODE_admin_slot_available))
+      ninfo -> admin_slot_available = !strcmp(attrp->value,"True");
+
     else if (!strcmp(attrp -> name, ATTR_NODE_resources_total))
       {
       if (is_num(attrp -> value))
@@ -341,6 +344,8 @@ node_info *new_node_info()
   tmp -> alternatives = NULL;
 
   tmp -> is_bootable = 0;
+
+  tmp -> admin_slot_available = 0;
 
   tmp->is_exclusively_assigned  = 0;
   tmp->is_usable_for_boot = 1;

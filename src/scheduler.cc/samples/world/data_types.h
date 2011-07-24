@@ -222,6 +222,8 @@ unsigned dedtime_queue:
 unsigned excl_nodes_only:
   1; /**< run on exclusive nodes only */
 
+unsigned is_admin_queue : 1; /* admin job queue */
+
   struct server_info *server;   /* server where queue resides */
   char *name;                   /* queue name */
   state_count sc;               /* number of jobs in different states */
@@ -353,6 +355,8 @@ unsigned is_exclusively_assigned :
 unsigned is_usable_for_run  : 1; /* node is usable for running jobs */
 unsigned is_usable_for_boot : 1; /* node is usable for booting jobs */
 unsigned is_full            : 1; /* node is full (all slots used or exclusively assigned */
+
+unsigned admin_slot_available : 1; /* admin slot is available */
 
   node_type type; /**<type of the node (cluster,timeshared,virtual,cloud) */
 
