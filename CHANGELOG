@@ -4,6 +4,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - merged patch from Chris Samuel for bugzilla bug 149. A previous change to 
       job_purge to make it mult-threaded and avoid hanging while deleting files
       caused a seg-fault in the MOM. This change fixes the seg-fault.
+  b - Merged revision 4884 from 2.5-fixes. Fixed kill_job so it will only run 
+      epilogue.precancel when a job is canceled and not on normal job exit.
 
 2.4.15
   b - fix bugzilla #134, qmgr -= was deleting all entries (backported from 3.0.2)
