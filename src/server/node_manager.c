@@ -188,6 +188,11 @@ int build_host_list(struct howl **,struct pbssubn *,struct pbsnode *);
 void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp, int,
        enum batch_op op);
 
+
+extern int admin_slot_free(struct pbsnode *np);
+extern int admin_slot_present(struct pbsnode *np);
+extern int is_admin_job(struct job *pjob);
+
 /*
 
  GBS - I put this in since it's used in the server to mom
@@ -2680,19 +2685,33 @@ static int hasppn(
 
   struct pbsnode *pnode,     /* I */
   int             node_req,  /* I */
-  int             free)      /* I */
+  int             free,      /* I */
+  int             admin)     /* I */
 
   {
+
+
   if ((free != SKIP_NONE) &&
-      (free != SKIP_NONE_REUSE) &&
-      (pnode->nd_nsnfree >= node_req))
+      (free != SKIP_NONE_REUSE))
     {
-    return(1);
+    if (admin)
+      {
+      return admin_slot_free(pnode);
+      }
+    else if (pnode->nd_nsnfree >= node_req)
+      return 1;
     }
 
-  if (!free && (pnode->nd_nsn >= node_req))
+  if (!free)
     {
-    return(1);
+    if (admin)
+      {
+      return admin_slot_present(pnode);
+      }
+    else if (pnode->nd_nsn >= node_req)
+      {
+      return(1);
+      }
     }
 
   return(0);
@@ -2754,7 +2773,8 @@ static int search(
   int    vpreq,  /* VPs needed */
   int    skip,
   int    order,
-  int    depth)
+  int    depth,
+  int    admin)
 
   {
   static int pass = INUSE_OFFLINE | INUSE_DOWN | INUSE_RESERVE | INUSE_UNKNOWN | INUSE_DELETED;
@@ -2777,7 +2797,7 @@ static int search(
     if (pnode->nd_state & INUSE_DELETED)
       continue;
 
-    if (pnode->nd_exclusive) /* the node is already exclusively assigned, skip */
+    if (pnode->nd_exclusive && !admin) /* the node is already exclusively assigned, skip */
       continue;
 
     if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
@@ -2803,13 +2823,29 @@ static int search(
 
       if ((skip == SKIP_NONE) || (skip == SKIP_NONE_REUSE))
         {
-        if (vpreq > pnode->nd_nsn)
-          continue;
+        if (admin)
+          {
+          if (!admin_slot_present(pnode))
+            continue;
+          }
+        else
+          {
+          if (vpreq > pnode->nd_nsn)
+            continue;
+          }
         }
-      else if ((skip == SKIP_ANYINUSE) &&
-               ((pnode->nd_state & INUSE_SUBNODE_MASK) || (vpreq > pnode->nd_nsnfree)))
+      else if (skip == SKIP_ANYINUSE)
         {
-        continue;
+        if (admin)
+          {
+          if (!admin_slot_free(pnode))
+            continue;
+          }
+        else
+          {
+          if ((pnode->nd_state & INUSE_SUBNODE_MASK) || (vpreq > pnode->nd_nsnfree))
+            continue;
+          }
         }
       else if ((skip == SKIP_EXCLUSIVE) &&
                ((pnode->nd_state & INUSE_SUBNODE_MASK) ||
@@ -2863,8 +2899,17 @@ static int search(
       if (pnode->nd_state & pass)
         continue;
 
-      if ((skip == SKIP_EXCLUSIVE) && (vpreq < pnode->nd_nsnfree))
-        continue;
+      if (admin)
+        {
+        if (admin_slot_free(pnode))
+          continue;
+        }
+
+      if (skip == SKIP_EXCLUSIVE)
+        {
+        if (!admin && (vpreq < pnode->nd_nsnfree))
+            continue;
+        }
 
       if ((skip == SKIP_ANYINUSE) &&
           (vpreq < (pnode->nd_nsnfree + pnode->nd_nsnshared)))
@@ -2882,7 +2927,7 @@ static int search(
                 pnode->nd_needed,
                 skip,
                 pnode->nd_order,
-                depth);
+                depth, admin);
 
       pnode->nd_flag = thinking;
 
@@ -3367,7 +3412,8 @@ void regenerate_total_resources(job * pjob)
 static int listelem(
 
   char **str,
-  int    order)
+  int    order,
+  int    admin)
 
   {
   int num = 1;
@@ -3428,7 +3474,7 @@ static int listelem(
     if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
         || pnode->nd_ntype == NTYPE_CLOUD)
       {
-      if ((hasprop(pnode, prop, node_req) || hasadprop(pnode, prop)) && hasppn(pnode, node_req, SKIP_NONE))
+      if ((hasprop(pnode, prop, node_req) || hasadprop(pnode, prop)) && hasppn(pnode, node_req, SKIP_NONE, admin))
         hit++;
 
       if (hit == num)
@@ -3463,12 +3509,12 @@ static int listelem(
     {
     if (SvrNodeCt == 0)
       {
-      if (search(prop, node_req, SKIP_NONE, order, 0))
+      if (search(prop, node_req, SKIP_NONE, order, 0, admin))
         continue;
       }
     else
       {
-      if (search(prop, node_req, SKIP_NONE_REUSE, order, 0))
+      if (search(prop, node_req, SKIP_NONE_REUSE, order, 0, admin))
         continue;
       }
 
@@ -3503,7 +3549,7 @@ static int cntjons(
 
   psn = pn->nd_psn;
 
-  for (n = 0;n < pn->nd_nsn;++n)
+  for (n = 0;n < pn->nd_nsn + admin_slot_present(pn);++n)
     {
     pj = psn->jobs;
 
@@ -3856,7 +3902,7 @@ static int node_spec(
 
   for (i = 1;;i++)
     {
-    if ((rv = listelem(&str, i)) <= 0)
+    if ((rv = listelem(&str, i, is_admin_job(pjob))) <= 0)
       {
       free(spec);
 
@@ -3967,6 +4013,11 @@ static int node_spec(
 
     if (pnode->nd_state == INUSE_FREE)
       {
+      if (is_admin_job(pjob) && admin_slot_free(pnode))
+        {
+        continue;
+        }
+
       if (pnode->nd_needed <= pnode->nd_nsnfree)
         {
         /* adequate virtual nodes available - node is ok */
@@ -4004,7 +4055,8 @@ static int node_spec(
           pnode->nd_needed,
           (exclusive != 0) ? SKIP_ANYINUSE : SKIP_EXCLUSIVE,
           pnode->nd_order,
-          0))
+          0,
+          is_admin_job(pjob)))
       {
       /* node is ok */
 
@@ -4367,8 +4419,15 @@ int add_job_to_node(
     jp->job = pjob;
     jp->order = pnode->nd_order;
 
-    pnode->nd_nsnfree--;            /* reduce free count */
-    adjust_resources_use(pnode,jp,first,INCR);
+    if (is_admin_job(pjob))
+      {
+      pnode->nd_admin_slot_usable = 0;
+      }
+    else
+      {
+      pnode->nd_nsnfree--;            /* reduce free count */
+      adjust_resources_use(pnode,jp,first,INCR);
+      }
 
     /* if no free VPs, set node state */
     if (pnode->nd_nsnfree <= 0)
@@ -4565,6 +4624,7 @@ int set_nodes(
 #endif /* GEOMETRY_REQUESTS */
 
     first = 1;
+    if (!is_admin_job(pjob) || admin_slot_free(pnode))
     for (snp = pnode->nd_psn;snp && pnode->nd_needed;snp = snp->next)
       {
       if (exclusive)
@@ -4803,9 +4863,9 @@ int node_avail(
         {
         if (pn->nd_state & (INUSE_OFFLINE | INUSE_DOWN))
           ++xdown;
-        else if (hasppn(pn, node_req, SKIP_ANYINUSE))
+        else if (hasppn(pn, node_req, SKIP_ANYINUSE, 0))
           ++xavail;
-        else if (hasppn(pn, node_req, SKIP_NONE))
+        else if (hasppn(pn, node_req, SKIP_NONE, 0))
           {
           /* node has enough processors, are they busy or reserved? */
 
@@ -5243,12 +5303,18 @@ void free_nodes(
         if (pnode->nd_exclusive == 1) /* if taken exclusively, free */
           pnode->nd_exclusive = 0;
 
-        adjust_resources_use(pnode,jp,first,DECR);
+        if (is_admin_job(pjob))
+          {
+          pnode->nd_admin_slot_usable = 1;
+          }
+        else
+          {
+          adjust_resources_use(pnode,jp,first,DECR);
+          pnode->nd_nsnfree++; /* up count of free */
+          }
+
         first = 0;
-
         free(jp);
-
-        pnode->nd_nsnfree++; /* up count of free */
         if (np->inuse & INUSE_JOBSHARE)
           pnode->nd_nsnshared--;
 
@@ -5359,10 +5425,17 @@ static void set_one_old(
               jp->order = order;
               }
 
-            adjust_resources_use(pnode,jp,first,INCR);
+            if (is_admin_job(pjob))
+              {
+              pnode->nd_admin_slot_usable = 0;
+              }
+            else
+              {
+              adjust_resources_use(pnode,jp,first,INCR);
 
-            if (--pnode->nd_nsnfree <= 0)
-              pnode->nd_state |= shared;
+              if (--pnode->nd_nsnfree <= 0)
+                pnode->nd_state |= shared;
+              }
 
             return;
             }

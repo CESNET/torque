@@ -311,6 +311,32 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE,
   },
 
+  /* ND_ATR_admin_slot_enabled */
+  { ATTR_NODE_admin_slot_enabled, /* determines whether the admin slot is enabled */
+    decode_b,
+    encode_b,
+    set_b,
+    comp_b,
+    free_null,
+    node_admin_slot_enable,
+    MGR_ONLY_SET,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_NODE,
+  },
+
+  /* ND_ATR_admin_slot_available */
+  { ATTR_NODE_admin_slot_available, /* follows the admin slot occupied state */
+    decode_b,
+    encode_b,
+    set_b,
+    comp_b,
+    free_null,
+    node_admin_slot_avail,
+    READ_ONLY,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_NODE,
+  },
+
   /* ND_ATR_resources_total */
   { ATTR_NODE_resources_total,
     decode_resc,
