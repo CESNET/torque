@@ -434,6 +434,7 @@ static char           *old_note    = NULL;              /*node's   note    */
 static char     *old_queue = NULL;
 static char     *old_cloud = NULL;
 static int old_np = 0;
+static unsigned old_np_admin = 0;
 static struct attribute *old_resources = (struct attribute*)0;
 static unsigned old_no_multinode = 0;
 
@@ -463,6 +464,7 @@ void save_characteristic(
   old_first =   pnode->nd_first;
   old_f_st =    pnode->nd_f_st;
   old_np =    pnode->nd_nsn;
+  old_np_admin = pnode->nd_admin_slot_enabled;
   old_no_multinode = pnode->nd_no_multinode;
 
   /* if there was a previous note stored here, free it first */
@@ -644,6 +646,9 @@ int chk_characteristic(
   if (pnode->nd_nsn != old_np)
     *pneed_todo |= WRITE_NEW_NODESFILE;
 
+  if (pnode->nd_admin_slot_enabled != old_np_admin)
+    *pneed_todo |= WRITE_NEW_NODESFILE;
+
   return(0);
   }  /* END chk_characteristic() */
 
@@ -721,6 +726,10 @@ int status_nodeattrib(
       atemp[i].at_val.at_list = pnode->attributes[0].at_val.at_list;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_used))
       atemp[i].at_val.at_list = pnode->attributes[1].at_val.at_list;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_admin_slot_available))
+      atemp[i].at_val.at_long = pnode->nd_admin_slot_enabled && pnode->nd_admin_slot_usable;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_admin_slot_enabled))
+      atemp[i].at_val.at_long = pnode->nd_admin_slot_enabled;
     else
       {
       /*we don't ever expect this*/
@@ -865,6 +874,10 @@ static void initialize_pbsnode(
   pnode->nd_exclusive = 0;
   pnode->x_ad_prop = NULL;
   pnode->x_ad_properties = NULL;
+
+  pnode->nd_admin_slot_enabled = 0;
+  pnode->nd_admin_slot_usable = 1;
+
 
 
   for (i = 0;pul[i];i++)
@@ -1376,6 +1389,9 @@ update_nodes_file(void)
     if (np->nd_no_multinode)
       fprintf(nin, " %s=1",ATTR_NODE_no_multinode_jobs);
 
+    if (np->nd_admin_slot_enabled)
+      fprintf(nin, " %s=1",ATTR_NODE_admin_slot_enabled);
+
     /* write out properties */
 
     for (j = 0;j < np->nd_nprops - 1;++j)
@@ -1498,7 +1514,7 @@ struct prop *init_prop(
  *  NOTE: pname arg must be a copy of prop list as it is linked directly in
  */
 
-static struct pbssubn *create_subnode(
+struct pbssubn *create_subnode(
 
         struct pbsnode *pnode)
 
@@ -2185,7 +2201,7 @@ errtoken2:
  * delete_a_subnode - mark a (last) single subnode entry as deleted
  */
 
-static void delete_a_subnode(
+void delete_a_subnode(
 
   struct pbsnode *pnode)
 

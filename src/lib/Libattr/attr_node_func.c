@@ -1621,6 +1621,115 @@ int set_note_str(
   return(rc);
   }  /* END set_note_str() */
 
+#include "queue.h"
+extern void delete_a_subnode(struct pbsnode *pnode);
+extern struct pbssubn *create_subnode(struct pbsnode *pnode);
+
+
+
+int admin_slot_present(struct pbsnode *np)
+  {
+  /* either enabled, or disabled but job still running */
+  return np->nd_admin_slot_enabled || !np->nd_admin_slot_usable;
+  }
+
+int admin_slot_free(struct pbsnode *np)
+  {
+  /* enabled and no admin job running */
+  return np->nd_admin_slot_enabled && np->nd_admin_slot_usable;
+  }
+
+int is_admin_job(struct job *pjob)
+  {
+  return (pjob->ji_qhdr->qu_attr[QE_ATR_admin_queue].at_flags & ATR_VFLAG_SET)
+          && pjob->ji_qhdr->qu_attr[QE_ATR_admin_queue].at_val.at_long;
+  }
+
+/** Either derive a admin_slot_enabled attribute from the node or update node
+ *
+ * @param new
+ * @param pnode
+ * @param actmode
+ * @return
+ */
+int node_admin_slot_enable(attribute *new, void *pnode, int actmode)
+  {
+  int rc = 0;
+  struct pbsnode  *np;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+      new->at_val.at_long  = np->nd_admin_slot_enabled;
+      new->at_flags       = ATR_VFLAG_SET;
+      new->at_type        = ATR_TYPE_LONG;
+      break;
+
+    case ATR_ACTION_ALTER:
+      if (!new->at_val.at_long && np->nd_admin_slot_enabled && np->nd_admin_slot_usable)
+        /* trying to disable and slot is enabled and not occupied */
+        {
+        /* put nsn and nsnfree back to correct values */
+        np->nd_nsn++;
+        np->nd_nsnfree++;
+        delete_a_subnode(np);
+        }
+      else if (new->at_val.at_long && !np->nd_admin_slot_enabled && np->nd_admin_slot_usable)
+        /* trying to enable and slot is disabled and not occupied */
+        {
+        create_subnode(np);
+        /* create subnode increases nsn and nsnfree */
+        np->nd_nsn--;
+        np->nd_nsnfree--;
+        }
+      np->nd_admin_slot_enabled = new->at_val.at_long;
+      break;
+
+    default:
+      rc = PBSE_INTERNAL;
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
+
+/** Either derive a admin_slot_available attribute from the node or update node
+ *
+ * @param new
+ * @param pnode
+ * @param actmode
+ * @return
+ */
+int node_admin_slot_avail(attribute *new, void *pnode, int actmode)
+  {
+  int rc = 0;
+  struct pbsnode  *np;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+
+    case ATR_ACTION_NEW:
+      new->at_val.at_long  = np->nd_admin_slot_enabled && np->nd_admin_slot_usable; /* don't show available if slot disabled */
+      new->at_flags       = ATR_VFLAG_SET;
+      new->at_type        = ATR_TYPE_LONG;
+      break;
+
+    case ATR_ACTION_ALTER:
+      np->nd_admin_slot_usable = new->at_val.at_long;
+      break;
+
+    default:
+      rc = PBSE_INTERNAL;
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
 
 /* END attr_node_func.c */
 
