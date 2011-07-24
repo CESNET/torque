@@ -374,6 +374,11 @@ queue_info *query_queue_info(struct batch_status *queue, server_info *sinfo)
 
       qinfo->starving_support = count;
       }
+    else if (!strcmp(attrp -> name, ATTR_admin_queue))
+      {
+      if (!strcmp(attrp -> value, "True"))
+        qinfo -> is_admin_queue = 1;
+      }
     else if (!strcmp(attrp -> name, ATTR_required_property)) /* required property */
       {
       int i;
@@ -430,6 +435,7 @@ queue_info *new_queue_info()
 
   qinfo -> priority  = 0;
   qinfo -> starving_support = -1;
+  qinfo -> is_admin_queue = 0;
 
   init_state_count(&(qinfo -> sc));
 

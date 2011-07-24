@@ -429,6 +429,10 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
     if (!node_is_suitable_for_run(ninfo))
       return 0;
 
+    /* quick-skip for admin jobs */
+    if (jinfo->queue->is_admin_queue)
+      return ninfo->admin_slot_available;
+
     if (preassign_starving == 0 && (!node_is_not_full(ninfo)))
       return 0;
     }
@@ -571,6 +575,7 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
       continue;
       }
 
+    if (!jinfo->queue->is_admin_queue)
     if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0)
       {
       fit_ppn++;
