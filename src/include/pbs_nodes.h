@@ -164,6 +164,9 @@ struct pbsnode
   unsigned nd_noautoresv : 1;
   unsigned nd_exclusive : 1;
 
+  unsigned nd_admin_slot_enabled : 1;
+  unsigned nd_admin_slot_usable  : 1;
+
   struct attribute attributes[2]; /* resources_total, resources_used */
   char *queue;
   char *cloud;
@@ -278,6 +281,8 @@ enum nodeattr
   ND_ATR_queue,
   ND_ATR_cloud,
   ND_ATR_noautoresv,
+  ND_ATR_admin_slot_enabled,
+  ND_ATR_admin_slot_available,
   ND_ATR_resources_total,
   ND_ATR_resources_used,
   ND_ATR_LAST

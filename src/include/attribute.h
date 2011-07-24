@@ -467,6 +467,8 @@ extern int node_cloud(attribute *anew, void *pnode, int actmode);
 extern int node_no_multinode(attribute *anew, void *pnode, int actmode);
 extern int node_exclusively_assigned(attribute *anew, void *pnode, int actmode);
 extern int node_noautoresv(attribute *anew, void *pnode, int actmode);
+extern int node_admin_slot_avail(attribute *anew, void *pnode, int actmode);
+extern int node_admin_slot_enable(attribute *anew, void *pnode, int actmode);
 extern int 	 node_ncpu(attribute*, void*, int);
 extern int		 node_mem(attribute*, void*, int);
 extern int      set_note_str     A_((attribute *attr, attribute *anew, enum batch_op));
