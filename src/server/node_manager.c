@@ -188,6 +188,11 @@ int build_host_list(struct howl **,struct pbssubn *,struct pbsnode *);
 void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp, int,
        enum batch_op op);
 
+
+extern int admin_slot_free(struct pbsnode *np);
+extern int admin_slot_present(struct pbsnode *np);
+extern int is_admin_job(struct job *pjob);
+
 /*
 
  GBS - I put this in since it's used in the server to mom
