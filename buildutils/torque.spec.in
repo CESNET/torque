@@ -143,7 +143,7 @@ Summary: DRMAA 1.0 Implementation for TORQUE
 Group: Applications/System
 Provides: pbs-drmaa = %{version}-%{release}
 
-%description
+%description drmaa
 This package contains a DRMAA 1.0 implementation for use with TORQUE.
 %endif
 
