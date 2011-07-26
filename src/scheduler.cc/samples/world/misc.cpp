@@ -451,6 +451,12 @@ void query_external_cache(server_info *sinfo, int dynamic)
            }
         }
       }
+    else
+      {
+      sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, "pbs_cache",
+                "Couldn't fetch pbs_cache info for [%s] metric.",
+                res_to_check[j].name);
+      }
       cache_hash_destroy(ptable);
     }
 
@@ -459,21 +465,29 @@ void query_external_cache(server_info *sinfo, int dynamic)
     /* read cluster info */
     ptable=cache_hash_init();
     if (cache_hash_fill_local("phys_cluster",ptable)==0)
-    for (i=0;i<sinfo -> num_nodes;i++)
       {
-      node=sinfo -> nodes[i];
-      value=cache_hash_find(ptable,node->name);
-      if (value != NULL)
+      for (i=0;i<sinfo -> num_nodes;i++)
         {
-        free(node->cluster_name);
-        node->cluster_name = value;
+        node=sinfo -> nodes[i];
+        value=cache_hash_find(ptable,node->name);
+        if (value != NULL)
+          {
+          free(node->cluster_name);
+          node->cluster_name = value;
+          }
         }
+      }
+    else
+      {
+      sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, "pbs_cache",
+                "Couldn't fetch pbs_cache info for [phys_cluster] metric.");
       }
     cache_hash_destroy(ptable);
 
     /* read server dynamic resources */
     ptable=cache_hash_init();
     if (cache_hash_fill_local("dynamic_resources",ptable)==0)
+      {
       for( j = 0; j < num_res; j++ )
         {
         if (res_to_check[j].source == ResCheckDynamic)
@@ -494,6 +508,12 @@ void query_external_cache(server_info *sinfo, int dynamic)
             }
           }
         }
+      }
+    else
+      {
+      sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, "pbs_cache",
+                "Couldn't fetch pbs_cache info for [dynamic_resources] metric.");
+      }
     cache_hash_destroy(ptable);
     }
 
