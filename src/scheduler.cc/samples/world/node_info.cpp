@@ -668,6 +668,15 @@ int is_node_timeshared(node_info *node, void *arg)
   return 0;
   }
 
+
+int is_node_non_dedicated(node_info *node, void *arg)
+  {
+  if (node != NULL)
+    return (node->queue == NULL);
+
+  return 0;
+  }
+
 /*
  *
  * find_best_node - find the best node to run a job

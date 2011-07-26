@@ -132,6 +132,8 @@ node_info **node_filter(node_info **nodes, int size,
  */
 int is_node_timeshared(node_info *node, void *arg);
 
+int is_node_non_dedicated(node_info *node, void *arg);
+
 /*
  *      find_best_node - find the best node to run a job in a node array
  */
