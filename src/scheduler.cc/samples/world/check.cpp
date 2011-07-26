@@ -258,7 +258,7 @@ int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
     }
   else
     {
-    if ((rc = check_nodespec(sinfo, jinfo, sinfo->num_nodes, sinfo->nodes, preassign_starving)) != SUCCESS)
+    if ((rc = check_nodespec(sinfo, jinfo, sinfo->num_nodes, sinfo->non_dedicated_nodes, preassign_starving)) != SUCCESS)
       return rc;
     }
 

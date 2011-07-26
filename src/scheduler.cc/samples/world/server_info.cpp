@@ -182,6 +182,10 @@ server_info *query_server(int pbs_sd)
 
     node_filter(sinfo -> nodes, sinfo -> num_nodes, is_node_timeshared, NULL);
 
+  sinfo -> non_dedicated_nodes =
+
+    node_filter(sinfo -> nodes, sinfo -> num_nodes, is_node_non_dedicated, NULL);
+
   pbs_statfree(server);
 
   return sinfo;
@@ -455,6 +459,8 @@ server_info *new_server_info()
   sinfo -> running_jobs = NULL;
 
   sinfo -> nodes = NULL;
+
+  sinfo -> non_dedicated_nodes = NULL;
 
   sinfo -> timesharing_nodes = NULL;
 
