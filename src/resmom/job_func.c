@@ -606,79 +606,6 @@ static void job_init_wattr(
   }   /* END job_init_wattr() */
 
 
-/*
- * tmpdir_purge - purge a jobs $TMPDIR
- *
- * Only called from job_purge if there is a job's $TMPDIR to purge.
- * Forks a child process to purge the job and returns to the parent.
- */
-
-void tmpdir_purge(
-
-  char *tmpdir, /* I (unmodified) */
-  job *pjob)    /* I (unmodified) */
-
-
-  {
-  pid_t process_id;  /* return value of fork() */
-  int           rc;  /* return code of remtree() */
-
-  process_id=fork();
-
-  if(0 > process_id)
-  {
-      sprintf(log_buffer,
-        "fork for removal of job transient tmpdir %s failed",
-        tmpdir);
-
-      log_err(errno, "recursive (r)rmdir",
-        log_buffer);
-
-     return;
-  }
-    
-  if(0 != process_id)
-  {
-     /* We are the parent, so return to carry on with the rest */
-     return;
-  }
-
-  sprintf(log_buffer, "removing transient job directory %s",
-    tmpdir);
-
-  log_record(
-    PBSEVENT_DEBUG,
-    PBS_EVENTCLASS_JOB,
-    pjob->ji_qs.ji_jobid,
-    log_buffer);
-
-  if ((setegid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1) ||
-      (seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) == -1))
-    {
-    /* FAILURE */
-
-    exit(1);
-    }
-
-  rc = remtree(tmpdir);
-
-  seteuid(0);
-  setegid(pbsgroup);
-
-  if ((rc != 0) && (LOGLEVEL >= 5))
-    {
-    sprintf(log_buffer,
-      "recursive remove of job transient tmpdir %s failed",
-      tmpdir);
-
-    log_err(errno, "recursive (r)rmdir",
-      log_buffer);
-    exit(1);
-    }
-
-  exit(0);
-
-  } /* END: tmpdir_purge */
 
 
 
@@ -692,20 +619,98 @@ void tmpdir_purge(
  */
 
 void job_purge(
-  job *pjob) /* I (modified) */
+
+  job *pjob)  /* I (modified) */
+
   {
   static char   id[] = "job_purge";
+
   char          namebuf[MAXPATHLEN + 1];
   extern char  *msg_err_purgejob;
+  int           rc;
+  int           pid;
+
   extern void MOMCheckRestart A_((void));
 
+  pid = fork();
+  if(pid < 0)
+    {
+    sprintf(log_buffer, "fork() failed in job_purge: %d", errno);
+    log_record(
+      PBSEVENT_DEBUG,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      log_buffer);
 
-  /* Only remove job directory on mother superior - CS @ VLSCI 2011/07/12 */
-  if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) && (pjob->ji_flags & MOM_HAS_TMPDIR))
+    return;
+    }
+
+  if(pid != 0)
+    {
+    /* we are the parent.*/
+    delete_link(&pjob->ji_jobque);
+
+    delete_link(&pjob->ji_alljobs);
+
+    if (LOGLEVEL >= 6)
+      {
+      sprintf(log_buffer,"removing job");
+
+      log_record(
+        PBSEVENT_DEBUG,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+      }
+    job_free(pjob);
+
+    /* if no jobs are left, check if MOM should be restarted */
+
+    if (((job *)GET_NEXT(svr_alljobs)) == NULL)
+      MOMCheckRestart();
+
+    return;
+    }
+
+
+  /* This is the child */
+
+  if (pjob->ji_flags & MOM_HAS_TMPDIR)
     {
     if (TTmpDirName(pjob, namebuf))
       {
-      tmpdir_purge(namebuf,pjob);
+      sprintf(log_buffer, "removing transient job directory %s",
+        namebuf);
+
+      log_record(
+        PBSEVENT_DEBUG,
+        PBS_EVENTCLASS_JOB,
+        pjob->ji_qs.ji_jobid,
+        log_buffer);
+
+      if ((setegid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1) ||
+          (seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) == -1))
+        {
+        /* FAILURE */
+
+        _exit(1);
+        }
+
+      rc = remtree(namebuf);
+
+      seteuid(0);
+      setegid(pbsgroup);
+
+      if ((rc != 0) && (LOGLEVEL >= 5))
+        {
+        sprintf(log_buffer,
+          "recursive remove of job transient tmpdir %s failed",
+          namebuf);
+
+        log_err(errno, "recursive (r)rmdir",
+          log_buffer);
+        }
+
       pjob->ji_flags &= ~MOM_HAS_TMPDIR;
       }
     }
@@ -736,21 +741,6 @@ void job_purge(
     unlink(file);
 
     pjob->ji_flags &= ~MOM_HAS_NODEFILE;
-    }
-
-  delete_link(&pjob->ji_jobque);
-
-  delete_link(&pjob->ji_alljobs);
-
-  if (LOGLEVEL >= 6)
-    {
-    sprintf(log_buffer,"removing job");
-
-    log_record(
-      PBSEVENT_DEBUG,
-      PBS_EVENTCLASS_JOB,
-      pjob->ji_qs.ji_jobid,
-      log_buffer);
     }
 
   strcpy(namebuf,path_jobs); /* delete script file */
@@ -811,14 +801,12 @@ void job_purge(
       log_buffer);
     }
 
-  job_free(pjob);
+  /* use _exit so we do not run any of the at_exit or on_exit routines */
+  _exit(0);
+  }  /* END job_purge() */
 
-  /* if no jobs are left, check if MOM should be restarted */
 
-  if (((job *)GET_NEXT(svr_alljobs)) == NULL)
-    MOMCheckRestart();
 
-  }
 
 
 /*
