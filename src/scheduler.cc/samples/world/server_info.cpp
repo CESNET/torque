@@ -114,6 +114,7 @@ server_info *query_server(int pbs_sd)
   server_info *sinfo;  /* scheduler internal form of server info */
   queue_info **qinfo;  /* array of queues on the server */
   resource *res;  /* ptr to cycle through sources on server */
+  int i;
 
   /* get server information from pbs server */
 
@@ -185,6 +186,10 @@ server_info *query_server(int pbs_sd)
   sinfo -> non_dedicated_nodes =
 
     node_filter(sinfo -> nodes, sinfo -> num_nodes, is_node_non_dedicated, NULL);
+
+  i = 0;
+  while (sinfo -> non_dedicated_nodes[i] != NULL) i++;
+  sinfo -> non_dedicated_node_count = i;
 
   pbs_statfree(server);
 
