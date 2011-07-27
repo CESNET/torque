@@ -195,6 +195,7 @@ struct server_info
   job_info **running_jobs; /* array of jobs in the running state */
   node_info **nodes;  /* array of nodes associated with the server */
   node_info **non_dedicated_nodes;
+  int non_dedicated_node_count;
   node_info **timesharing_nodes;/* array of timesharing nodes */
   token **tokens;               /* array of tokens */
   };
