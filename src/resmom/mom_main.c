@@ -8234,9 +8234,9 @@ void main_loop(void)
 
     time_now = time((time_t *)0);
 
-    tmpTime = MIN(wait_time, time_now - (LastServerUpdateTime + ServerStatUpdateInterval));
+    tmpTime = MIN(wait_time, (LastServerUpdateTime + ServerStatUpdateInterval) - time_now);
 
-    tmpTime = MIN(tmpTime, time_now - (last_poll_time + CheckPollTime));
+    tmpTime = MIN(tmpTime, (last_poll_time + CheckPollTime) - time_now);
 
     tmpTime = MAX(1, tmpTime);
 
