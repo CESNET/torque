@@ -13,6 +13,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       and not on normal job exit.
   b - Applied patch submitted by Eric Roman for resmom/Makefile.am (Bugzilla #147)
   b - Fix for adding -lcr for BLCR makefiles (Bugzilla #146)
+  c - fix a potential segfault when using asynchronous runjob with an array slot limit
 
 3.0.2
   c - check if the file pointer to /dev/console can be opened. If not, don't attempt to write it
