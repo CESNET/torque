@@ -1162,7 +1162,7 @@ main_loop(void)
     else
       waittime = next_task();
 
-    waittime = MAX(0, waittime);
+    waittime = MAX(1, waittime);
 
     if (*state == SV_STATE_RUN)
       {
