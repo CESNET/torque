@@ -89,6 +89,8 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <fcntl.h>
+#include <signal.h>
+#include <time.h>
 
 #if defined(FD_SET_IN_SYS_SELECT_H)
 #  include <sys/select.h>
@@ -110,7 +112,7 @@ static int    tcparraymax = 0;
 
 time_t pbs_tcp_timeout = 20;  /* reduced from 60 to 20 (CRI - Nov/03/2004) */
 
-
+void empty_alarm_handler(int signo);
 
 void DIS_tcp_settimeout(
 
@@ -459,7 +461,7 @@ readmore:
  *      NOTE:  does not close fd
  *
  */
-
+#define WFLUSH_TIMEOUT 60
 int DIS_tcp_wflush(
 
   int fd)  /* I */
@@ -476,6 +478,16 @@ int DIS_tcp_wflush(
   int conf_state;
   unsigned char nct[4];
 #endif
+
+  struct sigaction act;
+  struct sigaction orig;
+
+  time_t time_start = time(NULL);
+
+  act.sa_handler = empty_alarm_handler;
+  act.sa_flags = 0;
+  sigemptyset(&act.sa_mask);
+  sigaction(SIGALRM,&act,&orig);
 
   tp = &tcparray[fd]->writebuf;
   pb = tp->tdis_thebuf;
@@ -499,7 +511,8 @@ int DIS_tcp_wflush(
     if (major != GSS_S_COMPLETE)
       {
       if (getenv("PBSDEBUG") != NULL)
-	pbsgss_display_status("gss_wrap", major, minor);
+        pbsgss_display_status("gss_wrap", major, minor);
+
       gss_release_buffer(&minor, &msg_out);
       return(-1);
       }
@@ -514,37 +527,64 @@ int DIS_tcp_wflush(
     ct = msg_out.length;
     for (i=sizeof(nct); i>0; ct>>=8)
       nct[--i] = ct & 0xff;
+
     maxattempts=25;
-    while ((i = write(fd,nct,sizeof(nct))) != sizeof(nct) && maxattempts > 0)
+    while (1)
       {
+      alarm(WFLUSH_TIMEOUT);
+      i = write(fd,nct,sizeof(nct));
+      alarm(0);
+
+      if (i == sizeof(nct))
+        break;
+
+      if (difftime(time(NULL),time_start) >= WFLUSH_TIMEOUT)
+        {
+        log_err(-1,"DIS_tcp_wflush","Couldn't send kerberos data in one minute, bailing out.");
+        goto timeout1;
+        }
+
       if (i == -1)
         {
-	if (maxattempts > 0 && errno == EINTR){
-		continue;
-        }
-		maxattempts -=1;
+        if (--maxattempts > 0 && errno == EINTR)
+          continue;
+
         if (getenv("PBSDEBUG") != NULL)
           {
           fprintf(stderr,"TCP write of message length failed, errno=%ld (%s)\n",
           (long)errno,
           strerror(errno));
           }
-	}
+timeout1:
+        gss_release_buffer(&minor, &msg_out);
+        sigaction(SIGALRM,&orig,NULL);
+        return -1;
+        }
       }
     ct = msg_out.length;
   }
 #endif
 
   maxattempts=25;
-  while ((i = write(fd, pb, ct)) != (ssize_t)ct)
+  while (1)
     {
+    alarm(WFLUSH_TIMEOUT);
+    i = write(fd, pb, ct);
+    alarm(0);
+
+    if (i == (ssize_t)ct)
+      break;
+
+    if (difftime(time(NULL),time_start) >= WFLUSH_TIMEOUT)
+      {
+      log_err(-1,"DIS_tcp_wflush","Couldn't send data in one minute, bailing out.");
+      goto timeout2;
+      }
+
     if (i == -1)
       {
-      if (maxattempts >0 && errno == EINTR)
-        {
-        maxattempts -=1;
+      if (--maxattempts > 0 && errno == EINTR)
         continue;
-        }
 
       /* FAILURE */
 
@@ -557,9 +597,11 @@ int DIS_tcp_wflush(
                 strerror(errno));
         }
 
+timeout2:
 #ifdef GSSAPI
       gss_release_buffer(&minor, &msg_out);
 #endif
+      sigaction(SIGALRM,&orig,NULL);
       return(-1);
       }  /* END if (i == -1) */
 
@@ -577,6 +619,8 @@ int DIS_tcp_wflush(
   tp->tdis_eod = tp->tdis_leadp;
 
   tcp_pack_buff(tp);
+
+  sigaction(SIGALRM,&orig,NULL);
 
   return(0);
   }  /* END DIS_tcp_wflush() */
@@ -828,7 +872,13 @@ static int tcp_puts(
   tp = &tcp->writebuf;
   if ((tp->tdis_thebuf + tp->tdis_bufsize - tp->tdis_leadp) < (ssize_t)ct)
     {
-      if (tcp_resize_buff(tp,tp->tdis_bufsize + THE_BUF_SIZE) != 0) {
+      unsigned long int size = tp->tdis_bufsize;
+      if (size <= 1024*1024*40)
+        size *= 2;
+      else
+        size += 1024*1024*10;
+
+      if (tcp_resize_buff(tp,size) != 0) {
       return(-1);
       }
     }
@@ -976,13 +1026,16 @@ void DIS_tcp_setup(
 
     flags = fcntl(fd, F_GETFL);
 
-    if (errno == EBADF)
+    if (flags == -1)
       {
-      sprintf(log_buffer, "invalid file descriptor (%d) for socket",
-        fd);
-      log_err(errno, "DIS_tcp_setup", log_buffer);
-
-      return;
+      if (errno == EBADF)
+        {
+        sprintf(log_buffer, "invalid file descriptor (%d) for socket", fd);
+        log_err(errno, "DIS_tcp_setup", log_buffer);
+        return;
+        }
+      log_err(errno, "DIS_tcp_setup", "Could not get information about socket. Aborting due to fatal state.");
+      abort();
       }
 
     tcparraymax = fd + 10;
