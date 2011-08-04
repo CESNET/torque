@@ -828,7 +828,13 @@ static int tcp_puts(
   tp = &tcp->writebuf;
   if ((tp->tdis_thebuf + tp->tdis_bufsize - tp->tdis_leadp) < (ssize_t)ct)
     {
-      if (tcp_resize_buff(tp,tp->tdis_bufsize + THE_BUF_SIZE) != 0) {
+      unsigned long int size = tp->tdis_bufsize;
+      if (size <= 1024*1024*40)
+        size *= 2;
+      else
+        size += 1024*1024*10;
+
+      if (tcp_resize_buff(tp,size) != 0) {
       return(-1);
       }
     }
