@@ -302,6 +302,8 @@
 #define ATTR_ResourcesToStore "node_resources_to_store"
 #define ATTR_ResourcesMappings "node_resources_mappings"
 #define ATTR_krb_realm_submit_acl "krb_realm_submit_acl"
+#define ATTR_acl_krb_realm_enable "acl_krb_realm_enable"
+#define ATTR_acl_krb_realms "acl_krb_realms"
 
 /* additional node "attributes" names */
 
