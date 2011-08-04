@@ -321,6 +321,8 @@ void process_request(
 
   struct batch_request *request;
 
+  int access_by_krb = 0;
+
   time_now = time(NULL);
 
   request = alloc_br(0);
@@ -475,6 +477,33 @@ void process_request(
     strcpy(request->rq_host, server_name);
     }
 
+  if (svr_conn[sfds].cn_authen == PBS_NET_CONN_GSSAPIAUTH)
+    {
+    if (server.sv_attr[(int)SRV_ATR_acl_krb_realm_enable].at_val.at_long)
+      {
+      if (acl_check(&server.sv_attr[(int)SRV_ATR_acl_krb_realms],
+                    svr_conn[sfds].principal,ACL_Host) == 0)
+        {
+        char tmpLine[1024];
+        snprintf(tmpLine, sizeof(tmpLine), "you can't access this server with principal \"%s\"",
+                 svr_conn[sfds].principal);
+
+        req_reject(PBSE_BADHOST, 0, request, NULL, tmpLine);
+
+        close_client(sfds);
+
+        return;
+        }
+      else
+        access_by_krb = 1;
+      }
+    else
+      { /* no checking done, having a ticket is enough */
+      access_by_krb = 1;
+      }
+    }
+
+  if (!access_by_krb) /* if not authentized using kerberos, check host ACL */
   if (server.sv_attr[(int)SRV_ATR_acl_host_enable].at_val.at_long)
     {
     /* acl enabled, check it; always allow myself and nodes */
@@ -508,7 +537,8 @@ void process_request(
    * set the permissions granted to the client
    */
 
-  if (svr_conn[sfds].cn_authen == PBS_NET_CONN_FROM_PRIVIL)
+  if (svr_conn[sfds].cn_authen == PBS_NET_CONN_FROM_PRIVIL && !access_by_krb)
+    /* if user is accessing using kerberos cn_authen shouldn't be PBS_NET_CONN_FROM_PRIVIL, but just to make sure, test anyway */
     {
     /* request came from another server */
 

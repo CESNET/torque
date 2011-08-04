@@ -677,9 +677,9 @@ void req_quejob(
 	&pj->ji_wattr[(int)JOB_SITE_ATR_krb_princ],
         NULL, NULL, svr_conn[preq->rq_conn].principal);
 
-   if (server.sv_attr[SVR_ATR_krb_realm_submit_acl].at_flags & ATR_VFLAG_SET)
+   if (server.sv_attr[SRV_ATR_krb_realm_submit_acl].at_flags & ATR_VFLAG_SET)
      {
-     if (!acl_check(&server.sv_attr[SVR_ATR_krb_realm_submit_acl],svr_conn[preq->rq_conn].principal,ACL_Host))
+     if (!acl_check(&server.sv_attr[SRV_ATR_krb_realm_submit_acl],svr_conn[preq->rq_conn].principal,ACL_Host))
        {
        job_purge(pj);
        req_reject(PBSE_KERBEROS_ACL, 0, preq, NULL, NULL);
