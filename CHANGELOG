@@ -10,6 +10,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       files are deleted in child process. The child process also must terminate    
       using the _exit() call to prevent rpp shutdown functions to be called with
       at_exit or on_exit.
+  b - changed --with-high-availablity to --enable-high-availability in the i
+      buildutils/torque.spec.in file
+
 
 2.4.15
   b - fix bugzilla #134, qmgr -= was deleting all entries (backported from 3.0.2)
