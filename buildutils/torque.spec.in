@@ -158,7 +158,7 @@ export CFLAGS CXXFLAGS
 %configure --includedir=%{_includedir}/%{name} --with-default-server=%{torque_server} \
     %{ac_with_gui} %{ac_with_scp} %{ac_with_syslog} %{ac_with_pam} %{ac_with_drmaa} \
     --disable-gcc-warnings --with-server-home=%{torque_home} --disable-qsub-keep-override \
-    --with-high-availability --with-sendmail=%{_sbindir}/sendmail %{?acflags}
+    --enable-high-availability --with-sendmail=%{_sbindir}/sendmail %{?acflags}
 %{__make} %{?_smp_mflags} %{?mflags}
 
 %install
