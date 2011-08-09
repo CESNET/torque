@@ -2854,6 +2854,7 @@ static int del_files(
      */
 
 /*    if (del_dir) */
+    if (pair->fp_flag == JOBCKPFILE)
       {
       char *ptr;
       ptr = strrchr(path,'/');
