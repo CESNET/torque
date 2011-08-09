@@ -683,6 +683,7 @@ void req_quejob(
        {
        job_purge(pj);
        req_reject(PBSE_KERBEROS_ACL, 0, preq, NULL, NULL);
+       return;
        }
      }
 
@@ -696,6 +697,7 @@ void req_quejob(
       	  job_purge(pj);
 
       	  req_reject(PBSE_KERBEROS_USER, 0, preq, NULL, NULL);
+          return;
         }
 #endif
   }
