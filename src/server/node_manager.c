@@ -3743,8 +3743,13 @@ static int node_spec(
   char *str;
   int  i, num;
   int  rv;
+  int admin;
 
   extern int PNodeStateToString(int, char *, int);
+
+  admin = 0;
+  if (pjob != NULL)
+    admin = is_admin_job(pjob);
 
   if (EMsg != NULL)
     EMsg[0] = '\0';
@@ -3902,7 +3907,7 @@ static int node_spec(
 
   for (i = 1;;i++)
     {
-    if ((rv = listelem(&str, i, is_admin_job(pjob))) <= 0)
+    if ((rv = listelem(&str, i, admin)) <= 0)
       {
       free(spec);
 
@@ -4013,7 +4018,7 @@ static int node_spec(
 
     if (pnode->nd_state == INUSE_FREE)
       {
-      if (is_admin_job(pjob) && admin_slot_free(pnode))
+      if (admin && admin_slot_free(pnode))
         {
         continue;
         }
@@ -4056,7 +4061,7 @@ static int node_spec(
           (exclusive != 0) ? SKIP_ANYINUSE : SKIP_EXCLUSIVE,
           pnode->nd_order,
           0,
-          is_admin_job(pjob)))
+          admin))
       {
       /* node is ok */
 

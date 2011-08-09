@@ -321,7 +321,9 @@ void process_request(
 
   struct batch_request *request;
 
+#ifndef PBS_MOM
   int access_by_krb = 0;
+#endif
 
   time_now = time(NULL);
 
