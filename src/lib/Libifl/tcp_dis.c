@@ -982,13 +982,16 @@ void DIS_tcp_setup(
 
     flags = fcntl(fd, F_GETFL);
 
-    if (errno == EBADF)
+    if (flags == -1)
       {
-      sprintf(log_buffer, "invalid file descriptor (%d) for socket",
-        fd);
-      log_err(errno, "DIS_tcp_setup", log_buffer);
-
-      return;
+      if (errno == EBADF)
+        {
+        sprintf(log_buffer, "invalid file descriptor (%d) for socket", fd);
+        log_err(errno, "DIS_tcp_setup", log_buffer);
+        return;
+        }
+      log_err(errno, "DIS_tcp_setup", "Could not get information about socket. Aborting due to fatal state.");
+      abort();
       }
 
     tcparraymax = fd + 10;
