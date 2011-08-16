@@ -2086,6 +2086,8 @@ int mom_set_use(
 
   *lp = MAX(*lp, lnum);
 
+  job_save(pjob,SAVEJOB_FULL);
+
   return(PBSE_NONE);
   }  /* END mom_set_use() */
 
