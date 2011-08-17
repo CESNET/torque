@@ -6337,10 +6337,10 @@ void MOMCheckRestart(void)
 
   newmtime = MOMGetFileMtime(MOMExePath);
 
+  if (mom_run_state == MOM_RUN_STATE_RUNNING)
   if ((newmtime > 0) && (newmtime != MOMExeTime))
     {
-    if (mom_run_state == MOM_RUN_STATE_RUNNING)
-      mom_run_state = MOM_RUN_STATE_RESTART;
+    mom_run_state = MOM_RUN_STATE_RESTART;
 
     sprintf(
       log_buffer,
