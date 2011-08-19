@@ -187,6 +187,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - Modified pbs_disconnect so it no longer does a read to wait for the server
       side to disconnect first. Also modified write_nonblocking_socket to ensure 
       socket is non-blocking and exit if stuck on EAGAIN return from write.
+  b - In pbs_original_connect() only the first NCONNECT entries of the connection table 
+      were checked for availability. NCONNECT is defined as 10. However, the connection
+      table is PBS_NET_MAX_CONNECTIONS in size. PBS_NET_MAX_CONNECTIONS is 10240. 
+      NCONNECT is now defined as PBS_NET_MAX_CONNECTIONS.
 
 2.5.7
   e - Added new qsub argument -F. This argument takes a quoted string as
