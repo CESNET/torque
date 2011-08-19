@@ -165,6 +165,7 @@ extern int  svr_clnodes;
 extern int node_avail_complex(char *, int *, int *, int *, int *);
 extern int procs_available(int proc_ct);
 extern int procs_requested(char *spec);
+extern int remove_procct(job *);
 
 
 /* Private Functions */
@@ -2399,8 +2400,6 @@ void set_resc_deflt(
   attribute *ji_wattr) /* I (optional) decoded attributes  */
 
   {
-  resource_def  *pctdef;
-  resource      *pctresc;
   attribute     *ja;
 
   pbs_queue     *pque;
@@ -2456,10 +2455,7 @@ void set_resc_deflt(
   if (pque->qu_qs.qu_type == QTYPE_Execution)
     {
     /* unset the procct resource if it has been set */
-    pctdef = find_resc_def(svr_resc_def, "procct", svr_resc_size);
- 
-    if ((pctresc = find_resc_entry(ja, pctdef)) != NULL)
-      pctdef->rs_free(&pctresc->rs_value);
+    remove_procct(pjob);
     }
  
   return;

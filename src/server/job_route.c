@@ -105,12 +105,17 @@
 #include "pbs_job.h"
 #include "credential.h"
 #include "batch_request.h"
+#include "resource.h"
+#include "sched_cmds.h"
 #if __STDC__ != 1
 #include <memory.h>
 #endif
 
 /* External functions called */
 extern int svr_movejob(job *, char *, struct batch_request *);
+extern long count_proc(char *);
+extern int svr_do_schedule;
+extern int listener_command;
 
 /* Local Functions */
 
@@ -189,8 +194,166 @@ badplace *is_bad_dest(
   }  /* END is_bad_dest() */
 
 
+/* int initialize_procct - set pjob->procct plus the resource
+ * procct in the Resource_List
+ *  
+ * Assumes the nodes resource has been set on the Resource_List. This should 
+ * have been done in req_quejob with the set_nodes_attr() function or in 
+ * set_node_ct and/or set_proc_ct. 
+ *  
+ * Returns 0 on success. Non-zero on failure
+ */ 
+int initialize_procct(job *pjob)
+  {                \
+  char id[] = "initialize_procct";
+  resource     *pnodesp;
+  resource_def *pnodes_def;
+  resource     *pprocsp;
+  resource_def *pprocs_def;
+  resource     *procctp;
+  resource_def *procct_def;
+  attribute    *pattr;
+
+  pattr = &pjob->ji_wattr[JOB_ATR_resource];
+  if(pattr == NULL)
+    {
+    /* Something is really wrong. ji_wattr[JOB_ATR_resource] should always be set
+       by the time this function is called */
+    sprintf(log_buffer, "%s: Resource_List is NULL. Cannot proceed", id);
+    log_event(PBSEVENT_JOB,
+              PBS_EVENTCLASS_JOB,
+              pjob->ji_qs.ji_jobid,
+              log_buffer);
+    pbs_errno = PBSE_INTERNAL;
+    return(ROUTE_PERM_FAILURE);
+    }
+
+  /* Has nodes been initialzed */
+  if(pattr->at_flags & ATR_VFLAG_SET)
+    {
+    /* get the node spec from the nodes resource */
+    pnodes_def = find_resc_def(svr_resc_def, "nodes", svr_resc_size);
+    if(pnodes_def == NULL)
+      {
+      sprintf(log_buffer, "%s: Could not get nodes resource definition. Cannot proceed", id);
+      log_event(PBSEVENT_JOB,
+                PBS_EVENTCLASS_JOB,
+                pjob->ji_qs.ji_jobid,
+                log_buffer);
+      pbs_errno = PBSE_INTERNAL;
+      return(ROUTE_PERM_FAILURE);
+      }
+    pnodesp = find_resc_entry(pattr, pnodes_def);
+
+    /* Get the procs count if the procs resource attribute is set */
+    pprocs_def = find_resc_def(svr_resc_def, "procs", svr_resc_size);
+    if(pprocs_def != NULL)
+      {
+      /* if pprocs_def is NULL we just go on. Otherwise we will get its value now */
+      pprocsp = find_resc_entry(pattr, pprocs_def);
+      /* We will evaluate pprocsp later. If it is null we do not care */
+      }
+
+    /* if neither pnodesp nor pprocsp are set, terminate */
+    if(pnodesp == NULL && pprocsp == NULL)
+      {
+      sprintf(log_buffer, "%s: Could not get nodes nor procs entry from Resource_List. Cannot proceed", id);
+      log_event(PBSEVENT_JOB,
+                PBS_EVENTCLASS_JOB,
+                pjob->ji_qs.ji_jobid,
+                log_buffer);
+      pbs_errno = PBSE_INTERNAL;
+      return(ROUTE_PERM_FAILURE);
+      }
+
+    /* we now set pjob->procct and we also set the resource attribute procct */
+    procct_def = find_resc_def(svr_resc_def, "procct", svr_resc_size);
+    if(procct_def == NULL)
+      {
+      sprintf(log_buffer, "%s: Could not get procct resource definition. Cannot proceed", id);
+      log_event(PBSEVENT_JOB,
+                PBS_EVENTCLASS_JOB,
+                pjob->ji_qs.ji_jobid,
+                log_buffer);
+      pbs_errno = PBSE_INTERNAL;
+      return(ROUTE_PERM_FAILURE);
+      }
+    procctp = find_resc_entry(pattr, procct_def);
+    if(procctp == NULL)
+      {
+      procctp = add_resource_entry(pattr, procct_def);
+      if(procctp == NULL)
+        {
+        sprintf(log_buffer, "%s: Could not add procct resource. Cannot proceed", id);
+        log_event(PBSEVENT_JOB,
+                  PBS_EVENTCLASS_JOB,
+                  pjob->ji_qs.ji_jobid,
+                  log_buffer);
+        pbs_errno = PBSE_INTERNAL;
+        return(ROUTE_PERM_FAILURE);
+        }
+      }
+
+    /* Finally the moment of truth. We have the nodes and procs resources. Add them
+       to the procct resoruce*/
+    procctp->rs_value.at_val.at_long = 0;
+    if(pnodesp != NULL)
+      {
+      procctp->rs_value.at_val.at_long = count_proc(pnodesp->rs_value.at_val.at_str);
+      }
+
+    if(pprocsp != NULL)
+      {
+      procctp->rs_value.at_val.at_long += pprocsp->rs_value.at_val.at_long;
+      }
+    procctp->rs_value.at_flags |= ATR_VFLAG_SET;
+    }
+  else
+    {
+    /* Something is really wrong. ji_wattr[JOB_ATR_resource] should always be set
+       by the time this function is called */
+    sprintf(log_buffer, "%s: Resource_List not set. Cannot proceed", id);
+    log_event(PBSEVENT_JOB,
+              PBS_EVENTCLASS_JOB,
+              pjob->ji_qs.ji_jobid,
+              log_buffer);
+    pbs_errno = PBSE_INTERNAL;
+    return(ROUTE_PERM_FAILURE);
+    }
+
+  return(PBSE_NONE);
+  } /* END initialize_procct */
 
 
+int remove_procct(job *pjob)
+  {
+  char id[] = "remove_procct";
+  attribute    *pattr;
+  resource_def *pctdef;
+  resource     *pctresc;
+
+  pattr = &pjob->ji_wattr[JOB_ATR_resource];
+  if(pattr == NULL)
+    {
+    /* Something is really wrong. ji_wattr[JOB_ATR_resource] should always be set
+       by the time this function is called */
+    sprintf(log_buffer, "%s: Resource_List is NULL. Cannot proceed", id);
+    log_event(PBSEVENT_JOB,
+              PBS_EVENTCLASS_JOB,
+              pjob->ji_qs.ji_jobid,
+              log_buffer);
+    pbs_errno = PBSE_INTERNAL;
+    return(ROUTE_PERM_FAILURE);
+    }
+
+ /* unset the procct resource if it has been set */
+    pctdef = find_resc_def(svr_resc_def, "procct", svr_resc_size);
+
+    if ((pctresc = find_resc_entry(pattr, pctdef)) != NULL)
+      pctdef->rs_free(&pctresc->rs_value);
+
+  return(PBSE_NONE);
+  }
 
 /*
  * default_router - basic function for "routing" jobs.
@@ -212,10 +375,11 @@ int default_router(
   struct array_strings *dest_attr = NULL;
   char       *destination;
   int        last;
+  int        rc;
 
-  if (qp->qu_attr[QR_ATR_RouteDestin].at_flags & ATR_VFLAG_SET)
+  if (qp->qu_attr[(int)QR_ATR_RouteDestin].at_flags & ATR_VFLAG_SET)
     {
-    dest_attr = qp->qu_attr[QR_ATR_RouteDestin].at_val.at_arst;
+    dest_attr = qp->qu_attr[(int)QR_ATR_RouteDestin].at_val.at_arst;
 
     last = dest_attr->as_usedptr;
     }
@@ -258,19 +422,31 @@ int default_router(
 
     if (is_bad_dest(jobp, destination))
       continue;
+  
+    /* We need to manage the procct resource which is 
+       part of the Resource_List attribute. At this point 
+       we need to remember what the procct value is and also
+	     make sure it is in the Resource_List before calling
+	     svr_movejob. See ROUTE_RETRY to see what is done
+	     if the job stays in the routing queue. */
+    rc = initialize_procct(jobp);
+    if(rc != PBSE_NONE)
+      {
+      return(rc);
+      }
 
     switch (svr_movejob(jobp, destination, NULL))
       {
 
-      case - 1: /* permanent failure */
+      case ROUTE_PERM_FAILURE: /* permanent failure */
 
         add_dest(jobp);
 
         break;
 
-      case 0:  /* worked */
+      case ROUTE_SUCCESS:  /* worked */
 
-      case 2:  /* deferred */
+      case ROUTE_DEFERRED:  /* deferred */
 
         return(0);
 
@@ -278,7 +454,17 @@ int default_router(
 
         break;
 
-      case 1:  /* failed, but try destination again */
+      case ROUTE_RETRY:  /* failed, but try destination again */
+			/* There are no available queues for this job so it is 
+			   going to stay in the routing queue. But we need to remove
+         procct from the Resource_List so it does not get sent
+				 to the scheduler as part of the job. procct is for 
+				 TORQUE use only. */
+        rc = remove_procct(jobp);
+        if(rc != PBSE_NONE)
+          {
+          return(rc);
+          }
 
         jobp->ji_retryok = 1;
 
@@ -288,9 +474,6 @@ int default_router(
 
   return(-1);
   }  /* END default_router() */
-
-
-
 
 
 /*
@@ -314,6 +497,7 @@ int job_route(
 
   {
   int      bad_state = 0;
+  int      rc;
   char     *id = "job_route";
   time_t     life;
 
@@ -440,10 +624,23 @@ int job_route(
 
   if (qp->qu_attr[QR_ATR_AltRouter].at_val.at_long == 0)
     {
-    return(default_router(jobp, qp, retry_time));
+    rc = default_router(jobp, qp, retry_time);
+    if(rc == ROUTE_SUCCESS)
+      {
+      svr_do_schedule = SCH_SCHEDULE_NEW;
+      listener_command = SCH_SCHEDULE_NEW;
+      }
+    return(rc);
     }
 
-  return(site_alt_router(jobp, qp, retry_time));
+  rc = site_alt_router(jobp, qp, retry_time);
+  if(rc == ROUTE_SUCCESS)
+    {
+    svr_do_schedule = SCH_SCHEDULE_NEW;
+    listener_command = SCH_SCHEDULE_NEW;
+    }
+
+  return(rc);
   }  /* END job_route() */
 
 

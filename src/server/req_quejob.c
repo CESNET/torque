@@ -435,7 +435,6 @@ void req_quejob(
   pbs_queue *pque;
   char  *qname;
   attribute  tempattr;
-  resource  *pres;
   struct stat stat_buf;
   char           EMsg[1024];
 
