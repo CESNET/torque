@@ -184,6 +184,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - Modified default_router() to set the svr_do_schedule flag to SCH_SCHEDULE_NEW if
       a job was successfully routed to a queue. This helps reduce delays in running
       jobs when they are promoted from a routing queue to an execution queue.
+  e - Modified pbs_disconnect so it no longer does a read to wait for the server
+      side to disconnect first. Also modified write_nonblocking_socket to ensure 
+      socket is non-blocking and exit if stuck on EAGAIN return from write.
 
 2.5.7
   e - Added new qsub argument -F. This argument takes a quoted string as
