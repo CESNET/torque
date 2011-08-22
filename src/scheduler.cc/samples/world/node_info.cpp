@@ -82,10 +82,15 @@
 #include <string.h>
 #include <ctype.h>
 #include <sys/types.h>
+#include <new>
+using namespace std;
+
 #include "torque.h"
 #include "node_info.h"
 #include "misc.h"
 #include "globals.h"
+#include "api.hpp"
+#include "global_macros.h"
 
 
 /* Internal functions */
@@ -159,9 +164,30 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
     }
 
   ninfo_arr[i] = NULL;
-
   sinfo -> num_nodes = num_nodes;
   pbs_statfree(nodes);
+
+  /* setup virtual <-> physical nodes mapping */
+  for (i = 0; i < num_nodes; i++)
+    {
+    if (ninfo_arr[i]->type == NodeVirtual)
+      {
+      node_info *physical;
+      char *host = xpbs_cache_get_local(ninfo_arr[i]->name,"host");
+      if (host == NULL)
+        continue;
+
+      physical = find_node_info(host,ninfo_arr);
+      if (physical == NULL)
+        continue;
+
+      ninfo_arr[i]->host = physical;
+      physical->hosted.push_back(ninfo_arr[i]);
+
+      free(host);
+      }
+    }
+
   return ninfo_arr;
   }
 
@@ -299,7 +325,7 @@ node_info *new_node_info()
   {
   node_info *tmp;
 
-  if ((tmp = (node_info *) malloc(sizeof(node_info))) == NULL)
+  if ((tmp = new (nothrow) node_info) == NULL)
     {
     perror("Memory Allocation Error");
     return NULL;
@@ -352,6 +378,9 @@ node_info *new_node_info()
   tmp->is_usable_for_run  = 1;
   tmp->is_full            = 0;
 
+  tmp->host = NULL;
+  tmp->hosted.reserve(2);
+
   return tmp;
   }
 
@@ -400,7 +429,7 @@ void free_node_info(node_info *ninfo)
     free_bootable_alternatives(ninfo->alternatives);
     free(ninfo -> queue);
     free(ninfo -> cluster_name);
-    free(ninfo);
+    delete ninfo;
     }
   }
 
@@ -660,7 +689,7 @@ node_info **node_filter(node_info **nodes, int size,
  *      NOTE: this function used for node_filter
  *
  */
-int is_node_timeshared(node_info *node, void *arg)
+int is_node_timeshared(node_info *node, void * UNUSED(arg))
   {
   if (node != NULL)
     return (node->type == NodeTimeshared);
@@ -669,7 +698,7 @@ int is_node_timeshared(node_info *node, void *arg)
   }
 
 
-int is_node_non_dedicated(node_info *node, void *arg)
+int is_node_non_dedicated(node_info *node, void * UNUSED(arg))
   {
   if (node != NULL)
     return (node->queue == NULL);

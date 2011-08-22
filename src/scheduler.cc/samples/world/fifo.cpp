@@ -101,6 +101,7 @@
 #include "prime.h"
 #include "dedtime.h"
 #include "token_acct.h"
+#include "global_macros.h"
 
 /* WORLD SCHEDULING */
 #include "world.h"
@@ -120,7 +121,7 @@ static time_t last_sync;
  *
  *
  */
-int schedinit(int argc, char *argv[])
+int schedinit(int UNUSED(argc), char * UNUSED(argv[]))
   {
   init_config();
   parse_config(CONFIG_FILE);
@@ -240,8 +241,8 @@ int init_scheduling_cycle(world_server_t* server)
 
         for (j = 0; jobs[j] != NULL; j++)
           {
-            if (jobs[j] -> is_completed || jobs[j] -> is_exiting ||
-              jobs[j] -> is_running)
+            if (jobs[j] -> state == JobCompleted || jobs[j] -> state == JobExiting ||
+              jobs[j] -> state == JobRunning)
               if (!strcmp(server->last_running[i].name, jobs[j] -> name))
                 break;
           }
@@ -474,14 +475,15 @@ int move_update_job(int sd, world_server_t* src, job_info* job,
       sched_log(PBSEVENT_DEBUG2,
                   PBS_EVENTCLASS_SERVER,
                   deststr,
-                  "Couldn't move job to server - unknown error.");          
+                  "Couldn't move job to server - unknown error.");
+      break;
     }
     return ret;
   }
 
 int job_is_movable(job_info* job)
   {
-  if (job->can_not_run || (!job->queue->is_global) || (!job->is_queued))
+  if (job->can_not_run || (!job->queue->is_global) || (!job->state == JobQueued))
     return 0;
   else
     return 1;
@@ -771,7 +773,7 @@ job_info *update_starvation(job_info **jobs)
       {
       if (jobs[i] -> queue -> starving_support >= 0 &&
           jobs[i] -> qtime + jobs[i] -> queue -> starving_support < cstat.current_time &&
-          jobs[i] -> is_queued)
+          jobs[i] -> state == JobQueued)
         {
         jobs[i] -> is_starving = 1;
         jobs[i] -> sch_priority =

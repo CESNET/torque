@@ -262,7 +262,7 @@ int is_holiday(int jdate)
  * returns success/failure
  *
  */
-int parse_holidays(char *fname)
+int parse_holidays(const char *fname)
   {
   FILE *fp;  /* file pointer to holidays file */
   char buf[256]; /* buffer to read lines of the file into */

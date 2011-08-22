@@ -102,7 +102,7 @@ server_info *query_server_info(struct batch_status *server);
  *         list
  */
 
-resource *find_alloc_resource(resource *resplist, char *name);
+resource *find_alloc_resource(resource *resplist, const char *name);
 
 /*
  * find_resource - finds a resource in a resource list

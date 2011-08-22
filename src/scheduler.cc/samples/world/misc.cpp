@@ -89,14 +89,13 @@
 #include "misc.h"
 #include "globals.h"
 #include "fairshare.h"
-extern "C" {
-#include "api.h"
-}
 #include "utility.h"
 #include "site_pbs_cache_scheduler.h"
 #include "assertions.h"
 #include "node_info.h"
 #include <stdarg.h>
+
+#include "api.hpp"
 
 /*
  *
@@ -411,13 +410,13 @@ void query_external_cache(server_info *sinfo, int dynamic)
   for( j = 0; j < num_res; j++ )
     {
     ptable=cache_hash_init();
-    if (res_to_check[j].source == ResCheckBoth || res_to_check[j].source == ResCheckCache)
-    if (cache_hash_fill_local(res_to_check[j].name,ptable)==0)
+    if ((res_to_check[j].source == ResCheckBoth) || (res_to_check[j].source == ResCheckCache))
+    if (xcache_hash_fill_local(res_to_check[j].name,ptable)==0)
       {
       for (i=0;i<sinfo -> num_nodes;i++)
         {
          node=sinfo -> nodes[i];
-         value=cache_hash_find(ptable,node->name);
+         value=xcache_hash_find(ptable,node->name);
          if (value!=NULL)
            {
            res = find_alloc_resource( node -> res, res_to_check[j].name );
@@ -464,12 +463,12 @@ void query_external_cache(server_info *sinfo, int dynamic)
     {
     /* read cluster info */
     ptable=cache_hash_init();
-    if (cache_hash_fill_local("phys_cluster",ptable)==0)
+    if (xcache_hash_fill_local("phys_cluster",ptable)==0)
       {
       for (i=0;i<sinfo -> num_nodes;i++)
         {
         node=sinfo -> nodes[i];
-        value=cache_hash_find(ptable,node->name);
+        value=xcache_hash_find(ptable,node->name);
         if (value != NULL)
           {
           free(node->cluster_name);
@@ -486,13 +485,13 @@ void query_external_cache(server_info *sinfo, int dynamic)
 
     /* read server dynamic resources */
     ptable=cache_hash_init();
-    if (cache_hash_fill_local("dynamic_resources",ptable)==0)
+    if (xcache_hash_fill_local("dynamic_resources",ptable)==0)
       {
       for( j = 0; j < num_res; j++ )
         {
         if (res_to_check[j].source == ResCheckDynamic)
           {
-          value=cache_hash_find(ptable,res_to_check[j].name);
+          value=xcache_hash_find(ptable,res_to_check[j].name);
           if (value != NULL)
             {
             res = find_alloc_resource( sinfo->dyn_res, res_to_check[j].name );
@@ -593,7 +592,7 @@ int cloud_check(job_info *jinfo)
     }
 
   if (jinfo->cluster_mode == ClusterUse) {
-      cluster = pbs_cache_get_local (jinfo->cluster_name, "cluster");
+      cluster = xpbs_cache_get_local (jinfo->cluster_name, "cluster");
 
       if (cluster == NULL)
         {
@@ -634,6 +633,7 @@ int cloud_check(job_info *jinfo)
       if (is_users_in_group(group,jowner) != 0)
         goto perm_done;
 
+      jinfo->can_never_run = 1;
       ret = CLUSTER_PERMISSIONS; /* if reached, then the user doesn't have permission */
 
 perm_done:
@@ -646,7 +646,7 @@ perm_done:
   }
 
   if (jinfo->cluster_mode == ClusterCreate) {
-      cluster = pbs_cache_get_local (jinfo -> custom_name, "cluster");
+      cluster = xpbs_cache_get_local (jinfo -> custom_name, "cluster");
       if (cluster != NULL)
         ret=CLUSTER_RUNNING;
   }

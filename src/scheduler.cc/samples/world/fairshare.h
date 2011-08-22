@@ -90,7 +90,7 @@ void add_child(group_info *ginfo, group_info *parent);
  *      find_group_info - recursive function to find a ginfo in the
      resgroup tree
  */
-group_info *find_group_info(char *name, group_info *root);
+group_info *find_group_info(const char *name, group_info *root);
 
 /*
  *      find_alloc_ginfo - trys to find a ginfo in the fair share tree.  If it
@@ -108,7 +108,7 @@ group_info * new_group_info();
 /*
  *      parse_group - parse the resource group file
  */
-int parse_group(char *fname);
+int parse_group(const char *fname);
 
 /*
  *      preload_tree -  load the "root" group into the fair share tree

@@ -81,6 +81,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <new>
+using namespace std;
+
 #include "torque.h"
 #include "queue_info.h"
 #include "job_info.h"
@@ -91,6 +94,7 @@
 #include "fairshare.h"
 #include "node_info.h"
 #include "utility.h"
+#include "global_macros.h"
 
 
 /*
@@ -112,7 +116,7 @@ job_info **query_jobs(int pbs_sd, queue_info *qinfo)
 
   struct attropl opl =
     {
-    NULL, ATTR_q, NULL, NULL, EQ
+    NULL, (char*)ATTR_q, NULL, NULL, EQ
     };
 
   /* linked list of jobs returned from pbs_selstat() */
@@ -177,7 +181,7 @@ job_info **query_jobs(int pbs_sd, queue_info *qinfo)
     /* if the job is not in the queued state, don't even allow
      * it to be considered to be run.
      */
-    if (!jinfo -> is_queued)
+    if (!jinfo -> state == JobQueued)
       jinfo -> can_not_run = 1;
 
     jinfo_arr[i] = jinfo;
@@ -251,9 +255,6 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
       jinfo -> account = strdup(attrp -> value);
     else if (!strcmp(attrp -> name, ATTR_egroup))    /* group name */
       jinfo -> group = strdup(attrp -> value);
-    else if (!strcmp(attrp -> name, ATTR_exechost))    /* where job is running*/
-      jinfo -> job_node = find_node_info(attrp -> value,
-                                         queue -> server -> nodes);
     else if (!strcmp(attrp -> name, ATTR_l))    /* resources requested*/
       {
       /* special handling for cluster */
@@ -302,7 +303,7 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
     attrp = attrp -> next;
     }
 
-  if (jinfo->is_queued == 1 &&
+  if (jinfo -> state == JobQueued &&
       jinfo->queue->starving_support >= 0 &&
       jinfo->qtime + jinfo->queue->starving_support < cstat.current_time)
     jinfo->is_starving = 1;
@@ -321,24 +322,10 @@ job_info *new_job_info()
   {
   job_info *jinfo;
 
-  if ((jinfo = (job_info *) malloc(sizeof(job_info))) == NULL)
+  if ((jinfo = new (nothrow) job_info) == NULL)
     return NULL;
 
-  jinfo -> is_queued = 0;
-
-  jinfo -> is_running = 0;
-
-  jinfo -> is_held = 0;
-
-  jinfo -> is_waiting = 0;
-
-  jinfo -> is_transit = 0;
-
-  jinfo -> is_exiting = 0;
-
-  jinfo -> is_suspended = 0;
-
-  jinfo -> is_completed = 0;
+  jinfo -> state = JobNoState;
 
   jinfo -> is_starving = 0;
 
@@ -370,8 +357,6 @@ job_info *new_job_info()
   jinfo -> resused = NULL;
 
   jinfo -> ginfo = NULL;
-
-  jinfo -> job_node = NULL;
 
   jinfo -> custom_name = NULL;
 
@@ -470,7 +455,7 @@ void free_job_info(job_info *jinfo)
   free_resource_req_list(jinfo -> resused);
   free(jinfo -> cluster_name);
   free(jinfo -> nodespec);
-  free(jinfo);
+  delete jinfo;
   }
 
 /*
@@ -644,9 +629,6 @@ void print_job_info(job_info *jinfo, char brief)
     if (jinfo -> queue != NULL)
       printf("queue: %s\n", jinfo -> queue -> name);
 
-    if (jinfo -> job_node)
-      printf("node: %s\n", jinfo -> job_node -> name);
-
     if (jinfo -> account)
       printf("account: %s\n", jinfo -> account);
 
@@ -659,20 +641,7 @@ void print_job_info(job_info *jinfo, char brief)
 
     printf("qtime: %d: %s", (int)jinfo -> qtime, ctime(&(jinfo -> qtime)));
 
-
-    printf("is_queued: %s\n", jinfo -> is_queued ? "TRUE" : "FALSE");
-
-    printf("is_running: %s\n", jinfo -> is_running ? "TRUE" : "FALSE");
-
-    printf("is_held: %s\n", jinfo -> is_held ? "TRUE" : "FALSE");
-
-    printf("is_waiting: %s\n", jinfo -> is_waiting ? "TRUE" : "FALSE");
-
-    printf("is_transit: %s\n", jinfo -> is_transit ? "TRUE" : "FALSE");
-
-    printf("is_exiting: %s\n", jinfo -> is_exiting ? "TRUE" : "FALSE");
-
-    printf("is_completed: %s\n", jinfo -> is_completed ? "TRUE" : "FALSE");
+    printf("state: %s", jinfo->state_string());
 
     printf("is_starving: %s\n", jinfo -> is_starving ? "TRUE" : "FALSE");
 
@@ -708,35 +677,35 @@ void set_state(char *state, job_info *jinfo)
     {
 
     case 'Q':
-      jinfo -> is_queued = 1;
+      jinfo -> state = JobQueued;
       break;
 
     case 'R':
-      jinfo -> is_running = 1;
+      jinfo -> state = JobRunning;
       break;
 
     case 'T':
-      jinfo -> is_transit = 1;
+      jinfo -> state = JobTransit;
       break;
 
     case 'H':
-      jinfo -> is_held = 1;
+      jinfo -> state = JobHeld;
       break;
 
     case 'W':
-      jinfo -> is_waiting = 1;
+      jinfo -> state = JobWaiting;
       break;
 
     case 'E':
-      jinfo -> is_exiting = 1;
+      jinfo -> state = JobExiting;
       break;
 
     case 'S':
-      jinfo -> is_suspended = 1;
+      jinfo -> state = JobSuspended;
       break;
 
     case 'C':
-      jinfo -> is_completed = 1;
+      jinfo -> state = JobCompleted;
       break;
     }
   }
@@ -752,10 +721,9 @@ void set_state(char *state, job_info *jinfo)
  * returns nothing
  *
  */
-void update_job_on_run(int pbs_sd, job_info *jinfo)
+void update_job_on_run(int UNUSED(pbs_sd), job_info *jinfo)
   {
-  jinfo -> is_queued = 0;
-  jinfo -> is_running = 1;
+  jinfo -> state = JobRunning;
   }
 
 /** Update the job information
@@ -767,8 +735,7 @@ void update_job_on_run(int pbs_sd, job_info *jinfo)
  */
 void update_job_on_move(job_info *jinfo)
   {
-  jinfo -> is_queued = 0;
-  jinfo -> is_transit = 1;
+  jinfo -> state = JobTransit;
   }
 
 /*
@@ -784,7 +751,7 @@ void update_job_on_move(job_info *jinfo)
  *   non-zero: the comment did not need to be updated (same as before etc)
  *
  */
-int update_job_comment(int pbs_sd, job_info *jinfo, char *comment)
+int update_job_comment(int pbs_sd, job_info *jinfo, const char *comment)
   {
   /* the pbs_alterjob() call takes a linked list of attrl structures to alter
    * a job.  All we are interested in doing is changing the comment.
@@ -792,7 +759,7 @@ int update_job_comment(int pbs_sd, job_info *jinfo, char *comment)
 
   struct attrl attr =
     {
-    NULL, ATTR_comment, NULL, NULL, SET
+    NULL, (char*)ATTR_comment, NULL, NULL, SET
     };
 
   if (jinfo == NULL)
@@ -806,7 +773,7 @@ int update_job_comment(int pbs_sd, job_info *jinfo, char *comment)
 
     jinfo -> comment = strdup(comment);
 
-    attr.value = comment;
+    attr.value = (char*)comment;
 
     pbs_alterjob(pbs_sd, jinfo -> name, &attr, NULL);
 
@@ -829,7 +796,7 @@ int update_job_comment(int pbs_sd, job_info *jinfo, char *comment)
  *
  */
 void update_jobs_cant_run(int pbs_sd, job_info **jinfo_arr, job_info *start,
-                          char *comment, int start_where)
+                          const char *comment, int start_where)
   {
   int i = 0;
 
@@ -1058,6 +1025,7 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg)
         rc = 0;
         comment_msg[0] = '\0';
         log_msg[0] = '\0';
+        break;
       }
     }
 
@@ -1093,4 +1061,25 @@ int calc_assn_resource(job_info **jinfo_arr, char *resstr)
     }
 
   return res_amm;
+  }
+
+
+
+bool job_info::on_host(node_info *ninfo)
+  {
+  if (ninfo->host == NULL)
+    return on_node(ninfo);
+
+  for (size_t i = 0; i < ninfo->host->hosted.size(); i++)
+    {
+    if (on_node(ninfo->host->hosted[i]))
+      return true;
+    }
+
+  return false;
+  }
+
+bool job_info::on_node(node_info *ninfo)
+  {
+  return (schedule.find(string(ninfo->name)) != schedule.end());
   }

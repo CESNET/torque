@@ -10,9 +10,10 @@
 #include <assertions.h>
 #include "site_pbs_cache_scheduler.h"
 extern "C" {
-#include "api.h"
 #include "nodespec.h"
 }
+
+#include "api.hpp"
 
 #include <sstream>
 #include <cassert>
@@ -157,8 +158,6 @@ static int node_is_not_full(node_info *ninfo)
 
   return 1;
   }
-
-
 
 enum ResourceCheckMode { MaxOnly, Avail };
 
@@ -536,7 +535,7 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
       char *cmom;
       char *cloud_mom=NULL;
       node_info *cloudnode =NULL;
-      cmom=pbs_cache_get_local(ninfo->name, "host");
+      cmom=xpbs_cache_get_local(ninfo->name, "host");
 
       if (cmom)
         {
@@ -583,7 +582,7 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
   return 1;
   }
 
-static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec, int exclusivity,
+static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec,
                        int avail_nodes, node_info **ninfo_arr, int preassign_starving)
   {
   int i;
@@ -717,7 +716,7 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
 
       for (i = 0; i < iter->node_count; i++)
         {
-        missed_nodes += assign_node(sinfo, jinfo, iter, spec->is_exclusive, nodecount,
+        missed_nodes += assign_node(sinfo, jinfo, iter, nodecount,
                                     ninfo_arr, preassign_starving);
         }
 

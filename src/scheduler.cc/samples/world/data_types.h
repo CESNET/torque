@@ -81,6 +81,10 @@
 #define DATA_TYPES_H
 
 #include <time.h>
+#include <vector>
+#include <string>
+#include <map>
+
 #include "torque.h"
 #include "constant.h"
 #include "config.h"
@@ -245,61 +249,29 @@ unsigned is_admin_queue : 1; /* admin job queue */
   };
 
 enum ClusterMode { ClusterNone, ClusterCreate, ClusterUse };
+enum JobState { JobNoState, JobQueued, JobRunning, JobHeld, JobWaiting, JobTransit, JobExiting, JobSuspended, JobCompleted };
+static const char* JobStateString[] = { "none", "queued", "running", "held", "waiting", "transit", "exiting", "suspended", "completed", NULL };
 
 struct job_info
   {
+  JobState state;
+  const char* state_string() { return JobStateString[state]; }
 
-unsigned is_queued:
-  1;   /* state booleans */
+  unsigned is_starving: 1; /* job has waited passed starvation time */
+  unsigned can_not_run: 1; /* set in a cycle of a job cant run this cycle*/
+  unsigned can_never_run: 1; /* set if a job can never be run */
+  unsigned is_exclusive: 1; /* the job needs to be run exclusively */
+  unsigned is_multinode: 1; /* job requeires multiple nodes */
+  unsigned is_cluster: 1; /* cluster request */
 
-unsigned is_running:
-  1;
-
-unsigned is_held:
-  1;
-
-unsigned is_waiting:
-  1;
-
-unsigned is_transit:
-  1;
-
-unsigned is_exiting:
-  1;
-
-unsigned is_suspended:
-  1;
-
-unsigned is_completed:
-  1;
-
-unsigned is_starving:
-  1; /* job has waited passed starvation time */
-
-unsigned can_not_run:
-  1; /* set in a cycle of a job cant run this cycle*/
-
-unsigned can_never_run:
-  1; /* set if a job can never be run */
-
-unsigned is_exclusive:
-  1; /* the job needs to be run exclusively */
-
-unsigned is_multinode:
-  1; /* job requeires multiple nodes */
-
-unsigned is_cluster:
-  1; /* cluster request */
-
-enum ClusterMode cluster_mode;
-char *cluster_name; /**< cluster name passed from -l cluster=...*/
+  enum ClusterMode cluster_mode;
+  char *cluster_name; /**< cluster name passed from -l cluster=...*/
 
   char *name;   /* name of job */
   char *comment;  /* comment field of job */
   char *account;  /* username of the owner of the job */
   char *group;   /* groupname of the owner of the job */
   char *custom_name; /**< user selected job/cluster name */
-
 
   char *nodespec; /**< processed nodespec from the server */
 
@@ -310,7 +282,13 @@ char *cluster_name; /**< cluster name passed from -l cluster=...*/
   resource_req *resreq;  /* list of resources requested */
   resource_req *resused; /* a list of resources used */
   group_info *ginfo;  /* the fair share node for the owner */
-  node_info *job_node;  /* node the job is running on */
+
+  std::map< std::string, std::vector<pars_spec_node*> > schedule; /* currently considered schedule */
+
+  /** \brief Determine whether a sjob is already planned on node */
+  bool on_node(node_info *ninfo);
+  /** \brief Determine whether a job is already planned on node, or any of its virtual sisters */
+  bool on_host(node_info *ninfo);
   };
 
 typedef enum node_type { NodeTimeshared, NodeCluster, NodeVirtual, NodeCloud } node_type;
@@ -394,6 +372,9 @@ unsigned admin_slot_available : 1; /* admin slot is available */
 
   pars_spec_node *temp_assign; /**< Temporary job assignment */
   repository_alternatives *temp_assign_alternative; /**< Alternative assignment */
+
+  node_info* host; /*< the physical host of this node */
+  std::vector< node_info* > hosted; /*< virtual nodes hosted on this node */
   };
 
 struct resource
@@ -489,7 +470,7 @@ unsigned all  :
 struct sort_info
   {
   enum sort_type sort;
-  char *config_name;
+  const char *config_name;
   int (*cmp_func)(const void *, const void*);
   };
 
@@ -640,9 +621,9 @@ typedef enum { ResCheckNone, ResCheckStat, ResCheckCache, ResCheckBoth, ResCheck
 /* static data types */
 struct rescheck
   {
-  char *name;
-  char *comment_msg;
-  char *debug_msg;
+  const char *name;
+  const char *comment_msg;
+  const char *debug_msg;
   reschecksource source;
   };
 

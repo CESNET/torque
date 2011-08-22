@@ -96,6 +96,7 @@ extern "C" {
 }
 #include "nodespec_sch.h"
 #include "sort.h"
+#include "global_macros.h"
 
 /*
  *
@@ -314,7 +315,7 @@ server_info *query_server_info(struct batch_status *server)
  *
  */
 
-resource *find_alloc_resource(resource *resplist, char *name)
+resource *find_alloc_resource(resource *resplist, const char *name)
   {
   resource *resp;  /* used to search through list of resources */
   resource *prev = NULL; /* the previous resources in the list */
@@ -761,9 +762,9 @@ void set_jobs(server_info *sinfo)
  *      returns 1 if the job is running
  *
  */
-int check_run_job(job_info *job, void *arg)
+int check_run_job(job_info *job, void * UNUSED(arg))
   {
-  return job -> is_running;
+  return job -> state == JobRunning;
   }
 
 token** get_token_array(char* tokenlist)

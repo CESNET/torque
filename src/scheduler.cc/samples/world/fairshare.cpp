@@ -139,7 +139,7 @@ void add_unknown(group_info *ginfo)
  * returns the found group_info or NULL
  *
  */
-group_info *find_group_info(char *name, group_info *root)
+group_info *find_group_info(const char *name, group_info *root)
   {
   group_info *ginfo;  /* the found group */
 
@@ -235,7 +235,7 @@ group_info *new_group_info()
  *   shares  - the amount of shares the user/group has in its resgroup
  *
  */
-int parse_group(char *fname)
+int parse_group(const char *fname)
   {
   group_info *ginfo;  /* ptr to parent group */
   group_info *new_ginfo; /* used to add each new group */
@@ -558,7 +558,7 @@ job_info *extract_fairshare(job_info **jobs)
       {
       cur_value = jobs[i] -> ginfo -> percentage / jobs[i] -> ginfo -> temp_usage;
 
-      if (max_value < cur_value && !jobs[i] -> is_running &&
+      if (max_value < cur_value && !jobs[i] -> state == JobRunning &&
           !jobs[i] -> can_not_run)
         {
         max = jobs[i];
