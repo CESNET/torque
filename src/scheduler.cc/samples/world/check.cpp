@@ -404,7 +404,7 @@ int check_dynamic_resources(resource *reslist, job_info *jinfo)
       return INSUFICIENT_DYNAMIC_RESOURCE;
 
     /* not enough of this resource */
-    if (res->avail < resreq->amount)
+    if (res->avail - res->assigned < resreq->amount)
       return INSUFICIENT_DYNAMIC_RESOURCE;
     }
 

@@ -149,7 +149,7 @@ static int node_is_not_full(node_info *ninfo)
     return 0;
     }
 
-  if (ninfo->npfree == 0)
+  if (ninfo->npfree - ninfo->npassigned <= 0)
     {
     ninfo->is_full = 1;
     sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
@@ -170,7 +170,7 @@ static int node_has_enough_np(node_info *ninfo, int ppn, enum ResourceCheckMode 
         return 1;
       break;
     case Avail:
-      if (ninfo->npfree >= ppn)
+      if (ninfo->npfree - ninfo->npassigned >= ppn)
         return 1;
       else
         return 0;
@@ -214,7 +214,7 @@ static int node_has_enough_resource(node_info *ninfo, char *name, char *value,
       if (res->max == INFINITY || res->max == UNSPECIFIED)
         /* we only have the avail value */
         {
-        if (res->avail >= amount)
+        if (res->avail - res->assigned >= amount)
           return 1;
         }
       else
@@ -457,43 +457,6 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
     return 0;
     }
 
-  if ((ninfo->starving_job != NULL) && /* already assigned to a starving job */
-      (strcmp(ninfo->starving_job->name,jinfo->name) != 0)) /* and not this job */
-    {
-    int ok = 1;
-    if (ninfo->starving_job->queue->priority > jinfo->queue->priority) /* this job has lower priority -> can't run */
-      ok = 0;
-
-    /* if the priority is the same */
-    if (ok == 1 && ninfo->starving_job->queue->priority == jinfo->queue->priority)
-      {
-      float starving_job;
-      float testing_job;
-
-      starving_job = ninfo->starving_job->ginfo->percentage/ninfo->starving_job->ginfo->usage;
-      testing_job  = jinfo->ginfo->percentage/jinfo->ginfo->usage;
-
-      /* fairshare priority lower */
-      if (starving_job > testing_job)
-        ok = 0;
-
-      if (ok == 1)
-        {
-        /* starving time longer */
-        if (ninfo->starving_job->qtime < jinfo->qtime)
-          ok = 0;
-        }
-      }
-
-    if (ok == 0)
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, node allocated to a higher priority starving job %s.",
-                ninfo->name, ninfo->starving_job->name);
-      return 0;
-      }
-    }
-
   if (ninfo->temp_assign != NULL) /* node already assigned */
   {
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
@@ -503,7 +466,7 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
 
   if (preassign_starving == 0) /* only for non-starving jobs */
     {
-    if ((jinfo->is_exclusive) && (ninfo->npfree != ninfo->np))
+    if ((jinfo->is_exclusive) && (ninfo->npfree - ninfo->npassigned != ninfo->np))
       {
       sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
                 "Node %s not used, job is exclusive and node is not fully empty.", ninfo->name);
@@ -582,7 +545,7 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
   return 1;
   }
 
-static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec,
+static int assign_node(job_info *jinfo, pars_spec_node *spec,
                        int avail_nodes, node_info **ninfo_arr, int preassign_starving)
   {
   int i;
@@ -682,57 +645,152 @@ static int assign_node(server_info *sinfo, job_info *jinfo, pars_spec_node *spec
   return 1;
   }
 
-int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info **ninfo_arr, int preassign_starving)
+
+static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, int avail_nodes, node_info **ninfo_arr)
   {
-  int missed_nodes = 0;
-  const char *node_spec = jinfo->nodespec;
+  int i;
+  pars_prop *iter = NULL;
+  repository_alternatives** ra;
+  int fit_suit = 0, fit_ppn = 0, fit_mem = 0, fit_prop = 0;
 
-  /* TODO provide better fix (with respect to resource requests) */
-  if ( node_spec == NULL || node_spec[0] == '\0')
-    node_spec = "1:ppn=1"; /* if there is no nodespec,
-                        then assume its a request for one node */
-#if 0
-  if (res != NULL && node_spec != NULL)
-#endif
+  for (i = 0; i < avail_nodes; i++) /* for each node */
     {
-    pars_spec *spec;
-    pars_spec_node *iter;
-
-    if ((spec = parse_nodespec(node_spec)) == NULL)
-      return SCHD_ERROR;
-
-    jinfo->is_exclusive = spec->is_exclusive;
-    jinfo->is_multinode = (spec->total_nodes > 1)?1:0;
-
-    iter = spec->nodes;
-    while (iter != NULL)
+    if (!is_node_suitable(ninfo_arr[i],jinfo,1)) /* check node suitability */
       {
-      unsigned i, tot_nodes;
+      fit_suit++;
+      continue;
+      }
 
-      if (preassign_starving == 1)
-        tot_nodes = nodecount;
-      else
-        tot_nodes = iter->node_count;
+    if (!jinfo->queue->is_admin_queue)
+    if (get_node_has_ppn(ninfo_arr[i],spec->procs,1) == 0)
+      {
+      fit_ppn++;
+      continue;
+      }
 
-      for (i = 0; i < iter->node_count; i++)
+    if (get_node_has_mem(ninfo_arr[i],spec,1) == 0)
+      {
+      fit_mem++;
+      continue;
+      }
+
+    /* check nodespec */
+    ra = NULL;
+
+    /* has alternatives */
+    if (jinfo->cluster_mode==ClusterCreate && ninfo_arr[i]->alternatives != NULL
+        && ninfo_arr[i]->alternatives[0] != NULL)
+      {
+      ra = ninfo_arr[i]->alternatives;
+      while (*ra != NULL)
         {
-        missed_nodes += assign_node(sinfo, jinfo, iter, nodecount,
-                                    ninfo_arr, preassign_starving);
+        iter = spec->properties;
+        while (iter != NULL)
+          {
+          if ((get_node_has_prop(ninfo_arr[i],iter,1) == 0) &&
+              (alternative_has_property(*ra,iter->name) == 0) &&
+              (is_dynamic_resource(iter) == 0))
+            break; /* break out of the cycle if not found property */
+
+          iter = iter->next;
+          }
+
+        if (iter == NULL)
+          break;
+        ra++;
         }
 
-      iter = iter->next;
+      if (*ra == NULL)
+        {
+        fit_prop++;
+        continue; /* no alternative matching the spec */
+        }
       }
-
-    free_parsed_nodespec(spec);
-
-    if (preassign_starving == 0)
-    if (missed_nodes > 0) /* try reassigns */
+    else /* else just do simple iteration */
       {
-      nodes_preassign_clean(ninfo_arr,nodecount);
-      return NODESPEC_NOT_ENOUGH_NODES_TOTAL;
+      iter = spec->properties;
+      while (iter != NULL)
+        {
+        if (get_node_has_prop(ninfo_arr[i],iter,1) == 0 &&
+            is_dynamic_resource(iter) == 0)
+          break; /* break out of the cycle if not found property */
+
+        iter = iter->next;
+        }
+
+      if (iter != NULL) /* one of the properties not found */
+        {
+        fit_prop++;
+        continue;
+        }
       }
+
+    jinfo->plan_on_node(ninfo_arr[i],spec);
+    continue;
     }
 
+  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+            "Nodespec not matched: [%d/%d] nodes are not suitable for job, [%d/%d] don't have enough free CPU, [%d/%d] don't have enough memory, [%d/%d] nodes don't match some properties/resources requested.",
+            fit_suit, avail_nodes, fit_ppn, avail_nodes, fit_mem, avail_nodes, fit_prop, avail_nodes);
+  return 1;
+  }
+
+
+int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info **ninfo_arr, int preassign_starving)
+  {
+  /* read the nodespec, has to be sent from server */
+  const char *node_spec = jinfo->nodespec;
+  if ( node_spec == NULL || node_spec[0] == '\0')
+    {
+    sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER,
+        jinfo->name,"No nodespec was provided for this job, assuming 1:ppn=1.");
+    node_spec = "1:ppn=1";
+    }
+
+  /* re-parse the nodespec */
+  pars_spec *spec;
+  if ((spec = parse_nodespec(node_spec)) == NULL)
+    return SCHD_ERROR;
+
+  /* setup some side values, that need parsed nodespec to be determined */
+  jinfo->is_exclusive = spec->is_exclusive;
+  jinfo->is_multinode = (spec->total_nodes > 1)?1:0;
+
+  int missed_nodes = 0;
+
+  /* for each part of the nodespec, try to assign the requested amount of nodes */
+  pars_spec_node *iter;
+  iter = spec->nodes;
+  while (iter != NULL)
+    {
+    for (unsigned i = 0; i < iter->node_count; i++)
+      {
+      missed_nodes += assign_node(jinfo, iter, nodecount, ninfo_arr, 0);
+      }
+    if (missed_nodes > 0)
+      break;
+
+    iter = iter->next;
+    }
+
+  if (missed_nodes > 0) /* some part of nodespec couldn't be assigned */
+    {
+    nodes_preassign_clean(ninfo_arr,nodecount);
+    if (jinfo->is_starving) /* if starving, eat out the resources anyway */
+      {
+      iter = spec->nodes;
+      while (iter != NULL)
+        {
+        assign_all_nodes(jinfo, iter, nodecount, ninfo_arr);
+        iter = iter->next;
+        }
+      jinfo->plan_on_server(sinfo);
+      jinfo->plan_on_queue(jinfo->queue);
+      }
+    return NODESPEC_NOT_ENOUGH_NODES_TOTAL;
+    }
+
+  free_parsed_nodespec(spec);
 
   return SUCCESS; /* if we reached this point, we are done */
   }

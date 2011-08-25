@@ -357,7 +357,7 @@ node_info *new_node_info()
 
   tmp -> np = 0;
   tmp -> npfree = 0;
-  tmp -> npshared = 0;
+  tmp -> npassigned = 0;
 
   tmp -> temp_assign = NULL;
 
@@ -938,8 +938,8 @@ void print_node(node_info *ninfo, int brief)
       printf("is_exclusive: %s\n", ninfo -> is_exclusive ? "TRUE" : "FALSE");
       printf("is_sharing: %s\n", ninfo -> is_sharing ? "TRUE" : "FALSE");
 
-      printf("np: %d | npfree: %d | npshared: %d\n",
-             ninfo->np, ninfo->npfree, ninfo->npshared);
+      printf("np: %d | npfree: %d | npassigned: %d\n",
+             ninfo->np, ninfo->npfree, ninfo->npassigned);
 
       if (ninfo -> properties != NULL)
         {

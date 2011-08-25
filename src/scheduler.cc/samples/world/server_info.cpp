@@ -98,6 +98,9 @@ extern "C" {
 #include "sort.h"
 #include "global_macros.h"
 
+#include <new>
+using namespace std;
+
 /*
  *
  * query_server - creates a structure of arrays consisting of a server
@@ -133,7 +136,13 @@ server_info *query_server(int pbs_sd)
     }
 
   /* get the nodes, if any */
-  sinfo -> nodes = query_nodes(pbs_sd, sinfo);
+  if ((sinfo->nodes = query_nodes(pbs_sd, sinfo)) == NULL)
+    {
+    pbs_statfree(server);
+    free_server(sinfo, 0);
+    return NULL;
+    }
+
   query_external_cache(sinfo,0);
   find_bootable_alternatives(sinfo);
   sort_nodes(sinfo,cmp_magrathea);
@@ -189,7 +198,8 @@ server_info *query_server(int pbs_sd)
     node_filter(sinfo -> nodes, sinfo -> num_nodes, is_node_non_dedicated, NULL);
 
   i = 0;
-  while (sinfo -> non_dedicated_nodes[i] != NULL) i++;
+  if (sinfo->num_nodes > 0)
+    while (sinfo -> non_dedicated_nodes[i] != NULL) i++;
   sinfo -> non_dedicated_node_count = i;
 
   pbs_statfree(server);
@@ -392,7 +402,7 @@ void free_server_info(server_info *sinfo)
   free_resource_list(sinfo -> res);
   free_resource_list(sinfo -> dyn_res);
 
-  free(sinfo);
+  delete sinfo;
   }
 
 /*
@@ -447,7 +457,7 @@ server_info *new_server_info()
   {
   server_info *sinfo;   /* the new server */
 
-  if ((sinfo = (server_info *) malloc(sizeof(server_info))) == NULL)
+  if ((sinfo = new (nothrow) server_info) == NULL)
     return NULL;
 
   sinfo -> name = NULL;
@@ -592,7 +602,7 @@ void free_server(server_info *sinfo, int free_objs_too)
  * @param qinfo Destination queue
  * @param jinfo Job that is moved
  */
-void update_server_on_move(server_info *sinfo, queue_info *qinfo, job_info *jinfo)
+void update_server_on_move(server_info *sinfo, job_info *jinfo)
   {
   /* TODO: should we update the total as well? */
   resource_req *resreq;  /* used to cycle through resources to update */
@@ -616,56 +626,8 @@ void update_server_on_move(server_info *sinfo, queue_info *qinfo, job_info *jinf
 
   for (i = 0; i < sinfo->num_nodes; i++)
     if (sinfo->nodes[i]->temp_assign != NULL)
-      update_node_on_run(sinfo->nodes[i],jinfo);
+      jinfo->plan_on_node(sinfo->nodes[i],sinfo->nodes[i]->temp_assign);
   }
-
-/* Parse the assigned part of nodespec and update resources use */
-void update_resource_node_use(node_info *ninfo)
-  {
-  pars_prop *iter = ninfo->temp_assign->properties;
-  resource *res;
-
-  while (iter != NULL)
-    {
-
-    if (iter->value == NULL)
-      { iter = iter->next; continue; }
-
-    if (res_check_type(iter->name) != ResCheckNone)
-      {
-      res = find_resource(ninfo->res,iter->name);
-      if (res != NULL)
-        {
-        res->assigned += res_to_num(iter->value);
-        }
-      }
-
-    iter = iter->next;
-    }
-  }
-
-void update_node_on_run(node_info *ninfo, job_info *jinfo)
-  {
-  dbg_precondition(ninfo->temp_assign,
-      "Trying to update node that is not assigned to run a job.");
-
-  if (jinfo->is_exclusive)
-    {
-    ninfo->is_free = 0;
-    ninfo->is_exclusively_assigned = 1;
-    ninfo->npfree = 0;
-    }
-  else
-    {
-    ninfo->is_free = 0;
-    ninfo->is_exclusively_assigned = 0;
-    ninfo->is_sharing = 1;
-    ninfo->npfree -= ninfo->temp_assign->procs;
-    }
-
-  update_resource_node_use(ninfo);
-  }
-
 
 /*
  *
@@ -678,44 +640,16 @@ void update_node_on_run(node_info *ninfo, job_info *jinfo)
  * returns nothing
  *
  */
-void update_server_on_run(server_info *sinfo, queue_info *qinfo, job_info *jinfo)
+void update_server_on_run(server_info *sinfo, job_info *jinfo)
   {
-  resource_req *resreq;  /* used to cycle through resources to update */
-  resource *res;  /* used in finding a resource to update */
-  int i;
-
   sinfo -> sc.running++;
   sinfo -> sc.queued--;
 
-  /* count total used resources */
-  resreq = jinfo -> resreq;
+  jinfo->plan_on_server(sinfo);
 
-  while (resreq != NULL)
-    {
-    res = find_resource(sinfo -> res, resreq -> name);
-
-    if (res)
-      res -> assigned += resreq -> amount;
-
-    resreq = resreq -> next;
-    }
-
-  /* count dynamic resources */
-  resreq = jinfo -> resreq;
-
-  while (resreq != NULL)
-    {
-    res = find_resource(sinfo -> dyn_res, resreq -> name);
-
-    if (res)
-      res -> avail -= resreq -> amount;
-
-    resreq = resreq -> next;
-    }
-
-  for (i = 0; i < sinfo->num_nodes; i++)
+  for (int i = 0; i < sinfo->num_nodes; i++)
     if (sinfo->nodes[i]->temp_assign != NULL)
-      update_node_on_run(sinfo->nodes[i],jinfo);
+      jinfo->plan_on_node(sinfo->nodes[i],sinfo->nodes[i]->temp_assign);
   }
 
 /*

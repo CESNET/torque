@@ -162,12 +162,12 @@ void update_node_on_run(node_info *ninfo, job_info *jinfo);
  * @param qinfo Destination queue
  * @param jinfo Job that is moved
  */
-void update_server_on_move(server_info *sinfo, queue_info *qinfo, job_info *jinfo);
+void update_server_on_move(server_info *sinfo, job_info *jinfo);
 
 /*
  *      update_server_on_run - update server_info strucutre when a job is run
  */
-void update_server_on_run(server_info *sinfo, queue_info *qinfo, job_info *jinfo);
+void update_server_on_run(server_info *sinfo, job_info *jinfo);
 
 /*
  *      set_jobs - set the server_info jobs array from the queue job arrays

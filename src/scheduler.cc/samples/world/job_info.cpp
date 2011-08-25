@@ -95,6 +95,7 @@ using namespace std;
 #include "node_info.h"
 #include "utility.h"
 #include "global_macros.h"
+#include "nodespec_sch.h"
 
 
 /*
@@ -1082,4 +1083,89 @@ bool job_info::on_host(node_info *ninfo)
 bool job_info::on_node(node_info *ninfo)
   {
   return (schedule.find(string(ninfo->name)) != schedule.end());
+  }
+
+void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
+  {
+  resource *res;
+
+  if (is_exclusive)
+    ninfo->npassigned += ninfo->np;
+  else
+    ninfo->npassigned += spec->procs;
+
+  /* mem */
+  res = find_resource(ninfo->res,"mem");
+  if (res != NULL)
+    res->assigned += spec->mem;
+
+  /* vmem */
+  res = find_resource(ninfo->res,"vmem");
+  if (res != NULL)
+    res->assigned += spec->vmem;
+
+  /* the rest */
+  pars_prop *iter = ninfo->temp_assign->properties;
+  while (iter != NULL)
+    {
+    if (iter->value == NULL)
+      { iter = iter->next; continue; }
+
+    if (res_check_type(iter->name) != ResCheckNone)
+      {
+      res = find_resource(ninfo->res,iter->name);
+      if (res != NULL)
+        {
+        res->assigned += res_to_num(iter->value);
+        }
+      }
+
+    iter = iter->next;
+    }
+  }
+
+void job_info::plan_on_queue(queue_info* qinfo)
+  {
+  resource_req *req;  /* used to cycle through resources to update */
+  resource *res;  /* used in finding a resource to update */
+
+  /* count total used resources */
+  req = resreq;
+  while (req != NULL)
+    {
+    res = find_resource(qinfo->qres, req->name);
+    if (res)
+      res->assigned += req->amount;
+
+    req = req->next;
+    }
+  }
+
+void job_info::plan_on_server(server_info* sinfo)
+  {
+  resource_req *req;  /* used to cycle through resources to update */
+  resource *res;  /* used in finding a resource to update */
+
+  /* count total used resources */
+  req = resreq;
+  while (req != NULL)
+    {
+    res = find_resource(sinfo->res, req->name);
+    if (res)
+      res->assigned += req->amount;
+
+    req = req->next;
+    }
+
+  /* count dynamic resources */
+  req = resreq;
+  while (req != NULL)
+    {
+    res = find_resource(sinfo->dyn_res, req->name);
+
+    if (res)
+      res->assigned += req->amount;
+
+    req = req->next;
+    }
   }

@@ -289,6 +289,10 @@ struct job_info
   bool on_node(node_info *ninfo);
   /** \brief Determine whether a job is already planned on node, or any of its virtual sisters */
   bool on_host(node_info *ninfo);
+
+  void plan_on_node(node_info* ninfo, pars_spec_node* spec);
+  void plan_on_queue(queue_info* qinfo);
+  void plan_on_server(server_info* sinfo);
   };
 
 typedef enum node_type { NodeTimeshared, NodeCluster, NodeVirtual, NodeCloud } node_type;
@@ -361,7 +365,7 @@ unsigned admin_slot_available : 1; /* admin slot is available */
 
   int np;       /* number of total virtual processors */
   int npfree;   /* number of free virtual processors */
-  int npshared; /* number of shared virtual processors */
+  int npassigned; /* number of scheduled processors */
 
   job_info* starving_job; /* starving job */
 

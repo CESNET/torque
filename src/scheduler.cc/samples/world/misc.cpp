@@ -411,7 +411,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
     {
     ptable=cache_hash_init();
     if ((res_to_check[j].source == ResCheckBoth) || (res_to_check[j].source == ResCheckCache))
-    if (xcache_hash_fill_local(res_to_check[j].name,ptable)==0)
+    if (xcache_hash_fill_local(res_to_check[j].name,ptable) == 0)
       {
       for (i=0;i<sinfo -> num_nodes;i++)
         {
@@ -500,6 +500,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
             if (res != NULL)
               {
               res->avail = res_to_num(value);
+              res->assigned = 0;
               if (res->str_avail != NULL)
                 free(res->str_avail);
               res->str_avail = value;

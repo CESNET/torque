@@ -457,7 +457,7 @@ int move_update_job(int sd, world_server_t* src, job_info* job,
       else
         sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SERVER, deststr, "Move delayed.");
 
-      update_server_on_move(dst->info,dst_q,job);
+      update_server_on_move(dst->info,job);
       update_queue_on_move(dst_q,job);
       update_job_on_move(job);
       nodes_preassign_clean(dst->info->nodes,dst->info->num_nodes);
@@ -511,7 +511,7 @@ int scheduling_cycle(
   char log_msg[MAX_LOG_SIZE]; /* used to log an message about job */
   char comment[MAX_COMMENT_SIZE]; /* used to update comment of job */
   int i, j, lock = 1;
-  int max_starving = 10;
+  unsigned run_errors = 0;
 
   sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_REQUEST, "", "Entering Schedule");
 
@@ -552,32 +552,6 @@ int scheduling_cycle(
     
   world_check_update(&cluster);
 
-  if (cstat.help_starving_jobs)
-    {
-    /* starving jobs support */
-    if (init_scheduling_cycle(server) == 0)
-      {
-      sched_log(
-        PBSEVENT_DEBUG,
-        PBS_EVENTCLASS_SERVER,
-        sinfo -> name,
-        "init_scheduling_cycle failed.");
-
-      return(0);
-      }
-
-    while ((jinfo = next_job(server->info, 0)) != NULL && max_starving > 0)
-      {
-      if (jinfo->is_starving) /* set in update_starvation() */
-        {
-        sched_log(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER,
-                  jinfo->name, "Considering starving job.");
-        is_ok_to_run_job(sd, server->info, jinfo->queue, jinfo, 1);
-        max_starving--;
-        }
-      }
-    } /* end starving jobs support */
-
   if (init_scheduling_cycle(server) == 0)
     {
     sched_log(
@@ -594,7 +568,7 @@ int scheduling_cycle(
     }
 
   /* main scheduling loop */
-  while (((!conf.lock_server) || lock) && (jinfo = next_job(server->info, 0)))
+  while ((run_errors <= 3) && ((!conf.lock_server) || lock) && (jinfo = next_job(server->info, 0)))
     {
     sched_log(
       PBSEVENT_DEBUG2,
@@ -622,7 +596,11 @@ int scheduling_cycle(
           jinfo->name,
           "Trying to run locally.");
       if (run_update_job(sd, server->info, jinfo->queue, jinfo) != 0)
+        {
         jinfo->can_not_run = 1;
+        sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_JOB, jinfo->name, "Server and scheduler mismatch: %s", jinfo->comment);
+        run_errors++;
+        }
 
       /* refresh magrathea state after run succeeded or failed */
       query_external_cache(sinfo,1);
@@ -885,7 +863,7 @@ int run_update_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
       sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_JOB, jinfo -> name, "Job Delayed");
       }
 
-    update_server_on_run(sinfo, qinfo, jinfo);
+    update_server_on_run(sinfo, jinfo);
 
     update_queue_on_run(qinfo, jinfo);
 

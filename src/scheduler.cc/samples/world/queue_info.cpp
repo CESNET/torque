@@ -592,24 +592,7 @@ void update_queue_on_move(queue_info *qinfo, job_info *jinfo)
  */
 void update_queue_on_run(queue_info *qinfo, job_info *jinfo)
   {
-  resource_req *resreq;
-  resource *res;
-
-  qinfo -> sc.running++;
-  qinfo -> sc.queued--;
-
-  resreq = jinfo -> resreq;
-
-  while (resreq != NULL)
-    {
-    res = find_resource(qinfo -> qres, resreq -> name);
-
-    if (res)
-      res -> assigned += resreq -> amount;
-
-    resreq = resreq -> next;
-    }
-
+  jinfo->plan_on_queue(qinfo);
   }
 
 /*
