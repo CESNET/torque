@@ -461,8 +461,32 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
   if ((ninfo->starving_job != NULL) && /* already assigned to a starving job */
       (strcmp(ninfo->starving_job->name,jinfo->name) != 0)) /* and not this job */
     {
-    if (ninfo->starving_job->queue->priority > jinfo->queue->priority || /* starving job ma vyssi prioritu */
-       (ninfo->starving_job->queue->priority == jinfo->queue->priority && !jinfo->is_starving)) /* nebo ma stejnou a ja nejsem starving */
+    int ok = 1;
+    if (ninfo->starving_job->queue->priority > jinfo->queue->priority) /* this job has lower priority -> can't run */
+      ok = 0;
+
+    /* if the priority is the same */
+    if (ok == 1 && ninfo->starving_job->queue->priority == jinfo->queue->priority)
+      {
+      float starving_job;
+      float testing_job;
+
+      starving_job = ninfo->starving_job->ginfo->percentage/ninfo->starving_job->ginfo->usage;
+      testing_job  = jinfo->ginfo->percentage/jinfo->ginfo->usage;
+
+      /* fairshare priority lower */
+      if (starving_job > testing_job)
+        ok = 0;
+
+      if (ok == 1)
+        {
+        /* starving time longer */
+        if (ninfo->starving_job->qtime < jinfo->qtime)
+          ok = 0;
+        }
+      }
+
+    if (ok == 0)
       {
       sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
                 "Node %s not used, node allocated to a higher priority starving job %s.",
@@ -758,6 +782,8 @@ static void get_target(stringstream& s, node_info *ninfo, int mode)
     skip = 0;
 
     if (res_check_type(iter->name) == ResCheckDynamic)
+      skip = 1;
+    if (res_check_type(iter->name) == ResCheckCache)
       skip = 1;
 
     if ((!skip) && (mode == 0 || /* in mode 0 - normal nodespec */

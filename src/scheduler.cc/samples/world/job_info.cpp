@@ -302,6 +302,11 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
     attrp = attrp -> next;
     }
 
+  if (jinfo->is_queued == 1 &&
+      jinfo->queue->starving_support >= 0 &&
+      jinfo->qtime + jinfo->queue->starving_support < cstat.current_time)
+    jinfo->is_starving = 1;
+
   return jinfo;
   }
 
