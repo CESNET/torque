@@ -5500,6 +5500,7 @@ void set_old_nodes(
       {
       free(pjob->ji_expanded_spec);
       pjob->ji_expanded_spec = nodespec_expand(pjob, pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str,&exclusivity);
+      exclusivity--; /* 2 = real exclusive - excl, 1 = exclusive per-cpu */
       }
 
     /* duplicate the expanded nodespec, so we can work with it */
