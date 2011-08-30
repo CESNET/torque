@@ -182,7 +182,7 @@ job_info **query_jobs(int pbs_sd, queue_info *qinfo)
     /* if the job is not in the queued state, don't even allow
      * it to be considered to be run.
      */
-    if (!jinfo -> state == JobQueued)
+    if (jinfo -> state != JobQueued)
       jinfo -> can_not_run = 1;
 
     jinfo_arr[i] = jinfo;

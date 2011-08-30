@@ -149,24 +149,19 @@ void count_states(job_info **jobs, state_count *sc)
     {
     for (i = 0; jobs[i] != NULL; i++)
       {
-      if (jobs[i]->state == JobQueued)
-        sc -> queued++;
-      else if (jobs[i]->state == JobRunning)
-        sc -> running++;
-      else if (jobs[i]->state == JobTransit)
-        sc -> transit++;
-      else if (jobs[i]->state == JobExiting)
-        sc -> exiting++;
-      else if (jobs[i]->state == JobHeld)
-        sc -> held++;
-      else if (jobs[i]->state == JobWaiting)
-        sc -> waiting++;
-      else if (jobs[i]->state == JobSuspended)
-        sc -> suspended++;
-      else if (jobs[i]->state == JobCompleted)
-        sc -> completed++;
-      else
-        sched_log(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, jobs[i] -> name, "Job in unknown state");
+      switch (jobs[i]->state)
+        {
+        case JobQueued:     sc->queued++;     break;
+        case JobRunning:    sc->running++;    break;
+        case JobTransit:    sc->transit++;    break;
+        case JobExiting:    sc->exiting++;    break;
+        case JobHeld:       sc->held++;       break;
+        case JobWaiting:    sc->waiting++;    break;
+        case JobSuspended:  sc->suspended++;  break;
+        case JobCompleted:  sc->completed++;  break;
+        default:
+          sched_log(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, jobs[i] -> name, "Job in unknown state");
+        }
       }
     }
 

@@ -483,7 +483,7 @@ int move_update_job(int sd, world_server_t* src, job_info* job,
 
 int job_is_movable(job_info* job)
   {
-  if (job->can_not_run || (!job->queue->is_global) || (!job->state == JobQueued))
+  if (job->can_not_run || (!job->queue->is_global) || (job->state != JobQueued))
     return 0;
   else
     return 1;
@@ -600,6 +600,7 @@ int scheduling_cycle(
         jinfo->can_not_run = 1;
         sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_JOB, jinfo->name, "Server and scheduler mismatch: %s", jinfo->comment);
         run_errors++;
+        continue;
         }
 
       /* refresh magrathea state after run succeeded or failed */
