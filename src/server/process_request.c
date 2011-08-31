@@ -479,6 +479,7 @@ void process_request(
     strcpy(request->rq_host, server_name);
     }
 
+#ifdef GSSAPI
   if (svr_conn[sfds].cn_authen == PBS_NET_CONN_GSSAPIAUTH)
     {
     if (server.sv_attr[(int)SRV_ATR_acl_krb_realm_enable].at_val.at_long)
@@ -504,6 +505,7 @@ void process_request(
       access_by_krb = 1;
       }
     }
+#endif
 
   if (!access_by_krb) /* if not authentized using kerberos, check host ACL */
   if (server.sv_attr[(int)SRV_ATR_acl_host_enable].at_val.at_long)
