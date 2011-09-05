@@ -995,32 +995,39 @@ job_info *next_job(server_info *sinfo, int init)
       }
     else
       {
-      last_job++;
-
-      /* check if we have reached the end of a queue and need to find another */
-
-      while (last_queue < sinfo -> num_queues &&
-             (sinfo -> queues[last_queue] -> jobs == NULL ||
-              sinfo -> queues[last_queue] -> jobs[last_job] == NULL ||
-              sinfo -> queues[last_queue] -> jobs[last_job] -> can_not_run))
+      if (cstat.fair_share)
         {
-        if (sinfo -> queues[last_queue] -> jobs == NULL ||
-            sinfo -> queues[last_queue] -> jobs[last_job] == NULL)
+        do
           {
-          last_queue++;
-          last_job = 0;
+          rjob = extract_fairshare(sinfo->queues[last_queue]->jobs);
+          if (rjob == NULL) last_queue++;
           }
-        else if (sinfo -> queues[last_queue] -> jobs[last_job] -> can_not_run)
-          last_job++;
+        while (rjob == NULL && last_queue < sinfo->num_queues);
         }
-
-      if (last_queue == sinfo -> num_queues ||
-          sinfo -> queues[last_queue] == NULL)
-        rjob = NULL;
       else
         {
-        if (cstat.fair_share)
-          rjob = extract_fairshare(sinfo -> queues[last_queue] -> jobs);
+        last_job++;
+
+        /* check if we have reached the end of a queue and need to find another */
+
+        while (last_queue < sinfo -> num_queues &&
+               (sinfo -> queues[last_queue] -> jobs == NULL ||
+                sinfo -> queues[last_queue] -> jobs[last_job] == NULL ||
+                sinfo -> queues[last_queue] -> jobs[last_job] -> can_not_run))
+          {
+          if (sinfo -> queues[last_queue] -> jobs == NULL ||
+              sinfo -> queues[last_queue] -> jobs[last_job] == NULL)
+            {
+            last_queue++;
+            last_job = 0;
+            }
+          else if (sinfo -> queues[last_queue] -> jobs[last_job] -> can_not_run)
+            last_job++;
+          }
+
+        if (last_queue == sinfo -> num_queues ||
+            sinfo -> queues[last_queue] == NULL)
+          rjob = NULL;
         else
           {
           if (last_job < sinfo -> queues[last_queue] -> sc.total)
