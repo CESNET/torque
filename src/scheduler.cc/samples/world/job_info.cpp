@@ -1105,7 +1105,7 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
     res->assigned += spec->vmem;
 
   /* the rest */
-  pars_prop *iter = ninfo->temp_assign->properties;
+  pars_prop *iter = spec->properties;
   while (iter != NULL)
     {
     if (iter->value == NULL)
