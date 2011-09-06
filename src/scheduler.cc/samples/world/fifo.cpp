@@ -109,6 +109,8 @@
 static time_t last_decay;
 static time_t last_sync;
 
+extern void dump_current_fairshare(group_info *root);
+
 
 /*
  *
@@ -691,7 +693,11 @@ int scheduling_cycle(
     }
 
   if (cstat.fair_share)
+    {
     update_last_running(server);
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_REQUEST, "", "Dumping fairshare\n");
+    dump_current_fairshare(conf.group_root);
+    }
 
   /* free_server(sinfo, 1); */
 
@@ -704,6 +710,22 @@ int scheduling_cycle(
   return 0;
   }
 
+
+void dump_current_fairshare(group_info *root)
+  {
+  if (root == NULL) return;
+
+  if (root->child == NULL) /* found a leaf */
+    {
+    double prio = root->percentage / root->usage;
+    ostringstream s;
+    s << prio;
+    xcache_store_local(root->name,"fairshare",s.str().c_str());
+    }
+
+  dump_current_fairshare(root->sibling);
+  dump_current_fairshare(root->child);
+  }
 
 
 
