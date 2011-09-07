@@ -106,6 +106,10 @@
 /* WORLD SCHEDULING */
 #include "world.h"
 
+#include "api.hpp"
+#include <sstream>
+using namespace std;
+
 static time_t last_decay;
 static time_t last_sync;
 
