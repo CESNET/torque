@@ -747,13 +747,11 @@ void sync_node_jobs(
              the job around because of data staging, suspend, or rerun */
 
           if (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str == NULL)
-            {
             pjob = NULL;
-            }
           else if (strstr(pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str, np->nd_name) == NULL)
-            {
             pjob = NULL;
-            }
+          else if (pjob->ji_qs.ji_state == JOB_STATE_COMPLETE)
+            pjob = NULL;
           }
 
         if (pjob == NULL)
