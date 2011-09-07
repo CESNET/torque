@@ -311,7 +311,7 @@ extern char *reqgres(struct rm_attribute *);
 #ifdef NVIDIA_GPUS
 extern int find_file(char *, char *);
 extern int MXMLFromString(mxml_t **, char *, char **, char *);
-extern char  mom_host[]; 
+extern char  mom_host[];
 extern int             MOMNvidiaDriverVersion;
 #endif  /* NVIDIA_GPUS */
 
@@ -1295,7 +1295,7 @@ nvmlDevice_t get_nvml_device_handle(
   nvmlDevice_t      device_hndl;
   char             *ptr;
   unsigned int      index;
-  
+
   /* if gpuid contains a : then try to get the device handle by pci bus id */
 
   ptr = strchr(gpuid, ':');
@@ -1401,7 +1401,7 @@ static char *gpus(
     return (FALSE);
     }
 
-  if (MOMNvidiaDriverVersion == 270)
+  if (MOMNvidiaDriverVersion >= 270)
     {
     sprintf(cmdbuf, "nvidia-smi -q -x 2>&1");
     }
@@ -1591,7 +1591,7 @@ int setgpumode(
   /* get the device handle */
 
   device_hndl = get_nvml_device_handle(gpuid);
-  
+
   if (device_hndl != NULL)
     {
 	  if (LOGLEVEL >= 7)
@@ -1604,7 +1604,7 @@ int setgpumode(
 	    }
 
     rc = nvmlDeviceSetComputeMode(device_hndl, compute_mode);
-    
+
     if (rc == NVML_SUCCESS)
       return (TRUE);
 
@@ -1630,7 +1630,7 @@ int setgpumode(
       gpuid,
       gpumode);
     }
-  else /* 270 driver */
+  else /* 270 or greater driver */
     {
     sprintf(buf, "nvidia-smi -i %s -c %d 2>&1",
       gpuid,
@@ -1655,10 +1655,10 @@ int setgpumode(
           {
           continue;
           }
-        /* for 270 we need to check the return string to see if it went okay */
+        /* for 270 and above we need to check the return string to see if it went okay */
         /* 260 driver does not return anything on success */
 
-        if ((MOMNvidiaDriverVersion == 270) &&
+        if ((MOMNvidiaDriverVersion >= 270) &&
             ((memcmp(buf, "Set compute mode to", 19) == 0) ||
             (memcmp(buf, "Compute mode is already set to", 30) == 0)))
           {
@@ -1715,7 +1715,7 @@ int resetgpuecc(
   nvmlReturn_t      rc;
   nvmlEccBitType_t  counter_type;
   nvmlDevice_t      device_hndl;
-  
+
   if (reset_perm == 1)
     {
     /* reset ecc counts */
@@ -1730,7 +1730,7 @@ int resetgpuecc(
   /* get the device handle */
 
   device_hndl = get_nvml_device_handle(gpuid);
-  
+
   if (device_hndl != NULL)
     {
 	  if (LOGLEVEL >= 7)
@@ -1744,7 +1744,7 @@ int resetgpuecc(
 	    }
 
     rc = nvmlDeviceClearEccErrorCounts(device_hndl, counter_type);
-    
+
     if (rc == NVML_SUCCESS)
       return (TRUE);
 
@@ -1781,7 +1781,7 @@ int resetgpuecc(
       strcat (buf, " -v");
       }
     }
-  else /* 270 driver */
+  else /* 270 or greater driver */
     {
     sprintf(buf, "nvidia-smi -i %s",
       gpuid);
@@ -1823,7 +1823,7 @@ int resetgpuecc(
         /* for 270 we need to check the return string to see if it went okay */
         /* 260 driver does not return anything on success */
 
-        if ((MOMNvidiaDriverVersion == 270) &&
+        if ((MOMNvidiaDriverVersion >= 270) &&
             ((memcmp(buf, "Reset volatile ECC errors to zero", 33) == 0) ||
             (memcmp(buf, "Reset aggregate ECC errors to zero", 34) == 0)))
           {
@@ -1873,7 +1873,7 @@ int resetgpuecc(
  * @return PBSE_NONE if success, error code otherwise
  */
 int setup_gpus_for_job(
-    
+
   job  *pjob) /* I */
 
   {
@@ -1888,9 +1888,9 @@ int setup_gpus_for_job(
 
   /* if node does not have Nvidia recognized driver version then forget it */
 
-  if ((MOMNvidiaDriverVersion != 270) && (MOMNvidiaDriverVersion != 260))
+  if (MOMNvidiaDriverVersion < 260)
     return(PBSE_NONE);
- 
+
   /* if there are no gpus, do nothing */
   if ((pjob->ji_wattr[JOB_ATR_exec_gpus].at_flags & ATR_VFLAG_SET) == 0)
     return(PBSE_NONE);
@@ -1900,10 +1900,10 @@ int setup_gpus_for_job(
     return(PBSE_NONE);
 
   gpu_str = pjob->ji_wattr[JOB_ATR_exec_gpus].at_val.at_str;
-  
+
   if (gpu_str == NULL)
     return(PBSE_NONE);
-  
+
   gpu_flags = pjob->ji_wattr[JOB_ATR_gpu_flags].at_val.at_long;
 
   if (LOGLEVEL >= 7)
@@ -1917,12 +1917,12 @@ int setup_gpus_for_job(
     }
 
   /* traverse the gpu_str to see what gpus we have assigned */
-  
+
   strcpy(tmp_str, mom_host);
   strcat(tmp_str, "-gpu/");
-  
+
   ptr = strstr(gpu_str, tmp_str);
-  
+
   while(ptr != NULL)
     {
     ptr = strchr(ptr, '/');
@@ -1945,7 +1945,7 @@ int setup_gpus_for_job(
 
         resetgpuecc(gpu_id, 0, 1);
         }
-    
+
       gpu_mode = gpu_flags;
       if (gpu_mode  >= 1000)
         {
@@ -1967,7 +1967,7 @@ int setup_gpus_for_job(
 
         setgpumode(gpu_id, gpu_mode);
         }
-    
+
       ptr = strstr(ptr, tmp_str);
       }
     }
@@ -2068,7 +2068,7 @@ void generate_server_gpustatus_nvml(
   outptr += strlen(buffer) + 1;
 
   /* get the driver version to report */
-  
+
   rc = nvmlSystemGetDriverVersion(tmpbuf, 1024);
   if (rc == NVML_SUCCESS)
     {
@@ -2258,7 +2258,7 @@ void generate_server_gpustatus_nvml(
 
     if (rc == NVML_SUCCESS)
       {
-      snprintf(tmpbuf, 50, "gpu_ecc_mode=%s", 
+      snprintf(tmpbuf, 50, "gpu_ecc_mode=%s",
         (ecc_mode == NVML_FEATURE_ENABLED) ? "Enabled" : "Disabled");
       strcat(outptr, tmpbuf);
       outptr += strlen(outptr) + 1;
@@ -2581,7 +2581,7 @@ void generate_server_gpustatus_smi(
 
           } /* end (MOMNvidiaDriverVersion == 260) */
 
-        else if (MOMNvidiaDriverVersion == 270)
+        else if (MOMNvidiaDriverVersion >= 270)
           {
           savptr = dataptr;
           dataptr = strstr(dataptr, "<product_name>");
@@ -2807,7 +2807,7 @@ void generate_server_gpustatus_smi(
             dataptr = savptr;
             }
 
-          } /* end (MOMNvidiaDriverVersion == 270) */
+          } /* end (MOMNvidiaDriverVersion >= 270) */
 
         else
           {
@@ -2821,7 +2821,7 @@ void generate_server_gpustatus_smi(
             }
 
           /* need to advance dataptr so we don't recycle through same gpu */
-          
+
           dataptr++;
           }
         }
