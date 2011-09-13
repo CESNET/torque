@@ -1608,6 +1608,7 @@ void ping_nodes(
         }
       }
     }
+  cache_hash_destroy(ptable);
 
 
   /* change RPP to report node state quickly */
@@ -5228,6 +5229,9 @@ void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp, int first,
     adjust_resource_value(&pnode->attributes[1],iter->name,iter->value,first,op);
     iter = iter->next;
     }
+
+  free_prop_list(prop);
+  free(spec);
   }
 
 
