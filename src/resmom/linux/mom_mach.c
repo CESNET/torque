@@ -1967,7 +1967,8 @@ int mom_get_sample(void)
     }  /* END while (...) != NULL) */
 
 #ifdef PENABLE_LINUX26_CPUSETS
-  free_pidlist(pids);
+  if (pids != NULL)
+    free_pidlist(pids);
 #endif
 
   if (LOGLEVEL >= 6)
