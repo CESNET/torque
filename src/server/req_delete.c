@@ -699,6 +699,10 @@ jump:
     struct pbs_queue *pque;
     int  KeepSeconds = 0;
 
+    /* set completed time */
+    pjob->ji_wattr[(int)JOB_ATR_comp_time].at_val.at_long = (long)time(NULL);
+    pjob->ji_wattr[(int)JOB_ATR_comp_time].at_flags |= ATR_VFLAG_SET;
+
     svr_setjobstate(pjob, JOB_STATE_COMPLETE, JOB_SUBSTATE_COMPLETE);
 
     if ((pque = pjob->ji_qhdr) && (pque != NULL))
