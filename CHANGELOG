@@ -12,6 +12,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       at_exit or on_exit.
   b - changed --with-high-availablity to --enable-high-availability in the i
       buildutils/torque.spec.in file
+  e - I added a new PBSE_ error code PBSE_READ_REPLY_TIMEOUT. This new error code
+      replaces PBSE_EXPIRED in the function PBSD_queuejob. PBSE_EXPIRED is intended
+      to be used for an expired credential and the error in PBSD_queuejob occurs
+      because the select waiting for a read on a tcp socket has timed out.
 
 
 2.4.15
