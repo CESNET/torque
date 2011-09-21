@@ -81,7 +81,7 @@ int main(
 
   char *HPtr;
 
-
+  int rc;
   int c;
 
   int HostCount;
@@ -157,7 +157,6 @@ int main(
       case 'f':
 
         {
-        int   rc;
 
         FILE *fp;
 
@@ -256,7 +255,6 @@ int main(
 
           int   size;
 
-          int   rc;
 
           char *ptr;
           char *cptr;
@@ -418,7 +416,11 @@ int main(
       }
     else
       {
-      do_mom(HPtr, MOMPort, CmdIndex) >= 0 ? HostCount++ : FailCount++;
+      rc = do_mom(HPtr, MOMPort, CmdIndex);
+      if(rc >= 0)
+        HostCount++;
+      else
+        FailCount++;
       } /* END if (*HPtr == ':') */
 
     HPtr = strtok(NULL, ", \t\n");
