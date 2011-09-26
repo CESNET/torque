@@ -87,6 +87,7 @@
 #include <netdb.h>
 #include <string.h>
 #include <stdlib.h>
+#include <time.h>
 #include "portability.h"
 #include "server_limits.h"
 #include "net_connect.h"
@@ -517,7 +518,7 @@ jump_to_check:
 
         /* TCP is not ready for us. Sleep for a millisecond and see if
            that will change anything before the next retry */
-        nanosleep(&rem);
+        nanosleep(&rem, &rem);
 
         if (local_port != FALSE)
           {
