@@ -435,7 +435,7 @@ void req_authenuser(
  * utility 
  * 
 */
-void req_altauthenuser(
+int req_altauthenuser(
 
   struct batch_request *preq)  /* I */
 
@@ -461,7 +461,7 @@ void req_altauthenuser(
   if (s >= PBS_NET_MAX_CONNECTIONS)
     {
     req_reject(PBSE_BADCRED, 0, preq, NULL, "cannot authenticate user");
-    return;
+    return (PBSE_BADCRED);
     }
 
 
@@ -469,7 +469,8 @@ void req_altauthenuser(
   if (rc)
     {
     /* FAILED */
-    return;
+  	req_reject(PBSE_SYSTEM, 0, preq, NULL, "munge failure");
+    return (PBSE_SYSTEM);
     }
 
   /* SUCCESS */
@@ -481,7 +482,7 @@ void req_altauthenuser(
   svr_conn[s].cn_authen = PBS_NET_CONN_AUTHENTICATED;
 
   reply_ack(preq);
-  return;
+  return (PBSE_NONE);
 
   }  /* END req_altauthenuser() */
 
