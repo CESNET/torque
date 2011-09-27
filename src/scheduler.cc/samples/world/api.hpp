@@ -4,7 +4,7 @@
 /* api.h modified for usage in C++ code */
 
 extern "C" {
-#include "api.h"
+#include "pbs_cache_api.h"
 }
 
 inline char *xpbs_cache_get_local(const char *hostname, const char *name)
