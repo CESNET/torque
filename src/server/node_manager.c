@@ -117,7 +117,7 @@
 #include "mcom.h"
 #include "utils.h"
 #include "cloud.h"
-#include "api.h"
+#include "pbs_cache_api.h"
 
 #include "nodespec.h"
 

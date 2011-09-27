@@ -2,7 +2,7 @@
 #include "resource.h"
 #include "assertions.h"
 #include "nodespec.h"
-#include "api.h"
+#include "pbs_cache_api.h"
 #include "pbs_job.h"
 #include "pbs_nodes.h"
 #include "site_pbs_cache.h"
