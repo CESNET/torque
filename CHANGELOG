@@ -175,6 +175,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - Added new option to torque.cfg name TRQ_IFNAME. This allows the user to designate
       a preferred outbound interface for TORQUE requests. The interface is the name 
       of the NIC interface, for example eth0.
+  b - Fixed a problem in Munge where file descriptors were getting left open after failure
+      cases and the munge process.
 
 2.5.8
   e - added util function getpwnam_ext() that has retry and errno logging
