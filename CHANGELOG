@@ -16,6 +16,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       replaces PBSE_EXPIRED in the function PBSD_queuejob. PBSE_EXPIRED is intended
       to be used for an expired credential and the error in PBSD_queuejob occurs
       because the select waiting for a read on a tcp socket has timed out.
+  b - Merged revision 5139 from 2.5-fixes. This revision fixes a problem with 
+      displaying phymem larger than 250 Gb.
 
 
 2.4.15
