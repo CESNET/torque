@@ -20,6 +20,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       have TORQUE attempt to create the directories for their output file if they don't exist
   c - check if the pid list in mom_get_sample is NULL before freeing 
       (only happens with cpusets enabled)
+  b - Fixed a problem where pbs_server would seg-fault if munge was not running or
+      if an invalid credential were passed to unmunge
 
 3.0.2
   c - check if the file pointer to /dev/console can be opened. If not, don't attempt to write it

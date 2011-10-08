@@ -472,7 +472,6 @@ int req_altauthenuser(
   if (rc)
     {
     /* FAILED */
-  	req_reject(PBSE_SYSTEM, 0, preq, NULL, "munge failure");
     return (PBSE_SYSTEM);
     }
 
