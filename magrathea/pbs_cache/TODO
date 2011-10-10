@@ -1,0 +1,15 @@
+ don't send "info ok" unless hostname is really found 
+ check lenght and return "too long" if needed
+ LATER when querying pbs_mom, use shorter RPP timeout instead of try_connect
+ LATER use rbtree instead of list, usefull mainly for M_REMOTE type
+ LATER two threads for pbs source, first will handle hosts with fast response, second the rest
+ LATER timestamps with miliseconds
+ LATER timeout when reading ganglia response too long 
+ LATER there should be lock for metrics too 
+ LATER support for virtual clusters 
+ LATER partial_update type of provider - send only changes instead of the whole dump
+ LATER create separate index for hosts 
+ LATER check for thread exit
+ LATER atexit should contain also socket cleanup etc.
+ LATER add command for metric removal, will require locking
+ LATER add command AUTH krb5
