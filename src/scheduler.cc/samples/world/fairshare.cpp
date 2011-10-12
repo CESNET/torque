@@ -556,10 +556,11 @@ job_info *extract_fairshare(job_info **jobs)
 
     for (i = 0; jobs[i] != NULL; i++)
       {
+      if (jobs[i]->can_not_run || jobs[i]->state == JobRunning) continue;
+
       cur_value = jobs[i] -> ginfo -> percentage / jobs[i] -> ginfo -> temp_usage;
 
-      if (max_value < cur_value && jobs[i] -> state != JobRunning &&
-          !jobs[i] -> can_not_run)
+      if (max_value < cur_value)
         {
         max = jobs[i];
         max_value = cur_value;
