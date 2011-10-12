@@ -179,7 +179,7 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
 
       physical = find_node_info(host,ninfo_arr);
       if (physical == NULL)
-        continue;
+	{ free(host); continue; }
 
       ninfo_arr[i]->host = physical;
       physical->hosted.push_back(ninfo_arr[i]);

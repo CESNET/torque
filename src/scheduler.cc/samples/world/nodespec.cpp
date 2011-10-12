@@ -796,6 +796,8 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
       jinfo->plan_on_server(sinfo);
       jinfo->plan_on_queue(jinfo->queue);
       }
+
+    free_parsed_nodespec(spec);
     return NODESPEC_NOT_ENOUGH_NODES_TOTAL;
     }
 

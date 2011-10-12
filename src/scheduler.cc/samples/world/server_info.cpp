@@ -399,6 +399,9 @@ void free_server_info(server_info *sinfo)
   if (sinfo -> timesharing_nodes != NULL)
     free(sinfo -> timesharing_nodes);
 
+  if (sinfo -> non_dedicated_nodes != NULL)
+    free(sinfo -> non_dedicated_nodes);
+
   free_resource_list(sinfo -> res);
   free_resource_list(sinfo -> dyn_res);
 
