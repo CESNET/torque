@@ -735,6 +735,43 @@ void req_quejob(
       return;
       }
 
+    /* special gpu cases */
+    
+    if ((strcmp(psatl->al_name,ATTR_l) == 0) &&
+      (strcmp(psatl->al_resc,"ncpus") == 0) &&
+      ((pc = strstr(psatl->al_value,":gpus=")) != NULL))
+      {
+      /* save off gpu resource list then add new resource_list entry for it */
+      char *gpuval;
+      int   resc_access_perm_saved = resc_access_perm;
+
+      gpuval = strdup(pc+6);
+
+      (*pc) = '\0';
+
+      if (gpuval != NULL)
+        {
+        resc_access_perm = ATR_DFLAG_ACCESS;
+        rc = pdef->at_decode(
+               &pj->ji_wattr[attr_index],
+               psatl->al_name,
+               "gpus",
+               gpuval);
+
+        free(gpuval);
+        resc_access_perm = resc_access_perm_saved;
+
+        if (rc != 0)
+          {
+          /* FAILURE */
+          job_purge(pj);
+          reply_badattr(rc, 1, psatl, preq);
+          return;
+          }
+        }
+      pdef = &job_attr_def[attr_index];
+      }
+
     /* decode attribute */
 
     rc = pdef->at_decode(

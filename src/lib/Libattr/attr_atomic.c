@@ -182,6 +182,61 @@ int attr_atomic_set(
 
     clear_attr(&temp, pdef + index);
 
+    /* 
+     * special gpu cases
+     * 1) if only ncpus is specified, delete gpus resource if any
+     * 2) if both ncpus and gpus specified, replace both
+     */
+    
+    if ((strcmp(plist->al_name,ATTR_l) == 0) &&
+      (strcmp(plist->al_resc,"ncpus") == 0))
+      {
+      char      *pc;
+      int   resc_access_perm_saved = resc_access_perm;
+
+      resc_access_perm = ATR_DFLAG_ACCESS;
+
+      if ((pc = strstr(plist->al_value,":gpus=")) != NULL)
+        {
+        /* save off gpu resource list then add new resource_list entry for it */
+        char *gpuval;
+
+        gpuval = strdup(pc+6);
+
+        (*pc) = '\0';
+
+        if (gpuval != NULL)
+          {
+          rc = (pdef + index)->at_decode(&temp, plist->al_name, "gpus", gpuval);
+
+          resc_access_perm = resc_access_perm_saved;
+          free(gpuval);
+          if (rc != 0)
+            {
+            if ((rc == PBSE_UNKRESC) && (unkn > 0))
+              rc = 0; /* ignore the "error" */
+            else
+              break;
+            }
+          }
+        }
+      else
+        {
+        /* delete old resource_list.gpus value if any.
+         * this can be done by setting it to zero
+         */
+        rc = (pdef + index)->at_decode(&temp, plist->al_name, "gpus", 0);
+        resc_access_perm = resc_access_perm_saved;
+        if (rc != 0)
+          {
+          if ((rc == PBSE_UNKRESC) && (unkn > 0))
+            rc = 0; /* ignore the "error" */
+          else
+            break;
+          }
+        }
+      }
+
     if ((rc = (pdef + index)->at_decode(&temp, plist->al_name, plist->al_resc, plist->al_value)) != 0)
       {
       if ((rc == PBSE_UNKRESC) && (unkn > 0))
