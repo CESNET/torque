@@ -221,7 +221,7 @@ queue_info **query_queues(int pbs_sd, server_info *sinfo)
 
 static void push_excl_node(queue_info *qinfo, node_info *ninfo)
   {
-  if (qinfo->excl_node_capacity == qinfo->excl_node_count)
+  if (qinfo->excl_node_capacity <= qinfo->excl_node_count+1)
     {
     node_info **tmp;
   
@@ -236,6 +236,7 @@ static void push_excl_node(queue_info *qinfo, node_info *ninfo)
     }
     
   qinfo->excl_nodes[qinfo->excl_node_count] = ninfo;
+  qinfo->excl_nodes[qinfo->excl_node_count+1] = NULL;
   qinfo->excl_node_count++;
   ninfo->excl_queue = qinfo;
   }   
