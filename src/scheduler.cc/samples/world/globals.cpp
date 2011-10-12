@@ -156,6 +156,9 @@ const struct rescheck res_to_check[] = {
   { "matlab_Identification_Toolbox", " ", " ", ResCheckDynamic },
   { "matlab_Vehicle_Network_Toolbox", " ", " ", ResCheckDynamic },
   { "matlab_Wavelet_Toolbox", " ", " ", ResCheckDynamic },
+  { "matlab_Embedded_IDE_Link", " ", " ", ResCheckDynamic },
+  { "matlab_Target_Support_Package", " ", " ", ResCheckDynamic },
+  { "matlab_MATLAB_Distrib_Comp_Engine", " ", " ", ResCheckDynamic },
 };
 
 /*
