@@ -55,7 +55,7 @@ endif
 	gcc $(CFLAGS) -c $<
 
 $(LIBSO): $(API_OBJ)
-	gcc -shared $(API_OBJ) -Wl,-soname -Wl,libpbscache.1 -o $(LIBSO)
+	gcc -shared $(API_OBJ) -Wl,-soname -Wl,libpbscache.so.1 -o $(LIBSO)
 
 $(LIBSA): $(API_OBJ)
 	ar cru $(LIBSA) $(API_OBJ)
