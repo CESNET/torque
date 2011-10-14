@@ -7,7 +7,7 @@ vpath %.c ..
 vpath %.h ..
 vpath %.y ..
 
-CFLAGS=-g -O0 -Wall -Werror -fPIC -DPIC -DNET_NO_IO -DNET_NO_LOG -fno-stack-protector -D_GNU_SOURCE
+CFLAGS=-g -O0 -Wall -Werror -fPIC -DPIC -DNET_NO_IO -DNET_NO_LOG -fno-stack-protector -D_GNU_SOURCE -D_XOPEN_SOURCE=600
 LDFLAGS=-lpthread
 
 CACHE_OBJ=pbs_cache.o memory.o dump.o comm.o log.o addrlist.o update.o
@@ -90,12 +90,6 @@ list_client: list_client.o $(LIBSA)
 local_test: local_test.o $(LIBSA)
 	 gcc $(CFLAGS) -o $@ $^ $(LDFLAGS)
 
-install: pbs_cache update_cache delete_cache list_cache list_client libpbscache.a libpbscache.so
-	install -m 0644 libpbscache.* $(DESTDIR)/usr/lib
-	install -m 0644 api.h $(DESTDIR)/usr/include/pbs_cache_api.h
-	install -m 0744 *_cache $(DESTDIR)/usr/sbin
-
-.PHONY: install
 
 clean:
 	rm -f *.o rm core* pbs_cache client client2 client3 update_cache list_cache list_client local_test libpbscache.* delete_cache
@@ -105,3 +99,12 @@ endif
 todo:
 	 grep -h TODO *c *h |sed 's/.*TODO//' |sort -r >TODO
 
+install: pbs_cache update_cache delete_cache list_cache list_client libpbscache.a libpbscache.so
+	install -m 0644 libpbscache.so $(DESTDIR)/usr/lib/libpbscache.so.1.0.0
+	ln -sf $(DESTDIR)/usr/lib/libpbscache.so.1.0.0 $(DESTDIR)/usr/lib/libpbscache.so.1.0
+	ln -sf $(DESTDIR)/usr/lib/libpbscache.so.1.0.0 $(DESTDIR)/usr/lib/libpbscache.so.1
+	ln -sf $(DESTDIR)/usr/lib/libpbscache.so.1.0.0 $(DESTDIR)/usr/lib/libpbscache.so
+	install -m 0644 api.h $(DESTDIR)/usr/include/pbs_cache_api.h
+	install -m 0744 *_cache $(DESTDIR)/usr/sbin
+
+.PHONY: install

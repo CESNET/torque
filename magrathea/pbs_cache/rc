@@ -1,0 +1,48 @@
+#! /bin/sh
+### BEGIN INIT INFO
+# Provides:       pbs-cache
+# Required-Start: $network
+# Required-Stop:  
+# Default-Start:  3 5
+# Default-Stop:   0 2 1 6
+# Description:    Start PBS cache
+### END INIT INFO
+set -e
+
+test -x /usr/sbin/pbs_cache || exit 0
+
+CACHE_OPTS="-A 147.251.3.107 -m fairshare -m gpu_allocation -m dynamic_resources -m phys_cluster -m magrathea -m scratchsize -m scratch -m pbsload -m machine_cluster -m cluster -m host -p /var/run/pbs_cache.pid -I 147.251.* -I 147.231.25.* -I 195.113.219.* -I 147.228.43.* -I 195.113.214.* -I  160.217.209.* -I 147.228.67.* -I 147.229.71.* -I 195.113.0.* -I 147.228.240.*"
+
+case "$1" in
+  start)
+        echo -n "Starting pbs_cache"
+	ulimit -c unlimited
+	while true; do 
+	  if ! kill -0 `cat /var/run/pbs_cache.pid` 2>/dev/null;then
+#		start-stop-daemon --start --quiet --pidfile /var/run/pbs_cache.pid --exec /usr/bin/valgrind -- --trace-children=yes --log-file=/var/log/cache_log /usr/sbin/pbs_cache $CACHE_OPTS
+#		start-stop-daemon --start --quiet --pidfile /var/run/pbs_cache.pid --exec /usr/bin/valgrind -- --trace-children=yes --log-file=/var/log/cache_helgrind --tool=helgrind /usr/sbin/pbs_cache $CACHE_OPTS
+		start-stop-daemon --start --quiet --pidfile /var/run/pbs_cache.pid --exec /usr/sbin/pbs_cache -- $CACHE_OPTS
+	  fi
+	  sleep 30
+	done &
+	echo $! >/var/run/pbs_cache_watcher.pid
+        echo "."
+	;;
+  stop)
+        echo -n "Stopping pbs_cache"
+	kill `cat /var/run/pbs_cache_watcher.pid`
+	start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/pbs_cache.pid
+        echo "."
+	;;
+  restart)
+        echo -n "Restarting pbs_cache"
+	start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/pbs_cache.pid
+	start-stop-daemon --start --quiet --pidfile /var/run/pbs_cache.pid --exec /usr/sbin/pbs_cache -- $CACHE_OPTS
+        echo "."
+	;;
+  *)
+	echo "Usage: /etc/init.d/pbs_cache {start|stop|restart}"
+	exit 1
+esac
+
+exit 0

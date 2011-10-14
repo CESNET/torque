@@ -109,6 +109,8 @@ int do_dump(int backup)
 
        memory_dump_s(m,dump,0,0,NULL);
 
+       fflush(dump);
+       fsync(fileno(dump));
        fclose(dump);
        if (rename(newdumpfile, file) != 0) {
            my_log(LOG_ERR, "rename failed");

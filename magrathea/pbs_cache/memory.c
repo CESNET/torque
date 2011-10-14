@@ -423,8 +423,10 @@ int memory_remove(char *hostname,char *name, int replic_commited)
      global_lock();
      MUTEXLOCK(m->lock,m->name)
    }
-   
+  #else
+     MUTEXLOCK(m->lock,m->name)
   #endif
+
   for (a=TAILQ_FIRST(m->head);a!=TAILQ_NULL(m->head);a=TAILQ_NEXT(a,m_list)) {
       if (strcmp(a->hostname,hostname)==0) {
 	  if (m->lastused==a)
@@ -635,6 +637,8 @@ int memory_update_s(struct metric *m,char *hostname,char *value,time_t timestamp
      global_lock();
      MUTEXLOCK(m->lock,m->name)
    }
+   #else
+     MUTEXLOCK(m->lock,m->name)
    #endif
    a=memory_find_rec(m,hostname);
    if (a !=NULL){
