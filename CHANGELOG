@@ -23,6 +23,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - Fixed a problem where pbs_server would seg-fault if munge was not running or
       if an invalid credential were passed to unmunge
   e - Change to allow qsub -l ncpus=x:gpus=x which adds a resource list entry for both
+  b - fix so user epilogues are run as user instead of root
 
 3.0.2
   c - check if the file pointer to /dev/console can be opened. If not, don't attempt to write it
