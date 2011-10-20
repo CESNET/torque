@@ -1490,13 +1490,13 @@ int set_job_env(
       strcat(job_env, qsub_host);
       }   
     }
-#endif
     
   if (rc != 0)
     {
     fprintf(stderr, "qsub: cannot get (full) local host name\n");
     exit(3);
     }
+#endif
     
   if (server_host[0] != '\0')
     {
