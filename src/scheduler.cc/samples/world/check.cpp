@@ -226,7 +226,8 @@ int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
     return rc;
 #endif
 
-
+#if 0
+/* Wrong semantics  */
   if ((rc = check_avail_resources(qinfo -> qres, jinfo)) != SUCCESS)
     {
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
@@ -240,7 +241,7 @@ int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
               "Not enough server resources.");
     return INSUFICIENT_SERVER_RESOURCE;
     }
-
+#endif
   if ((rc = check_dynamic_resources(sinfo -> dyn_res, jinfo)) != SUCCESS)
     {
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
