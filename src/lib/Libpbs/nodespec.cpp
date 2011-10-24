@@ -177,7 +177,9 @@ pars_spec_node *init_pars_spec_node()
   spec->node_count = 0;
   spec->procs = 0;
   spec->mem = 0;
+  spec->mem_str = NULL;
   spec->vmem = 0;
+  spec->vmem_str = NULL;
   spec->host = NULL;
   spec->next = NULL;
   spec->prev = NULL;
@@ -185,6 +187,24 @@ pars_spec_node *init_pars_spec_node()
   spec->properties_end = NULL;
 
   return spec;
+  }
+
+void set_node_mem(pars_spec_node *node, unsigned value)
+  {
+  node->mem = value;
+  free(node->mem_str);
+  stringstream s;
+  s << node->mem << "KB";
+  node->mem_str = strdup(s.str().c_str());
+  }
+
+void set_node_vmem(pars_spec_node *node, unsigned value)
+  {
+  node->vmem = value;
+  free(node->vmem_str);
+  stringstream s;
+  s << node->vmem << "KB";
+  node->vmem_str = strdup(s.str().c_str());
   }
 
 pars_spec_node *clone_pars_spec_node(pars_spec_node *node)
@@ -195,8 +215,9 @@ pars_spec_node *clone_pars_spec_node(pars_spec_node *node)
 
   result->node_count = node->node_count;
   result->procs      = node->procs;
-  result->mem        = node->mem;
-  result->vmem       = node->vmem;
+  set_node_mem(result,node->mem);
+  set_node_vmem(result,node->vmem);
+
   if (node->alternative != NULL)
     result->alternative = strdup(node->alternative);
   if (node->host != NULL)
@@ -227,6 +248,10 @@ void free_pars_spec_node(pars_spec_node **node)
   (*node)->alternative = NULL;
   free((*node)->host);
   (*node)->host = NULL;
+  free((*node)->mem_str);
+  (*node)->mem_str = NULL;
+  free((*node)->vmem_str);
+  (*node)->vmem_str = NULL;
 
   while ((*node)->properties != NULL)
     {
@@ -409,12 +434,16 @@ pars_spec_node *parse_spec_node(char *node)
       }
     else if (strcmp(prop->name,"mem") == 0 && prop->value != NULL)
       {
-      str_res_to_num(prop->value,&result->mem);
+      unsigned value;
+      str_res_to_num(prop->value,&value);
+      set_node_mem(result,value);
       free_pars_prop(&prop);
       }
     else if (strcmp(prop->name,"vmem") == 0 && prop->value != NULL)
       {
-      str_res_to_num(prop->value,&result->vmem);
+      unsigned value;
+      str_res_to_num(prop->value,&value);
+      set_node_vmem(result,value);
       free_pars_prop(&prop);
       }
     else
@@ -695,8 +724,13 @@ void add_prop_to_nodespec(pars_spec *spec, pars_prop *prop)
     {
     if (strcmp(prop->name,"mem") == 0)
       {
+
       if (node->mem == 0)
-        str_res_to_num(prop->value,&node->mem);
+        {
+        unsigned value;
+        str_res_to_num(prop->value,&value);
+        set_node_mem(node,value);
+        }
       node = node->next;
       continue;
       }
@@ -704,7 +738,11 @@ void add_prop_to_nodespec(pars_spec *spec, pars_prop *prop)
     if (strcmp(prop->name,"vmem") == 0)
       {
       if (node->vmem == 0)
-        str_res_to_num(prop->value,&node->vmem);
+        {
+        unsigned value;
+        str_res_to_num(prop->value,&value);
+        set_node_vmem(node,value);
+        }
       node = node->next;
       continue;
       }

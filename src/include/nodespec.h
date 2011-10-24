@@ -34,7 +34,9 @@ struct pars_spec_node
   char *host; /**< selected host name (if present) */
   unsigned procs; /**< count of procs */
   unsigned mem; /**< memory in megabytes */
+  char *mem_str;
   unsigned vmem; /**< virtual memory in megabytes */
+  char *vmem_str;
   struct pars_prop *properties;
   struct pars_prop *properties_end;
   struct pars_spec_node *next;
