@@ -25,6 +25,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - Change to allow qsub -l ncpus=x:gpus=x which adds a resource list entry for both
   b - fix so user epilogues are run as user instead of root
   b - fix the prevent pbs_server from hanging when doing server to server job moves.
+  b - No longer report a completion code if a job is pre-empted using qrerun. 
 
 3.0.2
   c - check if the file pointer to /dev/console can be opened. If not, don't attempt to write it
