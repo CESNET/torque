@@ -440,6 +440,27 @@ pars_spec_node *parse_spec_node(char *node)
   return result;
   }
 
+pars_spec_node *remove_node_from_nodespec(pars_spec *spec, pars_spec_node *node)
+  {
+  spec->total_nodes--;
+  spec->total_procs -= node->procs;
+
+  if (node->prev != NULL)
+    node->prev->next = node->next;
+  if (node->next != NULL)
+    node->next->prev = node->prev;
+
+  if (node == spec->nodes)
+    spec->nodes = node->next;
+  if (node == spec->nodes_end)
+    spec->nodes_end = node->prev;
+
+  node->next = NULL;
+  node->prev = NULL;
+
+  return node;
+  }
+
 /** Alloc and init a new parsed spec instance
  *
  * @return Allocated instance or NULL on error

@@ -92,6 +92,9 @@ void expand_nodespec(pars_spec *spec);
 void add_prop_to_nodespec(pars_spec *spec, pars_prop *prop);
 void add_res_to_nodespec(pars_spec *spec, char* name, char* value);
 
+/** Remove node from nodespec */
+pars_spec_node *remove_node_from_nodespec(pars_spec *spec, pars_spec_node *node);
+
 pars_prop* find_parsed_prop(pars_prop *prop, char *name);
 
 enum alter_flag { with_alternative, without_alternative };
