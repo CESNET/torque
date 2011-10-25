@@ -1130,7 +1130,7 @@ int pbsd_init(
 
         if (!strcmp(psuffix, ".TA"))
           {
-          if ((pjob = job_recov(pdirent->d_name)) != NULL)
+          if ((pjob = job_recov(pdirent->d_name, 0)) != NULL)
             {
             pjob->ji_is_array_template = TRUE;
 
@@ -1148,7 +1148,7 @@ int pbsd_init(
         if (strcmp(psuffix, job_suffix))
           continue;
 
-        if ((pjob = job_recov(pdirent->d_name)) != NULL)
+        if ((pjob = job_recov(pdirent->d_name, 0)) != NULL)
           {
 
           if (DArrayAppend(&Array,pjob) == FAILURE)

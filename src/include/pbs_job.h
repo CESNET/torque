@@ -968,7 +968,7 @@ extern job  *job_clone(job *,struct job_array *, int);
 #endif
 extern void  job_free(job *);
 extern void  job_purge(job *);
-extern job  *job_recov(char *);
+extern job  *job_recov(char *, unsigned int);
 extern int   job_save(job *, int, int);
 extern int   modify_job_attr(job *, svrattrl *, int, int *);
 extern char *prefix_std_file(job *, int);

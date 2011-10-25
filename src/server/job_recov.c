@@ -390,7 +390,8 @@ int job_save(
 
 job *job_recov(
 
-  char *filename) /* I */   /* pathname to job save file */
+  char *filename, /* I */   /* pathname to job save file */
+  unsigned int momport)
 
   {
   int  fds;
@@ -580,7 +581,7 @@ job *job_recov(
 
   /* all done recovering the job */
 
-  job_save(pj, SAVEJOB_FULL);
+  job_save(pj, SAVEJOB_FULL, momport);
 
   return(pj);
   }  /* END job_recov() */

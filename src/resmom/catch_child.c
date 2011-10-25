@@ -1762,6 +1762,11 @@ void init_abort_jobs(
     exit(1);
     }
 
+  if (multi_mom)
+    {
+    momport = pbs_rm_port;
+    }
+
   while ((pdirent = readdir(dir)) != NULL)
     {
     if ((i = strlen(pdirent->d_name)) <= job_suf_len)
@@ -1772,7 +1777,7 @@ void init_abort_jobs(
     if (strcmp(psuffix, job_suffix))
       continue;
 
-    pj = job_recov(pdirent->d_name);
+    pj = job_recov(pdirent->d_name, momport);
 
     if (pj == NULL)
       {
@@ -1989,10 +1994,6 @@ void init_abort_jobs(
          will not try to kill the running processes for this job */
       pj->ji_qs.ji_substate = JOB_SUBSTATE_NOTERM_REQUE;
 
-      if (multi_mom)
-        {
-        momport = pbs_rm_port;
-        }
 
       job_save(pj, SAVEJOB_QUICK, momport);
 
