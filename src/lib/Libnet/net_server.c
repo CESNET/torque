@@ -114,6 +114,7 @@
 #include "server_limits.h"
 #include "net_connect.h"
 #include "log.h"
+#include "dis.h" /* DIS_tcp_close */
 
 extern int  LOGLEVEL;
 
@@ -717,6 +718,7 @@ void close_conn(
   int sd) /* I */
 
   {
+
   if ((sd < 0) || (max_connection <= sd))
     {
     return;
@@ -755,6 +757,9 @@ void close_conn(
   svr_conn[sd].cn_authen = 0;
 
   num_connections--;
+
+  DIS_tcp_close(sd);
+
 
   return;
   }  /* END close_conn() */
