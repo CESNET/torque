@@ -4059,7 +4059,7 @@ int TMomFinalizeJob3(
 							log_buffer);
 		}
 
-	if (sjr.sj_code < 0)
+	if (sjr.sj_code != 0)
 		{
 		char tmpLine[1024];
 
