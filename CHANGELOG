@@ -184,6 +184,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       of the NIC interface, for example eth0.
   b - Fixed a problem in Munge where file descriptors were getting left open after failure
       cases and the munge process.
+  e - Added instructions concerning the server parameter moab_array_compatible to the 
+      README.array_changes file.
 
 2.5.8
   e - added util function getpwnam_ext() that has retry and errno logging
