@@ -197,6 +197,10 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - Fixed a problem where pbs_server would seg-fault if munged was not running. It would
       also seg-fault if an invalid credential were sent from a client. The seg-fault was
       occurred in the same place for both cases.
+  b - Fixed a problem where array jobs would always lose their state when pbs_server was
+      restarted. Array jobs now retain their previous state between restarts of the server
+      the same as non-array jobs. This fix takes care of a problem where Moab and TORQUE
+      would get out of sync on jobs because of this discrepency between states.
 
 2.5.8
   e - added util function getpwnam_ext() that has retry and errno logging
