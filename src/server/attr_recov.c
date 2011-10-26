@@ -105,6 +105,7 @@
 #include "svrfunc.h"
 #include "utils.h"
 #include "server.h"
+#include "dynamic_string.h"
 
 
 /* Global Variables */
@@ -380,17 +381,16 @@ int save_attr(
 #ifndef PBS_MOM
 int save_attr_xml(
 
-
   struct attribute_def *padef,   /* attribute definition array */
   struct attribute     *pattr,   /* ptr to attribute value array */
   int                   numattr, /* number of attributes in array */
   int                   fds)     /* file descriptor where attributes are written */
 
   {
-  int  i;
-  int  rc;
-  char buf[MAXLINE<<8];
-  char valbuf[MAXLINE<<7];
+  int             i;
+  int             rc;
+  char            buf[MAXLINE<<8];
+  dynamic_string *ds = get_dynamic_string(-1, NULL);
 
   /* write the opening tag for attributes */
   snprintf(buf,sizeof(buf),"<attributes>\n");
@@ -402,9 +402,9 @@ int save_attr_xml(
     if (pattr[i].at_flags & ATR_VFLAG_SET)
       {
       buf[0] = '\0';
-      valbuf[0] = '\0';
+      clear_dynamic_string(ds);
 
-      if ((rc = attr_to_str(valbuf,sizeof(valbuf),padef+i,pattr[i],TRUE)) != 0)
+      if ((rc = attr_to_str(ds, padef+i, pattr[i], TRUE)) != 0)
         {
         if (rc != NO_ATTR_DATA)
           {
@@ -413,6 +413,7 @@ int save_attr_xml(
             "Not enough space to print attribute %s",
             padef[i].at_name);
 
+          free_dynamic_string(ds);
           return(rc);
           }
         }
@@ -420,14 +421,18 @@ int save_attr_xml(
         {
         snprintf(buf,sizeof(buf),"<%s>%s</%s>\n",
           padef[i].at_name,
-          valbuf,
+          ds->str,
           padef[i].at_name);
 
         if ((rc = write_buffer(buf,strlen(buf),fds)) != 0)
+          {
+          free_dynamic_string(ds);
           return(rc);
+          }
         }
       }
     } /* END for each attribute */
+          free_dynamic_string(ds);
 
   /* close the attributes */
   snprintf(buf,sizeof(buf),"</attributes>\n");
