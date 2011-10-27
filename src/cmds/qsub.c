@@ -3418,8 +3418,6 @@ int process_opts(
         if (Interact_opt == 1)
           {
           char  tmpLine[MAXLINE * 4];
-          char *gpu_str = "gpus=";
-          char *ptr;
           char *arg_work = strdup(optarg);
 
           /* Queue interactive resources to temp file. */
@@ -3430,33 +3428,6 @@ int process_opts(
             fprintf(stderr,"Out of memory\n");
 
             exit(2);
-            }
-
-          /* check for gpu request */
-          if ((ptr = strstr(arg_work,gpu_str)) != NULL)
-            {
-            char *gres_gpu = "gres=gpus:";
-
-            while (*ptr != '=')
-              {
-              *ptr = '\0';
-              ptr++;
-              }
-
-            /* move past the '=' */
-            ptr++;
-
-            snprintf(tmpResources, sizeof(tmpResources), "%s#PBS -l %s%s%s",
-              tmpLine,
-              arg_work,
-              gres_gpu,
-              ptr);
-            }
-          else
-            {
-            sprintf(tmpResources, "%s#PBS -l %s\n",
-              tmpLine,
-              optarg);
             }
 
           free(arg_work);

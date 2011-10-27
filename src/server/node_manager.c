@@ -3702,9 +3702,6 @@ static int property(
   }  /* END property() */
 
 
-
-
-
 /*
 ** Create a property list from a string.
 ** Return 0 if all is well, 1 otherwise.
@@ -3752,6 +3749,14 @@ static int proplist(
         {
         pequal++;
 
+        if ((number(&pequal, node_req) != 0) || (*pequal != '\0'))
+          {
+          return(1);
+          }
+        }
+      else if(strcmp(pname, "procs") == 0)
+        {
+        pequal++;
         if ((number(&pequal, node_req) != 0) || (*pequal != '\0'))
           {
           return(1);
@@ -3823,7 +3828,7 @@ static int proplist(
         "proplist: set needed gpu mode to %d",
         gpu_mode_rqstd);
 
-       log_ext(-1, id, log_buffer, LOG_DEBUG);
+		  log_ext(-1, id, log_buffer, LOG_DEBUG);
       }
 #endif  /* NVIDIA_GPUS */
 
@@ -3835,8 +3840,6 @@ static int proplist(
 
   return 0;
   }  /* END proplist() */
-
-
 
 
 /*
