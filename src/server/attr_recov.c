@@ -432,7 +432,8 @@ int save_attr_xml(
         }
       }
     } /* END for each attribute */
-          free_dynamic_string(ds);
+
+  free_dynamic_string(ds);
 
   /* close the attributes */
   snprintf(buf,sizeof(buf),"</attributes>\n");
