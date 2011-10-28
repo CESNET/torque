@@ -125,6 +125,7 @@
 #define PARSE_NO_MOM_TALK "no_mom_talk"
 #define PARSE_SERVER_LOCKING "server_locking"
 #define PARSE_JOB_MOVING "job_moving"
+#define PARSE_CYCLE_TIME "cycle_length"
 
 
 /* max sizes */

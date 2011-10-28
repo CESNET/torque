@@ -262,6 +262,8 @@ int parse_config(const char *fname)
           conf.unknown_shares = num;
         else if (!strcmp(config_name, PARSE_LOG_FILTER))
           conf.log_filter = num;
+        else if (!strcmp(config_name, PARSE_CYCLE_TIME))
+          conf.max_cycle = res_to_num(config_value);
         else if (!strcmp(config_name, PARSE_DEDICATED_PREFIX))
           {
           if (strlen(config_value) > PBS_MAXQUEUENAME)
@@ -401,6 +403,9 @@ init_config(void)
   else
     init_non_prime_time();
   
+  /* default to one hour maximum cycle time */
+  conf.max_cycle = 60*60;
+
   for (i = 0; i < MAX_IGNORED_QUEUES; i++)
     {
     if ((conf.ignored_queues[i] = (char*)malloc(PBS_MAXQUEUENAME+1)) == NULL)

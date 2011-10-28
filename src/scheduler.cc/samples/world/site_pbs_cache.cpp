@@ -1,9 +1,10 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include <ctype.h>
-#include <string.h>
+#include <cstdio>
+#include <cstdlib>
+#include <cctype>
+#include <cstring>
+
 #include <errno.h>
+#include <time.h>
 
 #include <sys/socket.h>
 #include <netinet/in.h>

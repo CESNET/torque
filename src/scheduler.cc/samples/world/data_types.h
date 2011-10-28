@@ -574,6 +574,8 @@ unsigned move_jobs :
   char ded_prefix[PBS_MAXQUEUENAME +1]; /* prefix to dedicated queues */
   time_t max_starve;   /* starving threshold */
   char* ignored_queues[MAX_IGNORED_QUEUES]; /* list of ignored queues */
+
+  time_t max_cycle; /* maximum cycle length */
   };
 
 /* for description of these bits, check the PBS admin guide or scheduler IDS */

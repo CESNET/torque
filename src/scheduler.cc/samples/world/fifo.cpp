@@ -573,9 +573,18 @@ int scheduling_cycle(
     return(0);
     }
 
+  time_t cycle_start = time(NULL);
+
   /* main scheduling loop */
   while ((run_errors <= 3) && ((!conf.lock_server) || lock) && (jinfo = next_job(server->info, 0)))
     {
+
+    if (difftime(cycle_start,time(NULL)) > conf.max_cycle)
+      {
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SERVER, "cycle", "Cycle ending prematurely due to time limit.");
+      break;
+      }
+
     sched_log(
       PBSEVENT_DEBUG2,
       PBS_EVENTCLASS_JOB,
