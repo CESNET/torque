@@ -34,6 +34,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - Fixed a problem in qsub where you could not submit a job in interactive mode with 
       gpus in the resource list.
   b - Initialized PBSNodeCheckInterval to 1. This set the default value for node_check_interval.
+  b - No longer count down walltime for jobs that are suspending or have stopped running 
+      for any other reasons
 
 3.0.2
   c - check if the file pointer to /dev/console can be opened. If not, don't attempt to write it
