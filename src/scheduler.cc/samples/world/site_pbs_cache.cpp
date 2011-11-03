@@ -57,7 +57,7 @@ int magrathea_decode_new(resource *res, MagratheaState *state)
     *state = MagratheaStateRunningPriority;
   else if (strcmp(s,"running") == 0)
     *state = MagratheaStateRunning;
-  else if (strcmp(s,"runnig-cluster") == 0)
+  else if (strcmp(s,"running-cluster") == 0)
     *state = MagratheaStateRunningCluster;
   else if (strcmp(s,"preempted") == 0)
     *state = MagratheaStatePreempted;

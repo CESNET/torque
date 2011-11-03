@@ -577,6 +577,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
       continue;
       }
 
+    if (!jinfo->queue->is_admin_queue)
     if (get_node_has_mem(ninfo_arr[i],spec,preassign_starving) == 0)
       {
       fit_mem++;
