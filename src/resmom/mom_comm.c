@@ -2320,6 +2320,7 @@ void im_request(
       pjob->ji_qs.ji_un.ji_newt.ji_scriptsz = 0;
       */
 
+      if (!is_cloud_job(pjob))
       if (check_pwd(pjob) == NULL)
         {
         /* log_buffer populated in check_pwd() */
