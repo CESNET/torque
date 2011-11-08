@@ -3411,162 +3411,136 @@ int process_opts(
           return(-1);
           }
 
-        /* defer evaluation of resources in interactive submission. */
+       /* Normal evaluation of batch job resources. */
+       if (attrib)
+         {
+         if (attrib->resource)
+           {
+           /* right here we are looking for a +procs=x in the node spec */
+           char *proc_ptr = NULL;
+           char *patch_ptr;
+           /* struct attrl *proc_attrib = NULL; */
+           char  proc_val[MAX_PROCS_DIGITS + 1]; 
+           int i = 0;
 
-        /* ORNL WRAPPER */
+           proc_val[0] = 0; /* Initialize */
 
-        if (Interact_opt == 1)
-          {
-          char  tmpLine[MAXLINE * 4];
-          char *arg_work = strdup(optarg);
+           proc_ptr = strstr(attrib->value, "procs=");
+           if (proc_ptr)
+             {
+             /* we have the procs keyword in the node_spec. We need to take it out and
+                install it to the Resource_List */
+             patch_ptr = proc_ptr;
+             /* Get the procs value */
+             patch_ptr = strchr(patch_ptr, '=');
+             if (patch_ptr == NULL)
+               {
+               return(-1);
+               }
+             else
+               {
+               patch_ptr++;
+               while(*patch_ptr != '+' && !isspace((int) *patch_ptr) && *patch_ptr != '\0'
+                     && i < MAX_PROCS_DIGITS)
+                 {
+                 proc_val[i++] = *patch_ptr++;
+                 }
+               proc_val[i] = 0;
 
-          /* Queue interactive resources to temp file. */
-          strcpy(tmpLine, tmpResources);
+               /* we have a procs=x in our node spec. Add the resources */
+               sprintf(tmpLine, "procs=%s", proc_val);
+               if (set_resources(&attrib, tmpLine, (pass == 0)) != 0)
+                 {                                                                  
+                 fprintf(stderr, "qsub: illegal -l value\n");
 
-          if (arg_work == NULL)
-            {
-            fprintf(stderr,"Out of memory\n");
+                 errflg++;
+                 }
+               }
 
-            exit(2);
-            }
+             while(*patch_ptr != '+' && !isspace((int) *patch_ptr) && *patch_ptr != '\0')
+               {
+               patch_ptr++;
+               }
 
-          free(arg_work);
-          }
-        else
-          {
-          /* Normal evaluation of batch job resources. */
-          if (attrib)
-            {
-            if (attrib->resource)
-              {
-              /* right here we are looking for a +procs=x in the node spec */
-              char *proc_ptr = NULL;
-              char *patch_ptr;
-              /* struct attrl *proc_attrib = NULL; */
-              char  proc_val[MAX_PROCS_DIGITS + 1]; 
-              int i = 0;
+             /* remove the procs=x from the node spec.
+                If patch_ptr has a '+' then the procs=x
+                is followed by more specificaitons. Remove
+                the procs=x from the spec and splice the rest
+                of the specification back together
+              */
+             if (*patch_ptr == '+')
+               {
+               
+               patch_ptr++;
+               *proc_ptr = 0;
+               strcat(attrib->value, patch_ptr);
+               }
+             else
+               {
+               /* Remove the procs=x from the node spec.
+                  If we are here procs=x is at the end
+                  of the node specification
+                */
+               if (*(proc_ptr - 1)  == '+')
+                 {
+                 proc_ptr--;
+                 }
+               *proc_ptr = 0;
+               }
+             } /* END if (proc_ptr)*/
+           } /* END if (attrib->resource ) */
+         } /* END if (attrib) */
 
-              proc_val[0] = 0; /* Initialize */
+       if (set_resources(&attrib, optarg, (pass == 0)) != 0)
+         {                                                                  
+         fprintf(stderr, "qsub: illegal -l value\n");
 
-              proc_ptr = strstr(attrib->value, "procs=");
-              if (proc_ptr)
-                {
-                /* we have the procs keyword in the node_spec. We need to take it out and
-                   install it to the Resource_List */
-                patch_ptr = proc_ptr;
-                /* Get the procs value */
-                patch_ptr = strchr(patch_ptr, '=');
-                if (patch_ptr == NULL)
-                  {
-                  return(-1);
-                  }
-                else
-                  {
-                  patch_ptr++;
-                  while(*patch_ptr != '+' && !isspace((int) *patch_ptr) && *patch_ptr != '\0'
-                        && i < MAX_PROCS_DIGITS)
-                    {
-                    proc_val[i++] = *patch_ptr++;
-                    }
-                  proc_val[i] = 0;
-
-                  /* we have a procs=x in our node spec. Add the resources */
-                  sprintf(tmpLine, "procs=%s", proc_val);
-                  if (set_resources(&attrib, tmpLine, (pass == 0)) != 0)
-                    {                                                                  
-                    fprintf(stderr, "qsub: illegal -l value\n");
-
-                    errflg++;
-                    }
-                  }
-
-                while(*patch_ptr != '+' && !isspace((int) *patch_ptr) && *patch_ptr != '\0')
-                  {
-                  patch_ptr++;
-                  }
-
-                /* remove the procs=x from the node spec.
-                   If patch_ptr has a '+' then the procs=x
-                   is followed by more specificaitons. Remove
-                   the procs=x from the spec and splice the rest
-                   of the specification back together
-                 */
-                if (*patch_ptr == '+')
-                  {
-                  
-                  patch_ptr++;
-                  *proc_ptr = 0;
-                  strcat(attrib->value, patch_ptr);
-                  }
-                else
-                  {
-                  /* Remove the procs=x from the node spec.
-                     If we are here procs=x is at the end
-                     of the node specification
-                   */
-                  if (*(proc_ptr - 1)  == '+')
-                    {
-                    proc_ptr--;
-                    }
-                  *proc_ptr = 0;
-                  }
-                } /* END if (proc_ptr)*/
-              } /* END if (attrib->resource ) */
-            } /* END if (attrib) */
-
-          if (set_resources(&attrib, optarg, (pass == 0)) != 0)
-            {                                                                  
-            fprintf(stderr, "qsub: illegal -l value\n");
-
-            errflg++;
-            }
+         errflg++;
+         }
 
 
-          if (strstr(optarg, "walltime") != NULL)
-            {
+       if (strstr(optarg, "walltime") != NULL)
+         {
 
-            struct attrl *attr;
-            char   *ptr;
+         struct attrl *attr;
+         char   *ptr;
 
-            /* if walltime range specified, break into minwclimit and walltime resources */
+         /* if walltime range specified, break into minwclimit and walltime resources */
 
-            for (attr = attrib;attr != NULL;attr = attr->next)
-              {
-              if (!strcmp(attr->name, "walltime"))
-                {
-                if ((ptr = strchr(attr->value, '-')))
-                  {
+         for (attr = attrib;attr != NULL;attr = attr->next)
+           {
+           if (!strcmp(attr->name, "walltime"))
+             {
+             if ((ptr = strchr(attr->value, '-')))
+               {
 
-                  *ptr = '\0';
+               *ptr = '\0';
 
-                  ptr++;
+               ptr++;
 
-                  /* set minwclimit to min walltime range value */
+               /* set minwclimit to min walltime range value */
 
-                  snprintf(tmpLine, sizeof(tmpLine), "minwclimit=%s",
-                           attr->value);
+               snprintf(tmpLine, sizeof(tmpLine), "minwclimit=%s",
+                        attr->value);
 
-                  if (set_resources(&attrib, tmpLine, (pass == 0)) != 0)
-                    {
-                    fprintf(stderr, "qsub: illegal -l value\n");
+               if (set_resources(&attrib, tmpLine, (pass == 0)) != 0)
+                 {
+                 fprintf(stderr, "qsub: illegal -l value\n");
 
-                    errflg++;
-                    }
+                 errflg++;
+                 }
 
-                  /* set walltime to max walltime range value */
+               /* set walltime to max walltime range value */
 
-                  strcpy(tmpLine, ptr);
+               strcpy(tmpLine, ptr);
 
-                  strcpy(attr->value, tmpLine);
-                  }
+               strcpy(attr->value, tmpLine);
+               }
 
-                break;
-                }
-              }  /* END for (attr) */
-            }
-          }      /* END else (Interact_opt == 1) */
-
-        /* END ORNL WRAPPER */
+             break;
+             }
+           }  /* END for (attr) */
+         }
 
         break;
 
