@@ -3,6 +3,9 @@
 # exit when unitialized variable is detected
 #set -u
 
+exec 1>>/tmp/log 2>&1
+set -x
+
 ###########################################################
 # set mode to switch between                              #
 ###########################################################
@@ -42,6 +45,8 @@ NCPU=1 # TODO change after resources are reregistered on nodes
 
 export PBS_ALTERNATIVE=$ALTERNATIVE
 export PBS_VLANID=$MAGRATHEA_VLANID
+export PBS_JOBID=$JOBID
+export PBS_SCRIPT_FILE=/var/spool/torque/mom_priv/jobs/${JOBID}.SC
 
 #########################
 ## commands and path   ##
@@ -91,8 +96,7 @@ echo "$*" >>/tmp/mujtrace
 env >>/tmp/mujtrace
 echo "--------------------------">>/tmp/mujtrace
 
-exec 1>>/tmp/log 2>&1
-set -x
+
 
 ###########################################################
 # main code                                               #
@@ -127,7 +131,10 @@ magrathea_status()
 # invoke booot
 invoke_booot()
 {
-	/afs/ics.muni.cz/software/booot/booot create ${DOMAIN/\.*/} >/tmp/booot.log 2>&1
+	date >/tmp/booot.log
+	/afs/ics.muni.cz/software/booot/booot delete --force-delete-lv ${DOMAIN/\.*/} >>/tmp/booot.log 2>&1
+	date >>/tmp/booot.log
+	/afs/ics.muni.cz/software/booot/booot create ${DOMAIN/\.*/} >>/tmp/booot.log 2>&1
 	[[ $? -ne 0 ]] && clean_exit $BOOT_FAILURE;
 	. /tmp/booot.params
 }
@@ -246,6 +253,12 @@ magrathea_stop()
 		fi
 	fi
 
+	# temporary fix for magrathea not waiting for domain to shutdown
+	for i in `seq 1 60`; do
+		[[ "`xm list | grep ${DOMAIN/\.*/}`" = "" ]] && break;
+		sleep 5;
+	done
+
 	for i in `seq 1 12`; do
 		magrathea_status;
 		[[ "$STATUS" = "down-bootable" ]] && break;
@@ -266,7 +279,8 @@ magrathea_stop()
 cleanup_boot()
 {
 	if [ $mode -eq 5 ]; then
-		/afs/ics.muni.cz/software/booot/booot delete ${DOMAIN/\.*/} >/tmp/booot.log 2>&1
+		date >>/tmp/booot.log
+		/afs/ics.muni.cz/software/booot/booot delete --force-delete-lv ${DOMAIN/\.*/} >>/tmp/booot.log 2>&1
 		[[ $? -ne 0 ]] && exit $BOOT_CLEANUP_FAILURE;
 	fi
 }
