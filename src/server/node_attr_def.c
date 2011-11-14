@@ -293,7 +293,7 @@ attribute_def node_attr_def[] =
     comp_null,
     free_str,
     node_cloud,
-    READ_ONLY,
+    MGR_ONLY_SET,
     ATR_TYPE_STR,
     PARENT_TYPE_NODE
   },
