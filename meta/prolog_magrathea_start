@@ -7,15 +7,9 @@ exec 1>>/tmp/log 2>&1
 set -x
 
 ###########################################################
-# set mode to switch between                              #
+# run mode 1 - with boot 0 - without boot                 #
 ###########################################################
-# 1 - straight exit 0                                     #
-# 2 - sleep 10, then exit 0                               #
-# 3 - fake magrathea (xm and update cache)                #
-# 4 - magrathea without boot                              #
-# 5 - magrathea with boot                                 #
-###########################################################
-mode=5
+INVOKE_BOOT=1
 
 ###########################################################
 # configure variables                                     #
@@ -52,39 +46,13 @@ export PBS_SCRIPT_FILE=/var/spool/torque/mom_priv/jobs/${JOBID}.SC
 ## commands and path   ##
 #########################
 ADMIN_COMMAND=/usr/sbin/magrathea-admin
-CACHE_LIST=/software/pbs-7.0.0/cache/list_cache
-CACHE_UPDATE=/software/pbs-7.0.0/cache/update_cache
+CACHE_LIST=/usr/sbin/list_cache
+CACHE_UPDATE=/usr/sbin/update_cache
 
 #########################
 ## load system presets ##
 #########################
 . /etc/profile
-
-###########################################################
-# error codes                                             #
-###########################################################
-
-STATUS_EMPTY=1
-STATUS_BAD=2
-
-FAKE_CANT_BOOT=11
-FAKE_CANT_STATUS=12
-FAKE_CANT_STOP=13
-FAKE_CANT_FORCESTOP=113
-
-MAGRATHEA_DOMAIN_DOESNT_EXIST_CANT_CREATE=21
-MAGRATHEA_BAD_STATUS_FOR_BOOT=22
-MAGRATHEA_CANT_BOOT=23
-MAGRATHEA_BOOT_TIMEOUT=24
-MAGRATHEA_CANT_SET_DOWN_FATAL=125
-MAGRATHEA_CANT_START_CLUSTER=26
-MAGRATHEA_BOOT_TIMEOUT=27
-
-CACHE_CANT_UPDATE=51
-CACHE_CANT_UPDATE_FATAL=151
-
-BOOT_FAILURE=91
-BOOT_CLEANUP_FAILURE=92
 
 ###########################################################
 # setup logging                                           #
@@ -96,32 +64,184 @@ echo "$*" >>/tmp/mujtrace
 env >>/tmp/mujtrace
 echo "--------------------------">>/tmp/mujtrace
 
-
-
 ###########################################################
 # main code                                               #
 ###########################################################
 
-[[ $mode -eq 2 ]] && sleep 10;
-[[ $mode -le 2 ]] && exit 0;
+NOW=`date +%s`
+
+#########################
+## Rollback util       ##
+#########################
+
+safe_rollback=( )
+
+add_rollback()
+{
+	safe_rollback[${#safe_rollback[*]}]=$1;
+}
+
+run_rollback()
+{
+	while [ ${#safe_rollback[@]} -ge 1 ]; do
+		${safe_rollback[${#safe_rollback[@]}-1]} rollback;
+		unset safe_rollback[${#safe_rollback[@]}-1];
+	done
+}
+
+exit_with_rollback()
+{
+	run_rollback
+	exit $1;
+}
 
 #########################
 ## status checks       ##
 #########################
 
-STATUS=
+MAGRATHEA_STATUS=
+XM_STATUS=
+CACHE_STATUS=
 
-# status without magrathea
-fake_status()
+fetch_xm_status()
 {
-	[[ -z "`/usr/sbin/xm list ${DOMAIN/\.*/} | grep -e '-b----'`" ]] && exit $FAKE_CANT_STATUS; # check the xen status
-	STATUS=`$CACHE_LIST $PBS_SERVER magrathea | awk -F"[ \t;]+" '/^'$DOMAIN'/ { print $3 }'`;        # get status string from cache
+	# fetch basic status
+	base_xm_status=`/usr/sbin/xm list ${DOMAIN/\.*/} 2>/dev/null | grep ${DOMAIN/\.*/}`;
+
+	# check if the virtual machine is present, if not, the machine is offline
+	if [ -z "$base_xm_status" ]; then
+		XM_STATUS=offline;
+		return;
+	fi
+
+	# if the machine is not block or running, it has to be shutting down, paused, or failed
+	if [ -z "`echo $base_xm_status | grep -- -b----`" ] && [ -z "`echo $base_xm_status | grep -- r-----`" ]; then
+		# States covered - paused, shutdown, crashed, dying
+		XM_STATUS=processing;
+	else
+		XM_STATUS=online;
+	fi
 }
 
-# status with magrathea
-magrathea_status()
+fetch_cache_status()
 {
-	STATUS=`$ADMIN_COMMAND status | awk -F"[ \t;]+" '/^'$DOMAIN'/ { print $2 }'`;
+	CACHE_STATUS=`$CACHE_LIST $PBS_SERVER magrathea | awk -F"[ \t;]+" '/^'$DOMAIN'/ { print $3 }'`;        # get status string from cache
+}
+
+fetch_magrathea_status()
+{
+	MAGRATHEA_STATUS=`$ADMIN_COMMAND status | awk -F"[ \t;]+" '/^'$DOMAIN'/ { print $2 }'`;
+}
+
+test_status_start()
+{
+	fetch_xm_status;
+	if [ "$XM_STATUS" != "offline" ]; then
+		logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received while XEN machine is not offline.";
+		exit_with_rollback 1;
+	fi
+
+	fetch_cache_status;
+	if [ -z "$CACHE_STATUS" ]; then
+		logger -p daemon.crit -t magrathea_prologue "Fatal state. Cluster request received but machine state not found in cache.";
+		exit_with_rollback 1;
+	fi
+
+	if [ "$CACHE_STATUS" != "down-bootable" ]; then
+		logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received but machine state in cache is not down-bootable.";
+		# try to update cache
+		$CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "inconsistent;0;changed=$NOW" # overwrite magrathea state
+		exit_with_rollback 1;
+	fi
+
+	fetch_magrathea_status;
+	if [ "$MAGRATHEA_STATUS" != "down-bootable" ] && [ ! -z "$MAGRATHEA_STATUS" ]; then
+		logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received but magrathea state isn't bootable.";
+		return_with_rollback 1;
+	fi
+}
+
+test_status_running()
+{
+	fetch_xm_status;
+	if [ "$XM_STATUS" != "online" ]; then
+		logger -p daemon.info -t magrathea_prologue "XEN machine is down, or shutting down. Tearing down cluster.";
+		exit_with_rollback 1;
+	fi
+
+	fetch_cache_status;
+	if [ -z "$CACHE_STATUS" ]; then
+		logger -p daemon.warning -t magrathea_prologue "Weird state. Cluster running, but magrathea cache record is missing.";
+		# silent
+	fi
+
+	if [ "$CACHE_STATUS" != "running-cluster" ]; then
+		logger -p daemon.warning -t magrathea_prologue "Weird state. Cluster running, but magrathea cache record doesn't match.";
+		# silent
+	fi
+
+	fetch_magrathea_status;
+	if [ -z "$MAGRATHEA_STATUS" ]; then
+		logger -p daemon.info -t magrathea_prologue "Magrathea no longer holding machine. Tearing down cluster.";
+		exit_with_rollback 1;
+	fi
+
+	if [ "$MAGRATHEA_STATUS" != "running-cluster" ]; then
+		logger -p daemon.info -t magrathea_prologue "Magrathea reports non-running state. Tearing down cluster.";
+		exit_with_rollback 1;
+	fi
+}
+
+#########################
+## cleanup functions   ##
+#########################
+
+cleanup_boot()
+{
+	if [ $INVOKE_BOOT -eq 1 ]; then
+		date >>/tmp/booot.log
+		/afs/ics.muni.cz/software/booot/booot delete --force-delete-lv ${DOMAIN/\.*/} >>/tmp/booot.log 2>&1
+		if [ $? -ne 0 ]; then
+			logger -p daemon.crit -t magrathea_prologue "Couldn't cleanup booot.";
+			return 1;
+		fi
+	fi
+}
+
+cleanup_magrathea_cluster()
+{
+	fetch_magrathea_status;
+	if [ "$MAGRATHEA_STATUS" = "running-cluster" ]; then
+		$ADMIN_COMMAND stopcluster $DOMAIN $JOBNAME $NCPU;
+		if [ $? -ne 0 ]; then
+			logger -p daemon.crit -t magrathea_prologue "Couldn't stop cluster.";
+		fi
+	fi
+}
+
+cleanup_magrathea_booting()
+{
+	# this is very dirty
+
+	# try the nice way
+	$ADMIN_COMMAND force-down $DOMAIN;
+	for i in `seq 1 60`; do
+		[[ "`xm list | grep ${DOMAIN/\.*/}`" = "" ]] && break;
+		sleep 5;
+	done
+
+	# that's enough waiting, force it down
+	/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null;
+	for i in `seq 1 60`; do
+		[[ "`xm list | grep ${DOMAIN/\.*/}`" = "" ]] && break;
+		sleep 5;
+	done
+
+	# propagate new state
+	$ADMIN_COMMAND down $DOMAIN;
+
+	# reset foreign flag
+	$ADMIN_COMMAND set-foreign $DOMAIN 0
 }
 
 #########################
@@ -131,83 +251,63 @@ magrathea_status()
 # invoke booot
 invoke_booot()
 {
+	if [ $INVOKE_BOOT -ne 1 ]; then return; fi
+
 	date >/tmp/booot.log
-	/afs/ics.muni.cz/software/booot/booot delete --force-delete-lv ${DOMAIN/\.*/} >>/tmp/booot.log 2>&1
+	cleanup_boot;
+
 	date >>/tmp/booot.log
 	/afs/ics.muni.cz/software/booot/booot create ${DOMAIN/\.*/} >>/tmp/booot.log 2>&1
-	[[ $? -ne 0 ]] && clean_exit $BOOT_FAILURE;
+	if [ $? -ne 0 ]; then
+		logger -p daemon.crit -t magrathea_prologue "Fatal error. Booot failed.";
+		cleanup_boot
+		exit 1;
+	fi
 	. /tmp/booot.params
-}
-
-# start domU without magrathea
-fake_start()
-{
-	/usr/sbin/xm create ${DOMAIN/\.*/} 2>/dev/null
-	[[ $? -ne 0 ]] && exit $FAKE_CANT_BOOT;
-
-	NOW=`date +%s`
-	$CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "running-cluster;0;changed=$NOW"
-	[[ $? -eq 0 ]] && exit 0;
-
-	/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
-	[[ $? -ne 0 ]] && exit $FAKE_CANT_FORCESTOP;
-	
-	exit $CACHE_CANT_UPDATE;
-}
-
-clean_exit()
-{
-	cleanup_boot;
-	exit $1;
+	add_rollback cleanup_boot;
 }
 
 # start domU using magrathea
 magrathea_start()
 {
-	# check if domain exists, if not create
-	magrathea_status;
-	[[ -z $STATUS ]] && $ADMIN_COMMAND create $DOMAIN ${DOMAIN/\.*/} normal `host $DOMAIN | awk '// { print $4 }'` $MAGRATHEA_DOMAIN_FOREIGN;
-	
-	# check if creation went ok
-	magrathea_status;
-	[[ -z $STATUS ]] && clean_exit $MAGRATHEA_DOMAIN_DOESNT_EXIST_CANT_CREATE;
-	
-	if [ $STATUS != "down-bootable" ]; then # inconsistent state detected - scheduler/magrathea mismatch
-		NOW=`date +%s`
-		$CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "inconsistent;0;changed=$NOW" # overwrite magrathea state
-		[[ $? -ne 0 ]] && clean_exit $CACHE_CANT_UPDATE_FATAL;
-		clean_exit $MAGRATHEA_BAD_STATUS_FOR_BOOT;
+	if [ -z "$MAGRATHEA_STATUS" ]; then
+		$ADMIN_COMMAND create $DOMAIN ${DOMAIN/\.*/} normal `host $DOMAIN | awk '// { print $4 }'` $MAGRATHEA_DOMAIN_FOREIGN;
+		test_status_start;
+		if [ -z "$MAGRATHEA_STATUS" ]; then
+			logger -p daemon.crit -t magrathea_prologue "Couldn't create domain using magrathea.";
+			exit_with_rollback 1;
+		fi
+	else
+		foreign_num=`echo $MAGRATHEA_DOMAIN_FOREIGN | cut -d\  -f2`;
+		if [ -z "$foreign_num" ]; then foreign_num=0; fi
+		$ADMIN_COMMAND set-foreign $DOMAIN $foreign_num; 
 	fi
-	
+
 	# try to boot machine
 	$ADMIN_COMMAND force-boot $DOMAIN;
-	[[ $? -ne 0 ]] && clean_exit $MAGRATHEA_CANT_BOOT;
+	if [ $? -ne 0 ]; then
+		logger -p daemon.crit -t magrathea_prologue "Couldn't boot machine using magrathea.";
+		exit_with_rollback 1;
+	fi
+	add_rollback cleanup_magrathea_booting
 
 	# check state each 10 seconds for 2 minutes total until in free state
 	for i in `seq 1 12`; do
-		magrathea_status;
-		[[ "$STATUS" = "free" ]] && break;
+		fetch_magrathea_status;
+		[[ "$MAGRATHEA_STATUS" = "free" ]] && break;
 		sleep 10;
 	done
 
-	magrathea_status;
-	if [ "$STATUS" != "free" ]; then # still not online, try to cleanup
-		/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
-		[[ $? -ne 0 ]] && clean_exit $FAKE_CANT_FORCESTOP;
-		$ADMIN_COMMAND down $DOMAIN;
-		[[ $? -ne 0 ]] && clean_exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
-
-		clean_exit $MAGRATHEA_BOOT_TIMEOUT;
+	fetch_magrathea_status;
+	if [ "$MAGRATHEA_STATUS" != "free" ]; then # still not online, try to cleanup
+		logger -p daemon.crit -t magrathea_prologue "Machine didn't switch to free state after force-boot.";
+		exit_with_rollback 1;
 	fi
 
 	$ADMIN_COMMAND startcluster $DOMAIN $JOBNAME $NCPU;
 	if [ $? -ne 0 ]; then # try to cleanup
-		/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
-		[[ $? -ne 0 ]] && clean_exit $FAKE_CANT_FORCESTOP;
-		$ADMIN_COMMAND down $DOMAIN;
-		[[ $? -ne 0 ]] && clean_exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
-
-		clean_exit $MAGRATHEA_CANT_START_CLUSTER;
+		logger -p daemon.crit -t magrathea_prologue "Couldn't start cluster after machine started.";
+		exit_with_rollback 1;
 	fi
 }
 
@@ -215,74 +315,12 @@ magrathea_start()
 ## stop                ##
 #########################
 
-fake_stop()
-{
-	NOW=`date +%s`
-	$CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "down-bootable;changed=$NOW"
-	if [ $? -ne 0 ]; then # can't update cache, try to cleanup
-		/usr/sbin/xm destroy ${DOMAIN/\.*/};
-		# ignore return of xm
-		exit $CACHE_CANT_UPDATE_FATAL;
-	fi
-	
-	/usr/sbin/xm shutdown -w ${DOMAIN/\.*/};
-	if [ $? -ne 0 ]; then # can't shutdown, try to cleanup
-		/usr/sbin/xm destroy ${DOMAIN/\.*/};
-		#ignore return of xm
-		exit $FAKE_CANT_STOP;
-	fi
-}
-
 magrathea_stop()
 {
-	magrathea_status;
-	if [ "$STATUS" = "running-cluster" ]; then # if not running cluster, don't try to shutdown
-
-		$ADMIN_COMMAND stopcluster $DOMAIN $JOBNAME $NCPU;
-		if [ $? -ne 0 ]; then
-			# we could cleanup cache here, but can't right now, since we can't do cache delete
-			:
-		fi
-
-		$ADMIN_COMMAND force-down $DOMAIN;
-		if [ $? -ne 0 ]; then
-			/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
-			[[ $? -ne 0 ]] && clean_exit $FAKE_CANT_FORCESTOP;
-			$ADMIN_COMMAND down $DOMAIN;
-			[[ $? -ne 0 ]] && clean_exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
-		fi
-	fi
-
-	# temporary fix for magrathea not waiting for domain to shutdown
-	for i in `seq 1 60`; do
-		[[ "`xm list | grep ${DOMAIN/\.*/}`" = "" ]] && break;
-		sleep 5;
-	done
-
-	for i in `seq 1 12`; do
-		magrathea_status;
-		[[ "$STATUS" = "down-bootable" ]] && break;
-		sleep 10;
-	done
-
-	magrathea_status;
-	if [ "$STATUS" != "down-bootable" ]; then
-		/usr/sbin/xm destroy ${DOMAIN/\.*/} 2>/dev/null
-		[[ $? -ne 0 ]] && clean_exit $FAKE_CANT_FORCESTOP;
-		$ADMIN_COMMAND down $DOMAIN;
-		[[ $? -ne 0 ]] && clean_exit $MAGRATHEA_CANT_SET_DOWN_FATAL;
-
-		clean_exit $MAGRATHEA_BOOT_TIMEOUT;
-	fi
-}
-
-cleanup_boot()
-{
-	if [ $mode -eq 5 ]; then
-		date >>/tmp/booot.log
-		/afs/ics.muni.cz/software/booot/booot delete --force-delete-lv ${DOMAIN/\.*/} >>/tmp/booot.log 2>&1
-		[[ $? -ne 0 ]] && exit $BOOT_CLEANUP_FAILURE;
-	fi
+	add_rollback cleanup_boot
+	add_rollback cleanup_magrathea_booting
+	add_rollback cleanup_magrathea_cluster
+	run_rollback
 }
 
 if [ -z $5 ]; then
@@ -290,29 +328,20 @@ if [ -z $5 ]; then
 fi
 
 case $PROG in
- *status)
-    STATUS=""
-    [[ $mode -le 3 ]] && fake_status;
-    [[ $mode -ge 4 ]] && magrathea_status;
-
-    [[ -z $STATUS ]] && exit $STATUS_EMPTY;			# empty status, shouldn't happen
-
-    [[ "$STATUS" = "running-cluster" ]] && exit 0;
-	exit $STATUS_BAD;
-    ;;
- *start)
- 	[[ $mode -eq 5 ]] && invoke_booot;
- 	[[ $mode -le 3 ]] && fake_start;
- 	[[ $mode -ge 4 ]] && magrathea_start;
-
-    exit 0;
-    ;;
- *stop)
- 	[[ $mode -le 3 ]] && fake_stop;
-	[[ $mode -ge 4 ]] && magrathea_stop;
-
-    clean_exit 0;
-    ;;
+	*status)
+		test_status_running;
+		exit 0;
+	;;
+	*start)
+		test_status_start;
+		invoke_booot;
+		magrathea_start;
+		exit 0;
+	;;
+	*stop)
+		magrathea_stop;
+		exit 0;
+	;;
 esac;
 
 exit 2
