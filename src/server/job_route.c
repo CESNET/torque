@@ -204,7 +204,7 @@ badplace *is_bad_dest(
  * Returns 0 on success. Non-zero on failure
  */ 
 int initialize_procct(job *pjob)
-  {                \
+  { 
   char id[] = "initialize_procct";
   resource     *pnodesp = NULL;
   resource_def *pnodes_def = NULL;
@@ -369,7 +369,7 @@ int remove_procct(job *pjob)
       pctdef->rs_free(&pctresc->rs_value);
 
   return(PBSE_NONE);
-  }
+  } /* END remove_procct */
 
 /*
  * default_router - basic function for "routing" jobs.
