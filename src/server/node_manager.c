@@ -4439,6 +4439,7 @@ static int node_spec(
 
   num = ctnodes(str);
 
+#ifndef CRAY_MOAB_PASSTHRU
   if (num > svr_clnodes)
     {
     /* FAILURE */
@@ -4465,6 +4466,7 @@ static int node_spec(
 
     return(-1);
     }
+#endif
 
   if (LOGLEVEL >= 6)
     {
@@ -4557,6 +4559,7 @@ static int node_spec(
     return(-1);
     }
 
+#ifndef CRAY_MOAB_PASSTHRU
   if ((num > svr_numnodes) && early) /* temp fail, not available */
     {
     /* FAILURE */
@@ -4581,6 +4584,7 @@ static int node_spec(
 
     return(0);
     }  /* END if ((num > svr_numnodes) && early) */
+#endif
 
   if (LOGLEVEL >= 6)
     {
