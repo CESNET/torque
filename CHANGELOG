@@ -1,7 +1,7 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
 3.0.4
-  c - fix a buffer being overrun with nvidia gpus enabled (backported from 3.0.4)
+  c - fix a buffer being overrun with nvidia gpus enabled
 
 3.0.3
   b - fix for bugzilla #141 - qsub was overwriting the path variable in PBSD_authenticate
