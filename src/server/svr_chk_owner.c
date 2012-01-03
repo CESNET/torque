@@ -404,7 +404,7 @@ int authenticate_user(
   sprintf(uh, "%s@%s", preq->rq_user, pcred->hostname);
   
   if ((strncmp(preq->rq_user, pcred->username, PBS_MAXUSER)) &&
-     ((acl_check(&server.sv_attr[SRV_ATR_authusers], uh, ACL_User_Host)) == 0))
+     ((acl_check(&server.sv_attr[SRV_ATR_authusers], uh, ACL_User)) == 0))
 #else
   if (strncmp(preq->rq_user, pcred->username, PBS_MAXUSER))
 #endif
