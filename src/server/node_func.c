@@ -1707,7 +1707,7 @@ int setup_numa_nodes(
   char           *gp_ptr = NULL;
   char           *allocd_name;
   int             np;
-  int             gpus;
+  int             gpus = 0;
 
   char           *id = "setup_numa_nodes";
 
@@ -1736,7 +1736,7 @@ int setup_numa_nodes(
     gp_ptr = pnode->gpu_str;
     read_val_and_advance(&gpus,&gp_ptr);
     }
-  else
+  else if (pnode->num_numa_nodes != 0)
     gpus = pnode->nd_ngpus / pnode->num_numa_nodes;
 
   for (i = 0; i < pnode->num_numa_nodes; i++)
