@@ -3405,7 +3405,8 @@ int process_opts(
         l_opt = passet;
 
         /* a ,procs= in the node spec is illegal. Validate the node spec */
-        if (strstr(optarg, ",procs="))
+        if ((strstr(optarg, ",procs=") != NULL) &&
+            (strstr(optarg, "nodes=") != NULL))
           {
           printf("illegal node spec: %s\n", optarg);
           return(-1);

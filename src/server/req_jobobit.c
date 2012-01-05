@@ -2267,6 +2267,7 @@ void req_jobobit(
               preq->rq_host,
               PBSE_CLEANEDOUT);
 
+      bad = PBSE_CLEANEDOUT;
       req_reject(PBSE_CLEANEDOUT, 0, preq, NULL, NULL);
       }
     else
@@ -2275,14 +2276,11 @@ void req_jobobit(
               preq->rq_host,
               PBSE_UNKJOBID);
 
+      bad = PBSE_UNKJOBID;
       req_reject(PBSE_UNKJOBID, 0, preq, NULL, NULL);
       }
 
-    log_event(
-      PBSEVENT_ERROR | PBSEVENT_JOB,
-      PBS_EVENTCLASS_JOB,
-      jobid,
-      log_buffer);
+    log_err(bad, jobid, log_buffer);
 
     return;
     }  /* END if ((pjob == NULL) || ...) */
@@ -2306,21 +2304,12 @@ void req_jobobit(
               preq->rq_host,
               PJobState[pjob->ji_qs.ji_state]);
 
-      log_event(
-        PBSEVENT_ERROR | PBSEVENT_JOB,
-        PBS_EVENTCLASS_JOB,
-        jobid,
-        log_buffer);
+      log_err(PBSE_BADSTATE, jobid, log_buffer);
 
       bad = PBSE_BADSTATE;
       }
 
-    req_reject(
-      bad,
-      0,
-      preq,
-      NULL,
-      NULL);
+    req_reject(bad, 0, preq, NULL, NULL);
 
     return;
     }  /* END if (pjob->ji_qs.ji_state != JOB_STATE_RUNNING) */
