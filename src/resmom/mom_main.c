@@ -4408,7 +4408,6 @@ process_hup(void)
 
   {
   char *id = "process_hup";
-  char  old_servernames[PBS_MAXSERVER][PBS_MAXSERVERNAME + 1];
 
   call_hup = 0;
   log_record(PBSEVENT_SYSTEM, 0, id, "reset");
