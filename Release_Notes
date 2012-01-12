@@ -57,6 +57,17 @@ WHAT'S NEW
     host. To learn more about the multi-mom capability see section 1.7
     of the TORQUE documentation found at http://www.clusterresources.com/products/torque/docs/index.shtml
 
+    New in 3.0.4:
+      Fixed a problem with job arrays when upgrading to verions 2.5.9. Please see
+      the Installation section below for more details
+
+      Fixed a problem with interactive jobs exiting prematurely.
+
+      Added a new mom option $ext_pwd_retry which allows administrators to set the number
+      of retries when checking for password validity.
+
+      For a complete list of changes see the CHANGELOG.
+
     New in 3.0.3:
       There were several bug fixes to TORQUE 3.0.3. Following are a list of
       noteable bug fixes.
@@ -112,4 +123,43 @@ follow the directions CAREFULLY.
 
 Installation instructions can also be found at http://www.clusterresources.com/products/torque/docs/
 
+TORQUE Upgrade Advisory
+
+TORQUE versions 2.5.9 and 3.0.3 were released with a flaw which makes it impossible
+to upgrade job arrays from previous 2.5.x and 3.0.x versions of TORQUE.  This
+incompatibility has been fixed in TORQUE versions 2.5.10 and 3.0.4. Following is a
+table which summarizes the upgrade procedure based on the current version being used.
+
+------------------------------------------------------------------------------------
+| Current TORQUE version   |  New TORQUE version  | Upgrade Procedure              |
+------------------------------------------------------------------------------------
+| 2.5.0 thourgh 2.5.8      |   2.5.10             | Follow general upgrade         |
+|                          |                      | instructions.                  |
+------------------------------------------------------------------------------------
+| 3.0.0 through 3.0.2      |   3.0.4              | Follow general upgrade         |
+|                          |                      | instructions                   |
+------------------------------------------------------------------------------------
+| 2.5.9                    |   2.5.10             | Follow general upgrade         |
+|                          |                      | instructions. Start pbs_server |
+|                          |                      | for the first time only with   |
+|                          |                      | the -u option.                 |
+|                          |                      | "pbs_server -u"                |
+------------------------------------------------------------------------------------
+| 3.0.3                    |   3.0.4              | Follow general upgrade         |
+|                          |                      | instructions. Start pbs_server |
+|                          |                      | for the first time only with   |
+|                          |                      | the -u option.                 |
+|                          |                      | "pbs_server -u"                |
+------------------------------------------------------------------------------------
+
+To summarize, if you are upgrading from TORQUE versions 2.5.0 though 2.5.8 to 2.5.10
+you only need to follow the standard upgrade instructions.
+
+Similarly if you are upgrading from TORQUE versions 3.0.0 through 3.0.2 to 3.0.4 you
+only need to follow the standard upgrade instructions.
+
+When upgrading from 2.5.9 or 3.0.3 follow the standard upgrade instructions but start
+pbs_server with the -u option on the first use only.  If you use the -u option to
+start pbs_server on subsequent restarts an error message will be printed and pbs_server
+will not start.
 
