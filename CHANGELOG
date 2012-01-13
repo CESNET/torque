@@ -11,6 +11,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   e - Added functionality that allows the values for the server parameter
       authorized_users to use wild cards for both the user and host portion.
   e - Improvements in munge handling of client connections and authentication.
+  b - block SIGCHLD while reading the munge file to avoid false errors.
 
 3.0.3
   b - fix for bugzilla #141 - qsub was overwriting the path variable in PBSD_authenticate
