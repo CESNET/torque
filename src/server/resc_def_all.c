@@ -780,6 +780,8 @@ resource_def svr_resc_def_const[] =
   { "maple10", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
   { "maple10p", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
   { "maple11", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "maple15", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
+  { "gridmath8", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
 
   /* matlab toolbox licenses */
   { "matlab_Statistics_Toolbox", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
