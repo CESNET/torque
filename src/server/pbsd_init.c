@@ -833,6 +833,8 @@ int pbsd_init(
 
   server.sv_attr[SRV_ATR_PollJobs].at_val.at_long = PBS_POLLJOBS;
 
+  server.sv_attr[SRV_ATR_MoabArrayCompatible].at_val.at_long = TRUE;
+
   /* 4. force logging of all types */
 
   server.sv_attr[SRV_ATR_log_events].at_val.at_long = PBSEVENT_MASK;
