@@ -2514,6 +2514,12 @@ int hasres(struct pbsnode *pnode, char  *name, char *value, int proc_count)
   if ((rd->rs_flags & (ATR_DFLAG_SELECT_PROC | ATR_DFLAG_SELECT_MOM)) == 0)
     return 1; /* this resource is not per-proc or per-node and therefore not checked */
 
+  if ((rd->rs_flags & ATR_DFLAG_SELECT_PROC) != 0)
+    return 1;
+
+  if (strcmp(name,"vmem") == 0) /* FIXME quick fix for ignoring vmem */
+    return 1;
+
   total = find_resc_entry(&pnode->attributes[0],rd);
 
   if (total == NULL) /* resource not present on node */
@@ -3207,11 +3213,12 @@ void regenerate_total_resources(job * pjob)
         }
       else
         { /* per job resource, if counted, add to total resources */
+        rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
         switch (rd->rs_type)
           {
           case ATR_TYPE_LONG: case ATR_TYPE_LL: case ATR_TYPE_SHORT: case ATR_TYPE_SIZE:
             {
-            if ((rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd)) == NULL)
+            if (rs == NULL)
               {
               rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
               ret = rd->rs_set(&rs->rs_value,&jbrc->rs_value,SET);
@@ -3224,7 +3231,29 @@ void regenerate_total_resources(job * pjob)
               if (ret != 0)
                 return;
               }
+            break;
             }
+          case ATR_TYPE_STR:
+            {
+            if (strstr(jbrc->rs_defin->rs_name,"nodes") == NULL)
+              {
+              if (rs == NULL)
+                {
+                rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+                ret = jbrc->rs_defin->rs_set(&rs->rs_value,&jbrc->rs_value,SET);
+                if (ret != 0)
+                  return;
+                }
+              else
+                {
+                ret = jbrc->rs_defin->rs_set(&rs->rs_value,&jbrc->rs_value,SET);
+                if (ret != 0)
+                  return;
+                }
+              }
+            break;
+            }
+          default: break;
           }
         }
       jbrc = (resource*)GET_NEXT(jbrc->rs_link);
@@ -3272,7 +3301,10 @@ void regenerate_total_resources(job * pjob)
         if ((rd->rs_flags & ATR_DFLAG_SELECT_MOM) != 0)
           total_count = node->node_count;
         if ((rd->rs_flags & ATR_DFLAG_SELECT_PROC) != 0)
-          total_count = node->node_count * node->procs;
+          {
+          prop = prop->next;
+          continue;
+          }
 
         switch (rd->rs_type)
           {

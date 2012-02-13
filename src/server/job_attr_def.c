@@ -967,7 +967,7 @@ attribute_def job_attr_def[] =
     comp_resc,
     free_resc,
     action_resc,
-    READ_ONLY,
+    READ_ONLY | ATR_DFLAG_MOM,
     ATR_TYPE_RESC,
     PARENT_TYPE_JOB
   },

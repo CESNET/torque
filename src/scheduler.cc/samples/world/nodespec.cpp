@@ -233,29 +233,34 @@ int get_node_has_mem(node_info *ninfo, pars_spec_node* spec, int preassign_starv
   struct resource *mem, *vmem;
 
   mem = find_resource(ninfo->res, "mem");
+#if 0
   vmem = find_resource(ninfo->res, "vmem");
+#endif
 
   if (mem == NULL && spec->mem != 0) /* no memory on node, but memory requested */
       return 0;
-
+#if 0
   if (vmem == NULL && spec->vmem != 0) /* no virtual memory on node, but memory requested */
     return 0;
+#endif
 
   if (preassign_starving)
     {
     if (mem != NULL && spec->mem > mem->max) /* memory on node, but not enough */
       return 0;
-
-     if (vmem != NULL && spec->vmem > vmem->max) /* virtual memory on node, but not enough */
+#if 0
+    if (vmem != NULL && spec->vmem > vmem->max) /* virtual memory on node, but not enough */
       return 0;
+#endif
     }
   else
     {
     if (mem != NULL && spec->mem > mem->max - mem->assigned) /* memory on node, but not enough */
       return 0;
-
+#if 0
     if (vmem != NULL && spec->vmem > vmem->max - vmem->assigned) /* virtual memory on node, but not enough */
       return 0;
+#endif
     }
 
   return 1;

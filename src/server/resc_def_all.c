@@ -160,7 +160,7 @@ resource_def svr_resc_def_const[] =
     comp_size,
     free_null,
     NULL_FUNC,
-    READ_WRITE | ATR_DFLAG_MOM,
+    READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_SELECT_PROC,
     ATR_TYPE_SIZE
   },
   { "mem",
@@ -200,7 +200,7 @@ resource_def svr_resc_def_const[] =
     comp_size,
     free_null,
     NULL_FUNC,
-    READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_ALTRUN | ATR_DFLAG_RMOMIG,
+    READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_ALTRUN | ATR_DFLAG_RMOMIG | ATR_DFLAG_SELECT_PROC,
     ATR_TYPE_SIZE
   },
   { "ncpus",                        /* number of processors for job */
@@ -230,7 +230,7 @@ resource_def svr_resc_def_const[] =
     comp_size,
     free_null,
     NULL_FUNC,
-    READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG,
+    READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG | ATR_DFLAG_SELECT_PROC,
     ATR_TYPE_SIZE
   },
   { "nice",    /* job nice value */
@@ -250,7 +250,7 @@ resource_def svr_resc_def_const[] =
     comp_l,
     free_null,
     NULL_FUNC,
-    READ_WRITE | ATR_DFLAG_MOM,
+    READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_SELECT_PROC,
     ATR_TYPE_LONG
   },
   { "walltime",   /* wall clock time limit for a job */
@@ -781,6 +781,7 @@ resource_def svr_resc_def_const[] =
   { "maple10p", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
   { "maple11", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
   { "maple15", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
+  { "math8", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
   { "gridmath8", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
 
   /* matlab toolbox licenses */

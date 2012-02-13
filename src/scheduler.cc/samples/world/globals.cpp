@@ -103,7 +103,7 @@ const struct rescheck res_to_check[] = {
   { "nodect","Not Running: Not enough nodes available", "Not enough nodes available", ResCheckStat},
   { "cput",  "Not Running: The job time requirement is over the max time limit", "The job time requirement is over the max time limit", ResCheckStat },
   { "scratch", "Not Running: Not enough scratch space available", "Not enough scratch space available", ResCheckCache },
-	{ "gpu", "Not Running: Not enough GPU cards available", "Not enough gpu cards available", ResCheckStat },
+  { "gpu", "Not Running: Not enough GPU cards available", "Not enough gpu cards available", ResCheckStat },
   { "machine_cluster", " ", " ", ResCheckCache },
   { "magrathea", " ", " ", ResCheckCache },
 
@@ -116,8 +116,6 @@ const struct rescheck res_to_check[] = {
   { "maple10", " ", " ", ResCheckDynamic },
   { "maple10p", " ", " ", ResCheckDynamic },
   { "maple11", " ", " ", ResCheckDynamic },
-  { "maple15", " ", " ", ResCheckDynamic },
-  { "gridmath8", " ", " ", ResCheckDynamic },
 
   /* matlab toolbox licenses */
   { "matlab_Statistics_Toolbox", " ", " ", ResCheckDynamic },
