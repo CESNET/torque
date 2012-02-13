@@ -203,6 +203,7 @@ cleanup_boot()
 		/afs/ics.muni.cz/software/booot/booot delete --force-delete-lv ${DOMAIN/\.*/} >>/tmp/booot.log 2>&1
 		if [ $? -ne 0 ]; then
 			logger -p daemon.crit -t magrathea_prologue "Couldn't cleanup booot.";
+			cat /tmp/booot.log | mail -s "Error during deleting virtual domain" $USER
 			return 1;
 		fi
 	fi
@@ -253,13 +254,13 @@ invoke_booot()
 {
 	if [ $INVOKE_BOOT -ne 1 ]; then return; fi
 
-	date >/tmp/booot.log
 	cleanup_boot;
 
 	date >>/tmp/booot.log
 	/afs/ics.muni.cz/software/booot/booot create ${DOMAIN/\.*/} >>/tmp/booot.log 2>&1
 	if [ $? -ne 0 ]; then
 		logger -p daemon.crit -t magrathea_prologue "Fatal error. Booot failed.";
+		cat /tmp/booot.log | mail -s "Error during creating virtual domain" $USER
 		cleanup_boot
 		exit 1;
 	fi
