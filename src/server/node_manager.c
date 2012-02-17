@@ -2647,10 +2647,9 @@ int hasadprop(struct pbsnode *pnode, struct prop *props)
     {
     struct prop *pp;
     unsigned negative = 0;
-    char *name, *value;
+    char *name;
 
     name = need->name;
-    value = need->value;
 
     if (name[0] == '^')
       {
@@ -3153,7 +3152,7 @@ void regenerate_total_resources(job * pjob)
   resource *rs;
   pars_spec_node *node = NULL;
   pars_prop *prop = NULL;
-  unsigned mem = 0, vmem = 0;
+  unsigned long long mem = 0, vmem = 0;
   int i, ret;
 
   /* Step (1)
@@ -3399,7 +3398,7 @@ void regenerate_total_resources(job * pjob)
 
     /* find the definition and decode the value */
     rd = find_resc_def(svr_resc_def, "mem", svr_resc_size);
-    sprintf(buf,"%dKB",mem);
+    sprintf(buf,"%lluKB",mem);
     rd->rs_decode(&attr,"mem","",buf);
 
     /* check if mem is already present (shouldn't be) */
@@ -3413,7 +3412,7 @@ void regenerate_total_resources(job * pjob)
 
     /* find the definition and decode the value */
     rd = find_resc_def(svr_resc_def, "vmem", svr_resc_size);
-    sprintf(buf,"%dKB",vmem);
+    sprintf(buf,"%lluKB",vmem);
     rd->rs_decode(&attr,"vmem","",buf);
 
     /* check if vmem is already present (shouldn't be) */
@@ -5196,7 +5195,7 @@ void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp, int first,
   {
   struct prop *prop = NULL, *iter = NULL;
   char *str, *spec, *token;
-  int i,count,num;
+  int i,num;
 
   if (jp->job->ji_expanded_spec == NULL)
     return;
@@ -5211,8 +5210,6 @@ void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp, int first,
     if (token != NULL)
       token++;
     }
-
-  count = i;
 
   token = spec;
 

@@ -2469,8 +2469,10 @@ void req_stat_job(
     if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
       continue; /* not Mother Superior */
 
+#if 0
     if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
       continue;
+#endif
 
     /* allocate reply structure and fill in header portion */
 

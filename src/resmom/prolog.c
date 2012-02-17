@@ -101,6 +101,7 @@
 #include "pbs_proto.h"
 #include "net_connect.h"
 #include "cloud.h"
+#include "mom_resources.h"
 
 #define PBS_PROLOG_TIME 1800
 
@@ -782,6 +783,8 @@ int run_pelog(
     arg[2] = pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str;
     arg[3] = pjob->ji_wattr[(int)JOB_ATR_egroup].at_val.at_str;
     arg[4] = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
+
+    set_resource_vars(pjob,NULL);
 
     /* NOTE:  inside child */
 

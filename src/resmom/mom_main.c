@@ -183,8 +183,11 @@ int    internal_state = 0;
 /* by default, enforce these policies */
 int    ignwalltime = 0; 
 int    ignmem = 0;
+int    ignpmem = 0;
 int    igncput = 0;
-int    ignvmem = 0; 
+int    ignvmem = 0;
+int    ignpvmem = 0;
+int    simulatekill = 0;
 int    spoolasfinalname = 0;
 int    killdelay = 0;
 /* end policies */
@@ -283,7 +286,6 @@ pjobexec_t      TMOMStartInfo[TMAX_JE];
 
 /* prototypes */
 
-extern void     add_resc_def(char *, char *);
 extern void     mom_server_all_diag(char **BPtr, int *BSpace);
 extern void     mom_server_update_receive_time(int stream, const char *command_name);
 extern void     mom_server_all_init(void);
@@ -346,6 +348,9 @@ static unsigned long setignwalltime(char *);
 static unsigned long setignmem(char *);
 static unsigned long setigncput(char *);
 static unsigned long setignvmem(char *);
+static unsigned long setignpmem(char *);
+static unsigned long setignpvmem(char *);
+static unsigned long setsimulatekill(char *);
 static unsigned long setlogevent(char *);
 static unsigned long setloglevel(char *);
 static unsigned long setumask(char *);
@@ -406,8 +411,11 @@ static struct specials
   { "ideal_load",          setidealload },
   { "ignwalltime",         setignwalltime },
   { "ignmem",              setignmem },
+  { "ignpmem",             setignpmem },
   { "igncput",             setigncput },
   { "ignvmem",             setignvmem },
+  { "simulate_kill",       setsimulatekill },
+  { "ignpvmem",            setignpvmem },
   { "logevent",            setlogevent },
   { "loglevel",            setloglevel },
   { "max_load",            setmaxload },
@@ -2679,16 +2687,9 @@ static unsigned long setignwalltime(
 
 
 
-static unsigned long setignmem(
-
-  char *value)  /* I */
-
+static unsigned long setignmem(char *value)  /* I */
   {
-  log_record(
-    PBSEVENT_SYSTEM,
-    PBS_EVENTCLASS_SERVER,
-    "ignmem",
-    value);
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "ignmem", value);
 
   if (!strncasecmp(value,"t",1) || (value[0] == '1') || !strcasecmp(value,"on") )
     ignmem = 1;
@@ -2698,7 +2699,53 @@ static unsigned long setignmem(
   return(1);
   } /* END setignmem() */
 
+static unsigned long setignpmem(char *value)  /* I */
+  {
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "ignpmem", value);
 
+  if (!strncasecmp(value,"t",1) || (value[0] == '1') || !strcasecmp(value,"on") )
+    ignpmem = 1;
+  else
+    ignpmem = 0;
+
+  return(1);
+  } /* END setignmem() */
+
+static unsigned long setignvmem(char *value)  /* I */
+  {
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "setignvmem", value);
+
+  if (!strncasecmp(value, "t", 1) || (value[0] == '1') || !strcasecmp(value, "on"))
+    ignvmem = 1;
+  else
+    ignvmem = 0;
+
+  return(1);
+  }  /* END setignvmem() */
+
+static unsigned long setignpvmem(char *value)  /* I */
+  {
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "setignpvmem", value);
+
+  if (!strncasecmp(value, "t", 1) || (value[0] == '1') || !strcasecmp(value, "on"))
+    ignpvmem = 1;
+  else
+    ignpvmem = 0;
+
+  return(1);
+  }  /* END setignvmem() */
+
+static unsigned long setsimulatekill(char *value) /* I */
+  {
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "setignpvmem", value);
+
+  if (!strncasecmp(value, "t", 1) || (value[0] == '1') || !strcasecmp(value, "on"))
+    simulatekill = 1;
+  else
+    simulatekill = 0;
+
+  return 1;
+  }
 
 static unsigned long setigncput(
 
@@ -2718,36 +2765,6 @@ static unsigned long setigncput(
 
   return(1);
   }
-
-
-static unsigned long setignvmem(
-
-  char *value)  /* I */
-
-  {
-  char newstr[50] = "setignvmem ";
-
-  log_record(
-    PBSEVENT_SYSTEM,
-    PBS_EVENTCLASS_SERVER,
-    "setignvmem",
-    value);
-
-  if (!strncasecmp(value, "t", 1) || (value[0] == '1') || !strcasecmp(value, "on"))
-    {
-    ignvmem = 1;
-    }
-  else
-    {
-    ignvmem = 0;
-    }
-
-  strcat(newstr, value);
-
-  /* SUCCESS */
-
-  return(1);
-  }  /* END setignvmem() */
 
 
 static unsigned long setautoidealload(
@@ -5851,13 +5868,13 @@ static void mom_lock(
  *  sizeof(word) = sizeof(int)
  */
 
-unsigned long getsize(
+unsigned long long getsize(
 
   resource *pres)  /* I */
 
   {
-  unsigned long value;
-  unsigned long shift;
+  unsigned long long value;
+  unsigned long long shift;
 
   if (pres->rs_value.at_type != ATR_TYPE_SIZE)
     {
@@ -5939,9 +5956,9 @@ int job_over_limit(
   resource *useresc;
 
   struct resource_def *rd;
-  unsigned long total;
+  unsigned long long total;
   int  index, i;
-  unsigned long limit;
+  unsigned long long limit;
   char  *units;
 
   if (mom_over_limit(pjob))
@@ -6023,7 +6040,7 @@ int job_over_limit(
       }  /* END if (pnode->hn_sister != 0) */
     }    /* END if (pjob->ji_nodekill != TM_ERROR_NODE) */
 
-  attr = &pjob->ji_wattr[JOB_ATR_resource];
+  attr = &pjob->ji_wattr[JOB_ATR_total_resources];
 
   used = &pjob->ji_wattr[JOB_ATR_resc_used];
 
@@ -6087,12 +6104,20 @@ int job_over_limit(
 
   units = index == 0 ? "secs" : "kb";
 
-  sprintf(log_buffer, "%s job total %lu %s exceeded limit %lu %s",
+  sprintf(log_buffer, "%s job total %llu %s exceeded limit %llu %s",
           rd->rs_name,
           total,
           units,
           limit,
           units);
+
+  if (simulatekill)
+    {
+    sprintf(log_buffer, "[%s] %s job total %llu %s exceeded limit %llu %s",
+            pjob->ji_qs.ji_jobid, rd->rs_name, total, units, limit, units);
+    log_err(0,"SIMULATED_KILL",log_buffer);
+    return 0;
+    }
 
   pjob->ji_nodekill = pjob->ji_nodeid;
 

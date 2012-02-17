@@ -106,6 +106,8 @@
  * rather than depending on a predefined index.
  */
 
+#include "attribute.h"
+
 typedef struct resource
   {
   list_link       rs_link; /* link to other resources in list */

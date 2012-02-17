@@ -77,6 +77,8 @@
 * without reference to its choice of law rules.
 */
 
+#ifndef MOM_FUNC_H_
+#define MOM_FUNC_H_
 
 #include "libpbs.h"
 
@@ -214,3 +216,4 @@ extern int   start_checkpoint A_((job *, int, struct batch_request *));
 #endif /* BATCH_REQUEST_H */
 
 
+#endif

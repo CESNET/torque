@@ -137,12 +137,10 @@ extern int  termin_child;
 
 extern struct connection svr_conn[];
 extern int  resc_access_perm;
-extern char  *path_aux;
 
 extern int   LOGLEVEL;
 
 extern char  *PJobSubState[];
-extern char  mom_host[];
 extern int   PBSNodeCheckProlog;
 extern int   PBSNodeCheckEpilog;
 

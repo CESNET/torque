@@ -135,13 +135,9 @@ extern int  exiting_tasks;
 extern char  mom_host[];
 extern char  *path_jobs;
 extern char  *path_home;
-extern int  pbs_errno;
-extern unsigned int pbs_mom_port;
 extern unsigned int pbs_rm_port;
-extern unsigned int pbs_tm_port;
 extern tlist_head mom_polljobs; /* must have resource limits polled */
 extern tlist_head svr_alljobs; /* all jobs under MOM's control */
-extern int  termin_child;
 extern time_t  time_now;
 extern tree           *okclients; /* accept connections from */
 extern  int             port_care;

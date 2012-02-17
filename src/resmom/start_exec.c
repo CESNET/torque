@@ -120,6 +120,7 @@
 #include "md5.h"
 #include "mcom.h"
 #include "resource.h"
+#include "mom_resources.h"
 
 #include "cloud.h"
 
@@ -298,14 +299,12 @@ extern int TMOMJobGetStartInfo(job *, pjobexec_t **);
 extern int mom_reader(int, int);
 extern int mom_writer(int, int);
 extern int x11_create_display(int, char *, char *phost, int pport, char *homedir, char *x11authstr);
-extern int blcr_restart_job(job  *pjob, char *file);
 extern int  mom_checkpoint_job_is_checkpointable(job *pjob);
 extern int  mom_checkpoint_job_has_checkpoint(job *pjob);
 extern int mom_checkpoint_execute_job(job *pjob, char *shell, char *arg[], struct var_table *vtable);
 extern void mom_checkpoint_init_job_periodic_timer(job *pjob);
 extern int  mom_checkpoint_start_restart(job *pjob);
 extern void get_jobs_default_checkpoint_dir(job *pjob, char *defaultpath);
-extern char *cat_dirs(char *root, char *base);
 extern char *get_local_script_path(job *pjob, char *base);
 
 extern int start_renewal(task *ptask, int, int);
@@ -2224,6 +2223,8 @@ int TMomFinalizeChild(
   
   bld_env_variables(&vtable, "PBS_VNODENUM", buf);
   
+  set_resource_vars(pjob,&vtable);
+
 #ifdef PENABLE_LINUX26_CPUSETS
 
 #ifndef ALWAYS_USE_CPUSETS  
@@ -4146,6 +4147,8 @@ int start_process(
   if (LOGLEVEL >= 10)
     log_ext(-1, id, "user env initialized", LOG_DEBUG);
   
+  set_resource_vars(pjob,&vtable);
+
   if (set_mach_vars(pjob, &vtable) != 0)
 	{
 	strcpy(log_buffer, "PBS: machine dependent environment variable setup failed\n");

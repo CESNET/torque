@@ -562,7 +562,7 @@ void print_server_info(server_info *sinfo, char brief)
 
     while (resp != NULL)
       {
-      printf("res %s max: %-10ld avail: %-10ld assigned: %-10ld\n",
+      printf("res %s max: %-10lld avail: %-10lld assigned: %-10lld\n",
              resp -> name, resp -> max, resp -> avail, resp -> assigned);
 
       resp = resp -> next;

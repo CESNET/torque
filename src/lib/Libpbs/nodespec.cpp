@@ -189,7 +189,7 @@ pars_spec_node *init_pars_spec_node()
   return spec;
   }
 
-void set_node_mem(pars_spec_node *node, unsigned value)
+void set_node_mem(pars_spec_node *node, unsigned long long value)
   {
   node->mem = value;
   free(node->mem_str);
@@ -198,7 +198,7 @@ void set_node_mem(pars_spec_node *node, unsigned value)
   node->mem_str = strdup(s.str().c_str());
   }
 
-void set_node_vmem(pars_spec_node *node, unsigned value)
+void set_node_vmem(pars_spec_node *node, unsigned long long value)
   {
   node->vmem = value;
   free(node->vmem_str);
@@ -273,12 +273,12 @@ void free_pars_spec_node(pars_spec_node **node)
 
 #define SIZE_OF_WORD 8
 
-int str_res_to_num(const char *res, unsigned *value)
+int str_res_to_num(const char *res, unsigned long long *value)
   {
-  unsigned result = 0;
+  unsigned long long result = 0;
   char *tail;
 
-  result = strtol(res,&tail,10);
+  result = strtoll(res,&tail,10);
 
   if (tail == res)
     return 1;
@@ -290,7 +290,7 @@ int str_res_to_num(const char *res, unsigned *value)
       unsigned minutes;
       char *tail2;
 
-      minutes = strtol(tail+1,&tail2,10);
+      minutes = strtoll(tail+1,&tail2,10);
 
       if (tail2 == tail+1)
         return 1;
@@ -300,7 +300,7 @@ int str_res_to_num(const char *res, unsigned *value)
         unsigned seconds;
         char *tail3;
 
-        seconds = strtol(tail2+1,&tail3,10);
+        seconds = strtoll(tail2+1,&tail3,10);
 
         if (tail3 == tail2+1)
           return 1;
@@ -434,14 +434,14 @@ pars_spec_node *parse_spec_node(char *node)
       }
     else if (strcmp(prop->name,"mem") == 0 && prop->value != NULL)
       {
-      unsigned value;
+      unsigned long long value;
       str_res_to_num(prop->value,&value);
       set_node_mem(result,value);
       free_pars_prop(&prop);
       }
     else if (strcmp(prop->name,"vmem") == 0 && prop->value != NULL)
       {
-      unsigned value;
+      unsigned long long value;
       str_res_to_num(prop->value,&value);
       set_node_vmem(result,value);
       free_pars_prop(&prop);
@@ -727,7 +727,7 @@ void add_prop_to_nodespec(pars_spec *spec, pars_prop *prop)
 
       if (node->mem == 0)
         {
-        unsigned value;
+        unsigned long long value;
         str_res_to_num(prop->value,&value);
         set_node_mem(node,value);
         }
@@ -739,7 +739,7 @@ void add_prop_to_nodespec(pars_spec *spec, pars_prop *prop)
       {
       if (node->vmem == 0)
         {
-        unsigned value;
+        unsigned long long value;
         str_res_to_num(prop->value,&value);
         set_node_vmem(node,value);
         }
@@ -785,8 +785,7 @@ void add_res_to_nodespec(pars_spec *spec, char* name, char* value)
 
 void expand_nodespec(pars_spec *spec)
   {
-  pars_prop *prop = spec->global, *tmp, *last;
-  pars_spec_node *node;
+  pars_prop *prop = spec->global;
 
   while (prop != NULL)
     {
@@ -801,3 +800,28 @@ void expand_nodespec(pars_spec *spec)
 
   spec->global_end = NULL;
   }
+
+pars_spec_node* find_node_in_spec(pars_spec *nodespec, const char* name)
+{
+	pars_spec_node *node = nodespec->nodes;
+	while(node != NULL)
+	{
+		if (node->host != NULL)
+		if (strcmp(node->host,name) == 0)
+			return node;
+
+		pars_prop *prop = node->properties;
+
+		while (prop != NULL)
+		{
+			if (strcmp(prop->name,name) == 0)
+				return node;
+
+			prop = prop->next;
+		}
+
+		node = node->next;
+	}
+
+	return NULL;
+}

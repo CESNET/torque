@@ -979,7 +979,7 @@ void print_node(node_info *ninfo, int brief)
 
         while (res != NULL)
           {
-          printf("\t%s : max %ld | avail %ld | assigned %ld | string: %s\n",
+          printf("\t%s : max %lld | avail %lld | assigned %lld | string: %s\n",
               res->name,res->max, res->avail, res->assigned,
               res->str_avail?res->str_avail:"");
           res = res->next;

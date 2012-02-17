@@ -7,21 +7,11 @@ JOBID="$1"
 USER="$2"
 GROUP="$3"
 
-QSTAT=
-if [ -x /usr/bin/qstat.bin ]; then
-	QSTAT="/usr/bin/qstat.bin";
-elif [ -x /software/torque-2.4/bin/qstat.bin ]; then
-	QSTAT="/software/torque-2.4/bin/qstat.bin";
-	PATH=/software/torque-2.4/sbin:$PATH;
-else
-	exit 1;
-fi
-
 # GPU handling
 CACHE_LIST=/software/pbs-7.0.0/cache/list_cache
 CACHE_UPDATE=/software/pbs-7.0.0/cache/update_cache
 
-GPU=`$QSTAT -f $JOBID | awk '/resc_req_total.gpu/ { print $3 }'`;
+GPU=$TORQUE_RESC_GPU;
 
 if [ "$GPU" != "" ]; then
 	FREE_GPU=`find /dev -user root -name nvidia[0-9]* | wc -l`;
@@ -29,8 +19,11 @@ if [ "$GPU" != "" ]; then
 		exit 3;
 	fi
 
+	rm -f /var/spool/torque/aux/gpu-$JOBID
+
 	while [ $GPU -gt 0 ]; do
 		CARD=`find /dev -user root -name nvidia[0-9]* | head -n 1`;
+		echo $CARD >>/var/spool/torque/aux/gpu-$JOBID
 		chown $USER $CARD;
 		chmod 600 $CARD;
 		$CACHE_UPDATE arien `hostname`:$CARD gpu_allocation $JOBID;
@@ -45,11 +38,11 @@ if [ ! -x /usr/sbin/magrathea-cmd ]; then
 fi
 
 # Determine if this is a cluster job, if it is, don't do anything
-if [ `$QSTAT -f $JOBID | grep "Resource_List.cluster" | wc -l` -ne 0 ]; then
+if [ "$TORQUE_RESC_TOTAL_CLUSTER" != "" ]; then
 	exit 0;
 fi
 
-if [ `$QSTAT -f $JOBID | sed -n 's/[ ]*resc_req_total.nodect[ ]*=[ ]*//p'` -gt 1 ]; then
+if [ $TORQUE_RESC_TOTAL_NODECT -gt 1 ]; then
 	preempt=
 else
 	preempt='-preemptible'

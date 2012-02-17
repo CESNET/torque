@@ -85,7 +85,7 @@
 /* resources can get too large for a 32 bit number, so the ability to use the
  * nonstandard type long long is necessary.
  */
-#define RESOURCE_TYPE long
+#define RESOURCE_TYPE long long
 
 /* the size (in bytes) of a word.  All resources are kept in kilobytes
  * internally in the server.  If any specification is in words, it will be

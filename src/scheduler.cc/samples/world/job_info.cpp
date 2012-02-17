@@ -654,7 +654,7 @@ void print_job_info(job_info *jinfo, char brief)
 
     while (resreq != NULL)
       {
-      printf("resreq %s %ld\n", resreq -> name, resreq -> amount);
+      printf("resreq %s %lld\n", resreq -> name, resreq -> amount);
       resreq = resreq -> next;
       }
     }

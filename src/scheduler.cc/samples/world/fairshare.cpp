@@ -586,7 +586,7 @@ void print_fairshare(group_info *root)
     return;
 
   if (root -> child == NULL)
-    printf("User: %-10s Grp: %d cgrp: %d Usage %ld Perc: %f\n", root -> name,
+    printf("User: %-10s Grp: %d cgrp: %d Usage %lld Perc: %f\n", root -> name,
            root -> resgroup, root -> cresgroup, root -> usage, root -> percentage);
 
   print_fairshare(root -> sibling);

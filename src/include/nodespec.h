@@ -33,9 +33,9 @@ struct pars_spec_node
   char *alternative; /**< selected alternative name (if present) */
   char *host; /**< selected host name (if present) */
   unsigned procs; /**< count of procs */
-  unsigned mem; /**< memory in megabytes */
+  unsigned long long mem; /**< memory in kilobytes */
   char *mem_str;
-  unsigned vmem; /**< virtual memory in megabytes */
+  unsigned long long vmem; /**< virtual memory in kilobytes */
   char *vmem_str;
   struct pars_prop *properties;
   struct pars_prop *properties_end;
@@ -108,5 +108,7 @@ enum alter_flag { with_alternative, without_alternative };
 char *concat_nodespec(pars_spec *nodespec, int with_excl, enum alter_flag with_alter, const char ** ign_props);
 
 void free_pars_prop(pars_prop **prop);
+
+pars_spec_node* find_node_in_spec(pars_spec *nodespec, const char* name);
 
 #endif /* NODESPEC_H_ */
