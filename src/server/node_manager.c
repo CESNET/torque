@@ -5336,6 +5336,7 @@ void free_nodes(
         else
           prev->next = jp->next;
 
+	if (!is_admin_job(pjob))
         if (pnode->nd_exclusive == 1) /* if taken exclusively, free */
           pnode->nd_exclusive = 0;
 

@@ -29,6 +29,8 @@ if [ "$GPU" != "" ]; then
 		$CACHE_UPDATE arien `hostname`:$CARD gpu_allocation $JOBID;
 		let GPU-=1
 	done
+
+	chmod 644 /var/spool/torque/aux/gpu-$JOBID &>/dev/null
 fi
 
 # Cloud handling

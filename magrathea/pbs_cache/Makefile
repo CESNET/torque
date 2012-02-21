@@ -101,9 +101,9 @@ todo:
 
 install: pbs_cache update_cache delete_cache list_cache list_client libpbscache.a libpbscache.so
 	install -m 0644 libpbscache.so $(DESTDIR)/usr/lib/libpbscache.so.1.0.0
-	ln -sf $(DESTDIR)/usr/lib/libpbscache.so.1.0.0 $(DESTDIR)/usr/lib/libpbscache.so.1.0
-	ln -sf $(DESTDIR)/usr/lib/libpbscache.so.1.0.0 $(DESTDIR)/usr/lib/libpbscache.so.1
-	ln -sf $(DESTDIR)/usr/lib/libpbscache.so.1.0.0 $(DESTDIR)/usr/lib/libpbscache.so
+	ln -sf libpbscache.so.1.0.0 $(DESTDIR)/usr/lib/libpbscache.so.1.0
+	ln -sf libpbscache.so.1.0.0 $(DESTDIR)/usr/lib/libpbscache.so.1
+	ln -sf libpbscache.so.1.0.0 $(DESTDIR)/usr/lib/libpbscache.so
 	install -m 0644 api.h $(DESTDIR)/usr/include/pbs_cache_api.h
 	install -m 0744 *_cache $(DESTDIR)/usr/sbin
 
