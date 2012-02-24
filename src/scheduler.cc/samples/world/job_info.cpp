@@ -1089,6 +1089,17 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
   {
   resource *res;
 
+  if (this->cluster_mode == ClusterCreate)
+    {
+    for (size_t i = 0; i < ninfo->host->hosted.size(); i++)
+      {
+      ninfo->host->hosted[i]->is_usable_for_run = 0;
+      ninfo->host->hosted[i]->is_usable_for_boot = 0;
+      sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
+                "Node marked as incapable of running and booting jobs, because it, or it's sister is servicing a cluster job.");
+      }
+    }
+
   if (is_exclusive)
     ninfo->npassigned += ninfo->np;
   else

@@ -164,7 +164,7 @@ test_status_start()
 test_status_running()
 {
 	fetch_xm_status;
-	if [ "$XM_STATUS" != "online" ]; then
+	if [ "$XM_STATUS" = "offline" ]; then
 		logger -p daemon.info -t magrathea_prologue "XEN machine is down, or shutting down. Tearing down cluster.";
 		exit_with_rollback 1;
 	fi
