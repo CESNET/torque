@@ -576,7 +576,7 @@ char **value;
       (*tok_ptr == '\0'))
     return(0);
 
-  curr_ptr = smart_strtok(start,",",&tok_ptr,FALSE);
+  curr_ptr = smart_strtok(start,"",&tok_ptr,FALSE);
 
   if ((curr_ptr == NULL))
     return(0);
