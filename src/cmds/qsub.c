@@ -1336,7 +1336,9 @@ int set_job_env(
   char *job_env;
   char *s, *c, *env, l;
   unsigned   len;
-  int   rc = 0;
+#ifdef QSUBHOSTNAME
+  int rc = 0;
+#endif
 
   int   eindex;
 
