@@ -173,13 +173,16 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
     if (ninfo_arr[i]->type == NodeVirtual)
       {
       node_info *physical;
-      char *host = xpbs_cache_get_local(ninfo_arr[i]->name,"host");
-      if (host == NULL)
+      char *cache = xpbs_cache_get_local(ninfo_arr[i]->name,"host");
+      if (cache == NULL)
         continue;
+
+      char *host = cache_value_only(cache);
+      free(cache);
 
       physical = find_node_info(host,ninfo_arr);
       if (physical == NULL)
-	{ free(host); continue; }
+      { free(host); continue; }
 
       ninfo_arr[i]->host = physical;
       physical->hosted.push_back(ninfo_arr[i]);
