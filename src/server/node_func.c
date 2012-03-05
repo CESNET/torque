@@ -1369,6 +1369,14 @@ int update_nodes_file(void)
         np->gpu_str);
       }
 
+    /* if number of gpus is gt 0, write that; if none,   */
+    /* don't write to maintain compatability with old style file */
+
+    if (np->nd_ngpus > 0)
+      fprintf(nin, " %s=%d",
+              ATTR_NODE_gpus,
+              np->nd_ngpus);
+
     /* write out properties */
 
     for (j = 0;j < np->nd_nprops - 1;++j)
