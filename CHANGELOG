@@ -16,6 +16,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - fix for where pbsnodes displays outdated gpu_status information.
   b - Fixed a problem where starting pbs_mom with the default -p option would delete
       running jobs instead of trying to recover them if cpusets were enabled. TRQ-828
+  b - fix problem with '+ and segfault when using multiple node gpu requests.
+      (backported from 4.0.1)
 
 3.0.4
   c - fix a buffer being overrun with nvidia gpus enabled
