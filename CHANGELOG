@@ -13,6 +13,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       Matches qsub documentation again. (backported from 4.0.1)
   e - change to allow pbs_mom to run if configured with --enable-nvidia-gpus but
       installed on a node without Nvidia gpus.
+  b - fix for where pbsnodes displays outdated gpu_status information.
 
 3.0.4
   c - fix a buffer being overrun with nvidia gpus enabled
