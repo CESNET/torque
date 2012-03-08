@@ -20,6 +20,8 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - Added a check for a NULL job pointer in modify_job. This fixes TRQ-818
   b - fix problem with '+ and segfault when using multiple node gpu requests.
       (backported from 4.0.1)
+  b - fix problem with mom segfault when using 8 or more gpus on mom node.
+      (backported from 4.0.1)
 
 3.0.4
   c - fix a buffer being overrun with nvidia gpus enabled
