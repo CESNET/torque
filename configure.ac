@@ -25,7 +25,7 @@ dnl by David Beer (dbeer@adaptivecomputing.com)
 dnl
 
 AC_PREREQ(2.53)
-AC_INIT([torque], [2.4.16], [torqueusers@supercluster.org])
+AC_INIT([torque], [2.4.17], [torqueusers@supercluster.org])
 AC_REVISION($Revision$)
 AC_CONFIG_SRCDIR([src/cmds/qrun.c])
 AC_CONFIG_AUX_DIR([buildutils])
@@ -49,6 +49,7 @@ fi
 AC_SUBST(program_prefix)
 AC_SUBST(program_suffix)
 
+m4_pattern_allow(RPM_AC_OPTS)
 RPM_AC_OPTS=""
 
 dnl  Instead of putting a long list of defines on the command line
