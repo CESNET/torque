@@ -6523,81 +6523,99 @@ static int search_env_and_open(
 	}	 /* END search_env_and_open() */
 
 
-
+#define STARTJOB_RTN_SIZE    32 /* The structure is actually an int and a pid_t so 32
+                                   is overkill. But this is for a read buffer. It is
+                                   OK if it is larger than what we expect to read */
 
 int TMomCheckJobChild(
-	pjobexec_t *TJE,			 /* I */
-	int         Timeout,	 /* I (in seconds) */
-	int        *Count,		 /* O (bytes read) */
-	int        *RC)			 /* O (return code/errno) */
+    pjobexec_t *TJE,			 /* I */
+    int         Timeout,	 /* I (in seconds) */
+    int        *Count,		 /* O (bytes read) */
+    int        *RC)			 /* O (return code/errno) */
 
-	{
-	int i;
-	
-	fd_set fdset;
-	
-	int rc;
-	
-	struct timeval timeout;
-	
-	/* NOTE:  assume if anything is on pipe, everything is on pipe
-						(may reasult in hang) */
-	
-	/* block up to timeout, wait for child to complete indicating
-		 success/failure of job launch */
-	
-	/* read returns the session id or error */
-	
-	timeout.tv_sec  = Timeout;
-	timeout.tv_usec = 0;
-	errno = 0;
-	
-	FD_ZERO(&fdset);
-	
-	FD_SET(TJE->jsmpipe[0], &fdset);
-	
-	rc = select(
-						 TJE->jsmpipe[0] + 1,
-						 &fdset,
-						 (fd_set *)NULL,
-						 (fd_set *)NULL,
-						 &timeout);
-	
-	if (rc <= 0)
-		{
-		/* TIMEOUT - data not yet available */
-	
-		return(FAILURE);
-		}
-	
-	for (;;)
-		{
-		i = read(
-						TJE->jsmpipe[0],
-						(char *) & TJE->sjr,
-						sizeof(struct startjob_rtn));
-	
-		if ((i == -1) && (errno == EINTR))
-			continue;
-	
-		break;
-		}
-	
-	*RC = errno;
-	
-	*Count = i;
-	
-	if (LOGLEVEL >= 4)
-		{
-		log_record(
-							PBSEVENT_ERROR,
-							PBS_EVENTCLASS_JOB,
-							(TJE->pjob != NULL) ? ((job *)TJE->pjob)->ji_qs.ji_jobid : "???",
-							"task/session info loaded");
-		}
-	
-	return(SUCCESS);
-	}	 /* END TMomCheckJobChild() */
+{
+  int i;
+
+  fd_set fdset;
+  char   readbuf[STARTJOB_RTN_SIZE];
+  char   holdbuf[STARTJOB_RTN_SIZE];
+  int    bytes_read = 0;
+  int rc;
+  struct timeval timeout;
+
+  /* NOTE:  assume if anything is on pipe, everything is on pipe
+     (may reasult in hang) */
+
+  /* block up to timeout, wait for child to complete indicating
+     success/failure of job launch */
+
+  /* read returns the session id or error */
+
+  timeout.tv_sec  = Timeout;
+  timeout.tv_usec = 0;
+  errno = 0;
+
+  FD_ZERO(&fdset);
+
+  FD_SET(TJE->jsmpipe[0], &fdset);
+
+  rc = select(
+      TJE->jsmpipe[0] + 1,
+      &fdset,
+      (fd_set *)NULL,
+      (fd_set *)NULL,
+      &timeout);
+
+  if (rc <= 0)
+    {
+    /* TIMEOUT - data not yet available */
+
+    return(FAILURE);
+    }
+
+
+  memset(holdbuf, 0, STARTJOB_RTN_SIZE);
+  do
+    {
+    /* read until we have read everything from the pipe */
+    memset(readbuf, 0, STARTJOB_RTN_SIZE);
+    i = read(
+        TJE->jsmpipe[0],
+        readbuf,
+        sizeof(struct startjob_rtn));
+
+    if (i == -1) 
+      if (errno == EINTR)
+        continue;
+      else
+        break;
+
+    bytes_read += i;
+    if(i == sizeof(struct startjob_rtn))
+      memcpy(holdbuf, readbuf, bytes_read);
+    else
+      strncat(holdbuf, readbuf, i);
+
+    }while ((i > 0) && (bytes_read < sizeof(struct startjob_rtn)));
+
+  if(bytes_read == sizeof(struct startjob_rtn))
+    memcpy(&TJE->sjr, holdbuf, bytes_read);
+
+  *RC = errno;
+
+  *Count = bytes_read;
+
+  if (LOGLEVEL >= 4)
+    {
+    log_record(
+        PBSEVENT_ERROR,
+        PBS_EVENTCLASS_JOB,
+        (TJE->pjob != NULL) ? ((job *)TJE->pjob)->ji_qs.ji_jobid : "???",
+        "task/session info loaded");
+    }
+
+  return(SUCCESS);
+}	 /* END TMomCheckJobChild() */
 
 
 
@@ -6607,11 +6625,11 @@ int TMomCheckJobChild(
  * Get a job_id from the system. Return job id or -1 if error
  */
 uint64_t get_jobid(
-	char*    pbs_jobid)
+    char*    pbs_jobid)
 {
-	static char *id = "get_jobid";
-	
-	uint64_t job_id;
+  static char *id = "get_jobid";
+
+  uint64_t job_id;
 
 #ifndef JOBFAKE
   job_id = job_create(0, getuid(), 0);
@@ -6621,30 +6639,30 @@ uint64_t get_jobid(
   job_id = fakejobid + rand();
 #endif /* JOBFAKE */
 
-	if (job_id == JOB_FAIL)
-		{
-		if (LOGLEVEL >= 3)
-			{
-			sprintf(log_buffer, "Failed to get system job id for pbs job %s",
-							pbs_jobid);
+  if (job_id == JOB_FAIL)
+  {
+    if (LOGLEVEL >= 3)
+    {
+      sprintf(log_buffer, "Failed to get system job id for pbs job %s",
+          pbs_jobid);
 
-			log_err(-1, id, log_buffer);
-			}
+      log_err(-1, id, log_buffer);
+    }
 
-		return(job_id);
-		}
+    return(job_id);
+  }
 
-	if (LOGLEVEL >= 7)
-		{
-		sprintf(log_buffer, "Got system job id = %lx(%ld) for pbs job %s",
-						job_id,
-						job_id,
-						pbs_jobid);
+  if (LOGLEVEL >= 7)
+  {
+    sprintf(log_buffer, "Got system job id = %lx(%ld) for pbs job %s",
+        job_id,
+        job_id,
+        pbs_jobid);
 
-		log_ext(-1, id, log_buffer, LOG_DEBUG);
-		}
+    log_ext(-1, id, log_buffer, LOG_DEBUG);
+  }
 
-	return(job_id);
+  return(job_id);
 }	 /* END get_jobid() */
 #endif  /* USEJOBCREATE */
 
@@ -6657,47 +6675,47 @@ uint64_t get_jobid(
  */
 
 int check_csa_status(enum csa_chk_cmd chk_action)
-	{
+{
 #ifndef CSAFAKE	
-	static char *id = "check_csa_status";
+  static char *id = "check_csa_status";
 #endif /* CSAFAKE */	
-	int csa_stat = 0;
+  int csa_stat = 0;
 
 #ifndef CSAFAKE	
-	struct csa_check_req ck_req;
-	
-	ck_req.ck_stat.am_id = (chk_action == IS_INSTALLED) ? ACCT_KERN_CSA : ACCT_DMD_WKMG;
-	ck_req.ck_stat.am_status = ACS_OFF;
-	ck_req.ck_stat.am_param = 0;
-	
-	if (csa_check(&ck_req) != 0)
-		{
-		if (errno != ENOSYS)
-			{
-			sprintf("check_csa_status errno = %d\n", errno);
-	
-			log_err(-1, id, log_buffer);
-			}
-	
-		return 0;
-		}
-	
-	if (chk_action == IS_INSTALLED)
-		{
-		/* since the call to csa_check was successful, we know csa is installed */
-		csa_stat = 1;
-		} 
-	else
-		{
-		csa_stat = (ck_req.ck_stat.am_status != ACS_ON) ? 0 : 1;
-		}
+  struct csa_check_req ck_req;
+
+  ck_req.ck_stat.am_id = (chk_action == IS_INSTALLED) ? ACCT_KERN_CSA : ACCT_DMD_WKMG;
+  ck_req.ck_stat.am_status = ACS_OFF;
+  ck_req.ck_stat.am_param = 0;
+
+  if (csa_check(&ck_req) != 0)
+  {
+    if (errno != ENOSYS)
+    {
+      sprintf("check_csa_status errno = %d\n", errno);
+
+      log_err(-1, id, log_buffer);
+    }
+
+    return 0;
+  }
+
+  if (chk_action == IS_INSTALLED)
+  {
+    /* since the call to csa_check was successful, we know csa is installed */
+    csa_stat = 1;
+  } 
+  else
+  {
+    csa_stat = (ck_req.ck_stat.am_status != ACS_ON) ? 0 : 1;
+  }
 
 #else
   csa_stat = 1;
 
 #endif /* CSAFAKE */	
-	return(csa_stat);
-	}
+  return(csa_stat);
+}
 
 
 
@@ -6718,227 +6736,227 @@ int check_csa_status(enum csa_chk_cmd chk_action)
  *
  */
 int create_WLM_Rec(
-	char*    pbs_jobid,
-	uint64_t job_id,
-	int type,
-	int subtype,
-	uint64_t prid,
-	uint64_t ash,
-	int64_t compCode,
-	int64_t reqid)
+    char*    pbs_jobid,
+    uint64_t job_id,
+    int type,
+    int subtype,
+    uint64_t prid,
+    uint64_t ash,
+    int64_t compCode,
+    int64_t reqid)
 
-	{
-	static char *id = "create_WLM_Rec";
+{
+  static char *id = "create_WLM_Rec";
 
 #ifndef CSAFAKE
-	struct csa_wra_req cw;
-	struct wkmgmtbs wkm;
+  struct csa_wra_req cw;
+  struct wkmgmtbs wkm;
 #endif /* CSAFAKE */
 
-	char    rec_type[8];
-	char    sub_type[8];
+  char    rec_type[8];
+  char    sub_type[8];
 
-	/*
-	 * First, create an workload management record
-	 */
+  /*
+   * First, create an workload management record
+   */
 
-	if (type == WM_INIT)
-		{
-		strcpy(rec_type, "init");
+  if (type == WM_INIT)
+  {
+    strcpy(rec_type, "init");
 
-		if (subtype == WM_INIT_START)
-			{
-			strcpy(sub_type, "start");
-			} else if (subtype == WM_INIT_RESTART)
-			{
-			strcpy(sub_type, "restart");
-			} else if (subtype == WM_INIT_RERUN)
-			{
-			strcpy(sub_type, "rerun");
-			} else
-			{
-			sprintf(log_buffer, "WM_INIT bad sub type = %d for pbs job %s",
-							subtype,
-							pbs_jobid);
+    if (subtype == WM_INIT_START)
+    {
+      strcpy(sub_type, "start");
+    } else if (subtype == WM_INIT_RESTART)
+    {
+      strcpy(sub_type, "restart");
+    } else if (subtype == WM_INIT_RERUN)
+    {
+      strcpy(sub_type, "rerun");
+    } else
+    {
+      sprintf(log_buffer, "WM_INIT bad sub type = %d for pbs job %s",
+          subtype,
+          pbs_jobid);
 
-			log_err(-1, id, log_buffer);
-			return 0;
-			}
-		} else if (type == WM_TERM)
-		{
-		strcpy(rec_type, "term");
+      log_err(-1, id, log_buffer);
+      return 0;
+    }
+  } else if (type == WM_TERM)
+  {
+    strcpy(rec_type, "term");
 
-		if (subtype == WM_TERM_EXIT)
-			{
-			strcpy(sub_type, "exited");
-			} else if (subtype == WM_TERM_REQUEUE)
-			{
-			strcpy(sub_type, "requeue");
-			} else if (subtype == WM_TERM_HOLD)
-			{
-			strcpy(sub_type, "hold");
-			} else if (subtype == WM_TERM_RERUN)
-			{
-			strcpy(sub_type, "rerun");
-			} else if (subtype == WM_TERM_MIGRATE)
-			{
-			strcpy(sub_type, "migrate");
-			} else
-			{
-			sprintf(log_buffer, "WM_TERM bad sub type = %d for pbs job %s",
-							subtype,
-							pbs_jobid);
+    if (subtype == WM_TERM_EXIT)
+    {
+      strcpy(sub_type, "exited");
+    } else if (subtype == WM_TERM_REQUEUE)
+    {
+      strcpy(sub_type, "requeue");
+    } else if (subtype == WM_TERM_HOLD)
+    {
+      strcpy(sub_type, "hold");
+    } else if (subtype == WM_TERM_RERUN)
+    {
+      strcpy(sub_type, "rerun");
+    } else if (subtype == WM_TERM_MIGRATE)
+    {
+      strcpy(sub_type, "migrate");
+    } else
+    {
+      sprintf(log_buffer, "WM_TERM bad sub type = %d for pbs job %s",
+          subtype,
+          pbs_jobid);
 
-			log_err(-1, id, log_buffer);
-			return 0;
-			}
-		} else if (type == WM_RECV)
-		{
-		strcpy(rec_type, "recv");
+      log_err(-1, id, log_buffer);
+      return 0;
+    }
+  } else if (type == WM_RECV)
+  {
+    strcpy(rec_type, "recv");
 
-		if (subtype == WM_RECV_NEW)
-			{
-			strcpy(sub_type, "new");
-			} else
-			{
-			sprintf(log_buffer, "WM_RECV bad sub type = %d for pbs job %s",
-							subtype,
-							pbs_jobid);
+    if (subtype == WM_RECV_NEW)
+    {
+      strcpy(sub_type, "new");
+    } else
+    {
+      sprintf(log_buffer, "WM_RECV bad sub type = %d for pbs job %s",
+          subtype,
+          pbs_jobid);
 
-			log_err(-1, id, log_buffer);
-			return 0;
-			}
-		} else
-		{
-		sprintf(log_buffer, "bad record type = %d for pbs job %s",
-						type,
-						pbs_jobid);
+      log_err(-1, id, log_buffer);
+      return 0;
+    }
+  } else
+  {
+    sprintf(log_buffer, "bad record type = %d for pbs job %s",
+        type,
+        pbs_jobid);
 
-		log_err(-1, id, log_buffer);
-		return 0;
-		}
+    log_err(-1, id, log_buffer);
+    return 0;
+  }
 
 #ifdef CSAFAKE
   if (LOGLEVEL >= 7)
-    {
+  {
     sprintf(log_buffer, "Creating FAKE CSA workload management %s - %s record for: "
-            "job_id = %lx, compCode = %d, pbs job %s",
-            (char*)&rec_type, (char*)&sub_type,
-            job_id, (int)compCode,
-            pbs_jobid);
+        "job_id = %lx, compCode = %d, pbs job %s",
+        (char*)&rec_type, (char*)&sub_type,
+        job_id, (int)compCode,
+        pbs_jobid);
 
-		log_ext(-1, id, log_buffer, LOG_DEBUG);
-    }
+    log_ext(-1, id, log_buffer, LOG_DEBUG);
+  }
 
 #else
 
-	if (LOGLEVEL >= 7)
-		{
-		sprintf(log_buffer, "Creating CSA workload management %s - %s record for: "
-						"job_id = %llx, compCode = %d, pbs job %s",
-						&rec_type, &sub_type, job_id, compCode, pbs_jobid);
+  if (LOGLEVEL >= 7)
+  {
+    sprintf(log_buffer, "Creating CSA workload management %s - %s record for: "
+        "job_id = %llx, compCode = %d, pbs job %s",
+        &rec_type, &sub_type, job_id, compCode, pbs_jobid);
 
-		log_ext(-1, id, log_buffer, LOG_DEBUG);
-		}
+    log_ext(-1, id, log_buffer, LOG_DEBUG);
+  }
 
-	memset(&wkm, 0, sizeof(wkm));
+  memset(&wkm, 0, sizeof(wkm));
 
-	/* fill in header data */
+  /* fill in header data */
 
-	wkm.hdr.ah_magic = ACCT_MAGIC;
-	wkm.hdr.ah_revision = REV_APP;
-	wkm.hdr.ah_type = ACCT_DAEMON_WKMG;
+  wkm.hdr.ah_magic = ACCT_MAGIC;
+  wkm.hdr.ah_revision = REV_APP;
+  wkm.hdr.ah_type = ACCT_DAEMON_WKMG;
 
-	if (!getuid() || ! geteuid())
-		wkm.hdr.ah_flag |= ASU;	/* set super user flag */
+  if (!getuid() || ! geteuid())
+    wkm.hdr.ah_flag |= ASU;	/* set super user flag */
 
-	wkm.hdr.ah_size = sizeof(struct wkmgmtbs);
+  wkm.hdr.ah_size = sizeof(struct wkmgmtbs);
 
-	/* fill in rest of needed data */
+  /* fill in rest of needed data */
 
-	wkm.type = type;
+  wkm.type = type;
 
-	wkm.subtype = subtype;
+  wkm.subtype = subtype;
 
-	wkm.arrayid = 0;
+  wkm.arrayid = 0;
 
-	strncpy(&wkm.serv_provider[0], "TORQUE          ", sizeof(wkm.serv_provider));
+  strncpy(&wkm.serv_provider[0], "TORQUE          ", sizeof(wkm.serv_provider));
 
-	if ((wkm.time = time(NULL)) == (time_t) - 1)
-		{
-		sprintf(log_buffer, "error setting time, errno = %d - %s pbs job = %s",
-						errno,
-						strerror(errno),
-						pbs_jobid);
+  if ((wkm.time = time(NULL)) == (time_t) - 1)
+  {
+    sprintf(log_buffer, "error setting time, errno = %d - %s pbs job = %s",
+        errno,
+        strerror(errno),
+        pbs_jobid);
 
-		log_err(-1, id, log_buffer);
-		return 0;
-		}
+    log_err(-1, id, log_buffer);
+    return 0;
+  }
 
-	if ((wkm.enter_time = time(NULL)) == (time_t) - 1)
-		{
-		sprintf(log_buffer, "error setting INIT enter time, errno = %d - %s pbs job = %s",
-						errno,
-						strerror(errno),
-						pbs_jobid);
+  if ((wkm.enter_time = time(NULL)) == (time_t) - 1)
+  {
+    sprintf(log_buffer, "error setting INIT enter time, errno = %d - %s pbs job = %s",
+        errno,
+        strerror(errno),
+        pbs_jobid);
 
-		log_err(-1, id, log_buffer);
-		return 0;
-		}
+    log_err(-1, id, log_buffer);
+    return 0;
+  }
 
-	wkm.uid = getuid();
+  wkm.uid = getuid();
 
-	wkm.prid = prid;
-	wkm.ash = ash;
+  wkm.prid = prid;
+  wkm.ash = ash;
 
-	wkm.jid = job_id;
+  wkm.jid = job_id;
 
-	/*
-	* character fields need to be NULL terminated
-	*/
-	strncpy(&wkm.machname[0], "TORQUE-MACHINE", sizeof(wkm.machname) - 1);
-	strncpy(&wkm.reqname[0], "TORQUE-REQUEST", sizeof(wkm.reqname) - 1);
-	strncpy(&wkm.quename[0], "TORQUE-QUEUE", sizeof(wkm.quename) - 1);
-	wkm.reqid = reqid;
+  /*
+   * character fields need to be NULL terminated
+   */
+  strncpy(&wkm.machname[0], "TORQUE-MACHINE", sizeof(wkm.machname) - 1);
+  strncpy(&wkm.reqname[0], "TORQUE-REQUEST", sizeof(wkm.reqname) - 1);
+  strncpy(&wkm.quename[0], "TORQUE-QUEUE", sizeof(wkm.quename) - 1);
+  wkm.reqid = reqid;
 
-	if (type == WM_TERM)
-		{
-		wkm.code = compCode;
-		}
+  if (type == WM_TERM)
+  {
+    wkm.code = compCode;
+  }
 
-	/*
-	* Fill in the CSA_WRACCT request structure for csa ioctl call
-	*/
-	memset(&cw, 0, sizeof(cw));
+  /*
+   * Fill in the CSA_WRACCT request structure for csa ioctl call
+   */
+  memset(&cw, 0, sizeof(cw));
 
-	cw.wra_did = ACCT_DMD_WKMG;	 /* daemon ID */
+  cw.wra_did = ACCT_DMD_WKMG;	 /* daemon ID */
 
-	cw.wra_len = sizeof(struct wkmgmtbs);	/* length of app record */
+  cw.wra_len = sizeof(struct wkmgmtbs);	/* length of app record */
 
-	cw.wra_jid = job_id;	 /* job Id from job create */
+  cw.wra_jid = job_id;	 /* job Id from job create */
 
-	cw.wra_buf = (char *) & wkm;	/* pointer to record */
+  cw.wra_buf = (char *) & wkm;	/* pointer to record */
 
-	if (csa_wracct(&cw))
-		{
-		/* EINVAL is okay for a WM_TERM */
-		if ((type != WM_TERM) && (errno != EINVAL))
-			{
-			sprintf(log_buffer, "error writing wkm %s record, errno=%d - %s pbs job = %s",
-							&rec_type,
-							errno,
-							strerror(errno),
-							pbs_jobid);
+  if (csa_wracct(&cw))
+  {
+    /* EINVAL is okay for a WM_TERM */
+    if ((type != WM_TERM) && (errno != EINVAL))
+    {
+      sprintf(log_buffer, "error writing wkm %s record, errno=%d - %s pbs job = %s",
+          &rec_type,
+          errno,
+          strerror(errno),
+          pbs_jobid);
 
-			log_err(-1, id, log_buffer);
-			return 0;
-			}
-		}
+      log_err(-1, id, log_buffer);
+      return 0;
+    }
+  }
 
 #endif /* CSAFAKE */
 
-	return 1;
-	}
+  return 1;
+}
 
 
 
@@ -6947,83 +6965,83 @@ int create_WLM_Rec(
  */
 
 void add_wkm_start(
-	uint64_t job_id,
-	char*    pbs_jobid)
-	{
-	static char *id = "add_wkm_start";
+    uint64_t job_id,
+    char*    pbs_jobid)
+{
+  static char *id = "add_wkm_start";
 
-	if (check_csa_status(IS_UP))
-		{
-		
-		/* check if we have a valid job id, if not just return */
-		
-		if (job_id == JOB_FAIL)
-  		{
+  if (check_csa_status(IS_UP))
+  {
+
+    /* check if we have a valid job id, if not just return */
+
+    if (job_id == JOB_FAIL)
+    {
       if (LOGLEVEL >= 2)
-  			{
-  			sprintf(log_buffer,
-  							"%s called with bad job id = %lx for pbs job %s",
-  							id,
-  							job_id,
-  							pbs_jobid);
+      {
+        sprintf(log_buffer,
+            "%s called with bad job id = %lx for pbs job %s",
+            id,
+            job_id,
+            pbs_jobid);
 
-  			log_err(-1, id, log_buffer);
-  			}
-  		return;
-  		}
+        log_err(-1, id, log_buffer);
+      }
+      return;
+    }
 
-		/* Add a workload management received record before the start */
+    /* Add a workload management received record before the start */
 
-		if (create_WLM_Rec(pbs_jobid, job_id, WM_RECV, WM_RECV_NEW, 0, 0, 0, 0))
-			{
-			if (LOGLEVEL >= 7)
-				{
-				sprintf(log_buffer,
-								"Added CSA workload management WM_RECV for job id = %lx for pbs job %s",
-								job_id,
-								pbs_jobid);
+    if (create_WLM_Rec(pbs_jobid, job_id, WM_RECV, WM_RECV_NEW, 0, 0, 0, 0))
+    {
+      if (LOGLEVEL >= 7)
+      {
+        sprintf(log_buffer,
+            "Added CSA workload management WM_RECV for job id = %lx for pbs job %s",
+            job_id,
+            pbs_jobid);
 
-				log_ext(-1, id, log_buffer, LOG_DEBUG);
-				}
-			} else
-			{
-			if (LOGLEVEL >= 2)
-				{
-				sprintf(log_buffer,
-								"Failed to add CSA workload management WM_RECV for job id = %lx for pbs job %s",
-								job_id,
-								pbs_jobid);
+        log_ext(-1, id, log_buffer, LOG_DEBUG);
+      }
+    } else
+    {
+      if (LOGLEVEL >= 2)
+      {
+        sprintf(log_buffer,
+            "Failed to add CSA workload management WM_RECV for job id = %lx for pbs job %s",
+            job_id,
+            pbs_jobid);
 
-				log_err(-1, id, log_buffer);
-				}
+        log_err(-1, id, log_buffer);
+      }
 
-			return;
-			}
+      return;
+    }
 
-		if (create_WLM_Rec(pbs_jobid, job_id, WM_INIT, WM_INIT_START, 0, 0, 0, 0))
-			{
-			if (LOGLEVEL >= 7)
-				{
-				sprintf(log_buffer,
-								"Added CSA workload management WM_INIT for job id = %lx for pbs job %s",
-								job_id,
-								pbs_jobid);
+    if (create_WLM_Rec(pbs_jobid, job_id, WM_INIT, WM_INIT_START, 0, 0, 0, 0))
+    {
+      if (LOGLEVEL >= 7)
+      {
+        sprintf(log_buffer,
+            "Added CSA workload management WM_INIT for job id = %lx for pbs job %s",
+            job_id,
+            pbs_jobid);
 
-				log_ext(-1, id, log_buffer, LOG_DEBUG);
-				}
-			} else if (LOGLEVEL >= 2)
-			{
-			sprintf(log_buffer,
-							"Failed to add CSA workload management WM_INIT for job id = %lx for pbs job %s",
-							job_id,
-							pbs_jobid);
+        log_ext(-1, id, log_buffer, LOG_DEBUG);
+      }
+    } else if (LOGLEVEL >= 2)
+    {
+      sprintf(log_buffer,
+          "Failed to add CSA workload management WM_INIT for job id = %lx for pbs job %s",
+          job_id,
+          pbs_jobid);
 
-			log_err(-1, id, log_buffer);
-			}
-		}
+      log_err(-1, id, log_buffer);
+    }
+  }
 
-	return;
-	}	 /* END add_wkm_start() */
+  return;
+}	 /* END add_wkm_start() */
 
 
 
@@ -7033,57 +7051,57 @@ void add_wkm_start(
  */
 
 void add_wkm_end(
-	uint64_t job_id,
-	int64_t comp_code,
-	char*    pbs_jobid)
+    uint64_t job_id,
+    int64_t comp_code,
+    char*    pbs_jobid)
 
-	{
-	static char *id = "add_wkm_end";
+{
+  static char *id = "add_wkm_end";
 
-	if (check_csa_status(IS_UP))
-		{
-		
-		/* check if we have a valid job id, if not just return */
-		
-		if (job_id == JOB_FAIL)
-  		{
+  if (check_csa_status(IS_UP))
+  {
+
+    /* check if we have a valid job id, if not just return */
+
+    if (job_id == JOB_FAIL)
+    {
       if (LOGLEVEL >= 2)
-  			{
-  			sprintf(log_buffer,
-  							"%s called with bad job id = %lx for pbs job %s",
-  							id,
-  							job_id,
-  							pbs_jobid);
+      {
+        sprintf(log_buffer,
+            "%s called with bad job id = %lx for pbs job %s",
+            id,
+            job_id,
+            pbs_jobid);
 
-  			log_err(-1, id, log_buffer);
-  			}
-  		return;
-  		}
+        log_err(-1, id, log_buffer);
+      }
+      return;
+    }
 
-		if (create_WLM_Rec(pbs_jobid, job_id, WM_TERM, WM_TERM_EXIT, 0, 0, comp_code, 0))
-			{
-			if (LOGLEVEL >= 7)
-				{
-				sprintf(log_buffer,
-								"Added CSA workload management WM_TERM for job id = %lx for pbs job %s",
-								job_id,
-								pbs_jobid);
+    if (create_WLM_Rec(pbs_jobid, job_id, WM_TERM, WM_TERM_EXIT, 0, 0, comp_code, 0))
+    {
+      if (LOGLEVEL >= 7)
+      {
+        sprintf(log_buffer,
+            "Added CSA workload management WM_TERM for job id = %lx for pbs job %s",
+            job_id,
+            pbs_jobid);
 
-				log_ext(-1, id, log_buffer, LOG_DEBUG);
-				}
-			} else if (LOGLEVEL >= 2)
-			{
-			sprintf(log_buffer,
-							"Failed to add CSA workload management WM_TERM for job id = %lx for pbs job %s",
-							job_id,
-							pbs_jobid);
+        log_ext(-1, id, log_buffer, LOG_DEBUG);
+      }
+    } else if (LOGLEVEL >= 2)
+    {
+      sprintf(log_buffer,
+          "Failed to add CSA workload management WM_TERM for job id = %lx for pbs job %s",
+          job_id,
+          pbs_jobid);
 
-			log_err(-1, id, log_buffer);
-			}
-		}
+      log_err(-1, id, log_buffer);
+    }
+  }
 
-	return;
-	}	 /* END add_wkm_end() */
+  return;
+}	 /* END add_wkm_end() */
 
 
 
@@ -7103,12 +7121,12 @@ void add_wkm_end(
  */
 int expand_path(
 
-  job  *pjob,     /* I optional */
-  char *path_in,  /* I */
-  int   pathlen,  /* I */
-  char *path)     /* I */
+    job  *pjob,     /* I optional */
+    char *path_in,  /* I */
+    int   pathlen,  /* I */
+    char *path)     /* I */
 
-	{
+{
 #ifndef HAVE_WORDEXP
   /* no need for expansion if this isn't defined */
 
@@ -7119,71 +7137,71 @@ int expand_path(
 
   if ((path_in == NULL) ||
       (path == NULL))
-    {
+  {
     /* must have inputs and outputs */
 
     return(FAILURE);
-    }
+  }
 
   if (vtable.v_envp == NULL)
-    {
+  {
     if (pjob != NULL)
-      {
+    {
       InitUserEnv(pjob,NULL,NULL,NULL,NULL);
       *(vtable.v_envp + vtable.v_used) = NULL;
       environ = vtable.v_envp;
-      }
+    }
     else
-      {
+    {
       /* if there is no environment, there's no way to expand words */
       path = path_in;
       return(SUCCESS);
-      }
     }
+  }
   else
-    {
+  {
     *(vtable.v_envp + vtable.v_used) = NULL;
     environ = vtable.v_envp;
-    }
+  }
 
 
   /* expand the path */
   switch (wordexp(path_in, &exp, WRDE_NOCMD | WRDE_UNDEF))
-    {
-    
+  {
+
     case 0:
-      
+
       /* success - allow if word count is 1 */
-      
+
       if (exp.we_wordc == 1)
-        {
+      {
         snprintf(path,pathlen,"%s",exp.we_wordv[0]);
-        
+
         wordfree(&exp);
-        
+
         return(SUCCESS);
-        }
-      
+      }
+
       /* fall through */
-      
+
     case WRDE_NOSPACE:
-      
+
       wordfree(&exp);
-      
+
       /* fall through */
-      
+
     default:
-      
+
       return(FAILURE);
-      
-    }  /* END switch () */
+
+  }  /* END switch () */
 
   /* not reached */
 
   return(FAILURE);
 
 #endif /* HAVE_WORD_EXP */
-	}
+}
 
 
 

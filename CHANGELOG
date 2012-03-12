@@ -1,5 +1,21 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
+2.4.17
+  n - modified configure.ac to move to revision 17
+  b - Fix for qsub -W stagein / stageout to again allow for multiple files 
+      that are comma separated (TRQ-804)
+  e - TRQ-779 - Now all client command iterate through the job extension 
+      and all entries in server_name (if there are multiple)
+  b - Moved the endif for ifdef QSUBHOSTNAME to include the check for the 
+      error condition from the call to gethostname or get_fullhostname in qsub.c
+  b - Merged revision 5139 from 2.5-fixes. This revision fixes a problem with
+      displaying physmem larger than 250 Gb.
+  e - Added new error code PBSE_READ_REPLY_TIMEOUT
+  e - changed --with-high-availablity to --enable-high-availability in the 
+      buildutils/torque.spec.in file
+  b - set waittime to be MAX of 0 or waittime in main_loop for server to prevent 100% CPU utilization
+     
+
 2.4.16
   b - merged patch from Chris Samuel for bugzilla bug 149. A previous change to 
       job_purge to make it mult-threaded and avoid hanging while deleting files
