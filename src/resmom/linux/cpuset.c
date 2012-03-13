@@ -258,7 +258,6 @@ void remove_defunct_cpusets()
  *
  * @param cpusetStr - (I) the cpuset string
  * @param cpusetMap - (I/O) the cpuset map
- * @param mapSize - (I) the map size
  * @param add - (I) True to add cpuset to map else we remove cpuset from map
  */
 
@@ -266,7 +265,6 @@ void adjust_root_map(
 
   char *cpusetStr, /* I */
   int   cpusetMap[], /* I/O */
-  int   mapSize,   /* I */
   int   add)       /* I */
 
   {
@@ -369,10 +367,10 @@ void remove_boot_set(
     }
 
   /* add the root cpuset to the map */
-  adjust_root_map(rootStr, cpusetMap, 1024, TRUE);
+  adjust_root_map(rootStr, cpusetMap, TRUE);
 
   /* now remove the boot cpuset from the map */
-  adjust_root_map(bootStr, cpusetMap, 1024, FALSE);
+  adjust_root_map(bootStr, cpusetMap, FALSE);
   
   /* convert the cpuset map back into the root cpuset string */
 
