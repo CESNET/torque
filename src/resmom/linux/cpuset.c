@@ -874,6 +874,7 @@ int get_cpuset_strings(
   int     ratio = 0;
   char    tmpStr[MAXPATHLEN];
   int     numa_index;
+  char    *mem_idx_str;
 
 #ifdef NUMA_SUPPORT
   numanode *numa_tmp;
@@ -935,12 +936,33 @@ int get_cpuset_strings(
 #ifdef NUMA_SUPPORT
     sprintf(tmpStr,"%d",mem_index);
 
-    if (strstr(MemStr,tmpStr) == NULL)
+    mem_idx_str = strstr(MemStr, tmpStr);
+    if (mem_idx_str == NULL)
       {
+      /* This mem_index is not in the MemStr. 
+         add it. */
       if (MemStr[0] != '\0')
         strcat(MemStr, ",");
 
       strcat(MemStr, tmpStr);
+      }
+    else
+      {
+      /* Just because strstr returned a value
+         does not mean the substring matched
+         a whole index value. Check it */
+      if ((((mem_idx_str[strlen(tmpStr)]) != ',') && (mem_idx_str[strlen(tmpStr)] != '\0'))
+           || ((mem_idx_str != MemStr) && (*(mem_idx_str - 1) != ',')))
+        {
+        /* The end of the sub-string is good, now check the front */
+          {
+          if (MemStr[0] != '\0')
+            strcat(MemStr, ",");
+
+          strcat(MemStr, tmpStr);
+          }
+
+        }
       }
 #endif
     }
