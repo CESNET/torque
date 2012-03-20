@@ -2,7 +2,7 @@
 
 TORQUE Resource Manager
 
-Software Version 3.0.3
+Software Version 3.0.5
 
 This file contains a few notes on building and installing TORQUE and 
 Release notes concerning some of the new features of this release.
@@ -56,6 +56,10 @@ WHAT'S NEW
     New in 3.0 is the ability to run multiple pbs_mom daemons from the same 
     host. To learn more about the multi-mom capability see section 1.7
     of the TORQUE documentation found at http://www.clusterresources.com/products/torque/docs/index.shtml
+
+    New in 3.0.5:
+      No new features were added to 3.0.5. Please see the CHANGELOG for
+      bug fixes.
 
     New in 3.0.4:
       Fixed a problem with job arrays when upgrading to verions 2.5.9. Please see
