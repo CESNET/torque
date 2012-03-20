@@ -180,9 +180,10 @@ int dis_request_read(
 
   if (LOGLEVEL >= 5)
     {
-    sprintf(log_buffer, "decoding command %s from %s",
+    sprintf(log_buffer, "decoding command %s from %s@%s",
             reqtype_to_txt(request->rq_type),
-            request->rq_user);
+            request->rq_user,
+            request->rq_host);
 
     LOG_EVENT(
       PBSEVENT_DEBUG,

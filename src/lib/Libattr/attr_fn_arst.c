@@ -712,7 +712,10 @@ int set_arst(
 
         if ((op == MERGE) && (tail = strchr(newpas->as_string[i],'=')))
           {
-          len = tail - newpas->as_string[i];
+          if (tail == NULL)
+            len = strlen(newpas->as_string[i]);
+          else
+            len = tail - newpas->as_string[i];
           MatchFound = 0;
 
           for (j = 0;j < pas->as_usedptr;j++)
@@ -786,7 +789,10 @@ int set_arst(
 
         if ((tail = strchr(pas->as_string[i],'=')))
           {
-          len = tail - pas->as_string[i];
+          if (tail == NULL)
+            len = strlen(pas->as_string[i]);
+          else
+            len = tail - pas->as_string[i];
 
           for (j = 0;j < newpas->as_usedptr;j++)
             {
