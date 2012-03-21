@@ -710,8 +710,9 @@ int set_arst(
         int   len;
         int   MatchFound; /* boolean */
 
-        if ((op == MERGE) && (tail = strchr(newpas->as_string[i],'=')))
+        if (op == MERGE)
           {
+          tail = strchr(newpas->as_string[i],'=');
           if (tail == NULL)
             len = strlen(newpas->as_string[i]);
           else
@@ -787,24 +788,22 @@ int set_arst(
         int   len;
         int   MatchFound = 0; /* boolean */
 
-        if ((tail = strchr(pas->as_string[i],'=')))
+        tail = strchr(pas->as_string[i],'=');
+        if (tail == NULL)
+          len = strlen(pas->as_string[i]);
+        else
+          len = tail - pas->as_string[i];
+
+        for (j = 0;j < newpas->as_usedptr;j++)
           {
-          if (tail == NULL)
-            len = strlen(pas->as_string[i]);
-          else
-            len = tail - pas->as_string[i];
-
-          for (j = 0;j < newpas->as_usedptr;j++)
+          if (!strncmp(pas->as_string[i],newpas->as_string[j],len))
             {
-            if (!strncmp(pas->as_string[i],newpas->as_string[j],len))
-              {
-              MatchFound = 1;
+            MatchFound = 1;
 
-              break;
-              }
+            break;
             }
-
           }
+
         if (MatchFound == 0)
           {
           strcpy(tmp_arst->as_next,pas->as_string[i]);
