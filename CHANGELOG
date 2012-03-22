@@ -24,6 +24,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       (backported from 4.0.1)
   b - Fixed a bug for NUMA cpusets where Nodes were being underallocated for the job.
       TRQ-845
+  b - Fixed a problem with cpusets where if a boot cpuset is present under /dev/cpuset
+      torque would only write out 1024 cpus. This was changed from a hardcoded
+      value to be the maximum size found in /dev/cpuset/cpus. TRQ-840
 
 3.0.4
   c - fix a buffer being overrun with nvidia gpus enabled
