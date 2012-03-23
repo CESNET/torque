@@ -204,6 +204,28 @@ server_info *query_server(int pbs_sd)
 
   pbs_statfree(server);
 
+  for (i = 0; i < sinfo->sc.running; i++)
+    {
+    for (int j = 0; j < num_res; j++)
+      {
+      resource_req *resreq;
+
+      /* skip non-dynamic resource */
+      if (res_to_check[j].source != ResCheckDynamic)
+        continue;
+
+      /* no request for this resource */
+      if ((resreq = find_resource_req(sinfo->running_jobs[i]->resreq, res_to_check[j].name)) == NULL)
+        continue;
+
+      map<string,DynamicResource>::iterator it = sinfo->dynamic_resources.find(string(res_to_check[j].name));
+      if (it != sinfo->dynamic_resources.end())
+        {
+        it->second.add_scheduled(resreq->amount);
+        }
+      }
+    }
+
   return sinfo;
   }
 
@@ -403,7 +425,6 @@ void free_server_info(server_info *sinfo)
     free(sinfo -> non_dedicated_nodes);
 
   free_resource_list(sinfo -> res);
-  free_resource_list(sinfo -> dyn_res);
 
   delete sinfo;
   }
@@ -466,8 +487,6 @@ server_info *new_server_info()
   sinfo -> name = NULL;
 
   sinfo -> res = NULL;
-
-  sinfo -> dyn_res = NULL;
 
   sinfo -> default_queue = NULL;
 

@@ -94,6 +94,8 @@
 #include "dedtime.h"
 #include "token_acct.h"
 
+using namespace std;
+
 /* Internal functions */
 int check_server_max_run(server_info *sinfo);
 int check_queue_max_run(queue_info *qinfo);
@@ -242,7 +244,7 @@ int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
     return INSUFICIENT_SERVER_RESOURCE;
     }
 #endif
-  if ((rc = check_dynamic_resources(sinfo -> dyn_res, jinfo)) != SUCCESS)
+  if ((rc = check_dynamic_resources(sinfo, jinfo)) != SUCCESS)
     {
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
               "Not enough dynamic resources.");
@@ -384,10 +386,9 @@ int check_server_max_group_run(server_info *sinfo, char *group)
  * @param jinfo   Job with resource requests
  * @return SUCCESS if met, failure otherwise
  */
-int check_dynamic_resources(resource *reslist, job_info *jinfo)
+int check_dynamic_resources(server_info* sinfo, job_info *jinfo)
   {
   resource_req *resreq;
-  resource     *res;
   int i;
 
   for (i = 0; i < num_res; i++)
@@ -400,12 +401,11 @@ int check_dynamic_resources(resource *reslist, job_info *jinfo)
     if ((resreq = find_resource_req(jinfo -> resreq, res_to_check[i].name)) == NULL)
       continue;
 
-    /* there is a request, but the resource is not present at all */
-    if ((res = find_resource(reslist, res_to_check[i].name)) == NULL)
+    map<string,DynamicResource>::iterator it = sinfo->dynamic_resources.find(string(res_to_check[i].name));
+    if (it == sinfo->dynamic_resources.end())
       return INSUFICIENT_DYNAMIC_RESOURCE;
 
-    /* not enough of this resource */
-    if (res->avail - res->assigned < resreq->amount)
+    if (!it->second.would_fit(resreq->amount))
       return INSUFICIENT_DYNAMIC_RESOURCE;
     }
 

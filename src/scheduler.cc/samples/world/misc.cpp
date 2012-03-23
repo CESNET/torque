@@ -97,6 +97,12 @@
 
 #include "api.hpp"
 
+#include "data_types.h"
+
+#include <string>
+#include <utility>
+using namespace std;
+
 /*
  *
  *      res_to_num - convert a resource string to a  sch_resource_t to
@@ -243,8 +249,7 @@ char **break_comma_list(char *list)
 
     for (i = 0; tok != NULL; i++)
       {
-      while (isspace((int) *tok))
-        tok++;
+
 
       retnull_on_null(arr[i] = strdup(tok));
 
@@ -255,6 +260,23 @@ char **break_comma_list(char *list)
     }
 
   return arr;
+  }
+
+void comma_list_to_set(char *list, set<string>& s)
+  {
+  char *tok;
+
+  while ((tok = strchr(list,',')) != NULL)
+    {
+    *tok = '\0';
+    tok++;
+    while (isspace((int) *tok))
+      tok++;
+
+    s.insert(string(list));
+    list = tok;
+    }
+  s.insert(string(list));
   }
 
 /*
@@ -411,50 +433,52 @@ void query_external_cache(server_info *sinfo, int dynamic)
     {
     ptable=cache_hash_init();
     if ((res_to_check[j].source == ResCheckBoth) || (res_to_check[j].source == ResCheckCache))
-    if (xcache_hash_fill_local(res_to_check[j].name,ptable) == 0)
       {
-      for (i=0;i<sinfo -> num_nodes;i++)
+      if (xcache_hash_fill_local(res_to_check[j].name,ptable) == 0)
         {
-         node=sinfo -> nodes[i];
-         value=xcache_hash_find(ptable,node->name);
-         if (value!=NULL)
-           {
-           res = find_alloc_resource( node -> res, res_to_check[j].name );
-
-           if (node->res == NULL)
-             node->res = res;
-
-           if (res != NULL)
+        for (i=0;i<sinfo -> num_nodes;i++)
+          {
+           node=sinfo -> nodes[i];
+           value=xcache_hash_find(ptable,node->name);
+           if (value!=NULL)
              {
-             free(res -> str_avail);
-             if (is_num(value))
+             res = find_alloc_resource( node -> res, res_to_check[j].name );
+
+             if (node->res == NULL)
+               node->res = res;
+
+             if (res != NULL)
                {
-               res -> is_string = 0;
-               res -> avail = res_to_num(value);
-               res -> str_avail = value;
-               res -> assigned = 0;
-               res -> max = UNSPECIFIED;
-               }
-             else
-               {
-               res -> is_string = 1;
-               res -> str_avail = value;
-               res -> avail = 0;
-               res -> assigned = 0;
+               free(res -> str_avail);
+               if (is_num(value))
+                 {
+                 res -> is_string = 0;
+                 res -> avail = res_to_num(value);
+                 res -> str_avail = value;
+                 res -> assigned = 0;
+                 res -> max = UNSPECIFIED;
+                 }
+               else
+                 {
+                 res -> is_string = 1;
+                 res -> str_avail = value;
+                 res -> avail = 0;
+                 res -> assigned = 0;
+                 }
                }
              }
-           }
-         else
-           {
-           free(value);
-           }
+           else
+             {
+             free(value);
+             }
+          }
         }
-      }
-    else
-      {
-      sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, "pbs_cache",
-                "Couldn't fetch pbs_cache info for [%s] metric.",
-                res_to_check[j].name);
+      else
+        {
+        sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, "pbs_cache",
+                  "Couldn't fetch pbs_cache info for [%s] metric.",
+                  res_to_check[j].name);
+        }
       }
       cache_hash_destroy(ptable);
     }
@@ -494,17 +518,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
           value=xcache_hash_find(ptable,res_to_check[j].name);
           if (value != NULL)
             {
-            res = find_alloc_resource( sinfo->dyn_res, res_to_check[j].name );
-            if (sinfo->dyn_res == NULL)
-              sinfo->dyn_res = res;
-            if (res != NULL)
-              {
-              res->avail = res_to_num(value);
-              res->assigned = 0;
-              if (res->str_avail != NULL)
-                free(res->str_avail);
-              res->str_avail = value;
-              }
+            sinfo->dynamic_resources.insert(make_pair(string(res_to_check[j].name),DynamicResource(res_to_check[j].name,value)));
             }
           }
         }

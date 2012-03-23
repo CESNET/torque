@@ -462,14 +462,14 @@ int load_day(enum days d, enum prime_time pr, char *tok)
     if (!strcmp(tok, "all") || !strcmp(tok, "ALL"))
       {
       conf.prime[d][pr].all = TRUE;
-      conf.prime[d][pr].hour = UNSPECIFIED;
-      conf.prime[d][pr].min = UNSPECIFIED;
+      conf.prime[d][pr].hour = 0;
+      conf.prime[d][pr].min = 0;
       }
     else if (!strcmp(tok, "none") || !strcmp(tok, "NONE"))
       {
       conf.prime[d][pr].none = TRUE;
-      conf.prime[d][pr].hour = UNSPECIFIED;
-      conf.prime[d][pr].min = UNSPECIFIED;
+      conf.prime[d][pr].hour = 0;
+      conf.prime[d][pr].min = 0;
       }
     else
       {

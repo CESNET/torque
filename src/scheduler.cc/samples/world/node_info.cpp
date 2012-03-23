@@ -175,7 +175,13 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
       node_info *physical;
       char *cache = xpbs_cache_get_local(ninfo_arr[i]->name,"host");
       if (cache == NULL)
+        {
+        sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_NODE, ninfo_arr[i]->name,
+                  "Bad configuration, virtual node without physical host.");
+        ninfo_arr[i]->is_usable_for_boot = 0;
+        ninfo_arr[i]->is_usable_for_run = 0;
         continue;
+        }
 
       char *host = cache_value_only(cache);
       free(cache);
@@ -228,10 +234,9 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
 
     /* properties from the servers nodes file */
     else if (!strcmp(attrp -> name, ATTR_NODE_properties))
-      ninfo -> properties = break_comma_list(attrp -> value);
-
+      comma_list_to_set(attrp->value,ninfo->physical_properties);
     else if (!strcmp(attrp -> name, ATTR_NODE_adproperties))
-      ninfo -> adproperties = break_comma_list(attrp -> value);
+      comma_list_to_set(attrp->value,ninfo->virtual_properties);
 
     /* the jobs running on the node */
     else if (!strcmp(attrp -> name, ATTR_NODE_jobs))
@@ -345,8 +350,6 @@ node_info *new_node_info()
   tmp -> no_multinode_jobs = 0;
 
   tmp -> name = NULL;
-  tmp -> properties = NULL;
-  tmp -> adproperties = NULL;
   tmp -> jobs = NULL;
   tmp -> big_status = NULL;
   tmp -> queue = NULL;
@@ -423,8 +426,6 @@ void free_node_info(node_info *ninfo)
   if (ninfo != NULL)
     {
     free(ninfo -> name);
-    free_string_array(ninfo -> properties);
-    free_string_array(ninfo -> adproperties);
     free_string_array(ninfo -> jobs);
     free(ninfo -> arch);
     free_string_array(ninfo -> big_status);
@@ -944,36 +945,35 @@ void print_node(node_info *ninfo, int brief)
       printf("np: %d | npfree: %d | npassigned: %d\n",
              ninfo->np, ninfo->npfree, ninfo->npassigned);
 
-      if (ninfo -> properties != NULL)
+      set<string>::iterator it;
+
+      if (ninfo->physical_properties.size() > 0)
         {
         printf("Properties: ");
 
-        for (i = 0; ninfo -> properties[i] != NULL; i++)
+        for (it = ninfo->physical_properties.begin(); it != ninfo->physical_properties.end(); i++)
           {
-          if (i)
+          if (it != ninfo->physical_properties.begin())
             printf(", ");
-
-          printf("%s", ninfo -> properties[i]);
+          printf("%s", it->c_str());
           }
 
         printf("\n");
         }
 
-      if (ninfo -> adproperties != NULL)
+      if (ninfo->virtual_properties.size() > 0)
         {
         printf("Additional Properties: ");
 
-        for (i = 0; ninfo -> adproperties[i] != NULL; i++)
+        for (it = ninfo->virtual_properties.begin(); it != ninfo->virtual_properties.end(); i++)
           {
-          if (i)
+          if (it != ninfo->virtual_properties.begin())
             printf(", ");
-
-          printf("%s", ninfo -> adproperties[i]);
+          printf("%s", it->c_str());
           }
 
         printf("\n");
         }
-
 
       if (ninfo -> res != NULL)
         {

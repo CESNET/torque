@@ -230,7 +230,7 @@ static int node_has_enough_resource(node_info *ninfo, char *name, char *value,
 
 int get_node_has_mem(node_info *ninfo, pars_spec_node* spec, int preassign_starving)
   {
-  struct resource *mem, *vmem;
+  struct resource *mem;
 
   mem = find_resource(ninfo->res, "mem");
 #if 0
@@ -255,7 +255,7 @@ int get_node_has_mem(node_info *ninfo, pars_spec_node* spec, int preassign_starv
     }
   else
     {
-    if (mem != NULL && spec->mem > mem->max - mem->assigned) /* memory on node, but not enough */
+    if (mem != NULL && spec->mem + mem->assigned > mem->max ) /* memory on node, but not enough */
       return 0;
 #if 0
     if (vmem != NULL && spec->vmem > vmem->max - vmem->assigned) /* virtual memory on node, but not enough */
@@ -290,8 +290,6 @@ int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starv
 
   if (property->value == NULL) /* property, not a resource */
     {
-    char **iter;
-
     /* first check if it is node name */
     if (strcmp(ninfo->name,name) == 0 ||
         (value != NULL && strcmp(name,"host") && strcmp(value,ninfo->name)))
@@ -299,30 +297,15 @@ int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starv
       return !negative;
       }
 
-    iter = ninfo->properties;
+    set<string>::iterator it;
 
-    if (iter != NULL)
-    while (*iter != NULL)
-      {
-      if (strcmp(*iter,name) == 0)
-        return !negative;
+    it = ninfo->physical_properties.find(string(name));
+    if (it != ninfo->physical_properties.end())
+      return !negative;
 
-      iter++;
-      }
-
-    iter = ninfo->adproperties;
-
-    if (iter == NULL)
-      return negative;
-
-    while (*iter != NULL)
-      {
-      if (strcmp(*iter,name) == 0)
-        return !negative;
-
-      iter++;
-      }
-
+    it = ninfo->virtual_properties.find(string(name));
+    if (it != ninfo->virtual_properties.end())
+      return !negative;
     }
   else /* resource or ppn */
     {

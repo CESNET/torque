@@ -2,6 +2,7 @@
 #define NODEINFO_H_
 
 #include <vector>
+#include <set>
 
 typedef enum node_type { NodeTimeshared, NodeCluster, NodeVirtual, NodeCloud } node_type;
 
@@ -32,8 +33,10 @@ unsigned admin_slot_available : 1; /* admin slot is available */
   node_type type; /**<type of the node (cluster,timeshared,virtual,cloud) */
 
   char *name;   /* name of the node */
-  char **properties;  /* the node properties */
-  char **adproperties; /* additional properties */
+
+  std::set<std::string> physical_properties;  /* the node properties */
+  std::set<std::string> virtual_properties;   /* additional properties */
+
   char **jobs;   /* the jobs currently running on the node */
   char **big_status; /**< List of status strings */
 

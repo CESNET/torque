@@ -189,7 +189,7 @@ int check_token_utilization(server_info *sinfo, job_info *jinfo);
 */
 int check_ignored(queue_info *qinfo);
 
-int check_dynamic_resources(resource *reslist, job_info *jinfo);
+int check_dynamic_resources(server_info *sinfo, job_info *jinfo);
 
 #endif
 
