@@ -25,7 +25,7 @@ dnl by David Beer (dbeer@adaptivecomputing.com)
 dnl
 
 AC_PREREQ(2.53)
-AC_INIT([torque], [2.4.42], [torqueusers@supercluster.org])
+AC_INIT([torque], [2.4.50], [torqueusers@supercluster.org])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
 AC_REVISION($Revision$)
 AC_CONFIG_SRCDIR([src/cmds/qrun.c])
@@ -769,7 +769,7 @@ AC_ARG_WITH([gssapi_bin], AS_HELP_STRING([--with-gssapi_bin=PATH],[Set GSSAPI/Kr
 AC_ARG_WITH([gssapi_lib], AS_HELP_STRING([--with-gssapi_lib=PATH],[Set GSSAPI/Krb5 libraries path.]),
 [
 GSSAPILIB=$withval
-K5LIBS="-Wl,-R${GSSAPILIB} -L$withval -lgssapi -lheimntlm -lkrb5 -lkrb525"
+K5LIBS="-Wl,-R$withval -L$withval -lgssapi -lheimntlm -lkrb5 -lkrb525"
 buildgssapi=yes
 ])
 
