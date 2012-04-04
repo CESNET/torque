@@ -39,7 +39,10 @@ bool DynamicResource::would_fit(ResourceBaseType amount)
   {
   if (p_reported_use >= 0) /* this dynamic resource reports used amount */
     {
-    return p_avail - p_assigned - (p_scheduled_use - p_reported_use) >= amount;
+    long long int dynamic = p_scheduled_use - p_reported_use;
+    if (dynamic < 0) dynamic = 0;
+
+    return p_avail - p_assigned - dynamic >= amount;
     }
   else
     {
