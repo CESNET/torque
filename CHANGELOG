@@ -31,6 +31,9 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
       TRQ-860. (backported from 4.0.1)
   b - Fix so pbs_mom won't segfault after a qdel is done for a job that is still
       running the prologue. TRQ-832. (backported from 4.0.1)
+  b - Fixed yet another case where procct would get promoted to Moab causing jobs
+      to never be run. Added remove_procct to ROUTE_PERM_FAILURE case in 
+      default_router.
 
 3.0.4
   c - fix a buffer being overrun with nvidia gpus enabled
