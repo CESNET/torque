@@ -34,6 +34,7 @@ c - crash     b - bug fix    e - enhancement    f - new feature  n - note
   b - Fixed yet another case where procct would get promoted to Moab causing jobs
       to never be run. Added remove_procct to ROUTE_PERM_FAILURE case in 
       default_router.
+  b - Fix so qrun jobid[] does not cause pbs_server segfault. TRQ-865. (backported from 4.0.2)
 
 3.0.4
   c - fix a buffer being overrun with nvidia gpus enabled
