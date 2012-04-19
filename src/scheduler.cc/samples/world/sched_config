@@ -185,7 +185,7 @@ max_starve: 24:00:00
 
 # half_life - the half life of usage for fair share
 #	NO PRIME OPTION
-half_life: 24:00:00
+half_life: 72:00:00
 
 # unknown_shares - the number of shares for the "unknown" group
 #	NO PRIME OPTION
@@ -199,7 +199,7 @@ sync_time: 1:00:00
 no_mom_talk: true
 
 # server_locking - control server locking
-server_locking: true
+server_locking: false
 
 # job_moving - control job moving support
-job_moving: true
+job_moving: false
