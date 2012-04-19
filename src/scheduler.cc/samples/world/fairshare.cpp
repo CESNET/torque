@@ -477,7 +477,8 @@ float test_perc(group_info *root)
  */
 void update_usage_on_run(job_info *jinfo)
   {
-  jinfo -> ginfo -> temp_usage += calculate_usage_value(jinfo -> resreq);
+  resource_req *tmp = find_resource_req(jinfo->resreq, "procs");
+  jinfo -> ginfo -> temp_usage += calculate_usage_value(jinfo -> resreq)*tmp->amount;
   }
 
 /*
@@ -499,7 +500,7 @@ usage_t calculate_usage_value(resource_req *resreq)
 
   if (resreq != NULL)
     {
-    tmp = find_resource_req(resreq, "cput");
+    tmp = find_resource_req(resreq, "walltime");
 
     if (tmp != NULL)
       return tmp -> amount;

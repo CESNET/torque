@@ -255,9 +255,9 @@ int init_scheduling_cycle(world_server_t* server)
 
         if (jobs[j] != NULL)
           {
-          user -> usage +=
-            calculate_usage_value(jobs[j] -> resused) -
-            calculate_usage_value(server -> last_running[i].resused);
+          resource_req *tmp = find_resource_req(jobs[j]->resreq, "procs");
+          user -> usage += (calculate_usage_value(jobs[j] -> resused) -
+            calculate_usage_value(server -> last_running[i].resused))*tmp->amount;
           }
         }
 
