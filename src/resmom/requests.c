@@ -1485,6 +1485,7 @@ const char *TJobAttr[] =
 
 
 
+void regenerate_total_resources(job * pjob);
 
 /*
  * req_modifyjob - service the Modify Job Request
@@ -1672,6 +1673,8 @@ void req_modifyjob(
     }    /* END for (i) */
 
   /* note, the newattr[] attributes are on the stack, they go away auto */
+
+  regenerate_total_resources(pjob);
 
   if (rc == 0)
     {

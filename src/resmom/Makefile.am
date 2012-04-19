@@ -33,7 +33,7 @@ pbs_mom_SOURCES = catch_child.c mom_comm.c mom_inter.c mom_main.c \
 		   ../server/job_recov.c  \
 		   ../server/process_request.c ../server/reply_send.c \
 		   ../server/resc_def_all.c \
-		   ../server/job_qs_upgrade.c
+		   ../server/job_qs_upgrade.c ../server/nodespec.c
 
 if BUILDCPA
 pbs_mom_SOURCES += cray_cpa.c
