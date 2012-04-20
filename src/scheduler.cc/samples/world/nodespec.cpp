@@ -427,7 +427,7 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
 
     /* quick-skip for admin jobs */
     if (jinfo->queue->is_admin_queue)
-      return (ninfo->temp_assign != NULL) && (ninfo->admin_slot_available);
+      return (ninfo->temp_assign == NULL) && (ninfo->admin_slot_available);
 
     if (preassign_starving == 0 && (!node_is_not_full(ninfo)))
       return 0;
@@ -770,8 +770,10 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
     iter = iter->next;
     }
 
-  if (missed_nodes > 0 && (!jinfo->queue->is_admin_queue)) /* some part of nodespec couldn't be assigned */
+  if (missed_nodes > 0) /* some part of nodespec couldn't be assigned */
     {
+    if (jinfo->queue->is_admin_queue)
+      return NODESPEC_NOT_ENOUGH_NODES_TOTAL;
     nodes_preassign_clean(ninfo_arr,nodecount);
     if (jinfo->is_starving) /* if starving, eat out the resources anyway */
       {
