@@ -1820,7 +1820,7 @@ int mom_over_limit(
     {
     if (cput_sum(pjob) < 10*num*system_ncpus) /* fix for kernel bug */
       {
-      if (simulatekill)
+      if (simulatekill || igncput)
         {
         sprintf(log_buffer, "[%s] job consuming more cpu cores than requested",pjob->ji_qs.ji_jobid);
         log_err(0,"SIMULATED_KILL",log_buffer);
@@ -1833,9 +1833,9 @@ int mom_over_limit(
       }
     }
 
-  if ((ignmem == 0) && ((numll = resi_sum(pjob)) > node->mem * 1024))
+  if ((numll = resi_sum(pjob)) > node->mem * 1024)
     {
-    if (simulatekill)
+    if (simulatekill || ignmem)
       {
       sprintf(log_buffer, "[%s] mem %llu exceeded limit %llu", pjob->ji_qs.ji_jobid, numll, node->mem * 1024);
       log_err(0,"SIMULATED_KILL",log_buffer);
@@ -1847,9 +1847,9 @@ int mom_over_limit(
       }
     }
 
-  if ((ignvmem == 0) && ((numll = vmem_sum(pjob)) > node->vmem * 1024))
+  if ((numll = vmem_sum(pjob)) > node->vmem * 1024)
     {
-    if (simulatekill)
+    if (simulatekill || ignvmem)
       {
       sprintf(log_buffer, "[%s] vmem %llu exceeded limit %llu", pjob->ji_qs.ji_jobid, numll, node->vmem * 1024);
       log_err(0,"SIMULATED_KILL",log_buffer);
