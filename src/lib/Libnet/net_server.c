@@ -304,8 +304,10 @@ int init_network(
     max_connection = MaxNumDescriptors;
 
     i = 1;
-
     setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&i, sizeof(i));
+
+    i = 1;
+    setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (char *)&i, sizeof(i));
 
     /* name that socket "in three notes" */
 
