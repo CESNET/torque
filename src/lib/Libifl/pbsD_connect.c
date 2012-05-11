@@ -138,6 +138,10 @@ static char server_name[PBS_MAXSERVERNAME + 1];  /* definite conflicts */
 static unsigned int server_port;                 /* definite conflicts */
 static const char *pbs_destn_file = PBS_DEFAULT_FILE;
 
+#ifdef GSSAPI
+int ignore_kerberos_for_connection = 0;
+#endif
+
 char *pbs_server = NULL;
 
 void empty_alarm_handler(int signo)
@@ -831,7 +835,7 @@ int pbs_original_connect(
      If there's no GSSAPI, then just use iff.
    */
 #ifdef GSSAPI
-  if (pbsgss_can_get_creds())
+  if (!ignore_kerberos_for_connection && pbsgss_can_get_creds())
     {
     if (encode_DIS_ReqHdr(connection[out].ch_socket, PBS_BATCH_GSSAuthenUser, pbs_current_user) ||
         encode_DIS_ReqExtend(connection[out].ch_socket,0))

@@ -851,7 +851,7 @@ int pbsgss_client_authenticate(char *hostname,
     gss_release_name(&min_stat,&name);
   }
   if (retval < 0) {    
-    if (retry < 3) {
+    if (retry < 0) { /* removed 3 tries */
       retry++;
       DIS_tcp_setup(psock);
       gss_delete_sec_context(&min_stat,&gss_context,GSS_C_NO_BUFFER);

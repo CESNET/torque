@@ -493,8 +493,6 @@ void process_request(
 
         req_reject(PBSE_BADHOST, 0, request, NULL, tmpLine);
 
-        close_client(sfds);
-
         return;
         }
       else

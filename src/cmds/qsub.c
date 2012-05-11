@@ -132,6 +132,7 @@
 #include "port_forwarding.h"
 #ifdef GSSAPI
 #include "pbsgss.h"
+extern int ignore_kerberos_for_connection;
 #endif
 
 /* DefaultFilterPath is used to fall back on in order to maintain backwards compatibility.
@@ -4887,6 +4888,9 @@ int main(
   if (cnt2server_retry != -100)
     cnt2server_conf(cnt2server_retry); /* set number of seconds to retry */
 
+#if GSSAPI
+  ignore_kerberos_for_connection = K_opt;
+#endif
   connect = cnt2server(server_out);
 
   if (connect <= 0)
