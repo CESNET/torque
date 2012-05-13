@@ -373,7 +373,7 @@ char *smart_strtok(
 
   start = *ptrPtr;
 
-  tmpLineSize = (line == NULL) ? strlen(*ptrPtr + 1) : strlen(line) + 1;
+  tmpLineSize = (line == NULL) ? strlen(*ptrPtr) + 1 : strlen(line) + 1;
   tmpLine = (char *)malloc(tmpLineSize * sizeof(char));
 
   tmpLine[0] = '\0';
@@ -4628,7 +4628,7 @@ int main(
     exit(2);
     }
 #ifdef GSSAPI
-  if ((!pbsgss_can_get_creds()) && (!K_opt))
+  if ((!K_opt) && (!pbsgss_can_get_creds()))
     {
     fprintf(stderr,"No kerberos credentials found.\n");
     exit(2);

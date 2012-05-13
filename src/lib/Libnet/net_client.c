@@ -325,8 +325,9 @@ retry:  /* retry goto added (rentec) */
     return(PBS_NET_RC_RETRY);
     }
 
-  int one = 1;
+  one = 1;
   setsockopt(sock, SOL_SOCKET, SO_KEEPALIVE, (void *)&one, sizeof(int));
+  one = 1;
 
 #ifndef NOPRIVPORTS
   flags = fcntl(sock, F_GETFL);
