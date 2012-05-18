@@ -513,7 +513,7 @@ p */
 
 /* returns 1 if we can get creds and 0 otherwise */
 int pbsgss_can_get_creds() {
-  OM_uint32 maj_stat, min_stat;
+  OM_uint32 maj_stat, min_stat, valid_sec = 0;
   gss_cred_id_t creds;
 
   maj_stat = gss_acquire_cred(&min_stat,
@@ -523,13 +523,13 @@ int pbsgss_can_get_creds() {
 			      GSS_C_INITIATE,
 			      &creds,
 			      NULL,
-			      NULL);
+			      &valid_sec);
   if (maj_stat == GSS_S_COMPLETE) {
     if (creds != NULL) {
       gss_release_cred(&min_stat,&creds);
     }
   }
-  return (maj_stat == GSS_S_COMPLETE);
+  return (maj_stat == GSS_S_COMPLETE && valid_sec > 10);
 }
 
 /*

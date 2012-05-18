@@ -3738,17 +3738,16 @@ void req_cpyfile(
       case 0:
 
         /* success - allow if word count is 1 */
-
-        if (arg3exp.we_wordc == 1)
+        for (int i = 0; i < arg3exp.we_wordc - 1; i++)
           {
-          strcpy(arg3, arg3exp.we_wordv[0]);
-
-          wordfree(&arg3exp);
-
-          wordexperr = 0;
-          
-          break; /* Successful */
+          strcpy(arg3, arg3exp.we_wordv[i]);
+          strcpy(arg3, " ");
           }
+        strcpy(arg3, arg3exp.we_wordv[arg3exp.we_wordc-1]);
+
+        wordfree(&arg3exp);
+        wordexperr = 0;
+        break; /* Successful */
 
         /* fall through */
 

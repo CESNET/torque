@@ -6113,7 +6113,8 @@ int job_over_limit(
 
   if (simulatekill)
     {
-    sprintf(log_buffer, "[%s] %s job total %llu %s exceeded limit %llu %s",
+    sprintf(log_buffer, "{%s} user [%s] %s job total %llu %s exceeded limit %llu %s",
+            pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,
             pjob->ji_qs.ji_jobid, rd->rs_name, total, units, limit, units);
     log_err(0,"SIMULATED_KILL",log_buffer);
     return 0;
@@ -7741,7 +7742,7 @@ int TMOMScanForStarting(void)
   }  /* END TMOMScanForStarting() */
 
 
-
+void set_attr(struct attrl **, char *, char *);
 
 
 /**
@@ -7830,6 +7831,27 @@ examine_all_polled_jobs(void)
             log_buffer);
 
           message_job(pjob,StdErr,kill_msg);
+
+            { /* modify job comment */
+            struct attrl *attrib = NULL;
+            int conn = pbs_connect(pjob->ji_wattr[(int)JOB_ATR_at_server].at_val.at_str);
+            int err = 0;
+            if (conn >= 0)
+              {
+              set_attr(&attrib, ATTR_comment, kill_msg);
+              err = pbs_alterjob(conn, pjob->ji_qs.ji_jobid, attrib, NULL);
+              pbs_disconnect(conn);
+              }
+            else
+              {
+              err = 1;
+              }
+            if (err != 0)
+              {
+              log_record(PBSEVENT_JOB | PBSEVENT_FORCE, PBS_EVENTCLASS_JOB,
+                         pjob->ji_qs.ji_jobid, "Couldn't modify job comment on server.");
+              }
+            }
 
           free(kill_msg);
           }

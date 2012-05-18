@@ -1822,7 +1822,7 @@ int mom_over_limit(
       {
       if (simulatekill || igncput)
         {
-        sprintf(log_buffer, "[%s] job consuming more cpu cores than requested",pjob->ji_qs.ji_jobid);
+        sprintf(log_buffer, "{%s} user [%s] job consuming more cpu cores than requested",pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid);
         log_err(0,"SIMULATED_KILL",log_buffer);
         }
       else
@@ -1837,7 +1837,7 @@ int mom_over_limit(
     {
     if (simulatekill || ignmem)
       {
-      sprintf(log_buffer, "[%s] mem %llu exceeded limit %llu", pjob->ji_qs.ji_jobid, numll, node->mem * 1024);
+      sprintf(log_buffer, "{%s} user [%s] mem %llu exceeded limit %llu", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->mem * 1024);
       log_err(0,"SIMULATED_KILL",log_buffer);
       }
     else
@@ -1851,7 +1851,7 @@ int mom_over_limit(
     {
     if (simulatekill || ignvmem)
       {
-      sprintf(log_buffer, "[%s] vmem %llu exceeded limit %llu", pjob->ji_qs.ji_jobid, numll, node->vmem * 1024);
+      sprintf(log_buffer, "{%s} user [%s] vmem %llu exceeded limit %llu", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->vmem * 1024);
       log_err(0,"SIMULATED_KILL",log_buffer);
       }
     else
@@ -1892,7 +1892,7 @@ int mom_over_limit(
         {
         if(simulatekill)
           {
-          sprintf(log_buffer,"[%s] pvmem exceeded limit %llu",pjob->ji_qs.ji_jobid,valuell);
+          sprintf(log_buffer,"{%s} user [%s] pvmem exceeded limit %llu",pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid,valuell);
           log_err(0,"SIMULATED_KILL",log_buffer);
           }
         else
