@@ -7833,24 +7833,10 @@ examine_all_polled_jobs(void)
           message_job(pjob,StdErr,kill_msg);
 
             { /* modify job comment */
-            struct attrl *attrib = NULL;
-            int conn = pbs_connect(pjob->ji_wattr[(int)JOB_ATR_at_server].at_val.at_str);
-            int err = 0;
-            if (conn >= 0)
-              {
-              set_attr(&attrib, ATTR_comment, kill_msg);
-              err = pbs_alterjob(conn, pjob->ji_qs.ji_jobid, attrib, NULL);
-              pbs_disconnect(conn);
-              }
-            else
-              {
-              err = 1;
-              }
-            if (err != 0)
-              {
-              log_record(PBSEVENT_JOB | PBSEVENT_FORCE, PBS_EVENTCLASS_JOB,
-                         pjob->ji_qs.ji_jobid, "Couldn't modify job comment on server.");
-              }
+            if (pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags & ATR_VFLAG_SET)
+              free(pjob->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str);
+            pjob->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str = strdup(kill_msg);
+            pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags |= ATR_VFLAG_SEND | ATR_VFLAG_SET;
             }
 
           free(kill_msg);

@@ -1822,12 +1822,15 @@ int mom_over_limit(
       {
       if (simulatekill || igncput)
         {
-        sprintf(log_buffer, "{%s} user [%s] job consuming more cpu cores than requested",pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid);
+        sprintf(log_buffer, "{%s} user [%s] job consuming more cpu cores than requested (requested_cput=%u;measured_cput=%ld;hard_limit_cput=%.0f;)",
+                            pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid,
+                            node->procs, cput_sum(pjob), 1.1*node->procs*num);
         log_err(0,"SIMULATED_KILL",log_buffer);
         }
       else
         {
-        sprintf(log_buffer, "job consuming more cpu cores than requested");
+        sprintf(log_buffer, "job requested %u cores on node %s, but the measured load was %f",
+                            node->procs, mom_host, cput_sum(pjob)/((double)node->procs*num));
         return TRUE;
         }
       }
@@ -1842,7 +1845,7 @@ int mom_over_limit(
       }
     else
       {
-      sprintf(log_buffer, "mem %llu exceeded limit %llu", numll, value);
+      sprintf(log_buffer, "mem %lluMB exceeded limit %lluMB", numll/(1024*1024), node->mem / 1024);
       return(TRUE);
       }
     }
@@ -1856,7 +1859,7 @@ int mom_over_limit(
       }
     else
       {
-      sprintf(log_buffer, "vmem %llu exceeded limit %llu", numll, value);
+      sprintf(log_buffer, "vmem %lluMB exceeded limit %lluMB", numll/(1024*1024), node->vmem / 1024);
       return(TRUE);
       }
     }
