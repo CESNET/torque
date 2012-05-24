@@ -55,5 +55,12 @@ if [ $? -ne 0 ]; then
 	exit 2;
 fi
 
+SCRATCHES="/scratch /scrach.shared /ssd"
+for scr in $SCRATCHES;do
+        if [ -d $scr ];then
+                mkdir -p "$scr/$USER/job_$JOBID" && chmod 700 "$scr/$USER/job_$JOBID" && chown "$USER" "$scr/$USER/job_$JOBID"
+        fi
+done
+
 exit 0
 

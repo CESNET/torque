@@ -2,6 +2,14 @@
 
 
 JOBID="$1"
+USER="$2"
+
+SCRATCHES="/scratch /scrach.shared /ssd"
+for scr in $SCRATCHES;do
+        if [ -d $scr ];then
+                rmdir --ignore-fail-on-non-empty "$scr/$USER/job_$JOBID"
+        fi
+done
 
 # GPU support
 CACHE_LIST=/software/pbs-7.0.0/cache/list_cache
