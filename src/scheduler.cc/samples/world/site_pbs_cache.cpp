@@ -63,6 +63,10 @@ int magrathea_decode_new(resource *res, MagratheaState *state)
     *state = MagratheaStatePreempted;
   else if (strcmp(s,"frozen") == 0)
     *state = MagratheaStateFrozen;
+  else if (strcmp(s,"down-disappeared") == 0)
+    *state = MagratheaStateDownDisappeared;
+  else if (strcmp(s,"shutting-down") == 0)
+    *state = MagratheaStateShuttingDown;
   else
     {
     free(s);

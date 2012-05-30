@@ -64,6 +64,8 @@ static int node_is_suitable_for_run(node_info *ninfo)
       case MagratheaStateOccupied:
       case MagratheaStatePreempted:
       case MagratheaStateRemoved:
+      case MagratheaStateDownDisappeared:
+      case MagratheaStateShuttingDown:
         ninfo->is_usable_for_run = 0;
         sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
                   "Node marked as incapable of running jobs, because it has bad Magrathea state.");
@@ -118,6 +120,8 @@ static int node_is_suitable_for_boot(node_info *ninfo)
       case MagratheaStateOccupied:
       case MagratheaStatePreempted:
       case MagratheaStateRemoved:
+      case MagratheaStateDownDisappeared:
+      case MagratheaStateShuttingDown:
         ninfo->is_usable_for_boot = 0;
         sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
                   "Node marked as incapable of booting jobs, because it has bad Magrathea state.");

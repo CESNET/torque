@@ -157,7 +157,9 @@ typedef enum {
   MagratheaStateRunning,
   MagratheaStateRunningCluster,
   MagratheaStatePreempted,
-  MagratheaStateFrozen
+  MagratheaStateFrozen,
+  MagratheaStateDownDisappeared,
+  MagratheaStateShuttingDown
 } MagratheaState;
 
 
