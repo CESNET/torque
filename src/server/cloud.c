@@ -315,6 +315,9 @@ int cloud_transition_into_prerun(job *pjob)
   resource *pres = NULL;
   char     *tmp = NULL, *owner = NULL, *jowner = NULL;
   char     *netresc = NULL;
+  pars_spec *ps;
+  pars_spec_node *iter;
+  char *cloud_name;
 
   svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN_CLOUD);
   if (is_cloud_job_private(pjob,&netresc))
@@ -368,6 +371,34 @@ int cloud_transition_into_prerun(job *pjob)
 
   cache_store_local(pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str, "cluster", cached);
 
+  ps = parse_nodespec(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
+  dbg_consistency(ps != NULL, "The nodespec should be well formed when reaching this point.");
+  if (ps == NULL)
+    return;
+
+  cloud_name = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
+
+  iter = ps->nodes;
+
+  while (iter != NULL)
+    {
+    pars_prop *name;
+
+    /* there has to be at least node name */
+    dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
+    if (iter->properties == NULL)
+      { iter = iter->next; continue; }
+
+    name = get_name_prop(iter);
+
+    /* update cache information that this machine now belongs to the following vcluster */
+    cache_store_local(name->name,"machine_cluster",pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
+
+    iter = iter->next;
+    }
+
+  free_parsed_nodespec(ps);
+
   free(cached);
 
   return 0;
@@ -408,9 +439,6 @@ void cloud_transition_into_running(job *pjob)
       { iter = iter->next; continue; }
 
     name = get_name_prop(iter);
-
-    /* update cache information that this machine now belongs to the following vcluster */
-    cache_store_local(name->name,"machine_cluster",pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
 
     /* dig up the alternative from cloud mapping */
     dbg_consistency((pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_flags & ATR_VFLAG_SET) != 0,

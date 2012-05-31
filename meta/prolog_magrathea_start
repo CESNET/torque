@@ -203,7 +203,7 @@ cleanup_boot()
 		/afs/ics.muni.cz/software/booot/booot delete --force-delete-lv ${DOMAIN/\.*/} >>/tmp/booot.log 2>&1
 		if [ $? -ne 0 ]; then
 			logger -p daemon.crit -t magrathea_prologue "Couldn't cleanup booot.";
-			cat /tmp/booot.log | mail -s "Error during deleting virtual domain" $USER
+			cat /tmp/booot.log | mail -s "Error during deleting virtual domain" $USER@arien.ics.muni.cz
 			return 1;
 		fi
 	fi
@@ -254,14 +254,19 @@ invoke_booot()
 {
 	if [ $INVOKE_BOOT -ne 1 ]; then return; fi
 
+	# clean booot log
+	>/tmp/booot.log
+
 	cleanup_boot;
 
 	date >>/tmp/booot.log
+	$ADMIN_COMMAND boot $DOMAIN
 	/afs/ics.muni.cz/software/booot/booot create ${DOMAIN/\.*/} >>/tmp/booot.log 2>&1
 	if [ $? -ne 0 ]; then
 		logger -p daemon.crit -t magrathea_prologue "Fatal error. Booot failed.";
-		cat /tmp/booot.log | mail -s "Error during creating virtual domain" $USER
+		cat /tmp/booot.log | mail -s "Error during creating virtual domain" $USER@arien.ics.muni.cz
 		cleanup_boot
+		$ADMIN_COMMAND down $DOMAIN
 		exit 1;
 	fi
 	. /tmp/booot.params
@@ -279,7 +284,8 @@ magrathea_start()
 			exit_with_rollback 1;
 		fi
 	else
-		foreign_num=`echo $MAGRATHEA_DOMAIN_FOREIGN | cut -d\  -f2`;
+		#foreign_num=`echo $MAGRATHEA_DOMAIN_FOREIGN | cut -d\  -f2`;
+		foreign_num=$MAGRATHEA_DOMAIN_FOREIGN;
 		if [ -z "$foreign_num" ]; then foreign_num=0; fi
 		$ADMIN_COMMAND set-foreign $DOMAIN $foreign_num; 
 	fi

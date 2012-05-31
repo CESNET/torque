@@ -176,8 +176,7 @@ extern int            SvrNodeCt;
 #define MAX_BM   64
 #endif
 
-int hasprop(struct pbsnode *, struct prop *, int proc_count);
-int hasadprop(struct pbsnode *, struct prop *);
+int hasprop(struct pbsnode *, struct prop *, int proc_count, int admin);
 void send_cluster_addrs(struct work_task *);
 int add_cluster_addrs(int);
 int is_compose(int, int);
@@ -2500,7 +2499,7 @@ void node_unreserve(
 
 
 
-int hasres(struct pbsnode *pnode, char  *name, char *value, int proc_count)
+int hasres(struct pbsnode *pnode, char  *name, char *value, int proc_count, int admin)
   {
   resource_def *rd;
   resource *total, *used, req, tmp;
@@ -2518,6 +2517,9 @@ int hasres(struct pbsnode *pnode, char  *name, char *value, int proc_count)
     return 1;
 
   if (strcmp(name,"vmem") == 0) /* FIXME quick fix for ignoring vmem */
+    return 1;
+
+  if (admin) /* admin jobs don't consume any resources */
     return 1;
 
   total = find_resc_entry(&pnode->attributes[0],rd);
@@ -2578,7 +2580,8 @@ int hasres(struct pbsnode *pnode, char  *name, char *value, int proc_count)
 int hasprop(
   struct pbsnode *pnode,
   struct prop    *props,
-  int proc_count )
+  int proc_count,
+  int admin)
 
   {
 
@@ -2621,61 +2624,30 @@ int hasprop(
           }
         }
 
+      if (pp == NULL) /* not found in standard properties, look through image properties */
+      for (pp = pnode->x_ad_prop; pp != NULL; pp = pp->next)
+        {
+        if (strcmp(pp->name, name) == 0)
+          {
+          if (negative)
+            return 0;
+          break;
+          }
+        }
+
       if (pp == NULL && !negative)
         return(0);
 
       }
     else
       {
-      if (!hasres(pnode,need->name,need->value,proc_count))
+      if (!hasres(pnode,need->name,need->value,proc_count,admin))
         return 0;
       }
     }
 
   return(1);
   }  /* END hasprop() */
-
-
-/** Look through the additional property list and make sure that all those makred are contained in the node
- *
- */
-int hasadprop(struct pbsnode *pnode, struct prop *props)
-  {
-  struct prop *need;
-
-  for (need = props; need != NULL; need = need->next)
-    {
-    struct prop *pp;
-    unsigned negative = 0;
-    char *name;
-
-    name = need->name;
-
-    if (name[0] == '^')
-      {
-      negative = 1;
-      name++;
-      }
-
-    if (need->mark == 0)
-      continue;
-
-    for (pp = pnode->x_ad_prop; pp != NULL; pp = pp->next)
-      {
-      if (strcmp(pp->name, name) == 0)
-        {
-        if (negative)
-          return 0;
-        break;
-        }
-      }
-
-    if (pp == NULL && !negative)
-      return 0;
-    }
-
-  return 1;
-  }
 
 /*
  * see if node has the number of processors required
@@ -2822,7 +2794,7 @@ static int search(
               continue;
       */
 
-      if (!(hasprop(pnode, glorf, vpreq) || hasadprop(pnode, glorf)))
+      if (!hasprop(pnode, glorf, vpreq, admin))
         continue;
 
       if ((skip == SKIP_NONE) || (skip == SKIP_NONE_REUSE))
@@ -2919,7 +2891,7 @@ static int search(
           (vpreq < (pnode->nd_nsnfree + pnode->nd_nsnshared)))
         continue;
 
-      if (!(hasprop(pnode, glorf, vpreq) || hasadprop(pnode, glorf)))
+      if (!hasprop(pnode, glorf, vpreq, admin))
         continue;
 
       pnode->nd_flag = conflict;
@@ -3213,7 +3185,7 @@ static int listelem(
     if (pnode->nd_ntype == NTYPE_CLUSTER || pnode->nd_ntype == NTYPE_VIRTUAL
         || pnode->nd_ntype == NTYPE_CLOUD)
       {
-      if ((hasprop(pnode, prop, node_req) || hasadprop(pnode, prop)) && hasppn(pnode, node_req, SKIP_NONE, admin))
+      if (hasprop(pnode, prop, node_req, admin) && hasppn(pnode, node_req, SKIP_NONE, admin))
         hit++;
 
       if (hit == num)
@@ -4603,7 +4575,7 @@ int node_avail(
         continue;
 
       if ((pn->nd_ntype == NTYPE_CLUSTER || pn->nd_ntype == NTYPE_VIRTUAL
-          || pn->nd_ntype == NTYPE_CLOUD) && (hasprop(pn, prop, node_req) || hasadprop(pn, prop)))
+          || pn->nd_ntype == NTYPE_CLOUD) && hasprop(pn, prop, node_req, 0))
         {
         if (pn->nd_state & (INUSE_OFFLINE | INUSE_DOWN))
           ++xdown;

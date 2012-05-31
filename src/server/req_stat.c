@@ -130,8 +130,7 @@ int status_job A_((job *, struct batch_request *, svrattrl *, tlist_head *, int 
 int status_attrib A_((svrattrl *, attribute_def *, attribute *, int, int, tlist_head *, int *, int));
 extern int   svr_connect A_((pbs_net_t, unsigned int, void (*)(int), enum conn_type));
 extern int status_nodeattrib(svrattrl *, attribute_def *, struct pbsnode *, int, int, tlist_head *, int*);
-extern int hasprop(struct pbsnode *, struct prop *, int proc_count);
-extern int hasadprop(struct pbsnode *, struct prop *);
+extern int hasprop(struct pbsnode *, struct prop *, int proc_count, int admin);
 extern void rel_resc(job*);
 
 /* Private Data Definitions */
@@ -1239,7 +1238,7 @@ void req_stat_node(
       {
       pnode = pbsndmast[i];
 
-      if ((type == 2) && !(hasprop(pnode, &props, 1) || hasadprop(pnode, &props)))
+      if ((type == 2) && !hasprop(pnode, &props, 1, 0))
         continue;
 
       if ((rc = status_node(pnode, preq, &preply->brp_un.brp_status)) != 0)

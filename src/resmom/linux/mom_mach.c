@@ -1822,9 +1822,9 @@ int mom_over_limit(
       {
       if (simulatekill || igncput)
         {
-        sprintf(log_buffer, "{%s} user [%s] job consuming more cpu cores than requested (requested_cput=%u;measured_cput=%ld;hard_limit_cput=%.0f;)",
-                            pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid,
-                            node->procs, cput_sum(pjob), 1.1*node->procs*num);
+        sprintf(log_buffer, "{%s} user [%s] job consuming more cpu cores on node %s than requested (requested_cores=%u;measured_load=%f;requested_cput=%llu;measured_cput=%lu;hard_limit_cput=%.0f;)",
+                            pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, mom_host,
+                            node->procs, cput_sum(pjob)/((double)node->procs*num), node->procs*num, cput_sum(pjob), 1.1*node->procs*num);
         log_err(0,"SIMULATED_KILL",log_buffer);
         }
       else

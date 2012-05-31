@@ -150,8 +150,7 @@ extern char *msg_man_uns;
 extern int que_purge(pbs_queue *);
 extern void save_characteristic(struct pbsnode *);
 extern int chk_characteristic(struct pbsnode *, int *);
-extern int hasprop(struct pbsnode *, struct prop *, int proc_count);
-extern int hasadprop(struct pbsnode *, struct prop *);
+extern int hasprop(struct pbsnode *, struct prop *, int proc_count, int admin);
 extern int PNodeStateToString(int, char *, int);
 
 
@@ -1823,7 +1822,7 @@ void mgr_node_set(
 
   for (i = 0;i < svr_totnodes;i++, pnode = pbsndlist[i])
     {
-    if (propnodes && (!hasprop(pnode, &props, 1) && !hasadprop(pnode, &props)))
+    if (propnodes && (!hasprop(pnode, &props, 1, 0)))
       continue;
 
     save_characteristic(pnode);

@@ -302,7 +302,8 @@ if test "x$GCC" = "xyes" ;then
       AC_MSG_RESULT([no... because DRMAA is being built])
     else
       AC_MSG_RESULT([yes])
-      AX_CFLAGS_GCC_OPTION([-W -Wall -Wno-unused-parameter -Wno-long-long -pedantic -Werror])
+      AX_CFLAGS_GCC_OPTION([-W -Wall -Wextra -Wno-unused-parameter -Wno-long-long -pedantic])
+      AX_CXXFLAGS_GCC_OPTION([-W -Wall -Wextra -Wno-unused-parameter -Wno-long-long -pedantic])
       gccwarnings=yes
     fi
   fi
