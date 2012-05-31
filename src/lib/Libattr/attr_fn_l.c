@@ -154,6 +154,7 @@ decode_l(
     patr->at_flags = (patr->at_flags & ~ATR_VFLAG_SET) |
                      ATR_VFLAG_MODIFY;
     patr->at_val.at_long = 0;
+    return PBSE_BADATVAL;
     }
 
   return (0);
