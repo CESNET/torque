@@ -3,6 +3,18 @@
 # exit when unitialized variable is detected
 #set -u
 
+###########################################################
+# setup logging                                           #
+###########################################################
+
+echo >>/tmp/log
+echo "---------------------------" `date ` "---------------------------------------">>/tmp/log
+echo "program:   $0" >>/tmp/log
+echo "parametes: $*" >>/tmp/log
+echo >>/tmp/log
+env >>/tmp/log
+
+
 exec 1>>/tmp/log 2>&1
 set -x
 
@@ -53,16 +65,6 @@ CACHE_UPDATE=/usr/sbin/update_cache
 ## load system presets ##
 #########################
 . /etc/profile
-
-###########################################################
-# setup logging                                           #
-###########################################################
-
-date >>/tmp/mujtrace
-echo $0 >>/tmp/mujtrace
-echo "$*" >>/tmp/mujtrace
-env >>/tmp/mujtrace
-echo "--------------------------">>/tmp/mujtrace
 
 ###########################################################
 # main code                                               #
@@ -166,7 +168,7 @@ test_status_running()
 	fetch_xm_status;
 	if [ "$XM_STATUS" = "offline" ]; then
 		logger -p daemon.info -t magrathea_prologue "XEN machine is down, or shutting down. Tearing down cluster.";
-		exit_with_rollback 1;
+		# silent exit_with_rollback 1;
 	fi
 
 	fetch_cache_status;
@@ -186,7 +188,7 @@ test_status_running()
 		exit_with_rollback 1;
 	fi
 
-	if [ "$MAGRATHEA_STATUS" != "running-cluster" ]; then
+	if [ "$MAGRATHEA_STATUS" != "running-cluster" -a "$MAGRATHEA_STATUS" != "down-disappeared" -a "$MAGRATHEA_STATUS" != "booting" ]; then
 		logger -p daemon.info -t magrathea_prologue "Magrathea reports non-running state. Tearing down cluster.";
 		exit_with_rollback 1;
 	fi
@@ -212,12 +214,12 @@ cleanup_boot()
 cleanup_magrathea_cluster()
 {
 	fetch_magrathea_status;
-	if [ "$MAGRATHEA_STATUS" = "running-cluster" ]; then
+#	if [ "$MAGRATHEA_STATUS" = "running-cluster" ]; then
 		$ADMIN_COMMAND stopcluster $DOMAIN $JOBNAME $NCPU;
 		if [ $? -ne 0 ]; then
 			logger -p daemon.crit -t magrathea_prologue "Couldn't stop cluster.";
 		fi
-	fi
+#	fi
 }
 
 cleanup_magrathea_booting()
