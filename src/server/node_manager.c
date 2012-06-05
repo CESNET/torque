@@ -2605,11 +2605,25 @@ int hasprop(
     if (need->mark == 0 && (value == NULL)) /* not marked, skip */
       continue;                                    /* do not skip resources */
 
-    if (strcmp(pnode->nd_name,name) == 0 ||
-        (value != NULL && strcmp(name,"host") && strcmp(value,pnode->nd_name)))
+    /* hostname as property */
+    if (strcmp(pnode->nd_name,name) == 0)
       {
       if (negative)
         return 0;
+      else
+        continue;
+      }
+
+    /* hostname as host=.... */
+    if (value != NULL)
+      {
+      if (strcmp(name,"host") == 0 && strcmp(value,pnode->nd_name) == 0)
+        {
+        if (negative)
+          return 0;
+        else
+          continue;
+        }
       }
 
     if (value == NULL)

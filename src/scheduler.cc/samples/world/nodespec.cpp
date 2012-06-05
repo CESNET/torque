@@ -834,7 +834,7 @@ static void get_target(stringstream& s, node_info *ninfo, int mode)
   int skip;
   pars_prop *iter;
 
-  s << ninfo->name << ":ppn=" << ninfo->temp_assign->procs;
+  s << "host=" << ninfo->name << ":ppn=" << ninfo->temp_assign->procs;
   s << ":mem=" << ninfo->temp_assign->mem << "KB";
   s << ":vmem=" << ninfo->temp_assign->vmem << "KB";
 
@@ -842,6 +842,13 @@ static void get_target(stringstream& s, node_info *ninfo, int mode)
   while (iter != NULL)
     {
     skip = 0;
+
+    /* avoid duplicate hostname properties */
+    if (strcmp(ninfo->name,iter->name) == 0)
+      {
+      iter = iter->next;
+      continue;
+      }
 
     if (res_check_type(iter->name) == ResCheckDynamic)
       skip = 1;
