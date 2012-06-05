@@ -89,8 +89,6 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
    */
   pars_spec * ps;
   pars_spec_node *iter;
-  pars_prop * prop;
-
   char mapping[1024] = { 0 }; /* FIXME META Needs a dynamic array */
 
   if ((ps = parse_nodespec(nodespec)) == NULL)
@@ -102,12 +100,7 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
     {
     char *ret; /* FIXME META ported from original PATCH, needs checking */
 
-    /* there has to be at least node name */
-    dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
-
-    prop = get_name_prop(iter);
-
-    ret=pbs_cache_get_local(prop->name,"host");
+    ret=pbs_cache_get_local(iter->host,"host");
     if (ret!=NULL)
       {
       char *c, *cloud, *mapped;
@@ -121,15 +114,15 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
       free(ret);
 
       if (iter->alternative != NULL)
-        mapped = construct_mapping(cloud,prop->name,iter->alternative);
+        mapped = construct_mapping(cloud,iter->host,iter->alternative);
       else
-        mapped = construct_mapping(cloud,prop->name,"default");
+        mapped = construct_mapping(cloud,iter->host,"default");
       strcat(mapping,mapped);
       free(mapped);
 
       /* interchange virtual node name for its cloud master */
-      free(prop->name);
-      prop->name=cloud;
+      free(iter->host);
+      iter->host=cloud;
       }
     iter = iter->next;
     }
@@ -382,17 +375,8 @@ int cloud_transition_into_prerun(job *pjob)
 
   while (iter != NULL)
     {
-    pars_prop *name;
-
-    /* there has to be at least node name */
-    dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
-    if (iter->properties == NULL)
-      { iter = iter->next; continue; }
-
-    name = get_name_prop(iter);
-
     /* update cache information that this machine now belongs to the following vcluster */
-    cache_store_local(name->name,"machine_cluster",pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
+    cache_store_local(iter->host,"machine_cluster",pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
 
     iter = iter->next;
     }
@@ -431,25 +415,17 @@ void cloud_transition_into_running(job *pjob)
   while (iter != NULL)
     {
     char *c;
-    pars_prop *name;
-
-    /* there has to be at least node name */
-    dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
-    if (iter->properties == NULL)
-      { iter = iter->next; continue; }
-
-    name = get_name_prop(iter);
 
     /* dig up the alternative from cloud mapping */
     dbg_consistency((pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_flags & ATR_VFLAG_SET) != 0,
         "Cloud mapping has to be set at this point.");
 
-    c = get_alternative_name(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,name->name);
+    c = get_alternative_name(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,iter->host);
     if (c != NULL)
       {
       sprintf(log_buffer,"Determined alternative is: %s", c);
-      log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_NODE, name->name,log_buffer);
-      set_alternative_on_node(name->name,c,cloud_name);
+      log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_NODE, iter->host,log_buffer);
+      set_alternative_on_node(iter->host,c,cloud_name);
       free(c);
       }
 
@@ -476,20 +452,11 @@ void cloud_transition_into_stopped(job *pjob)
 
   while (iter != NULL)
     {
-    pars_prop *name;
-
-    /* there has to be at least node name */
-    dbg_consistency(iter->properties != NULL, "Wrong nodespec format.");
-    if (iter->properties == NULL)
-      { iter = iter->next; continue; }
-
-    name = get_name_prop(iter);
-
     /* update cache information that this machine now belongs to the following vcluster */
-    cache_remove_local(name->name,"machine_cluster");
+    cache_remove_local(iter->host,"machine_cluster");
 
     /* remove any alternative stored on the node */
-    clear_alternative_on_node(name->name);
+    clear_alternative_on_node(iter->host);
 
     iter = iter->next;
     }
