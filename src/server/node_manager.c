@@ -2617,12 +2617,22 @@ int hasprop(
     /* hostname as host=.... */
     if (value != NULL)
       {
-      if (strcmp(name,"host") == 0 && strcmp(value,pnode->nd_name) == 0)
+      if (strcmp(name,"host") == 0)
         {
-        if (negative)
-          return 0;
+        if (strcmp(value,pnode->nd_name) == 0)
+	  {
+          if (negative)
+            return 0;
+          else
+            continue;
+          }
         else
-          continue;
+          {
+          if (negative)
+            continue;
+          else
+            return 0;
+          }
         }
       }
 

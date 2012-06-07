@@ -367,7 +367,7 @@ int cloud_transition_into_prerun(job *pjob)
   ps = parse_nodespec(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
   dbg_consistency(ps != NULL, "The nodespec should be well formed when reaching this point.");
   if (ps == NULL)
-    return;
+    return 0;
 
   cloud_name = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
 
@@ -420,12 +420,16 @@ void cloud_transition_into_running(job *pjob)
     dbg_consistency((pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_flags & ATR_VFLAG_SET) != 0,
         "Cloud mapping has to be set at this point.");
 
-    c = get_alternative_name(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,iter->host);
+    pars_prop *name;
+    if (iter->host == NULL)
+     name = get_name_prop(iter);
+
+    c = get_alternative_name(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,iter->host == NULL ? name->name : iter->host);
     if (c != NULL)
       {
       sprintf(log_buffer,"Determined alternative is: %s", c);
       log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_NODE, iter->host,log_buffer);
-      set_alternative_on_node(iter->host,c,cloud_name);
+      set_alternative_on_node(iter->host == NULL ? name->name : iter->host,c,cloud_name);
       free(c);
       }
 
@@ -452,11 +456,15 @@ void cloud_transition_into_stopped(job *pjob)
 
   while (iter != NULL)
     {
+    pars_prop *name;
+    if (iter->host == NULL)
+      name = get_name_prop(iter);
+
     /* update cache information that this machine now belongs to the following vcluster */
-    cache_remove_local(iter->host,"machine_cluster");
+    cache_remove_local(iter->host == NULL ? name->name : iter->host,"machine_cluster");
 
     /* remove any alternative stored on the node */
-    clear_alternative_on_node(iter->host);
+    clear_alternative_on_node(iter->host == NULL ? name->name : iter->host);
 
     iter = iter->next;
     }
