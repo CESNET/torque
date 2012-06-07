@@ -1830,7 +1830,7 @@ int mom_over_limit(
       else
         {
         sprintf(log_buffer, "job requested %u cores on node %s, but the measured load was %f",
-                            node->procs, mom_host, cput_sum(pjob)/((double)node->procs*num));
+                            node->procs, mom_host, cput_sum(pjob)/(double)num);
         return TRUE;
         }
       }
@@ -1840,12 +1840,12 @@ int mom_over_limit(
     {
     if (simulatekill || ignmem)
       {
-      sprintf(log_buffer, "{%s} user [%s] mem %llu exceeded limit %llu", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->mem * 1024);
+      sprintf(log_buffer, "{%s} user [%s] mem %llu exceeded limit %llu on node %s", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->mem * 1024, mom_host);
       log_err(0,"SIMULATED_KILL",log_buffer);
       }
     else
       {
-      sprintf(log_buffer, "mem %lluMB exceeded limit %lluMB", numll/(1024*1024), node->mem / 1024);
+      sprintf(log_buffer, "mem %lluMB exceeded limit %lluMB on node %s", numll/(1024*1024), node->mem / 1024, mom_host);
       return(TRUE);
       }
     }
@@ -1854,12 +1854,12 @@ int mom_over_limit(
     {
     if (simulatekill || ignvmem)
       {
-      sprintf(log_buffer, "{%s} user [%s] vmem %llu exceeded limit %llu", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->vmem * 1024);
+      sprintf(log_buffer, "{%s} user [%s] vmem %llu exceeded limit %llu on node %s", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->vmem * 1024, mom_host);
       log_err(0,"SIMULATED_KILL",log_buffer);
       }
     else
       {
-      sprintf(log_buffer, "vmem %lluMB exceeded limit %lluMB", numll/(1024*1024), node->vmem / 1024);
+      sprintf(log_buffer, "vmem %lluMB exceeded limit %lluMB on node %s", numll/(1024*1024), node->vmem / 1024, mom_host);
       return(TRUE);
       }
     }
@@ -1895,12 +1895,12 @@ int mom_over_limit(
         {
         if(simulatekill)
           {
-          sprintf(log_buffer,"{%s} user [%s] pvmem exceeded limit %llu",pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid,valuell);
+          sprintf(log_buffer,"{%s} user [%s] pvmem exceeded limit %llu on node %s",pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid,valuell,mom_host);
           log_err(0,"SIMULATED_KILL",log_buffer);
           }
         else
           {
-          sprintf(log_buffer, "pvmem exceeded limit %llu",valuell);
+          sprintf(log_buffer, "pvmem exceeded limit %llu on node %s",valuell,mom_host);
           return(TRUE);
           }
         }
