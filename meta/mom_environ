@@ -1,0 +1,24 @@
+#!/bin/bash
+
+user=$1
+jobid=$2
+
+if [ -z "$user" ]; then exit 0; fi
+if [ -z "$jobid" ]; then exit 0; fi
+
+if [ -d /scratch.shared ]; then
+	SCRATCH=/scratch.shared
+	echo "SCRATCH";
+	echo "/scratch.shared";
+elif [ -d /scratch ]; then
+	SCRATCH=/scratch
+	echo "SCRATCH";
+	echo "/scratch";
+else
+	exit 0;
+fi
+
+if [ -d $SCRATCH/$user/job_$jobid ]; then
+	echo "SCRATCHDIR";
+	echo "$SCRATCH/$user/job_$jobid";
+fi

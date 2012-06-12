@@ -118,3 +118,45 @@ void set_resource_vars(job *pjob, struct var_table *vtable)
 
   free_parsed_nodespec(spec);
   }
+
+void read_environ_script(job *pjob, struct var_table *vtable)
+  {
+  char *cmd = malloc(strlen(ENVIRONGEN) + 1 +
+                     strlen(pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str) + 1
+                     strlen(pjob->ji_qs.ji_jobid) + 1);
+  if (cmd == NULL) return; /* TODO */
+
+  sprintf(cmd,"%s %s %s",ENVIRONGEN,pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,pjob->ji_qs.ji_jobid);
+
+  FILE *input = popen(cmd,"r");
+  if (input == NULL) /* couldn't start script */
+    return;
+
+  char *var;
+  size_t varl;
+
+  while (getline(&var,&varl,input) != -1)
+    {
+    char *val;
+    size_t vall;
+
+    if (getline(&val,&vall,input) == -1)
+      {
+      free(var);
+      break;
+      }
+
+    var[strlen(var)-1] = '\0';
+    val[strlen(val)-1] = '\0';
+
+    if (vtable != NULL)
+      bld_env_variables(vtable, var, val);
+    else
+      setenv(var,val,1);
+
+    free(var);
+    free(val);
+    }
+
+  pclose(input);
+  }
