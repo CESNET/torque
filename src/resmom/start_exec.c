@@ -2576,6 +2576,7 @@ int TMomFinalizeChild(
           }
         }
       
+      read_environ_script(pjob,&vtable);
       
       shellpid = fork();
       
@@ -4148,6 +4149,7 @@ int start_process(
     log_ext(-1, id, "user env initialized", LOG_DEBUG);
   
   set_resource_vars(pjob,&vtable);
+  read_environ_script(pjob,&vtable);
 
   if (set_mach_vars(pjob, &vtable) != 0)
 	{

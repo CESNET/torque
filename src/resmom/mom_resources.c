@@ -1,6 +1,7 @@
 #include "mom_resources.h"
 #include "nodespec.h"
 #include "resource.h"
+#include "pbs_job.h"
 #include <stdio.h>
 #include <ctype.h>
 
@@ -122,7 +123,7 @@ void set_resource_vars(job *pjob, struct var_table *vtable)
 void read_environ_script(job *pjob, struct var_table *vtable)
   {
   char *cmd = malloc(strlen(ENVIRONGEN) + 1 +
-                     strlen(pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str) + 1
+                     strlen(pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str) + 1 +
                      strlen(pjob->ji_qs.ji_jobid) + 1);
   if (cmd == NULL) return; /* TODO */
 
@@ -130,15 +131,18 @@ void read_environ_script(job *pjob, struct var_table *vtable)
 
   FILE *input = popen(cmd,"r");
   if (input == NULL) /* couldn't start script */
+    {
+    log_err(-1, "read_environ_script", "cmd");
     return;
+    }
 
-  char *var;
-  size_t varl;
+  char *var = NULL;
+  size_t varl = 0;
 
   while (getline(&var,&varl,input) != -1)
     {
-    char *val;
-    size_t vall;
+    char *val = NULL;
+    size_t vall = 0;
 
     if (getline(&val,&vall,input) == -1)
       {
@@ -156,6 +160,9 @@ void read_environ_script(job *pjob, struct var_table *vtable)
 
     free(var);
     free(val);
+
+    var = NULL;
+    varl = 0;
     }
 
   pclose(input);
