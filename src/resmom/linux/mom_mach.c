@@ -1805,6 +1805,9 @@ int mom_over_limit(
     }
 
   pars_spec *spec = parse_nodespec(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
+  if (spec->is_exclusive)
+    goto exclusive_skip;
+
   pars_spec_node *node = find_node_in_spec(spec,mom_host);
 
   if (node == NULL) /* FIXME - cloud nodes don't have record in nodespec */
@@ -1908,6 +1911,7 @@ int mom_over_limit(
     prop = prop->next;
     }
 
+exclusive_skip:
   free_parsed_nodespec(spec);
 
   return(FALSE);
