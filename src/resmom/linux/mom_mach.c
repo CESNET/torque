@@ -186,6 +186,9 @@ extern int      ignvmem;
 extern int      ignmem;
 extern int      ignpmem;
 extern int      ignpvmem;
+extern int      ignvmemexcl;
+extern int      ignmemexcl;
+extern int      single_job_is_exclusive;
 extern int      simulatekill;
 
 /*
@@ -199,6 +202,7 @@ static char *ncpus    A_((struct rm_attribute *));
 static char *walltime A_((struct rm_attribute *));
 static char *quota    A_((struct rm_attribute *));
 static char *netload  A_((struct rm_attribute *));
+static char *users (struct rm_attribute *);
 
 #ifndef mbool_t
 #define mbool_t char
@@ -230,19 +234,18 @@ typedef struct proc_mem
 
 struct config dependent_config[] =
   {
-    { "resi", {resi}
-    },
-
-  { "totmem", {totmem} },
-  { "availmem", {availmem} },
-  { "physmem", {physmem} },
-  { "ncpus", {ncpus} },
-  { "loadave", {loadave} },
-  { "walltime", {walltime} },
-  { "quota", {quota} },
-  { "netload",  {netload} },
-  { "size",     {size} },
-  { NULL, {nullproc} }
+    { "resi", {resi} },
+    { "totmem", {totmem} },
+    { "availmem", {availmem} },
+    { "physmem", {physmem} },
+    { "ncpus", {ncpus} },
+    { "loadave", {loadave} },
+    { "walltime", {walltime} },
+    { "quota", {quota} },
+    { "netload",  {netload} },
+    { "size",     {size} },
+    { "users",    {users} },
+    { NULL, {nullproc} }
   };
 
 unsigned linux_time = 0;
@@ -1136,9 +1139,21 @@ int error(
   return(value);
   }  /* END error() */
 
+extern tlist_head svr_alljobs; /* all jobs under MOM's control */
+int is_exclusive(pars_spec* spec, pars_spec_node* node)
+  {
+  if (spec->is_exclusive) return 1;
+  if (node->procs == system_ncpus) return 1;
 
+  if (single_job_is_exclusive)
+    {
+    job *xjob = (job*)GET_NEXT(svr_alljobs);
+    if (GET_NEXT(xjob->ji_alljobs) == NULL)
+      return 1;
+    }
 
-
+  return 0;
+  }
 
 /*
  * Establish system-enforced limits for the job.
@@ -1275,6 +1290,8 @@ int mom_set_limits(
 
   pars_spec *spec = parse_nodespec(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
   pars_spec_node *node = find_node_in_spec(spec,mom_host);
+
+  int exclusive = is_exclusive(spec,node);
 
   if (node == NULL) /* FIXME - cloud nodes don't have record in nodespec */
     {
@@ -1435,6 +1452,7 @@ int mom_set_limits(
   if (pmem_limit == 0 && mem_limit != 0)
     pmem_limit = mem_limit;
 
+  if (!(ignmemexcl && exclusive))
   if (ignpmem == FALSE && set_mode == SET_LIMIT_SET)
     {
     reslim.rlim_cur = reslim.rlim_max = pmem_limit;
@@ -1488,6 +1506,7 @@ int mom_set_limits(
     }
 
   /* only set RLIMIT_AS when user requested */
+  if (!(ignvmemexcl && exclusive))
   if (ignpvmem == FALSE && set_mode == SET_LIMIT_SET && pvmem_limit != 0)
     {
     reslim.rlim_cur = reslim.rlim_max = pvmem_limit;
@@ -1731,10 +1750,6 @@ mom_get_sample(void)
   return(PBSE_NONE);
   }  /* END mom_get_sample() */
 
-
-
-
-
 /*
  * Measure job resource usage and compare with its limits.
  *
@@ -1758,6 +1773,7 @@ int mom_over_limit(
   unsigned long long value;
   unsigned long long num;
   unsigned long long numll;
+  unsigned long cputsum = cput_sum(pjob);
 
   resource *pres = (resource *)GET_NEXT(pjob->ji_wattr[(int)JOB_ATR_total_resources].at_val.at_list);
   for (;pres != NULL; pres = (resource *)GET_NEXT(pres->rs_link))
@@ -1775,7 +1791,7 @@ int mom_over_limit(
       if (retval != PBSE_NONE)
         continue;
 
-      if ((num = cput_sum(pjob)) > value)
+      if ((num = cputsum) > value)
         {
         sprintf(log_buffer, "cput %llu exceeded limit %llu", num, value);
         return(TRUE);
@@ -1805,10 +1821,8 @@ int mom_over_limit(
     }
 
   pars_spec *spec = parse_nodespec(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
-  if (spec->is_exclusive)
-    goto exclusive_skip;
-
   pars_spec_node *node = find_node_in_spec(spec,mom_host);
+  int exclusive = is_exclusive(spec,node);
 
   if (node == NULL) /* FIXME - cloud nodes don't have record in nodespec */
     {
@@ -1818,27 +1832,29 @@ int mom_over_limit(
 
   /* determine CPU time */
   num = time_now - pjob->ji_qs.ji_stime; /* current raw walltime */
+  if (!exclusive)
   if (num > 60*5) /* 5 min burn-in allowed */
-  if (cput_sum(pjob) > 1.1*node->procs*num)
+  if (cputsum > 1.1*node->procs*num)
     {
-    if (cput_sum(pjob) < 10*num*system_ncpus) /* fix for kernel bug */
+    if (cputsum < 10*num*system_ncpus) /* fix for kernel bug */
       {
       if (simulatekill || igncput)
         {
         sprintf(log_buffer, "{%s} user [%s] job consuming more cpu cores on node %s than requested (requested_cores=%u;measured_load=%f;requested_cput=%llu;measured_cput=%lu;hard_limit_cput=%.0f;)",
                             pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, mom_host,
-                            node->procs, cput_sum(pjob)/(double)num, node->procs*num, cput_sum(pjob), 1.1*node->procs*num);
+                            node->procs, cputsum/(double)num, node->procs*num, cputsum, 1.1*node->procs*num);
         log_err(0,"SIMULATED_KILL",log_buffer);
         }
       else
         {
         sprintf(log_buffer, "job requested %u cores on node %s, but the measured load was %f",
-                            node->procs, mom_host, cput_sum(pjob)/(double)num);
+                            node->procs, mom_host, cputsum/(double)num);
         return TRUE;
         }
       }
     }
 
+  if (!(ignmemexcl && exclusive))
   if ((numll = resi_sum(pjob)) > node->mem * 1024)
     {
     if (simulatekill || ignmem)
@@ -1853,6 +1869,7 @@ int mom_over_limit(
       }
     }
 
+  if (!(ignvmemexcl && exclusive))
   if ((numll = vmem_sum(pjob)) > node->vmem * 1024)
     {
     if (simulatekill || ignvmem)
@@ -1911,7 +1928,6 @@ int mom_over_limit(
     prop = prop->next;
     }
 
-exclusive_skip:
   free_parsed_nodespec(spec);
 
   return(FALSE);
@@ -3198,6 +3214,28 @@ char *pids(
   return(ret_string);
   }  /* END pids() */
 
+
+char *users(
+
+  struct rm_attribute *attrib)
+
+  {
+  job *pjob = (job*)GET_NEXT(svr_alljobs);
+
+  strcpy(ret_string,"");
+
+  for (;pjob != NULL; pjob = (job*)GET_NEXT(pjob->ji_alljobs))
+    {
+    strcat(ret_string,pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str);
+    if (strlen(ret_string) >= 4096-32-1)
+      {
+      strcat(ret_string,",...");
+      break;
+      }
+    }
+
+  return(ret_string);
+  }  /* END users() */
 
 
 

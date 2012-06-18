@@ -57,7 +57,7 @@ else
 	preempt='-preemptible'
 fi
 
-/usr/sbin/magrathea-cmd startjob$preempt "$JOBID" "1" &>/dev/null
+/usr/sbin/magrathea-cmd startjob$preempt "$JOBID" "$TORQUE_RESC_PROC" &>/dev/null
 if [ $? -ne 0 ]; then
 	exit 2;
 fi

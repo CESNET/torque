@@ -188,6 +188,9 @@ int    igncput = 0;
 int    ignvmem = 0;
 int    ignpvmem = 0;
 int    simulatekill = 0;
+int    ignmemexcl = 1;
+int    ignvmemexcl = 1;
+int    single_job_is_exclusive = 0;
 int    spoolasfinalname = 0;
 int    killdelay = 0;
 /* end policies */
@@ -346,6 +349,9 @@ static unsigned long setallocparcmd(char *);
 static unsigned long setidealload(char *);
 static unsigned long setignwalltime(char *);
 static unsigned long setignmem(char *);
+static unsigned long setignmemexcl(char *);
+static unsigned long setignvmemexcl(char *);
+static unsigned long setsinglejobisexclusive(char*);
 static unsigned long setigncput(char *);
 static unsigned long setignvmem(char *);
 static unsigned long setignpmem(char *);
@@ -411,6 +417,9 @@ static struct specials
   { "ideal_load",          setidealload },
   { "ignwalltime",         setignwalltime },
   { "ignmem",              setignmem },
+  { "ignmem_excl",         setignmemexcl },
+  { "ignvmem_excl",        setignvmemexcl },
+  { "single_job_is_excl",  setsinglejobisexclusive },
   { "ignpmem",             setignpmem },
   { "igncput",             setigncput },
   { "ignvmem",             setignvmem },
@@ -2685,7 +2694,17 @@ static unsigned long setignwalltime(
   return(1);
   }  /* END setignwalltime() */
 
+static unsigned long setsinglejobisexclusive(char *value)  /* I */
+  {
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "single_job_is_exclusive", value);
 
+  if (!strncasecmp(value,"t",1) || (value[0] == '1') || !strcasecmp(value,"on") )
+    single_job_is_exclusive = 1;
+  else
+    single_job_is_exclusive = 0;
+
+  return(1);
+  } /* END setsinglejobisexclusive() */
 
 static unsigned long setignmem(char *value)  /* I */
   {
@@ -2698,6 +2717,30 @@ static unsigned long setignmem(char *value)  /* I */
 
   return(1);
   } /* END setignmem() */
+
+static unsigned long setignmemexcl(char *value) /* I */
+  {
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "ignmemexcl", value);
+
+  if (!strncasecmp(value,"t",1) || (value[0] == '1') || !strcasecmp(value,"on") )
+    ignmemexcl = 1;
+  else
+    ignmemexcl = 0;
+
+  return(1);
+  }
+
+static unsigned long setignvmemexcl(char *value) /* I */
+  {
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "ignvmemexcl", value);
+
+  if (!strncasecmp(value,"t",1) || (value[0] == '1') || !strcasecmp(value,"on") )
+    ignvmemexcl = 1;
+  else
+    ignvmemexcl = 0;
+
+  return(1);
+  }
 
 static unsigned long setignpmem(char *value)  /* I */
   {
