@@ -3226,7 +3226,17 @@ char *users(
 
   for (;pjob != NULL; pjob = (job*)GET_NEXT(pjob->ji_alljobs))
     {
-    strcat(ret_string,pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str);
+    char *euser = pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str;
+
+    /* check for duplicated entries */
+    char *dupl = strstr(ret_string,euser);
+    if (dupl != NULL)
+      {
+      if (dupl[strlen(euser)] == ',' || dupl[strlen(euser)] == '\0' )
+	continue;
+      }
+
+    strcat(ret_string,euser);
     if (strlen(ret_string) >= 4096-32-1)
       {
       strcat(ret_string,",...");

@@ -6105,6 +6105,7 @@ int job_over_limit(
       else
         index = 0;
       }
+#if 0
     else if (!strcmp(rd->rs_name, "mem"))
       {
       if (ignmem == TRUE)
@@ -6112,6 +6113,7 @@ int job_over_limit(
       else
         index = 1;
       }
+#endif
     else
       continue;
 
