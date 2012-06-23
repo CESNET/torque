@@ -219,7 +219,7 @@ encode_l(
 int
 set_l(struct attribute *attr, struct attribute *new, enum batch_op op)
   {
-  assert(attr && new && (new->at_flags & ATR_VFLAG_SET));
+  assert(attr && new && ((new->at_flags & ATR_VFLAG_SET) || (new->at_flags & ATR_VFLAG_DEFLT)));
 
   switch (op)
     {

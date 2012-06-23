@@ -1291,13 +1291,13 @@ int mom_set_limits(
   pars_spec *spec = parse_nodespec(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
   pars_spec_node *node = find_node_in_spec(spec,mom_host);
 
-  int exclusive = is_exclusive(spec,node);
-
   if (node == NULL) /* FIXME - cloud nodes don't have record in nodespec */
     {
     free_parsed_nodespec(spec);
     return(PBSE_NONE);
     }
+
+  int exclusive = is_exclusive(spec,node);
 
   vmem_limit = node->vmem * 1024;
   mem_limit = node->mem * 1024;
@@ -1822,13 +1822,14 @@ int mom_over_limit(
 
   pars_spec *spec = parse_nodespec(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
   pars_spec_node *node = find_node_in_spec(spec,mom_host);
-  int exclusive = is_exclusive(spec,node);
 
   if (node == NULL) /* FIXME - cloud nodes don't have record in nodespec */
     {
     free_parsed_nodespec(spec);
     return FALSE;
     }
+
+  int exclusive = is_exclusive(spec,node);
 
   /* determine CPU time */
   num = time_now - pjob->ji_qs.ji_stime; /* current raw walltime */
@@ -3221,6 +3222,7 @@ char *users(
 
   {
   job *pjob = (job*)GET_NEXT(svr_alljobs);
+  int first = 1;
 
   strcpy(ret_string,"");
 
@@ -3233,8 +3235,11 @@ char *users(
     if (dupl != NULL)
       {
       if (dupl[strlen(euser)] == ',' || dupl[strlen(euser)] == '\0' )
-	continue;
+        continue;
       }
+
+    if (!first) { strcat(ret_string,","); }
+    first = 0;
 
     strcat(ret_string,euser);
     if (strlen(ret_string) >= 4096-32-1)
