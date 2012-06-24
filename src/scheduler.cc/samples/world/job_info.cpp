@@ -1022,6 +1022,21 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg)
         sprintf(log_msg, INFO_NODE_STILL_BOOTING);
         break;
 
+      case QUEUE_PROC_LIMIT_REACHED:
+        strcpy(comment_msg, COMMENT_QUEUE_PROC_LIMIT_REACHED);
+        sprintf(log_msg, INFO_QUEUE_PROC_LIMIT_REACHED);
+        break;
+
+      case QUEUE_USER_PROC_LIMIT_REACHED:
+        strcpy(comment_msg, COMMENT_QUEUE_USER_PROC_LIMIT_REACHED);
+        sprintf(log_msg, INFO_QUEUE_USER_PROC_LIMIT_REACHED);
+        break;
+
+      case QUEUE_GROUP_PROC_LIMIT_REACHED:
+        strcpy(comment_msg, COMMENT_QUEUE_GROUP_PROC_LIMIT_REACHED);
+        sprintf(log_msg, INFO_QUEUE_GROUP_PROC_LIMIT_REACHED);
+        break;
+
       default:
         rc = 0;
         comment_msg[0] = '\0';

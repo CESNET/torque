@@ -306,6 +306,33 @@ queue_info *query_queue_info(struct batch_status *queue, server_info *sinfo)
 
       qinfo -> max_group_run = count;
       }
+    else if (!strcmp(attrp -> name, ATTR_maxproc))  /* max_group_run */
+      {
+      count = strtol(attrp -> value, &endp, 10);
+
+      if (*endp != '\0')
+        count = -1;
+
+      qinfo -> max_proc = count;
+      }
+    else if (!strcmp(attrp -> name, ATTR_maxuserproc))  /* max_group_run */
+      {
+      count = strtol(attrp -> value, &endp, 10);
+
+      if (*endp != '\0')
+        count = -1;
+
+      qinfo -> max_user_proc = count;
+      }
+    else if (!strcmp(attrp -> name, ATTR_maxgrpproc))  /* max_group_run */
+      {
+      count = strtol(attrp -> value, &endp, 10);
+
+      if (*endp != '\0')
+        count = -1;
+
+      qinfo -> max_group_proc = count;
+      }
     else if (!strcmp(attrp -> name, ATTR_p))    /* priority */
       {
       count = strtol(attrp -> value, &endp, 10);
@@ -446,6 +473,12 @@ queue_info *new_queue_info()
 
   qinfo -> max_group_run = INFINITY;
 
+  qinfo -> max_proc = INFINITY;
+
+  qinfo -> max_user_proc = INFINITY;
+
+  qinfo -> max_group_proc = INFINITY;
+
   qinfo -> name   = NULL;
 
   qinfo -> qres   = NULL;
@@ -496,6 +529,9 @@ void print_queue_info(queue_info *qinfo, char brief, char deep)
     printf("max_run: %d\n", qinfo -> max_run);
     printf("max_user_run: %d\n", qinfo -> max_user_run);
     printf("max_group_run: %d\n", qinfo -> max_group_run);
+    printf("max_proc: %d\n", qinfo -> max_proc);
+    printf("max_user_proc: %d\n", qinfo -> max_user_proc);
+    printf("max_group_proc: %d\n", qinfo -> max_group_proc);
     printf("priority: %d\n", qinfo -> priority);
     print_state_count(&(qinfo -> sc));
 

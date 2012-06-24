@@ -170,6 +170,9 @@
 #define INFO_INSUFICIENT_QUEUE_RESOURCE "Resource request couldn't be satisfied using queue resources."
 #define INFO_INSUFICIENT_DYNAMIC_RESOURCE "Dynamic resource request couldn't be satisfied."
 #define INFO_NODE_STILL_BOOTING "One of desired nodes is still booting."
+#define INFO_QUEUE_PROC_LIMIT_REACHED "Queue has reached occupied processors limit."
+#define INFO_QUEUE_USER_PROC_LIMIT_REACHED "User has reached queue occupied processors limit."
+#define INFO_QUEUE_GROUP_PROC_LIMIT_REACHED "Group has reached queue occupied processor limit."
 
 #define COMMENT_QUEUE_NOT_STARTED "Not Running: Queue not started."
 #define COMMENT_QUEUE_NOT_EXEC    "Not Running: Queue not an execution queue."
@@ -199,5 +202,8 @@
 #define COMMENT_INSUFICIENT_QUEUE_RESOURCE "Not Running: Resource request couldn't be satisfied using queue resources."
 #define COMMENT_INSUFICIENT_DYNAMIC_RESOURCE "Not Running: Dynamic resource request couldn't be satisfied."
 #define COMMENT_NODE_STILL_BOOTING "Not Running: One of desired nodes is still booting."
+#define COMMENT_QUEUE_PROC_LIMIT_REACHED "Not Running: Queue has reached occupied processors limit."
+#define COMMENT_QUEUE_USER_PROC_LIMIT_REACHED "Not Running: User has reached queue occupied processors limit."
+#define COMMENT_QUEUE_GROUP_PROC_LIMIT_REACHED "Not Running: Group has reached queue occupied processor limit."
 
 #endif

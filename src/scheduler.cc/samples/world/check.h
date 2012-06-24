@@ -152,6 +152,8 @@ int check_server_max_user_run(server_info *sinfo, char *account);
  */
 int check_queue_max_group_run(queue_info *qinfo, char *group);
 
+int check_queue_proc_limits(queue_info *qinfo, job_info *jinfo);
+
 /*
  *      will_cross_into_ded_time - check to see if a job would cross into
  *                                 dedicated time

@@ -628,6 +628,42 @@ attribute_def que_attr_def[] =
     ATR_TYPE_STR,
     PARENT_TYPE_QUE_EXC
   },
+  /* QA_ATR_MaxRun */             /* max processors that can be consumed by queue */
+  {   ATTR_maxproc,            /* "max_proc" */
+      decode_l,
+      encode_l,
+      set_l,
+      comp_l,
+      free_null,
+      NULL_FUNC,
+      NO_USER_SET,
+      ATR_TYPE_LONG,
+      PARENT_TYPE_QUE_EXC
+  },
+  /* QE_ATR_MaxUserProc */
+  { ATTR_maxuserproc, /* "max_user_proc" */
+    decode_l,
+    encode_l,
+    set_l,
+    comp_l,
+    free_null,
+    NULL_FUNC,
+    NO_USER_SET,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_QUE_EXC
+  },
+  /* QE_ATR_MaxGrpProc */
+  { ATTR_maxgrpproc,  /* "max_group_proc" */
+    decode_l,
+    encode_l,
+    set_l,
+    comp_l,
+    free_null,
+    NULL_FUNC,
+    NO_USER_SET,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_QUE_EXC
+  },
 
   /* for routing queues */
 
@@ -703,7 +739,6 @@ attribute_def que_attr_def[] =
     ATR_TYPE_LONG,
     PARENT_TYPE_QUE_RTE
   },
-
 
   /* site supplied attribute definitions, if any, see site_que_attr_*.h */
 #include "site_que_attr_def.h"

@@ -209,6 +209,13 @@ int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
     return rc;
     }
 
+  if ((rc = check_queue_proc_limits(qinfo,jinfo)))
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
+              "Queue limit of processors reached (queue/user/group).");
+    return rc;
+    }
+
   if ((rc = check_ded_time_boundry(jinfo)))
     return rc;
 #if 0
@@ -374,6 +381,37 @@ int check_server_max_group_run(server_info *sinfo, char *group)
     return 0;
 
   return SERVER_GROUP_LIMIT_REACHED;
+  }
+
+static int count_queue_procs(queue_info *qinfo);
+static int count_queue_user_procs(queue_info *qinfo, job_info *jinfo);
+static int count_queue_group_procs(queue_info *qinfo, job_info *jinfo);
+
+int check_queue_proc_limits(queue_info *qinfo, job_info *jinfo)
+  {
+  pars_spec *spec = parse_nodespec(jinfo->nodespec);
+  int this_job = spec->total_procs;
+  free_parsed_nodespec(spec);
+
+  if (qinfo->max_proc != INFINITY)
+    {
+    if (count_queue_procs(qinfo) + this_job > qinfo->max_proc)
+      return QUEUE_PROC_LIMIT_REACHED;
+    }
+
+  if (qinfo->max_user_proc != INFINITY)
+    {
+    if (count_queue_user_procs(qinfo,jinfo) + this_job > qinfo->max_user_proc)
+      return QUEUE_USER_PROC_LIMIT_REACHED;
+    }
+
+  if (qinfo->max_group_proc != INFINITY)
+    {
+    if (count_queue_group_procs(qinfo,jinfo) + this_job > qinfo->max_group_proc)
+      return QUEUE_GROUP_PROC_LIMIT_REACHED;
+    }
+
+  return 0;
   }
 
 
@@ -545,6 +583,53 @@ int count_by_group(job_info **jobs, char *group)
     }
 
   return count;
+  }
+
+static int count_queue_procs(queue_info *qinfo)
+  {
+  int procs = 0;
+  for (int i = 0; i < qinfo->sc.running; i++)
+    {
+    pars_spec *spec = parse_nodespec(qinfo->running_jobs[i]->nodespec);
+    procs += spec->total_procs;
+    free_parsed_nodespec(spec);
+    }
+
+  return procs;
+  }
+
+static int count_queue_user_procs(queue_info *qinfo, job_info *jinfo)
+  {
+  int procs = 0;  /* the accumulator to count the user's jobs */
+
+  for (int i = 0; i < qinfo->sc.running; i++)
+    {
+    if (!strcmp(jinfo->account, qinfo->running_jobs[i]->account))
+      {
+      pars_spec *spec = parse_nodespec(qinfo->running_jobs[i]->nodespec);
+      procs += spec->total_procs;
+      free_parsed_nodespec(spec);
+      }
+    }
+
+  return procs;
+  }
+
+static int count_queue_group_procs(queue_info *qinfo, job_info *jinfo)
+  {
+  int procs = 0;  /* the accumulator to count the user's jobs */
+
+  for (int i = 0; i < qinfo->sc.running; i++)
+    {
+    if (!strcmp(jinfo->group, qinfo->running_jobs[i]->group))
+      {
+      pars_spec *spec = parse_nodespec(qinfo->running_jobs[i]->nodespec);
+      procs += spec->total_procs;
+      free_parsed_nodespec(spec);
+      }
+    }
+
+  return procs;
   }
 
 /*

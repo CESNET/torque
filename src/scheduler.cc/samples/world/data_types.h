@@ -217,6 +217,9 @@ unsigned is_admin_queue : 1; /* admin job queue */
   int max_run;                  /* max jobs that can run in queue */
   int max_user_run;             /* max jobs that a user can run in queue */
   int max_group_run;            /* max jobs that a group can run in a queue */
+  int max_proc;                 /* max processors that can be consumed by this queue */
+  int max_user_proc;            /* max processors that can be consumed by a user */
+  int max_group_proc;           /* max processors that can be consumed by a group */
   int priority;                 /* priority of queue */
   time_t starving_support;      /* time required for jobs to starve */
 
