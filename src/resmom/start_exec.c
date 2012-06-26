@@ -2576,8 +2576,6 @@ int TMomFinalizeChild(
           }
         }
       
-      read_environ_script(pjob,&vtable);
-      
       shellpid = fork();
       
       if (shellpid == 0)
@@ -2910,6 +2908,8 @@ int TMomFinalizeChild(
   /*    errors (with a \n) directly to the user on fd 2 and fscync(2) it */
   /***********************************************************************/
   
+  read_environ_script(pjob,&vtable);
+
   pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long = sjr.sj_session;
   
   pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags =
