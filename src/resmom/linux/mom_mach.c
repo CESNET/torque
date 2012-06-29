@@ -3224,7 +3224,7 @@ char *users(
   job *pjob = (job*)GET_NEXT(svr_alljobs);
   int first = 1;
 
-  strcpy(ret_string,"");
+  strcpy(ret_string," ");
 
   for (;pjob != NULL; pjob = (job*)GET_NEXT(pjob->ji_alljobs))
     {
