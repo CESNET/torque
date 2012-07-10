@@ -1403,10 +1403,12 @@ int start_checkpoint(
 
     /* Set the address of a function to execute in scan_for_terminated */
 
-    pjob->ji_mompost = (int (*)())post_checkpoint; 
+    pjob->ji_mompost = (int (*)())post_checkpoint;
 
     if (preq)
       free_br(preq); /* child will send reply */
+
+    job_save(pjob, SAVEJOB_FULL);
 
     }
   else if (pid < 0)

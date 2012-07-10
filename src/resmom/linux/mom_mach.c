@@ -3747,6 +3747,27 @@ void scan_non_child_tasks(void)
 
   for (job = GET_NEXT(svr_alljobs);job != NULL;job = GET_NEXT(job->ji_alljobs))
     {
+
+    /* check for root subtasks */
+    if (job->ji_momsubt != 0 && kill(job->ji_momsubt, 0) == -1)
+      {
+      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, job->ji_qs.ji_jobid,
+                 "job had a root subtask that is now dead");
+
+      /* there was a subtask which is now dead */
+      if (job->ji_mompost != NULL)
+        {
+        /* since we don't have any exit value, we need to simulate success */
+        job->ji_mompost(job, 0);
+        }
+
+      job->ji_momsubt = 0;
+      job->ji_mompost = NULL;
+
+      job_save(job, SAVEJOB_FULL);
+      continue;
+      }
+
     task *task;
 
     for (task = GET_NEXT(job->ji_tasks);task != NULL;task = GET_NEXT(task->ti_jobtask))

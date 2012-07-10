@@ -124,6 +124,8 @@
 #ifdef PBS_MOM
 int save_tmsock(job *);
 int recov_tmsock(int, job *);
+int recov_roottask( int fds, job *pjob);
+int save_roottask(job *pjob);
 #endif
 
 extern int job_qs_upgrade(job *, int, char *, int);
@@ -307,6 +309,10 @@ int job_save(
 
 #ifdef PBS_MOM
       else if (save_tmsock(pjob) != 0)
+        {
+        redo++;
+        }
+      else if (save_roottask(pjob) != 0)
         {
         redo++;
         }
@@ -521,6 +527,14 @@ job *job_recov(
   if (recov_tmsock(fds, pj) != 0)
     {
     sprintf(log_buffer, "warning: tmsockets not recovered from %s (written by an older pbs_mom?)",
+            namebuf);
+
+    log_err(-1, "job_recov", log_buffer);
+    }
+
+  if (recov_roottask(fds, pj) != 0)
+    {
+    sprintf(log_buffer, "warning: root task not recovered from %s (written by an older pbs_mom?)",
             namebuf);
 
     log_err(-1, "job_recov", log_buffer);

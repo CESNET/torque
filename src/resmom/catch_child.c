@@ -1353,6 +1353,8 @@ static void preobit_reply(
     pjob->ji_mompost = post_epilogue;
     pjob->ji_momhandle = -1;
 
+    job_save(pjob,SAVEJOB_FULL);
+
     if (LOGLEVEL >= 2)
       {
       snprintf(log_buffer, 1024, "epilog subtask created with pid %d - substate set to JOB_SUBSTATE_OBIT - registered post_epilogue",

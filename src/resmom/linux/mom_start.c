@@ -504,7 +504,7 @@ void scan_for_terminated(void)
 
       pjob->ji_momsubt = 0;
 
-      job_save(pjob, SAVEJOB_QUICK);
+      job_save(pjob, SAVEJOB_FULL);
 
       continue;
       }  /* END if (pid == pjob->ji_momsubt) */

@@ -25,6 +25,36 @@
 
 u_long addclient(char *name);
 
+int save_roottask(job *pjob)
+  {
+  save_struct((char*)&pjob->ji_momsubt,sizeof(pjob->ji_momsubt));
+  save_struct((char*)&pjob->ji_mompost,sizeof(pjob->ji_mompost));
+
+  return 0;
+  }
+
+int recov_roottask( int fds, job *pjob)
+  {
+  char *id = "root_task";
+
+  if (read(fds, &pjob->ji_momsubt, sizeof(pjob->ji_momsubt)) != sizeof(pjob->ji_momsubt))
+    {
+    log_err(errno,id,"read");
+    pjob->ji_momsubt = 0;
+    pjob->ji_mompost = NULL;
+    return 1;
+    }
+
+  if (read(fds, &pjob->ji_mompost, sizeof(pjob->ji_mompost)) != sizeof(pjob->ji_mompost))
+    {
+    log_err(errno,id,"read");
+    pjob->ji_momsubt = 0;
+    pjob->ji_mompost = NULL;
+    return 1;
+    }
+
+  return 0;
+  }
 
 /*
  * save_tmsock() - Saves the tm sockets of a job to disk
@@ -60,9 +90,6 @@ int save_tmsock(
 
   return(0);
   }  /* END save_tmsock() */
-
-
-
 
 /*
  * recov_tmsock() - Recovers the tm sockets of a job
