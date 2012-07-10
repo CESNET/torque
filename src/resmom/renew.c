@@ -17,6 +17,7 @@
 #include <krb525.h>
 #include <krb525_convert.h>
 #include <krb5-protos.h>
+#include <math.h>
 
 #include "libpbs.h"
 #include "portability.h"
@@ -42,7 +43,7 @@
 
 enum {   MAXTRIES  = 60 };
 
-enum {   TIME_RESERVE  = 5*60,     /* 5 minutes */
+enum {   TIME_RESERVE  = 1*60*60,     /* 1 hour */
 	 TIME_SLEEP    = 2*60,     /* 2 minutes */
 	 TIME_LIFETIME = 8*60*60   /* 8 hours   */
 };
@@ -436,6 +437,7 @@ do_renewal(krb5_context context, eexec_job_info job_info)
    char *id = "do_renewal";
    struct sigaction sa;
    char  log_msg[256];
+   int errs = 0;
 
    memset(&sa,0,sizeof(sa));
    sa.sa_handler = register_signal;
@@ -456,12 +458,19 @@ do_renewal(krb5_context context, eexec_job_info job_info)
 	      job_info->endtime); */
       
         ret = get_renewed_creds(context, job_info);
-        if (ret)
- 	    goto out;
+
+        if (ret != 0)
+          {
+          if (errs < 5) errs++;
+          sleep((unsigned)pow(5,errs));
+          }
+        else
+          {
+          errs = 0;
+          }
      }
    }
 
-out:
   if(ret) {
      snprintf(log_msg, sizeof(log_msg), 
               "credential renewal failed, exiting renewal: %d (%s) when %s", ret, 
