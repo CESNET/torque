@@ -1316,6 +1316,12 @@ static void preobit_reply(
     return;
     }
 
+  if (pjob->ji_mompost == post_epilogue)
+  {
+  pjob->ji_momhandle = -1;
+  return;
+  }
+
   /* at this point, server gave us a valid response so we can run epilogue */
 
   if (LOGLEVEL >= 2)
