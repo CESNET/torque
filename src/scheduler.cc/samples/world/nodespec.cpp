@@ -389,6 +389,7 @@ void node_set_magrathea_status(node_info *ninfo)
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, ninfo->name, "Node had inconsistent magrathea state.");
     }
 
+  if (ninfo->host != NULL)
   if (ninfo->host->jobs != NULL && ninfo->host->jobs[0] != NULL)
     {
     /*
