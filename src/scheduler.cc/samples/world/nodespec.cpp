@@ -137,6 +137,23 @@ static int node_is_suitable_for_boot(node_info *ninfo)
     return 0; 
     }
 
+  int jobs_present = 0;
+  if (ninfo->host->jobs != NULL && ninfo->host->jobs[0] != NULL)
+    jobs_present = 1;
+
+  for (size_t i = 0; i < ninfo->host->hosted.size(); i++)
+    {
+    if (ninfo->host->hosted[i]->jobs != NULL && ninfo->host->hosted[i]->jobs[0] != NULL)
+      jobs_present = 1;
+    }
+
+  if (jobs_present)
+    {
+    ninfo->is_usable_for_boot = 0;
+    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
+              "Node marked as incapable of booting jobs, because it, one of it's sisters or the cloud node already contains a running job.");
+    }
+
   return 1;
   }
 
@@ -359,6 +376,36 @@ void node_set_magrathea_status(node_info *ninfo)
   else
     {
     ninfo->magrathea_status = MagratheaStateNone;
+    }
+
+  if (ninfo->jobs != NULL && ninfo->jobs[0] != NULL)
+    {
+    if (ninfo->magrathea_status == MagratheaStateDownBootable)
+      ninfo->magrathea_status = MagratheaStateNone;
+    if (ninfo->magrathea_status == MagratheaStateFree)
+      ninfo->magrathea_status = MagratheaStateNone;
+
+    /* but node already belongs to cluster */
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, ninfo->name, "Node had inconsistent magrathea state.");
+    }
+
+  if (ninfo->host->jobs != NULL && ninfo->host->jobs[0] != NULL)
+    {
+    /*
+    if (ninfo->magrathea_status == MagratheaStateFree)
+      ninfo->magrathea_status = MagratheaStateNone;
+    if (ninfo->magrathea_status == MagratheaStateRunning)
+      ninfo->magrathea_status = MagratheaStateNone;
+    if (ninfo->magrathea_status == MagratheaStateRunningPreemptible)
+      ninfo->magrathea_status = MagratheaStateNone;
+    if (ninfo->magrathea_status == MagratheaStateRunningPriority)
+      ninfo->magrathea_status = MagratheaStateNone;
+    */
+    if (ninfo->magrathea_status == MagratheaStateDownBootable)
+      ninfo->magrathea_status = MagratheaStateNone;
+
+    /* but node already belongs to cluster */
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, ninfo->name, "Node had inconsistent magrathea state.");
     }
   }
 
