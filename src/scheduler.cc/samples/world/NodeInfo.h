@@ -3,8 +3,10 @@
 
 #include <vector>
 #include <set>
+#include <string>
 
 typedef enum node_type { NodeTimeshared, NodeCluster, NodeVirtual, NodeCloud } node_type;
+enum ResourceCheckMode { MaxOnly, Avail };
 
 struct node_info
   {
@@ -69,6 +71,9 @@ unsigned admin_slot_available : 1; /* admin slot is available */
 
   node_info* host; /*< the physical host of this node */
   std::vector< node_info* > hosted; /*< virtual nodes hosted on this node */
+
+  bool has_prop(pars_prop* property, int preassign_starving, bool physical_only);
+  bool has_prop(const char* property);
   };
 
 #endif /* NODEINFO_H_ */

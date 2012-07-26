@@ -180,8 +180,6 @@ static int node_is_not_full(node_info *ninfo)
   return 1;
   }
 
-enum ResourceCheckMode { MaxOnly, Avail };
-
 static int node_has_enough_np(node_info *ninfo, int ppn, enum ResourceCheckMode mode)
   {
   switch(mode)
@@ -200,7 +198,7 @@ static int node_has_enough_np(node_info *ninfo, int ppn, enum ResourceCheckMode 
   return 0; /* default is no */
   }
 
-static int node_has_enough_resource(node_info *ninfo, char *name, char *value,
+int node_has_enough_resource(node_info *ninfo, char *name, char *value,
     enum ResourceCheckMode mode)
   {
   struct resource *res;
@@ -290,68 +288,6 @@ int get_node_has_mem(node_info *ninfo, pars_spec_node* spec, int preassign_starv
 int get_node_has_ppn(node_info *ninfo, unsigned ppn, int preassign_starving)
   {
   return node_has_enough_np(ninfo, ppn, preassign_starving?MaxOnly:Avail);
-  }
-
-int get_node_has_prop(node_info *ninfo, pars_prop* property, int preassign_starving)
-  {
-  unsigned negative = 0;
-  char *name, *value;
-
-  dbg_precondition(property != NULL, "This functions does not accept NULL.");
-  dbg_precondition(ninfo != NULL, "This functions does not accept NULL.");
-
-  name = property->name;
-  value = property->value;
-
-  if (name[0] == '^')
-    {
-    negative = 1;
-    name++;
-    }
-
-  if (property->value == NULL) /* property, not a resource */
-    {
-    /* first check if it is node name */
-    if (strcmp(ninfo->name,name) == 0 ||
-        (value != NULL && strcmp(name,"host") && strcmp(value,ninfo->name)))
-      {
-      return !negative;
-      }
-
-    set<string>::iterator it;
-
-    it = ninfo->physical_properties.find(string(name));
-    if (it != ninfo->physical_properties.end())
-      return !negative;
-
-    it = ninfo->virtual_properties.find(string(name));
-    if (it != ninfo->virtual_properties.end())
-      return !negative;
-    }
-  else /* resource or ppn */
-    {
-    return node_has_enough_resource(ninfo, name, value, preassign_starving?MaxOnly:Avail);
-    }
-
-  return negative; /* if negative property and not found -> return 1 */
-  }
-
-int get_node_has_property(node_info *ninfo, const char* property)
-  {
-  char *buf;
-  pars_prop *prop;
-  int ret;
-
-  dbg_precondition(property != NULL, "This functions does not accept NULL.");
-  dbg_precondition(ninfo != NULL, "This functions does not accept NULL.");
-
-  buf = strdup(property);
-  prop = parse_prop(buf);
-  ret = get_node_has_prop(ninfo,prop,0);
-  free_pars_prop(&prop);
-  free(buf);
-
-  return ret;
   }
 
 /** Phony test, real test done in check.c */
@@ -637,7 +573,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
         iter = spec->properties;
         while (iter != NULL)
           {
-          if ((get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0) &&
+          if ((!ninfo_arr[i]->has_prop(iter,preassign_starving,true)) &&
               (alternative_has_property(*ra,iter->name) == 0) &&
               (is_dynamic_resource(iter) == 0))
             break; /* break out of the cycle if not found property */
@@ -661,7 +597,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
       iter = spec->properties;
       while (iter != NULL)
         {
-        if (get_node_has_prop(ninfo_arr[i],iter,preassign_starving) == 0 &&
+        if ((!ninfo_arr[i]->has_prop(iter,preassign_starving,false)) &&
             is_dynamic_resource(iter) == 0)
           break; /* break out of the cycle if not found property */
 
@@ -736,7 +672,7 @@ static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, int avail_nod
         iter = spec->properties;
         while (iter != NULL)
           {
-          if ((get_node_has_prop(ninfo_arr[i],iter,1) == 0) &&
+          if ((!ninfo_arr[i]->has_prop(iter,1,true)) &&
               (alternative_has_property(*ra,iter->name) == 0) &&
               (is_dynamic_resource(iter) == 0))
             break; /* break out of the cycle if not found property */
@@ -760,7 +696,7 @@ static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, int avail_nod
       iter = spec->properties;
       while (iter != NULL)
         {
-        if (get_node_has_prop(ninfo_arr[i],iter,1) == 0 &&
+        if ((!ninfo_arr[i]->has_prop(iter,1,false)) &&
             is_dynamic_resource(iter) == 0)
           break; /* break out of the cycle if not found property */
 

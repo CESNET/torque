@@ -18,4 +18,4 @@ libfoo_la_SOURCES = check.cpp dedtime.cpp fairshare.cpp fifo.cpp globals.cpp \
 		    sort.h state_count.h \
 	        token_acct.h token_accounting.cpp world.h world.cpp \
             world_server.h world_server.cpp nodespec.cpp nodespec_sch.h site_pbs_cache.cpp \
-            ../../../lib/Libsite/site_pbs_cache_common.c JobInfo.cpp DynamicResource.cpp
+            ../../../lib/Libsite/site_pbs_cache_common.c JobInfo.cpp DynamicResource.cpp NodeInfo.cpp
