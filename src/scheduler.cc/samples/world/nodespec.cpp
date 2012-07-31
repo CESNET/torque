@@ -134,17 +134,20 @@ static int node_is_suitable_for_boot(node_info *ninfo)
     ninfo->is_usable_for_boot = 0;
     sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
               "Node marked as incapable of booting jobs, because it doesn't have alternatives.");
-    return 0; 
+    return 0;
     }
 
   int jobs_present = 0;
-  if (ninfo->host->jobs != NULL && ninfo->host->jobs[0] != NULL)
-    jobs_present = 1;
-
-  for (size_t i = 0; i < ninfo->host->hosted.size(); i++)
+  if (ninfo->host != NULL)
     {
-    if (ninfo->host->hosted[i]->jobs != NULL && ninfo->host->hosted[i]->jobs[0] != NULL)
+    if (ninfo->host->jobs != NULL && ninfo->host->jobs[0] != NULL)
       jobs_present = 1;
+
+    for (size_t i = 0; i < ninfo->host->hosted.size(); i++)
+      {
+      if (ninfo->host->hosted[i]->jobs != NULL && ninfo->host->hosted[i]->jobs[0] != NULL)
+        jobs_present = 1;
+      }
     }
 
   if (jobs_present)
@@ -152,6 +155,7 @@ static int node_is_suitable_for_boot(node_info *ninfo)
     ninfo->is_usable_for_boot = 0;
     sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
               "Node marked as incapable of booting jobs, because it, one of it's sisters or the cloud node already contains a running job.");
+    return 0;
     }
 
   return 1;
