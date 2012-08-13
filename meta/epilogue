@@ -4,7 +4,7 @@
 JOBID="$1"
 USER="$2"
 
-SCRATCHES="/scratch /scrach.shared /ssd"
+SCRATCHES="/scratch /scratch.shared /ssd"
 for scr in $SCRATCHES;do
         if [ -d $scr ];then
                 rmdir --ignore-fail-on-non-empty "$scr/$USER/job_$JOBID"

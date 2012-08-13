@@ -1837,7 +1837,7 @@ int mom_over_limit(
   if (num > 60*5) /* 5 min burn-in allowed */
   if (cputsum > 1.1*node->procs*num)
     {
-    if (cputsum < 10*num*system_ncpus) /* fix for kernel bug */
+    if (cputsum < 1.1*num*system_ncpus) /* fix for kernel bug */
       {
       if (simulatekill || igncput)
         {
