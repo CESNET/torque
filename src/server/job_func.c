@@ -1449,6 +1449,7 @@ void job_purge(
   static char   id[] = "job_purge";
 
   char          namebuf[MAXPATHLEN + 1];
+  char          archivebuf[MAXPATHLEN + 1];
   extern char  *msg_err_purgejob;
 
   if ((pjob->ji_qs.ji_substate != JOB_SUBSTATE_TRANSIN) &&
@@ -1573,18 +1574,24 @@ void job_purge(
 
   strcpy(namebuf, path_jobs); /* delete job file */
 
+  strcpy(archivebuf, PBS_SERVER_HOME);
+  strcat(archivebuf, "/job_archive/"); /* archive path */
+
   strcat(namebuf, pjob->ji_qs.ji_fileprefix);
+  strcat(archivebuf, pjob->ji_qs.ji_fileprefix);
 
   if (pjob->ji_isparent == TRUE)
     {
     strcat(namebuf, JOB_FILE_TMP_SUFFIX);
+    strcat(archivebuf, JOB_FILE_TMP_SUFFIX);
     }
   else
     {
     strcat(namebuf, JOB_FILE_SUFFIX);
+    strcat(archivebuf, JOB_FILE_SUFFIX);
     }
 
-  if (unlink(namebuf) < 0)
+  if (rename(namebuf,archivebuf) < 0)
     {
     if (errno != ENOENT)
       log_err(errno, id, msg_err_purgejob);
