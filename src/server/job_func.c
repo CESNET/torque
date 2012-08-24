@@ -1591,6 +1591,9 @@ void job_purge(
     strcat(archivebuf, JOB_FILE_SUFFIX);
     }
 
+  /* make sure that the job is actually stored in the job file */
+  job_save(pjob,SAVEJOB_FULL);
+  /* move the job file */
   if (rename(namebuf,archivebuf) < 0)
     {
     if (errno != ENOENT)

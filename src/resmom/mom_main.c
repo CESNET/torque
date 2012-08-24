@@ -188,9 +188,10 @@ int    igncput = 0;
 int    ignvmem = 0;
 int    ignpvmem = 0;
 int    simulatekill = 0;
-int    ignmemexcl = 1;
-int    ignvmemexcl = 1;
-int    single_job_is_exclusive = 0;
+int    single_job_is_exclusive = 1;
+int    strictmem = 0;
+int    strictvmem = 0;
+int    strictcpus = 0;
 int    spoolasfinalname = 0;
 int    killdelay = 0;
 /* end policies */
@@ -349,13 +350,14 @@ static unsigned long setallocparcmd(char *);
 static unsigned long setidealload(char *);
 static unsigned long setignwalltime(char *);
 static unsigned long setignmem(char *);
-static unsigned long setignmemexcl(char *);
-static unsigned long setignvmemexcl(char *);
 static unsigned long setsinglejobisexclusive(char*);
 static unsigned long setigncput(char *);
 static unsigned long setignvmem(char *);
 static unsigned long setignpmem(char *);
 static unsigned long setignpvmem(char *);
+static unsigned long setstrictmem(char *);
+static unsigned long setstrictvmem(char *);
+static unsigned long setstrictcpus(char *);
 static unsigned long setsimulatekill(char *);
 static unsigned long setlogevent(char *);
 static unsigned long setloglevel(char *);
@@ -417,9 +419,10 @@ static struct specials
   { "ideal_load",          setidealload },
   { "ignwalltime",         setignwalltime },
   { "ignmem",              setignmem },
-  { "ignmem_excl",         setignmemexcl },
-  { "ignvmem_excl",        setignvmemexcl },
   { "single_job_is_excl",  setsinglejobisexclusive },
+  { "strict_cpus",         setstrictcpus },
+  { "strict_mem",          setstrictmem },
+  { "strict_vmem",         setstrictvmem },
   { "ignpmem",             setignpmem },
   { "igncput",             setigncput },
   { "ignvmem",             setignvmem },
@@ -2718,26 +2721,38 @@ static unsigned long setignmem(char *value)  /* I */
   return(1);
   } /* END setignmem() */
 
-static unsigned long setignmemexcl(char *value) /* I */
+static unsigned long setstrictmem(char *value)
   {
-  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "ignmemexcl", value);
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "strictmem", value);
 
   if (!strncasecmp(value,"t",1) || (value[0] == '1') || !strcasecmp(value,"on") )
-    ignmemexcl = 1;
+    strictmem = 1;
   else
-    ignmemexcl = 0;
+    strictmem = 0;
 
   return(1);
   }
 
-static unsigned long setignvmemexcl(char *value) /* I */
+static unsigned long setstrictvmem(char *value)
   {
-  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "ignvmemexcl", value);
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "strictvmem", value);
 
   if (!strncasecmp(value,"t",1) || (value[0] == '1') || !strcasecmp(value,"on") )
-    ignvmemexcl = 1;
+    strictvmem = 1;
   else
-    ignvmemexcl = 0;
+    strictvmem = 0;
+
+  return(1);
+  }
+
+static unsigned long setstrictcpus(char *value)
+  {
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "strictcpus", value);
+
+  if (!strncasecmp(value,"t",1) || (value[0] == '1') || !strcasecmp(value,"on") )
+    strictcpus = 1;
+  else
+    strictcpus = 0;
 
   return(1);
   }

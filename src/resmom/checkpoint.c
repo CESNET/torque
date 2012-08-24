@@ -80,6 +80,7 @@
 #include "csv.h"
 #include "svrfunc.h"
 #include "pbs_ifl.h"
+#include "root_task.h"
 
 extern int exiting_tasks;
 extern int LOGLEVEL;
@@ -1403,7 +1404,7 @@ int start_checkpoint(
 
     /* Set the address of a function to execute in scan_for_terminated */
 
-    pjob->ji_mompost = (int (*)())post_checkpoint;
+    pjob->ji_mompost = ROOT_TASK_POST_CHECKPOINT;
 
     if (preq)
       free_br(preq); /* child will send reply */

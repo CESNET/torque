@@ -102,6 +102,7 @@
 #include "pbs_job.h"
 #include "mom_mach.h"
 #include "mom_func.h"
+#include "../root_task.h"
 
 /* Global Variables */
 
@@ -481,13 +482,13 @@ void scan_for_terminated(void)
       /* NOTE:  both ji_momsubt and ji_mompost normally set in routine
                 preobit_reply() after epilog child is successfully forked */
 
-      if (pjob->ji_mompost != NULL)
+      if (pjob->ji_mompost != ROOT_TASK_NULL)
         {
-        if (pjob->ji_mompost(pjob, exiteval) == 0)
+        if (root_task_calls[pjob->ji_mompost](pjob, exiteval) == 0)
           {
           /* success */
 
-          pjob->ji_mompost = NULL;
+          pjob->ji_mompost = ROOT_TASK_NULL;
           }
 
         }  /* END if (pjob->ji_mompost != NULL) */

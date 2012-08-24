@@ -122,6 +122,7 @@
 #include "../rm_dep.h"
 
 #include "nodespec.h"
+#include "../root_task.h"
 
 
 /*
@@ -186,10 +187,11 @@ extern int      ignvmem;
 extern int      ignmem;
 extern int      ignpmem;
 extern int      ignpvmem;
-extern int      ignvmemexcl;
-extern int      ignmemexcl;
 extern int      single_job_is_exclusive;
 extern int      simulatekill;
+extern int      strictmem;
+extern int      strictvmem;
+extern int      strictcpus;
 
 /*
 ** local functions and data
@@ -933,13 +935,10 @@ static int overcpu_proc(
 
   {
   char  *id = "overcpu_proc";
-  ulong  memsize;
 
   struct dirent *dent;
   ulong  cputime;
   proc_stat_t *ps;
-
-  memsize = 0;
 
   rewinddir(pdir);
 
@@ -1077,11 +1076,9 @@ static int overmem_proc(
 
   {
   char  *id = "overmem_proc";
-  unsigned long long memsize;
   int            i;
   proc_stat_t *ps;
 
-  memsize = 0;
 
   if (LOGLEVEL >= 6)
     {
@@ -1149,7 +1146,7 @@ int is_exclusive(pars_spec* spec, pars_spec_node* node)
     {
     job *xjob = (job*)GET_NEXT(svr_alljobs);
     if (GET_NEXT(xjob->ji_alljobs) == NULL)
-      return 1;
+      return 2;
     }
 
   return 0;
@@ -1452,7 +1449,7 @@ int mom_set_limits(
   if (pmem_limit == 0 && mem_limit != 0)
     pmem_limit = mem_limit;
 
-  if (!(ignmemexcl && exclusive))
+  if (!exclusive)
   if (ignpmem == FALSE && set_mode == SET_LIMIT_SET)
     {
     reslim.rlim_cur = reslim.rlim_max = pmem_limit;
@@ -1506,7 +1503,7 @@ int mom_set_limits(
     }
 
   /* only set RLIMIT_AS when user requested */
-  if (!(ignvmemexcl && exclusive))
+  if (!exclusive)
   if (ignpvmem == FALSE && set_mode == SET_LIMIT_SET && pvmem_limit != 0)
     {
     reslim.rlim_cur = reslim.rlim_max = pvmem_limit;
@@ -1833,18 +1830,21 @@ int mom_over_limit(
 
   /* determine CPU time */
   num = time_now - pjob->ji_qs.ji_stime; /* current raw walltime */
-  if (!exclusive)
-  if (num > 60*5) /* 5 min burn-in allowed */
-  if (cputsum > 1.1*node->procs*num)
+
+  /* job running for at least 5 minutes, using more cpus than requested and not using more than system (cpu bug) */
+  if (num > 60*5 && cputsum > 1.1*node->procs*num && cputsum < 1.1*num*system_ncpus)
     {
-    if (cputsum < 1.1*num*system_ncpus) /* fix for kernel bug */
+    if (!(exclusive == 1 && !strictcpus))
+      /* skip if exclusive and strictcpus not set */
       {
-      if (simulatekill || igncput)
+      if (simulatekill || igncput || (exclusive == 2 && !strictcpus))
+        /* do not kill when simulate_kill is turned on, igncput is turned on, or alone on node and strictcpus not set */
         {
         sprintf(log_buffer, "{%s} user [%s] job consuming more cpu cores on node %s than requested (requested_cores=%u;measured_load=%f;requested_cput=%llu;measured_cput=%lu;hard_limit_cput=%.0f;)",
                             pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, mom_host,
                             node->procs, cputsum/(double)num, node->procs*num, cputsum, 1.1*node->procs*num);
         log_err(0,"SIMULATED_KILL",log_buffer);
+
         }
       else
         {
@@ -1855,10 +1855,10 @@ int mom_over_limit(
       }
     }
 
-  if (!(ignmemexcl && exclusive))
   if ((numll = resi_sum(pjob)) > node->mem * 1024)
     {
-    if (simulatekill || ignmem)
+    if ((exclusive && !strictmem) || simulatekill || ignmem)
+      /* do not kill when simulatekill is turned on, ignmem is turned on, or exclusive and strictmem not set */
       {
       sprintf(log_buffer, "{%s} user [%s] mem %llu exceeded limit %llu on node %s", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->mem * 1024, mom_host);
       log_err(0,"SIMULATED_KILL",log_buffer);
@@ -1870,10 +1870,11 @@ int mom_over_limit(
       }
     }
 
-  if (!(ignvmemexcl && exclusive))
+
   if ((numll = vmem_sum(pjob)) > node->vmem * 1024)
     {
-    if (simulatekill || ignvmem)
+    if ((exclusive && !strictvmem) || simulatekill || ignvmem)
+      /* do not kill when simulatekill is turned on, ignvmem is turned on, or exclusive and strictvmem not set */
       {
       sprintf(log_buffer, "{%s} user [%s] vmem %llu exceeded limit %llu on node %s", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->vmem * 1024, mom_host);
       log_err(0,"SIMULATED_KILL",log_buffer);
@@ -3755,14 +3756,14 @@ void scan_non_child_tasks(void)
                  "job had a root subtask that is now dead");
 
       /* there was a subtask which is now dead */
-      if (job->ji_mompost != NULL)
+      if (job->ji_mompost != ROOT_TASK_NULL)
         {
         /* since we don't have any exit value, we need to simulate success */
-        job->ji_mompost(job, 0);
+        root_task_calls[job->ji_mompost](job, 0);
         }
 
       job->ji_momsubt = 0;
-      job->ji_mompost = NULL;
+      job->ji_mompost = ROOT_TASK_NULL;
 
       job_save(job, SAVEJOB_FULL);
       continue;

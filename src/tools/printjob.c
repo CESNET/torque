@@ -386,6 +386,12 @@ int main(
       }
 
     amt = read(fp, &xjob.ji_qs, sizeof(xjob.ji_qs));
+    if (amt == 0)
+      {
+      fprintf(stderr, "Cannot read empty file \"%s\".",argv[f]);
+      err++;
+      continue;
+      }
 
     if (amt != sizeof(xjob.ji_qs))
       {
@@ -402,6 +408,7 @@ int main(
              "  pbs_server may be able to upgrade job automatically\n",
              argv[f], PBS_QS_VERSION, xjob.ji_qs.qs_version);
       close(fp);
+      err++;
       continue;
       }
 
@@ -430,7 +437,10 @@ int main(
     printf("\n");
     }  /* END for (f) */
 
-  return(0);
+  if (err)
+    return 1;
+  else
+    return 0;
   }    /* END main() */
 
 /* END printjob.c */
