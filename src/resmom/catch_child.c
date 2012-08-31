@@ -1151,6 +1151,18 @@ static void preobit_reply(
     return;
     }  /* END if (pjob != NULL) */
 
+  /* already running epilogue */
+  if (pjob->ji_mompost == ROOT_TASK_POST_EPILOGUE)
+    {
+    free_br(preq);
+
+    shutdown(sock, SHUT_RDWR);
+
+    close_conn(sock);
+
+    return;
+    }
+
   /* we've got a job in PREOBIT and matches the socket, now
      inspect the results of the job stat */
 

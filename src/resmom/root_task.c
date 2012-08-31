@@ -7,6 +7,7 @@
 
 #include "root_task.h"
 #include "svrfunc.h"
+#include "unistd.h"
 
 extern void post_checkpoint(job *pjob, int  ev);
 extern int post_epilogue(job *pjob, int  ev);
@@ -24,6 +25,9 @@ int save_roottask(job *pjob)
 int recov_roottask( int fds, job *pjob)
   {
   char *id = "root_task";
+
+  pjob->ji_mompost = ROOT_TASK_NULL;
+  pjob->ji_momsubt = 0;
 
   if (read(fds, &pjob->ji_momsubt, sizeof(pjob->ji_momsubt)) != sizeof(pjob->ji_momsubt))
     {

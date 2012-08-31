@@ -192,8 +192,6 @@ extern tlist_head mom_polljobs;
 extern char  *path_jobs;
 extern char  *path_prolog;
 extern  char            *path_prologuser;
-extern  char            *path_prologp;
-extern  char            *path_prologuserp;
 extern char  *path_spool;
 extern char  *path_aux;
 extern gid_t   pbsgroup;
@@ -207,8 +205,6 @@ extern  char             PRE_EXEC[];
 
 extern int LOGLEVEL;
 extern long TJobStartBlockTime;
-
-extern char path_checkpoint[];
 
 int              mom_reader_go;	 /* see catchinter() & mom_writer() */
 
@@ -1361,8 +1357,6 @@ int TMomFinalizeJob1(
   
   attribute          *pattr;
   attribute          *pattri;
-  resource           *presc;
-  resource_def   *prd;
   
   struct sockaddr_in  saddr;
   char                buf[MAXPATHLEN + 2];
@@ -1439,15 +1433,18 @@ int TMomFinalizeJob1(
   /* did the job request nodes?  will need to setup node file */
   
   pattr = &pjob->ji_wattr[(int)JOB_ATR_resource];
-  
-  prd = find_resc_def(svr_resc_def, "neednodes", svr_resc_size);
-  
-  presc = find_resc_entry(pattr, prd);
-  
+
   #ifdef MOM_FORCENODEFILE
   pjob->ji_flags |= MOM_HAS_NODEFILE;
   
   #else /* MOM_FORCENODEFILE */
+  resource       *presc;
+  resource_def   *prd;
+
+  prd = find_resc_def(svr_resc_def, "neednodes", svr_resc_size);
+
+  presc = find_resc_entry(pattr, prd);
+
   if (presc != NULL)
 	  pjob->ji_flags |= MOM_HAS_NODEFILE;
   
@@ -1784,10 +1781,8 @@ int TMomFinalizeJob2(
 #endif  /* !SHELL_USE_ARGV */
   
   job                  *pjob;
-  task                 *ptask;
-  
+
   pjob  = (job *)TJE->pjob;
-  ptask = (task *)TJE->ptask;
   
   if (LOGLEVEL >= 4)
 	{

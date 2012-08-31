@@ -149,6 +149,7 @@
 #include "mcom.h"
 
 #include "cloud.h"
+#include "root_task.h"
 
 #ifdef NOPOSIXMEMLOCK
 #undef _POSIX_MEMLOCK
@@ -7824,6 +7825,10 @@ examine_all_polled_jobs(void)
        pjob = (job *)GET_NEXT(pjob->ji_jobque))
     {
     if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
+      continue;
+
+    /* already running epilogue */
+    if (pjob->ji_mompost == ROOT_TASK_POST_EPILOGUE)
       continue;
 
     /*
