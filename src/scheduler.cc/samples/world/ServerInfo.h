@@ -6,6 +6,8 @@
 #include <string>
 #include "DynamicResource.h"
 
+#define DEFAULT_JOB_START_TIMEOUT 60
+
 struct server_info
   {
   char *name;   /* name of server */
@@ -27,6 +29,8 @@ struct server_info
   int non_dedicated_node_count;
   node_info **timesharing_nodes;/* array of timesharing nodes */
   token **tokens;               /* array of tokens */
+
+  int job_start_timeout;
   };
 
 #endif /* SERVERINFO_H_ */

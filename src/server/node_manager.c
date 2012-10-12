@@ -3790,6 +3790,7 @@ static int node_spec(
 
     pnode->nd_flag = okay;
 
+    if (exactmatch == 0)
     if (search(
           pnode->nd_first,
           pnode->nd_needed,

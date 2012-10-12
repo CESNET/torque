@@ -327,6 +327,15 @@ server_info *query_server_info(struct batch_status *server)
       {
       sinfo->tokens = get_token_array(attrp -> value);
       }
+    else if (!strcmp(attrp -> name, ATTR_jobstarttimeout))
+      {
+      count = strtol(attrp -> value, &endp, 10);
+
+      if (*endp != '\0')
+        count = DEFAULT_JOB_START_TIMEOUT;
+
+      sinfo -> job_start_timeout = count;
+      }
 
     attrp = attrp -> next;
     }
@@ -513,6 +522,8 @@ server_info *new_server_info()
   sinfo -> max_group_run = INFINITY;
 
   sinfo -> tokens = NULL;
+
+  sinfo -> job_start_timeout = DEFAULT_JOB_START_TIMEOUT;
 
   init_state_count(&(sinfo -> sc));
 

@@ -103,6 +103,10 @@
 #include "token_acct.h"
 #include "global_macros.h"
 
+extern "C" {
+#include "dis.h"
+}
+
 /* WORLD SCHEDULING */
 #include "world.h"
 
@@ -864,6 +868,8 @@ int run_update_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
 
     buf[0] = '\0';
 
+    DIS_tcp_settimeout(sinfo->job_start_timeout + 30); /* add a generous 30 seconds communication overhead */
+
     ret = pbs_runjob(pbs_sd, jinfo -> name, best_node_name, NULL);
 
     /* cleanup */
@@ -920,6 +926,13 @@ int run_update_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
     }
   else
     {
+    if (ret == PBSE_PROTOCOL || ret == PBSE_TIMEOUT)
+      {
+      // something funky going on, safety bail
+      log_err(ret,"pbs_runjob","Protocol problem while communicating with the server.");
+      exit(1);
+      }
+
     errmsg = pbs_geterrmsg(pbs_sd);
     snprintf(buf, BUF_SIZE, "Not Running - PBS Error: %s", errmsg);
     update_job_comment(pbs_sd, jinfo, buf);

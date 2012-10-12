@@ -1214,12 +1214,12 @@ int main(
     if (sigprocmask(SIG_BLOCK, &allsigs, &oldsigs) == -1)
       log_err(errno, id, "sigprocmaskSIG_BLOCK)");
 
-    alarm(alarm_time);
+//    alarm(alarm_time);
 
     if (schedule(cmd, connector)) /* magic happens here */
       go = 0;
 
-    alarm(0);
+//    alarm(0);
 
     if (connector >= 0 && server_disconnect(connector))
       {
