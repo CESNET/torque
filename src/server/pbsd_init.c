@@ -2032,7 +2032,7 @@ static void stop_me(
   int sig)
 
   {
-  server.sv_attr[(int)SRV_ATR_State].at_val.at_long = SV_STATE_SHUTSIG;
+  server.sv_attr[(int)SRV_ATR_State].at_val.at_long = SV_STATE_DOWN;
 
   return;
   }
