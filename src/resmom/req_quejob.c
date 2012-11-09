@@ -352,6 +352,8 @@ void req_quejob(
       {
       /* FAILURE */
 
+#if 0
+      /* old implementation, refuse jobs with unknown attributes */
       /* didn`t recognize the name */
 
       job_purge(pj);   /* CRI - 12/20/2004 */
@@ -359,6 +361,13 @@ void req_quejob(
       reply_badattr(PBSE_NOATTR,1,psatl,preq);
 
       return;
+#endif
+
+      /* new implementation, ignore unknown attributes */
+      sprintf(log_buffer, "Unknown attribute \"%s\" received in req_quejob request", psatl->al_name);
+      LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pj->ji_qs.ji_jobid, log_buffer);
+      psatl = (svrattrl *)GET_NEXT(psatl->al_link);
+      continue;
       }
 
     pdef = &job_attr_def[index];

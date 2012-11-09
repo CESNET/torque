@@ -2255,10 +2255,16 @@ void im_request(
         if (index < 0)
           {
           /* didn`t recognize the name */
-
+#if 0
+          /* old implementation, refuse jobs with unknown attributes */
           errcode = PBSE_NOATTR;
 
           break;
+#endif
+          /* new implementation, ignore unknown attributes */
+          sprintf(log_buffer, "Unknown attribute \"%s\" received in IM_JOIN_JOB request", psatl->al_name);
+          LOG_EVENT(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, log_buffer);
+          continue;
           }
 
         pdef = &job_attr_def[index];
