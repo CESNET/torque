@@ -1382,10 +1382,6 @@ update_nodes_file(void)
     if (np->queue != NULL)
       fprintf(nin, " queue=%s", np->queue);
 
-    /* write out cloud */
-    if (np->cloud != NULL)
-      fprintf(nin, " cloud=%s", np->cloud);
-
     if (np->nd_no_multinode)
       fprintf(nin, " %s=1",ATTR_NODE_no_multinode_jobs);
 
