@@ -3751,13 +3751,13 @@ static int node_spec(
       continue;
       }
 
+    if (admin && admin_slot_free(pnode))
+      {
+      continue;
+      }
+
     if (pnode->nd_state == INUSE_FREE)
       {
-      if (admin && admin_slot_free(pnode))
-        {
-        continue;
-        }
-
       if (pnode->nd_needed <= pnode->nd_nsnfree)
         {
         /* adequate virtual nodes available - node is ok */
