@@ -53,6 +53,8 @@ export PBS_ALTERNATIVE=$ALTERNATIVE
 export PBS_VLANID=$MAGRATHEA_VLANID
 export PBS_JOBID=$JOBID
 export PBS_SCRIPT_FILE=/var/spool/torque/mom_priv/jobs/${JOBID}.SC
+export PBS_USER=$USER
+export PBS_GROUP=$GROUP
 
 #########################
 ## commands and path   ##
