@@ -116,6 +116,7 @@ const struct rescheck res_to_check[] = {
   { "maple10", " ", " ", ResCheckDynamic },
   { "maple10p", " ", " ", ResCheckDynamic },
   { "maple11", " ", " ", ResCheckDynamic },
+  { "maple", " ", " ", ResCheckDynamic },
 
   /* matlab toolbox licenses */
   { "matlab_Statistics_Toolbox", " ", " ", ResCheckDynamic },
