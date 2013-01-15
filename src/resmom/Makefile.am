@@ -56,7 +56,7 @@ install-exec-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_status
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_stop
 	rm -f $(DESTDIR)$(sbindir)/mom_environ
-        rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/report_scratch
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/report_scratch
 	cp $(top_srcdir)/meta/prolog_magrathea_start $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_start
 	ln -s prolog_magrathea_start $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_stop
 	ln -s prolog_magrathea_start $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_status
@@ -69,7 +69,7 @@ install-exec-hook:
 	ln -s prologue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue.parallel
 	ln -s epilogue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
 	cp $(top_srcdir)/meta/mom_environ $(DESTDIR)$(sbindir)/mom_environ
-        cp $(top_srcdir)/meta/report_scratch $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/report_scratch
+	cp $(top_srcdir)/meta/report_scratch $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/report_scratch
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_ENVIRON)
@@ -82,5 +82,5 @@ uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
 	rm -f $(DESTDIR)$(sbindir)/mom_environ
-        rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/report_scratch
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/report_scratch
 
