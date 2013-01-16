@@ -1,367 +1,516 @@
-# qfree - tool for finding free processors in PBS pool
-#
-# nov. 2003 - MM p.t. (ja v potu tvare :)
-
-
 #!/bin/bash
 
-LIST_CACHE=/software/pbs-7.0.0/cache/bin/list_cache
+########## APLIKOVANA LOGIKA ##########
+# - stav v Magrathea cache se bere z domU-1, stav domU-2 se ingoruje
+# - pocet volnych CPU se bere jako nejnizsi hodnota z volnych CPU dom0/domU-1/domU-2
+# - volne CPU se overuji v Magrathea cache, neni-li pouzit prepinac -M
+#######################################
 
-function usage {
-	cat <<eof
-	
-Usage: qfree [-v|-vv]
-       qfree -l node_property[:node_property...] [-q queue_name] [-v]
-       qfree -i
+# PBS servery oddelene mezerou
+PBS="arien.ics.muni.cz wagap.cerit-sc.cz"
 
-Returns list of free PBS resources.
+# Magrathea servery oddelene mezerou
+MAGRATHEA="arien.ics.muni.cz"
 
-  -v, -vv               increase verbosity level
-  -l node_property      print free nodes with properties PROP
-                        properties are separated by colon
-  -q queue_name         name of queue via which user wants access nodes
-  -i                    print free licences
+TTCOUNT=0 # Total
+TCOUNT=0 # Down
+FCOUNT=0 # Free
 
-eof
-}
+# Inicializace prepinacu ########################
+X=0
+L=''
+V=0
+H=0
+M=0
+D=0
+RR=0
+MM=0
+#################################################
 
-function count {
-	echo "$data" | awk -v user=$user '\
-		BEGIN {
-			CONVFMT="%.3g";
-			nfree=0; 	# free nodes accessible via PBS 
-			noff=0; 	# offline or down nodes
-			nofffree=0; 	# not used offline of down nodes 
-			total=0; 	# all CPU registered in PBS
-			used=0;		# all working CPUs
-			
-			excl=0;		# job-exclusive sign
-			off=0;
-		} 
-		/host/	{host=$2}
-		/state/ { 
-			if (match($2,"down") || match($2,"offline") ||
-					match($2,"state-unknown")) 
-				off=1;
-			if (match($2,"job-exclusive"))
-				excl=1;
-		}
-		/cpu_avail/ {avail=$2;}
-		/cpu_used/ {assig=$2;}
-		/    }/ {
-				if (excl == 1)
-					assig=avail;
-				if (off == 0) 
-					nfree=nfree+(avail-assig); 
-				else {
-					nofffree=nofffree+(avail-assig);
-					noff=noff+avail;
-				}
-				used=used+assig;
-				total=total+avail; 
-			off=0;
-			excl=0;
-		} 
-		END {
-		print  ""
-		print  "Processors available:"
-		printf(" |->total\t\t\t\t\t%4d CPUs\n", total)
-		printf(" |->down/offline/reserved\t\t\t%4d CPUs\n",noff)
-		print  " |"
-		printf(" `->free for user %s\t\t\t\t%4d CPUs\n",user,nfree)
-		print  ""
-		}'
-}
-
-function countv {
-	echo "$data" | awk '\
-		BEGIN { name="" }
-		/cluster/ { name=$2 }
-		/state/ { 
-			if (match($2,"down") || match($2,"offline") || \
-			    match($2,"job-exclusive") || \
-			    match($2,"state-unknown"))
-				assig=-1;
-		}
-		/cpu_avail/ {avail=$2} 
-		/cpu_used/ {
-			if (assig == -1) 
-				assig=avail;
-			else
-				assig=$2;
-		}
-		/    }/ {
-			cluster[name]+=(avail-assig);
-			name=""
-		}
-		END { 
-			for (i in cluster) {
-				printf("\tCluster %12-s - %3d free CPUs\n",
-					i, cluster[i])
-			}
-		}'	
-}
-
-function countvv {
-	echo "$data" | awk '\
-		/host/ {name=$2} 
-		/state/ { 
-			if (match($2,"down") || match($2,"offline") || \
-			    match($2,"job-exclusive") || \
-			    match($2,"state-unknown")) 
-				assig=-1;
-		}
-		/cpu_avail/ {avail=$2} 
-		/cpu_used/ {
-			if (assig == -1) 
-				assig=avail;
-			else
-				assig=$2;
-		}
-		/proper/ {prop=$2} 
-		/queues/ {queue=$2} 
-		/    }/ {
-			if ( (avail-assig) > 0) {
-				printf("%22-s\n",name);
-				printf(" |->processors free:    %d\n",
-					avail-assig);
-				print " |->properties:   \t"prop 
-				print " `->queues:       \t"queue 
-			}
-			prop="";
-		}'
-}
-
-
-function list {
-	 echo "$data" | awk $@ '\
-		BEGIN {
-			for (i=0; i<129; i++) CPU[i]=0;
-			ppn=0;
-			found_q=1;
-			split(wanted_properties,A,":");
-			if (match(wanted_properties,"ppn=")) {
-				rest=substr(wanted_properties,RSTART+RLENGTH);
-				match(rest,"[0-9]*");
-				ppn=substr(rest,0,RLENGTH) + 0;
-				for (i in A)
-					if (match(A[i], "ppn=")) {
-					delete A[i];
-				}
-			}
-		}
-		/host/ {name=$2}
-		/state/ { 
-			if (match($2,"down") || match($2,"offline") || \
-			    match($2,"job-exclusive") || \
-			    match($2,"state-unknown"))
-				assig=-1;
-		}
-		/cpu_avail/ {avail=$2}
-		/cpu_used/ {
-			if (assig == -1) 
-				assig=avail;
-			else
-				assig=$2;
-		}
-		/queues/ {
-			queues=$2
-			if (queue) {
-				split(queues,B,",");
-				found_q=0;
-				for ( i in B ) {
-					 if ( match(queue,"^"B[i]"$") ) {
-					 	found_q=1;
-						break;
-					}
-				}
-			}
-		} 
-		/proper/ {
-			prop=$2
-			found=1;
-			for ( i in A ) {
-				if ( !match(prop,A[i]) || 
-				     (substr(prop,RSTART+RLENGTH,1) != "," &&
-				     substr(prop,RSTART+RLENGTH,1) != ""))
-				{
-					found=0;
-					break;
-				}
-			}
-		}
-		/    }/ {
-				if ( (avail-assig) > 0 && found && found_q ) {
-		      			CPU[(avail-assig)]++
-				}
-			}
-		END {
-			already="";
-			if (ppn == 0) {
-				for (i=0; i<129; i++) {
-					if ( CPU[i] > 0 ) {
-						if ( already == "+") {
-							printf("+%d:ppn=%d",
-								CPU[i],i);
-							for (j in A) printf(":%s",A[j]);
-						}
-						else {
-							printf("nodes=%d:ppn=%d",
-								CPU[i],i);
-							for (j in A) printf(":%s",A[j]);
-						}
-						already="+";
-					}
-				}
-			}
-			else {
-				all=0;
-				for (i=ppn; i<129; i++) 
-					all+=CPU[i];	
-				printf("nodes=%d:ppn=%d",
-					all,ppn);
-				for (j in A) printf(":%s",A[j]);
-				already="+";
-			}
-			if (already == "+") printf("\n");
-		}'
-}
-
-
-
-function listv {
-	echo "$data" | awk $@ '\
-		BEGIN {
-			found_q=1;
-			ppn=0;
-			split(wanted_properties,A,":");
-			if (match(wanted_properties,"ppn=")) {
-				rest=substr(wanted_properties,RSTART+RLENGTH);
-				match(rest,"[0-9]*");
-				ppn=substr(rest,0,RLENGTH) + 0;
-				for (i in A)
-					if (match(A[i], "ppn=")) {
-					delete A[i];
-				}
-			}
-		}
-		/host/ {name=$2} 
-		/state/ { 
-			if (match($2,"down") || match($2,"offline") || \
-			    match($2,"job-exclusive") || \
-			    match($2,"state-unknown"))
-				assig=-1;
-		}
-		/cpu_avail/ {avail=$2} 
-		/cpu_used/ {
-			if (assig == -1) 
-				assig=avail;
-			else
-				assig=$2;
-		}
-		/queues/ {
-			queues=$2
-			if (queue) {
-				split(queues,B,",");
-				found_q=0;
-				for ( i in B ) {
-					 if ( match(queue,"^"B[i]"$") ) {
-					 	found_q=1;
-						break;
-					}
-				}
-			}
-		} 
-		/proper/ {
-			prop=$2
-			if (wanted_properties) {
-			split(prop,AA,",");
-			for ( i in A ) {
-				found=0;
-				for ( j in AA ) {
-					if ( match(AA[j],"^"A[i]"$"))  
-					{
-						found = 1;
-						break;
-					}
-				}
-				if (found == 0) break;
-			}
-			}
-			else { found=1; }
-		} 
-		/    }/ {
-			if ( (avail-assig) > 0 && found && found_q &&
-			     (ppn == 0 || ppn <= (avail-assig)) ) {
-				printf("%22-s\n",name);
-				printf(" |->processors free:    %d\n",
-					avail-assig);
-				print " |->properties:   \t"prop 
-				print " `->queues:       \t"queues
-			}
-			prop="";
-		}'
-}
-
-
-function print_licenses {
-	$LIST_CACHE $SERVER dynamic_resources | sed -e "s/[[:space:]]*\([[:alnum:]_]*\)[[:space:]]*\([[:alnum:]]*\)[[:space:]]*\([[:alnum:]]*\)\;*[[:alnum:]]*[[:space:]]*/\1: \3 free licenses/g"
-}
-
-
-verb=0;
-ask=0;
-
-
-while getopts q:l:hiv c; do
-	case $c in
-		v)
-			verb=$(($verb + 1))  
-			;;
-		l)
-			ask=1
-			prop="-v wanted_properties=$OPTARG"
-			;;
-		q)
-			ask=1
-			queue="-v queue=$OPTARG"
-			;;
-
-		i)
-			print_licenses
-			exit 0
-			;;
-		\? | h | * )
-			usage >&2
-			exit 2
-			;;
-	esac
+# Detekce zvolenych prepinacu ###################
+while getopts ":l:xMdvhrm" opt; do
+  case $opt in
+    x)
+      X=1
+      ;;
+    h)
+      H=1
+      ;;
+    d)
+      D=1
+      ;;
+    M)
+      M=1
+      ;;
+    m)
+      MM=1
+      ;;
+    r)
+      RR=1
+      ;;
+    l)
+      L=$OPTARG
+      ;;
+    v)
+      let V+=1
+      ;;
+    \?)
+      echo "Invalid option: -$OPTARG"
+      exit 1
+      ;;
+    :)
+      echo "Option -$OPTARG requires an argument."
+      exit 1
+      ;;
+  esac
 done
+#################################################
 
-SERVER=arien.ics.muni.cz
-if [ -f /var/spool/torque/server_name ]; then SERVER=`cat /var/spool/torque/server_name`; fi
-if [ "$PBS_SERVER" ]; then SERVER=$PBS_SERVER; fi
-if [ "`echo $queue| grep '@'`" ]; then SERVER=`host ${queue/*@/} | grep address |awk '{print $1}'`; queue=${queue/@*/}; fi
-
-user=`whoami`
-wget_output=`wget --timeout=10 --tries=1 -q -O - "http://$SERVER:6666/milos?user=$user&pretty=true"`
-data=`echo "$wget_output" | sed 's/"//g'| sed 's/,$//' | sed 's/://'`
-
-#data=`cat /tmp/out | sed 's/"//g'| sed 's/,$//' | sed 's/://'`
-
-if [ $ask -eq  1 ] ; then 
-	if [ $verb -eq 0 ] ; then
-		list $prop $queue
-	else
-		listv $prop $queue
-	fi
-else
-	if [ $verb -eq 0 ]; then
-		count
-	elif [ $verb -eq 1 ]; then
-		countv
-	else
-		countvv
-	fi
+# Kontrola kompatibility prepinacu ##############
+if [[ (($V -eq 1) && ($D -eq 1)) ]]; then
+ echo -e "Neni mozne pouzit prepinac -v a -d soucasne, u vypnutych stroju nejsou zadne dostupne CPU\n"
+ exit 1
 fi
-	
+
+if [[ (($X -eq 1) && ($MM -eq 1)) ]]; then
+ echo -e "Neni mozne pouzit prepinac -x a -m soucasne\n"
+ exit 1
+fi
+
+if [[ (($X -eq 1) && ($RR -eq 1)) ]]; then
+ echo -e "Neni mozne pouzit prepinac -x a -r soucasne\n"
+ exit 1
+fi
+
+if [[ (($RR -eq 1) && ($MM -eq 1)) ]]; then #Prepinace -x + -r = -x
+ RR=0
+ MM=0
+ X=1
+fi
+
+if [[ (($X -eq 1) && ($V -eq 0)) ]]; then
+ echo -e "Pouzijte prepinac -x v kombinaci s -v nebo -vv\n"
+fi
+
+if [[ (($D -eq 1) && ($V -eq 0)) ]]; then #Prepinac -d je vzdy nutne uvest v kombinaci s -vv
+ V=2
+fi
+#################################################
+
+# Vypis napovedy ################################
+if [[ $H -eq 1 ]]; then
+ echo -e "qfree v2.0 - Vypise pocet dostupnych procesoru v PBS\n\nPozor: u Magrathea se stav stroje urcuje podle domU-1\n\nPouziti:\n./$(basename $0) [Volby]\n\nVolby:"
+ echo -e " -h\t\tvypise tuto napovedu"
+ echo -e " -l VL1,VL2\tfiltr na vlastnosti oddelene carkou, napr. infiniband,brno,cl_skirit"
+ echo -e " -M\t\tvypne nahlizeni do stavu stroju v Magrathea"
+ echo -e " -x\t\tv kombinaci s -v vypise volne prostredky ve frontach maintenance a reserved"
+ echo -e "\t\tv kombinaci s -vv vypise stroje ve frontach maintenance a reserved"
+ echo -e " -m\t\tv kombinaci s -v vypise volne prostredky ve fronte maintenance"
+ echo -e "\t\tv kombinaci s -vv vypise stroje ve fronte maintenance"
+ echo -e " -r\t\tv kombinaci s -v vypise volne prostredky ve fronte reserved"
+ echo -e "\t\tv kombinaci s -vv vypise stroje ve fronte reserved"
+ echo -e " -d\t\tvypise stroje ve stavu down"
+ echo -e " -v\t\tvypise pocet dostupných CPU ve forme odpovidajici maximalnimu zadani pro -l nodes"
+ echo -e " -vv\t\tvypise hostname volnych stroju a prislusny pocet volnych CPU"
+ echo -e "\nPrehled:"
+ echo -e " Total\t\tAvailable + Down"
+ echo -e " Available\tTotal - Down"
+ echo -e " Down\t\tPocet fyzickych CPU ve stavu down"
+ echo -e " Free\t\tVolne CPU bez ohledu na roli uzivatele"
+ echo -e " Maintenance\tPocet fyzickych CPU ve fronte maintenance"
+ echo -e " Reserved\tPocet fyzickych CPU ve fronte reserved"
+
+ exit 0
+fi
+#################################################
+
+# Relevantni data z PBS (vlastnosti uzlu, info o procesorech, ...)
+DATA=`tempfile`
+for i in $PBS; do
+ if [[ `ping -c 1 $i > /dev/null` -ne 0 ]]; then
+  rm -rf $DATA
+  exit 1
+ else
+  pbsnodes -a -s $i | grep -E -- '^[a-zA-Z0-9]|np = |npfree = |properties = |queue = ' | sed ':a;N;$!ba;s/\n\t/;/g;s/npfree = //g;s/np = //g;s/properties = //g;s/queue = //g' 1>> $DATA
+ fi
+done
+#################################################
+
+# Relevantni data z Magrathea cache - tyka se vyhradne domU
+DATA2=`tempfile`
+for i in $MAGRATHEA; do
+ if [[ `ping -c 1 $i > /dev/null` -ne 0 ]]; then
+  rm -rf $DATA2
+  exit 1
+ else
+  /software/pbs-7.0.0/cache/list_cache $i magrathea | expand | tr -s ' ' | cut -d ' ' -f 1,3 | cut -d ';' -f 1 1>> $DATA2
+ fi
+done
+#################################################
+
+# Informace o strojich ve stavu DOWN ############
+DATA3=`tempfile`
+for i in $PBS; do
+ if [[ `ping -c 1 $i > /dev/null` -ne 0 ]]; then
+  rm -rf $DATA3
+  exit 1
+ else
+  pbsnodes -a -s $i | grep -E -- '^[a-zA-Z0-9]|state = down' | sed ':a;N;$!ba;s/\n\t/;/g;s/npfree = //g' | grep 'state = down' | cut -d ';' -f 1 1>> $DATA3
+ fi
+done
+#################################################
+
+
+# Pocitani statistik (Total, Free, Down, ...) ###
+#
+# Pocitani uzlu ve stavu DOWN
+# Je-li zvolena libovolna vlastnost
+if [[ $L ]]; then
+ # Zajimame se pouze o uzly ve frontach mainenance/reserved
+ if [[ (($X -eq 1) || ($MM -eq 1) || ($RR -eq 1)) ]]; then
+  for i in `awk "/${L//,//&&/}/" $DATA | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+   TMPTCOUNT=`grep "^${i}\." $DATA | cut -d ';' -f 2`
+   if [[ ((-n $TMPTCOUNT) && (`grep -cE "^${i}-1\..*down$" $DATA2` -ge 1) && (`grep -cE "^${i}-1\..*maintenance$" $DATA` -ge 1) && (($X -eq 1) || ($MM -eq 1))) ]]; then
+    let TCOUNT+=$TMPTCOUNT
+   fi
+   if [[ ((-n $TMPTCOUNT) && (`grep -cE "^${i}-1\..*down$" $DATA2` -ge 1) && (`grep -cE "^${i}-1\..*reserved$" $DATA` -ge 1) && (($X -eq 1) || ($RR -eq 1))) ]]; then
+    let TCOUNT+=$TMPTCOUNT
+   fi
+   if [[ ((`grep -Ec "^${i}\." $DATA3` -ge 1) && (`grep -Ec "^${i}-" $DATA2` -eq 0) && (`grep -cE "^${i}\..*maintenance$" $DATA` -ge 1) && (($X -eq 1) || ($MM -eq 1))) ]]; then
+    let TCOUNT+=`grep "^${i}\." $DATA | cut -d ';' -f 2`
+   fi
+   if [[ ((`grep -Ec "^${i}\." $DATA3` -ge 1) && (`grep -Ec "^${i}-" $DATA2` -eq 0) && (`grep -cE "^${i}\..*reserved$" $DATA` -ge 1) && (($X -eq 1) || ($RR -eq 1))) ]]; then
+    let TCOUNT+=`grep "^${i}\." $DATA | cut -d ';' -f 2`
+   fi
+  done
+ else # Zajimame se o stroje mimo fronty maintenance/reserved
+  for i in `awk "/${L//,//&&/}/" $DATA | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+   TMPTCOUNT=`grep "^${i}\." $DATA | cut -d ';' -f 2`
+   if [[ ((-n $TMPTCOUNT) && (`grep -cE "^${i}-1\..*down$" $DATA2` -ge 1)) ]]; then
+    let TCOUNT+=$TMPTCOUNT
+   fi
+   if [[ ((`grep -Ec "^${i}\." $DATA3` -ge 1) && (`grep -Ec "^${i}-" $DATA2` -eq 0)) ]]; then
+    let TCOUNT+=`grep "^${i}\." $DATA | cut -d ';' -f 2`
+   fi
+  done
+ fi
+else # Vyber neni omezen na vlastnosti uzlu
+ # Zajimame se pouze o uzly ve frontach mainenance/reserved
+ if [[ (($X -eq 1) || ($MM -eq 1) || ($RR -eq 1)) ]]; then
+  for i in `grep -o '^[a-zA-Z0-9]\+' $DATA | sort -ifu`; do
+   TMPTCOUNT=`grep "^${i}\." $DATA | cut -d ';' -f 2`
+   if [[ ((-n $TMPTCOUNT) && (`grep -cE "^${i}-1\..*down$" $DATA2` -ge 1) && (`grep -cE "^${i}-1\..*maintenance$" $DATA` -ge 1) && (($X -eq 1) || ($MM -eq 1))) ]]; then
+    let TCOUNT+=$TMPTCOUNT
+   fi
+   if [[ ((-n $TMPTCOUNT) && (`grep -cE "^${i}-1\..*down$" $DATA2` -ge 1) && (`grep -cE "^${i}-1\..*reserved$" $DATA` -ge 1) && (($X -eq 1) || ($RR -eq 1))) ]]; then
+    let TCOUNT+=$TMPTCOUNT
+   fi
+  done
+  for i in `grep -Ev -- '-1|-2' $DATA3 | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+   if [[ ((`grep -Ec "^${i}-" $DATA2` -eq 0) && (`grep -cE "^${i}\..*maintenance$" $DATA` -ge 1) && (($X -eq 1) || ($MM -eq 1))) ]]; then
+    let TCOUNT+=`grep "^${i}\." $DATA | cut -d ';' -f 2`
+   fi
+   if [[ ((`grep -Ec "^${i}-" $DATA2` -eq 0) && (`grep -cE "^${i}\..*reserved$" $DATA` -ge 1) && (($X -eq 1) || ($RR -eq 1))) ]]; then
+    let TCOUNT+=`grep "^${i}\." $DATA | cut -d ';' -f 2`
+   fi
+  done
+ else # Zajimame se o stroje mimo fronty maintenance/reserved
+  for i in `grep -o '^[a-zA-Z0-9]\+' $DATA | sort -ifu`; do
+   TMPTCOUNT=`grep "^${i}\." $DATA | cut -d ';' -f 2`
+   if [[ ((-n $TMPTCOUNT) && (`grep -cE "^${i}-1\..*down$" $DATA2` -ge 1)) ]]; then
+    let TCOUNT+=$TMPTCOUNT
+   fi
+  done
+  for i in `grep -Ev -- '-1|-2' $DATA3 | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+   if [[ `grep -Ec "^${i}-" $DATA2` -eq 0 ]]; then
+    let TCOUNT+=`grep "^${i}\." $DATA | cut -d ';' -f 2`
+   fi
+  done
+ fi
+fi
+
+# Pocitani vsech uzlu (total) + ve stavu free
+#
+# Je-li zvolena libovolna vlastnost
+if [[ $L ]]; then
+ for i in `awk "/${L//,//&&/}/" $DATA | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+  TMPFCOUNT=`grep -E "^${i}(\.|-)" $DATA | grep -Ev 'maintenance|reserved' | cut -d ';' -f 3 | sort -n | head -n 1`
+
+  if [[ ((`grep -Ec "^${i}\." $DATA3` -ge 1) || (`grep -cE "^${i}-1\..*down$" $DATA2` -ge 1)) ]]; then
+   unset TMPFCOUNT
+  fi
+
+  if [[ -n $TMPFCOUNT ]]; then
+   if [[ $M -eq 1 ]]; then #Zapnut prepinac -M, nekoukat do Magrathea cache
+    let FCOUNT+=$TMPFCOUNT
+   else #Prepinac -M nezvolen, zkontrolovat stav i v Magrathea cache
+    if [[ ((`grep -c "^${i}-1\." $DATA2` -eq 0) || ((`grep "^${i}-1\." $DATA | grep -Ec 'maintenance|reserved'` -eq 0) && (`grep -cE "^${i}-1\..*(free|running)$" $DATA2` -ge 1))) ]]; then
+     let FCOUNT+=$TMPFCOUNT
+    fi
+   fi
+  fi
+  TMPTTCOUNT=`grep -Ev -- '-1|-2' $DATA | grep "^${i}\." | cut -d ';' -f 2`
+  if [[ -n $TMPTTCOUNT ]]; then
+   let TTCOUNT+=$TMPTTCOUNT
+  fi
+ done
+else # Vyber neni omezen na vlastnosti uzlu
+ for i in `grep -o '^[a-zA-Z0-9]\+' $DATA | sort -ifu`; do
+  TMPFCOUNT=`grep -E "^${i}(\.|-)" $DATA | grep -Ev 'maintenance|reserved' | cut -d ';' -f 3 | sort -n | head -n 1`
+
+  if [[ ((`grep -Ec "^${i}\." $DATA3` -ge 1) || (`grep -cE "^${i}-1\..*down$" $DATA2` -ge 1)) ]]; then
+   unset TMPFCOUNT
+  fi
+
+  if [[ -n $TMPFCOUNT ]]; then
+   if [[ $M -eq 1 ]]; then #Zapnut prepinac -M, nekoukat do Magrathea cache
+    let FCOUNT+=$TMPFCOUNT
+   else #Prepinac -M nezvolen, zkontrolovat stav i v Magrathea cache
+    if [[ ((`grep -c "^${i}-1\." $DATA2` -eq 0) || ((`grep "^${i}-1\." $DATA | grep -Ec 'maintenance|reserved'` -eq 0) && (`grep -cE "^${i}-1\..*(free|running)$" $DATA2` -ge 1))) ]]; then
+     let FCOUNT+=$TMPFCOUNT
+    fi
+   fi
+  fi
+  TMPTTCOUNT=`grep -Ev -- '-1|-2' $DATA | grep "^${i}\." | cut -d ';' -f 2`
+  if [[ -n $TMPTTCOUNT ]]; then
+   let TTCOUNT+=$TMPTTCOUNT
+  fi
+ done
+fi
+#################################################
+
+XMCOUNT=0 #Pocet uzlu v maintenance fronte
+XRCOUNT=0 #Pocet uzlu v reserved fronte
+
+# Pocet uzblu ve frontach maintenance/reserved
+#
+# Je-li zvolena libovolna vlastnost
+if [[ $L ]]; then
+ for i in `grep 'maintenance' $DATA | awk "/${L//,//&&/}/" | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+  let XMCOUNT+=`grep -E "^${i}(\.|-)" $DATA | cut -d ';' -f 2 | sort -nr | head -n 1`
+ done
+ for i in `grep 'reserved' $DATA | awk "/${L//,//&&/}/" | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+  let XRCOUNT+=`grep -E "^${i}(\.|-)" $DATA | cut -d ';' -f 2 | sort -nr | head -n 1`
+ done
+else # Vyber neni omezen na vlastnosti uzlu
+ for i in `grep 'maintenance' $DATA | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+  let XMCOUNT+=`grep -E "^${i}(\.|-)" $DATA | cut -d ';' -f 2 | sort -nr | head -n 1`
+ done
+ for i in `grep 'reserved' $DATA | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+  let XRCOUNT+=`grep -E "^${i}(\.|-)" $DATA | cut -d ';' -f 2 | sort -nr | head -n 1`
+ done
+fi
+#################################################
+
+# Vypis statistik ###############################
+echo -e "Total:\t\t${TTCOUNT} CPUs"
+echo -e "Available:\t$(($TTCOUNT - $TCOUNT)) CPUs"
+echo -e "Down:\t\t${TCOUNT} CPUs"
+echo -e "Free:\t\t${FCOUNT} CPUs"
+echo -e "Maintenance:\t${XMCOUNT} CPUs"
+echo -e "Reserved:\t${XRCOUNT} CPUs"
+#################################################
+
+if [[ $V -eq 1 ]]; then
+ echo
+ LIST=''
+ # Je-li zvolena libovolna vlastnost
+ if [[ $L ]]; then
+  # Zajimame se pouze o uzly ve frontach mainenance/reserved
+  if [[ (($X -eq 1) || ($MM -eq 1) || ($RR -eq 1)) ]]; then
+   for i in `awk "/${L//,//&&/}/" $DATA | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+    if [[ ((`grep -E "^${i}(\.|-)" $DATA | grep -E 'maintenance$' | cut -d ';' -f 3 | sort -n | head -n 1` -ge 1) && (($X -eq 1) || ($MM -eq 1))) ]] && [[ `grep -Ec "^${i}\." $DATA3` -eq 0 ]]; then
+     if [[ $M -eq 1 ]]; then #Zapnut prepinac -M, nekoukat do Magrathea cache
+      LIST="$LIST "`grep -E "^${i}(\.|-1)" $DATA | grep -E 'maintenance$' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 3`
+     else #Prepinac -M nezvolen, zkontrolovat stav i v Magrathea cache
+      if [[ ((`grep -c "^${i}-1\." $DATA2` -eq 0) || ((`grep "^${i}-1\." $DATA | grep -Ec 'maintenance$'` -ge 1) && (`grep -cE "^${i}-1\..*(free|running)$" $DATA2` -ge 1))) ]] && [[ `grep -cE "^${i}-1\..*down$" $DATA2` -eq 0 ]]; then
+       LIST="$LIST "`grep -E "^${i}(\.|-1)" $DATA | grep -E 'maintenance$' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 3`
+      fi
+     fi
+    fi
+    if [[ ((`grep -E "^${i}(\.|-)" $DATA | grep -E 'reserved$' | cut -d ';' -f 3 | sort -n | head -n 1` -ge 1) && (($X -eq 1) || ($RR -eq 1))) ]] && [[ `grep -Ec "^${i}\." $DATA3` -eq 0 ]]; then
+     if [[ $M -eq 1 ]]; then #Zapnut prepinac -M, nekoukat do Magrathea cache
+      LIST="$LIST "`grep -E "^${i}(\.|-1)" $DATA | grep -E 'reserved$' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 3`
+     else #Prepinac -M nezvolen, zkontrolovat stav i v Magrathea cache
+      if [[ ((`grep -c "^${i}-1\." $DATA2` -eq 0) || ((`grep "^${i}-1\." $DATA | grep -Ec 'reserved$'` -ge 1) && (`grep -cE "^${i}-1\..*(free|running)$" $DATA2` -ge 1))) ]] && [[ `grep -cE "^${i}-1\..*down$" $DATA2` -eq 0 ]]; then
+       LIST="$LIST "`grep -E "^${i}(\.|-1)" $DATA | grep -E 'reserved$' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 3`
+      fi
+     fi
+    fi
+   done
+  else # Zajimame se o stroje mimo fronty maintenance/reserved
+   for i in `awk "/${L//,//&&/}/" $DATA | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+    if [[ `grep -E "^${i}(\.|-)" $DATA | grep -Ev 'maintenance|reserved' | cut -d ';' -f 3 | sort -n | head -n 1` -ge 1 ]] && [[ `grep -Ec "^${i}\." $DATA3` -eq 0 ]]; then
+     if [[ $M -eq 1 ]]; then #Zapnut prepinac -M, nekoukat do Magrathea cache
+      LIST="$LIST "`grep -E "^${i}(\.|-1)" $DATA | grep -Ev 'maintenance|reserved' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 3`
+     else #Prepinac -M nezvolen, zkontrolovat stav i v Magrathea cache
+      if [[ ((`grep -c "^${i}-1\." $DATA2` -eq 0) || ((`grep "^${i}-1\." $DATA | grep -Ec 'maintenance|reserved'` -eq 0) && (`grep -cE "^${i}-1\..*(free|running)$" $DATA2` -ge 1))) ]] && [[ `grep -cE "^${i}-1\..*down$" $DATA2` -eq 0 ]]; then
+       LIST="$LIST "`grep -E "^${i}(\.|-1)" $DATA | grep -Ev 'maintenance|reserved' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 3`
+      fi
+     fi
+    fi
+   done
+  fi
+ else # Vyber neni omezen na vlastnosti uzlu
+  # Zajimame se pouze o uzly ve frontach mainenance/reserved
+  if [[ (($X -eq 1) || ($MM -eq 1) || ($RR -eq 1)) ]]; then
+   for i in `grep -o '^[a-zA-Z0-9]\+' $DATA | sort -ifu`; do
+    if [[ ((`grep -E "^${i}(\.|-)" $DATA | grep -E 'maintenance$' | cut -d ';' -f 3 | sort -n | head -n 1` -ge 1) && (($X -eq 1) || ($MM -eq 1))) ]] && [[ `grep -Ec "^${i}\." $DATA3` -eq 0 ]]; then
+     if [[ $M -eq 1 ]]; then #Zapnut prepinac -M, nekoukat do Magrathea cache
+      LIST="$LIST "`grep -E "^${i}(\.|-1)" $DATA | grep -E 'maintenance$' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 3`
+     else #Prepinac -M nezvolen, zkontrolovat stav i v Magrathea cache
+      if [[ ((`grep -c "^${i}-1\." $DATA2` -eq 0) || ((`grep "^${i}-1\." $DATA | grep -Ec 'maintenance$'` -ge 1) && (`grep -cE "^${i}-1\..*(free|running)$" $DATA2` -ge 1))) ]] && [[ `grep -cE "^${i}-1\..*down$" $DATA2` -eq 0 ]]; then
+       LIST="$LIST "`grep -E "^${i}(\.|-1)" $DATA | grep -E 'maintenance$' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 3`
+      fi
+     fi
+    fi
+    if [[ ((`grep -E "^${i}(\.|-)" $DATA | grep -E 'reserved$' | cut -d ';' -f 3 | sort -n | head -n 1` -ge 1) && (($X -eq 1) || ($RR -eq 1))) ]] && [[ `grep -Ec "^${i}\." $DATA3` -eq 0 ]]; then
+     if [[ $M -eq 1 ]]; then #Zapnut prepinac -M, nekoukat do Magrathea cache
+      LIST="$LIST "`grep -E "^${i}(\.|-1)" $DATA | grep -E 'reserved$' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 3`
+     else #Prepinac -M nezvolen, zkontrolovat stav i v Magrathea cache
+      if [[ ((`grep -c "^${i}-1\." $DATA2` -eq 0) || ((`grep "^${i}-1\." $DATA | grep -Ec 'reserved$'` -ge 1) && (`grep -cE "^${i}-1\..*(free|running)$" $DATA2` -ge 1))) ]] && [[ `grep -cE "^${i}-1\..*down$" $DATA2` -eq 0 ]]; then
+       LIST="$LIST "`grep -E "^${i}(\.|-1)" $DATA | grep -E 'reserved$' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 3`
+      fi
+     fi
+    fi
+   done
+  else # Zajimame se o stroje mimo fronty maintenance/reserved
+   for i in `grep -o '^[a-zA-Z0-9]\+' $DATA | sort -ifu`; do
+    if [[ `grep -E "^${i}(\.|-)" $DATA | grep -Ev 'maintenance|reserved' | cut -d ';' -f 3 | sort -n | head -n 1` -ge 1 ]] && [[ `grep -Ec "^${i}\." $DATA3` -eq 0 ]]; then
+     if [[ $M -eq 1 ]]; then #Zapnut prepinac -M, nekoukat do Magrathea cache
+      LIST="$LIST "`grep -E "^${i}(\.|-1)" $DATA | grep -Ev 'maintenance|reserved' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 3`
+     else #Prepinac -M nezvolen, zkontrolovat stav i v Magrathea cache
+      if [[ ((`grep -c "^${i}-1\." $DATA2` -eq 0) || ((`grep "^${i}-1\." $DATA | grep -Ec 'maintenance|reserved'` -eq 0) && (`grep -cE "^${i}-1\..*(free|running)$" $DATA2` -ge 1))) ]] && [[ `grep -cE "^${i}-1\..*down$" $DATA2` -eq 0 ]]; then
+       LIST="$LIST "`grep -E "^${i}(\.|-1)" $DATA | grep -Ev 'maintenance|reserved' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 3`
+      fi
+     fi
+    fi
+   done
+  fi
+ fi
+
+ # Vypis maximalniho poctu dostupnych zdroju pro prepinac -v
+ MEZI=`echo $LIST | tr " " "\n" | sort -n | uniq -c | expand | tr -s " "`
+ OCC=${MEZI//[^ ]/}
+ if [[ -n $LIST ]]; then
+  if [[ ${#OCC} -le 2 ]]; then
+   echo $LIST | tr " " "\n" | sort -n | uniq -c | expand | tr -s " " | sort -t " " -k +3rn | sed 's/^ //g;s/ /:ppn=/g'
+  else
+   echo $LIST | tr " " "\n" | sort -n | uniq -c | expand | tr -s " " | sort -t " " -k +3rn | sed ':a;N;$!ba;s/\n /+/g;s/^ //g;s/ /:ppn=/g'
+  fi
+ fi
+ ###########################################################
+fi
+
+if [[ $V -eq 2 ]]; then
+ echo
+ # Je-li zvolena libovolna vlastnost
+ if [[ $L ]]; then
+  # Zajimame se pouze o uzly ve frontach mainenance/reserved
+  if [[ (($X -eq 1) || ($MM -eq 1) || ($RR -eq 1)) ]]; then
+   for i in `awk "/${L//,//&&/}/" $DATA | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+    if [[ $D -eq 1 ]]; then #Zajimaji nas vypnute stroje
+     if [[ ((`grep -cE "^${i}-1\..*down$" $DATA2` -ge 1) && (`grep -cE "^${i}-1\..*maintenance$" $DATA` -ge 1) && (($X -eq 1) || ($MM -eq 1))) ]]; then
+      grep -E "^${i}-1\..*" $DATA | cut -d ';' -f 1,2 | sed 's/;/ (/g;s/$/)/g'
+     fi
+     if [[ ((`grep -cE "^${i}-1\..*down$" $DATA2` -ge 1) && (`grep -cE "^${i}-1\..*reserved$" $DATA` -ge 1) && (($X -eq 1) || ($RR -eq 1))) ]]; then
+      grep -E "^${i}-1\..*" $DATA | cut -d ';' -f 1,2 | sed 's/;/ (/g;s/$/)/g'
+     fi
+     if [[ ((`grep -Ec "^${i}\." $DATA3` -ge 1) && (`grep -Ec "^${i}-" $DATA2` -eq 0) && (`grep -cE "^${i}\..*maintenance$" $DATA` -ge 1) && (($X -eq 1) || ($MM -eq 1))) ]]; then
+      grep -E "^${i}\..*" $DATA | cut -d ';' -f 1,2 | sed 's/;/ (/g;s/$/)/g'
+     fi
+     if [[ ((`grep -Ec "^${i}\." $DATA3` -ge 1) && (`grep -Ec "^${i}-" $DATA2` -eq 0) && (`grep -cE "^${i}\..*reserved$" $DATA` -ge 1) && (($X -eq 1) || ($RR -eq 1))) ]]; then
+      grep -E "^${i}\..*" $DATA | cut -d ';' -f 1,2 | sed 's/;/ (/g;s/$/)/g'
+     fi
+    else #Zajimaji nas zapnute stroje
+     if [[ ((`grep -E "^${i}(\.|-)" $DATA | grep -Ec 'maintenance$'` -ge 1) && (($X -eq 1) || ($MM -eq 1))) ]]; then
+      grep -E "^${i}(\.|-)" $DATA | grep -E 'maintenance$' | cut -d ';' -f 1,2 | sed 's/;/ (/;s/$/) maintenance/'
+     fi
+     if [[ ((`grep -E "^${i}(\.|-)" $DATA | grep -Ec 'reserved$'` -ge 1) && (($X -eq 1) || ($RR -eq 1))) ]]; then
+      grep -E "^${i}(\.|-)" $DATA | grep -E 'reserved$' | cut -d ';' -f 1,2 | sed 's/;/ (/;s/$/) reserved/'
+     fi
+    fi
+   done
+  else # Zajimame se o stroje mimo fronty maintenance/reserved
+   for i in `awk "/${L//,//&&/}/" $DATA | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+    if [[ $D -eq 1 ]]; then #Zajimaji nas vypnute stroje
+     if [[ `grep -cE "^${i}-1\..*down$" $DATA2` -ge 1 ]]; then
+      grep -E "^${i}-1\..*" $DATA | cut -d ';' -f 1,2 | sed 's/;/ (/g;s/$/)/g'
+     fi
+     if [[ ((`grep -Ec "^${i}\." $DATA3` -ge 1) && (`grep -Ec "^${i}-" $DATA2` -eq 0)) ]]; then
+      grep -E "^${i}\..*" $DATA | cut -d ';' -f 1,2 | sed 's/;/ (/g;s/$/)/g'
+     fi
+    else #Zajimaji nas zapnute stroje
+     if [[ `grep -E "^${i}(\.|-)" $DATA | grep -Ev 'maintenance|reserved' |cut -d ';' -f 3 | sort -n | head -n 1` -ge 1 ]] && [[ `grep -Ec "^${i}\." $DATA3` -eq 0 ]]; then
+      if [[ $M -eq 1 ]]; then #Zapnut prepinac -M, nekoukat do Magrathea cache
+       grep -E "^${i}(\.|-1)" $DATA | grep -Ev 'maintenance|reserved' |sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 1,3 | sed 's/;/ (/g;s/$/)/g'
+      else #Prepinac -M nezvolen, zkontrolovat stav i v Magrathea cache
+       if [[ ((`grep -c "^${i}-1\." $DATA2` -eq 0) || ((`grep "^${i}-1\." $DATA | grep -Ec 'maintenance|reserved'` -eq 0) && (`grep -cE "^${i}-1\..*(free|running)$" $DATA2` -ge 1))) ]] && [[ `grep -cE "^${i}-1\..*down$" $DATA2` -eq 0 ]]; then
+        grep -E "^${i}(\.|-1)" $DATA | grep -Ev 'maintenance|reserved' |sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 1,3 | sed 's/;/ (/g;s/$/)/g'
+       fi
+      fi
+     fi
+    fi
+   done
+  fi
+ else # Vyber neni omezen na vlastnosti uzlu
+  # Zajimame se pouze o uzly ve frontach mainenance/reserved
+  if [[ (($X -eq 1) || ($MM -eq 1) || ($RR -eq 1)) ]]; then
+   for i in `grep -o '^[a-zA-Z0-9]\+' $DATA | sort -ifu`; do
+    if [[ $D -eq 1 ]]; then #Zajimaji nas vypnute stroje
+     if [[ ((`grep -cE "^${i}-1\..*down$" $DATA2` -ge 1) && (`grep -cE "^${i}-1\..*maintenance$" $DATA` -ge 1) && (($X -eq 1) || ($MM -eq 1))) ]]; then
+      grep -E "^${i}-1\..*" $DATA | cut -d ';' -f 1,2 | sed 's/;/ (/g;s/$/)/g'
+     fi
+     if [[ ((`grep -cE "^${i}-1\..*down$" $DATA2` -ge 1) && (`grep -cE "^${i}-1\..*reserved$" $DATA` -ge 1) && (($X -eq 1) || ($RR -eq 1))) ]]; then
+      grep -E "^${i}-1\..*" $DATA | cut -d ';' -f 1,2 | sed 's/;/ (/g;s/$/)/g'
+     fi
+     if [[ ((`grep -Ec "^${i}\." $DATA3` -ge 1) && (`grep -Ec "^${i}-" $DATA2` -eq 0) && (`grep -cE "^${i}\..*maintenance$" $DATA` -ge 1) && (($X -eq 1) || ($MM -eq 1))) ]]; then
+      grep -E "^${i}\..*" $DATA | cut -d ';' -f 1,2 | sed 's/;/ (/g;s/$/)/g'
+     fi
+     if [[ ((`grep -Ec "^${i}\." $DATA3` -ge 1) && (`grep -Ec "^${i}-" $DATA2` -eq 0) && (`grep -cE "^${i}\..*reserved$" $DATA` -ge 1) && (($X -eq 1) || ($RR -eq 1))) ]]; then
+      grep -E "^${i}\..*" $DATA | cut -d ';' -f 1,2 | sed 's/;/ (/g;s/$/)/g'
+     fi
+    else #Zajimaji nas zapnute stroje
+     if [[ ((`grep -E "^${i}(\.|-)" $DATA | grep -Ec 'maintenance$'` -ge 1) && (($X -eq 1) || ($MM -eq 1))) ]]; then
+      grep -E "^${i}(\.|-)" $DATA | grep -E 'maintenance$' | cut -d ';' -f 1,2 | sed 's/;/ (/;s/$/) maintenance/'
+     fi
+     if [[ ((`grep -E "^${i}(\.|-)" $DATA | grep -Ec 'reserved$'` -ge 1) && (($X -eq 1) || ($RR -eq 1))) ]]; then
+      grep -E "^${i}(\.|-)" $DATA | grep -E 'reserved$' | cut -d ';' -f 1,2 | sed 's/;/ (/;s/$/) reserved/'
+     fi
+    fi
+   done
+  else # Zajimame se o stroje mimo fronty maintenance/reserved
+   for i in `grep -o '^[a-zA-Z0-9]\+' $DATA | sort -ifu`; do
+    if [[ $D -eq 1 ]]; then #Zajimaji nas vypnute stroje
+     if [[ `grep -cE "^${i}-1\..*down$" $DATA2` -ge 1 ]]; then
+      grep -E "^${i}-1\..*" $DATA | cut -d ';' -f 1,2 | sed 's/;/ (/g;s/$/)/g'
+     fi
+    else #Zajimaji nas zapnute stroje
+     if [[ `grep -E "^${i}(\.|-)" $DATA | grep -Ev 'maintenance|reserved' | cut -d ';' -f 3 | sort -n | head -n 1` -ge 1 ]] && [[ `grep -Ec "^${i}\." $DATA3` -eq 0 ]]; then
+      if [[ $M -eq 1 ]]; then #Zapnut prepinac -M, nekoukat do Magrathea cache
+       grep -E "^${i}(\.|-1)" $DATA | grep -Ev 'maintenance|reserved' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 1,3 | sed 's/;/ (/g;s/$/)/g'
+      else #Prepinac -M nezvolen, zkontrolovat stav i v Magrathea cache
+       if [[ ((`grep -c "^${i}-1\." $DATA2` -eq 0) || ((`grep "^${i}-1\." $DATA | grep -Ec 'maintenance|reserved'` -eq 0) && (`grep -cE "^${i}-1\..*(free|running)$" $DATA2` -ge 1))) ]] && [[ `grep -cE "^${i}-1\..*down$" $DATA2` -eq 0 ]]; then
+        grep -E "^${i}(\.|-1)" $DATA | grep -Ev 'maintenance|reserved' | sort -t ';' -k +3n | head -n 1 | cut -d ';' -f 1,3 | sed 's/;/ (/g;s/$/)/g'
+       fi
+      fi
+     fi
+    fi
+   done
+   # Vypis stroju ve stavu DOWN #################
+   if [[ $D -eq 1 ]]; then
+    for i in `grep -Ev -- '-1|-2' $DATA3 | grep -o '^[a-zA-Z0-9]\+' | sort -ifu`; do
+     if [[ `grep -Ec "^${i}-" $DATA2` -eq 0 ]]; then
+      grep -E "^${i}\..*" $DATA | cut -d ';' -f 1,2 | sed 's/;/ (/g;s/$/)/g'
+     fi
+    done
+   fi
+   ##############################################
+  fi
+ fi
+fi
+
+rm -rf $DATA $DATA2 $DATA3 #Smazani docasnych souboru
+
+exit 0
+
