@@ -409,12 +409,16 @@ void req_quejob(
       /* FAILURE */
 
       /* all errors are fatal for MOM */
+      if (rc != PBSE_UNKRESC)
+        {
+        job_purge(pj);
 
-      job_purge(pj);
+        reply_badattr(rc,1,psatl,preq);
 
-      reply_badattr(rc,1,psatl,preq);
-
-      return;
+        return;
+        }
+      psatl = (svrattrl *)GET_NEXT(psatl->al_link);
+      continue;
       }
 
     if (psatl->al_op == DFLT)
