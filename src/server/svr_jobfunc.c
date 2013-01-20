@@ -108,16 +108,22 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+extern int asprintf(char **, const char *, ...);
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <ctype.h>
+#ifdef HAVE_GLITE_LB
+#include <glite/lb/producer.h>
+#endif
+
 #include "server_limits.h"
 #include "list_link.h"
 #include "attribute.h"
 #include "resource.h"
 #include "server.h"
 #include "queue.h"
+#include "batch_request.h"
 #include "pbs_job.h"
 #include "work_task.h"
 #include "pbs_error.h"
@@ -126,7 +132,6 @@
 #include "svrfunc.h"
 #include "sched_cmds.h"
 #include "pbs_proto.h"
-
 
 /* Private Functions */
 
@@ -301,6 +306,7 @@ int svr_enquejob(
     PBS_EVENTCLASS_JOB,
     pjob->ji_qs.ji_jobid,
     log_buffer);
+
 
 #endif /* NDEBUG */
 
@@ -526,6 +532,8 @@ void svr_dequejob(
     PBS_EVENTCLASS_JOB,
     pjob->ji_qs.ji_jobid,
     log_buffer);
+
+  /* LB_logevent PBSDequeued */
 
   if (bad_ct)   /* state counts are all messed up */
     correct_ct(pque);

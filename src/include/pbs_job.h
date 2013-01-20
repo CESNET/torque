@@ -303,6 +303,10 @@ enum job_atr
   JOB_ATR_sched_spec, /* schedulers nodespec sent during job run request */
   JOB_ATR_total_resources, /* total resources (read-only) */
   JOB_ATR_vlan_id, /* vlan id used by cloud jobs */
+#ifdef HAVE_GLITE_LB
+  JOB_ATR_lb_jobid, /* LB jobid */
+  JOB_ATR_lb_seqno, /* LB sequence number */
+#endif
 #ifdef USEJOBCREATE
   JOB_ATR_pagg_id,
 #endif /* USEJOBCREATE */
@@ -803,6 +807,7 @@ task *task_find A_((
 #define JOB_SUBSTATE_PREOBIT    57 /* (MOM) preobit jobstat sent */
 #define JOB_SUBSTATE_OBIT       58 /* (MOM) job obit notice sent */
 #define JOB_SUBSTATE_COMPLETE   59 /* job is complete */
+#define JOB_SUBSTATE_CROSSERVER   71 /* job is running on a different server */
 
 #define JOB_SUBSTATE_RERUN 60 /* job is rerun, recover output stage */
 #define JOB_SUBSTATE_RERUN1 61 /* job is rerun, stageout phase */
@@ -875,6 +880,11 @@ extern void  svr_mailowner A_((job *, int, int, char *));
 extern void  set_resc_deflt A_((job *, attribute *));
 extern void  set_statechar A_((job *));
 extern int   svr_setjobstate A_((job *, int, int));
+#ifdef BATCH_REQUEST_H
+#ifdef HAVE_GLITE_LB
+extern int   svr_logjobstate A_((job *, int, int, struct batch_request *));
+#endif
+#endif
 
 extern char *get_job_principal(char *jobid);
 
@@ -886,6 +896,10 @@ extern int   svr_chk_owner A_((struct batch_request *, job *));
 extern struct batch_request *cpy_stage A_((struct batch_request *, job *, enum job_atr, int));
 extern struct batch_request *setup_cpyfiles A_((struct batch_request *, job *, char *, char *, int, int));
 extern struct batch_request *cpy_checkpoint A_((struct batch_request *, job *, enum job_atr, int));
+
+#ifdef HAVE_GLITE_LB
+extern int   svr_logjobstate A_((job *, int, int, struct batch_request *));
+#endif
 #endif /* BATCH_REQUEST_H */
 
 #ifdef QUEUE_H

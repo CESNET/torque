@@ -97,6 +97,7 @@
 #include "server_limits.h"
 #include "server.h"
 #include "queue.h"
+#include "batch_request.h"
 #include "pbs_job.h"
 #include "resource.h"
 #include "work_task.h"
@@ -1714,7 +1715,9 @@ static void pbsd_init_reque(
     /* update the state, typically to some form of QUEUED */
 
     svr_evaljobstate(pjob, &newstate, &newsubstate, 0);
-
+#ifdef HAVE_GLITE_LB
+    svr_logjobstate(pjob, newstate, newsubstate, NULL);
+#endif
     svr_setjobstate(pjob, newstate, newsubstate);
     }
   else

@@ -141,7 +141,9 @@ static void post_rerun(
     if ((pjob = find_job(preq->rq_ind.rq_signal.rq_jid)))
       {
       svr_evaljobstate(pjob, &newstate, &newsub, 1);
-
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(pjob, newstate, newsub, preq);
+#endif
       svr_setjobstate(pjob, newstate, newsub);
       }
     }
@@ -250,10 +252,16 @@ void req_rerunjob(
     { 
     if (pjob->ji_wattr[(int)JOB_ATR_hold].at_val.at_long == HOLD_n)
       {
+#ifdef HAVE_GLITE_LB
+	      svr_logjobstate(pjob, JOB_STATE_QUEUED, JOB_SUBSTATE_QUEUED, preq);
+#endif
       svr_setjobstate(pjob, JOB_STATE_QUEUED, JOB_SUBSTATE_QUEUED);
       }
     else
       {
+#ifdef HAVE_GLITE_LB
+	      svr_logjobstate(pjob, JOB_STATE_HELD, JOB_SUBSTATE_HELD, preq);
+#endif
       svr_setjobstate(pjob, JOB_STATE_HELD, JOB_SUBSTATE_HELD);
       }
 
@@ -296,6 +304,9 @@ void req_rerunjob(
 
       /* requeue request successful */
 
+#ifdef HAVE_GLITE_LB
+	    svr_logjobstate(pjob, pjob->ji_qs.ji_state, JOB_SUBSTATE_RERUN, preq);
+#endif	    
       pjob->ji_qs.ji_substate = JOB_SUBSTATE_RERUN;
 
       break;
@@ -342,6 +353,9 @@ void req_rerunjob(
 
         svr_mailowner(pjob, MAIL_OTHER, MAIL_FORCE, log_buffer);
 
+#ifdef HAVE_GLITE_LB
+        svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_RERUN3, preq);
+#endif
         svr_setjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_RERUN3);
 
         rel_resc(pjob); /* free resc assigned to job */
@@ -364,7 +378,9 @@ void req_rerunjob(
         pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_StagedIn;
 
         svr_evaljobstate(pjob, &newstate, &newsubst, 0);
-
+#ifdef HAVE_GLITE_LB
+        svr_logjobstate(pjob, newstate, newsubst, preq);
+#endif
         svr_setjobstate(pjob, newstate, newsubst);
         }
 

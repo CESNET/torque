@@ -985,6 +985,31 @@ attribute_def job_attr_def[] =
     PARENT_TYPE_JOB
   },
 
+#ifdef HAVE_GLITE_LB
+    { ATTR_lb_jobid, /* "lb_jobid" */
+      decode_str,
+      encode_str,
+      set_str,
+      comp_str,
+      free_str,
+      NULL_FUNC,
+      ATR_DFLAG_Creat | ATR_DFLAG_USRD | ATR_DFLAG_OPRD | ATR_DFLAG_MGRD | ATR_DFLAG_SvRD | ATR_DFLAG_MOM,
+      ATR_TYPE_STR,
+      PARENT_TYPE_JOB
+    },
+
+    { ATTR_lb_seqno, /* "lb_seqno" */
+      decode_str,
+      encode_str,
+      set_str,
+      comp_str,
+      free_str,
+      NULL_FUNC,
+      ATR_DFLAG_USRD | ATR_DFLAG_OPRD | ATR_DFLAG_MGRD | ATR_DFLAG_SvRD | ATR_DFLAG_MOM,
+      ATR_TYPE_STR,
+      PARENT_TYPE_JOB
+    },
+#endif
 
 #ifdef USEJOBCREATE
   /* JOB_ATR_pagg_id */

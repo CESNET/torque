@@ -215,6 +215,7 @@ void req_runjob(
     pjob->ji_qs.ji_jobid,
     log_buffer);
 
+
   /* If async run, reply now; otherwise reply is handled in */
   /* post_sendmom or post_stagein */
 
@@ -320,6 +321,9 @@ static void post_checkpointsend(
         job_set_wait(pwait, pjob, 0);
         }
 
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(pjob, JOB_STATE_WAITING, JOB_SUBSTATE_STAGEFAIL, preq);
+#endif
       svr_setjobstate(pjob, JOB_STATE_WAITING, JOB_SUBSTATE_STAGEFAIL);
 
       if (preq->rq_reply.brp_choice == BATCH_REPLY_CHOICE_Text)
@@ -417,6 +421,9 @@ static int svr_send_checkpoint(
 
   if (rc == 0)
     {
+#ifdef HAVE_GLITE_LB
+	    svr_logjobstate(pjob, state, substate, preq);
+#endif
     svr_setjobstate(pjob, state, substate);
 
     /*
@@ -536,6 +543,9 @@ static void post_stagein(
         job_set_wait(pwait, pjob, 0);
         }
 
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(pjob, JOB_STATE_WAITING, JOB_SUBSTATE_STAGEFAIL, preq);
+#endif
       svr_setjobstate(pjob, JOB_STATE_WAITING, JOB_SUBSTATE_STAGEFAIL);
 
       if (preq->rq_reply.brp_choice == BATCH_REPLY_CHOICE_Text)
@@ -578,7 +588,9 @@ static void post_stagein(
       else
         {
         svr_evaljobstate(pjob, &newstate, &newsub, 0);
-
+#ifdef HAVE_GLITE_LB
+        svr_logjobstate(pjob, newstate, newsub, preq);
+#endif
         svr_setjobstate(pjob, newstate, newsub);
         }
       }
@@ -638,6 +650,9 @@ static int svr_stagein(
 
   if (rc == 0)
     {
+#ifdef HAVE_GLITE_LB
+	    svr_logjobstate(pjob, state, substate, preq);
+#endif
     svr_setjobstate(pjob, state, substate);
 
     /*
@@ -1023,7 +1038,12 @@ static int svr_strtjob2(
   if (is_cloud_job(pjob))
     cloud_transition_into_prerun(pjob); /* FIXME META consider return value */
   else
+    {
+#ifdef HAVE_GLITE_LB
+    svr_logjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_PRERUN, preq);
+#endif
     svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
+    }
 
   /* if job start timeout attribute is set use its value */
   
@@ -1061,6 +1081,10 @@ static int svr_strtjob2(
     tmpLine);
 
   pjob->ji_qs.ji_destin[0] = '\0';
+
+#ifdef HAVE_GLITE_LB
+  svr_logjobstate(pjob, old_state, old_subst, preq);
+#endif
 
   svr_setjobstate(
     pjob,
@@ -1196,6 +1220,9 @@ static void post_sendmom(
         {
         /* may be EXITING if job finished first */
 
+#ifdef HAVE_GLITE_LB
+	svr_logjobstate(jobp, JOB_STATE_RUNNING, JOB_SUBSTATE_RUNNING, preq);
+#endif		
         svr_setjobstate(jobp, JOB_STATE_RUNNING, JOB_SUBSTATE_RUNNING);
 
         /* above saves job structure */
@@ -1248,7 +1275,9 @@ static void post_sendmom(
           req_reject(PBSE_MOMREJECT, 0, preq, MOMName, "connection to mom timed out");
 
         svr_evaljobstate(jobp, &newstate, &newsub, 1);
-
+#ifdef HAVE_GLITE_LB
+	svr_logjobstate(jobp, newstate, newsub, preq);
+#endif
         svr_setjobstate(jobp, newstate, newsub);
         }
       else
@@ -1315,7 +1344,9 @@ static void post_sendmom(
         else
           {
           svr_evaljobstate(jobp, &newstate, &newsub, 1);
-
+#ifdef HAVE_GLITE_LB
+	  svr_logjobstate(jobp, newstate, newsub, preq);
+#endif
           svr_setjobstate(jobp, newstate, newsub);
           }
         }

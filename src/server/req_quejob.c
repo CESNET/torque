@@ -1079,6 +1079,10 @@ void req_quejob(
 
   append_link(&svr_newjobs, &pj->ji_alljobs, pj);
 
+#ifdef HAVE_GLITE_LB
+  svr_logjobstate(pj, JOB_STATE_TRANSIT, JOB_SUBSTATE_TRANSIN, preq);
+#endif
+
   return;
   }  /* END req_quejob() */
 
@@ -1497,10 +1501,18 @@ void req_rdytocommit(
 
     req_reject(PBSE_SYSTEM, 0, preq, NULL, tmpLine);
 
+#ifdef HAVE_GLITE_LB
+    svr_logjobstate(pj, OrigState, OrigSState, preq);
+#endif
+
     /* FAILURE */
 
     return;
     }
+
+#ifdef HAVE_GLITE_LB
+  svr_logjobstate(pj, JOB_STATE_TRANSIT, JOB_SUBSTATE_TRANSICM, preq);
+#endif
 
   /* acknowledge the request with the job id */
 
@@ -1675,8 +1687,11 @@ void req_commit(
     }  /* end if (pj->ji_wattr[(int)JOB_ATR_job_array_request].at_flags & ATR_VFLAG_SET) */
 
   svr_evaljobstate(pj, &newstate, &newsub, 1);
-
+#ifdef HAVE_GLITE_LB
+  svr_logjobstate(pj, newstate, newsub, preq);
+#endif
   svr_setjobstate(pj, newstate, newsub);
+
 
   /* set the queue rank attribute */
 
@@ -1812,6 +1827,7 @@ void req_commit(
   /* acknowledge the request with the job id */
 
   reply_jobid(preq, pj->ji_qs.ji_jobid, BATCH_REPLY_CHOICE_Commit);
+
 
   LOG_EVENT(
     PBSEVENT_JOB,

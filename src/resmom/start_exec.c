@@ -107,6 +107,7 @@
 #include "attribute.h"
 #include "resource.h"
 #include "resmon.h"
+#include "batch_request.h"
 #include "pbs_job.h"
 #include "log.h"
 #include "rpp.h"
@@ -116,7 +117,6 @@
 #include "svrfunc.h"
 #include "net_connect.h"
 #include "dis.h"
-#include "batch_request.h"
 #include "md5.h"
 #include "mcom.h"
 #include "resource.h"
@@ -529,6 +529,10 @@ void exec_bail(
   
   /* inform non-MS nodes that job is aborting */
   
+#ifdef HAVE_GLITE_LB
+  svr_logjobstate(pjob, pjob->ji_qs.ji_state, JOB_SUBSTATE_EXITING, NULL);
+#endif
+
   pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
   
   pjob->ji_qs.ji_un.ji_momt.ji_exitstat = code;
@@ -1753,7 +1757,7 @@ int TMomFinalizeJob1(
 	
 	return(FAILURE);
 	}
-  
+
   pjob->ji_qs.ji_substate = JOB_SUBSTATE_STARTING;
   
   pjob->ji_qs.ji_stime = time_now;
@@ -3789,6 +3793,10 @@ int TMomFinalizeJob3(
 
 #endif /* USEJOBCREATE */
   
+#ifdef HAVE_GLITE_LB
+  svr_logjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_RUNNING, (void*)&sjr.sj_session);
+#endif
+
   pjob->ji_qs.ji_state    = JOB_STATE_RUNNING;
   
   pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;

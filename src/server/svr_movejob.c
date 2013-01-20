@@ -316,6 +316,10 @@ static int local_move(
 
   job_save(jobp, SAVEJOB_FULL);
 
+#ifdef HAVE_GLITE_LB
+  svr_logjobstate(jobp, jobp->ji_qs.ji_state, jobp->ji_qs.ji_substate, req);
+#endif
+
   return(0);
   }  /* END local_move() */
 
@@ -345,6 +349,7 @@ static void post_routejob(
   int  stat = pwt->wt_aux;
   char *id = "post_routejob";
   job *jobp = (job *)pwt->wt_parm1;
+  struct batch_request *req = (struct batch_request *)pwt->wt_parm2;
 
   if (WIFEXITED(stat))
     {
@@ -376,6 +381,10 @@ static void post_routejob(
       if (jobp->ji_qs.ji_svrflags & JOB_SVFLG_CHECKPOINT_COPIED)
         remove_checkpoint(jobp);
 
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(jobp, JOB_STATE_TRANSIT, JOB_SUBSTATE_TRNOUTCM, req);
+#endif
+
       job_purge(jobp); /* need to remove server job struct */
 
       return;
@@ -390,7 +399,11 @@ static void post_routejob(
         {
         /* job delete in progress, just set to queued status */
 
+#ifdef HAVE_GLITE_LB
+	svr_logjobstate(jobp, JOB_STATE_QUEUED, JOB_SUBSTATE_ABORT, req);
+#endif
         svr_setjobstate(jobp, JOB_STATE_QUEUED, JOB_SUBSTATE_ABORT);
+
 
         return;
         }
@@ -404,6 +417,9 @@ static void post_routejob(
       /* force re-eval of job state out of Transit */
 
       svr_evaljobstate(jobp, &newstate, &newsub, 1);
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(jobp, newstate, newsub, req);
+#endif
       svr_setjobstate(jobp, newstate, newsub);
 
       if ((r = job_route(jobp)) == PBSE_ROUTEREJ)
@@ -494,7 +510,22 @@ static void post_movejob(
               req->rq_user,
               req->rq_host);
 
-      job_purge(jobp);
+      free(jobp->ji_wattr[JOB_ATR_at_server].at_val.at_str);
+      char *server = strchr(req->rq_ind.rq_move.rq_destin,'@');
+      if (server != NULL) server++;
+      else server = req->rq_ind.rq_move.rq_destin;
+      jobp->ji_wattr[JOB_ATR_at_server].at_val.at_str = strdup(server);
+
+      svr_setjobstate(jobp,JOB_STATE_COMPLETE,JOB_SUBSTATE_CROSSERVER);
+
+#ifdef HAVE_GLITE_LB
+      /* misuse of substate TRNOUTCM, the job will be purged. */
+      /* TRNOUTCM is set internally in send_job() forked child 
+	 to indicate that job transfer should be committed */
+      svr_logjobstate(jobp, JOB_STATE_COMPLETE, JOB_SUBSTATE_CROSSERVER, req);
+#endif
+
+      //job_purge(jobp);
       }
     else
       {
@@ -523,6 +554,9 @@ static void post_movejob(
       /* force re-eval of job state out of Transit */
 
       svr_evaljobstate(jobp, &newstate, &newsub, 1);
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(jobp, newstate, newsub, req);
+#endif
       svr_setjobstate(jobp, newstate, newsub);
       }
 
@@ -1164,6 +1198,9 @@ int net_move(
     data      = 0;
     }
 
+#ifdef HAVE_GLITE_LB
+  svr_logjobstate(jobp, JOB_STATE_TRANSIT, JOB_SUBSTATE_TRNOUT, req);
+#endif
   svr_setjobstate(jobp, JOB_STATE_TRANSIT, JOB_SUBSTATE_TRNOUT);
 
   return(send_job(

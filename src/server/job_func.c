@@ -138,6 +138,7 @@
 #include "array.h"
 
 
+
 #ifndef TRUE
 #define TRUE 1
 #define FALSE 0
@@ -171,7 +172,6 @@ extern int   LOGLEVEL;
 extern tlist_head svr_newjobs;
 extern tlist_head svr_alljobs;
 extern char *path_checkpoint;
-
 
 
 void send_qsub_delmsg(
@@ -427,6 +427,9 @@ int job_abt(
 
   if (old_state == JOB_STATE_RUNNING)
     {
+#ifdef HAVE_GLITE_LB
+	    svr_logjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_ABORT, NULL);
+#endif
     svr_setjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_ABORT);
 
     if ((rc = issue_signal(pjob, "SIGKILL", release_req, 0)) != 0)
@@ -468,6 +471,9 @@ int job_abt(
     }
   else
     {
+#ifdef HAVE_GLITE_LB
+	    svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_ABORT, NULL);
+#endif
     svr_setjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_ABORT);
 
     if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
@@ -976,7 +982,9 @@ void job_clone_wt(
         }
 
       svr_evaljobstate(pjobclone, &newstate, &newsub, 1);
-
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(pjobclone, newstate, newsub, NULL);
+#endif
       svr_setjobstate(pjobclone, newstate, newsub);
       pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_val.at_long = ++queue_rank;
       pjobclone->ji_wattr[(int)JOB_ATR_qrank].at_flags |= ATR_VFLAG_SET;

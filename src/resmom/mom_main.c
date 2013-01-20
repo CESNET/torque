@@ -130,6 +130,7 @@
 #include "list_link.h"
 #include "attribute.h"
 #include "resource.h"
+#include "batch_request.h"
 #include "pbs_job.h"
 #include "mom_mach.h"
 #include "mom_func.h"
@@ -8031,6 +8032,10 @@ examine_all_running_jobs(void)
         }    /* END while (ptask != NULL) */
       }      /* END if (pjob->ji_flags & MOM_NO_PROC) */
 
+#ifdef HAVE_GLITE_LB
+    /* report used resources */
+    svr_logjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_SYNCRES, NULL);
+#endif
 
     mom_checkpoint_check_periodic_timer(pjob);
     }  /* END for (pjob) */

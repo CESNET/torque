@@ -185,6 +185,11 @@
 #define ATTR_total_resources "resc_req_total"
 #define ATTR_vlanid      "vlan_id"
 
+#ifdef HAVE_GLITE_LB
+#define ATTR_lb_jobid   "lb_jobid"
+#define ATTR_lb_seqno   "lb_seqno"
+#endif
+
 #ifdef USEJOBCREATE
 #define ATTR_pagg         "pagg_id"
 #endif /* USEJOBCREATE */
@@ -307,6 +312,8 @@
 #define ATTR_krb_realm_submit_acl "krb_realm_submit_acl"
 #define ATTR_acl_krb_realm_enable "acl_krb_realm_enable"
 #define ATTR_acl_krb_realms "acl_krb_realms"
+#define ATTR_lbserver "lb_server"
+
 
 /* additional node "attributes" names */
 

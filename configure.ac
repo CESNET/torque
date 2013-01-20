@@ -374,8 +374,43 @@ AC_CHECK_HEADERS([security/pam_modules.h], [], [],
 ])
 
 
+dnl
+dnl  ######################################################################
+dnl  use glite LB setting
+dnl
+LT_OUTPUT
 
-
+AC_MSG_NOTICE([checking for glite LB support])
+AC_ARG_WITH(glite-lb,
+	[AS_HELP_STRING([--with-glite-lb],[enable job tracking using glite LB])],
+	[],
+	[with_glite_lb=no])
+AS_IF([test "x$with_glite_lb" != "xno"],
+	[AC_MSG_NOTICE([using glite location $with_glite_lb])
+	 AC_DEFINE([HAVE_GLITE_LB], [1], [Define to track job status via glite LB])
+	 AS_IF([test -d "$with_glite_lb"],
+		[with_glite_location="$with_glite_lb"],
+		[])
+	 AS_IF([test "x$host_cpu" = "xx86_64"],
+	       [GLOBUS_THR_FLAVOR=gcc64dbgpthr
+                GLOBUS_NOTHR_FLAVOR=gcc64dbg],
+	       [GLOBUS_THR_FLAVOR=gcc32dbgpthr
+                GLOBUS_NOTHR_FLAVOR=gcc32dbg])
+	 dnl glite headers do not compile with -pedantic
+	 CFLAGS=`echo $CFLAGS|sed 's/-pedantic//'`
+	 m4_append([AC_LANG(C)],
+		[ac_link="./libtool --mode=link --tag=CC $ac_link"
+		])[]dnl
+	 AC_PROVIDE_IFELSE([AC_PROG_CXX],
+		[m4_append([AC_LANG(C++)],
+		[ac_link="./libtool --mode=link --tag=CXX $ac_link"
+		])])[]dnl
+	 GLITE_BASE
+	 GLITE_CHECK_LB_CLIENT
+	 AC_LANG(_AC_LANG)[]dnl
+         ],
+	[])
+	
 
 
 

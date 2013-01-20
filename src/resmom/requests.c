@@ -1477,6 +1477,10 @@ const char *TJobAttr[] =
   "job_type",
   "inter_cmd",
   "proxy_user",
+#ifdef HAVE_GLITE_LB
+  "lb_jobid",
+  "lb_seqno",
+#endif
 #ifdef USEJOBCREATE
   "pagg_id",
 #endif /* USEJOBCREATE */

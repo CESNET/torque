@@ -882,9 +882,16 @@ void req_rdytocommit(
     req_reject(PBSE_SYSTEM, 0, preq, NULL, tmpLine);
 
     /* FAILURE */
+#ifdef HAVE_GLITE_LB
+    svr_logjobstate(pj, OrigState, OrigSState, preq);
+#endif
 
     return;
     }
+
+#ifdef HAVE_GLITE_LB
+  svr_logjobstate(pj, JOB_STATE_TRANSIT, JOB_SUBSTATE_TRANSICM, preq);
+#endif
 
   /* acknowledge the request with the job id */
 
@@ -984,6 +991,10 @@ void req_commit(
   pj->ji_qs.ji_un.ji_momt.ji_svraddr = get_connectaddr(preq->rq_conn);
 
   pj->ji_qs.ji_un.ji_momt.ji_exitstat = 0;
+
+#ifdef HAVE_GLITE_LB
+  svr_logjobstate(pj, JOB_STATE_RUNNING, JOB_SUBSTATE_PRERUN, preq);
+#endif
 
   /* For MOM - start up the job (blocks) */
 

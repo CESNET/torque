@@ -97,6 +97,7 @@
 #include "attribute.h"
 #include "resource.h"
 #include "server.h"
+#include "batch_request.h"
 #include "pbs_job.h"
 #include "credential.h"
 #include "batch_request.h"
@@ -856,6 +857,10 @@ void on_job_exit(
         depend_on_term(pjob);
         }
 
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_RETURNSTD, preq);
+#endif
+
       svr_setjobstate(
         pjob,
         JOB_STATE_EXITING,
@@ -974,6 +979,10 @@ void on_job_exit(
           /* we don't need to return files to the server spool,
              move on to see if we need to delete files */
 
+#ifdef HAVE_GLITE_LB
+		  svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_STAGEOUT, preq);
+#endif		  
+
           svr_setjobstate(
             pjob,
             JOB_STATE_EXITING,
@@ -1027,7 +1036,11 @@ void on_job_exit(
          * the next case.
          */
 
-        free_br(preq);
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_STAGEOUT, preq);
+#endif
+
+      free_br(preq);
 
         preq = NULL;
         }
@@ -1114,6 +1127,10 @@ void on_job_exit(
         else
           {
           /* no files to copy, go to next step */
+
+#ifdef HAVE_GLITE_LB
+		  svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_STAGEDEL, preq);
+#endif
 
           svr_setjobstate(
             pjob,
@@ -1257,6 +1274,9 @@ void on_job_exit(
 
         free(namebuf2);
 
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_STAGEDEL, preq);
+#endif
 
         free_br(preq);
       }
@@ -1333,6 +1353,10 @@ void on_job_exit(
           {
           /* preq == NULL, no files to delete   */
 
+#ifdef HAVE_GLITE_LB
+		  svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_EXITED, preq);
+#endif
+
           svr_setjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_EXITED);
 
           ptask = set_task(WORK_Immed, 0, on_job_exit, pjob);
@@ -1385,6 +1409,10 @@ void on_job_exit(
 
         svr_mailowner(pjob, MAIL_OTHER, MAIL_FORCE, log_buffer);
         }
+
+#ifdef  HAVE_GLITE_LB
+      svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_EXITED, preq);
+#endif
 
       free_br(preq);
 
@@ -1463,6 +1491,10 @@ void on_job_exit(
               {
               /* reque job */
  
+#ifdef HAVE_GLITE_LB
+		      svr_logjobstate(pjob, JOB_STATE_QUEUED, JOB_SUBSTATE_QUEUED, preq);
+#endif
+
               svr_setjobstate(pjob, JOB_STATE_QUEUED, JOB_SUBSTATE_QUEUED);
               if (LOGLEVEL >= 4)
                 {
@@ -1490,6 +1522,9 @@ void on_job_exit(
               *hold_val |= HOLD_s;
               pjob->ji_wattr[(int)JOB_ATR_hold].at_flags |= ATR_VFLAG_SET;
               pjob->ji_modified = 1;
+#ifdef HAVE_GLITE_LB
+              svr_logjobstate(pjob, JOB_STATE_HELD, JOB_SUBSTATE_HELD, preq);
+#endif
               svr_setjobstate(pjob, JOB_STATE_HELD, JOB_SUBSTATE_HELD);
               if (LOGLEVEL >= 4)
                 {
@@ -1509,6 +1544,9 @@ void on_job_exit(
           }     
         }
 
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(pjob, JOB_STATE_COMPLETE, JOB_SUBSTATE_COMPLETE, preq);
+#endif
       svr_setjobstate(pjob, JOB_STATE_COMPLETE, JOB_SUBSTATE_COMPLETE);
 
       if ((pque = pjob->ji_qhdr) && (pque != NULL))
@@ -1718,6 +1756,9 @@ void on_job_rerun(
           {
           /* files don`t need to be moved, go to next step */
 
+#ifdef HAVE_GLITE_LB
+		  svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_RERUN1, preq);
+#endif
           svr_setjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_RERUN1);
 
           ptask = set_task(WORK_Immed, 0, on_job_rerun, pjob);
@@ -1795,6 +1836,9 @@ void on_job_rerun(
           log_buffer);
         }
 
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_RERUN1, preq);
+#endif
       svr_setjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_RERUN1);
 
       ptask->wt_type = WORK_Immed;
@@ -1843,6 +1887,9 @@ void on_job_rerun(
           {
           /* no files to copy, any to delete? */
 
+#ifdef HAVE_GLITE_LB
+		  svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_RERUN2, preq);
+#endif		  
           svr_setjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_RERUN2);
 
           ptask = set_task(WORK_Immed, 0, on_job_rerun, pjob);
@@ -1903,6 +1950,10 @@ void on_job_rerun(
        * "faking" the immediate work task.
        */
 
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_RERUN2, preq);
+#endif
+
       free_br(preq);
 
       preq = NULL;
@@ -1944,6 +1995,9 @@ void on_job_rerun(
           }
         else
           {
+#ifdef HAVE_GLITE_LB
+		  svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_RERUN3, preq);
+#endif
           svr_setjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_RERUN3);
 
           ptask = set_task(WORK_Immed, 0, on_job_rerun, pjob);
@@ -1989,6 +2043,9 @@ void on_job_rerun(
           log_buffer);
         }
 
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_RERUN3, preq);
+#endif
       free_br(preq);
 
       preq = NULL;
@@ -2050,7 +2107,9 @@ void on_job_rerun(
       pjob->ji_qs.ji_svrflags &= ~JOB_SVFLG_StagedIn;
 
       svr_evaljobstate(pjob, &newstate, &newsubst, 0);
-
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(pjob, newstate, newsubst, preq);
+#endif
       svr_setjobstate(pjob, newstate, newsubst);
 
       break;
@@ -2429,6 +2488,8 @@ void req_jobobit(
       return;
       }
 
+    /* LB_logevent PBSResourceUsage */
+
     CLEAR_HEAD(tmppreq->rq_ind.rq_jobobit.rq_attr);
 
     encode_job_used(pjob, &tmppreq->rq_ind.rq_jobobit.rq_attr);
@@ -2513,6 +2574,10 @@ void req_jobobit(
 
           pjob->ji_qs.ji_substate = JOB_SUBSTATE_RERUN1;
 
+#ifdef HAVE_GLITE_LB
+	  svr_logjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_RERUN1, preq);
+#endif
+
           /* transient failure detected */
 
           /* load session id info from prq->rq_ind.rq_jobobit->rq_attr->Session */
@@ -2563,7 +2628,9 @@ void req_jobobit(
         pjob->ji_qs.ji_svrflags |= JOB_SVFLG_HASRUN | JOB_SVFLG_CHECKPOINT_FILE;
 
         svr_evaljobstate(pjob, &newstate, &newsubst, 1);
-
+#ifdef HAVE_GLITE_LB
+        svr_logjobstate(pjob, newstate, newsubst, preq);
+#endif
         svr_setjobstate(pjob, newstate, newsubst);
 
         svr_disconnect(pjob->ji_momhandle);
@@ -2677,6 +2744,9 @@ post_cloud:
     /* If job is terminating (not rerun), */
     /*  update state and send mail        */
 
+#ifdef HAVE_GLITE_LB
+	    svr_logjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_EXITING, preq);
+#endif
     svr_setjobstate(pjob, JOB_STATE_EXITING, JOB_SUBSTATE_EXITING);
 
     if (alreadymailed == 0)
@@ -2760,7 +2830,9 @@ post_cloud:
       pjob->ji_qs.ji_svrflags |= JOB_SVFLG_HASRUN;
 
       svr_evaljobstate(pjob, &newstate, &newsubst, 1);
-
+#ifdef HAVE_GLITE_LB
+      svr_logjobstate(pjob, newstate, newsubst, preq);
+#endif
       svr_setjobstate(pjob, newstate, newsubst);
 
       svr_disconnect(pjob->ji_momhandle);
@@ -2768,6 +2840,9 @@ post_cloud:
       return;
       }
 
+#ifdef HAVE_GLITE_LB
+    svr_logjobstate(pjob, JOB_STATE_EXITING, pjob->ji_qs.ji_substate, preq);
+#endif    
     svr_setjobstate(
       pjob,
       JOB_STATE_EXITING,

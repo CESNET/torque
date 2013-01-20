@@ -103,6 +103,7 @@
 #include "pbs_nodes.h"
 #include "list_link.h"
 #include "attribute.h"
+#include "batch_request.h"
 #include "pbs_job.h"
 #include "server.h"
 #include "credential.h"
@@ -1509,7 +1510,9 @@ static void close_quejob(
 
           pjob->ji_qs.ji_state = JOB_STATE_QUEUED;
           pjob->ji_qs.ji_substate = JOB_SUBSTATE_QUEUED;
-
+#ifdef HAVE_GLITE_LB
+	  svr_logjobstate(pjob, JOB_STATE_QUEUED, JOB_SUBSTATE_QUEUED, NULL);
+#endif
           if (svr_enquejob(pjob,0))
             job_abt(&pjob, msg_err_noqueue);
           }

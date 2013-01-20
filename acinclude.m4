@@ -6,7 +6,8 @@ m4_include([buildutils/ac_c_bigendian_cross.m4])
 m4_include([buildutils/t_add_rpath.m4])
 m4_include([buildutils/tac_tcltk.m4])
 m4_include([buildutils/ax_cflags_gcc_option.m4])
-
+m4_include([buildutils/glite.m4])
+m4_include([buildutils/glite_lb.m4])
 
 dnl
 dnl  Test to see whether h_errno is visible when netdb.h is included.
@@ -196,6 +197,7 @@ AC_DEFUN([TAC_PROG_LIBTOOL_PATCH],[
   test -f libtool.new && mv libtool.new libtool # not 2>/dev/null !!
   test -f libtool     || mv libtool.old libtool
   test -f libtool.old && rm -f libtool.old
+  chmod a+x libtool
 ])
 
 
