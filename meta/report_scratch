@@ -4,7 +4,16 @@
 exec >/dev/null 2>&1
 
 # configuration
-CACHE_UPDATE="/usr/local/sbin/update_cache"
+if [ -x /usr/bin/update_cache ]; then
+	CACHE_UPDATE="/usr/bin/update_cache"
+elif [ -x /usr/local/sbin/update_cache ]; then
+	CACHE_UPDATE="/usr/local/sbin/update_cache"
+fi
+
+if [ "$CACHE_UPDATE" == "" ]; then
+	exit 1
+fi
+
 PBS_SERVER=$(cat /var/spool/torque/server_name)
 HOSTNAME=$(hostname -f)
 
