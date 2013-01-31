@@ -103,6 +103,9 @@ int svr_logjobstate(
 	char *my_name = mom_host;
 #else 
 	char *my_name = server_name;
+        /* if this is server and we don't have the LB server, don't log */
+        if ((server.sv_attr[SRV_ATR_LBServer].at_flags & ATR_VFLAG_SET) == 0)
+          return 0;
 #endif
 
 	if(!initialized) {
