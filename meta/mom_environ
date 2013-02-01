@@ -20,3 +20,9 @@ if [ -d $SCRATCH/$user/job_$jobid ]; then
 	echo "SCRATCHDIR";
 	echo "$SCRATCH/$user/job_$jobid";
 fi
+
+if [ -f /var/spool/torque/aux/gpu-$jobid ]; then
+	GPUS=`cat /var/spool/torque/aux/gpu-$jobid | sed 's/\/dev\/nvidia//g' | sort | tr '\n' ','`
+	echo "CUDA_VISIBLE_DEVICES"
+	echo "${GPUS%?}"
+fi

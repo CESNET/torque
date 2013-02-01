@@ -17,8 +17,8 @@ CACHE_UPDATE=/software/pbs-7.0.0/cache/update_cache
 
 HOST=`hostname`
 for i in `$CACHE_LIST arien gpu_allocation | grep $JOBID | sed -n 's/'$HOST'://p' | cut -f1`; do
+	chmod 666 $i;
 	chown root:root $i;
-	chmod 600 $i;
 	$CACHE_UPDATE arien `hostname`:$i gpu_allocation unallocated;
 done
 

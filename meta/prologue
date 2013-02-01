@@ -31,8 +31,8 @@ if [ "$GPU" != "" ]; then
 	while [ $GPU -gt 0 ]; do
 		CARD=`find /dev -user root -name nvidia[0-9]* | head -n 1`;
 		echo $CARD >>/var/spool/torque/aux/gpu-$JOBID
+		chmod 666 $CARD;
 		chown $USER $CARD;
-		chmod 600 $CARD;
 		$CACHE_UPDATE arien `hostname`:$CARD gpu_allocation $JOBID;
 		let GPU-=1
 	done
