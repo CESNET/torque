@@ -8,27 +8,9 @@ elif [ -x /software/torque-2.4/bin/qstat.bin ]; then
 	QSTAT=/software/torque-2.4/bin/qstat.bin
 fi
 
-if [ -x /usr/bin/qfree ]; then
-	QFREE=/usr/bin/qfree
-elif [ -x /software/torque-2.4/bin/qfree ]; then
-	QFREE=/software/torque-2.4/bin/qfree
-fi
-
 if [ "$QSTAT" == "" ]; then
 	echo "Could not find qstat binary in /usr/bin or /software/torque-2.4/bin";
 	exit 1;
 fi
 
-if [ "$QFREE" == "" ]; then
-	echo "Could not find qfree binary in /usr/bin or /software/torque-2.4/bin";
-	exit 1;
-fi
-
-if [ $# -ge 1 ]; 
-then
-	exec $QSTAT $@
-	exit $?
-else
-	$QSTAT
-	$QFREE
-fi
+$QSTAT $@
