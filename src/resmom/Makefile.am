@@ -71,6 +71,7 @@ install-exec-hook:
 	ln -s epilogue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
 	cp $(top_srcdir)/meta/mom_environ $(DESTDIR)$(sbindir)/mom_environ
 	cp $(top_srcdir)/meta/report_scratch $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/report_scratch
+	cp $(top_srcdir)/meta/lb_krb_ticket $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/lb_krb_ticket
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_ENVIRON)
@@ -84,4 +85,5 @@ uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
 	rm -f $(DESTDIR)$(sbindir)/mom_environ
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/report_scratch
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/lb_krb_ticket
 

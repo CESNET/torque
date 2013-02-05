@@ -1,0 +1,13 @@
+#!/bin/bash
+
+mkdir -p /var/glite
+
+ticket=/var/glite/krb5cc_lb
+
+PRINCIPAL=`ktutil list 2>/dev/null| grep host|grep -v ipv6|awk '//{print $3}'|uniq`
+
+KRB5CCNAME="FILE:${ticket}0" kinit -k $PRINCIPAL
+
+chown glite:glite ${ticket}0
+
+mv ${ticket}0 $ticket
