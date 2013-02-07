@@ -6,7 +6,7 @@ USER="$2"
 
 SCRATCHES="/scratch /scratch.shared /ssd"
 for scr in $SCRATCHES;do
-        if [ -d $scr ];then
+        if [ -d "$scr/$USER/job_$JOBID" ];then
                 rmdir --ignore-fail-on-non-empty "$scr/$USER/job_$JOBID"
         fi
 done
