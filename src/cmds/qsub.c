@@ -4716,6 +4716,12 @@ int main(
 
   if (!strcmp(script, "") || !strcmp(script, "-"))
     {
+    /* if this a terminal, print a short info */
+    if (isatty(STDIN_FILENO) && Interact_opt == FALSE)
+      {
+      printf("Job script will be read from standard input. Submit with CTRL+D.\n");
+      }
+
     if (!N_opt)
       {
 
