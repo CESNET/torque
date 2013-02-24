@@ -68,6 +68,7 @@ unsigned admin_slot_available : 1; /* admin slot is available */
 
   pars_spec_node *temp_assign; /**< Temporary job assignment */
   repository_alternatives *temp_assign_alternative; /**< Alternative assignment */
+  ScratchType temp_assign_scratch;
 
   node_info* host; /*< the physical host of this node */
   std::vector< node_info* > hosted; /*< virtual nodes hosted on this node */

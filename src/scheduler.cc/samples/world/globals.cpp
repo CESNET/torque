@@ -103,8 +103,12 @@ const struct rescheck res_to_check[] = {
   { "nodect","Not Running: Not enough nodes available", "Not enough nodes available", ResCheckStat},
   { "cput",  "Not Running: The job time requirement is over the max time limit", "The job time requirement is over the max time limit", ResCheckStat },
   { "scratch", "Not Running: Not enough scratch space available", "Not enough scratch space available", ResCheckCache },
+  { "scratch_local", "Not Running: Not enough scratch space available", "Not enough scratch space available", ResCheckCache },
+  { "scratch_ssd", "Not Running: Not enough scratch space available", "Not enough scratch space available", ResCheckCache },
+  { "scratch_shared", "Not Running: Not enough scratch space available", "Not enough scratch space available", ResCheckDynamic },
   { "gpu", "Not Running: Not enough GPU cards available", "Not enough gpu cards available", ResCheckStat },
   { "machine_cluster", " ", " ", ResCheckCache },
+  { "scratch_pool", " ", " ", ResCheckCache },
   { "magrathea", " ", " ", ResCheckCache },
 
   /* licenses */

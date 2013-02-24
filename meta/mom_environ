@@ -3,24 +3,6 @@
 user=$1
 jobid=$2
 
-if [ -z "$user" ]; then exit 0; fi
-if [ -z "$jobid" ]; then exit 0; fi
-
-if [ -d /scratch.shared ]; then
-	SCRATCH=/scratch.shared
-elif [ -d /scratch ]; then
-	SCRATCH=/scratch
-else
-	exit 0;
-fi
-
-if [ -d $SCRATCH/$user/job_$jobid ]; then
-	echo "SCRATCH";
-	echo "$SCRATCH/$user/job_$jobid";
-	echo "SCRATCHDIR";
-	echo "$SCRATCH/$user/job_$jobid";
-fi
-
 if [ -f /var/spool/torque/aux/gpu-$jobid ]; then
 	GPUS=`cat /var/spool/torque/aux/gpu-$jobid | sed 's/\/dev\/nvidia//g' | sort | tr '\n' ','`
 	echo "CUDA_VISIBLE_DEVICES"

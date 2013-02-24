@@ -185,6 +185,8 @@ pars_spec_node *init_pars_spec_node()
   spec->prev = NULL;
   spec->properties = NULL;
   spec->properties_end = NULL;
+  spec->scratch = 0;
+  spec->scratch_type = ScratchNone;
 
   return spec;
   }
@@ -210,13 +212,16 @@ void set_node_vmem(pars_spec_node *node, unsigned long long value)
 pars_spec_node *clone_pars_spec_node(pars_spec_node *node)
   {
   pars_spec_node *result;
-	if ((result = init_pars_spec_node()) == NULL)
+  if ((result = init_pars_spec_node()) == NULL)
     return NULL;
 
   result->node_count = node->node_count;
   result->procs      = node->procs;
   set_node_mem(result,node->mem);
   set_node_vmem(result,node->vmem);
+
+  result->scratch = node->scratch;
+  result->scratch_type = node->scratch_type;
 
   if (node->alternative != NULL)
     result->alternative = strdup(node->alternative);
@@ -227,7 +232,7 @@ pars_spec_node *clone_pars_spec_node(pars_spec_node *node)
       node->properties != NULL)
     {
     free_pars_spec_node(&result);
-	  return NULL;
+    return NULL;
     }
 
   return result;
@@ -446,6 +451,24 @@ pars_spec_node *parse_spec_node(char *node)
       set_node_vmem(result,value);
       free_pars_prop(&prop);
       }
+    else if (strcmp(prop->name,"scratch_type") == 0)
+      {
+      if (strcmp(prop->value,"any") == 0)
+        result->scratch_type = ScratchAny;
+      else if (strcmp(prop->value,"ssd") == 0)
+        result->scratch_type = ScratchSSD;
+      else if (strcmp(prop->value,"shared") == 0)
+        result->scratch_type = ScratchShared;
+      else if (strcmp(prop->value,"local") == 0)
+        result->scratch_type = ScratchLocal;
+      else
+        result->scratch_type = ScratchNone;
+      }
+    else if (strcmp(prop->name,"scratch_volume") == 0)
+      {
+      str_res_to_num(prop->value,&result->scratch);
+      free_pars_prop(&prop);
+      }
     else
       {
       if (result->properties == NULL)
@@ -660,6 +683,15 @@ static void concat_node(stringstream& s, pars_spec_node *node, alter_flag with_a
   if (node->alternative != NULL && with_alter == with_alternative)
     s << ":alternative=" << node->alternative;
 
+  if (node->scratch_type != ScratchNone)
+    {
+    if (node->scratch_type == ScratchAny) { s << ":scratch_type=any"; }
+    if (node->scratch_type == ScratchSSD) { s << ":scratch_type=ssd"; }
+    if (node->scratch_type == ScratchLocal) { s << ":scratch_type=local"; }
+    if (node->scratch_type == ScratchShared) { s << ":scratch_type=shared"; }
+    s << ":scratch_volume=" << node->scratch / 1024 << "mb";
+    }
+
   pars_prop *prop = node->properties;
   while (prop != NULL)
     {
@@ -686,11 +718,11 @@ char *concat_nodespec(pars_spec *nodespec, int with_excl, alter_flag with_alter,
   if (with_excl && nodespec->is_exclusive)
     s << "#excl";
 
+  first = true;
   if (nodespec->global != NULL)
     s << "#";
 
   pars_prop *prop = nodespec->global;
-  first = true;
   while (prop != NULL)
     {
     concat_prop(s,prop,!first);
@@ -802,10 +834,10 @@ void expand_nodespec(pars_spec *spec)
   }
 
 pars_spec_node* find_node_in_spec(pars_spec *nodespec, const char* name)
-{
+  {
 	pars_spec_node *node = nodespec->nodes;
 	while(node != NULL)
-	{
+	  {
 		if (node->host != NULL)
 		if (strcmp(node->host,name) == 0)
 			return node;
@@ -821,7 +853,104 @@ pars_spec_node* find_node_in_spec(pars_spec *nodespec, const char* name)
 		}
 
 		node = node->next;
-	}
-
+	  }
 	return NULL;
-}
+  }
+
+void add_scratch_to_nodespec(pars_spec *spec, char *scratch)
+  {
+  pars_spec_node *node = spec->nodes;
+
+  while (node != NULL)
+    {
+    node->scratch = 0;
+    node->scratch_type = ScratchNone;
+    node = node->next;
+    }
+
+  bool first_only = false;
+  enum ScratchType scratch_type = ScratchAny;
+  unsigned long long scratch_size = 0;
+
+  char *delim1 = NULL;
+  char *delim2 = NULL;
+
+  char *value = strdup(scratch);
+  if (value == NULL)
+    return;
+
+  delim1 = strchr(value,':');
+  if (delim1 != NULL)
+    {
+    *delim1 = '\0';
+    ++delim1;
+    }
+
+  if (str_res_to_num(value,&scratch_size) != 0)
+      return;
+
+  if (delim1 == NULL)
+    goto finished;
+
+  delim2 = strchr(delim1,':');
+  if (delim2 != NULL)
+    {
+    *delim2 = '\0';
+    ++delim2;
+    }
+
+  if (strcmp(delim1,"local") == 0)
+    scratch_type = ScratchLocal;
+  else if (strcmp(delim1,"shared") == 0)
+    scratch_type = ScratchShared;
+  else if (strcmp(delim1,"ssd") == 0)
+    scratch_type = ScratchSSD;
+  else if (strcmp(delim1,"first") == 0)
+    first_only = true;
+
+  if (delim2 == NULL)
+    goto finished;
+
+  if (strcmp(delim2,"local") == 0)
+    scratch_type = ScratchLocal;
+  else if (strcmp(delim2,"shared") == 0)
+    scratch_type = ScratchShared;
+  else if (strcmp(delim2,"ssd") == 0)
+    scratch_type = ScratchSSD;
+  else if (strcmp(delim2,"first") == 0)
+    first_only = true;
+
+finished:
+  node = spec->nodes;
+  while (node != NULL)
+    {
+    node->scratch = scratch_size;
+    node->scratch_type = scratch_type;
+
+    if (first_only)
+      {
+      /* if the first node is for multiple nodes, create a new node in the nodespec */
+      if (node->node_count > 1)
+        {
+        pars_spec_node *newnode = clone_pars_spec_node(node);
+
+        newnode->scratch = 0;
+        newnode->scratch_type = ScratchNone;
+
+        pars_spec_node *next = node->next;
+
+        if (next != NULL)
+          next->prev = newnode;
+
+        node->next = newnode;
+        newnode->next = next;
+        newnode->prev = node;
+
+        newnode->node_count -= 1;
+        node->node_count = 1;
+        }
+      break;
+      }
+    node = node->next;
+    }
+  }

@@ -15,6 +15,8 @@ Licensed under the MIT license: http://www.opensource.org/licenses/mit-license.p
  */
 #define NODESPEC_DEFAULT_EXCLUSIVE 0
 
+enum ScratchType { ScratchNone, ScratchAny, ScratchLocal, ScratchSSD, ScratchShared };
+
 struct pars_prop;
 struct pars_spec_node;
 struct pars_spec;
@@ -37,6 +39,10 @@ struct pars_spec_node
   char *mem_str;
   unsigned long long vmem; /**< virtual memory in kilobytes */
   char *vmem_str;
+
+  unsigned long long scratch;
+  enum ScratchType scratch_type;
+
   struct pars_prop *properties;
   struct pars_prop *properties_end;
   struct pars_spec_node *next;
@@ -93,6 +99,14 @@ void free_parsed_nodespec(pars_spec *nodespec);
 void expand_nodespec(pars_spec *spec);
 void add_prop_to_nodespec(pars_spec *spec, pars_prop *prop);
 void add_res_to_nodespec(pars_spec *spec, char* name, char* value);
+
+/** \brief Add scratch to parsed nodespec
+ *
+ * - remove any previous scratch instances
+ * - parse scratch into type and volume
+ * - if allocation type is set to first, only add to first node
+ */
+void add_scratch_to_nodespec(pars_spec *spec, char *scratch);
 
 /** Remove node from nodespec */
 pars_spec_node *remove_node_from_nodespec(pars_spec *spec, pars_spec_node *node);

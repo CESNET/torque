@@ -289,6 +289,65 @@ int get_node_has_mem(node_info *ninfo, pars_spec_node* spec, int preassign_starv
   return 1;
   }
 
+int get_node_has_scratch(node_info *ninfo, pars_spec_node* spec, ScratchType *scratch)
+  {
+  if (spec->scratch_type == ScratchNone)
+	  return 1;
+
+  struct resource *res;
+  bool has_local = false;
+  bool has_shared = false;
+  bool has_ssd = false;
+
+  res = find_resource(ninfo->res,"scratch_local");
+  if (res != NULL)
+    {
+    if (res->avail - res->assigned > 0)
+      {
+      has_local = static_cast<unsigned long long>(res->avail - res->assigned) >= spec->scratch;
+      }
+    }
+
+  res = find_resource(ninfo->res,"scratch_ssd");
+  if (res != NULL)
+    {
+    if (res->avail - res->assigned > 0)
+      {
+      has_ssd = static_cast<unsigned long long>(res->avail - res->assigned) >= spec->scratch;
+      }
+    }
+
+  res = find_resource(ninfo->res,"scratch_pool");
+  if (res != NULL)
+    {
+    map<string, DynamicResource>::iterator i = ninfo->server->dynamic_resources.find(string(res->str_avail));
+    if (i != ninfo->server->dynamic_resources.end())
+      {
+      has_shared = i->second.would_fit(spec->scratch);
+      }
+    }
+
+  if ((spec->scratch_type == ScratchAny || spec->scratch_type == ScratchSSD) && has_ssd)
+    {
+	  *scratch = ScratchSSD;
+	  return 1;
+    }
+
+  if ((spec->scratch_type == ScratchAny || spec->scratch_type == ScratchShared) && has_shared)
+    {
+	  *scratch = ScratchShared;
+	  return 1;
+    }
+
+  if ((spec->scratch_type == ScratchAny || spec->scratch_type == ScratchLocal) && has_local)
+    {
+	*scratch = ScratchLocal;
+	return 1;
+    }
+
+  return 0;
+  }
+
 int get_node_has_ppn(node_info *ninfo, unsigned ppn, int preassign_starving)
   {
   return node_has_enough_np(ninfo, ppn, preassign_starving?MaxOnly:Avail);
@@ -540,6 +599,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
   int i;
   pars_prop *iter = NULL;
   repository_alternatives** ra;
+  ScratchType scratch = ScratchNone;
   int fit_suit = 0, fit_ppn = 0, fit_mem = 0, fit_prop = 0;
 
   for (i = 0; i < avail_nodes; i++) /* for each node */
@@ -561,6 +621,13 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
     if (get_node_has_mem(ninfo_arr[i],spec,preassign_starving) == 0)
       {
       fit_mem++;
+      continue;
+      }
+
+    if (!preassign_starving)
+    if (get_node_has_scratch(ninfo_arr[i],spec,&scratch) == 0)
+      {
+      fit_prop++;
       continue;
       }
 
@@ -620,6 +687,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
     else
       {
       ninfo_arr[i]->temp_assign = clone_pars_spec_node(spec);
+      ninfo_arr[i]->temp_assign_scratch = scratch;
       if (ra != NULL)
         ninfo_arr[i]->temp_assign_alternative = *ra;
       else
@@ -852,6 +920,18 @@ static void get_target(stringstream& s, node_info *ninfo, int mode)
         s << "=" << iter->value;
       }
     iter = iter->next;
+    }
+
+  if (ninfo->temp_assign_scratch != ScratchNone)
+    {
+    s << ":scratch_type=";
+    if (ninfo->temp_assign_scratch == ScratchSSD)
+      s << "ssd";
+    else if (ninfo->temp_assign_scratch == ScratchShared)
+      s << "shared";
+    else if (ninfo->temp_assign_scratch == ScratchLocal)
+      s << "local";
+    s << ":scratch_volume=" << ninfo->temp_assign->scratch / 1024 << "mb";
     }
 
   if (ninfo->alternatives != NULL && ninfo->alternatives[0] != NULL)

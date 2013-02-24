@@ -476,6 +476,7 @@ extern int set_queue_str(struct attribute *attr, struct attribute *anew, enum ba
 extern void     replace_attr_string A_((attribute*, char*));
 extern int count_resc(attribute*);
 extern int decode_queue_purpose(struct attribute *patr, char *name, char *rescn, char *val);
+extern int decode_scratch(struct attribute *patr, char *name, char *rescn, char *val);
 
 /* Token manipulation functions */
 

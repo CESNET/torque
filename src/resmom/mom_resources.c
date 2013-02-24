@@ -76,6 +76,27 @@ void set_resource_vars(job *pjob, struct var_table *vtable)
   else
     setenv("TORQUE_RESC_VMEM",buf_val,1);
 
+  if (node->scratch_type == ScratchLocal)
+    sprintf(buf_val,"/scratch/%s/job_%s",pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,pjob->ji_qs.ji_jobid);
+  else if (node->scratch_type == ScratchSSD)
+    sprintf(buf_val,"/ssd/%s/job_%s",pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,pjob->ji_qs.ji_jobid);
+  else if (node->scratch_type == ScratchShared)
+    sprintf(buf_val,"/scratch.shared/%s/job_%s",pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,pjob->ji_qs.ji_jobid);
+
+  if (node->scratch_type != ScratchNone)
+    {
+    if (vtable != NULL)
+      {
+      bld_env_variables(vtable,"SCRATCHDIR",buf_val);
+      bld_env_variables(vtable,"SCRATCH",buf_val);
+      }
+    else
+      {
+      setenv("SCRATCHDIR",buf_val,1);
+      setenv("SCRATCH",buf_val,1);
+      }
+    }
+
   resource res;
   pars_prop *prop = node->properties;
   while (prop != NULL)

@@ -54,6 +54,35 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
   if (res != NULL)
     res->assigned += spec->vmem;
 
+  if (ninfo->temp_assign_scratch == ScratchLocal)
+    {
+    res = find_resource(ninfo->res,"scratch_local");
+    if (res != NULL)
+      res->assigned += spec->scratch;
+    }
+
+  if (ninfo->temp_assign_scratch == ScratchSSD)
+    {
+    res = find_resource(ninfo->res,"scratch_ssd");
+    if (res != NULL)
+      res->assigned += spec->scratch;
+    }
+
+  if (ninfo->temp_assign_scratch == ScratchShared)
+    {
+    res = find_resource(ninfo->res,"scratch_pool");
+    if (res != NULL)
+      {
+      string pool = res->str_avail;
+      map<string,DynamicResource>::iterator i;
+      i = ninfo->server->dynamic_resources.find(pool);
+      if (i != ninfo->server->dynamic_resources.end())
+        {
+        i->second.add_scheduled(spec->scratch);
+        }
+      }
+    }
+
   /* the rest */
   pars_prop *iter = spec->properties;
   while (iter != NULL)

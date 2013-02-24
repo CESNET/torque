@@ -17,7 +17,7 @@ void regenerate_total_resources(job * pjob)
   resource *rs;
   pars_spec_node *node = NULL;
   pars_prop *prop = NULL;
-  unsigned long long mem = 0, vmem = 0;
+  unsigned long long mem = 0, vmem = 0, scratch = 0;
   int i, ret;
 
   /* Step (1)
@@ -54,10 +54,30 @@ void regenerate_total_resources(job * pjob)
   job_attr_def[(int)JOB_ATR_total_resources].
     at_free(&pjob->ji_wattr[(int)JOB_ATR_total_resources]);
 
+  /* Step (2.1)
+   * - expand the nodespec
+   *   - add global parts to each local part
+   */
+  expand_nodespec(spec);
+
+  /* Step (2.2)
+   * - translate scratch resource into scratch_volume and scratch_type
+   */
+  if ((pjob->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET) != 0)
+    {
+  	if ((rd = find_resc_def(svr_resc_def,"scratch",svr_resc_size)) != 0)
+	    {
+      rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],rd);
+      if (rs != NULL)
+        {
+        add_scratch_to_nodespec(spec,rs->rs_value.at_val.at_str);
+        }
+	    }
+    }
+
   /* Step (3)
    * - go through normal resources
    */
-  expand_nodespec(spec); /* expand the nodespec (add the global part into the local parts) */
 
   if ((pjob->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET) != 0)
     {
@@ -247,13 +267,14 @@ void regenerate_total_resources(job * pjob)
     }
 
   /* Step (7)
-   * - add mem and vmem
+   * - add mem and vmem and scratch
    */
   node = spec->nodes;
   while (node != NULL)
     {
     mem += node->node_count * node->mem;
     vmem += node->node_count * node->vmem;
+    scratch += node->node_count * node->scratch;
     node = node->next;
     }
 
@@ -288,6 +309,23 @@ void regenerate_total_resources(job * pjob)
     ret = rd->rs_set(&rs->rs_value,&attr,SET);
     if (ret != 0)
       return;
+
+    if (scratch != 0)
+      {
+      /* find the definition and decode the value */
+      rd = find_resc_def(svr_resc_def, "scratch_volume", svr_resc_size);
+      sprintf(buf,"%lluKB",scratch);
+      rd->rs_decode(&attr,"scratch_volume","",buf);
+
+      /* check if scratch is already present (shouldn't be) */
+      rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+      if (rs == NULL)
+      rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+
+      ret = rd->rs_set(&rs->rs_value,&attr,SET);
+      if (ret != 0)
+        return;
+      }
     }
 
   free_parsed_nodespec(spec);

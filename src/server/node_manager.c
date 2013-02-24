@@ -2510,6 +2510,13 @@ int hasres(struct pbsnode *pnode, char  *name, char *value, int proc_count, int 
   if (rd == NULL) /* unknown resource */
     return 0;
 
+  /* special resources fixes */
+  if (strcmp("scratch_volume",name) == 0)
+    return 1;
+
+  if (strcmp("scratch_type",name) == 0)
+    return 1;
+
   if ((rd->rs_flags & (ATR_DFLAG_SELECT_PROC | ATR_DFLAG_SELECT_MOM)) == 0)
     return 1; /* this resource is not per-proc or per-node and therefore not checked */
 
@@ -3067,6 +3074,7 @@ static int proplist(
   struct prop *pp;
   char  *pname;
   char  *pequal;
+  resource_def *rdef;
 
   *node_req = 1; /* default to 1 processor per node */
 
@@ -3099,7 +3107,7 @@ static int proplist(
           }
         }
       /* check if it is a known resource */
-      else if (find_resc_def(svr_resc_def,pname,svr_resc_size) != NULL)
+      else if ((rdef = find_resc_def(svr_resc_def,pname,svr_resc_size)) != NULL)
         {
         pequal++;
 
@@ -4846,6 +4854,13 @@ static void adjust_resource_value(attribute *pattr, char *name, char *value, int
   defin = find_resc_def(svr_resc_def,name,svr_resc_size);
 
   if (defin == NULL) /* not a known resource */
+    return;
+
+  /* special resources fixes */
+  if (strcmp("scratch_volume",name) == 0)
+    return;
+
+  if (strcmp("scratch_type",name) == 0)
     return;
 
   /* if this is not a per-proc or per-node resource, ignore */
