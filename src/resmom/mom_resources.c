@@ -79,7 +79,7 @@ void set_resource_vars(job *pjob, struct var_table *vtable)
   if (node->scratch_type == ScratchLocal)
     sprintf(buf_val,"/scratch/%s/job_%s",pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,pjob->ji_qs.ji_jobid);
   else if (node->scratch_type == ScratchSSD)
-    sprintf(buf_val,"/ssd/%s/job_%s",pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,pjob->ji_qs.ji_jobid);
+    sprintf(buf_val,"/scratch.ssd/%s/job_%s",pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,pjob->ji_qs.ji_jobid);
   else if (node->scratch_type == ScratchShared)
     sprintf(buf_val,"/scratch.shared/%s/job_%s",pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,pjob->ji_qs.ji_jobid);
 
