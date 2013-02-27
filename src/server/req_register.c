@@ -651,12 +651,12 @@ static void post_doq(
       {
       strcat(log_buffer, "\n");
       strcat(log_buffer, "Job held for unknown job dep, use 'qrls' to release");
-
+#if 0
       if (preq->rq_reply.brp_code != PBSE_BADSTATE)
         {
         svr_mailowner(pjob, MAIL_ABORT, MAIL_FORCE, log_buffer);
         }
-
+#endif
       pattr = &pjob->ji_wattr[(int)JOB_ATR_depend];
 
       if (((pdp = find_depend(preq->rq_ind.rq_register.rq_dependtype, pattr)) != 0) &&
