@@ -95,6 +95,12 @@ void set_resource_vars(job *pjob, struct var_table *vtable)
       setenv("SCRATCHDIR",buf_val,1);
       setenv("SCRATCH",buf_val,1);
       }
+
+    sprintf(buf_val,"%llu",node->scratch*1024);
+    if (vtable != NULL)
+      bld_env_variables(vtable, "TORQUE_RESC_SCRATCH_VOLUME", buf_val);
+    else
+      setenv("TORQUE_RESC_SCRATCH_VOLUME",buf_val,1);
     }
 
   resource res;

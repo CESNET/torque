@@ -340,6 +340,11 @@ int str_res_to_num(const char *res, unsigned long long *value)
       result *= 1024*1024;
       break;
       }
+    case 'T' : case 't':
+      {
+      result *= 1024*1024*1024;
+      break;
+      }
     case 'B': case 'b':
       {
       result /= 1024;
