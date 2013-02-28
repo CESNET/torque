@@ -1754,28 +1754,9 @@ int add_cluster_addrs(
     if (np->nd_state & INUSE_DELETED)
       continue;
 
-    if (LOGLEVEL == 7)  /* higher loglevel gets more info below */
-      {
-      sprintf(log_buffer, "adding node[%d] %s to hello response",
-              i,
-              np->nd_name);
-
-      log_event(PBSEVENT_ADMIN, PBS_EVENTCLASS_SERVER, id, log_buffer);
-      }
-
     for (j = 0;np->nd_addrs[j];j++)
       {
       u_long ipaddr = np->nd_addrs[j];
-
-      if (LOGLEVEL >= 8)
-        {
-        sprintf(log_buffer, "adding node[%d] interface[%d] %s to hello response",
-                i,
-                j,
-                netaddr_pbs_net_t(ipaddr));
-
-        log_event(PBSEVENT_ADMIN, PBS_EVENTCLASS_SERVER, id, log_buffer);
-        }
 
       ret = diswul(stream, ipaddr);
 
