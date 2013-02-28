@@ -187,7 +187,7 @@ void req_register(
   if (!preq->rq_fromsvr)
     {
     req_reject(PBSE_IVALREQ, 0, preq, NULL, NULL);
-
+    log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, "req_register", "Dependency register request not from server.");
     return;
     }
 
@@ -227,29 +227,8 @@ void req_register(
     ((type = JOB_DEPEND_TYPE_AFTEROK) && (pjob->ji_qs.ji_un.ji_exect.ji_exitstat == 0)) ||
     ((type = JOB_DEPEND_TYPE_AFTERNOTOK) && (pjob->ji_qs.ji_un.ji_exect.ji_exitstat != 0))))
     {
-    if (LOGLEVEL >= 8)
-      {
-      sprintf(log_buffer,"Dependency requested for %s job, parent job %s, child job %s",
-        PJobState[pjob->ji_qs.ji_state],
-        preq->rq_ind.rq_register.rq_parent,
-        preq->rq_ind.rq_register.rq_child);
-
-      log_event(
-        PBSEVENT_JOB,
-        PBS_EVENTCLASS_JOB,
-        pjob->ji_qs.ji_jobid,
-        log_buffer);
-      }
-
-      log_event(
-        PBSEVENT_DEBUG,
-        PBS_EVENTCLASS_JOB,
-        preq->rq_ind.rq_register.rq_parent,
-        pbse_to_txt(PBSE_BADSTATE));
-
-      req_reject(PBSE_BADSTATE, 0, preq, NULL, NULL);
-
-      return;
+    reply_text(preq, PBSE_BADSTATE, "Dependency already satisfied.");
+    return;
     }
 
   if (LOGLEVEL >= 8)
@@ -294,7 +273,7 @@ void req_register(
                   preq->rq_ind.rq_register.rq_child))
         {
         rc = PBSE_IVALREQ; /* can't depend on self */
-
+        log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, "req_register", "Job can't depend upon itself.");
         break;
         }
 
@@ -375,7 +354,15 @@ void req_register(
               if (pdep == NULL)
                 {
                 /* no "on" and no prior - return error */
+                if ((pjob->ji_qs.ji_state == JOB_STATE_RUNNING) ||
+                    (pjob->ji_qs.ji_state == JOB_STATE_EXITING) ||
+                    (pjob->ji_qs.ji_state == JOB_STATE_COMPLETE))
+                  {
+                  reply_text(preq, PBSE_BADSTATE, "Dependency already satisfied.");
+                  return;
+                  }
 
+                log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, "req_register", "Can't register \"before\" dependency.");
                 rc = PBSE_BADDEPEND;
                 }
               else if ((pdj = find_dependjob(pdep, preq->rq_ind.rq_register.rq_child)))
@@ -402,7 +389,7 @@ void req_register(
         default:
 
           rc = PBSE_IVALREQ;
-
+          log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, "req_register", "Unknown dependency.");
           break;
         }
 
@@ -459,7 +446,7 @@ void req_register(
             }    /* END if ((pdep = find_depend(type,pattr))) */
 
           rc = PBSE_IVALREQ;
-
+          log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, "req_register", "Dependency release not matching known types.");
           break;
 
         case JOB_DEPEND_TYPE_SYNCWITH:
@@ -554,6 +541,7 @@ void req_register(
         if (pjob->ji_qs.ji_state == JOB_STATE_RUNNING)
           {
           rc = PBSE_IVALREQ;
+          log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, "req_register", "Trying to unregister dependency on running job.");
           }
         else
           {
@@ -633,11 +621,13 @@ static void post_doq(
   if (preq->rq_reply.brp_code)
     {
     /* request was rejected */
-
     strcpy(log_buffer, msg_regrej);
     strcat(log_buffer, preq->rq_ind.rq_register.rq_parent);
 
-    log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, jobid, log_buffer);
+    if (preq->rq_reply.brp_code != PBSE_BADSTATE)
+      {
+      log_event(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, jobid, log_buffer);
+      }
 
     pjob = find_job(jobid);
 
@@ -651,12 +641,12 @@ static void post_doq(
       {
       strcat(log_buffer, "\n");
       strcat(log_buffer, "Job held for unknown job dep, use 'qrls' to release");
-#if 0
+
       if (preq->rq_reply.brp_code != PBSE_BADSTATE)
         {
         svr_mailowner(pjob, MAIL_ABORT, MAIL_FORCE, log_buffer);
         }
-#endif
+
       pattr = &pjob->ji_wattr[(int)JOB_ATR_depend];
 
       if (((pdp = find_depend(preq->rq_ind.rq_register.rq_dependtype, pattr)) != 0) &&
@@ -1545,6 +1535,7 @@ static int unregister_dep(
   if (((pdp = find_depend(type, pattr)) == 0) ||
       ((pdjb = find_dependjob(pdp, preq->rq_ind.rq_register.rq_child)) == 0))
     {
+    log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, "unregister_dep", "Couldn't find job to unregister from.");
     return(PBSE_IVALREQ);
     }
 
@@ -2208,7 +2199,7 @@ int set_depend(
     case DECR: /* not defined */
 
     default:
-
+      log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, "set_depend", "Unknown depend operation in set_depend.");
       return(PBSE_IVALREQ);
 
       /*NOTREACHED*/
