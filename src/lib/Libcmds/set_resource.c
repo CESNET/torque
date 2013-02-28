@@ -157,6 +157,9 @@ int set_resources(
       while (isspace((int)*v))
         v++;
 
+      if (*v == '\0' || *v == ':' || *v == ',')
+        return 1;
+
       /* FORMAT: <ATTR>=[{'"}]<VAL>,<VAL>[{'"}][,<ATTR>=...]... */
 
       ptr = strchr(v, ',');

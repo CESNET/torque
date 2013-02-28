@@ -1051,8 +1051,16 @@ static int decode_nodes(
 
       while (*pc != '\0')
         {
-        if (isalnum(*pc) || strchr("-.=_", *pc))
+        if (isalnum(*pc) || strchr("-._", *pc))
+          {
           pc++;
+          }
+        else if (*pc == '=')
+          {
+          pc++;
+          if (*pc == '\0' || *pc == ':' || *pc == ',')
+            return PBSE_BADATVAL;
+          }
         else
           break;
         }
