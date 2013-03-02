@@ -161,6 +161,7 @@ extern time_t pbs_tcp_timeout;
 extern int resc_access_perm;
 extern int      LOGLEVEL;
 
+int svr_logjobstate A_((job *, int, int, struct batch_request *));
 int net_move A_((job *, struct batch_request *));
 
 /*

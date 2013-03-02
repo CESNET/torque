@@ -13,6 +13,8 @@
 #include "attribute.h"
 #include "pbs_error.h"
 
+int to_size(char *, struct size_value *);
+
 int decode_scratch(
 
   struct attribute *patr,  /* Modified on Return */
