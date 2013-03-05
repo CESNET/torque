@@ -92,7 +92,7 @@
           accounting record - this is usually ~1KB + <MAX_JOB_TASK_COUNT> *
           (<HOSTNAME_SIZE + 2) - see THE_BUF_SIZE in dis.h */
 
-#define PBS_ACCT_MAX_RCD 262144         /* increased from 4095 */
+#define PBS_ACCT_MAX_RCD 524288 /* increased from 4095 to 0.5MB */
 
 #define PBS_ACCT_QUEUE (int)'Q' /* Job Queued record */
 #define PBS_ACCT_RUN (int)'S' /* Job run (Started) */

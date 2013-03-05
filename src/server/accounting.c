@@ -367,6 +367,86 @@ static char *acct_job(
       }*/
     }  /* END while (pal != NULL) */
 
+  CLEAR_HEAD(attrlist);
+
+  job_attr_def[(int)JOB_ATR_total_resources].at_encode(
+      &pjob->ji_wattr[(int)JOB_ATR_total_resources],
+      &attrlist,
+      job_attr_def[(int)JOB_ATR_total_resources].at_name,
+      NULL,
+      ATR_ENCODE_CLIENT);
+
+  while ((pal = GET_NEXT(attrlist)) != NULL)
+    {
+    /* exec_host can use a lot of buffer space. We can't assume
+       we still have enough to make these small strncpy calls */
+
+    newStringLen = strlen(pal->al_name);
+    if(runningBufSize <= newStringLen+1)
+      {
+      Len = AdjustAcctBufSize(Buf, BufSize, newStringLen, pjob);
+      if(Len == 0)
+        return(ptr);
+
+      runningBufSize += newStringLen+EXTRA_PAD;
+      }
+
+    strncat(ptr, pal->al_name,runningBufSize);
+    runningBufSize -= strlen(ptr);
+    ptr += strlen(ptr);
+
+    if (pal->al_resc != NULL)
+      {
+      if(runningBufSize <= (int)(strlen(pal->al_resc)+2)) /*one for 0 and one for the '.' for 2 */
+        {
+        Len = AdjustAcctBufSize(Buf, BufSize, newStringLen, pjob);
+        if(Len == 0)
+          return(ptr);
+
+        runningBufSize += newStringLen+EXTRA_PAD;
+        }
+      strncat(ptr, ".",runningBufSize);
+      strncat(ptr, pal->al_resc,runningBufSize);
+      runningBufSize -= strlen(ptr);
+      ptr += strlen(ptr);
+      }
+
+    if(runningBufSize <= 2)
+      {
+      Len = AdjustAcctBufSize(Buf, BufSize, newStringLen, pjob);
+      if(Len == 0)
+        return(ptr);
+
+      runningBufSize += newStringLen+EXTRA_PAD;
+      }
+
+    strncat(ptr, "=",runningBufSize);
+
+    runningBufSize -= strlen(ptr);
+    newStringLen = strlen(pal->al_value);
+    if(runningBufSize <= newStringLen+1)
+    {
+      Len = AdjustAcctBufSize(Buf, BufSize, newStringLen, pjob);
+      if(Len == 0)
+        return(ptr);
+
+      runningBufSize += newStringLen+EXTRA_PAD;
+    }
+
+    strncat(ptr, pal->al_value, runningBufSize);
+    strncat(ptr, " ", runningBufSize);
+
+    delete_link(&pal->al_link);
+
+    free(pal);
+
+    Len = strlen(ptr);
+
+    runningBufSize -= Len;
+
+    ptr += Len;
+    }  /* END while (pal != NULL) */
+
 #ifdef ATTR_X_ACCT
 
   /* x attributes */

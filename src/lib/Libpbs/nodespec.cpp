@@ -894,6 +894,9 @@ void add_scratch_to_nodespec(pars_spec *spec, char *scratch)
   if (str_res_to_num(value,&scratch_size) != 0)
       return;
 
+  if (scratch_size / 1024 == 0)
+    return;
+
   if (delim1 == NULL)
     goto finished;
 
