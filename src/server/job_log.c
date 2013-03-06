@@ -37,10 +37,11 @@ extern char server_name[];
 
 #ifdef HAVE_GLITE_LB
 #undef DIRECT_REGISTRATION
+#define MOM_USE_INTERLOGD
 
-#ifdef PBS_MOM
+#if defined(PBS_MOM) && !defined(MOM_USE_INTERLOGD)
 #define LB_LOG_EVENT(name) edg_wll_Log ## name
-#else 
+#else
 #define LB_LOG_EVENT(name) edg_wll_Log ## name ## File 
 #endif
 
@@ -99,13 +100,18 @@ int svr_logjobstate(
 	char *jobid_s;
 	char *seq_no;
 
+  /* if the job doesn't have lb_jobid, bail out */
+  if ((pjob->ji_wattr[(int)JOB_ATR_lb_jobid].at_flags & ATR_VFLAG_SET) == 0)
+    return 0;
+
 #ifdef PBS_MOM
-	char *my_name = mom_host;
-#else 
-	char *my_name = server_name;
-        /* if this is server and we don't have the LB server, don't log */
-        if ((server.sv_attr[SRV_ATR_LBServer].at_flags & ATR_VFLAG_SET) == 0)
-          return 0;
+  char *my_name = mom_host;
+
+#else
+  char *my_name = server_name;
+  /* if this is server and we don't have the LB server, don't log */
+  if ((server.sv_attr[SRV_ATR_LBServer].at_flags & ATR_VFLAG_SET) == 0)
+    return 0;
 #endif
 
 	if(!initialized) {
@@ -182,8 +188,8 @@ int svr_logjobstate(
 		seq_no = strdup(pjob->ji_wattr[(int)JOB_ATR_lb_seqno].at_val.at_str);
 	}
 
-#if defined(PBS_MOM)	
-	if(edg_wll_SetLoggingJob(ctx, jobid, seq_no, EDG_WLL_SEQ_PBS)) {
+#if defined(PBS_MOM) && !defined(MOM_USE_INTERLOGD)
+		if(edg_wll_SetLoggingJob(ctx, jobid, seq_no, EDG_WLL_SEQ_PBS)) {
 #else
 	if(edg_wll_SetLoggingJobFile(ctx, jobid, seq_no, pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str, EDG_WLL_SEQ_PBS)) {
 #endif
@@ -264,7 +270,7 @@ int svr_logjobstate(
 		seq_no = strdup(pjob->ji_wattr[(int)JOB_ATR_lb_seqno].at_val.at_str);
 	}
 
-#if defined(PBS_MOM)
+#if defined(PBS_MOM) && !defined(MOM_USE_INTERLOGD)
         if (edg_wll_SetLoggingJob(ctx, jobid, seq_no, EDG_WLL_SEQ_PBS)) {
 #else
 	if (edg_wll_SetLoggingJobFile(ctx, jobid, seq_no, pjob->ji_wattr[(int)JOB_ATR_job_owner].at_val.at_str, EDG_WLL_SEQ_PBS)) {
