@@ -1014,8 +1014,12 @@ static int decode_nodes(
 
   {
   char *pc;
+  char *last_div;
+  char *rname;
+  resource_def *rdef;
 
   pc = val;
+  last_div = val;
 
   while (1)
     {
@@ -1044,6 +1048,9 @@ static int decode_nodes(
         {
         return(PBSE_BADATVAL);
         }
+
+      last_div = pc;
+      ++last_div;
       }
     else if (isalpha(*pc))
       {
@@ -1060,6 +1067,23 @@ static int decode_nodes(
           pc++;
           if (*pc == '\0' || *pc == ':' || *pc == ',')
             return PBSE_BADATVAL;
+
+          rname = strndup(last_div,pc-last_div-1);
+          if (rname == NULL)
+            return PBSE_SYSTEM;
+          if ((rdef = find_resc_def(svr_resc_def,rname,svr_resc_size)) != NULL)
+            {
+            if ((rdef->rs_type == ATR_TYPE_LONG ||
+                rdef->rs_type == ATR_TYPE_SIZE ||
+                rdef->rs_type == ATR_TYPE_LL ||
+                rdef->rs_type == ATR_TYPE_SHORT) && !isdigit(*pc))
+              {
+              fprintf(stderr,"Bad resource value found \"%s\"!\n",last_div);
+              free(rname);
+              return PBSE_BADATVAL;
+              }
+            }
+          free(rname);
           }
         else
           break;
@@ -1072,6 +1096,8 @@ static int decode_nodes(
         {
         return(PBSE_BADATVAL);
         }
+      last_div = pc;
+      ++last_div;
       }
 
     ++pc;
