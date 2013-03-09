@@ -100,11 +100,14 @@ todo:
 	 grep -h TODO *c *h |sed 's/.*TODO//' |sort -r >TODO
 
 install: pbs_cache update_cache delete_cache list_cache list_client libpbscache.a libpbscache.so
+	mkdir -p $(DESTDIR)/usr/lib
 	install -m 0644 libpbscache.so $(DESTDIR)/usr/lib/libpbscache.so.1.0.0
 	ln -sf libpbscache.so.1.0.0 $(DESTDIR)/usr/lib/libpbscache.so.1.0
 	ln -sf libpbscache.so.1.0.0 $(DESTDIR)/usr/lib/libpbscache.so.1
 	ln -sf libpbscache.so.1.0.0 $(DESTDIR)/usr/lib/libpbscache.so
+	mkdir -p $(DESTDIR)/usr/include
 	install -m 0644 api.h $(DESTDIR)/usr/include/pbs_cache_api.h
+	mkdir -p $(DESTDIR)/usr/sbin
 	install -m 0744 *_cache $(DESTDIR)/usr/sbin
 
 .PHONY: install
