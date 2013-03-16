@@ -73,6 +73,8 @@ unsigned admin_slot_available : 1; /* admin slot is available */
   node_info* host; /*< the physical host of this node */
   std::vector< node_info* > hosted; /*< virtual nodes hosted on this node */
 
+  std::string scratch_pool;
+
   bool has_prop(pars_prop* property, int preassign_starving, bool physical_only);
   bool has_prop(const char* property);
   };

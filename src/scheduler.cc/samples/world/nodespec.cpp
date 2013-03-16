@@ -317,10 +317,9 @@ int get_node_has_scratch(node_info *ninfo, pars_spec_node* spec, ScratchType *sc
       }
     }
 
-  res = find_resource(ninfo->res,"scratch_pool");
-  if (res != NULL)
+  if (ninfo->scratch_pool.length() > 0)
     {
-    map<string, DynamicResource>::iterator i = ninfo->server->dynamic_resources.find(string(res->str_avail));
+    map<string, DynamicResource>::iterator i = ninfo->server->dynamic_resources.find(ninfo->scratch_pool);
     if (i != ninfo->server->dynamic_resources.end())
       {
       has_shared = i->second.would_fit(spec->scratch);

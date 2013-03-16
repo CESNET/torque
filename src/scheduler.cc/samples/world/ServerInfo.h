@@ -3,6 +3,7 @@
 
 #include "data_types.h"
 #include <map>
+#include <set>
 #include <string>
 #include "DynamicResource.h"
 
@@ -14,6 +15,7 @@ struct server_info
 
   struct resource *res;  /* list of resources */
   std::map<std::string, DynamicResource> dynamic_resources; /* list of dynamic resources */
+  std::set<std::string> scratch_pools;
   char *default_queue;  /* the default queue atribute of the server */
   int max_run;   /* max jobs that can be run at one time */
   int max_user_run;  /* max jobs a user can run at one time */

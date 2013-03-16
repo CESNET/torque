@@ -507,6 +507,28 @@ void query_external_cache(server_info *sinfo, int dynamic)
       }
     cache_hash_destroy(ptable);
 
+    /* read cluster info */
+    ptable=cache_hash_init();
+    if (xcache_hash_fill_local("scratch_pool",ptable)==0)
+      {
+      for (i=0;i<sinfo -> num_nodes;i++)
+        {
+        node=sinfo -> nodes[i];
+        value=xcache_hash_find(ptable,node->name);
+        if (value != NULL)
+          {
+          node->scratch_pool = string(value);
+          sinfo->scratch_pools.insert(string(value));
+          }
+        }
+      }
+    else
+      {
+      sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, "scratch_pool",
+                "Couldn't fetch pbs_cache info for [scratch_pool] metric.");
+      }
+    cache_hash_destroy(ptable);
+
     /* read server dynamic resources */
     ptable=cache_hash_init();
     if (xcache_hash_fill_local("dynamic_resources",ptable)==0)
@@ -520,6 +542,15 @@ void query_external_cache(server_info *sinfo, int dynamic)
             {
             sinfo->dynamic_resources.insert(make_pair(string(res_to_check[j].name),DynamicResource(res_to_check[j].name,value)));
             }
+          }
+        }
+      set<string>::iterator j;
+      for (j = sinfo->scratch_pools.begin(); j != sinfo->scratch_pools.end(); j++)
+        {
+        value=xcache_hash_find(ptable,j->c_str());
+        if (value != NULL)
+          {
+          sinfo->dynamic_resources.insert(make_pair(*j,DynamicResource(j->c_str(),value)));
           }
         }
       }
