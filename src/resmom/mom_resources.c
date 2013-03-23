@@ -7,6 +7,22 @@
 
 extern char mom_host[];
 
+/** \brief Export variable
+ *
+ * Either add another entry into a supplied vtable (used in start_process), or directly export the variable using setenv() (used in run_pelog).
+ *
+ * @param name Name of the variable
+ * @param value Value of the variable
+ * @param vtable Used when this is export into a controlled sub-process, otherwise NULL
+ */
+void export_variable(const char* name, const char* value, struct var_table *vtable)
+  {
+  if (vtable != NULL)
+    bld_env_variables(vtable,name,value);
+  else
+    setenv(name,value,1);
+  }
+
 void set_resource_vars(job *pjob, struct var_table *vtable)
   {
   resource *pres;
@@ -40,10 +56,7 @@ void set_resource_vars(job *pjob, struct var_table *vtable)
       buf_name[i] = toupper(buf_name[i]);
       }
 
-    if (vtable != NULL)
-      bld_env_variables(vtable, buf_name,buf_val);
-    else
-      setenv(buf_name,buf_val,1);
+    export_variable(buf_name,buf_val,vtable);
 
     pres = (resource *)GET_NEXT(pres->rs_link);
     }
@@ -59,22 +72,13 @@ void set_resource_vars(job *pjob, struct var_table *vtable)
     }
 
   sprintf(buf_val,"%u",node->procs);
-  if (vtable != NULL)
-    bld_env_variables(vtable, "TORQUE_RESC_PROC", buf_val);
-  else
-    setenv("TORQUE_RESC_PROC",buf_val,1);
+  export_variable("TORQUE_RESC_PROC",buf_val,vtable);
 
   sprintf(buf_val,"%llu",node->mem*1024);
-  if (vtable != NULL)
-    bld_env_variables(vtable, "TORQUE_RESC_MEM", buf_val);
-  else
-    setenv("TORQUE_RESC_MEM",buf_val,1);
+  export_variable("TORQUE_RESC_MEM",buf_val,vtable);
 
   sprintf(buf_val,"%llu",node->vmem*1024);
-  if (vtable != NULL)
-    bld_env_variables(vtable, "TORQUE_RESC_VMEM", buf_val);
-  else
-    setenv("TORQUE_RESC_VMEM",buf_val,1);
+  export_variable("TORQUE_RESC_VMEM",buf_val,vtable);
 
   if (node->scratch_type == ScratchLocal)
     sprintf(buf_val,"/scratch/%s/job_%s",pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,pjob->ji_qs.ji_jobid);
@@ -85,22 +89,18 @@ void set_resource_vars(job *pjob, struct var_table *vtable)
 
   if (node->scratch_type != ScratchNone)
     {
-    if (vtable != NULL)
-      {
-      bld_env_variables(vtable,"SCRATCHDIR",buf_val);
-      bld_env_variables(vtable,"SCRATCH",buf_val);
-      }
-    else
-      {
-      setenv("SCRATCHDIR",buf_val,1);
-      setenv("SCRATCH",buf_val,1);
-      }
+    export_variable("SCRATCHDIR",buf_val,vtable);
+    export_variable("SCRATCH",buf_val,vtable);
+
+    if (node->scratch_type == ScratchLocal)
+      export_variable("TORQUE_RESC_SCRATCH_TYPE","local",vtable);
+    else if (node->scratch_type == ScratchShared)
+      export_variable("TORQUE_RESC_SCRATCH_TYPE","shared",vtable);
+    else if (node->scratch_type == ScratchSSD)
+      export_variable("TORQUE_RESC_SCRATCH_TYPE","ssd",vtable);
 
     sprintf(buf_val,"%llu",node->scratch*1024);
-    if (vtable != NULL)
-      bld_env_variables(vtable, "TORQUE_RESC_SCRATCH_VOLUME", buf_val);
-    else
-      setenv("TORQUE_RESC_SCRATCH_VOLUME",buf_val,1);
+    export_variable("TORQUE_RESC_SCRATCH_VOLUME",buf_val,vtable);
     }
 
   resource res;
@@ -135,10 +135,8 @@ void set_resource_vars(job *pjob, struct var_table *vtable)
             strcpy(buf_val,prop->value);
             break;
           }
-        if (vtable != NULL)
-          bld_env_variables(vtable, buf_name, buf_val);
-        else
-          setenv(buf_name,buf_val,1);
+
+        export_variable(buf_name,buf_val,vtable);
         }
       }
     prop = prop->next;
@@ -180,10 +178,7 @@ void read_environ_script(job *pjob, struct var_table *vtable)
     var[strlen(var)-1] = '\0';
     val[strlen(val)-1] = '\0';
 
-    if (vtable != NULL)
-      bld_env_variables(vtable, var, val);
-    else
-      setenv(var,val,1);
+    export_variable(var,val,vtable);
 
     free(var);
     free(val);
