@@ -107,6 +107,7 @@
 #define PARSE_BY_QUEUE "by_queue"
 #define PARSE_STRICT_FIFO "strict_fifo"
 #define PARSE_FAIR_SHARE "fair_share"
+#define PARSE_FAIR_SHARE_PRIORITY "fair_share_with_priority"
 #define PARSE_HALF_LIFE "half_life"
 #define PARSE_SYNC_TIME "sync_time"
 #define PARSE_UNKNOWN_SHARES "unknown_shares"

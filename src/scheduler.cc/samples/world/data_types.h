@@ -406,6 +406,9 @@ unsigned lock_server :
 unsigned move_jobs :
  1; /** < job moving */
 
+unsigned priority_fairshare :
+ 1; /** < fairshare with queue priority */
+
   struct sort_info *sort_by;  /* current sort */
 
   struct sort_info *prime_sort;  /* prime time sort */

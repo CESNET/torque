@@ -350,6 +350,8 @@ int parse_config(const char *fname)
           conf.lock_server = num ? 1 : 0;
         else if (!strcmp(config_name,PARSE_JOB_MOVING))
           conf.move_jobs = num ? 1 : 0;
+        else if (!strcmp(config_name,PARSE_FAIR_SHARE_PRIORITY))
+          conf.priority_fairshare = num ? 1 : 0;
         }
       else
         error = 1;

@@ -549,15 +549,30 @@ job_info *extract_fairshare(job_info **jobs)
   job_info *max = NULL;  /* job with the max shares / percentage */
   float max_value;  /* max shares / percentage */
   float cur_value;  /* the current shares / percentage value */
+  int max_priority;
   int i;
 
   if (jobs != NULL)
     {
     max_value = -1;
+    max_priority = -1;
 
     for (i = 0; jobs[i] != NULL; i++)
       {
       if (jobs[i]->can_not_run || jobs[i]->state == JobRunning) continue;
+
+      if (conf.priority_fairshare)
+        {
+        if (jobs[i]->queue->priority < max_priority) continue;
+
+        // reset max fairshare when queue priority increased
+        if (jobs[i]->queue->priority > max_priority)
+          {
+          max_value = -1;
+          }
+
+        max_priority = jobs[i]->queue->priority;
+        }
 
       cur_value = jobs[i] -> ginfo -> percentage / jobs[i] -> ginfo -> temp_usage;
 
