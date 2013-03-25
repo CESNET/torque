@@ -685,8 +685,8 @@ void restore_jobs_to_resend(job **jobs, unsigned count)
 
   memset(jobs,0,count*sizeof(job*));
 
-  char *line;
-  size_t length;
+  char *line = NULL;
+  size_t length = 0;
   while (getline(&line,&length,storage) != -1)
     {
     job *pjob = find_job(line);
