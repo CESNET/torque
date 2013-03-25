@@ -671,7 +671,63 @@ int         TMOMScanForStarting(void);
 void check_log A_((void));
 
 
+void restore_jobs_to_resend(job **jobs, unsigned count)
+  {
+  unsigned pathlen = strlen(mom_home) + strlen("/jobstoresend.dat") + 1;
+  char path[pathlen];
 
+  strcpy(path,mom_home);
+  strcat(path,"/jobstoresend.dat");
+
+  FILE *storage = fopen(path,"r");
+  if (storage == NULL)
+    return;
+
+  memset(jobs,0,count*sizeof(job*));
+
+  char *line;
+  size_t length;
+  while (getline(&line,&length,storage) != -1)
+    {
+    job *pjob = find_job(line);
+    if (pjob != NULL)
+      {
+      for (size_t jindex = 0;jindex < count;jindex++)
+         {
+         if ((jobs[jindex] == NULL) || (jobs[jindex] == (job *)DUMMY_JOB_PTR))
+           {
+           jobs[jindex] = pjob;
+           }
+         }
+      }
+    free(line);
+    }
+
+  fclose(storage);
+  }
+
+void save_jobs_to_resend(job **jobs, unsigned count)
+  {
+  unsigned pathlen = strlen(mom_home) + strlen("/jobstoresend.dat") + 1;
+  char path[pathlen];
+
+  strcpy(path,mom_home);
+  strcat(path,"/jobstoresend.dat");
+
+  FILE *storage = fopen(path,"w");
+  if (storage == NULL)
+    return;
+
+  for (unsigned i = 0; i < count; i++)
+    {
+    if (jobs[i] != NULL && jobs[i] != (job *)DUMMY_JOB_PTR)
+      {
+      fprintf(storage,"%s\n",jobs[i]->ji_qs.ji_jobid);
+      }
+    }
+
+  fclose(storage);
+  }
 
 
 char *nullproc(
@@ -7557,6 +7613,7 @@ int setup_program_environment(void)
     "before init_abort_jobs");
 
   init_abort_jobs(recover);
+  restore_jobs_to_resend(JobsToResend,MAX_RESEND_JOBS);
 
 #ifdef _POSIX_MEMLOCK
   /* call mlockall() only 1 time, since it seems to leak mem */
@@ -8084,6 +8141,8 @@ void examine_all_jobs_to_resend(void)
       JobsToResend[jindex] = (job *)DUMMY_JOB_PTR;
       }
     }
+
+  save_jobs_to_resend(JobsToResend,MAX_RESEND_JOBS);
   }  /* END examine_all_jobs_to_resend() */
     
 
@@ -8170,6 +8229,11 @@ int mark_for_resend(
 
       break;
       }
+    }
+
+  if (rc == SUCCESS)
+    {
+    save_jobs_to_resend(JobsToResend,MAX_RESEND_JOBS);
     }
 
   return(rc);
