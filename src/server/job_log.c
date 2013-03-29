@@ -89,9 +89,9 @@ int svr_logjobstate(
 	job  *pjob,
 	int  newstate,
 	int  newsubstate,
-	struct batch_request *preq) 
+	struct batch_request *preq)
 {
-	static edg_wll_Context	ctx;
+	static edg_wll_Context ctx;
 	static int initialized = 0;
 	
 	int ret = 0, needs_register = 0;
@@ -100,18 +100,13 @@ int svr_logjobstate(
 	char *jobid_s;
 	char *seq_no;
 
-  /* if the job doesn't have lb_jobid, bail out */
-  if ((pjob->ji_wattr[(int)JOB_ATR_lb_jobid].at_flags & ATR_VFLAG_SET) == 0)
-    return 0;
-
 #ifdef PBS_MOM
-  char *my_name = mom_host;
-
+	char *my_name = mom_host;
 #else
-  char *my_name = server_name;
-  /* if this is server and we don't have the LB server, don't log */
-  if ((server.sv_attr[SRV_ATR_LBServer].at_flags & ATR_VFLAG_SET) == 0)
-    return 0;
+	char *my_name = server_name;
+	/* if this is server and we don't have the LB server, don't log */
+	if ((server.sv_attr[SRV_ATR_LBServer].at_flags & ATR_VFLAG_SET) == 0)
+		return 0;
 #endif
 
 	if(!initialized) {
@@ -129,12 +124,12 @@ int svr_logjobstate(
 		edg_wll_SetParam(ctx, EDG_WLL_PARAM_INSTANCE, my_name);
 		edg_wll_SetParam(ctx, EDG_WLL_PARAM_LEVEL, EDG_WLL_LEVEL_SYSTEM);
 		/* TODO: sequence number */
- 		initialized = 1;
+		initialized = 1;
 	}
 
-#if !defined(PBS_MOM)
 	if ((pjob->ji_wattr[(int)JOB_ATR_lb_jobid].at_flags & ATR_VFLAG_SET) == 0)
 	{
+#if !defined(PBS_MOM)
 		/* lb_jobid not set yet */
 		if(strchr(server.sv_attr[SRV_ATR_LBServer].at_val.at_str, ':')) {
 			asprintf(&jobid_s, "https://%s/%s", server.sv_attr[SRV_ATR_LBServer].at_val.at_str, pjob->ji_qs.ji_jobid);
@@ -147,11 +142,18 @@ int svr_logjobstate(
 			NULL,
 			jobid_s);
 		needs_register = 1;
-	} else {
-#else   
-	/* MOM only - lb_jobid must be present */
-	if(1) {
+#else
+		/* MOM only - lb_jobid must be present */
+		sprintf(log_buffer, "svr_logjobstate: job has no lb jobid, skipping\n");
+		log_event(
+			PBSEVENT_ERROR,
+			PBS_EVENTCLASS_JOB,
+			pjob->ji_qs.ji_jobid,
+			log_buffer);
+		return -1;
+		
 #endif
+	}  else {
 		jobid_s = strdup(pjob->ji_wattr[(int)JOB_ATR_lb_jobid].at_val.at_str);
 	}
 
@@ -167,8 +169,7 @@ int svr_logjobstate(
 		return -1;
 	}
 
-        free(jobid_s);
-	
+	free(jobid_s);
 
 #if !defined(DIRECT_REGISTRATION)
 	if((pjob->ji_wattr[(int)JOB_ATR_lb_seqno].at_flags & ATR_VFLAG_SET) == 0) {
