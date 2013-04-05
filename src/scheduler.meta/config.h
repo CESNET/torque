@@ -99,6 +99,7 @@
 #define HOLIDAYS_FILE "holidays"
 #define RESGROUP_FILE "resource_group"
 #define DEDTIME_FILE "dedicated_time"
+#define LAST_DECAY_FILE "last_decay"
 
 /* parsing -
  * names that appear on the left hand side in the sched config file
@@ -123,10 +124,9 @@
 #define PARSE_MAX_STARVE "max_starve"
 #define PARSE_SORT_QUEUES "sort_queues"
 #define PARSE_IGNORE_QUEUE "ignore_queue"
-#define PARSE_NO_MOM_TALK "no_mom_talk"
-#define PARSE_SERVER_LOCKING "server_locking"
 #define PARSE_JOB_MOVING "job_moving"
 #define PARSE_CYCLE_TIME "cycle_length"
+#define PARSE_SLAVE_SERVER "slave_server"
 
 
 /* max sizes */
@@ -137,6 +137,7 @@
 #define MAX_RES_NAME_SIZE 256
 #define MAX_RES_RET_SIZE 256
 #define MAX_IGNORED_QUEUES 16
+#define MAX_SLAVE_SERVERS 32
 
 
 /* messages -

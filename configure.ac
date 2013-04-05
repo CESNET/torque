@@ -281,6 +281,11 @@ if test "$DEBUG_SYMBOLS" = 'yes'; then
       else
         CFLAGS="-ggdb3 $CFLAGS"
       fi
+      if test "$CXXFLAGS" = ''; then
+        CXXFLAGS="-ggdb3"
+      else
+        CXXFLAGS="-ggdb3 $CXXFLAGS"
+      fi
       ;;
   esac
   AC_MSG_RESULT([after tweak CFLAGS=$CFLAGS])
@@ -879,17 +884,23 @@ dnl  ######################################################################
 dnl  Torque ports (use different ports then PRO)
 dnl
 
-AC_ARG_ENABLE(torque-ports,
+AC_ARG_ENABLE(meta-fork,
 [
-  --enable-torque-ports   use Torque ports instead of PBS Pro ports],
+  --enable-meta-fork   use MetaCentrum changes of Torque (ports, scheduler, etc...)],
 [case "${enableval}" in
   yes) TORQUE_PORTS=1 ;;
   no)  TORQUE_PORTS=0 ;;
-  *)   AC_MSG_ERROR(--enable-torque-ports cannot take a value) ;;
+  *)   AC_MSG_ERROR(--enable-meta-fork cannot take a value) ;;
 esac],[TORQUE_PORTS=0])dnl
 AC_DEFINE_UNQUOTED(TORQUE_PORTS, ${TORQUE_PORTS}, [Define to enable Torque ports])
 AM_CONDITIONAL(USING_TORQUE_PORTS, [ test "$TORQUE_PORTS" = "1"])
 
+if test "$TORQUE_PORTS" = "1"; then
+	SCHD_TYPE=meta;
+	SCHD_TYPE_SUBDIR=scheduler.meta
+	AC_SUBST(SCHD_TYPE)
+	AC_SUBST(SCHD_TYPE_SUBDIR)
+fi
 
 dnl
 dnl  ######################################################################
@@ -1637,7 +1648,7 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/scheduler.cc/samples/msic_cluster/Makefile
 	  src/scheduler.cc/samples/sgi_origin/Makefile
 	  src/scheduler.cc/samples/umn_cluster/Makefile
-	  src/scheduler.cc/samples/world/Makefile
+	  src/scheduler.meta/Makefile
 	  src/scheduler.tcl/Makefile
 	  src/server/Makefile
 	  src/tools/Makefile

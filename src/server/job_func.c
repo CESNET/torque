@@ -1617,6 +1617,13 @@ void job_purge(
                log_buffer);
     }
 
+
+  if (strstr(server_name,pjob->ji_qs.ji_jobid) == NULL)
+    {
+	/* TODO */
+	/* remove the shadow job from the original server */
+    }
+
   job_free(pjob);
 
   return;

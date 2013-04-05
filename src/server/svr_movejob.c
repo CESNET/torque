@@ -405,7 +405,6 @@ static void post_routejob(
 #endif
         svr_setjobstate(jobp, JOB_STATE_QUEUED, JOB_SUBSTATE_ABORT);
 
-
         return;
         }
 

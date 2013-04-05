@@ -150,14 +150,14 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
       free_nodes(ninfo_arr);
       return NULL;
       }
-
+#if 0
     /* query mom on the node for resources */
     if (!conf.no_mom_talk)
       {
       sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, "", "Talking with node.");
       talk_with_mom(ninfo);
       }
-
+#endif
     ninfo_arr[i] = ninfo;
 
     cur_node = cur_node -> next;
@@ -526,7 +526,7 @@ int set_node_state(node_info *ninfo, char *state)
 
 
 
-
+#if 0
 /*
  *
  *      talk_with_mom - talk to mom and get resources
@@ -625,6 +625,7 @@ int talk_with_mom(
 
   return 0;
   }
+#endif
 
 /*
  *

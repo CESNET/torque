@@ -86,6 +86,7 @@
 #include "misc.h"
 
 
+using namespace std;
 
 /*
  *
@@ -131,6 +132,11 @@ void init_state_count(state_count *sc)
   sc -> total = 0;
   }
 
+
+void count_states(const vector<job_info*>& jobs, state_count *sc)
+  {
+  count_states(jobs.data(),sc);
+  }
 /*
  *
  * count_states - count the jobs in each state and set the state counts
@@ -141,7 +147,7 @@ void init_state_count(state_count *sc)
  * returns nothing
  *
  */
-void count_states(job_info **jobs, state_count *sc)
+void count_states(job_info * const *jobs, state_count *sc)
   {
   int i;
 

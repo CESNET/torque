@@ -82,6 +82,8 @@
 
 #include "data_types.h"
 
+#include <vector>
+
 /*
  * print_state_count - print out a state_count struct
  */
@@ -95,7 +97,8 @@ void init_state_count(state_count *sc);
 /*
  *      count_states - count the jobs in each state and set the state counts
  */
-void count_states(job_info **jobs, state_count *sc);
+void count_states(job_info * const *jobs, state_count *sc);
+void count_states(const std::vector<job_info*>& jobs, state_count *sc);
 
 /*
  * accumulate states from one state_count into another

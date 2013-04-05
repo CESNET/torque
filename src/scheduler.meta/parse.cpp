@@ -344,10 +344,22 @@ int parse_config(const char *fname)
               }
             }
           }
-        else if (!strcmp(config_name,PARSE_NO_MOM_TALK))
-          conf.no_mom_talk = num ? 1 : 0;
-        else if (!strcmp(config_name,PARSE_SERVER_LOCKING))
-          conf.lock_server = num ? 1 : 0;
+        else if (!strcmp(config_name,PARSE_SLAVE_SERVER))
+          {
+          if (strlen(config_value) > PBS_MAXSERVERNAME)
+            error = 1;
+          else
+            {
+            for (i = 0; i < MAX_SLAVE_SERVERS; i++)
+              {
+              if (conf.slave_servers[i][0] == '\0')
+                {
+                strcpy(conf.slave_servers[i],config_value);
+                break;
+                }
+              }
+            }
+          }
         else if (!strcmp(config_name,PARSE_JOB_MOVING))
           conf.move_jobs = num ? 1 : 0;
         else if (!strcmp(config_name,PARSE_FAIR_SHARE_PRIORITY))
@@ -418,6 +430,15 @@ init_config(void)
     memset(conf.ignored_queues[i],0,PBS_MAXQUEUENAME+1);
     }
 
+  for (i = 0; i < MAX_SLAVE_SERVERS; i++)
+    {
+    if ((conf.slave_servers[i] = (char*)malloc(PBS_MAXSERVERNAME+1)) == NULL)
+      {
+      perror("Error Allocating Memory");
+      return 0;
+      }
+    memset(conf.slave_servers[i],0,PBS_MAXSERVERNAME+1);
+    }
   return 1;
   }
 
@@ -439,6 +460,10 @@ reinit_config(void)
   for (i = 0; i < MAX_IGNORED_QUEUES; i++)
     {
     free(conf.ignored_queues[i]);
+    }
+  for (i = 0; i < MAX_SLAVE_SERVERS; i++)
+    {
+    free(conf.slave_servers[i]);
     }
   return init_config();
   }

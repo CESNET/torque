@@ -163,6 +163,7 @@ int         log_init(char *, char *);
 
 extern int  chk_file_sec(char *, int, int, int, int, char *);
 extern int  setup_env(char *);
+extern char *msg_daemonname;
 
 
 /* Event types */

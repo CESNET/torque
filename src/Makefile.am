@@ -1,7 +1,7 @@
 include $(top_srcdir)/buildutils/config.mk
 
 DIST_SUBDIRS =   cmds  iff      lib      resmom          scheduler.cc   server \
- gui scheduler.basl   include  mom_rcp    scheduler.tcl  tools pam drmaa momctl
+ gui scheduler.basl   include  mom_rcp    scheduler.tcl  tools pam drmaa momctl scheduler.meta
 
 
 if INCLUDE_SERVER

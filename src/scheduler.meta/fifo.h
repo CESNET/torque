@@ -77,121 +77,66 @@
 * without reference to its choice of law rules.
 */
 
-#ifndef CHECK_H
-#define CHECK_H
-
-#include "server_info.h"
-#include "queue_info.h"
-#include "job_info.h"
+#ifndef FIFO_H
+#define FIFO_H
 
 /*
- * is_ok_to_run_in_queue - check to see if jobs can be run in queue
+ *      schedinit - initialize conf struct and parse conf files
  */
-int is_ok_to_run_queue(queue_info *qinfo);
+extern "C" int schedinit(int argc, char *argv[]);
 
 /*
- * is_ok_to_run_job - check to see if it ok to run a job on the server
+ *      schedule - this function gets called to start each scheduling cycle
+ *                 It will handle the difference cases that caused a
+ *                 scheduling cycle
  */
-int is_ok_to_run_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
-                     job_info *jinfo, int preassign_starving);
-
-/* remote version of is_ok_to_run_job (only works with cached data */
-int is_ok_to_run_job_remote(server_info *sinfo, queue_info *qinfo,
-                     job_info *jinfo);
+extern "C" int schedule(int cmd, int sd);
 
 /*
- *      check_avail_resources - check if there is available resources to run
- *                              a job on the server
+ *      scheduling_cycle - the controling function of the scheduling cycle
  */
-int check_avail_resources(resource *reslist, job_info *jinfo);
 
+int scheduling_cycle(int sd);
 
 /*
- * dynamic_avail - find out how much of a resource is available on a
+ *      init_scheduling_cycle - run things that need to be set up every
+ *                              scheduling cycle
  */
-sch_resource_t dynamic_avail(resource *res);
+int init_schedule_cycle(server_info *sinfo);
 
 /*
- *      check_run_job - function used by job_filter to filter out
- *                      non-running jobs.
+ *      run_update_job - run and update the job information
  */
-int check_run_job(job_info *job, void *arg);
-
+int run_update_job(int pbs_sd, server_info *sinfo, queue_info *qinfo,
+                   job_info *jinfo);
 /*
- *      count_by_user - count the amount of jobs a user has in a job array
+ *
+ *      next_job - find the next job to be run by the scheduler
+ *
+ *        sinfo - the server the jobs are on
+ *        ret_code - the previous return code from running a job
+ *
+ *      returns the next job to run or NULL when there are no more jobs
+ *              to run, or on error
+ *
  */
-int count_by_user(job_info **jobs, char *user);
 
+job_info *next_job(server_info *sinfo, int ret_code);
+
+#if DEPRECATED
 /*
- *      check_server_max_group_run - check to see if group is within their
- *                                   server running limits
+ *      update_last_running - update the last_running job array
  */
-int check_server_max_group_run(server_info *sinfo, char *group);
-
+int update_last_running(world_server_t *server);
+#endif
 /*
- *      check_queue_max_user_run - check if the user is within queue
- *                                      user run limits
+ *
+ *      update_starvation - update jobs sch_priority for starvation
  */
-int check_queue_max_user_run(queue_info *qinfo, char *account);
-
-/*
- *      count_by_group - count number of jobs a group has in job array
- */
-int count_by_group(job_info **jobs, char *group);
+job_info *update_starvation(job_info **jobs);
 
 
-/*
- *      check_server_max_user_run - check if the user is within server
- *                                      user run limits
- */
-int check_server_max_user_run(server_info *sinfo, char *account);
-
-/*
- *      check_queue_max_group_run - check to see if the group is within their
- *                                      queue running limits
- */
-int check_queue_max_group_run(queue_info *qinfo, char *group);
-
-int check_queue_proc_limits(queue_info *qinfo, job_info *jinfo);
-
-/*
- *      will_cross_into_ded_time - check to see if a job would cross into
- *                                 dedicated time
- */
-int will_cross_ded_time_boundry(job_info *jinfo);
-
-/*
- *      check_nodes - check to see if there is suficient nodes available to
- *                    run a job.
- */
-int check_nodes(int pbs_sd, job_info *jinfo, node_info **ninfo_arr);
-
-/*
- *      is_node_available - determine that there is a node available to run
- *                          the job
- */
-int is_node_available(job_info *jinfo, node_info **ninfo_arr);
-
-/*
- *      check_ded_time_queue - check if it is the approprate time to run jobs
- *                             in a dedtime queue
- */
-int check_ded_time_queue(queue_info *qinfo);
-
-/*
- *      check_token_utilization - check if the necessary Ab Initio tokens
- *                                are available
- */
-int check_token_utilization(server_info *sinfo, job_info *jinfo);
-
-/** Check if the queue is ignored
-*
-* @param qinfo queue to be checked
-* @returns SUCCESS if OK, QUEUE_IGNORED if ignored
-*/
-int check_ignored(queue_info *qinfo);
-
-int check_dynamic_resources(server_info *sinfo, job_info *jinfo);
+void
+update_cycle_status(void);
 
 #endif
-

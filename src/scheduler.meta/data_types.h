@@ -396,13 +396,6 @@ unsigned non_prime_lbrr:
 unsigned ignore_remote_local :
  1; /**<  ignore remote local queues
           only check global queues on remote servers */
-
-unsigned no_mom_talk :
- 1; /** < do not talk with nodes */
-
-unsigned lock_server :
- 1; /** < server locking */
-
 unsigned move_jobs :
  1; /** < job moving */
 
@@ -431,6 +424,7 @@ unsigned priority_fairshare :
   char ded_prefix[PBS_MAXQUEUENAME +1]; /* prefix to dedicated queues */
   time_t max_starve;   /* starving threshold */
   char* ignored_queues[MAX_IGNORED_QUEUES]; /* list of ignored queues */
+  char* slave_servers[MAX_SLAVE_SERVERS]; /* list of slave servers */
 
   time_t max_cycle; /* maximum cycle length */
   };

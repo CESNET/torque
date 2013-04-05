@@ -157,7 +157,7 @@ job_info **query_jobs(int pbs_sd, queue_info *qinfo)
     }
 
   /* allocate enough space for all the jobs and the NULL sentinal */
-  if ((jinfo_arr = (job_info **) malloc(sizeof(jinfo) * (num_jobs + 1))) == NULL)
+  if ((jinfo_arr = (job_info **) malloc(sizeof(job_info*) * (num_jobs + 1))) == NULL)
     {
     perror("Memory allocation error");
     pbs_statfree(jobs);

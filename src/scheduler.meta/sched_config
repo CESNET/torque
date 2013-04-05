@@ -174,7 +174,10 @@ dedicated_prefix: ded
 # servers (this is desired for big clusters with many jobs)
 #       NO PRIME OPTION
 ignore_remote_local_queues: False
-local_server: localhost
+
+# If not configured the local hostname is used
+# Only accepts FQDN (localhost doesn't work)
+#local_server: machine.host.name 
 
 # this defines how long before a job is considered starving.  If a job has 
 # been queued for this long, it will be considered starving

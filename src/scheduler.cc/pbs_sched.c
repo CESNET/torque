@@ -1215,10 +1215,10 @@ int main(
       log_err(errno, id, "sigprocmaskSIG_BLOCK)");
 
 //    alarm(alarm_time);
-
+#ifdef WITH_DEPRECATED
     if (schedule(cmd, connector)) /* magic happens here */
       go = 0;
-
+#endif
 //    alarm(0);
 
     if (connector >= 0 && server_disconnect(connector))
