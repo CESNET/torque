@@ -7,19 +7,17 @@
 #include "prev_job_info.h"
 #include "check.h"
 #include "node_info.h"
-extern "C"{
-#include "dis.h"
-#include "libpbs.h"
-#include "net_connect.h"
-#include "server_limits.h"
-}
-
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdexcept>
 #include <fstream>
 #include <cstring>
+#include <cstdlib>
 using namespace std;
+
+extern "C" {
+#include "dis.h"
+}
 
 extern void dump_current_fairshare(group_info *root);
 
@@ -65,79 +63,20 @@ job_info ** merge_job_arrays(job_info **arr1, job_info **arr2)
   return result;
   }
 
-/* sock refers to an opened socket */
-int
-socket_to_conn(int sock)
-  {
-  int     i;
-
-  for (i = 0; i < PBS_NET_MAX_CONNECTIONS; i++)
-    {
-    if (connection[i].ch_inuse == 0)
-      {
-
-      connection[i].ch_inuse = 1;
-      connection[i].ch_errno = 0;
-      connection[i].ch_socket = sock;
-      connection[i].ch_errtxt = NULL;
-      return (i);
-      }
-    }
-
-  pbs_errno = PBSE_NOCONNECTS;
-
-  return (-1);
-  }
-
-int privileged_connect(const char* server)
-  {
-  pbs_net_t hostaddr;
-  if ((hostaddr = get_hostaddr((char*)server)) == (pbs_net_t)0)
-    {
-    return -1;
-    }
-
-  unsigned int port = 15051;
-  int sock = client_to_svr(hostaddr, port, 1, NULL);
-
-  /* NOTE:  client_to_svr() can return 0 for SUCCESS */
-
-  /* assume SUCCESS requires s > 0 (USC) was 'if (s >= 0)' */
-  /* above comment not enabled */
-
-  if (sock < 0)
-    {
-    /* FAILURE */
-
-    return(-1);
-    }
-
-  /* SUCCESS */
-
-//  /* this socket should be blocking */
-
-//  int flags = fcntl(sock, F_GETFL);
-
-//  flags &= ~O_NONBLOCK;
-
-//  fcntl(sock, F_SETFL, flags);
-
-  return socket_to_conn(sock);
-  }
-
 bool World::fetch_servers()
   {
-  p_master_connection = privileged_connect(conf.local_server);
-  if (p_master_connection < 0)
+  try
     {
-    perror("ERROR");
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_REQUEST, "world_run", "Couldn't establish connection to main server.");
-    return false;
+    if ((p_info = query_server(p_connections.make_master_connection(string(conf.local_server)))) == NULL)
+      {
+      sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, "Couldn't fetch information from server \"%s\".",conf.local_server);
+      return false;
+      }
     }
-
-  if ((p_info = query_server(p_master_connection)) == NULL)
+  // catch deep errors
+  catch (const exception& e)
     {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_REQUEST, "world_run", "Couldn't establish connection to main server.");
+    sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, e.what());
     return false;
     }
 
@@ -145,43 +84,52 @@ bool World::fetch_servers()
   int i = 0;
   while (conf.slave_servers[i][0] != '\0')
     {
-    int fd = privileged_connect(conf.slave_servers[i]);
-    if (fd >= 0)
+    for (int j = 0; j < p_info->num_queues; ++j)
       {
-      p_slave_connections[string(conf.slave_servers[i])] = fd;
-      for (int j = 0; j < p_info->num_queues; ++j)
+      if (p_info->queues[j]->is_global)
         {
-        if (p_info->queues[j]->is_global)
+        job_info **jobs;
+        try
           {
-          job_info **jobs = query_jobs(fd,p_info->queues[j]);
-          if (jobs != NULL && jobs[0] != NULL)
+          if ((jobs = query_jobs(p_connections.make_remote_connection(string(conf.slave_servers[i])),p_info->queues[j])) == NULL)
             {
-            job_info **merged = merge_job_arrays(p_info->queues[j]->jobs,jobs);
-            init_state_count(&p_info->queues[j]->sc);
-            count_states(merged,&p_info->queues[j]->sc);
-
-            free(p_info->queues[j]->jobs);
-            p_info->queues[j]->jobs = merged;
-
-            free(p_info->queues[j]->running_jobs);
-            p_info->queues[j]->running_jobs = job_filter(p_info->queues[j]->jobs, p_info->queues[j]->sc.total, check_run_job, NULL);
-
-            merged = merge_job_arrays(p_info->jobs,jobs);
-            init_state_count(&p_info->sc);
-            count_states(merged,&p_info->sc);
-
-            free(p_info->jobs);
-            p_info->jobs = merged;
-
-            free(p_info->running_jobs);
-            p_info->running_jobs = job_filter(p_info->jobs, p_info->sc.total, check_run_job, NULL);
+            sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, "Couldn't fetch information from server \"%s\".",conf.slave_servers[i]);
+            i++;
+            continue;
             }
           }
+        // catch deep errors
+        catch (const exception& e)
+          {
+          sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, e.what());
+          i++;
+          continue;
+          }
+
+        // merge the new jobs into the local queue
+        if (jobs[0] != NULL)
+          {
+          job_info **merged = merge_job_arrays(p_info->queues[j]->jobs,jobs);
+          init_state_count(&p_info->queues[j]->sc);
+          count_states(merged,&p_info->queues[j]->sc);
+
+          free(p_info->queues[j]->jobs);
+          p_info->queues[j]->jobs = merged;
+
+          free(p_info->queues[j]->running_jobs);
+          p_info->queues[j]->running_jobs = job_filter(p_info->queues[j]->jobs, p_info->queues[j]->sc.total, check_run_job, NULL);
+
+          merged = merge_job_arrays(p_info->jobs,jobs);
+          init_state_count(&p_info->sc);
+          count_states(merged,&p_info->sc);
+
+          free(p_info->jobs);
+          p_info->jobs = merged;
+
+          free(p_info->running_jobs);
+          p_info->running_jobs = job_filter(p_info->jobs, p_info->sc.total, check_run_job, NULL);
+          }
         }
-      }
-    else
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_REQUEST, "world_run", "Couldn't establish connection to slave server \"%s\".",conf.slave_servers[i]);
       }
     ++i;
     }
@@ -191,18 +139,7 @@ bool World::fetch_servers()
 
 void World::cleanup_servers()
   {
-  if (p_master_connection >= 0)
-    pbs_disconnect(p_master_connection);
-  p_master_connection = -1;
-
-  map<string,int>::iterator i;
-  for (i = p_slave_connections.begin(); i != p_slave_connections.end(); i++)
-    {
-    if (i->second >= 0)
-      pbs_disconnect(i->second);
-    i->second = -1;
-    }
-
+  p_connections.disconnect_all();
   free_server(p_info,1);
   }
 
@@ -344,7 +281,7 @@ int World::try_run_job(job_info *jinfo)
   int ret = 0;
 
   bool remote = false;
-  int socket = p_master_connection;
+  int socket;
   if (string(jinfo->name).find(conf.local_server) == string::npos)
     {
     remote = true;
@@ -352,7 +289,11 @@ int World::try_run_job(job_info *jinfo)
     size_t firstdot = jobid.find('.');
     string server_name = jobid.substr(firstdot+1);
 
-    socket = p_slave_connections[server_name];
+    socket = p_connections.get_connection(server_name);
+    }
+  else
+    {
+    socket = p_connections.get_master_connection();
     }
 
   if (!booting)
@@ -430,6 +371,7 @@ void World::run()
   {
   const unsigned int sleep_suspend = 2;
 
+  try {
   while (1)
     {
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_REQUEST, "world_run", "Suspending scheduler for %d seconds.",sleep_suspend);
@@ -490,12 +432,12 @@ void World::run()
         if (translate_job_fail_code(ret, comment, log_msg))
           {
           /* determine connection and update on correct server */
-          if (update_job_comment(p_master_connection, jinfo, comment) == 0)
+          if (update_job_comment(p_connections.get_master_connection(), jinfo, comment) == 0)
             sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_JOB, jinfo->name, log_msg);
 
           if ((ret != NOT_QUEUED) && cstat.strict_fifo && (!jinfo->queue->is_global))
             {
-            update_jobs_cant_run(p_master_connection, jinfo->queue->jobs, jinfo, COMMENT_STRICT_FIFO, START_AFTER_JOB);
+            update_jobs_cant_run(p_connections.get_master_connection(), jinfo->queue->jobs, jinfo, COMMENT_STRICT_FIFO, START_AFTER_JOB);
             }
           }
         }
@@ -515,4 +457,9 @@ void World::run()
 
   if (conf.prime_fs || conf.non_prime_fs)
     write_usage();
+  }
+  catch (const exception& e)
+    {
+    sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, "Unexpected exception caught : %s", e.what());
+    }
   }

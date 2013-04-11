@@ -6,6 +6,7 @@
 #include <map>
 
 #include "data_types.h"
+#include "ConnectionMgr.h"
 
 class World
   {
@@ -24,8 +25,7 @@ class World
     void update_last_running();
     int try_run_job(job_info *jinfo);
 
-    int p_master_connection;
-    std::map<std::string,int> p_slave_connections;
+    ConnectionMgr p_connections;
 
     server_info *p_info;
     std::vector<prev_job_info> p_last_running;
