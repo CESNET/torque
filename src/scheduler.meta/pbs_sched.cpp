@@ -11,6 +11,8 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 #include <grp.h>
+#include <errno.h>
+#include <signal.h>
 
 extern "C"
 {
@@ -22,32 +24,117 @@ extern "C"
 static char    *logfile = (char *)0;
 char path_log[_POSIX_PATH_MAX];
 char path_acct[_POSIX_PATH_MAX];
+// global graceful exit guard
+bool scheduler_not_dying;
+void graceful_exit_handler(int) { scheduler_not_dying = false; }
 
-// C++ helper
+// C++ helpers
 void xlog_record(int eventtype, int objclass, const char *objname, const char *text)
   {
   log_record(eventtype,objclass,const_cast<char*>(objname),const_cast<char*>(text));
   }
 
-void die(int sig)
+void xlog_err(int errnum, const char* routine, const char *text)
   {
-  const char *id = "die";
+  log_err(errnum,const_cast<char*>(routine),const_cast<char*>(text));
+  }
 
-  if (sig > 0)
+int pid_file_fd;
+
+/** \brief Lock and update sched.lock file
+ *
+ * @return 0 on success 1 on failure
+ */
+int update_pid_file()
+  {
+  int pid_file_fd = open("sched.lock", O_CREAT | O_TRUNC | O_WRONLY, 0644);
+
+  if (pid_file_fd < 0)
     {
-    sprintf(log_buffer, "caught signal %d", sig);
-
-    xlog_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, log_buffer);
+    xlog_err(errno, __PRETTY_FUNCTION__, "unable to open lock file");
+    return 1;
     }
-  else
+
+  struct flock pid_file_lock;
+  pid_file_lock.l_type   = F_WRLCK;
+  pid_file_lock.l_whence = SEEK_SET;
+  pid_file_lock.l_start  = 0;
+  pid_file_lock.l_len    = 0; /* whole file */
+
+  if (fcntl(pid_file_fd, F_SETLK, &pid_file_lock) < 0)
     {
-    xlog_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, "abnormal termination");
+    xlog_err(errno, __PRETTY_FUNCTION__, "unable to lock the lock file for writing");
+    return 1;
     }
 
-  log_close(1);
+  pid_t  pid = getpid();
+  sprintf(log_buffer, "%ld\n", (long)pid);
+  if (write(pid_file_fd, log_buffer, strlen(log_buffer) + 1) != (ssize_t)(strlen(log_buffer) + 1))
+    {
+    xlog_err(errno, __PRETTY_FUNCTION__, "unable to write pid into lock file");
+    return 1;
+    }
 
-  exit(1);
-  }  /* END die() */
+  return 0;
+  }
+
+/** \brief Unlock the sched.lock file on exit
+ *
+ * @return 0 on success 1 on failure
+ */
+int release_pid_file()
+  {
+  struct flock pid_file_lock;
+  pid_file_lock.l_type   = F_UNLCK;
+  pid_file_lock.l_whence = SEEK_SET;
+  pid_file_lock.l_start  = 0;
+  pid_file_lock.l_len    = 0; /* whole file */
+
+  if (fcntl(pid_file_fd, F_SETLK, &pid_file_lock) < 0)
+    {
+    xlog_err(errno, __PRETTY_FUNCTION__, "unable to unlock the lock file");
+    return 1;
+    }
+
+  return 0;
+  }
+
+/** \brief Setup signal handlers for graceful exit
+ *
+ * @return 0 on success 1 on failure
+ */
+int setup_signals()
+  {
+  struct sigaction act;
+  act.sa_flags = 0;
+  if (sigemptyset(&act.sa_mask) != 0)
+    {
+    xlog_err(errno, __PRETTY_FUNCTION__, "unable to initialize sigset");
+    return 1;
+    }
+
+  act.sa_handler = graceful_exit_handler;
+
+  if (sigaction(SIGHUP, &act, NULL) != 0)
+    {
+    xlog_err(errno, __PRETTY_FUNCTION__, "couldn't setup handler for SIGHUP");
+    return 1;
+    }
+
+  if (sigaction(SIGINT, &act, NULL) != 0)
+    {
+    xlog_err(errno, __PRETTY_FUNCTION__, "couldn't setup handler for SIGINT");
+    return 1;
+    }
+
+  if (sigaction(SIGTERM, &act, NULL) != 0)
+    {
+    xlog_err(errno, __PRETTY_FUNCTION__, "couldn't setup handler for SIGTERM");
+    return 1;
+    }
+
+  return 0;
+  }
 
 int main(int argc, char *argv[])
   {
@@ -115,8 +202,26 @@ int main(int argc, char *argv[])
     return 1;
     }
 
+  // setup pid file
+  if (update_pid_file() != 0)
+    return 1;
+
+  // setup signal handling
+  if (setup_signals() != 0)
+    return 1;
+
+  scheduler_not_dying = true;
   World world(argc,argv);
-  world.run();
+
+  while (scheduler_not_dying)
+    {
+    world.run(); // exits on unexpected exception
+    sleep(5*60); // sleep for 5 minutes, then try again
+    }
+
+  // unlock the pid file
+  if (release_pid_file() != 0)
+    return 1;
 
   return 0;
   }

@@ -367,25 +367,23 @@ int World::try_run_job(job_info *jinfo)
   return ret;
   }
 
+extern bool scheduler_not_dying;
+
 void World::run()
   {
   const unsigned int sleep_suspend = 2;
 
   try {
-  while (1)
+  while (scheduler_not_dying)
     {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_REQUEST, "world_run", "Suspending scheduler for %d seconds.",sleep_suspend);
+    sched_log(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, "Suspending scheduler for %d seconds.",sleep_suspend);
     sleep(sleep_suspend);
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_REQUEST, "world_run", "Scheduler woken up, initializing scheduling cycle.");
+    sched_log(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, "Scheduler woken up, initializing scheduling cycle.");
 
     update_cycle_status();
 
     /* create the server / queue / job / node structures */
-    if (!fetch_servers())
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_REQUEST, "world_run", "Couldn't fetch server information, suspending.");
-      continue;
-      }
+    if (!fetch_servers()) { continue; }
 
     init_scheduling_cycle();
 

@@ -21,7 +21,7 @@ extern "C"{
 bool verify_fqdn(const string& fqdn)
   {
   struct addrinfo addr;
-  memset(&addr,1,sizeof(addr));
+  memset(&addr,0,sizeof(addr));
 
   addr.ai_family = AF_INET;
   addr.ai_socktype = SOCK_STREAM;
@@ -46,7 +46,7 @@ bool verify_fqdn(const string& fqdn)
 std::string get_fqdn(const std::string& host)
   {
   struct addrinfo addr;
-  memset(&addr,1,sizeof(addr));
+  memset(&addr,0,sizeof(addr));
 
   addr.ai_family = AF_INET;
   addr.ai_socktype = SOCK_STREAM;

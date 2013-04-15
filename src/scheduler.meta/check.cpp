@@ -217,28 +217,6 @@ int is_ok_to_run_job(JobLog& log, server_info *sinfo, queue_info *qinfo,
     return rc;
     }
 
-#if 0
-  if (pbs_sd >= 0) /* only for local checks */
-  if ((rc = check_nodes(pbs_sd, jinfo, sinfo -> timesharing_nodes)))
-    return rc;
-#endif
-
-#if 0
-/* Wrong semantics  */
-  if ((rc = check_avail_resources(qinfo -> qres, jinfo)) != SUCCESS)
-    {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-              "Not enough queue resources.");
-    return INSUFICIENT_QUEUE_RESOURCE;
-    }
-
-  if ((rc = check_avail_resources(sinfo -> res, jinfo)) != SUCCESS)
-    {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-              "Not enough server resources.");
-    return INSUFICIENT_SERVER_RESOURCE;
-    }
-#endif
   if ((rc = check_dynamic_resources(sinfo, jinfo)) != SUCCESS)
     {
     log << "Job isn't eligible for run, because there aren't currently enough global dynamic resources." << endl;
@@ -433,66 +411,6 @@ int check_dynamic_resources(server_info* sinfo, job_info *jinfo)
 
   return SUCCESS;
   }
-
-/*
- *
- *      check_avail_resources - check if there is available resources to run
- *                              a job on the server
- *
- *        reslist   - resources list
- *        jinfo - job
- *
- *      returns NULL on success or failure code
- *
- *      NOTE: if a resource is not available it is skipped
- *            All resources which are checked are in the global variable
- *              res_to_check
- *
- */
-int check_avail_resources(resource *reslist, job_info *jinfo)
-  {
-  /* The resource needs to be found on the server and the requested resource
-   * needs to be found from the job, these pointers are used to store the
-   * results
-   */
-  resource_req *resreq;
-  resource *res;
-  int ret_code = UNSPECIFIED;
-  char done = 0;                        /* Are we done? */
-  int avail;                            /* amount of available resource */
-  int i;
-
-  for (i = 0; (i < num_res) && !done; i++)
-    {
-    res = find_resource(reslist, res_to_check[i].name);
-    resreq = find_resource_req(jinfo -> resreq, res_to_check[i].name);
-
-    /* if either of these are NULL then the system admin did not set a maximum
-     * default or avail for the resource.  Skip it and move on
-     */
-
-    if ((res == NULL || resreq == NULL))
-      continue;
-    else
-      {
-      avail = dynamic_avail(res);
-
-      if (avail != INFINITY && avail < resreq -> amount)
-        {
-        /* An insuffient amount of a resource has been found. */
-        done = 1;
-        ret_code = i;
-        }
-      }
-    }
-
-  if (!done)
-    ret_code = SUCCESS;
-
-  return ret_code;
-  }
-
-
 
 /*
  *
