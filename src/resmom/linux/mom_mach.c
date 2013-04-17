@@ -1848,6 +1848,12 @@ int mom_over_limit(
         }
       else
         {
+        sprintf(log_buffer, "{%s} user [%s] job consuming more cpu cores on node %s than requested (requested_cores=%u;measured_load=%f;requested_cput=%llu;measured_cput=%lu;hard_limit_cput=%.0f;)",
+                            pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, mom_host,
+                            node->procs, cputsum/(double)num, node->procs*num, cputsum, 1.1*node->procs*num);
+        log_err(0,"RESOURCE_KILL",log_buffer);
+
+        /* pass over to caller */
         sprintf(log_buffer, "job requested %u cores on node %s, but the measured load was %f",
                             node->procs, mom_host, cputsum/(double)num);
         return TRUE;
@@ -1865,6 +1871,10 @@ int mom_over_limit(
       }
     else
       {
+      sprintf(log_buffer, "{%s} user [%s] mem %llu exceeded limit %llu on node %s", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->mem * 1024, mom_host);
+      log_err(0,"RESOURCE_KILL",log_buffer);
+
+      /* pass over to caller */
       sprintf(log_buffer, "mem %lluMB exceeded limit %lluMB on node %s", numll/(1024*1024), node->mem / 1024, mom_host);
       return(TRUE);
       }
@@ -1881,6 +1891,10 @@ int mom_over_limit(
       }
     else
       {
+      sprintf(log_buffer, "{%s} user [%s] vmem %llu exceeded limit %llu on node %s", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->vmem * 1024, mom_host);
+      log_err(0,"RESOURCE_KILL",log_buffer);
+
+      /* pass over to caller */
       sprintf(log_buffer, "vmem %lluMB exceeded limit %lluMB on node %s", numll/(1024*1024), node->vmem / 1024, mom_host);
       return(TRUE);
       }
@@ -1922,6 +1936,10 @@ int mom_over_limit(
           }
         else
           {
+          sprintf(log_buffer,"{%s} user [%s] pvmem exceeded limit %llu on node %s",pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid,valuell,mom_host);
+          log_err(0,"RESOURCE_KILL",log_buffer);
+
+          /* pass over to caller */
           sprintf(log_buffer, "pvmem exceeded limit %llu on node %s",valuell,mom_host);
           return(TRUE);
           }

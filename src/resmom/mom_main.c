@@ -6222,21 +6222,24 @@ int job_over_limit(
 
   units = index == 0 ? "secs" : "kb";
 
+  sprintf(log_buffer, "{%s} user [%s] %s job total %llu %s exceeded limit %llu %s", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str, pjob->ji_qs.ji_jobid, rd->rs_name, total, units, limit, units);
+  if (simulatekill)
+    {
+    log_err(0,"SIMULATED_KILL",log_buffer);
+    return 0;
+    }
+  else
+    {
+    log_err(0,"RESOURCE_KILL",log_buffer);
+    }
+
+  /* pass over to caller */
   sprintf(log_buffer, "%s job total %llu %s exceeded limit %llu %s",
           rd->rs_name,
           total,
           units,
           limit,
           units);
-
-  if (simulatekill)
-    {
-    sprintf(log_buffer, "{%s} user [%s] %s job total %llu %s exceeded limit %llu %s",
-            pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,
-            pjob->ji_qs.ji_jobid, rd->rs_name, total, units, limit, units);
-    log_err(0,"SIMULATED_KILL",log_buffer);
-    return 0;
-    }
 
   pjob->ji_nodekill = pjob->ji_nodeid;
 
