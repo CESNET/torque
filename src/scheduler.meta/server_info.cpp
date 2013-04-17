@@ -98,6 +98,8 @@ extern "C" {
 #include "sort.h"
 #include "global_macros.h"
 
+#include "RescInfoDb.h"
+
 #include <new>
 using namespace std;
 
@@ -206,19 +208,20 @@ server_info *query_server(int pbs_sd)
 
   for (i = 0; i < sinfo->sc.running; i++)
     {
-    for (int j = 0; j < num_res; j++)
+    RescInfoDb::iterator j;
+    for (j = resc_info_db.begin(); j != resc_info_db.end(); j++)
       {
       resource_req *resreq;
 
       /* skip non-dynamic resource */
-      if (res_to_check[j].source != ResCheckDynamic)
+      if (j->second.source != ResCheckDynamic)
         continue;
 
       /* no request for this resource */
-      if ((resreq = find_resource_req(sinfo->running_jobs[i]->resreq, res_to_check[j].name)) == NULL)
+      if ((resreq = find_resource_req(sinfo->running_jobs[i]->resreq, j->second.name.c_str())) == NULL)
         continue;
 
-      map<string,DynamicResource>::iterator it = sinfo->dynamic_resources.find(string(res_to_check[j].name));
+      map<string,DynamicResource>::iterator it = sinfo->dynamic_resources.find(j->second.name);
       if (it != sinfo->dynamic_resources.end())
         {
         it->second.add_scheduled(resreq->amount);

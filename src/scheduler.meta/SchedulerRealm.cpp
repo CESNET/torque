@@ -19,6 +19,8 @@ extern "C" {
 #include "dis.h"
 }
 
+#include "RescInfoDb.h"
+
 extern void dump_current_fairshare(group_info *root);
 
 World::World(int argc, char *argv[])
@@ -30,7 +32,8 @@ World::World(int argc, char *argv[])
     exit(1);
     }
 
-  /* verify configuration and current state of the system */
+  /* local resource database */
+  resc_info_db.read_db(string("/var/spool/torque/sched_priv/resources.def"));
   }
 
 job_info ** merge_job_arrays(job_info **arr1, job_info **arr2)

@@ -92,7 +92,7 @@
 #include "constant.h"
 #include "globals.h"
 #include "dedtime.h"
-//#include "token_acct.h"
+#include "RescInfoDb.h"
 
 using namespace std;
 
@@ -389,19 +389,19 @@ int check_queue_proc_limits(queue_info *qinfo, job_info *jinfo)
 int check_dynamic_resources(server_info* sinfo, job_info *jinfo)
   {
   resource_req *resreq;
-  int i;
+  RescInfoDb::iterator i;
 
-  for (i = 0; i < num_res; i++)
+  for (i = resc_info_db.begin(); i != resc_info_db.end(); i++)
     {
     /* skip non-dynamic resource */
-    if (res_to_check[i].source != ResCheckDynamic)
+    if (i->second.source != ResCheckDynamic)
       continue;
 
     /* no request for this resource */
-    if ((resreq = find_resource_req(jinfo -> resreq, res_to_check[i].name)) == NULL)
+    if ((resreq = find_resource_req(jinfo -> resreq, i->second.name.c_str())) == NULL)
       continue;
 
-    map<string,DynamicResource>::iterator it = sinfo->dynamic_resources.find(string(res_to_check[i].name));
+    map<string,DynamicResource>::iterator it = sinfo->dynamic_resources.find(i->second.name);
     if (it == sinfo->dynamic_resources.end())
       return INSUFICIENT_DYNAMIC_RESOURCE;
 

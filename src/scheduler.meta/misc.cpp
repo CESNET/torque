@@ -98,6 +98,7 @@
 #include "api.hpp"
 
 #include "data_types.h"
+#include "RescInfoDb.h"
 
 #include <string>
 #include <utility>
@@ -426,15 +427,16 @@ void query_external_cache(server_info *sinfo, int dynamic)
   node_info *node;
   char *value;
   int i;
-  int j;
   void *ptable;
 
-  for( j = 0; j < num_res; j++ )
+
+  RescInfoDb::iterator j;
+  for (j = resc_info_db.begin(); j != resc_info_db.end(); j++)
     {
     ptable=cache_hash_init();
-    if ((res_to_check[j].source == ResCheckBoth) || (res_to_check[j].source == ResCheckCache))
+    if ((j->second.source == ResCheckBoth) || (j->second.source == ResCheckCache))
       {
-      if (xcache_hash_fill_local(res_to_check[j].name,ptable) == 0)
+      if (xcache_hash_fill_local(j->second.name.c_str(),ptable) == 0)
         {
         for (i=0;i<sinfo -> num_nodes;i++)
           {
@@ -442,7 +444,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
            value=xcache_hash_find(ptable,node->name);
            if (value!=NULL)
              {
-             res = find_alloc_resource( node -> res, res_to_check[j].name );
+             res = find_alloc_resource( node -> res, j->second.name.c_str() );
 
              if (node->res == NULL)
                node->res = res;
@@ -477,10 +479,10 @@ void query_external_cache(server_info *sinfo, int dynamic)
         {
         sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, "pbs_cache",
                   "Couldn't fetch pbs_cache info for [%s] metric.",
-                  res_to_check[j].name);
+                  j->second.name.c_str());
         }
       }
-      cache_hash_destroy(ptable);
+    cache_hash_destroy(ptable);
     }
 
   if (!dynamic)
@@ -518,7 +520,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
         if (value != NULL)
           {
           node->scratch_pool = string(value);
-          sinfo->scratch_pools.insert(string(value));
+          resc_info_db.insert(value," ",ResCheckDynamic); // register as new dynamic resource
           }
         }
       }
@@ -533,24 +535,13 @@ void query_external_cache(server_info *sinfo, int dynamic)
     ptable=cache_hash_init();
     if (xcache_hash_fill_local("dynamic_resources",ptable)==0)
       {
-      for( j = 0; j < num_res; j++ )
+      for (j = resc_info_db.begin(); j != resc_info_db.end(); j++)
         {
-        if (res_to_check[j].source == ResCheckDynamic)
+        if (j->second.source == ResCheckDynamic)
           {
-          value=xcache_hash_find(ptable,res_to_check[j].name);
+          value=xcache_hash_find(ptable,j->second.name.c_str());
           if (value != NULL)
-            {
-            sinfo->dynamic_resources.insert(make_pair(string(res_to_check[j].name),DynamicResource(res_to_check[j].name,value)));
-            }
-          }
-        }
-      set<string>::iterator j;
-      for (j = sinfo->scratch_pools.begin(); j != sinfo->scratch_pools.end(); j++)
-        {
-        value=xcache_hash_find(ptable,j->c_str());
-        if (value != NULL)
-          {
-          sinfo->dynamic_resources.insert(make_pair(*j,DynamicResource(j->c_str(),value)));
+            sinfo->dynamic_resources.insert(make_pair(j->second.name,DynamicResource(j->second.name.c_str(),value)));
           }
         }
       }

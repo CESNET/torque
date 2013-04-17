@@ -15,21 +15,11 @@ extern "C" {
 
 #include "api.hpp"
 
+#include "RescInfoDb.h"
+
 #include <sstream>
 #include <cassert>
 using namespace std;
-
-reschecksource res_check_type(const char * res_name)
-  {
-  int i;
-  for (i = 0; i < num_res; i++)
-    {
-    if (strcmp(res_name,res_to_check[i].name) == 0)
-      return res_to_check[i].source;
-    }
-
-  return ResCheckNone;
-  }
 
 static int node_is_suitable_for_run(node_info *ninfo)
   {

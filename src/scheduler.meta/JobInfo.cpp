@@ -3,6 +3,8 @@
 #include "data_types.h"
 #include "nodespec_sch.h"
 
+#include "RescInfoDb.h"
+
 using namespace std;
 
 bool job_info::on_host(node_info *ninfo)

@@ -9,6 +9,4 @@
  */
 int get_node_has_property(node_info *ninfo, const char* property);
 
-reschecksource res_check_type(const char * res_name);
-
 #endif /* NODESPEC_H_ */

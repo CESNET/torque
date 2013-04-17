@@ -216,7 +216,8 @@ int main(int argc, char *argv[])
   while (scheduler_not_dying)
     {
     world.run(); // exits on unexpected exception
-    sleep(5*60); // sleep for 5 minutes, then try again
+    if (scheduler_not_dying)
+      sleep(5*60); // sleep for 5 minutes, then try again
     }
 
   // unlock the pid file

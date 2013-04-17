@@ -82,6 +82,7 @@
 #include <string.h>
 #include <errno.h>
 #include <new>
+#include <stdexcept>
 using namespace std;
 
 #include "torque.h"
@@ -898,10 +899,11 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg)
   {
   int rc = 1;
 
-  if (fail_code < num_res)
+  if (fail_code < 1000)
     {
-    strcpy(comment_msg, res_to_check[fail_code].comment_msg);
-    strcpy(log_msg, res_to_check[fail_code].debug_msg);
+    //strcpy(comment_msg, res_to_check[fail_code].comment_msg);
+    //strcpy(log_msg, res_to_check[fail_code].debug_msg);
+    throw runtime_error("Unexpected code path.");
     }
   else
     {

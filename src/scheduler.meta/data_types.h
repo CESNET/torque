@@ -472,16 +472,4 @@ unsigned is_ded_time:
 
   };
 
-/** resources check mode */
-typedef enum { ResCheckNone, ResCheckStat, ResCheckCache, ResCheckBoth, ResCheckDynamic } reschecksource;
-
-/* static data types */
-struct rescheck
-  {
-  const char *name;
-  const char *comment_msg;
-  const char *debug_msg;
-  reschecksource source;
-  };
-
 #endif

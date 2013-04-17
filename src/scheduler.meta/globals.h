@@ -82,10 +82,6 @@
 
 #include "data_types.h"
 
-/* resources to check */
-
-extern const struct rescheck res_to_check[];
-
 /* information about sorting */
 
 extern const struct sort_info sorting_info[];
@@ -98,8 +94,6 @@ extern struct config conf;
 extern struct status cstat;
 
 extern const int num_sorts;
-extern const int num_res;
-extern const int num_resget;
 
 /* Variables from pbs_sched code */
 extern int pbs_rm_port;
