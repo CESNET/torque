@@ -43,7 +43,7 @@ EXTRA_DIST = man1/qalter.1.in man1/qdel.1.in man1/qhold.1.in man1/qmove.1.in \
 	     man7/pbs_resources_unicos8.7.in man7/pbs_resources_unicosmk2.7.in \
 	     \
 	     man8/pbs_mom.8.in man8/pbsnodes.8.in \
-	     man8/pbs_sched_basl.8.in man8/pbs_sched_cc.8.in \
+	     man8/pbs_sched_basl.8.in man8/pbs_sched_cc.8.in man8/pbs_sched_meta.8.in \
 	     man8/pbs_sched_tcl.8.in man8/pbs_server.8.in \
 	     man8/qdisable.8.in man8/qenable.8.in \
 	     man8/qrun.8.in man8/qstart.8.in man8/qstop.8.in \
@@ -90,7 +90,7 @@ nodist_man7_MANS = man7/pbs_job_attributes.7 man7/pbs_queue_attributes.7 \
 		   man7/pbs_resources_unicos8.7 man7/pbs_resources_unicosmk2.7
 
 nodist_man8_MANS = man8/pbs_mom.8 man8/pbsnodes.8 \
-		   man8/pbs_sched_basl.8 man8/pbs_sched_cc.8 \
+		   man8/pbs_sched_basl.8 man8/pbs_sched_cc.8 man8/pbs_sched_meta.8 \
 		   man8/pbs_sched_tcl.8 man8/pbs_server.8 \
 		   man8/qdisable.8 man8/qenable.8 \
 		   man8/qrun.8 man8/qstart.8 man8/qstop.8 \

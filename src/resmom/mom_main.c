@@ -285,6 +285,9 @@ long            system_ncpus = 0;
 char           *auto_ideal_load = NULL;
 char           *auto_max_load   = NULL;
 
+int             lb_report_usage_interval = 20 * 60; 
+int             lb_report_usage_last = 0;
+
 #define TMAX_JE  64
 
 pjobexec_t      TMOMStartInfo[TMAX_JE];
@@ -402,6 +405,7 @@ static unsigned long setspoolasfinalname(char *);
 static unsigned long setremchkptdirlist(char *);
 static unsigned long setmaxconnecttimeout(char *);
 static unsigned long setkilldelay(char *);
+static unsigned long setlbreportusageinterval(char *);
 
 
 static struct specials
@@ -470,6 +474,7 @@ static struct specials
   { "remote_checkpoint_dirs", setremchkptdirlist },
   { "max_conn_timeout_micro_sec",   setmaxconnecttimeout },
   { "kill_delay",          setkilldelay },
+  { "lb_report_usage_interval", setlbreportusageinterval },
   { NULL,                  NULL }
   };
 
@@ -3492,6 +3497,50 @@ static unsigned long setremchkptdirlist(
 
 
 
+static unsigned long setlbreportusageinterval(
+
+  char *value)
+
+  {
+	  int len, unit = 1;
+	  char *p;
+
+	  if(NULL == value) {
+		  return(0);
+	  }
+
+	  /* check for time unit suffix (one of s[econds], m[inutes], h[ours] */
+	  len = strlen(value);
+	  for(p = value + len -1; p > value && (' ' == *p || '\t' == *p); p--);
+	  if(p > value) {
+		  switch(*p) {
+		  case 's':
+			  unit = 1;
+			  break;
+		  case 'm':
+			  unit = 60;
+			  break;
+		  case 'h':
+			  unit = 60*60;
+			  break;
+		  default:
+			  unit = 1;
+			  break;
+		  }
+	  }
+	  
+	  log_record(
+		  PBSEVENT_SYSTEM,
+		  PBS_EVENTCLASS_SERVER,
+		  "lb_report_usage_interval",
+		  value);
+
+  
+	  lb_report_usage_interval = unit * (int)strtol(value, NULL, 10);
+
+
+	  return(1);
+  }  /* END setlbreportusageinterval() */
 
 
 
@@ -8009,6 +8058,20 @@ void examile_all_cloud_jobs(void)
     }
   }
 
+#ifdef HAVE_GLITE_LB
+void log_lb_resources(void)
+  {
+  job *pjob;
+
+  for (pjob = (job *)GET_NEXT(svr_alljobs);
+       pjob != NULL;
+       pjob = (job *)GET_NEXT(pjob->ji_alljobs))
+    {
+    /* report used resources */
+    svr_logjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_SYNCRES, NULL);
+    }
+  }
+#endif
 
 /*
  * examine_all_running_jobs
@@ -8091,11 +8154,6 @@ examine_all_running_jobs(void)
           }  /* END if ((kill == -1) && ...) */
         }    /* END while (ptask != NULL) */
       }      /* END if (pjob->ji_flags & MOM_NO_PROC) */
-
-#ifdef HAVE_GLITE_LB
-    /* report used resources */
-    svr_logjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_SYNCRES, NULL);
-#endif
 
     mom_checkpoint_check_periodic_timer(pjob);
     }  /* END for (pjob) */
@@ -8363,6 +8421,14 @@ void main_loop(void)
             examile_all_cloud_jobs();
 
             examine_all_jobs_to_resend();
+
+#ifdef HAVE_GLITE_LB
+            if(lb_report_usage_interval < time_now - lb_report_usage_last)
+              {
+              log_lb_resources();
+              lb_report_usage_last = time_now;
+              }
+#endif
             }
           }
         }

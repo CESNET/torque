@@ -522,6 +522,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
           node->scratch_pool = string(value);
           resc_info_db.insert(value," ",ResCheckDynamic); // register as new dynamic resource
           }
+        free(value);
         }
       }
     else
@@ -543,6 +544,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
           if (value != NULL)
             sinfo->dynamic_resources.insert(make_pair(j->second.name,DynamicResource(j->second.name.c_str(),value)));
           }
+        free(value);
         }
       }
     else

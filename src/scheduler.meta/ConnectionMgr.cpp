@@ -40,7 +40,10 @@ bool verify_fqdn(const string& fqdn)
     return false;
     }
 
-  return string(info->ai_canonname) == fqdn;
+  bool result = (fqdn == info->ai_canonname);
+  freeaddrinfo(info);
+
+  return result;
   }
 
 std::string get_fqdn(const std::string& host)
@@ -63,7 +66,10 @@ std::string get_fqdn(const std::string& host)
       throw runtime_error(string("Permanent Network Error: Couldn't resolve hostname in \"get_fqdn()\"."));
     }
 
-  return string(info->ai_canonname);
+  string result = info->ai_canonname;
+  freeaddrinfo(info);
+
+  return result;
   }
 
 std::string get_local_fqdn()

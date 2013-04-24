@@ -213,10 +213,6 @@ check_env()
 		install_dir `dirname $PBS_ENVIRON` || return 1
 		echo "PATH=/bin:/usr/bin" > $PBS_ENVIRON || return 1
 		echo "LANG=C" >> $PBS_ENVIRON || return 1
-		echo "GLITE_GSS_MECH=krb5" >> $PBS_ENVIRON || return 1
-		echo "GLITE_WMS_LOG_DESTINATION=$PBS_DEFAULT_SERVER" >> $PBS_ENVIRON || return 1
-		echo "GLITE_GROUP=glite" >> $PBS_ENVIRON || return 1
-		echo "KRB5CCNAME=FILE:/var/glite/krb5cc_lb" >> $PBS_ENVIRON || return 1
 #		if [ X$TZ != X ] ; then
 #			echo "TZ=$TZ" >> $PBS_ENVIRON || return 1
 #		fi
