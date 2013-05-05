@@ -822,7 +822,10 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
   if (missed_nodes > 0) /* some part of nodespec couldn't be assigned */
     {
     if (jinfo->queue->is_admin_queue)
+      {
+      free_parsed_nodespec(spec);
       return NODESPEC_NOT_ENOUGH_NODES_TOTAL;
+      }
     nodes_preassign_clean(ninfo_arr,nodecount);
     if (jinfo->is_starving) /* if starving, eat out the resources anyway */
       {

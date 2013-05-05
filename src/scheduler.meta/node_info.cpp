@@ -366,7 +366,7 @@ node_info *new_node_info()
   tmp -> npassigned = 0;
 
   tmp->temp_assign = NULL;
-  tmp->temp_assign = NULL;
+  tmp->temp_assign_scratch = ScratchNone;
   tmp->temp_assign_alternative = NULL;
 
   tmp -> res = NULL;

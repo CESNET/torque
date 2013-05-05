@@ -542,9 +542,11 @@ void query_external_cache(server_info *sinfo, int dynamic)
           {
           value=xcache_hash_find(ptable,j->second.name.c_str());
           if (value != NULL)
+            {
             sinfo->dynamic_resources.insert(make_pair(j->second.name,DynamicResource(j->second.name.c_str(),value)));
+            free(value);
+            }
           }
-        free(value);
         }
       }
     else
