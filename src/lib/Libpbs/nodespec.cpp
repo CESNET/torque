@@ -468,6 +468,7 @@ pars_spec_node *parse_spec_node(char *node)
         result->scratch_type = ScratchLocal;
       else
         result->scratch_type = ScratchNone;
+      free_pars_prop(&prop);
       }
     else if (strcmp(prop->name,"scratch_volume") == 0)
       {
