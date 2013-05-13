@@ -2150,9 +2150,9 @@ int mom_set_use(
 
   pres = find_resc_entry(at, rd);
 
-  assert(pres != NULL);
-
-  pres->rs_value.at_val.at_double = calculate_fairshare(pjob);
+//  assert(pres != NULL);
+  if (pres != NULL)
+    pres->rs_value.at_val.at_double = calculate_fairshare(pjob);
 
   job_save(pjob,SAVEJOB_FULL);
 
