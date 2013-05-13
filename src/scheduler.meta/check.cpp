@@ -161,50 +161,50 @@ int is_ok_to_run_queue(queue_info *qinfo)
  *
  *
  */
-int is_ok_to_run_job(JobLog& log, server_info *sinfo, queue_info *qinfo,
+int is_ok_to_run_job(server_info *sinfo, queue_info *qinfo,
                      job_info *jinfo, int preassign_starving)
   {
   int rc;                       /* Return Code */
 
   if ((rc = check_server_max_run(sinfo)))
     {
-    log << "Job isn't eligible for run, because server limit of running jobs was already reached." << endl;
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Job isn't eligible for run, because server limit of running jobs was already reached.");
     return rc;
     }
 
   if ((rc = check_server_max_user_run(sinfo, jinfo -> account)))
     {
-    log << "Job isn't eligible for run, because owner of the job already reached the per-user server limit of running jobs." << endl;
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Job isn't eligible for run, because owner of the job already reached the per-user server limit of running jobs.");
     return rc;
     }
 
   if ((rc = check_server_max_group_run(sinfo, jinfo -> group)))
     {
-    log << "Job isn't eligible for run, because owner of the job already reached the per-group server limit of running jobs." << endl;
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Job isn't eligible for run, because owner of the job already reached the per-group server limit of running jobs.");
     return rc;
     }
 
   if ((rc = check_queue_max_run(qinfo)))
     {
-    log << "Job isn't eligible for run, because queue (" << qinfo->name << ") limit of running jobs was already reached." << endl;
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Job isn't eligible for run, because queue (%s) limit of running jobs was already reached.",qinfo->name);
     return rc;
     }
 
   if ((rc = check_queue_max_user_run(qinfo, jinfo -> account)))
     {
-    log << "Job isn't eligible for run, because owner of the job already reached the per-user queue (" << qinfo->name << ") limit of running jobs." << endl;
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Job isn't eligible for run, because owner of the job already reached the per-user queue (%s) limit of running jobs.",qinfo->name);
     return rc;
     }
 
   if ((rc = check_queue_max_group_run(qinfo, jinfo -> group)))
     {
-    log << "Job isn't eligible for run, because owner of the job already reached the per-group queue (" << qinfo->name << ") limit of running jobs." << endl;
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Job isn't eligible for run, because owner of the job already reached the per-group queue (%s) limit of running jobs.",qinfo->name);
     return rc;
     }
 
   if ((rc = check_queue_proc_limits(qinfo,jinfo)))
     {
-    log << "Job isn't eligible for run, because the queue (" << qinfo->name << ") limit of used processors (global/user/group) was already reached." << endl;
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Job isn't eligible for run, because the queue (%s) limit of used processors (global/user/group) was already reached.",qinfo->name);
     return rc;
     }
 
@@ -213,13 +213,13 @@ int is_ok_to_run_job(JobLog& log, server_info *sinfo, queue_info *qinfo,
 
   if ((rc = cloud_check(jinfo)))
     {
-    log << "Job isn't eligible to run because the user doesn't have permission to submit inside this virtual cluster, or a cluster with the specified name already exists." << endl;
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Job isn't eligible to run because the user doesn't have permission to submit inside this virtual cluster, or a cluster with the specified name already exists.");
     return rc;
     }
 
   if ((rc = check_dynamic_resources(sinfo, jinfo)) != SUCCESS)
     {
-    log << "Job isn't eligible for run, because there aren't currently enough global dynamic resources." << endl;
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Job isn't eligible for run, because there aren't currently enough global dynamic resources.");
     return INSUFICIENT_DYNAMIC_RESOURCE;
     }
 

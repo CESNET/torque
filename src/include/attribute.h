@@ -178,6 +178,8 @@ union attr_val    /* the attribute value */
 
   struct  pbsnode      *at_jinfo; /* ptr to node's job info  */
   short        at_short; /* short int; node's state */
+
+  double at_double; /* double */
   };
 
 
@@ -236,6 +238,7 @@ typedef struct attribute_def attribute_def;
 #define ATR_TYPE_ACL     8 /* Access Control Lists */
 #define ATR_TYPE_LL      9 /* Long (64 bit) integer */
 #define ATR_TYPE_SHORT   10 /* short integer    */
+#define ATR_TYPE_DOUBLE  11 /* double */
 #define ATR_TYPE_JINFOP  13 /* struct jobinfo*  */
 
 /* Defines for  Flag field in attribute_def         */
@@ -353,6 +356,7 @@ extern void attr_atomic_kill A_((attribute *temp, attribute_def *pdef, int));
 extern int  decode_b  A_((attribute *patr, char *name, char *rn, char *val));
 extern int  decode_c  A_((attribute *patr, char *name, char *rn, char *val));
 extern int  decode_l  A_((attribute *patr, char *name, char *rn, char *val));
+extern int  decode_dbl(attribute *patr, char *name, char *rn, char *val);
 extern int  decode_ll A_((attribute *patr, char *name, char *rn, char *val));
 extern int  decode_size   A_((attribute *patr, char *name, char *rn, char *val));
 extern int  decode_str   A_((attribute *patr, char *name, char *rn, char *val));
@@ -372,6 +376,8 @@ extern int  encode_c A_((attribute *attr, tlist_head *phead, char *atname,
                            char *rsname, int mode));
 extern int encode_l  A_((attribute *attr, tlist_head *phead, char *atname,
                            char *rsname, int mode));
+extern int encode_dbl(attribute *attr, tlist_head *phead, char *atname,
+                           char *rsname, int mode);
 extern int encode_ll A_((attribute *attr, tlist_head *phead, char *atname,
                            char *rsname, int mode));
 extern int encode_size  A_((attribute *attr, tlist_head *phead, char *atname,
@@ -396,6 +402,7 @@ extern int encode_hold A_((attribute *attr, tlist_head *phead, char *atname,
 extern int set_b A_((attribute *attr, attribute *anew, enum batch_op));
 extern int set_c A_((attribute *attr, attribute *anew, enum batch_op));
 extern int set_l A_((attribute *attr, attribute *anew, enum batch_op));
+extern int set_dbl(attribute *attr, attribute *anew, enum batch_op);
 extern int set_ll A_((attribute *attr, attribute *anew, enum batch_op));
 extern int set_size  A_((attribute *attr, attribute *anew, enum batch_op));
 extern int set_str  A_((attribute *attr, attribute *anew, enum batch_op));
@@ -409,6 +416,7 @@ extern int set_depend A_((attribute *attr, attribute *anew, enum batch_op));
 extern int comp_b A_((attribute *, attribute *));
 extern int comp_c A_((attribute *, attribute *));
 extern int comp_l A_((attribute *, attribute *));
+extern int comp_dbl(attribute *, attribute *);
 extern int comp_ll A_((attribute *, attribute *));
 extern int comp_size A_((attribute *, attribute *));
 extern int comp_str  A_((attribute *, attribute *));

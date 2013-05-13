@@ -404,10 +404,10 @@ void World::run()
         break;
         }
 
-      JobLog log(string(jinfo->name));
+//      JobLog log(string(jinfo->name));
 
       int ret;
-      if ((ret = is_ok_to_run_job(log, p_info, jinfo->queue, jinfo, 0)) == SUCCESS)
+      if ((ret = is_ok_to_run_job(p_info, jinfo->queue, jinfo, 0)) == SUCCESS)
         {
         sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Trying to execute job.");
 

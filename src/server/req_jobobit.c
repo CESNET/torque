@@ -2651,6 +2651,14 @@ void req_jobobit(
         pjob->ji_qs.ji_svrflags |= JOB_SVFLG_HASRUN | JOB_SVFLG_CHECKPOINT_MIGRATEABLE;
 
         break;
+
+      case JOB_EXEC_OVERLIMIT:
+
+        alreadymailed = 1;
+        svr_mailowner(pjob, MAIL_ABORT, MAIL_FORCE, mailbuf);
+
+        break;
+
       }  /* END switch (exitstatus) */
     }    /* END if (exitstatus < 0) */
 

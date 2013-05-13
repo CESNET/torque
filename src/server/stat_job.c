@@ -108,6 +108,7 @@
 
 extern int     svr_authorize_jobreq A_((struct batch_request *, job *));
 int status_attrib A_((svrattrl *, attribute_def *, attribute *, int, int, tlist_head *, int *, int));
+int status_cross_server(attribute_def *padef, attribute *pattr, tlist_head *phead);
 
 /* Global Data Items: */
 
@@ -193,10 +194,6 @@ int status_job(
 
   return (0);
   }  /* END status_job() */
-
-
-
-
 
 
 /**

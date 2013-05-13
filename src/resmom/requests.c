@@ -2290,6 +2290,7 @@ void encode_used(
 
   {
   unsigned long  lnum;
+  double dnum;
   int   i;
   attribute  *at;
   attribute_def  *ad;
@@ -2321,6 +2322,7 @@ void encode_used(
     if (pjob->ji_resources != NULL)
       {
       lnum = 0;
+      dnum = 0;
 
       if (!strcmp(rd->rs_name, "cput"))
         {
@@ -2343,8 +2345,16 @@ void encode_used(
           lnum += pjob->ji_resources[i].nr_vmem;
           }
         }
+      else if (!strcmp(rd->rs_name, "fairshare"))
+        {
+        for (i = 0; i < pjob->ji_numnodes - 1;i++)
+          {
+          dnum += pjob->ji_resources[i].nr_fairshare;
+          }
+        }
 
       val.at_val.at_long += lnum;
+      val.at_val.at_double += dnum;
       }
 
     rc = rd->rs_encode(

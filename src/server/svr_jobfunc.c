@@ -2246,6 +2246,10 @@ void set_statechar(
     {
     pjob->ji_wattr[JOB_ATR_state].at_val.at_char = 'T';
     }
+  else if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_CROSSERVER)
+    {
+    pjob->ji_wattr[JOB_ATR_state].at_val.at_char = 'X';
+    }
   else
     {
     if (pjob->ji_qs.ji_state < (int)strlen(statechar))

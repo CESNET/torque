@@ -934,6 +934,22 @@ void gen_arch(
   return;
   }
 
+extern double machine_performance;
+
+void gen_cpufac(
+
+    char  *name,
+    char **BPtr,
+    int   *BSpace)
+
+    {
+    MUSNPrintF(BPtr,BSpace,"%s=%.2f", name, machine_performance);
+
+    (*BPtr)++; /* Need to start the next string after the null */
+    (*BSpace)--;
+
+    return;
+    }
 
 
 
@@ -1087,6 +1103,7 @@ typedef struct stat_record
 
 stat_record stats[] = {
   {"arch",        gen_arch},
+  {"cpufactor",   gen_cpufac},
   {"opsys",       gen_gen},
   {"uname",       gen_gen},
   {"sessions",    gen_gen},

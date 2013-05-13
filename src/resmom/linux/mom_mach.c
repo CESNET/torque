@@ -1063,6 +1063,30 @@ static unsigned long resi_sum(
   }  /* END resi_sum() */
 
 
+extern double machine_performance;
+static double calculate_fairshare(job *pjob)
+  {
+  pars_spec *spec = parse_nodespec(pjob->ji_wattr[JOB_ATR_sched_spec].at_val.at_str);
+  if (spec == NULL)
+    return 0;
+
+  pars_spec_node *node = find_node_in_spec(spec,mom_host);
+  if (node == NULL)
+    return 0;
+
+  resource_def *rd = find_resc_def(svr_resc_def, "walltime", svr_resc_size);
+  assert(rd != NULL);
+
+  resource *pres = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resc_used], rd);
+  assert(pres != NULL);
+
+  double value = node->procs*machine_performance*pres->rs_value.at_val.at_long;
+
+  free_parsed_nodespec(spec);
+
+  return value;
+  }
+
 
 
 /*
@@ -2044,6 +2068,15 @@ int mom_set_use(
     pres->rs_value.at_type = ATR_TYPE_SIZE;
     pres->rs_value.at_val.at_size.atsv_shift = 10; /* KB */
     pres->rs_value.at_val.at_size.atsv_units = ATR_SV_BYTESZ;
+
+    rd = find_resc_def(svr_resc_def, "fairshare", svr_resc_size);
+
+    assert(rd != NULL);
+
+    pres = add_resource_entry(at, rd);
+
+    pres->rs_value.at_flags |= ATR_VFLAG_SET;
+    pres->rs_value.at_type = ATR_TYPE_DOUBLE;
     }  /* END if ((at->at_flags & ATR_VFLAG_SET) == 0) */
 
   /* get cputime */
@@ -2110,6 +2143,16 @@ int mom_set_use(
   lnum = (resi_sum(pjob) + 1023) >> pres->rs_value.at_val.at_size.atsv_shift; /* as KB */
 
   *lp = MAX(*lp, lnum);
+
+  rd = find_resc_def(svr_resc_def, "fairshare", svr_resc_size);
+
+  assert(rd != NULL);
+
+  pres = find_resc_entry(at, rd);
+
+  assert(pres != NULL);
+
+  pres->rs_value.at_val.at_double = calculate_fairshare(pjob);
 
   job_save(pjob,SAVEJOB_FULL);
 

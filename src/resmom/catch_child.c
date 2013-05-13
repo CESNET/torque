@@ -168,6 +168,7 @@ extern void set_mom_server_down(pbs_net_t);
 extern int no_mom_servers_down();
 extern char *get_local_script_path(job *pjob, char *base);
 extern void stop_renewal(task *ptask);
+extern double get_fairshare(job *pjob);
 
 /* END external prototypes */
 
@@ -435,7 +436,8 @@ scan_for_exiting(void)
         {
         /* master task is in state TI_STATE_EXITED */
 
-        pjob->ji_qs.ji_un.ji_momt.ji_exitstat = ptask->ti_qs.ti_exitstat;
+        if (pjob->ji_qs.ji_un.ji_momt.ji_exitstat != JOB_EXEC_OVERLIMIT)
+          pjob->ji_qs.ji_un.ji_momt.ji_exitstat = ptask->ti_qs.ti_exitstat;
 
         LOG_EVENT(
           PBSEVENT_JOB,
@@ -720,6 +722,11 @@ scan_for_exiting(void)
         diswul(stream, resc_used(pjob, "mem", getsize));
 
         diswul(stream, resc_used(pjob, "vmem", getsize));
+
+        diswd(stream, get_fairshare(pjob));
+
+        if (pjob->ji_qs.ji_un.ji_momt.ji_exitstat == JOB_EXEC_OVERLIMIT)
+          diswcs(stream,pjob->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str,strlen(pjob->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str));
 
         rpp_flush(stream);
         }

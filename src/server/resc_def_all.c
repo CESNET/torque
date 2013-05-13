@@ -775,6 +775,12 @@ resource_def svr_resc_def_const[] =
   /* gpu */
   { "gpu", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_SELECT_MOM, ATR_TYPE_LONG },
 
+  /* cpu performance */
+  { "cpufactor", decode_dbl, encode_dbl, set_dbl, comp_dbl, free_null, NULL_FUNC, READ_ONLY, ATR_TYPE_DOUBLE },
+
+  /* fairshare */
+  { "fairshare", decode_dbl, encode_dbl, set_dbl, comp_dbl, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_ALTRUN, ATR_TYPE_DOUBLE },
+
   /* licenses */
   { "matlab", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
   { "fluent", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },

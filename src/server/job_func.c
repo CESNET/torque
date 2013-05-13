@@ -136,7 +136,7 @@
 #include "net_connect.h"
 #include "portability.h"
 #include "array.h"
-
+#include "svrfunc.h"
 
 
 #ifndef TRUE
@@ -1439,6 +1439,7 @@ void cleanup_restart_file(
 
 
 
+extern unsigned int pbs_server_port_dis;
 
 /*
  * job_purge - purge job from system
@@ -1618,10 +1619,29 @@ void job_purge(
     }
 
 
-  if (strstr(server_name,pjob->ji_qs.ji_jobid) == NULL)
+  if (strstr(pjob->ji_qs.ji_jobid,server_name) == NULL)
     {
-	/* TODO */
-	/* remove the shadow job from the original server */
+
+    unsigned int  port = pbs_server_port_dis;
+    enum conn_type cntype = ToServerDIS;
+
+    char *server = strchr(pjob->ji_qs.ji_jobid,'.');
+    if (server == NULL)
+      {
+      job_free(pjob);
+      return;
+      }
+    ++server;
+
+    char *hostname = parse_servername(server, &port);
+    pbs_net_t hostaddr = get_hostaddr(hostname);
+
+    int con;
+    if ((con = svr_connect(hostaddr, port, 0, cntype)) != PBS_NET_RC_FATAL)
+      {
+      pbs_deljob(con,pjob->ji_qs.ji_jobid,"delpurge=1");
+      svr_disconnect(con);
+      }
     }
 
   job_free(pjob);

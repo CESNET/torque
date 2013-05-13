@@ -1656,6 +1656,25 @@ u_long resc_used(
   return(val);
   }
 
+double get_fairshare(job *pjob)
+  {
+  if (pjob == NULL)
+    return 0;
+
+  attribute    *at = &pjob->ji_wattr[(int)JOB_ATR_resc_used];
+  resource_def *rd = find_resc_def(svr_resc_def, "fairshare", svr_resc_size);
+
+  if (rd == NULL)
+    return 0;
+
+  resource     *pres = find_resc_entry(at, rd);
+
+  if (pres == NULL)
+    return 0;
+
+  return pres->rs_value.at_val.at_double;
+  }
+
 
 
 
@@ -3400,6 +3419,11 @@ void im_request(
 
       ret = diswul(stream, resc_used(pjob, "vmem", getsize));
 
+      if (ret != DIS_SUCCESS)
+        break;
+
+      ret = diswd(stream, get_fairshare(pjob));
+
       break;
 
     case IM_ABORT_JOB:
@@ -3718,13 +3742,31 @@ void im_request(
             if (ret != DIS_SUCCESS)
               goto err;
 
-            DBPRT(("%s: %s FINAL from %d  cpu %lu sec  mem %lu kb  vmem %ld kb\n",
+            pjob->ji_resources[nodeidx - 1].nr_fairshare = disrd(stream, &ret);
+
+            if (ret == DIS_SUCCESS) /* older protocol version? */
+              {
+              size_t chars;
+              int ret;
+              char *kill_msg = disrcs(stream,&chars,&ret);
+              if (ret == DIS_SUCCESS)
+                {
+                if (pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags & ATR_VFLAG_SET)
+                  free(pjob->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str);
+                pjob->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str = strdup(kill_msg);
+                pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags |= ATR_VFLAG_SEND | ATR_VFLAG_SET;
+                pjob->ji_qs.ji_un.ji_momt.ji_exitstat = JOB_EXEC_OVERLIMIT;
+                }
+              }
+
+            DBPRT(("%s: %s FINAL from %d  cpu %lu sec  mem %lu kb  vmem %ld kb fairshare %.8e\n",
                    id,
                    jobid,
                    nodeidx,
                    pjob->ji_resources[nodeidx - 1].nr_cput,
                    pjob->ji_resources[nodeidx - 1].nr_mem,
-                   pjob->ji_resources[nodeidx - 1].nr_vmem))
+                   pjob->ji_resources[nodeidx - 1].nr_vmem,
+                   pjob->ji_resources[nodeidx - 1].nr_fairshare))
             }  /* END if (pjob_ji_resources != NULL) */
 
           /* don't close stream in case other jobs use it */
@@ -4015,13 +4057,19 @@ void im_request(
           if (ret != DIS_SUCCESS)
             goto err;
 
-          DBPRT(("%s: POLL_JOB %s OKAY kill %d  cpu=%lu  mem=%lu  vmem=%lu\n",
+          pjob->ji_resources[nodeidx - 1].nr_fairshare = disrd(stream, &ret);
+
+          if (ret != DIS_SUCCESS)
+            { /* older protocol version? */ }
+
+          DBPRT(("%s: POLL_JOB %s OKAY kill %d  cpu=%lu  mem=%lu  vmem=%lu fairshare=%.8e\n",
                  id,
                  jobid,
                  exitval,
                  pjob->ji_resources[nodeidx - 1].nr_cput,
                  pjob->ji_resources[nodeidx - 1].nr_mem,
-                 pjob->ji_resources[nodeidx - 1].nr_vmem))
+                 pjob->ji_resources[nodeidx - 1].nr_vmem,
+                 pjob->ji_resources[nodeidx - 1].nr_fairshare))
 
           if (exitval != 0)
             {
