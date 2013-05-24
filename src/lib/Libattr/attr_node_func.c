@@ -1673,7 +1673,6 @@ int node_admin_slot_enable(attribute *new, void *pnode, int actmode)
         /* trying to disable and slot is enabled and not occupied */
         {
         /* put nsn and nsnfree back to correct values */
-        np->nd_nsn++;
         np->nd_nsnfree++;
         delete_a_subnode(np);
         }
