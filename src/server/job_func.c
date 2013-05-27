@@ -1619,7 +1619,7 @@ void job_purge(
     }
 
 
-  if (strstr(pjob->ji_qs.ji_jobid,server_name) == NULL)
+  if (strstr(pjob->ji_qs.ji_jobid,server_name) == NULL && pjob->ji_qs.ji_state == JOB_STATE_COMPLETE)
     {
 
     unsigned int  port = pbs_server_port_dis;
