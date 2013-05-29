@@ -133,6 +133,8 @@ int setup_signals()
     return 1;
     }
 
+  signal(SIGPIPE, SIG_IGN);
+
   return 0;
   }
 

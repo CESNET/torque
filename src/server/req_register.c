@@ -1180,6 +1180,8 @@ static void set_depend_hold(
   if (pattr->at_flags & ATR_VFLAG_SET)
     pdp = (struct depend *)GET_NEXT(pattr->at_val.at_list);
 
+  if (pjob->ji_qs.ji_state == JOB_STATE_HELD ||
+      pjob->ji_qs.ji_state == JOB_STATE_QUEUED)
   while ((pdp != NULL) && (loop != 0))
     {
     switch (pdp->dp_type)
