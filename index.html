@@ -46,7 +46,8 @@
 
 
       <section id="main_content">
-        <h3>Torque - MetaCentrum fork</h3>
+        <h3>
+<a name="torque---metacentrum-fork" class="anchor" href="#torque---metacentrum-fork"><span class="octicon octicon-link"></span></a>Torque - MetaCentrum fork</h3>
 
 <p>This project is a fork of the Torque Batch System, currently maintained by <a href="http://www.adaptivecomputing.com/products/open-source/torque">Adaptive Computing</a>.</p>
 
@@ -54,7 +55,8 @@
 
 <p>The version published in the master branch of this repository is representing the current stable version deployed in this grid.</p>
 
-<h2>Features in this fork</h2>
+<h2>
+<a name="features-in-this-fork" class="anchor" href="#features-in-this-fork"><span class="octicon octicon-link"></span></a>Features in this fork</h2>
 
 <p>This fork is based on the 2.4 branch in the Torque release cycle, and is planned to be synchronized with version 3.0. We are considering Torque 4.0, but many architectural changes in this version are making our features very hard to port.</p>
 
@@ -64,14 +66,16 @@
 
 <p>Apart from new features this fork also includes countless fixes.</p>
 
-<h3>How to get it</h3>
+<h3>
+<a name="how-to-get-it" class="anchor" href="#how-to-get-it"><span class="octicon octicon-link"></span></a>How to get it</h3>
 
 <p>You can either download the last stable version from the top of the page, or you can fetch the git repository from github.</p>
 
 <pre><code>$ git clone git://github.com/CESNET/torque.git
 </code></pre>
 
-<h2>Building and packaging</h2>
+<h2>
+<a name="building-and-packaging" class="anchor" href="#building-and-packaging"><span class="octicon octicon-link"></span></a>Building and packaging</h2>
 
 <p>Because the changes have many external dependencies, the build is a bit complicated.</p>
 
@@ -81,21 +85,26 @@
 
 <p>This software is present in the repository in the <code>magrathea/pbs_cache</code> directory and can be easily compiled and installed.</p>
 
-<h1>Compilation and options</h1>
+<h1>
+<a name="compilation-and-options" class="anchor" href="#compilation-and-options"><span class="octicon octicon-link"></span></a>Compilation and options</h1>
 
 <p>Torque is managed using the automake build system. To compile it, you need to use the following commands:</p>
 
 <pre><code>autoreconf -ivf
 mkdir _build_ ; pushd _build_
-CFLAGS="-std=gnu99 -D_GNU_SOURCE" CXXFLAGS="-std=c++0x -D_GNU_SOURCE" ../configure --with-rcp=scp --with-sched=c --with-sched-code=world --with-gssapi --enable-torque-ports --prefix=/usr --mandir=/usr/share/man --infodir=/usr/share/info --with-sendmail=/usr/sbin/sendmail --with-default-server=arien.ics.muni.cz --enable-syslog  --enable-silent-rules
+CFLAGS="-std=gnu99 -D_GNU_SOURCE" CXXFLAGS="-ansi -D_GNU_SOURCE" ../configure --with-rcp=scp --enable-meta-fork --with-gssapi --prefix=/usr --mandir=/usr/share/man --infodir=/usr/share/info --with-sendmail=/usr/sbin/sendmail --with-default-server=DEFAULT_HOSTNAME --enable-syslog  --enable-silent-rules
 make
 </code></pre>
 
-<h1>Debian packages</h1>
+<p>Substitute <code>DEFAULT_HOSTNAME</code> for the FQDN of the server. If you are using Debian 6, or some other distribution that requires special paths for kerberos libraries, includes and binaries, replace <code>--with-gssapi</code> with <code>--with-gssapi_bin=/usr/bin/ --with-gssapi_lib=/usr/lib/heimdal --with-gssapi_inc=/usr/include/heimdal</code> (or the corresponding paths).</p>
+
+<h1>
+<a name="debian-packages" class="anchor" href="#debian-packages"><span class="octicon octicon-link"></span></a>Debian packages</h1>
 
 <p>If you are interested in Debian packages, please feel free to contact us. While we don't include the scripts and scaffolding for Debian packaging in the repository, we are open to sharing them. </p>
 
-<h3>Authors and Contributors</h3>
+<h3>
+<a name="authors-and-contributors" class="anchor" href="#authors-and-contributors"><span class="octicon octicon-link"></span></a>Authors and Contributors</h3>
 
 <p>The maintainer of this fork is Mgr. Šimon Tóth, <a href="mailto:simon@cesnet.cz">simon@cesnet.cz</a>.</p>
       </section>
