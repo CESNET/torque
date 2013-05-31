@@ -993,7 +993,7 @@ attribute_def job_attr_def[] =
       comp_str,
       free_str,
       NULL_FUNC,
-      ATR_DFLAG_Creat | ATR_DFLAG_USRD | ATR_DFLAG_OPRD | ATR_DFLAG_MGRD | ATR_DFLAG_SvRD | ATR_DFLAG_MOM,
+      ATR_DFLAG_Creat | ATR_DFLAG_USRD | ATR_DFLAG_OPRD | ATR_DFLAG_MGRD | ATR_DFLAG_SvRD | ATR_DFLAG_SvWR | ATR_DFLAG_MOM,
       ATR_TYPE_STR,
       PARENT_TYPE_JOB
     },
@@ -1005,7 +1005,7 @@ attribute_def job_attr_def[] =
       comp_str,
       free_str,
       NULL_FUNC,
-      ATR_DFLAG_USRD | ATR_DFLAG_OPRD | ATR_DFLAG_MGRD | ATR_DFLAG_SvRD | ATR_DFLAG_MOM,
+      ATR_DFLAG_USRD | ATR_DFLAG_OPRD | ATR_DFLAG_MGRD | ATR_DFLAG_SvRD | ATR_DFLAG_SvWR | ATR_DFLAG_MOM,
       ATR_TYPE_STR,
       PARENT_TYPE_JOB
     },
