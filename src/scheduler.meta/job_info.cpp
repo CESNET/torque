@@ -709,6 +709,9 @@ void set_state(char *state, job_info *jinfo)
     case 'C':
       jinfo -> state = JobCompleted;
       break;
+
+    case 'X':
+      jinfo -> state = JobCrossRun;
     }
   }
 
@@ -737,7 +740,7 @@ void update_job_on_run(int UNUSED(pbs_sd), job_info *jinfo)
  */
 void update_job_on_move(job_info *jinfo)
   {
-  jinfo -> state = JobTransit;
+  jinfo -> state = JobCrossRun;
   }
 
 /*

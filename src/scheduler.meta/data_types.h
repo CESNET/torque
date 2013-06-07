@@ -180,6 +180,7 @@ struct state_count
   int exiting;                  /* number of jobs in the exiting state */
   int suspended;  /* number of jobs in the suspended state */
   int completed;                /* number of jobs in the completed state */
+  int crossrun;
   int total;   /* total number of jobs in all states */
   };
 

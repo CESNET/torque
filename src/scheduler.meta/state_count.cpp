@@ -129,6 +129,7 @@ void init_state_count(state_count *sc)
   sc -> waiting = 0;
   sc -> suspended = 0;
   sc -> completed = 0;
+  sc -> crossrun = 0;
   sc -> total = 0;
   }
 
@@ -165,13 +166,14 @@ void count_states(job_info * const *jobs, state_count *sc)
         case JobWaiting:    sc->waiting++;    break;
         case JobSuspended:  sc->suspended++;  break;
         case JobCompleted:  sc->completed++;  break;
+        case JobCrossRun:   sc->crossrun++;   break;
         default:
           sched_log(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, jobs[i] -> name, "Job in unknown state");
         }
       }
     }
 
-  sc -> total = sc -> queued + sc -> running + sc -> transit + sc -> exiting + sc -> held + sc -> waiting + sc -> suspended + sc -> completed;
+  sc -> total = sc -> queued + sc -> running + sc -> transit + sc -> exiting + sc -> held + sc -> waiting + sc -> suspended + sc -> completed + sc -> crossrun;
 
   }
 
@@ -196,6 +198,7 @@ void total_states(state_count *sc1, state_count *sc2)
   sc1 -> transit += sc2 -> transit;
   sc1 -> suspended += sc2 -> suspended;
   sc1 -> completed += sc2 -> completed;
+  sc1 -> crossrun += sc2 -> crossrun;
   sc1 -> total += sc2 -> total;
   }
 
