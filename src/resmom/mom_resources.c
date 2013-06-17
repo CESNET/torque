@@ -102,6 +102,24 @@ void set_resource_vars(job *pjob, struct var_table *vtable)
     sprintf(buf_val,"%llu",node->scratch*1024);
     export_variable("TORQUE_RESC_SCRATCH_VOLUME",buf_val,vtable);
     }
+  else
+    {
+    /*
+     * special case when using ":first" option
+     * if the scratch is shared, set scratch directory and other variables for all nodes, not just the first one
+     */
+    if (spec->nodes->scratch_type == ScratchShared)
+      {
+      sprintf(buf_val,"/scratch.shared/%s/job_%s",pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,pjob->ji_qs.ji_jobid);
+
+      export_variable("SCRATCHDIR",buf_val,vtable);
+      export_variable("SCRATCH",buf_val,vtable);
+      export_variable("TORQUE_RESC_SCRATCH_TYPE","shared",vtable);
+
+      sprintf(buf_val,"%llu",spec->nodes->scratch*1024);
+      export_variable("TORQUE_RESC_SCRATCH_VOLUME",buf_val,vtable);
+      }
+    }
 
   resource res;
   pars_prop *prop = node->properties;
