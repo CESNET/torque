@@ -516,6 +516,8 @@ static void post_movejob(
       else server = req->rq_ind.rq_move.rq_destin;
       jobp->ji_wattr[JOB_ATR_at_server].at_val.at_str = strdup(server);
 
+      jobp->ji_qs.ji_svrflags &= ~JOB_SVFLG_SCRIPT;
+      jobp->ji_modified = 1;
       svr_setjobstate(jobp,JOB_STATE_COMPLETE,JOB_SUBSTATE_CROSSERVER);
 
 #ifdef HAVE_GLITE_LB

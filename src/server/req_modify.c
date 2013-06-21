@@ -378,11 +378,12 @@ void req_modifyjob(
 
   if (pjob->ji_qs.ji_state == JOB_STATE_TRANSIT)
     {
-    /* FAILURE */
-
-    req_reject(PBSE_BADSTATE, 0, preq, NULL, NULL);
-
-    return;
+    if (!preq->rq_fromsvr)
+      {
+      /* FAILURE */
+      req_reject(PBSE_BADSTATE, 0, preq, NULL, NULL);
+      return;
+      }
     }
 
   /* If async modify, reply now; otherwise reply is handled later */

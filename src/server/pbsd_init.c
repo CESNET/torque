@@ -1604,6 +1604,12 @@ static int pbsd_init_job(
 
       break;
 
+    case JOB_SUBSTATE_CROSSERVER:
+
+      pbsd_init_reque(pjob, KEEP_STATE);
+
+      break;
+
     case JOB_SUBSTATE_COMPLETE:
 
       /* Completed jobs are no longer purged on startup */

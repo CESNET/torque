@@ -776,7 +776,52 @@ int stat_to_mom(
   }  /* END stat_to_mom() */
 
 
+extern unsigned int pbs_server_port_dis;
 
+static struct attrl *svrattrl2attrl(svrattrl *attr)
+  {
+  struct attrl *head = NULL;
+  struct attrl *tail = NULL;
+  svrattrl *next = attr;
+
+  while (next != NULL)
+    {
+    struct attrl *i = malloc(sizeof(struct attrl));
+
+    i->name = next->al_atopl.name;
+    i->resource = next->al_atopl.resource;
+    i->value = next->al_atopl.value;
+    i->next = NULL;
+    i->op = SET;
+
+    next = (struct svrattrl *)GET_NEXT(next->al_link);
+
+    if (head == NULL)
+      {
+      head = i;
+      tail = i;
+      }
+    else
+      {
+      tail->next = i;
+      tail = i;
+      }
+    }
+
+  return head;
+  }
+
+static void freeattrl(struct attrl *attr)
+  {
+  while (attr != NULL)
+    {
+    struct attrl *ap = attr->next;
+    free(attr);
+    attr = ap;
+    }
+
+  return;
+  }
 
 
 /*
@@ -835,6 +880,27 @@ static void stat_update(
           job_save(pjob, SAVEJOB_FULL);
 
           svr_mailowner(pjob, MAIL_BEGIN, MAIL_NORMAL, NULL);
+          }
+
+        unsigned int  port = pbs_server_port_dis;
+        enum conn_type cntype = ToServerDIS;
+
+        char *server = strchr(pjob->ji_qs.ji_jobid,'.');
+        if (server != NULL)
+          {
+          ++server;
+
+          char *hostname = parse_servername(server, &port);
+          pbs_net_t hostaddr = get_hostaddr(hostname);
+
+          int con;
+          if ((con = svr_connect(hostaddr, port, 0, cntype)) >= 0)
+            {
+            struct attrl *attr = svrattrl2attrl(sattrl);
+            pbs_alterjob_async(con,pjob->ji_qs.ji_jobid,attr,NULL);
+            freeattrl(attr);
+            svr_disconnect(con);
+            }
           }
 
 #ifdef USESAVEDRESOURCES

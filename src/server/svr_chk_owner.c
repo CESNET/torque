@@ -537,6 +537,14 @@ job *chk_job_request(
     return(NULL);
     }
 
+  if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_CROSSERVER)
+    {
+    if (preq->rq_fromsvr)
+      return pjob;
+    else
+      return NULL;
+    }
+
   if (pjob->ji_qs.ji_state >= JOB_STATE_EXITING)
     {
     /* job has completed */

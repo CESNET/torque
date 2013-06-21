@@ -261,6 +261,7 @@ const char *PJobSubState[] =
   "SUBSTATE68",
   "SUBSTATE69",
   "RETURNSTD",             /* returning stderr/stdout files to server spool */
+  "CROSSSERVER",
   NULL
   };
 
