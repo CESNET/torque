@@ -1567,6 +1567,7 @@ static job *chk_job_torun(
 
 
 extern unsigned int pbs_server_port_dis;
+extern int   svr_connect A_((pbs_net_t, unsigned int, void (*)(int), enum conn_type));
 
 /*
  * assign_hosts - assign hosts (nodes) to job by the following rules:
@@ -1733,25 +1734,29 @@ int assign_hosts(
         {
         ++server;
 
-        char *hostname = parse_servername(server, &port);
-        pbs_net_t hostaddr = get_hostaddr(hostname);
-
-        int con;
-        if ((con = svr_connect(hostaddr, port, 0, cntype)) >= 0)
+        if (strcmp(server,server_host)!=0)
           {
-          struct attrl attr;
-          attr.name = "exec_host";
-          attr.value = hosttoalloc;
-          attr.resource = NULL;
-          attr.next = NULL;
-          attr.op = SET;
+          char *hostname = parse_servername(server, &port);
+          pbs_net_t hostaddr = get_hostaddr(hostname);
 
-          pbs_alterjob_async(con,pjob->ji_qs.ji_jobid,&attr,NULL);
-          svr_disconnect(con);
+          int con;
+          if ((con = svr_connect(hostaddr, port, 0, cntype)) >= 0)
+            {
+            if (con != PBS_LOCAL_CONNECTION)
+              {
+              struct attrl attr;
+              attr.name = "exec_host";
+              attr.value = hosttoalloc;
+              attr.resource = NULL;
+              attr.next = NULL;
+              attr.op = SET;
+
+              pbs_alterjob_async(con,pjob->ji_qs.ji_jobid,&attr,NULL);
+              }
+            svr_disconnect(con);
+            }
           }
         }
-
-
       }
     else
       {

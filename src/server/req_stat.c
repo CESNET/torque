@@ -823,6 +823,7 @@ static void freeattrl(struct attrl *attr)
   return;
   }
 
+extern char server_host[];
 
 /*
  * stat_update - take reply to status request from MOM and update job status
@@ -890,16 +891,22 @@ static void stat_update(
           {
           ++server;
 
-          char *hostname = parse_servername(server, &port);
-          pbs_net_t hostaddr = get_hostaddr(hostname);
-
-          int con;
-          if ((con = svr_connect(hostaddr, port, 0, cntype)) >= 0)
+          if (strcmp(server,server_host) != 0)
             {
-            struct attrl *attr = svrattrl2attrl(sattrl);
-            pbs_alterjob_async(con,pjob->ji_qs.ji_jobid,attr,NULL);
-            freeattrl(attr);
-            svr_disconnect(con);
+            char *hostname = parse_servername(server, &port);
+            pbs_net_t hostaddr = get_hostaddr(hostname);
+
+            int con;
+            if ((con = svr_connect(hostaddr, port, 0, cntype)) >= 0)
+              {
+              if (con != PBS_LOCAL_CONNECTION)
+                {
+                struct attrl *attr = svrattrl2attrl(sattrl);
+                pbs_alterjob_async(con,pjob->ji_qs.ji_jobid,attr,NULL);
+                freeattrl(attr);
+                }
+              svr_disconnect(con);
+              }
             }
           }
 
