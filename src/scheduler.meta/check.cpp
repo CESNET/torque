@@ -690,7 +690,7 @@ int check_node_availability(job_info *jinfo, node_info **ninfo_arr)
 
       for (i = 0; ninfo_arr[i] != NULL && rc != 0; i++)
         {
-        if (ninfo_arr[i] -> is_free &&
+        if (ninfo_arr[i] -> is_free() &&
             (host == NULL || !strcmp(host, ninfo_arr[i] -> name)) &&
             (arch == NULL || !strcmp(arch, ninfo_arr[i] -> arch)) &&
             mem <= ninfo_arr[i] -> physmem)

@@ -230,7 +230,7 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
     {
     /* Node State... i.e. offline down free etc */
     if (!strcmp(attrp -> name, ATTR_NODE_state))
-      set_node_state(ninfo, attrp -> value);
+      ninfo->reset_state(attrp -> value);
 
     /* properties from the servers nodes file */
     else if (!strcmp(attrp -> name, ATTR_NODE_properties))
@@ -338,15 +338,6 @@ node_info *new_node_info()
     perror("Memory Allocation Error");
     return NULL;
     }
-
-  tmp -> is_down = 0;
-
-  tmp -> is_free = 0;
-  tmp -> is_offline = 0;
-  tmp -> is_unknown = 0;
-  tmp -> is_reserved = 0;
-  tmp -> is_exclusive = 0;
-  tmp -> is_sharing = 0;
   tmp -> no_multinode_jobs = 0;
 
   tmp -> name = NULL;
@@ -472,61 +463,6 @@ int set_node_type(node_info *ninfo, char *ntype)
 
   return 1;
   }
-
-/*
- *
- *      set_node_state - set the node state info bits
- *
- *   ninfo - the node to set the state
- *   state - the state string from the server
- *
- * returns non-zero on error
- *
- */
-int set_node_state(node_info *ninfo, char *state)
-  {
-  char *tok;    /* used with strtok() */
-
-  if (ninfo != NULL && state != NULL)
-    {
-    tok = strtok(state, ",");
-
-    while (tok != NULL)
-      {
-      while (isspace((int) *tok))
-        tok++;
-
-      if (!strcmp(tok, ND_down))
-        ninfo -> is_down = 1;
-      else if (!strcmp(tok, ND_free))
-        ninfo -> is_free = 1;
-      else if (!strcmp(tok, ND_offline))
-        ninfo -> is_offline = 1;
-      else if (!strcmp(tok, ND_state_unknown))
-        ninfo -> is_unknown = 1;
-      else if (!strcmp(tok, ND_job_exclusive))
-        ninfo -> is_exclusive = 1;
-      else if (!strcmp(tok, ND_job_sharing))
-        ninfo -> is_sharing = 1;
-      else if (!strcmp(tok, ND_reserve))
-        ninfo -> is_reserved = 1;
-      else if (!strcmp(tok, ND_busy))
-        ninfo -> is_busy = 1;
-      else
-        {
-        sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo -> name, "Unknown Node State: %s", tok);
-        }
-
-      tok = strtok(NULL, ",");
-      }
-
-    return 0;
-    }
-
-  return 1;
-  }
-
-
 
 /*
  *
@@ -660,13 +596,13 @@ void print_node(node_info *ninfo, int brief)
 
     if (!brief)
       {
-      printf("is_down: %s\n", ninfo -> is_down ? "TRUE" : "FALSE");
-      printf("is_free: %s\n", ninfo -> is_free ? "TRUE" : "FALSE");
-      printf("is_offline: %s\n", ninfo -> is_offline ? "TRUE" : "FALSE");
-      printf("is_unknown: %s\n", ninfo -> is_unknown ? "TRUE" : "FALSE");
-      printf("is_reserved: %s\n", ninfo -> is_reserved ? "TRUE" : "FALSE");
-      printf("is_exclusive: %s\n", ninfo -> is_exclusive ? "TRUE" : "FALSE");
-      printf("is_sharing: %s\n", ninfo -> is_sharing ? "TRUE" : "FALSE");
+      printf("is_down: %s\n", ninfo -> is_down() ? "TRUE" : "FALSE");
+      printf("is_free: %s\n", ninfo -> is_free() ? "TRUE" : "FALSE");
+      printf("is_offline: %s\n", ninfo -> is_offline() ? "TRUE" : "FALSE");
+      printf("is_unknown: %s\n", ninfo -> is_unknown() ? "TRUE" : "FALSE");
+      printf("is_reserved: %s\n", ninfo -> is_reserved() ? "TRUE" : "FALSE");
+      printf("is_exclusive: %s\n", ninfo -> is_job_exclusive() ? "TRUE" : "FALSE");
+      printf("is_sharing: %s\n", ninfo -> is_job_shared() ? "TRUE" : "FALSE");
 
       printf("np: %d | npfree: %d | npassigned: %d\n",
              ninfo->np, ninfo->npfree, ninfo->npassigned);

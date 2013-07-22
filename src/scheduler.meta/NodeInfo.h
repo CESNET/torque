@@ -8,18 +8,10 @@
 typedef enum node_type { NodeTimeshared, NodeCluster, NodeVirtual, NodeCloud } node_type;
 enum ResourceCheckMode { MaxOnly, Avail };
 
-struct node_info
+#include "NodeState.h"
+
+struct node_info : public NodeState
   {
-unsigned is_down: 1; /* node is down */
-unsigned is_free: 1;  /* node is free to run a job */
-unsigned is_offline: 1; /* node is off-line */
-unsigned is_unknown: 1; /* node is in an unknown state */
-unsigned is_reserved: 1; /* node has been reserved */
-unsigned is_exclusive: 1; /* node is running in job-exclusive mode */
-unsigned is_sharing: 1; /* node is running in job-sharing mode */
-unsigned is_busy: 1;  /* load on node is too high to schedule */
-
-
 unsigned no_multinode_jobs: 1; /* no multinode jobs on this node */
 unsigned no_starving_jobs:  1; /* no starving jobs no this node */
 

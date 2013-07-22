@@ -65,7 +65,7 @@ static int node_is_suitable_for_run(node_info *ninfo)
 
   if (ninfo->type == NodeCluster || ninfo->type == NodeVirtual)
     {
-    if (ninfo->is_offline || ninfo->is_down || ninfo->is_unknown)
+    if (ninfo->is_offline() || ninfo->is_down() || ninfo->is_unknown())
       {
       ninfo->is_usable_for_run = 0;
       sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
@@ -563,7 +563,7 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
         return 0;
         }
 
-      if (cloudnode -> is_down)
+      if (cloudnode -> is_down())
         {
         sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
                   "Node %s not used, cloud node is down.", ninfo->name);
