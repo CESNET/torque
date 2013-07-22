@@ -1225,6 +1225,15 @@ static void post_sendmom(
 #endif		
         svr_setjobstate(jobp, JOB_STATE_RUNNING, JOB_SUBSTATE_RUNNING);
 
+        if (jobp->ji_wattr[(int)JOB_ATR_Comment].at_flags & ATR_VFLAG_SET)
+          free(jobp->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str);
+
+        time_t result = time(NULL);
+        sprintf(log_buffer,"Job successfully started at %s",asctime(localtime(&result)));
+
+        jobp->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str = strdup(log_buffer);
+        jobp->ji_wattr[(int)JOB_ATR_Comment].at_flags |= ATR_VFLAG_SET;
+
         /* above saves job structure */
         }
 
