@@ -167,6 +167,9 @@ struct pbsnode
   unsigned nd_admin_slot_enabled : 1;
   unsigned nd_admin_slot_usable  : 1;
 
+  /* node priority */
+  long nd_priority;
+
   struct attribute attributes[2]; /* resources_total, resources_used */
   char *queue;
   char *cloud;
@@ -281,6 +284,7 @@ enum nodeattr
   ND_ATR_queue,
   ND_ATR_cloud,
   ND_ATR_noautoresv,
+  ND_ATR_priority,
   ND_ATR_admin_slot_enabled,
   ND_ATR_admin_slot_available,
   ND_ATR_resources_total,

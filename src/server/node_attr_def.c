@@ -311,6 +311,19 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE,
   },
 
+  /* ND_ATR_priority */
+  { ATTR_NODE_priority, /* set node priority */
+    decode_l,
+    encode_l,
+    set_l,
+    comp_null,
+    free_null,
+    node_priority,
+    MGR_ONLY_SET,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_NODE,
+  },
+
   /* ND_ATR_admin_slot_enabled */
   { ATTR_NODE_admin_slot_enabled, /* determines whether the admin slot is enabled */
     decode_b,

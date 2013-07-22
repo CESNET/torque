@@ -334,6 +334,7 @@
 #define ATTR_NODE_queue         "queue"
 #define ATTR_NODE_cloud         "cloud"
 #define ATTR_NODE_noautoresv    "no_starving_jobs"
+#define ATTR_NODE_priority      "node_priority"
 #define ATTR_NODE_admin_slot_enabled "admin_slot_enabled"
 #define ATTR_NODE_admin_slot_available "admin_slot_available"
 

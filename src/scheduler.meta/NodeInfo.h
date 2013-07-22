@@ -24,6 +24,8 @@ unsigned is_full            : 1; /* node is full (all slots used or exclusively 
 
 unsigned admin_slot_available : 1; /* admin slot is available */
 
+long node_priority;
+
   node_type type; /**<type of the node (cluster,timeshared,virtual,cloud) */
 
   char *name;   /* name of the node */

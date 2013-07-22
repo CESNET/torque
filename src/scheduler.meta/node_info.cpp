@@ -232,6 +232,9 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
     if (!strcmp(attrp -> name, ATTR_NODE_state))
       ninfo->reset_state(attrp -> value);
 
+    if (!strcmp(attrp -> name, ATTR_NODE_priority))
+      ninfo->node_priority = atol(attrp->value);
+
     /* properties from the servers nodes file */
     else if (!strcmp(attrp -> name, ATTR_NODE_properties))
       comma_list_to_set(attrp->value,ninfo->physical_properties);

@@ -472,6 +472,7 @@ extern int      node_status_list A_((attribute*, void*, int));
 extern int      node_note        A_((attribute*, void*, int));
 extern int node_queue(attribute *anew, void *pnode, int actmode);
 extern int node_cloud(attribute *anew, void *pnode, int actmode);
+extern int node_priority(attribute *anew, void *pnode, int actmode);
 extern int node_no_multinode(attribute *anew, void *pnode, int actmode);
 extern int node_exclusively_assigned(attribute *anew, void *pnode, int actmode);
 extern int node_noautoresv(attribute *anew, void *pnode, int actmode);

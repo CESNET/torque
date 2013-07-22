@@ -437,6 +437,7 @@ static int old_np = 0;
 static unsigned old_np_admin = 0;
 static struct attribute *old_resources = (struct attribute*)0;
 static unsigned old_no_multinode = 0;
+static long old_priority = 100;
 
 
 
@@ -466,6 +467,7 @@ void save_characteristic(
   old_np =    pnode->nd_nsn;
   old_np_admin = pnode->nd_admin_slot_enabled;
   old_no_multinode = pnode->nd_no_multinode;
+  old_priority = pnode->nd_priority;
 
   /* if there was a previous note stored here, free it first */
 
@@ -643,6 +645,9 @@ int chk_characteristic(
       }
     }
 
+  if (pnode->nd_priority != old_priority)
+    *pneed_todo |= WRITE_NEW_NODESFILE;
+
   if (pnode->nd_nsn != old_np)
     *pneed_todo |= WRITE_NEW_NODESFILE;
 
@@ -722,6 +727,8 @@ int status_nodeattrib(
       atemp[i].at_val.at_long = pnode->nd_exclusive;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_noautoresv))
       atemp[i].at_val.at_long = pnode->nd_noautoresv;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_priority))
+      atemp[i].at_val.at_long = pnode->nd_priority;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_total))
       atemp[i].at_val.at_list = pnode->attributes[0].at_val.at_list;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_used))
@@ -877,6 +884,8 @@ static void initialize_pbsnode(
 
   pnode->nd_admin_slot_enabled = 0;
   pnode->nd_admin_slot_usable = 1;
+
+  pnode->nd_priority = 100;
 
 
 
@@ -1381,6 +1390,9 @@ update_nodes_file(void)
     /* write out queue */
     if (np->queue != NULL)
       fprintf(nin, " queue=%s", np->queue);
+
+    if (np->nd_priority != 100)
+      fprintf(nin, " priority=%ld", np->nd_priority);
 
     if (np->nd_no_multinode)
       fprintf(nin, " %s=1",ATTR_NODE_no_multinode_jobs);
