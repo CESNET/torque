@@ -2283,7 +2283,14 @@ int TMomFinalizeChild(
   if (LOGLEVEL >= 10)
     log_ext(-1, id, "system vars set", LOG_DEBUG);
   
-  umask(determine_umask(pjob->ji_qs.ji_un.ji_momt.ji_exuid));
+  if (pjob->ji_wattr[(int)JOB_ATR_umask].at_flags & ATR_VFLAG_SET)
+    {
+    umask(pjob->ji_wattr[(int)JOB_ATR_umask].at_val.at_long);
+    }
+  else
+    {
+    umask(determine_umask(pjob->ji_qs.ji_un.ji_momt.ji_exuid));
+    }
 
   if (TJE->is_interactive == TRUE)
     {
