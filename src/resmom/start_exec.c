@@ -4170,7 +4170,14 @@ int start_process(
   if (LOGLEVEL >= 10)
     log_ext(-1, id, "mach vars set", LOG_DEBUG);
   
-  umask(077);
+  if (pjob->ji_wattr[(int)JOB_ATR_umask].at_flags & ATR_VFLAG_SET)
+    {
+    umask(pjob->ji_wattr[(int)JOB_ATR_umask].at_val.at_long);
+    }
+  else
+    {
+    umask(077);
+    }
   
   /* set environment to reflect batch */
   
