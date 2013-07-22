@@ -1722,7 +1722,8 @@ static void pbsd_init_reque(
 
     svr_evaljobstate(pjob, &newstate, &newsubstate, 0);
 #ifdef HAVE_GLITE_LB
-    svr_logjobstate(pjob, newstate, newsubstate, NULL);
+    if (pjob->ji_qs.ji_state != newstate || pjob->ji_qs.ji_substate != newsubstate)
+      svr_logjobstate(pjob, newstate, newsubstate, NULL);
 #endif
     svr_setjobstate(pjob, newstate, newsubstate);
     }
