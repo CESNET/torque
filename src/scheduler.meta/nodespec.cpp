@@ -388,13 +388,12 @@ void node_set_magrathea_status(node_info *ninfo)
 
   if (ninfo->jobs != NULL && ninfo->jobs[0] != NULL)
     {
-    if (ninfo->magrathea_status == MagratheaStateDownBootable)
+    // if there are already jobs on this node, the magrathea state can't be free/down-bootable
+    if (ninfo->magrathea_status == MagratheaStateDownBootable || ninfo->magrathea_status == MagratheaStateFree)
+      {
       ninfo->magrathea_status = MagratheaStateNone;
-    if (ninfo->magrathea_status == MagratheaStateFree)
-      ninfo->magrathea_status = MagratheaStateNone;
-
-    /* but node already belongs to cluster */
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, ninfo->name, "Node had inconsistent magrathea state.");
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, ninfo->name, "Node had inconsistent magrathea state.");
+      }
     }
 
   if (ninfo->host != NULL)
@@ -410,11 +409,13 @@ void node_set_magrathea_status(node_info *ninfo)
     if (ninfo->magrathea_status == MagratheaStateRunningPriority)
       ninfo->magrathea_status = MagratheaStateNone;
     */
-    if (ninfo->magrathea_status == MagratheaStateDownBootable)
-      ninfo->magrathea_status = MagratheaStateNone;
 
-    /* but node already belongs to cluster */
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, ninfo->name, "Node had inconsistent magrathea state.");
+    // if the host already has jobs, the magrathea state can't be down-bootable
+    if (ninfo->magrathea_status == MagratheaStateDownBootable)
+      {
+      ninfo->magrathea_status = MagratheaStateNone;
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, ninfo->name, "Node had inconsistent magrathea state.");
+      }
     }
   }
 
