@@ -139,6 +139,26 @@ static int node_is_suitable_for_boot(node_info *ninfo)
         jobs_present = 1;
       }
     }
+  else
+    {
+    ninfo->is_usable_for_boot = 0;
+    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name, "Node marked as incapable of booting jobs, because the master cloud node was not found.");
+    return 0;
+    }
+
+  if (ninfo->host -> type != NodeCloud)
+    {
+    ninfo->is_usable_for_boot = 0;
+    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name, "Node marked as incapable of booting jobs, because the master cloud node is not known as cloud.");
+    return 0;
+    }
+
+  if (ninfo->host -> is_down())
+    {
+    ninfo->is_usable_for_boot = 0;
+    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name, "Node marked as incapable of booting jobs, because the master cloud node is down.");
+    return 0;
+    }
 
   if (jobs_present)
     {
@@ -398,60 +418,6 @@ void node_set_magrathea_status(node_info *ninfo)
     }
   }
 
-/** Refresh magrathea status for node */
-int refresh_magrathea_status(node_info *ninfo, job_info *jinfo, int preassign_starving)
-  {
-  resource *res_machine = find_resource(ninfo->res, "machine_cluster");
-
-  if (jinfo->cluster_mode == ClusterNone)
-    {
-    /* user does not require cluster */
-    if (res_machine!=NULL)
-      {
-      /* but node already belongs to cluster */
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, already belongs to a cluster %s",
-                ninfo->name, res_machine->str_avail);
-      return 0;
-      }
-    }
-  else if (jinfo->cluster_mode == ClusterCreate)
-    {
-    /* cluster creation */
-    if (res_machine != NULL)
-      {
-      /* but node is already in (different cluster) */
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, belongs to a (different) cluster %s",
-                ninfo->name, res_machine->str_avail);
-      return 0;
-      }
-    }
-  else if ((jinfo->cluster_mode == ClusterUse) && (jinfo->cluster_name != NULL))
-    {
-    /* user requires already running cluster */
-    if ((res_machine == NULL) || (res_machine -> str_avail == NULL))
-      {
-      /* but node is not in cluster */
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, it doesn't belong to any cluster",
-                ninfo->name);
-      return 0;
-      }
-
-    if (strcmp(res_machine -> str_avail,jinfo->cluster_name)!=0)
-      {
-      /* but node is in different cluster */
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, it belongs to different cluster %s",
-                ninfo->name, res_machine->str_avail);
-      return 0;
-      }
-    }
-
-  return 1;
-  }
-
 /** Check basic node suitability for job */
 static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_starving)
   {
@@ -511,71 +477,41 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
       }
     }
 
-  if (jinfo->cluster_mode != ClusterUse && /* do not check user accounts inside virtual clusters */
-      site_user_has_account(jinfo->account,ninfo->name,ninfo->cluster_name) == CHECK_NO)
+  resource *res_machine = find_resource(ninfo->res, "machine_cluster");
+  if (jinfo->cluster_mode != ClusterUse) /* users can always go inside a cluster */
     {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-              "Node %s not used, user does not have account on this node.", ninfo->name);
-    return 0;
-    }
-
-  /* refresh and check magrathea status */
-  if (refresh_magrathea_status(ninfo,jinfo,preassign_starving) == 0)
-  {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-              "Node %s not used, could not refresh magrathea status.", ninfo->name);
-    return 0;
-  }
-
-  /* virtual clusters support */
-  if (jinfo->is_cluster && jinfo->cluster_mode == ClusterCreate)
-    {
-    if (ninfo->type == NodeVirtual) /* always true, checked before */
+    // User does not have an account on this machine - can never run
+    if (site_user_has_account(jinfo->account,ninfo->name,ninfo->cluster_name) == CHECK_NO)
       {
-      char *cmom;
-      char *cloud_mom=NULL;
-      node_info *cloudnode =NULL;
-      cmom=xpbs_cache_get_local(ninfo->name, "host");
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Node %s not used, user does not have account on this node.", ninfo->name);
+      return 0;
+      }
 
-      if (cmom)
-        {
-        cloud_mom=cache_value_only(cmom);
-        free(cmom);
-        }
+    // Machine is already allocated to a virtual cluster, only ClusterUse type of jobs allowed
+    if (res_machine != NULL)
+      {
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Node %s not used, allocated to a virtual cluster %s", ninfo->name, res_machine->str_avail);
+      return 0;
+      }
+    }
+  else
+    {
+    if (jinfo->cluster_name == NULL)
+      {
+      return 0; // ClusterUse job without a cluster name, shouldn't happen
+      }
 
-      if (cloud_mom)
-        cloudnode=find_node_info(cloud_mom,jinfo->queue->server->nodes);
+    // Check whether this machine is running the cluster user is requesting
+    if ((res_machine == NULL) || (res_machine -> str_avail == NULL))
+      {
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Node %s not used, node doesn't belong to a virtual cluster", ninfo->name);
+      return 0;
+      }
 
-      if (!cloudnode)
-        {
-        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                  "Node %s not used, cloud node reported by cache (%s) was not found.", ninfo->name, cloud_mom);
-        free(cloud_mom);
-        return 0;
-        }
-
-      free(cloud_mom);
-
-      if (!cloudnode -> type == NodeCloud)
-        {
-        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                  "Node %s not used, cloud node is not known as cloud.", ninfo->name);
-        return 0;
-        }
-
-      if (cloudnode -> is_down())
-        {
-        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                  "Node %s not used, cloud node is down.", ninfo->name);
-        return 0;
-        }
-
-      if (cloudnode -> jobs != NULL && cloudnode -> jobs[0] != NULL)
-        {
-        sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                  "Node %s not used, cloud node has other jobs", ninfo->name);
-	      return 0;
-        }
+    if (strcmp(res_machine -> str_avail,jinfo->cluster_name)!=0)
+      {
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Node %s not used, it belongs to different virtual cluster %s", ninfo->name, res_machine->str_avail);
+      return 0;
       }
     }
 
