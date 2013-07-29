@@ -1,7 +1,9 @@
 #include <cstring>
+#include <climits>
 #include "data_types.h"
 #include "NodeInfo.h"
 #include "assertions.h"
+
 
 using namespace std;
 
@@ -68,4 +70,48 @@ bool node_info::has_prop(const char* property)
   free(buf);
 
   return ret;
+  }
+
+CheckResult node_info::has_proc(job_info *job, pars_spec_node *spec)
+  {
+  // for admin slots, check the admin slot instead
+  if (job->queue->is_admin_queue)
+    {
+    if (p_admin_slot_avail)    // admin slot currently free
+      return CheckAvailable;
+    else if (p_admin_slot_enabled) // admin slot occupied, but enabled
+      return CheckOccupied;
+    else                         // admin slot not enabled
+      return CheckNonFit;
+    }
+  else
+    {
+    if (p_core_total < static_cast<int>(spec->procs)) // This node simply doesn't have enough processors
+      {
+      return CheckNonFit;
+      }
+
+    if (p_exclusively_assigned) // Node is completely full
+      {
+      return CheckOccupied;
+      }
+
+    if (p_core_free - p_core_assigned == 0) // Node is completely full
+      {
+      return CheckOccupied;
+      }
+
+    if (job->is_exclusive)
+      {
+      if (p_core_free - p_core_assigned != p_core_total) // Some processors are in use
+        return CheckOccupied;
+      }
+    else
+      {
+      if (p_core_free - p_core_assigned < static_cast<int>(spec->procs)) // Not enough currently free processors
+        return CheckOccupied;
+      }
+
+    return CheckAvailable;
+    }
   }

@@ -39,6 +39,14 @@ void xlog_err(int errnum, const char* routine, const char *text)
   log_err(errnum,const_cast<char*>(routine),const_cast<char*>(text));
   }
 
+int xsetup_env(const char *filen) { return setup_env(const_cast<char*>(filen)); }
+
+int xchk_file_sec(const char *path, int isdir, int sticky, int disallow, int fullpath, char *SEMsg)
+  {
+  return chk_file_sec(const_cast<char*>(path),isdir,sticky,disallow,fullpath,SEMsg);
+  }
+
+
 int pid_file_fd;
 
 /** \brief Lock and update sched.lock file
@@ -155,8 +163,8 @@ int main(int argc, char *argv[])
 
   // Security check
   int c;
-  c  = chk_file_sec(log_buffer, 1, 0, S_IWGRP | S_IWOTH, 1, NULL);
-  c |= chk_file_sec("/var/spool/torque/pbs_environment", 0, 0, S_IWGRP | S_IWOTH, 0, NULL);
+  c  = xchk_file_sec(log_buffer, 1, 0, S_IWGRP | S_IWOTH, 1, NULL);
+  c |= xchk_file_sec("/var/spool/torque/pbs_environment", 0, 0, S_IWGRP | S_IWOTH, 0, NULL);
   if (c != 0) exit(1);
 
   // Daemonize and change working dir to /.../sched_priv
@@ -178,7 +186,7 @@ int main(int argc, char *argv[])
 
   umask(022);
 
-  if (setup_env("/var/spool/torque/pbs_environment") == -1)
+  if (xsetup_env("/var/spool/torque/pbs_environment") == -1)
     return 1;
 
   c = getgid();

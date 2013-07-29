@@ -4,9 +4,12 @@
 #include <vector>
 #include <set>
 #include <string>
+#include <cstdlib>
+#include <cstring>
 
 typedef enum node_type { NodeTimeshared, NodeCluster, NodeVirtual, NodeCloud } node_type;
 enum ResourceCheckMode { MaxOnly, Avail };
+enum CheckResult { CheckAvailable, CheckOccupied, CheckNonFit };
 
 #include "NodeState.h"
 
@@ -14,15 +17,9 @@ struct node_info : public NodeState
   {
 unsigned no_multinode_jobs: 1; /* no multinode jobs on this node */
 unsigned no_starving_jobs:  1; /* no starving jobs no this node */
-
 unsigned is_bootable: 1;
-unsigned is_exclusively_assigned: 1;
-
 unsigned is_usable_for_run  : 1; /* node is usable for running jobs */
 unsigned is_usable_for_boot : 1; /* node is usable for booting jobs */
-unsigned is_full            : 1; /* node is full (all slots used or exclusively assigned */
-
-unsigned admin_slot_available : 1; /* admin slot is available */
 
 long node_priority;
 
@@ -42,17 +39,6 @@ long node_priority;
   char *queue; /**< queue the node is assigned to (attribute) */
   queue_info *excl_queue; /**< pointer to queue the node is exclusive to */
 
-  float max_load;  /* the load not to go over */
-  float ideal_load;  /* the ideal load of the machine */
-  char *arch;   /* machine architecture */
-  int ncpus;   /* number of cpus */
-  int physmem;   /* amount of physical memory in kilobytes */
-  float loadave;  /* current load average */
-
-  int np;       /* number of total virtual processors */
-  int npfree;   /* number of free virtual processors */
-  int npassigned; /* number of scheduled processors */
-
   job_info* starving_job; /* starving job */
 
   char *cluster_name;
@@ -71,6 +57,47 @@ long node_priority;
 
   bool has_prop(pars_prop* property, int preassign_starving, bool physical_only);
   bool has_prop(const char* property);
+
+public:
+  // CPU, admin slot, exclusively assigned
+
+  /** \brief Check whether the job will fit on the node processors
+   *
+   * Check whether there are enough processors to match the specified job/nodespec to this node.
+   * Also handles admin slots and exclusive requests.
+   */
+  CheckResult has_proc(job_info *job, pars_spec_node *spec);
+
+  CheckResult has_spec(job_info *job, pars_spec_node *spec);
+  CheckResult has_resc(job_info *job, pars_prop *resc);
+  CheckResult has_mem(job_info *job, pars_spec_node *spec);
+  CheckResult has_scratch(job_info *job, pars_spec_node *spec);
+
+  void deplete_admin_slot();
+  void deplete_exclusive_access();
+
+  int get_proc_total() { return p_core_total; }
+  void deplete_proc(int count) { p_core_assigned += count; }
+
+  void set_proc_total(const char* value) { p_core_total = atoi(value); } // TODO add validity checking
+  void set_proc_free(const char* value) { p_core_free = atoi(value); } // TODO add validity checking
+  void set_admin_slot_enabled(const char* value) { p_admin_slot_enabled = !strcmp(value,"True"); }
+  void set_admin_slot_avail(const char* value) { p_admin_slot_avail = !strcmp(value,"True"); }
+  void set_exclusively_assigned(const char* value) { p_exclusively_assigned = !strcmp(value,"True"); }
+
+private:
+  // CPU related section
+  int p_core_total;
+  int p_core_free;
+  int p_core_assigned;
+
+  bool p_admin_slot_enabled;
+  bool p_admin_slot_avail;
+
+  bool p_exclusively_assigned;
+
+public:
+  node_info() : p_core_total(0), p_core_free(0), p_core_assigned(0), p_admin_slot_enabled(false), p_admin_slot_avail(false), p_exclusively_assigned(false) {}
   };
 
 #endif /* NODEINFO_H_ */

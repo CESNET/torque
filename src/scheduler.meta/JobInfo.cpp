@@ -42,9 +42,9 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
     }
 
   if (is_exclusive)
-    ninfo->npassigned += ninfo->np;
+    ninfo->deplete_proc(ninfo->get_proc_total());
   else
-    ninfo->npassigned += spec->procs;
+    ninfo->deplete_proc(spec->procs);
 
   /* mem */
   res = find_resource(ninfo->res,"mem");

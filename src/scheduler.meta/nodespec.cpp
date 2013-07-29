@@ -171,47 +171,6 @@ static int node_is_suitable_for_boot(node_info *ninfo)
   return 1;
   }
 
-static int node_is_not_full(node_info *ninfo)
-  {
-  if (ninfo->is_full)
-    return 0;
-
-  if (ninfo->is_exclusively_assigned)
-    {
-    ninfo->is_full = 1;
-    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
-              "Node marked as full, because it is already exclusively assigned.");
-    return 0;
-    }
-
-  if (ninfo->npfree - ninfo->npassigned <= 0)
-    {
-    ninfo->is_full = 1;
-    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
-              "Node marked as full, because it has no free slots.");
-    }
-
-  return 1;
-  }
-
-static int node_has_enough_np(node_info *ninfo, int ppn, enum ResourceCheckMode mode)
-  {
-  switch(mode)
-    {
-    case MaxOnly:
-      if (ninfo->np >= ppn)
-        return 1;
-      break;
-    case Avail:
-      if (ninfo->npfree - ninfo->npassigned >= ppn)
-        return 1;
-      else
-        return 0;
-      break;
-    }
-  return 0; /* default is no */
-  }
-
 int node_has_enough_resource(node_info *ninfo, char *name, char *value,
     enum ResourceCheckMode mode)
   {
@@ -357,11 +316,6 @@ int get_node_has_scratch(node_info *ninfo, pars_spec_node* spec, ScratchType *sc
   return 0;
   }
 
-int get_node_has_ppn(node_info *ninfo, unsigned ppn, int preassign_starving)
-  {
-  return node_has_enough_np(ninfo, ppn, preassign_starving?MaxOnly:Avail);
-  }
-
 /** Phony test, real test done in check.c */
 int is_dynamic_resource(pars_prop* property)
   {
@@ -422,6 +376,9 @@ void node_set_magrathea_status(node_info *ninfo)
 /** Check basic node suitability for job */
 static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_starving)
   {
+  // Node already assigned to previous part of nodespec
+  if (ninfo->temp_assign != NULL) { return 0; }
+
   if (jinfo->cluster_mode == ClusterCreate)
     {
     if (!node_is_suitable_for_boot(ninfo))
@@ -434,10 +391,7 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
 
     /* quick-skip for admin jobs */
     if (jinfo->queue->is_admin_queue)
-      return (ninfo->temp_assign == NULL) && (ninfo->admin_slot_available);
-
-    if (preassign_starving == 0 && (!node_is_not_full(ninfo)))
-      return 0;
+      return 1;
     }
 
   if (ninfo->type == NodeCluster && jinfo->is_cluster)
@@ -467,16 +421,6 @@ static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_sta
               "Node %s not used, node already assigned.", ninfo->name);
     return 0;
   }
-
-  if (preassign_starving == 0) /* only for non-starving jobs */
-    {
-    if ((jinfo->is_exclusive) && (ninfo->npfree - ninfo->npassigned != ninfo->np))
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-                "Node %s not used, job is exclusive and node is not fully empty.", ninfo->name);
-      return 0; /* skip non-empty nodes for exclusive requests */
-      }
-    }
 
   resource *res_machine = find_resource(ninfo->res, "machine_cluster");
   if (jinfo->cluster_mode != ClusterUse) /* users can always go inside a cluster */
@@ -536,8 +480,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
       continue;
       }
 
-    if (!jinfo->queue->is_admin_queue)
-    if (get_node_has_ppn(ninfo_arr[i],spec->procs,preassign_starving) == 0)
+    if (ninfo_arr[i]->has_proc(jinfo,spec) != CheckAvailable)
       {
       fit_ppn++;
       continue;
@@ -645,7 +588,7 @@ static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, int avail_nod
       continue;
       }
 
-    if (get_node_has_ppn(ninfo_arr[i],spec->procs,1) == 0)
+    if (ninfo_arr[i]->has_proc(jinfo,spec) == CheckNonFit)
       {
       fit_ppn++;
       continue;

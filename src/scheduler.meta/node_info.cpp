@@ -249,11 +249,10 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
     else if (!strcmp(attrp -> name, ATTR_NODE_ntype))
       set_node_type(ninfo, attrp -> value);
 
-    else if (!strcmp(attrp -> name, ATTR_NODE_npfree))
-      ninfo -> npfree = atoi(attrp -> value);
-
     else if (!strcmp(attrp -> name, ATTR_NODE_np))
-      ninfo -> np = atoi(attrp -> value);
+      ninfo->set_proc_total(attrp->value);
+    else if (!strcmp(attrp -> name, ATTR_NODE_npfree))
+      ninfo->set_proc_free(attrp->value);
 
     else if (!strcmp(attrp -> name, ATTR_NODE_status))
       ninfo -> big_status = break_comma_list(attrp -> value);
@@ -269,10 +268,11 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
       ninfo -> no_starving_jobs = !strcmp(attrp->value,"True");
 
     else if (!strcmp(attrp -> name, ATTR_NODE_exclusively_assigned))
-      ninfo -> is_exclusively_assigned = !strcmp(attrp->value,"True");
-
+      ninfo->set_exclusively_assigned(attrp->value);
     else if (!strcmp(attrp -> name, ATTR_NODE_admin_slot_available))
-      ninfo -> admin_slot_available = !strcmp(attrp->value,"True");
+      ninfo->set_admin_slot_avail(attrp->value);
+    else if (!strcmp(attrp -> name, ATTR_NODE_admin_slot_enabled))
+      ninfo->set_admin_slot_enabled(attrp->value);
 
     else if (!strcmp(attrp -> name, ATTR_NODE_resources_total))
       {
@@ -348,17 +348,6 @@ node_info *new_node_info()
   tmp -> big_status = NULL;
   tmp -> queue = NULL;
 
-  tmp -> max_load = 0.0;
-  tmp -> ideal_load = 0.0;
-  tmp -> arch = NULL;
-  tmp -> ncpus = 0;
-  tmp -> physmem = 0;
-  tmp -> loadave = 0.0;
-
-  tmp -> np = 0;
-  tmp -> npfree = 0;
-  tmp -> npassigned = 0;
-
   tmp->temp_assign = NULL;
   tmp->temp_assign_scratch = ScratchNone;
   tmp->temp_assign_alternative = NULL;
@@ -373,12 +362,8 @@ node_info *new_node_info()
 
   tmp -> is_bootable = 0;
 
-  tmp -> admin_slot_available = 0;
-
-  tmp->is_exclusively_assigned  = 0;
   tmp->is_usable_for_boot = 1;
   tmp->is_usable_for_run  = 1;
-  tmp->is_full            = 0;
 
   tmp->host = NULL;
   tmp->hosted.reserve(2);
@@ -423,7 +408,6 @@ void free_node_info(node_info *ninfo)
     {
     free(ninfo -> name);
     free_string_array(ninfo -> jobs);
-    free(ninfo -> arch);
     free_string_array(ninfo -> big_status);
     free_resource_list(ninfo -> res);
     free_bootable_alternatives(ninfo->alternatives);
@@ -575,105 +559,4 @@ node_info *find_node_info(char *nodename, node_info **ninfo_arr)
     }
 
   return NULL;
-  }
-
-/*
- *
- * print_node - print all the information in a node.  Mainly used for
- *        debugging purposes
- *
- *   ninfo - the node to print
- *   brief - boolean: only print the name ?
- *
- * returns nothing
- *
- */
-void print_node(node_info *ninfo, int brief)
-  {
-  int i;
-
-  if (ninfo != NULL)
-    {
-    if (ninfo -> name != NULL)
-      printf("Node: %s\n", ninfo -> name);
-
-    if (!brief)
-      {
-      printf("is_down: %s\n", ninfo -> is_down() ? "TRUE" : "FALSE");
-      printf("is_free: %s\n", ninfo -> is_free() ? "TRUE" : "FALSE");
-      printf("is_offline: %s\n", ninfo -> is_offline() ? "TRUE" : "FALSE");
-      printf("is_unknown: %s\n", ninfo -> is_unknown() ? "TRUE" : "FALSE");
-      printf("is_reserved: %s\n", ninfo -> is_reserved() ? "TRUE" : "FALSE");
-      printf("is_exclusive: %s\n", ninfo -> is_job_exclusive() ? "TRUE" : "FALSE");
-      printf("is_sharing: %s\n", ninfo -> is_job_shared() ? "TRUE" : "FALSE");
-
-      printf("np: %d | npfree: %d | npassigned: %d\n",
-             ninfo->np, ninfo->npfree, ninfo->npassigned);
-
-      set<string>::iterator it;
-
-      if (ninfo->physical_properties.size() > 0)
-        {
-        printf("Properties: ");
-
-        for (it = ninfo->physical_properties.begin(); it != ninfo->physical_properties.end(); i++)
-          {
-          if (it != ninfo->physical_properties.begin())
-            printf(", ");
-          printf("%s", it->c_str());
-          }
-
-        printf("\n");
-        }
-
-      if (ninfo->virtual_properties.size() > 0)
-        {
-        printf("Additional Properties: ");
-
-        for (it = ninfo->virtual_properties.begin(); it != ninfo->virtual_properties.end(); i++)
-          {
-          if (it != ninfo->virtual_properties.begin())
-            printf(", ");
-          printf("%s", it->c_str());
-          }
-
-        printf("\n");
-        }
-
-      if (ninfo -> res != NULL)
-        {
-        resource *res = ninfo->res;
-        printf("Resources:\n");
-
-        while (res != NULL)
-          {
-          printf("\t%s : max %lld | avail %lld | assigned %lld | string: %s\n",
-              res->name,res->max, res->avail, res->assigned,
-              res->str_avail?res->str_avail:"");
-          res = res->next;
-          }
-        }
-
-      if (ninfo -> jobs != NULL)
-        {
-        printf("Running Jobs: ");
-
-        for (i = 0; ninfo -> jobs[i] != NULL; i++)
-          {
-          if (i)
-            printf(", ");
-
-          printf("%s", ninfo -> jobs[i]);
-          }
-        }
-
-      if (ninfo -> big_status != NULL)
-        {
-        printf("Status: \n");
-
-        for (i = 0; ninfo -> big_status[i] != NULL; i++)
-            printf("\t%s\n", ninfo -> big_status[i]);
-        }
-      }
-    }
   }

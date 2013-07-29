@@ -374,14 +374,32 @@ extern bool scheduler_not_dying;
 
 void World::run()
   {
-  const unsigned int sleep_suspend = 2;
+  const unsigned int sleep_suspend_active = 2;
+  const unsigned int sleep_suspend_passive = 30;
+  bool active_cycle = false;
 
   try {
   while (scheduler_not_dying)
     {
-    sched_log(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, "Suspending scheduler for %d seconds.",sleep_suspend);
-    sleep(sleep_suspend);
+    // Suspend the scheduler for a while
+    if (active_cycle) // the cycle was active, something happened, try again fast
+      {
+      sched_log(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, "Suspending scheduler for %d seconds.",sleep_suspend_active);
+      sleep(sleep_suspend_active);
+      }
+    else // the cycle was passive, nothing happened, sleep for a significant while
+      {
+      sched_log(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, "Suspending scheduler for %d seconds.",sleep_suspend_passive);
+      sleep(sleep_suspend_passive);
+      }
+    active_cycle = false; // reset activity
+
     sched_log(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, "Scheduler woken up, initializing scheduling cycle.");
+
+
+    //-------------------------------------------------------------
+    // MAIN SCHEDULING CYCLE
+    //-------------------------------------------------------------
 
     update_cycle_status();
 
@@ -409,6 +427,8 @@ void World::run()
       int ret;
       if ((ret = is_ok_to_run_job(p_info, jinfo->queue, jinfo, 0)) == SUCCESS)
         {
+        active_cycle = true;
+
         sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Trying to execute job.");
 
         /* split local vs. remote */
