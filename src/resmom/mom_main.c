@@ -515,7 +515,7 @@ int                     DOBACKGROUND = 1;
 char                    DEFAULT_UMASK[1024];
 char                    PRE_EXEC[1024];
 long                    TJobStartBlockTime = 5; /* seconds to wait for job to launch before backgrounding */
-long                    TJobStartTimeout = 300; /* seconds to wait for job to launch before purging */
+long                    TJobStartTimeout = 900; /* seconds to wait for job to launch before purging */
 
 
 char                   *ret_string;
