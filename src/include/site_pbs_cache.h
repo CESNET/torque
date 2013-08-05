@@ -14,7 +14,7 @@
 struct  repository_alternatives **get_bootable_alternatives(char *hostname,char *properties);
 struct repository_alternatives **dup_bootable_alternatives(struct repository_alternatives **old);
 void free_bootable_alternatives(struct  repository_alternatives **list);
-int  alternative_has_property(struct  repository_alternatives *a, char *prop);
+int alternative_has_property(struct  repository_alternatives *a, char *prop);
 struct repository_alternatives *find_alternative_with_property(struct  repository_alternatives **list,char *prop);
 char *get_alternative_properties(char *name);
 

@@ -220,102 +220,6 @@ int node_has_enough_resource(node_info *ninfo, char *name, char *value,
   return 0; /* by default, the node does not have enough */
   }
 
-int get_node_has_mem(node_info *ninfo, pars_spec_node* spec, int preassign_starving)
-  {
-  struct resource *mem;
-
-  mem = find_resource(ninfo->res, "mem");
-#if 0
-  vmem = find_resource(ninfo->res, "vmem");
-#endif
-
-  if (mem == NULL && spec->mem != 0) /* no memory on node, but memory requested */
-      return 0;
-#if 0
-  if (vmem == NULL && spec->vmem != 0) /* no virtual memory on node, but memory requested */
-    return 0;
-#endif
-
-  if (preassign_starving)
-    {
-    if (mem != NULL && spec->mem > mem->max) /* memory on node, but not enough */
-      return 0;
-#if 0
-    if (vmem != NULL && spec->vmem > vmem->max) /* virtual memory on node, but not enough */
-      return 0;
-#endif
-    }
-  else
-    {
-    if (mem != NULL && spec->mem + mem->assigned > mem->max ) /* memory on node, but not enough */
-      return 0;
-#if 0
-    if (vmem != NULL && spec->vmem > vmem->max - vmem->assigned) /* virtual memory on node, but not enough */
-      return 0;
-#endif
-    }
-
-  return 1;
-  }
-
-int get_node_has_scratch(node_info *ninfo, pars_spec_node* spec, ScratchType *scratch)
-  {
-  if (spec->scratch_type == ScratchNone)
-	  return 1;
-
-  struct resource *res;
-  bool has_local = false;
-  bool has_shared = false;
-  bool has_ssd = false;
-
-  res = find_resource(ninfo->res,"scratch_local");
-  if (res != NULL)
-    {
-    if (res->avail - res->assigned > 0)
-      {
-      has_local = static_cast<unsigned long long>(res->avail - res->assigned) >= spec->scratch;
-      }
-    }
-
-  res = find_resource(ninfo->res,"scratch_ssd");
-  if (res != NULL)
-    {
-    if (res->avail - res->assigned > 0)
-      {
-      has_ssd = static_cast<unsigned long long>(res->avail - res->assigned) >= spec->scratch;
-      }
-    }
-
-  if (ninfo->scratch_pool.length() > 0)
-    {
-    map<string, DynamicResource>::iterator i = ninfo->server->dynamic_resources.find(ninfo->scratch_pool);
-    if (i != ninfo->server->dynamic_resources.end())
-      {
-      has_shared = i->second.would_fit(spec->scratch);
-      }
-    }
-
-  if ((spec->scratch_type == ScratchAny || spec->scratch_type == ScratchSSD) && has_ssd)
-    {
-	  *scratch = ScratchSSD;
-	  return 1;
-    }
-
-  if ((spec->scratch_type == ScratchAny || spec->scratch_type == ScratchShared) && has_shared)
-    {
-	  *scratch = ScratchShared;
-	  return 1;
-    }
-
-  if ((spec->scratch_type == ScratchAny || spec->scratch_type == ScratchLocal) && has_local)
-    {
-	*scratch = ScratchLocal;
-	return 1;
-    }
-
-  return 0;
-  }
-
 /** Phony test, real test done in check.c */
 int is_dynamic_resource(pars_prop* property)
   {
@@ -467,10 +371,11 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
                        int avail_nodes, node_info **ninfo_arr, int preassign_starving)
   {
   int i;
-  pars_prop *iter = NULL;
-  repository_alternatives** ra;
   ScratchType scratch = ScratchNone;
-  int fit_suit = 0, fit_ppn = 0, fit_mem = 0, fit_prop = 0;
+  int fit_nonfit = 0, fit_occupied = 0;
+  repository_alternatives** ra = NULL;
+  CheckResult node_test;
+  int fit_suit = 0;
 
   for (i = 0; i < avail_nodes; i++) /* for each node */
     {
@@ -480,73 +385,64 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
       continue;
       }
 
-    if (ninfo_arr[i]->has_proc(jinfo,spec) != CheckAvailable)
+    node_test = ninfo_arr[i]->has_spec(jinfo, spec, &scratch);
+    if (node_test == CheckNonFit)
       {
-      fit_ppn++;
+      ++fit_nonfit;
+      continue;
+      }
+    else if (node_test == CheckOccupied)
+      {
+      ++fit_occupied;
       continue;
       }
 
-    if (!jinfo->queue->is_admin_queue)
-    if (get_node_has_mem(ninfo_arr[i],spec,preassign_starving) == 0)
+    // jobs requesting runs
+    if (jinfo->cluster_mode != ClusterCreate)
       {
-      fit_mem++;
-      continue;
-      }
-
-    if (!preassign_starving)
-    if (get_node_has_scratch(ninfo_arr[i],spec,&scratch) == 0)
-      {
-      fit_prop++;
-      continue;
-      }
-
-    /* check nodespec */
-    ra = NULL;
-
-    /* has alternatives */
-    if (jinfo->cluster_mode==ClusterCreate && ninfo_arr[i]->alternatives != NULL
-        && ninfo_arr[i]->alternatives[0] != NULL)
-      {
-      ra = ninfo_arr[i]->alternatives;
-      while (*ra != NULL)
+      node_test = ninfo_arr[i]->has_props_run(jinfo,spec);
+      if (node_test == CheckNonFit)
         {
-        iter = spec->properties;
-        while (iter != NULL)
+        ++fit_nonfit;
+        continue;
+        }
+      else if (node_test == CheckOccupied)
+        {
+        ++fit_occupied;
+        continue;
+        }
+      }
+    else if (jinfo->cluster_mode == ClusterCreate)
+      {
+      node_test = CheckNonFit;
+
+      for (ra = ninfo_arr[i]->alternatives; *ra != NULL; ++ra)
+        {
+        node_test = ninfo_arr[i]->has_props_boot(jinfo,spec,*ra);
+        if (node_test == CheckNonFit)
           {
-          if ((!ninfo_arr[i]->has_prop(iter,preassign_starving,true)) &&
-              (alternative_has_property(*ra,iter->name) == 0) &&
-              (is_dynamic_resource(iter) == 0))
-            break; /* break out of the cycle if not found property */
-
-          iter = iter->next;
+          continue;
           }
-
-        if (iter == NULL)
+        else if (node_test == CheckOccupied)
+          {
+          node_test = CheckOccupied;
+          continue;
+          }
+        else
+          {
+          node_test = CheckAvailable;
           break;
-        ra++;
+          }
         }
 
-      if (*ra == NULL)
+      if (node_test == CheckNonFit)
         {
-        fit_prop++;
-        continue; /* no alternative matching the spec */
+        ++fit_nonfit;
+        continue;
         }
-      }
-    else /* else just do simple iteration */
-      {
-      iter = spec->properties;
-      while (iter != NULL)
+      else if (node_test == CheckOccupied)
         {
-        if ((!ninfo_arr[i]->has_prop(iter,preassign_starving,false)) &&
-            is_dynamic_resource(iter) == 0)
-          break; /* break out of the cycle if not found property */
-
-        iter = iter->next;
-        }
-
-      if (iter != NULL) /* one of the properties not found */
-        {
-        fit_prop++;
+        ++fit_occupied;
         continue;
         }
       }
@@ -566,9 +462,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
     return 0;
     }
 
-  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-            "Nodespec not matched: [%d/%d] nodes are not suitable for job, [%d/%d] don't have enough free CPU, [%d/%d] don't have enough memory, [%d/%d] nodes don't match some properties/resources requested.",
-            fit_suit, avail_nodes, fit_ppn, avail_nodes, fit_mem, avail_nodes, fit_prop, avail_nodes);
+  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Nodespec not matched: %d total nodes, %d not fit, %d occupied.", avail_nodes, fit_nonfit, fit_occupied);
   return 1;
   }
 
@@ -576,9 +470,11 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
 static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, int avail_nodes, node_info **ninfo_arr)
   {
   int i;
-  pars_prop *iter = NULL;
   repository_alternatives** ra;
-  int fit_suit = 0, fit_ppn = 0, fit_mem = 0, fit_prop = 0;
+  ScratchType scratch = ScratchNone;
+  int fit_nonfit = 0, starving = 0;
+  int fit_suit = 0;
+  CheckResult node_test;
 
   for (i = 0; i < avail_nodes; i++) /* for each node */
     {
@@ -588,76 +484,59 @@ static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, int avail_nod
       continue;
       }
 
-    if (ninfo_arr[i]->has_proc(jinfo,spec) == CheckNonFit)
+    node_test = ninfo_arr[i]->has_spec(jinfo, spec, &scratch);
+    if (node_test == CheckNonFit)
       {
-      fit_ppn++;
+      ++fit_nonfit;
       continue;
       }
 
-    if (get_node_has_mem(ninfo_arr[i],spec,1) == 0)
+    // jobs requesting runs
+    if (jinfo->cluster_mode != ClusterCreate)
       {
-      fit_mem++;
-      continue;
-      }
-
-    /* check nodespec */
-    ra = NULL;
-
-    /* has alternatives */
-    if (jinfo->cluster_mode==ClusterCreate && ninfo_arr[i]->alternatives != NULL
-        && ninfo_arr[i]->alternatives[0] != NULL)
-      {
-      ra = ninfo_arr[i]->alternatives;
-      while (*ra != NULL)
+      node_test = ninfo_arr[i]->has_props_run(jinfo,spec);
+      if (node_test == CheckNonFit)
         {
-        iter = spec->properties;
-        while (iter != NULL)
+        ++fit_nonfit;
+        continue;
+        }
+      }
+    else if (jinfo->cluster_mode == ClusterCreate)
+      {
+      node_test = CheckNonFit;
+
+      for (ra = ninfo_arr[i]->alternatives; *ra != NULL; ++ra)
+        {
+        node_test = ninfo_arr[i]->has_props_boot(jinfo,spec,*ra);
+        if (node_test == CheckNonFit)
           {
-          if ((!ninfo_arr[i]->has_prop(iter,1,true)) &&
-              (alternative_has_property(*ra,iter->name) == 0) &&
-              (is_dynamic_resource(iter) == 0))
-            break; /* break out of the cycle if not found property */
-
-          iter = iter->next;
+          continue;
           }
-
-        if (iter == NULL)
+        else if (node_test == CheckOccupied)
+          {
+          node_test = CheckOccupied;
           break;
-        ra++;
+          }
+        else
+          {
+          node_test = CheckAvailable;
+          break;
+          }
         }
 
-      if (*ra == NULL)
+      if (node_test == CheckNonFit)
         {
-        fit_prop++;
-        continue; /* no alternative matching the spec */
-        }
-      }
-    else /* else just do simple iteration */
-      {
-      iter = spec->properties;
-      while (iter != NULL)
-        {
-        if ((!ninfo_arr[i]->has_prop(iter,1,false)) &&
-            is_dynamic_resource(iter) == 0)
-          break; /* break out of the cycle if not found property */
-
-        iter = iter->next;
-        }
-
-      if (iter != NULL) /* one of the properties not found */
-        {
-        fit_prop++;
+        ++fit_nonfit;
         continue;
         }
       }
 
+    ++starving;
     jinfo->plan_on_node(ninfo_arr[i],spec);
     continue;
     }
 
-  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-            "Nodespec not matched: [%d/%d] nodes are not suitable for job, [%d/%d] don't have enough free CPU, [%d/%d] don't have enough memory, [%d/%d] nodes don't match some properties/resources requested.",
-            fit_suit, avail_nodes, fit_ppn, avail_nodes, fit_mem, avail_nodes, fit_prop, avail_nodes);
+  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Starving job: %d total nodes, %d starved nodes.", avail_nodes, starving);
   return 1;
   }
 

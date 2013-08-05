@@ -55,7 +55,7 @@ long node_priority;
 
   std::string scratch_pool;
 
-  bool has_prop(pars_prop* property, int preassign_starving, bool physical_only);
+  CheckResult has_prop(pars_prop* property, bool physical_only);
   bool has_prop(const char* property);
 
 public:
@@ -67,11 +67,15 @@ public:
    * Also handles admin slots and exclusive requests.
    */
   CheckResult has_proc(job_info *job, pars_spec_node *spec);
-
-  CheckResult has_spec(job_info *job, pars_spec_node *spec);
-  CheckResult has_resc(job_info *job, pars_prop *resc);
   CheckResult has_mem(job_info *job, pars_spec_node *spec);
-  CheckResult has_scratch(job_info *job, pars_spec_node *spec);
+  CheckResult has_scratch(job_info *job, pars_spec_node *spec, ScratchType *scratch);
+  CheckResult has_spec(job_info *job, pars_spec_node *spec, ScratchType *scratch);
+  CheckResult has_resc(pars_prop *prop);
+
+
+  CheckResult has_props_boot(job_info *job, pars_spec_node *spec, repository_alternatives *virt_conf);
+  CheckResult has_props_run(job_info *job, pars_spec_node *spec);
+
 
   void deplete_admin_slot();
   void deplete_exclusive_access();

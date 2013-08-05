@@ -229,7 +229,7 @@ void free_bootable_alternatives(struct  repository_alternatives **list)
 }  
 
 /* TODO rewrite using char** - change repository alternatives */
-int  alternative_has_property(struct  repository_alternatives *r, char *prop)
+int alternative_has_property(struct  repository_alternatives *r, char *prop)
 { char *c;
   char *cc;
   char *list;
