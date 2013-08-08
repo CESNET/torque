@@ -21,205 +21,6 @@ extern "C" {
 #include <cassert>
 using namespace std;
 
-static int node_is_suitable_for_run(node_info *ninfo)
-  {
-  if (!ninfo->is_usable_for_run)
-    return 0;
-
-  if (ninfo->type == NodeTimeshared || ninfo->type == NodeCloud)
-    {
-    ninfo->is_usable_for_run = 0;
-    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
-              "Node marked as incapable of running jobs, because Timesharing or Cloud.");
-    return 0;
-    }
-
-  if (ninfo->type == NodeVirtual)
-    {
-    switch (ninfo->magrathea_status)
-      {
-      case MagratheaStateBooting:
-      case MagratheaStateFree:
-      case MagratheaStateOccupiedWouldPreempt:
-      case MagratheaStateRunning:
-      case MagratheaStateRunningPreemptible:
-      case MagratheaStateRunningPriority:
-      case MagratheaStateRunningCluster:
-        break;
-
-      case MagratheaStateNone:
-      case MagratheaStateDown:
-      case MagratheaStateDownBootable:
-      case MagratheaStateFrozen:
-      case MagratheaStateOccupied:
-      case MagratheaStatePreempted:
-      case MagratheaStateRemoved:
-      case MagratheaStateDownDisappeared:
-      case MagratheaStateShuttingDown:
-        ninfo->is_usable_for_run = 0;
-        sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
-                  "Node marked as incapable of running jobs, because it has bad Magrathea state.");
-        return 0;
-      }
-    }
-
-  if (ninfo->type == NodeCluster || ninfo->type == NodeVirtual)
-    {
-    if (ninfo->is_offline() || ninfo->is_down() || ninfo->is_unknown())
-      {
-      ninfo->is_usable_for_run = 0;
-      sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
-                "Node marked as incapable of running jobs, because it has wrong state.");
-      return 0;
-      }
-    }
-
-  return 1;
-  }
-
-static int node_is_suitable_for_boot(node_info *ninfo)
-  {
-  if (!ninfo->is_usable_for_boot)
-    return 0;
-
-  if (ninfo->type == NodeTimeshared || ninfo->type == NodeCloud || ninfo->type == NodeCluster)
-    {
-    ninfo->is_usable_for_boot = 0;
-    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
-              "Node marked as incapable of booting jobs, because Timesharing or Cloud or Cluster.");
-    return 0;
-    }
-
-  if (ninfo->type == NodeVirtual)
-    {
-    switch (ninfo->magrathea_status)
-      {
-      case MagratheaStateDownBootable:
-        break;
-
-      case MagratheaStateBooting:
-      case MagratheaStateFree:
-      case MagratheaStateOccupiedWouldPreempt:
-      case MagratheaStateRunning:
-      case MagratheaStateRunningPreemptible:
-      case MagratheaStateRunningPriority:
-      case MagratheaStateRunningCluster:
-      case MagratheaStateNone:
-      case MagratheaStateDown:
-      case MagratheaStateFrozen:
-      case MagratheaStateOccupied:
-      case MagratheaStatePreempted:
-      case MagratheaStateRemoved:
-      case MagratheaStateDownDisappeared:
-      case MagratheaStateShuttingDown:
-        ninfo->is_usable_for_boot = 0;
-        sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
-                  "Node marked as incapable of booting jobs, because it has bad Magrathea state.");
-        return 0;
-      }
-    }
-
-  if (ninfo->alternatives == NULL || ninfo->alternatives[0] == NULL)
-    {
-    ninfo->is_usable_for_boot = 0;
-    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
-              "Node marked as incapable of booting jobs, because it doesn't have alternatives.");
-    return 0;
-    }
-
-  int jobs_present = 0;
-  if (ninfo->host != NULL)
-    {
-    if (ninfo->host->jobs != NULL && ninfo->host->jobs[0] != NULL)
-      jobs_present = 1;
-
-    for (size_t i = 0; i < ninfo->host->hosted.size(); i++)
-      {
-      if (ninfo->host->hosted[i]->jobs != NULL && ninfo->host->hosted[i]->jobs[0] != NULL)
-        jobs_present = 1;
-      }
-    }
-  else
-    {
-    ninfo->is_usable_for_boot = 0;
-    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name, "Node marked as incapable of booting jobs, because the master cloud node was not found.");
-    return 0;
-    }
-
-  if (ninfo->host -> type != NodeCloud)
-    {
-    ninfo->is_usable_for_boot = 0;
-    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name, "Node marked as incapable of booting jobs, because the master cloud node is not known as cloud.");
-    return 0;
-    }
-
-  if (ninfo->host -> is_down())
-    {
-    ninfo->is_usable_for_boot = 0;
-    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name, "Node marked as incapable of booting jobs, because the master cloud node is down.");
-    return 0;
-    }
-
-  if (jobs_present)
-    {
-    ninfo->is_usable_for_boot = 0;
-    sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
-              "Node marked as incapable of booting jobs, because it, one of it's sisters or the cloud node already contains a running job.");
-    return 0;
-    }
-
-  return 1;
-  }
-
-int node_has_enough_resource(node_info *ninfo, char *name, char *value,
-    enum ResourceCheckMode mode)
-  {
-  struct resource *res;
-  long amount = 0;
-
-  if (res_check_type(name) == ResCheckNone) /* not checking this resource */
-    return 1;
-
-  if ((res = find_resource(ninfo->res, name)) == NULL)
-    return 0;
-
-  if (res->is_string)
-    {
-    /* string resources work kind of like properties right now */
-    if (strcmp(res->str_avail,value) == 0)
-      return 1;
-    }
-
-  amount = res_to_num(value);
-
-  switch (mode)
-    {
-    case MaxOnly:
-      /* there is no current limit, only maximum, and we therefore can't check suitability,
-       * so lets assume it is suitable. The maximum is infinity, then its definitely suitable,
-       * or the maximum is more then we need.
-       */
-      if (res->max == UNSPECIFIED  || res->max == INFINITY || res->max >= amount)
-        return 1;
-      break;
-    case Avail:
-      if (res->max == INFINITY || res->max == UNSPECIFIED)
-        /* we only have the avail value */
-        {
-        if (res->avail - res->assigned >= amount)
-          return 1;
-        }
-      else
-        {
-        /* we don't have avail - only max and assigned */
-        if (res->max - res->assigned >= amount)
-          return 1;
-        }
-      break;
-    }
-  return 0; /* by default, the node does not have enough */
-  }
-
 /** Phony test, real test done in check.c */
 int is_dynamic_resource(pars_prop* property)
   {
@@ -277,131 +78,26 @@ void node_set_magrathea_status(node_info *ninfo)
     }
   }
 
-/** Check basic node suitability for job */
-static int is_node_suitable(node_info *ninfo, job_info *jinfo, int preassign_starving)
-  {
-  // Node already assigned to previous part of nodespec
-  if (ninfo->temp_assign != NULL) { return 0; }
-
-  if (jinfo->cluster_mode == ClusterCreate)
-    {
-    if (!node_is_suitable_for_boot(ninfo))
-      return 0;
-    }
-  else
-    {
-    if (!node_is_suitable_for_run(ninfo))
-      return 0;
-
-    /* quick-skip for admin jobs */
-    if (jinfo->queue->is_admin_queue)
-      return 1;
-    }
-
-  if (ninfo->type == NodeCluster && jinfo->is_cluster)
-    {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-              "Node %s not used, node is cluster, but job does require virtual cluster.", ninfo->name);
-    return 0;
-    }
-
-  if (ninfo->no_starving_jobs && preassign_starving)
-    {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-              "Node %s set not to be used for starving jobs.",ninfo->name);
-    return 0;
-    }
-
-  if (jinfo->is_multinode && ninfo->no_multinode_jobs)
-    {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-              "Node %s not used, node does not allow multinode jobs.", ninfo->name);
-    return 0;
-    }
-
-  if (ninfo->temp_assign != NULL) /* node already assigned */
-  {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name,
-              "Node %s not used, node already assigned.", ninfo->name);
-    return 0;
-  }
-
-  resource *res_machine = find_resource(ninfo->res, "machine_cluster");
-  if (jinfo->cluster_mode != ClusterUse) /* users can always go inside a cluster */
-    {
-    // User does not have an account on this machine - can never run
-    if (site_user_has_account(jinfo->account,ninfo->name,ninfo->cluster_name) == CHECK_NO)
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Node %s not used, user does not have account on this node.", ninfo->name);
-      return 0;
-      }
-
-    // Machine is already allocated to a virtual cluster, only ClusterUse type of jobs allowed
-    if (res_machine != NULL)
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Node %s not used, allocated to a virtual cluster %s", ninfo->name, res_machine->str_avail);
-      return 0;
-      }
-    }
-  else
-    {
-    if (jinfo->cluster_name == NULL)
-      {
-      return 0; // ClusterUse job without a cluster name, shouldn't happen
-      }
-
-    // Check whether this machine is running the cluster user is requesting
-    if ((res_machine == NULL) || (res_machine -> str_avail == NULL))
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Node %s not used, node doesn't belong to a virtual cluster", ninfo->name);
-      return 0;
-      }
-
-    if (strcmp(res_machine -> str_avail,jinfo->cluster_name)!=0)
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Node %s not used, it belongs to different virtual cluster %s", ninfo->name, res_machine->str_avail);
-      return 0;
-      }
-    }
-
-  return 1;
-  }
-
-static int assign_node(job_info *jinfo, pars_spec_node *spec,
-                       int avail_nodes, node_info **ninfo_arr, int preassign_starving)
+static int assign_node(job_info *jinfo, pars_spec_node *spec, int avail_nodes, node_info **ninfo_arr, int preassign_starving)
   {
   int i;
   ScratchType scratch = ScratchNone;
   int fit_nonfit = 0, fit_occupied = 0;
-  repository_alternatives** ra = NULL;
+  repository_alternatives *ra;
   CheckResult node_test;
-  int fit_suit = 0;
 
   for (i = 0; i < avail_nodes; i++) /* for each node */
     {
-    if (!is_node_suitable(ninfo_arr[i],jinfo,preassign_starving)) /* check node suitability */
+    if (ninfo_arr[i]->temp_assign != NULL)
       {
-      fit_suit++;
-      continue;
-      }
-
-    node_test = ninfo_arr[i]->has_spec(jinfo, spec, &scratch);
-    if (node_test == CheckNonFit)
-      {
-      ++fit_nonfit;
-      continue;
-      }
-    else if (node_test == CheckOccupied)
-      {
-      ++fit_occupied;
+      fit_occupied++;
       continue;
       }
 
     // jobs requesting runs
     if (jinfo->cluster_mode != ClusterCreate)
       {
-      node_test = ninfo_arr[i]->has_props_run(jinfo,spec);
-      if (node_test == CheckNonFit)
+      if ((node_test = ninfo_arr[i]->can_fit_job_for_run(jinfo,spec,&scratch)) == CheckNonFit)
         {
         ++fit_nonfit;
         continue;
@@ -414,28 +110,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
       }
     else if (jinfo->cluster_mode == ClusterCreate)
       {
-      node_test = CheckNonFit;
-
-      for (ra = ninfo_arr[i]->alternatives; *ra != NULL; ++ra)
-        {
-        node_test = ninfo_arr[i]->has_props_boot(jinfo,spec,*ra);
-        if (node_test == CheckNonFit)
-          {
-          continue;
-          }
-        else if (node_test == CheckOccupied)
-          {
-          node_test = CheckOccupied;
-          continue;
-          }
-        else
-          {
-          node_test = CheckAvailable;
-          break;
-          }
-        }
-
-      if (node_test == CheckNonFit)
+      if ((node_test = ninfo_arr[i]->can_fit_job_for_boot(jinfo,spec,&scratch,&ra)) == CheckNonFit)
         {
         ++fit_nonfit;
         continue;
@@ -454,7 +129,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
       ninfo_arr[i]->temp_assign = clone_pars_spec_node(spec);
       ninfo_arr[i]->temp_assign_scratch = scratch;
       if (ra != NULL)
-        ninfo_arr[i]->temp_assign_alternative = *ra;
+        ninfo_arr[i]->temp_assign_alternative = ra;
       else
         ninfo_arr[i]->temp_assign_alternative = NULL; /* FIXME META Prepsat do citelneho stavu */
       }
@@ -470,22 +145,14 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec,
 static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, int avail_nodes, node_info **ninfo_arr)
   {
   int i;
-  repository_alternatives** ra;
+  repository_alternatives* ra;
   ScratchType scratch = ScratchNone;
   int fit_nonfit = 0, starving = 0;
-  int fit_suit = 0;
   CheckResult node_test;
 
   for (i = 0; i < avail_nodes; i++) /* for each node */
     {
-    if (!is_node_suitable(ninfo_arr[i],jinfo,1)) /* check node suitability */
-      {
-      fit_suit++;
-      continue;
-      }
-
-    node_test = ninfo_arr[i]->has_spec(jinfo, spec, &scratch);
-    if (node_test == CheckNonFit)
+    if (ninfo_arr[i]->no_starving_jobs || ninfo_arr[i]->temp_assign != NULL)
       {
       ++fit_nonfit;
       continue;
@@ -494,8 +161,7 @@ static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, int avail_nod
     // jobs requesting runs
     if (jinfo->cluster_mode != ClusterCreate)
       {
-      node_test = ninfo_arr[i]->has_props_run(jinfo,spec);
-      if (node_test == CheckNonFit)
+      if ((node_test = ninfo_arr[i]->can_fit_job_for_run(jinfo,spec,&scratch)) == CheckNonFit)
         {
         ++fit_nonfit;
         continue;
@@ -503,28 +169,7 @@ static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, int avail_nod
       }
     else if (jinfo->cluster_mode == ClusterCreate)
       {
-      node_test = CheckNonFit;
-
-      for (ra = ninfo_arr[i]->alternatives; *ra != NULL; ++ra)
-        {
-        node_test = ninfo_arr[i]->has_props_boot(jinfo,spec,*ra);
-        if (node_test == CheckNonFit)
-          {
-          continue;
-          }
-        else if (node_test == CheckOccupied)
-          {
-          node_test = CheckOccupied;
-          break;
-          }
-        else
-          {
-          node_test = CheckAvailable;
-          break;
-          }
-        }
-
-      if (node_test == CheckNonFit)
+      if ((node_test = ninfo_arr[i]->can_fit_job_for_boot(jinfo,spec,&scratch,&ra)) == CheckNonFit)
         {
         ++fit_nonfit;
         continue;

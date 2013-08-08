@@ -76,6 +76,15 @@ public:
   CheckResult has_props_boot(job_info *job, pars_spec_node *spec, repository_alternatives *virt_conf);
   CheckResult has_props_run(job_info *job, pars_spec_node *spec);
 
+  CheckResult has_bootable_state();
+  CheckResult has_runnable_state();
+
+  CheckResult can_run_job(job_info *jinfo);
+  CheckResult can_boot_job(job_info *jinfo);
+
+  CheckResult can_fit_job_for_run(job_info *jinfo, pars_spec_node *spec, ScratchType *scratch);
+  CheckResult can_fit_job_for_boot(job_info *jinfo, pars_spec_node *spec, ScratchType *scratch, repository_alternatives **alternative);
+
 
   void deplete_admin_slot();
   void deplete_exclusive_access();

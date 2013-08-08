@@ -262,7 +262,6 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
       /* special handling for cluster */
       if (strcmp(attrp->resource,"cluster") == 0)
         {
-        jinfo->is_cluster = 1;
         if (strcmp(attrp->value,"create") == 0)
           {
           jinfo->cluster_mode = ClusterCreate;
@@ -362,8 +361,7 @@ job_info *new_job_info()
 
   jinfo -> custom_name = NULL;
 
-  jinfo -> is_cluster = 0;
-  jinfo -> cluster_mode = ClusterNone;
+    jinfo -> cluster_mode = ClusterNone;
   jinfo -> cluster_name = NULL;
 
   jinfo -> nodespec = NULL;

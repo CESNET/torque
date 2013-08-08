@@ -21,7 +21,6 @@ struct job_info
   unsigned can_never_run: 1; /* set if a job can never be run */
   unsigned is_exclusive: 1; /* the job needs to be run exclusively */
   unsigned is_multinode: 1; /* job requeires multiple nodes */
-  unsigned is_cluster: 1; /* cluster request */
 
   enum ClusterMode cluster_mode;
   char *cluster_name; /**< cluster name passed from -l cluster=...*/
