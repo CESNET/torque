@@ -78,7 +78,7 @@ void node_set_magrathea_status(node_info *ninfo)
     }
   }
 
-static int assign_node(job_info *jinfo, pars_spec_node *spec, int avail_nodes, node_info **ninfo_arr, int preassign_starving)
+static int assign_node(job_info *jinfo, pars_spec_node *spec, int avail_nodes, node_info **ninfo_arr)
   {
   int i;
   ScratchType scratch = ScratchNone;
@@ -122,19 +122,21 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int avail_nodes, n
         }
       }
 
-    if (preassign_starving)
-      ninfo_arr[i]->starving_job = jinfo;
+    ninfo_arr[i]->temp_assign = clone_pars_spec_node(spec);
+    ninfo_arr[i]->temp_assign_scratch = scratch;
+
+    if (ra != NULL)
+      ninfo_arr[i]->temp_assign_alternative = ra;
     else
-      {
-      ninfo_arr[i]->temp_assign = clone_pars_spec_node(spec);
-      ninfo_arr[i]->temp_assign_scratch = scratch;
-      if (ra != NULL)
-        ninfo_arr[i]->temp_assign_alternative = ra;
-      else
-        ninfo_arr[i]->temp_assign_alternative = NULL; /* FIXME META Prepsat do citelneho stavu */
-      }
+      ninfo_arr[i]->temp_assign_alternative = NULL; /* FIXME META Prepsat do citelneho stavu */
 
     return 0;
+    }
+
+  if (fit_nonfit == avail_nodes)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Nodespec doesn't match any nodes. Job held.");
+    return 2;
     }
 
   sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Nodespec not matched: %d total nodes, %d not fit, %d occupied.", avail_nodes, fit_nonfit, fit_occupied);
@@ -207,6 +209,7 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
   jinfo->is_multinode = (spec->total_nodes > 1)?1:0;
 
   int missed_nodes = 0;
+  CheckResult result = CheckAvailable;
 
   /* for each part of the nodespec, try to assign the requested amount of nodes */
   pars_spec_node *iter;
@@ -215,15 +218,34 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
     {
     for (unsigned i = 0; i < iter->node_count; i++)
       {
-      missed_nodes += assign_node(jinfo, iter, nodecount, ninfo_arr, 0);
+      int ret;
+      if ((ret = assign_node(jinfo,iter,nodecount,ninfo_arr)) == 2)
+        {
+        result = CheckNonFit;
+        break;
+        }
+      else
+        {
+        missed_nodes += ret;
+        }
       }
     if (missed_nodes > 0)
+      {
+      result = CheckOccupied;
       break;
+      }
 
     iter = iter->next;
     }
 
-  if (missed_nodes > 0) /* some part of nodespec couldn't be assigned */
+  if (result == CheckNonFit)
+    {
+    nodes_preassign_clean(ninfo_arr,nodecount);
+    free_parsed_nodespec(spec);
+    return REQUEST_NOT_MATCHED;
+    }
+
+  if (missed_nodes > 0 && result != CheckNonFit) /* some part of nodespec couldn't be assigned */
     {
     if (jinfo->queue->is_admin_queue)
       {

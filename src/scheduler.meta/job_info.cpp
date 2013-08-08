@@ -1040,6 +1040,11 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg)
         sprintf(log_msg, INFO_QUEUE_GROUP_PROC_LIMIT_REACHED);
         break;
 
+      case REQUEST_NOT_MATCHED:
+        strcpy(comment_msg, COMMENT_REQUEST_NOT_MATCHED);
+        sprintf(log_msg,INFO_REQUEST_NOT_MATCHED);
+        break;
+
       default:
         rc = 0;
         comment_msg[0] = '\0';
