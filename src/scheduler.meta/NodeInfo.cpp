@@ -68,7 +68,7 @@ bool node_info::has_prop(const char* property)
   {
   char *buf;
   pars_prop *prop;
-  bool ret;
+  CheckResult ret;
 
   dbg_precondition(property != NULL, "This functions does not accept NULL.");
 
@@ -80,7 +80,7 @@ bool node_info::has_prop(const char* property)
   free_pars_prop(&prop);
   free(buf);
 
-  return ret;
+  return ret == CheckAvailable;
   }
 
 CheckResult node_info::has_proc(job_info *job, pars_spec_node *spec)
