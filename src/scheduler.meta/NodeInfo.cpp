@@ -178,7 +178,7 @@ CheckResult node_info::has_scratch(job_info *job, pars_spec_node *spec, ScratchT
 
   CheckResult has_local = check_scratch_helper(res,"scratch_local",spec->scratch);
   CheckResult has_ssd  = check_scratch_helper(res,"scratch_ssd",spec->scratch);
-  CheckResult has_shared;
+  CheckResult has_shared = CheckNonFit;
 
   if (scratch_pool.length() > 0)
     {
