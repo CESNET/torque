@@ -7,6 +7,7 @@ USER="$2"
 SCRATCHES="/scratch /scratch.shared /scratch.ssd"
 for scr in $SCRATCHES;do
         if [ -d "$scr/$USER/job_$JOBID" ];then
+		du -sk $scr/$USER/job_$JOBID 2>&1| sed 's/\t/ /'| logger -t pbs_scratch_usage -p local0.info
                 rmdir --ignore-fail-on-non-empty "$scr/$USER/job_$JOBID" 2>/dev/null
         fi
 done
