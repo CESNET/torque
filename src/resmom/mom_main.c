@@ -6680,7 +6680,7 @@ void initialize_globals(void)
 
   /* set timeout values for MOM */
 
-  MaxConnectTimeout = 10000;  /* in microseconds */
+  MaxConnectTimeout = 1000000;  /* in microseconds */
 
   memset(JobsToResend,0,sizeof(JobsToResend));
 
