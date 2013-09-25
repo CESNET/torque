@@ -269,6 +269,134 @@ static int filter_job(job *pj)
   return 0;
   }
 
+/** Construct new jobid according to server settings
+ *
+ *  Increment server next job number attribute accordingly.
+ *
+ *  @param jidbuf Pointer to buffer of at least \c PBS_MAXSVRJOBID + 1 size
+ *  @returns 0 on success 1 on failure
+ */
+int get_next_jobid(char *jidbuf)
+  {
+  char host_server[PBS_MAXSERVERNAME + 1];
+  int  server_suffix = TRUE;
+
+  memset(host_server, 0, sizeof(host_server));
+
+  if ((server.sv_attr[SRV_ATR_display_job_server_suffix].at_flags & ATR_VFLAG_SET) &&
+      (server.sv_attr[SRV_ATR_display_job_server_suffix].at_val.at_long == FALSE))
+    server_suffix = FALSE;
+
+  if ((server.sv_attr[SRV_ATR_job_suffix_alias].at_flags & ATR_VFLAG_SET) &&
+      (server_suffix == TRUE))
+    {
+    char *svrnm;
+
+    if (get_fullhostname(pbs_default(), host_server, PBS_MAXSERVERNAME, NULL) == 0)
+      {
+      svrnm = host_server;
+      }
+    else
+      {
+      svrnm = server_name;
+      }
+
+    snprintf(jidbuf,PBS_MAXSVRJOBID + 1,"%d.%s.%s",
+      server.sv_qs.sv_jobidnumber,
+      svrnm,
+      server.sv_attr[SRV_ATR_job_suffix_alias].at_val.at_str);
+    }
+  else if (server.sv_attr[SRV_ATR_job_suffix_alias].at_flags & ATR_VFLAG_SET)
+    {
+    snprintf(jidbuf,PBS_MAXSVRJOBID + 1,"%d.%s",
+      server.sv_qs.sv_jobidnumber,
+      server.sv_attr[SRV_ATR_job_suffix_alias].at_val.at_str);
+    }
+  else if (server_suffix == TRUE)
+    {
+    char *svrnm;
+
+    if (get_fullhostname(pbs_default(), host_server, PBS_MAXSERVERNAME, NULL) == 0)
+      {
+      svrnm = host_server;
+      }
+    else
+      {
+      svrnm = server_name;
+      }
+
+    snprintf(jidbuf,PBS_MAXSVRJOBID + 1,"%d.%s",
+      server.sv_qs.sv_jobidnumber,
+      svrnm);
+    }
+  else
+    {
+    snprintf(jidbuf,PBS_MAXSVRJOBID + 1,"%d",
+      server.sv_qs.sv_jobidnumber);
+    }
+
+  /* having updated sv_jobidnumber, must save server struct */
+
+  if (++server.sv_qs.sv_jobidnumber > PBS_SEQNUMTOP)
+    server.sv_qs.sv_jobidnumber = 0; /* wrap it */
+
+  /* Make the current job number visible in qmgr print server commnad. */
+  server.sv_attr[(int)SRV_ATR_NextJobNumber].at_val.at_long = server.sv_qs.sv_jobidnumber;
+  server.sv_attr[(int)SRV_ATR_NextJobNumber].at_flags |= ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
+
+  if (svr_save(&server, SVR_SAVE_QUICK))
+    {
+    return 1;
+    }
+
+  return 0;
+  }
+
+int create_job_file(char *namebuf, char *basename)
+  {
+  int fds;
+  char *pc;
+  char* id = "create_job_file";
+
+  do
+    {
+    strcpy(namebuf, path_jobs);      /* base path for jobs */
+    strcat(namebuf, basename);       /* the concerned job basename */
+    strcat(namebuf, JOB_FILE_SUFFIX); /* sufix for job files */
+
+    if ((fds = open(namebuf, O_CREAT | O_EXCL | O_WRONLY, 0600)) < 0)
+      { /* couldn't create file */
+
+      if (errno == EEXIST) /* jobfile with the same name already exists */
+        {
+        /* try to construct a new jobfile name, that doesn't yet exist */
+        pc = basename + strlen(basename) - 1;
+
+        /* find a character that can be incremented */
+        while (!(isalnum(pc[0]) && isalnum(pc[0]+1)) && pc > basename)
+          pc--;
+
+        if (pc == basename)
+          {
+          log_err(errno,id,"cannot construct unique named jobfile");
+          return 1;
+          }
+
+        pc[0]++;
+        }
+      else /* other system error */
+        {
+        log_err(errno,id,"cannot create job file");
+        return 1;
+        }
+      }
+    }
+  while (fds < 0);
+  close(fds);
+
+  return 0;
+  }
+
 
 /*
  * req_quejob - Queue Job Batch Request processing routine
@@ -296,9 +424,7 @@ void req_quejob(
 
   int   i;
   char   buf[256];
-  int   fds;
   char   jidbuf[PBS_MAXSVRJOBID + 1];
-  char  *pc;
   pbs_queue *pque;
   char  *qname;
   attribute  tempattr;
@@ -336,86 +462,16 @@ void req_quejob(
     }
   else
     {
-    char host_server[PBS_MAXSERVERNAME + 1];
-    int  server_suffix = TRUE;
-
     created_here = JOB_SVFLG_HERE;
-
-    memset(host_server, 0, sizeof(host_server));
-
-    if ((server.sv_attr[SRV_ATR_display_job_server_suffix].at_flags & ATR_VFLAG_SET) &&
-        (server.sv_attr[SRV_ATR_display_job_server_suffix].at_val.at_long == FALSE))
-      server_suffix = FALSE;
-
-    if ((server.sv_attr[SRV_ATR_job_suffix_alias].at_flags & ATR_VFLAG_SET) &&
-        (server_suffix == TRUE))
-      {
-      char *svrnm;
-
-      if (get_fullhostname(pbs_default(), host_server, PBS_MAXSERVERNAME, NULL) == 0)
-        {
-        svrnm = host_server;
-        }
-      else
-        {
-        svrnm = server_name;
-        }
-
-      snprintf(jidbuf,sizeof(jidbuf),"%d.%s.%s",
-        server.sv_qs.sv_jobidnumber,
-        svrnm,
-        server.sv_attr[SRV_ATR_job_suffix_alias].at_val.at_str);
-      }
-    else if (server.sv_attr[SRV_ATR_job_suffix_alias].at_flags & ATR_VFLAG_SET)
-      {
-      snprintf(jidbuf,sizeof(jidbuf),"%d.%s",
-        server.sv_qs.sv_jobidnumber,
-        server.sv_attr[SRV_ATR_job_suffix_alias].at_val.at_str);
-      }
-    else if (server_suffix == TRUE)
-      {
-      char *svrnm;
-
-      if (get_fullhostname(pbs_default(), host_server, PBS_MAXSERVERNAME, NULL) == 0)
-        {
-        svrnm = host_server;
-        }
-      else
-        {
-        svrnm = server_name;
-        }
-
-      snprintf(jidbuf,sizeof(jidbuf),"%d.%s",
-        server.sv_qs.sv_jobidnumber,
-        svrnm);
-      }
-    else
-      {
-      snprintf(jidbuf,sizeof(jidbuf),"%d",
-        server.sv_qs.sv_jobidnumber);
-      }
-
-    jid = jidbuf;
-
-    /* having updated sv_jobidnumber, must save server struct */
-
-    if (++server.sv_qs.sv_jobidnumber > PBS_SEQNUMTOP)
-      server.sv_qs.sv_jobidnumber = 0; /* wrap it */
-
-    /* Make the current job number visible in qmgr print server commnad. */
-    server.sv_attr[(int)SRV_ATR_NextJobNumber].at_val.at_long = server.sv_qs.sv_jobidnumber;
-
-    server.sv_attr[(int)SRV_ATR_NextJobNumber].at_flags |= ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
-
-
-    if (svr_save(&server, SVR_SAVE_QUICK))
+    if (get_next_jobid(jidbuf) != 0)
       {
       /* FAILURE */
-
       req_reject(PBSE_INTERNAL, 0, preq, NULL, NULL);
 
       return;
       }
+
+    jid = jidbuf;
     }
 
   /* does job already exist, check both old and new jobs */
@@ -486,53 +542,11 @@ void req_quejob(
 
   basename[PBS_JOBBASE] = '\0';
 
-  do
+  if (create_job_file(namebuf,basename) != 0)
     {
-    strcpy(namebuf, path_jobs);
-    strcat(namebuf, basename);
-    strcat(namebuf, JOB_FILE_SUFFIX);
-
-    fds = open(namebuf, O_CREAT | O_EXCL | O_WRONLY, 0600);
-
-    if (fds < 0)
-      {
-      if (errno == EEXIST)
-        {
-        pc = basename + strlen(basename) - 1;
-
-        while (!isprint((int)*pc))
-          {
-          pc--;
-
-          if (pc <= basename)
-            {
-            /* FAILURE */
-
-            log_err(errno, id, "job file is corrupt");
-
-            req_reject(PBSE_INTERNAL, 0, preq, NULL, "job file is corrupt");
-
-            return;
-            }
-          }
-
-        (*pc)++;
-        }
-      else
-        {
-        /* FAILURE */
-
-        log_err(errno, id, "cannot create job file");
-
-        req_reject(PBSE_SYSTEM, 0, preq, NULL, "cannot open new job file");
-
-        return;
-        }
-      }
+    req_reject(PBSE_INTERNAL, 0, preq, NULL, "cannot create job file");
+    return;
     }
-  while (fds < 0);
-
-  close(fds);
 
   /* create the job structure */
 

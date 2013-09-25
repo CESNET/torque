@@ -13,7 +13,6 @@ extern char mom_host[];
 extern void exec_bail(job *pjob, int  code);
 extern int exiting_tasks;
 
-
 /* Test, whether job is cloud job, whether it have -lcluster=create */
 int is_cloud_job(job *pjob)
   {
@@ -25,10 +24,16 @@ int is_cloud_job(job *pjob)
                             find_resc_def(svr_resc_def, "cluster", svr_resc_size));
     }
 
-  if (pres && (pres->rs_value.at_flags & ATR_VFLAG_SET) &&
-      (strncmp(pres->rs_value.at_val.at_str,"create",6) == 0))
+  if (pres && (pres->rs_value.at_flags & ATR_VFLAG_SET))
     {
-    return 1;
+    if (strncmp(pres->rs_value.at_val.at_str,"create",6) == 0)
+      {
+      return 1;
+      }
+    if (strncmp(pres->rs_value.at_val.at_str,"internal",8) == 0)
+      {
+      return 2;
+      }
     }
 
   return 0;

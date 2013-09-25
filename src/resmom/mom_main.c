@@ -4361,11 +4361,10 @@ process_hup(void)
 
 void toolong(int sig)
   {
+/* TODO properly fix this problem, for now, logging is commented out */
 #if 0
   char *id = "toolong";
-/* TODO properly fix this problem, for now, logging is commented out */
-
-log_record(PBSEVENT_SYSTEM, 0, id, "alarm call");
+  log_record(PBSEVENT_SYSTEM, 0, id, "alarm call");
 
   if (LOGLEVEL >= 1)
     DBPRT(("alarm call\n"))

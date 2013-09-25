@@ -837,6 +837,14 @@ int run_pelog(
         setenv("MAGRATHEA_VLANID",pjob->ji_wattr[(int)JOB_ATR_vlan_id].at_val.at_str,1);
         }
 
+      switch (is_cloud_job(pjob))
+        {
+        case 1: setenv("MAGRATHEA_TYPE","create",1); break;
+        case 2: setenv("MAGRATHEA_TYPE","internal",1); break;
+        default: setenv("MAGRATHEA_TYPE","none",1); break;
+        }
+
+
       arg[6]=(char *)0;
       LastArg = 6;
       }

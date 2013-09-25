@@ -4895,74 +4895,35 @@ static void adjust_resource_value(attribute *pattr, char *name, char *value, int
 void adjust_resources_use(struct pbsnode *pnode, struct jobinfo *jp, int first,
        enum batch_op op)
   {
-  struct prop *prop = NULL, *iter = NULL;
-  char *str, *spec, *token;
-  int i,num;
+  pars_spec *spec;
+  pars_spec_node *node;
+  pars_prop *prop;
 
   if (jp->job->ji_expanded_spec == NULL)
     return;
 
-  spec = strdup(jp->job->ji_expanded_spec);
-  token = spec;
+  spec = parse_nodespec(jp->job->ji_expanded_spec);
+  node = spec->nodes;
+  while (node != NULL && strcmp(node->host,pnode->nd_name) != 0)
+    node = node->next;
 
-  /* determine the count of nodespec parts */
-  for (i = 1; token != NULL; i++)
-    {
-    token = strchr(token,'+');
-    if (token != NULL)
-      token++;
-    }
-
-  token = spec;
-
-  /* record the starts of the node specs */
-  for (i = 1; token != NULL; i++)
-    {
-    if (i == jp->order)
-      {
-      str = token;
-      }
-
-    token = strchr(token,'+');
-    if (token != NULL)
-      {
-      *token = '\0';
-      token++;
-      }
-    }
-
-  if ((i = number(&str, &num)) == -1) /* get number */
+  if (node == NULL)
     return;
 
-  if (i == 0)
+  adjust_resource_value(&pnode->attributes[1],"mem",node->mem_str,first,op);
+  adjust_resource_value(&pnode->attributes[1],"vmem",node->vmem_str,first,op);
+
+  prop = node->properties;
+  while (prop != NULL)
     {
-    /* number exists */
-    if (*str == ':')
+    if (prop->value != NULL)
       {
-      /* there are properties */
-      (str)++;
-
-      if (proplist(&str, &prop, &num))
-        return;
+      adjust_resource_value(&pnode->attributes[1],prop->name,prop->value,first,op);
       }
-    }
-  else
-    {
-    /* no number */
-    if (proplist(&str, &prop, &num))
-      return;
+    prop = prop->next;
     }
 
-  iter = prop; /* iterating through resources in nodespec */
-  while (iter != NULL)
-    {
-    /* adjust the value */
-    adjust_resource_value(&pnode->attributes[1],iter->name,iter->value,first,op);
-    iter = iter->next;
-    }
-
-  free_prop_list(prop);
-  free(spec);
+  free_parsed_nodespec(spec);
   }
 
 

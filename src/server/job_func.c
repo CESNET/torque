@@ -153,7 +153,7 @@ extern void cleanup_restart_file(job *);
 
 /* Local Private Functions */
 
-static void job_init_wattr A_((job *));
+void job_init_wattr A_((job *));
 
 /* Global Data items */
 
@@ -677,7 +677,36 @@ void job_free(
   }  /* END job_free() */
 
 
+extern int create_job_file(char *namebuf, char *basename);
 
+job *job_clone_simple(job *pjob)
+  {
+  job *clone;
+  int i;
+
+  if ((clone = job_alloc()) == NULL)
+    return NULL;
+
+  job_init_wattr(clone);
+
+  CLEAR_LINK(clone->ji_alljobs);
+  CLEAR_LINK(clone->ji_jobque);
+  CLEAR_LINK(clone->ji_svrtask);
+  CLEAR_HEAD(clone->ji_rejectdest);
+  clone->ji_modified = 1;   /* struct changed, needs to be saved */
+
+  /* copy the fixed size quick save information */
+  memcpy(&clone->ji_qs, &pjob->ji_qs, sizeof(struct jobfix));
+  /* copy job attributes. some of these are going to have to be modified */
+
+  for (i = 0; i < JOB_ATR_LAST; i++)
+    {
+    if (pjob->ji_wattr[(enum job_atr)i].at_flags & ATR_VFLAG_SET)
+      job_attr_def[i].at_set(&clone->ji_wattr[i],&pjob->ji_wattr[i],SET);
+    }
+
+  return clone;
+  }
 
 
 /*
@@ -697,14 +726,11 @@ job *job_clone(
 
   char  *oldid;
   char  *hostname;
-  char  *tmpstr;
   char  basename[PBS_JOBBASE+1];
   char  namebuf[MAXPATHLEN + 1];
   char  buf[256];
-  char  *pc;
-  int  fds;
+  char *errpath, *outpath, *jobname;
 
-  int   i;
   int           slen;
 
   job_array *pa;
@@ -716,31 +742,10 @@ job *job_clone(
     return(NULL);
     }
 
-  pnewjob = job_alloc();
-
-  if (pnewjob == NULL)
+  if ((pnewjob = job_clone_simple(template_job)) == NULL)
     {
-    log_err(errno, id, "no memory");
-
-    return(NULL);
+    log_err(errno, id, "couldn't clone base of job");
     }
-
-  job_init_wattr(pnewjob);
-
-  /* new job structure is allocated,
-     now we need to copy the old job, but modify based on taskid */
-
-  CLEAR_LINK(pnewjob->ji_alljobs);
-  CLEAR_LINK(pnewjob->ji_jobque);
-  CLEAR_LINK(pnewjob->ji_svrtask);
-  CLEAR_HEAD(pnewjob->ji_rejectdest);
-  pnewjob->ji_modified = 1;   /* struct changed, needs to be saved */
-
-  /* copy the fixed size quick save information */
-
-  memcpy(&pnewjob->ji_qs, &template_job->ji_qs, sizeof(struct jobfix));
-
-  /* pnewjob->ji_qs.ji_arrayid = taskid; */
 
   /* find the job id for the cloned job */
 
@@ -780,98 +785,32 @@ job *job_clone(
   strncpy(basename, pnewjob->ji_qs.ji_jobid, PBS_JOBBASE);
   basename[PBS_JOBBASE] = '\0';
 
-  do
+  if (create_job_file(namebuf,basename) != 0)
     {
-    strcpy(namebuf, path_jobs);
-    strcat(namebuf, basename);
-    strcat(namebuf, JOB_FILE_SUFFIX);
-
-    fds = open(namebuf, O_CREAT | O_EXCL | O_WRONLY, 0600);
-
-    if (fds < 0)
-      {
-      if (errno == EEXIST)
-        {
-        pc = basename + strlen(basename) - 1;
-
-        while (!isprint((int)*pc) || (*pc == '-'))
-          {
-          pc--;
-
-          if (pc <= basename)
-            {
-            /* FAILURE */
-
-            log_err(errno, id, "job file is corrupt");
-            job_free(pnewjob);
-
-            return(NULL);
-            }
-          }
-
-        (*pc)++;
-        }
-      else
-        {
-        /* FAILURE */
-
-        log_err(errno, id, "cannot create job file");
-        job_free(pnewjob);
-
-        return(NULL);
-        }
-      }
+    job_free(pnewjob);
+    return NULL;
     }
-  while (fds < 0);
-
-  close(fds);
 
   strcpy(pnewjob->ji_qs.ji_fileprefix, basename);
 
-  /* copy job attributes. some of these are going to have to be modified */
+  /* clone job attributes */
+  slen = strlen(template_job->ji_wattr[(int)JOB_ATR_errpath].at_val.at_str);
+  errpath = malloc(sizeof(char) * (slen + PBS_MAXJOBARRAYLEN + 2));
+  sprintf(errpath, "%s-%d", template_job->ji_wattr[(int)JOB_ATR_errpath].at_val.at_str, taskid);
+  free(pnewjob->ji_wattr[JOB_ATR_errpath].at_val.at_str);
+  pnewjob->ji_wattr[JOB_ATR_errpath].at_val.at_str = errpath;
 
-  for (i = 0; i < JOB_ATR_LAST; i++)
-    {
-    if (template_job->ji_wattr[i].at_flags & ATR_VFLAG_SET)
-      {
-      if ((i == JOB_ATR_errpath) || (i == JOB_ATR_outpath) || (i == JOB_ATR_jobname))
-        {
-        /* modify the errpath and outpath */
+  slen = strlen(template_job->ji_wattr[(int)JOB_ATR_outpath].at_val.at_str);
+  outpath = malloc(sizeof(char) * (slen + PBS_MAXJOBARRAYLEN + 2));
+  sprintf(outpath, "%s-%d", template_job->ji_wattr[(int)JOB_ATR_outpath].at_val.at_str, taskid);
+  free(pnewjob->ji_wattr[JOB_ATR_outpath].at_val.at_str);
+  pnewjob->ji_wattr[JOB_ATR_outpath].at_val.at_str = outpath;
 
-        slen = strlen(template_job->ji_wattr[i].at_val.at_str);
-
-        tmpstr = (char*)malloc(sizeof(char) * (slen + PBS_MAXJOBARRAYLEN + 1));
-
-        sprintf(tmpstr, "%s-%d",
-                template_job->ji_wattr[i].at_val.at_str,
-                taskid);
-
-        clear_attr(&tempattr, &job_attr_def[i]);
-
-        job_attr_def[i].at_decode(
-          &tempattr,
-          NULL,
-          NULL,
-          tmpstr);
-
-        job_attr_def[i].at_set(
-          &pnewjob->ji_wattr[i],
-          &tempattr,
-          SET);
-
-        job_attr_def[i].at_free(&tempattr);
-
-        free(tmpstr);
-        }
-      else
-        {
-        job_attr_def[i].at_set(
-          &(pnewjob->ji_wattr[i]),
-          &(template_job->ji_wattr[i]),
-          SET);
-        }
-      }
-    }
+  slen = strlen(template_job->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
+  jobname = malloc(sizeof(char) * (slen + PBS_MAXJOBARRAYLEN + 2));
+  sprintf(jobname, "%s-%d", template_job->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str, taskid);
+  free(pnewjob->ji_wattr[JOB_ATR_jobname].at_val.at_str);
+  pnewjob->ji_wattr[JOB_ATR_jobname].at_val.at_str = jobname;
 
   /* put a system hold on the job.  we'll take the hold off once the
    * entire array is cloned */
@@ -1068,7 +1007,7 @@ void job_clone_wt(
  * set the types and the "unspecified value" flag
  */
 
-static void job_init_wattr(
+void job_init_wattr(
 
   job *pj)
 
