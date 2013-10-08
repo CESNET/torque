@@ -5972,7 +5972,9 @@ int kill_job(
       }
 
 #ifdef GSSAPI
-    stop_renewal(ptask);
+    // only stop renewal when the task is finally dying
+    if (sig == SIGKILL)
+      stop_renewal(ptask);
 #endif
     ptask = (task *)GET_NEXT(ptask->ti_jobtask);
     }  /* END while (ptask != NULL) */
