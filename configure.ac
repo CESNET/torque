@@ -30,6 +30,7 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
 AC_REVISION($Revision$)
 AC_CONFIG_SRCDIR([src/cmds/qrun.c])
 AC_CONFIG_AUX_DIR([buildutils])
+AC_CONFIG_HEADERS([config.h])
 AC_CANONICAL_HOST
 AC_PROG_CXX
 
