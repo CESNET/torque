@@ -116,6 +116,8 @@
 
 #ifndef PBS_MOM
 #include "array.h"
+#else
+#include "mom_server.h"
 #endif
 
 /*
@@ -703,6 +705,38 @@ void process_request(
         PBS_EVENTCLASS_JOB,
         id,
         log_buffer);
+      }
+
+    if (svr_conn[sfds].cn_authen != PBS_NET_CONN_FROM_PRIVIL)
+      {
+      sprintf(log_buffer, "request type %s from host %s rejected (connection not privileged)",
+              reqtype_to_txt(request->rq_type),
+              request->rq_host);
+
+      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, id, log_buffer);
+
+      req_reject(PBSE_BADHOST, 0, request, NULL, "request not authorized");
+
+      close_client(sfds);
+
+      return;
+      }
+
+    mom_server *pms = NULL;
+
+    if ((pms = mom_server_find_by_name(request->rq_host)) == NULL)
+      {
+      sprintf(log_buffer, "request type %s from host %s rejected (connection not from server)",
+              reqtype_to_txt(request->rq_type),
+              request->rq_host);
+
+      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, id, log_buffer);
+
+      req_reject(PBSE_BADHOST, 0, request, NULL, "request not authorized");
+
+      close_client(sfds);
+
+      return;
       }
 
     if (!tfind(svr_conn[sfds].cn_addr, &okclients))
