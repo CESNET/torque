@@ -444,6 +444,31 @@ attribute_def que_attr_def[] =
     PARENT_TYPE_QUE_ALL
   },
 
+  /* QA_ATR_DescriptionEn */
+  { ATTR_description_en,
+    decode_str,
+    encode_str,
+    set_str,
+    comp_str,
+    free_str,
+    NULL_FUNC,
+    MGR_ONLY_SET,
+    ATR_TYPE_STR,
+    PARENT_TYPE_QUE_ALL
+  },
+
+  /* QA_ATR_DescriptionCs */
+  { ATTR_description_cs,
+    decode_str,
+    encode_str,
+    set_str,
+    comp_str,
+    free_str,
+    NULL_FUNC,
+    MGR_ONLY_SET,
+    ATR_TYPE_STR,
+    PARENT_TYPE_QUE_ALL
+  },
 
   /* for execution queues only */
 

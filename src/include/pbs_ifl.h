@@ -225,6 +225,8 @@
 #define ATTR_routeretry  "route_retry_time"
 #define ATTR_routelife   "route_lifetime"
 #define ATTR_required_property "required_property"
+#define ATTR_description_en "description_en"
+#define ATTR_description_cs "description_cs"
 #define ATTR_rsvexpdt    "reserved_expedite"
 #define ATTR_rsvsync     "reserved_sync"
 #define ATTR_start       "started"

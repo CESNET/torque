@@ -233,6 +233,22 @@ check_que_enable(
           (datr->at_val.at_arst->as_usedptr == 0))
         return (PBSE_QUENOEN);
       }
+
+    // check descriptions
+    datr = &((pbs_queue *)pque)->qu_attr[(int)QA_ATR_DescriptionEn];
+    if (!(datr->at_flags & ATR_VFLAG_SET) || (datr->at_val.at_str == NULL))
+      return PBSE_QUENOEN;
+    datr = &((pbs_queue *)pque)->qu_attr[(int)QA_ATR_DescriptionCs];
+    if (!(datr->at_flags & ATR_VFLAG_SET) || (datr->at_val.at_str == NULL))
+      return PBSE_QUENOEN;
+
+    // check queue purpose
+    if (((pbs_queue *)pque)->qu_qs.qu_type == QTYPE_Execution)
+      {
+      datr = &((pbs_queue *)pque)->qu_attr[(int)QE_ATR_queue_purpose];
+      if (!(datr->at_flags & ATR_VFLAG_SET) || (datr->at_val.at_str == NULL))
+            return PBSE_QUENOEN;
+      }
     }
 
   return (0); /* ok to enable queue */

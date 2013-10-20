@@ -123,6 +123,8 @@ enum queueattr
   QA_ATR_MTime,
   QA_ATR_DisallowedTypes,
   QA_ATR_RequiredProperty,
+  QA_ATR_DescriptionEn,
+  QA_ATR_DescriptionCs,
 
   /* The following attributes apply only to execution queues */
 
