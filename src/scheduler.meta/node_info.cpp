@@ -354,8 +354,6 @@ node_info *new_node_info()
 
   tmp -> res = NULL;
 
-  tmp -> starving_job = NULL;
-
   tmp -> cluster_name = NULL;
 
   tmp -> alternatives = NULL;

@@ -146,7 +146,13 @@ server_info *query_server(int pbs_sd)
     }
 
   query_external_cache(sinfo,0);
-  find_bootable_alternatives(sinfo);
+
+  // requires query external cache results
+  for (int i = 0; i < sinfo->num_nodes; i++)
+    {
+    sinfo->nodes[i]->fetch_bootable_alternatives();
+    }
+
   sort_nodes(sinfo,cmp_magrathea);
 
   /* get the queues */

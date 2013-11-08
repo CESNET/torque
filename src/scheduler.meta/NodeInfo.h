@@ -21,7 +21,7 @@ unsigned is_bootable: 1;
 unsigned is_usable_for_run  : 1; /* node is usable for running jobs */
 unsigned is_usable_for_boot : 1; /* node is usable for booting jobs */
 
-long node_priority;
+  long node_priority;
 
   node_type type; /**<type of the node (cluster,timeshared,virtual,cloud) */
 
@@ -38,8 +38,6 @@ long node_priority;
   server_info *server;  /* server that the node is associated with */
   char *queue; /**< queue the node is assigned to (attribute) */
   queue_info *excl_queue; /**< pointer to queue the node is exclusive to */
-
-  job_info* starving_job; /* starving job */
 
   char *cluster_name;
 
@@ -72,7 +70,6 @@ public:
   CheckResult has_spec(job_info *job, pars_spec_node *spec, ScratchType *scratch);
   CheckResult has_resc(pars_prop *prop);
 
-
   CheckResult has_props_boot(job_info *job, pars_spec_node *spec, repository_alternatives *virt_conf);
   CheckResult has_props_run(job_info *job, pars_spec_node *spec);
 
@@ -85,7 +82,6 @@ public:
   CheckResult can_fit_job_for_run(job_info *jinfo, pars_spec_node *spec, ScratchType *scratch);
   CheckResult can_fit_job_for_boot(job_info *jinfo, pars_spec_node *spec, ScratchType *scratch, repository_alternatives **alternative);
 
-
   void deplete_admin_slot();
   void deplete_exclusive_access();
 
@@ -97,6 +93,8 @@ public:
   void set_admin_slot_enabled(const char* value) { p_admin_slot_enabled = !strcmp(value,"True"); }
   void set_admin_slot_avail(const char* value) { p_admin_slot_avail = !strcmp(value,"True"); }
   void set_exclusively_assigned(const char* value) { p_exclusively_assigned = !strcmp(value,"True"); }
+
+  void fetch_bootable_alternatives();
 
 private:
   // CPU related section

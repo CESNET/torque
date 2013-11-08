@@ -551,7 +551,7 @@ CheckResult node_info::can_fit_job_for_boot(job_info *jinfo, pars_spec_node *spe
 
   for (ra = alternatives; *ra != NULL; ++ra)
     {
-    node_test = has_props_boot(jinfo,spec,*ra);
+    node_test = this->has_props_boot(jinfo,spec,*ra);
     if (node_test == CheckNonFit)
       {
       continue;
@@ -579,4 +579,18 @@ CheckResult node_info::can_fit_job_for_boot(job_info *jinfo, pars_spec_node *spe
   *alternative = *ra;
 
   return result;
+  }
+
+
+void node_info::fetch_bootable_alternatives()
+  {
+  // only virtual nodes can have bootable alternatives
+  if (this->type != NodeVirtual)
+    return;
+
+  resource *resc;
+  if ((resc = find_resource(this->res,"magrathea")) != NULL)
+    {
+    this->alternatives = get_bootable_alternatives(this->name,NULL);
+    }
   }

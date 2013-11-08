@@ -584,32 +584,6 @@ int is_num(const char* value)
     return 0;
   }
 
-static int is_magrathea_bootable(resource *res)
-{ long int m_possible;
-
-  if ((magrathea_decode(res,NULL,NULL,NULL,NULL,&m_possible)==0) && (m_possible==1)) {
-      /* TODO jeste test na bootable vlastnost a typ virtual? */
-      return 1;
-  }
-  return 0;
-}
-void find_bootable_alternatives(server_info *sinfo)
-{ int i;
-  node_info *node;
-  resource *res;
-
-
-  for (i=0;i<sinfo -> num_nodes;i++) {
-      node=sinfo -> nodes[i];
-      res = find_resource( node -> res, "magrathea" );
-      if ( (res != NULL) && (is_magrathea_bootable(res) ) ) {
-          node -> alternatives = get_bootable_alternatives(node->name,NULL);
-      }
-  }
-
-  return ;
-}
-
 int cloud_check(job_info *jinfo)
 {
   char *owner=NULL;
