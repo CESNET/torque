@@ -339,6 +339,7 @@
 #define ATTR_NODE_cloud         "cloud"
 #define ATTR_NODE_noautoresv    "no_starving_jobs"
 #define ATTR_NODE_priority      "node_priority"
+#define ATTR_NODE_machine_spec  "machine_spec"
 #define ATTR_NODE_admin_slot_enabled "admin_slot_enabled"
 #define ATTR_NODE_admin_slot_available "admin_slot_available"
 #define ATTR_NODE_fairshare_coef "fairshare_coef"

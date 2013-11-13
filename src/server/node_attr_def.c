@@ -324,6 +324,19 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE,
   },
 
+  /* ND_ATR_machine_spec */
+  { ATTR_NODE_machine_spec, /* machine_spec */
+    decode_dbl,
+    encode_dbl,
+    set_dbl,
+    comp_dbl,
+    free_null,
+    node_machine_spec,
+    MGR_ONLY_SET,
+    ATR_TYPE_DOUBLE,
+    PARENT_TYPE_NODE,
+  },
+
   /* ND_ATR_NodeCost */
   { ATTR_NODE_fairshare_coef, /* fairshare_coef */
     decode_dbl,

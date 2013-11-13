@@ -1764,7 +1764,32 @@ int node_priority(attribute *new, void *pnode, int actmode)
   return(rc);
   }
 
-/* END attr_node_func.c */
+int node_machine_spec(attribute *new, void *pnode, int actmode)
+  {
+  int rc = 0;
+  struct pbsnode  *np;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+    case ATR_ACTION_NEW:
+      new->at_val.at_long  = np->nd_machine_spec;
+      new->at_flags       = ATR_VFLAG_SET;
+      new->at_type        = ATR_TYPE_LONG;
+      break;
+
+    case ATR_ACTION_ALTER:
+      np->nd_machine_spec = new->at_val.at_long;
+      break;
+
+    default:
+      rc = PBSE_INTERNAL;
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
 
 int node_fairshare_coef(attribute *new, void *pnode, int actmode)
   {
@@ -1793,4 +1818,4 @@ int node_fairshare_coef(attribute *new, void *pnode, int actmode)
   return(rc);
   }
 
-
+/* END attr_node_func.c */
