@@ -324,6 +324,19 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE,
   },
 
+  /* ND_ATR_NodeCost */
+  { ATTR_NODE_fairshare_coef, /* fairshare_coef */
+    decode_dbl,
+    encode_dbl,
+    set_dbl,
+    comp_dbl,
+    free_null,
+    node_fairshare_coef,
+    MGR_ONLY_SET,
+    ATR_TYPE_DOUBLE,
+    PARENT_TYPE_NODE,
+  },
+
   /* ND_ATR_admin_slot_enabled */
   { ATTR_NODE_admin_slot_enabled, /* determines whether the admin slot is enabled */
     decode_b,

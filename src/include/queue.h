@@ -146,6 +146,7 @@ enum queueattr
   QE_ATR_MaxProc,
   QE_ATR_MaxUserProc,
   QE_ATR_MaxGrpProc,
+  QE_ATR_QueueCost,
 
   /* The following attribute apply only to routing queues... */
 

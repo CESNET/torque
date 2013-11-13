@@ -438,6 +438,7 @@ static unsigned old_np_admin = 0;
 static struct attribute *old_resources = (struct attribute*)0;
 static unsigned old_no_multinode = 0;
 static long old_priority = 100;
+static double old_fairshare_coef = 1;
 
 
 
@@ -468,6 +469,7 @@ void save_characteristic(
   old_np_admin = pnode->nd_admin_slot_enabled;
   old_no_multinode = pnode->nd_no_multinode;
   old_priority = pnode->nd_priority;
+  old_fairshare_coef = pnode->nd_fairshare_coef;
 
   /* if there was a previous note stored here, free it first */
 
@@ -648,6 +650,9 @@ int chk_characteristic(
   if (pnode->nd_priority != old_priority)
     *pneed_todo |= WRITE_NEW_NODESFILE;
 
+  if (pnode->nd_fairshare_coef != old_fairshare_coef)
+    *pneed_todo |= WRITE_NEW_NODESFILE;
+
   if (pnode->nd_nsn != old_np)
     *pneed_todo |= WRITE_NEW_NODESFILE;
 
@@ -729,6 +734,8 @@ int status_nodeattrib(
       atemp[i].at_val.at_long = pnode->nd_noautoresv;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_priority))
       atemp[i].at_val.at_long = pnode->nd_priority;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_fairshare_coef))
+      atemp[i].at_val.at_double = pnode->nd_fairshare_coef;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_total))
       atemp[i].at_val.at_list = pnode->attributes[0].at_val.at_list;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_resources_used))
@@ -886,6 +893,7 @@ static void initialize_pbsnode(
   pnode->nd_admin_slot_usable = 1;
 
   pnode->nd_priority = 100;
+  pnode->nd_fairshare_coef = 1;
 
 
 
@@ -1393,6 +1401,9 @@ update_nodes_file(void)
 
     if (np->nd_priority != 100)
       fprintf(nin, " priority=%ld", np->nd_priority);
+
+    if (np->nd_fairshare_coef != 1.0)
+      fprintf(nin, " fairshare_coef=%f", np->nd_fairshare_coef);
 
     if (np->nd_no_multinode)
       fprintf(nin, " %s=1",ATTR_NODE_no_multinode_jobs);

@@ -169,6 +169,7 @@ struct pbsnode
 
   /* node priority */
   long nd_priority;
+  double nd_fairshare_coef;
 
   struct attribute attributes[2]; /* resources_total, resources_used */
   char *queue;

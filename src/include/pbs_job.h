@@ -303,6 +303,7 @@ enum job_atr
   JOB_ATR_sched_spec, /* schedulers nodespec sent during job run request */
   JOB_ATR_total_resources, /* total resources (read-only) */
   JOB_ATR_vlan_id, /* vlan id used by cloud jobs */
+  JOB_ATR_fairshare_cost, /* fairshare cost of the job */
 #ifdef HAVE_GLITE_LB
   JOB_ATR_lb_jobid, /* LB jobid */
   JOB_ATR_lb_seqno, /* LB sequence number */

@@ -184,6 +184,7 @@
 #define ATTR_schedspec   "sched_nodespec"
 #define ATTR_total_resources "resc_req_total"
 #define ATTR_vlanid      "vlan_id"
+#define ATTR_fairshare_cost "fairshare_cost"
 
 #ifdef HAVE_GLITE_LB
 #define ATTR_lb_jobid   "lb_jobid"
@@ -243,6 +244,7 @@
 #define ATTR_maxuserproc "max_user_proc"
 #define ATTR_maxgrpproc  "max_group_proc"
 #define ATTR_maxproc     "max_proc"
+#define ATTR_fairshare_coef  "fairshare_coef"
 
 /* additional server attributes names */
 
@@ -339,6 +341,7 @@
 #define ATTR_NODE_priority      "node_priority"
 #define ATTR_NODE_admin_slot_enabled "admin_slot_enabled"
 #define ATTR_NODE_admin_slot_available "admin_slot_available"
+#define ATTR_NODE_fairshare_coef "fairshare_coef"
 
 /* notification email formating */
 #define ATTR_mailsubjectfmt "mail_subject_fmt"

@@ -690,6 +690,19 @@ attribute_def que_attr_def[] =
     PARENT_TYPE_QUE_EXC
   },
 
+  /* QE_ATR_QueueCost */
+  { ATTR_fairshare_coef, /* fairshare_coef */
+    decode_dbl,
+    encode_dbl,
+    set_dbl,
+    comp_dbl,
+    free_null,
+    NULL_FUNC,
+    NO_USER_SET,
+    ATR_TYPE_DOUBLE,
+    PARENT_TYPE_QUE_EXC
+  },
+
   /* for routing queues */
 
   /* QR_ATR_RouteDestin */

@@ -985,6 +985,19 @@ attribute_def job_attr_def[] =
     PARENT_TYPE_JOB
   },
 
+  /* JOB_ATR_fairshare_cost */
+  { ATTR_fairshare_cost, /* fairshare_cost */
+    decode_dbl,
+    encode_dbl,
+    set_dbl,
+    comp_dbl,
+    free_null,
+    NULL_FUNC,
+    READ_ONLY,
+    ATR_TYPE_DOUBLE,
+    PARENT_TYPE_JOB
+  },
+
 #ifdef HAVE_GLITE_LB
     { ATTR_lb_jobid, /* "lb_jobid" */
       decode_str,
