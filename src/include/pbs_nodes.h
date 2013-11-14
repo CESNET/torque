@@ -288,6 +288,7 @@ enum nodeattr
   ND_ATR_noautoresv,
   ND_ATR_priority,
   ND_ATR_machine_spec,
+  ND_ATR_node_cost,
   ND_ATR_admin_slot_enabled,
   ND_ATR_admin_slot_available,
   ND_ATR_resources_total,

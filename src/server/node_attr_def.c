@@ -337,7 +337,7 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE,
   },
 
-  /* ND_ATR_NodeCost */
+  /* ND_ATR_node_cost */
   { ATTR_NODE_fairshare_coef, /* fairshare_coef */
     decode_dbl,
     encode_dbl,
