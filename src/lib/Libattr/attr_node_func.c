@@ -1774,13 +1774,13 @@ int node_machine_spec(attribute *new, void *pnode, int actmode)
   switch (actmode)
     {
     case ATR_ACTION_NEW:
-      new->at_val.at_long  = np->nd_machine_spec;
+      new->at_val.at_double  = np->nd_machine_spec;
       new->at_flags       = ATR_VFLAG_SET;
-      new->at_type        = ATR_TYPE_LONG;
+      new->at_type        = ATR_TYPE_DOUBLE;
       break;
 
     case ATR_ACTION_ALTER:
-      np->nd_machine_spec = new->at_val.at_long;
+      np->nd_machine_spec = new->at_val.at_double;
       break;
 
     default:
@@ -1803,7 +1803,7 @@ int node_fairshare_coef(attribute *new, void *pnode, int actmode)
     case ATR_ACTION_NEW:
       new->at_val.at_double  = np->nd_fairshare_coef;
       new->at_flags       = ATR_VFLAG_SET;
-      new->at_type        = ATR_TYPE_LONG;
+      new->at_type        = ATR_TYPE_DOUBLE;
       break;
 
     case ATR_ACTION_ALTER:

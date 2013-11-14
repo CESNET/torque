@@ -179,7 +179,7 @@ encode_dbl(
   if (!(attr->at_flags & ATR_VFLAG_SET))
     return (0);
 
-  (void)sprintf(cvnbuf, "%.10e", attr->at_val.at_double);
+  (void)sprintf(cvnbuf, "%0.4f", attr->at_val.at_double);
 
   ct = strlen(cvnbuf) + 1;
 
