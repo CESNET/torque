@@ -25,11 +25,11 @@ AC_DEFUN([AC_GLITE],
     AC_SUBST(GLITE_LOCATION)
     AC_SUBST(GLITE_CFLAGS)
 
-    if test "x$host_cpu" = "xx86_64"; then
-        GLITE_LDFLAGS="-L$GLITE_LOCATION/lib64"
-    else
+#    if test "x$host_cpu" = "xx86_64"; then
+#        GLITE_LDFLAGS="-L$GLITE_LOCATION/lib64"
+#    else
         GLITE_LDFLAGS="-L$GLITE_LOCATION/lib"
-    fi
+#    fi
 
     AC_SUBST(GLITE_LDFLAGS)
 
@@ -42,9 +42,9 @@ AC_DEFUN([AC_GLITE],
 
     AC_SUBST(DISTTAR)
 
-    if test "x$host_cpu" = "xx86_64"; then
-        AC_SUBST([libdir], ['${exec_prefix}/lib64'])
-    fi
+#    if test "x$host_cpu" = "xx86_64"; then
+#       AC_SUBST([libdir], ['${exec_prefix}/lib64'])
+#    fi
 
     AC_SUBST([mandir], ['${prefix}/share/man'])
 ])
@@ -68,11 +68,11 @@ AC_MSG_CHECKING([for gLite location])
 if test -d "$with_glite_location"; then
     GLITE_LOCATION="$with_glite_location"
     GLITE_CPPFLAGS="-I$GLITE_LOCATION/include"
-    if test "x$host_cpu" = "xx86_64"; then
-        GLITE_LDFLAGS="-L$GLITE_LOCATION/lib64"
-    else
+#    if test "x$host_cpu" = "xx86_64"; then
+#       GLITE_LDFLAGS="-L$GLITE_LOCATION/lib64"
+#    else
         GLITE_LDFLAGS="-L$GLITE_LOCATION/lib"
-    fi
+#    fi
     AC_MSG_RESULT([$with_glite_location])
 else
     AC_MSG_ERROR([$with_glite_location: no such directory])
@@ -82,9 +82,9 @@ AC_SUBST([GLITE_LOCATION])
 AC_SUBST([GLITE_CPPFLAGS])
 AC_SUBST([GLITE_LDFLAGS])
 
-if test "x$host_cpu" = "xx86_64"; then
-    AC_SUBST([libdir], ['${exec_prefix}/lib64'])
-fi
+#if test "x$host_cpu" = "xx86_64"; then
+#    AC_SUBST([libdir], ['${exec_prefix}/lib64'])
+#fi
 
 AC_SUBST([mandir], ['${prefix}/share/man'])
 ])

@@ -54,9 +54,9 @@ AC_DEFUN([AC_GLITE_LB],
     AC_SEC_GSOAP_PLUGIN
 
     case $GLITE_LDFLAGS in
-	*lib64* ) 
-		ac_glite_lb_libdir=lib64
-		;;
+#	*lib64* ) 
+#		ac_glite_lb_libdir=lib64
+#		;;
 
 	*lib32* ) 
 		ac_glite_lb_libdir=lib32
