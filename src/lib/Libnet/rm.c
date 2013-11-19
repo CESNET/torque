@@ -1060,6 +1060,8 @@ int activereq(void)
   flushreq();
 
   MaxNumDescriptors = get_max_num_descriptors();
+  (void)MaxNumDescriptors; /* TODO remove unused variable */
+
   FDSet = (fd_set *)calloc(1,sizeof(char) * get_fdset_size());
 
 #if RPP

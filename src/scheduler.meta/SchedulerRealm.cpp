@@ -353,7 +353,7 @@ int World::try_run_job(job_info *jinfo)
     {
     if (ret == PBSE_PROTOCOL || ret == PBSE_TIMEOUT)
       {
-      log_err(ret,"pbs_runjob","Protocol problem while communicating with the server.");
+      log_err(ret,(char*)"pbs_runjob",(char*)"Protocol problem while communicating with the server.");
       return ret;
       }
 

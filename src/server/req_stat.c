@@ -405,6 +405,7 @@ static void req_stat_job_step2(
           {
           if ((type == tjstTruncatedServer) || (type == tjstTruncatedQueue))
             IsTruncated = TRUE;
+          (void)IsTruncated; /* TODO remove unused variable */
 
           pjob = (job *)GET_NEXT(svr_alljobs);
           }

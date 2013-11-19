@@ -350,7 +350,9 @@ static void post_routejob(
   int  stat = pwt->wt_aux;
   char *id = "post_routejob";
   job *jobp = (job *)pwt->wt_parm1;
+#ifdef HAVE_GLITE_LB
   struct batch_request *req = (struct batch_request *)pwt->wt_parm2;
+#endif
 
   if (WIFEXITED(stat))
     {

@@ -44,8 +44,7 @@ void free_pars_prop(pars_prop **prop)
   {
   pars_prop *tmp;
 
-  dbg_precondition(prop != NULL && (*prop) != NULL,
-      "This function does not accept NULL param");
+  assert(prop != NULL && (*prop) != NULL);
 
   tmp = *prop;
   /* keep the list linked */
@@ -246,8 +245,7 @@ void free_pars_spec_node(pars_spec_node **node)
   {
   pars_spec_node *tmp;
 
-  dbg_precondition(node != NULL && (*node) != NULL,
-        "This function does not accept NULL param");
+  assert(node != NULL && (*node) != NULL);
 
   free((*node)->alternative);
   (*node)->alternative = NULL;
@@ -543,7 +541,7 @@ pars_spec *init_pars_spec()
 
 void free_parsed_nodespec(pars_spec *nodespec)
   {
-  dbg_precondition(nodespec != NULL,"This function requires a non-null param.");
+  assert(nodespec != NULL);
 
   while (nodespec->nodes != NULL)
     {

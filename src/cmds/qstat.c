@@ -2792,9 +2792,13 @@ svr_no_args:
 
         break;
       }    /* END switch (mode) */
+    (void)ret; /* TODO remove unused variable */
     }      /* END for () */
 
   tcl_run(f_opt);
+
+
+  (void)option; /* TODO remove unused variable */
 
   exit(any_failed);
   }  /* END main() */

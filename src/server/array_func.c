@@ -476,6 +476,7 @@ int setup_array_struct(job *pjob)
     }
 
   wt = set_task(WORK_Timed, time_now + 1, job_clone_wt, (void*)pjob);
+  (void)wt; /* TODO remove unused variable */
 
   /* svr_setjobstate(pj,JOB_STATE_HELD,JOB_SUBSTATE_HELD);*/
 

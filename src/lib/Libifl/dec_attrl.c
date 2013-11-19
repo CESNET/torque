@@ -130,6 +130,7 @@ decode_DIS_attrl(int sock, struct attrl **ppatt)
     {
 
     name_len = disrui(sock, &rc); /* name_len is unusued here */
+    (void)name_len; /* avoid warning */
 
     if (rc) break;
 

@@ -2890,6 +2890,7 @@ int process_opts(
           ptr = optarg + strlen("port=");
 
           PBSPort = (int)strtol(ptr, NULL, 0);
+          (void)PBSPort; /* TODO remove unused variable */
           }
         else
           {

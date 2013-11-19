@@ -2077,6 +2077,7 @@ int encode_depend(
 
   BPtr = pal->al_value;
   BSpace = pal->al_tsize;  /* this is actually a little larger than the actual buffer */
+  (void)BSpace; /* TODO remove unused variable */
 
 	for (nxdp = pdp; nxdp; nxdp = (struct depend *)GET_NEXT(nxdp->dp_link))
     {

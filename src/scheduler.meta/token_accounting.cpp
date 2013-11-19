@@ -96,7 +96,7 @@ int token_acct_open(char *filename)
 
   (void)sprintf(logmsg, "Account file %s opened", filename);
 
-  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "TokenAct", logmsg);
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, (char*)"TokenAct", logmsg);
 
   return (0);
   }

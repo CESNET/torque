@@ -8,6 +8,7 @@
 #include "site_pbs_cache.h"
 
 #include <string.h>
+#include <assert.h>
 
 
 extern struct pbsnode *find_nodebyname(char *);
@@ -26,7 +27,7 @@ static pars_prop *get_name_prop(pars_spec_node *node)
 /* test resource if it is a cloud create request */
 int is_cloud_create(resource *res)
   {
-  dbg_precondition(res != NULL, "This function does not accept null.");
+  assert(res != NULL);
   if (strcmp(res->rs_defin->rs_name,"cluster") == 0)
     {
     if (strcmp(res->rs_value.at_val.at_str,"create") == 0)
@@ -318,7 +319,7 @@ int cloud_transition_into_prerun(job *pjob)
   char     *netresc = NULL;
   pars_spec *ps;
   pars_spec_node *iter;
-  char *cloud_name;
+  //char *cloud_name;
 
   svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN_CLOUD);
   if (is_cloud_job_private(pjob,&netresc))
@@ -373,11 +374,11 @@ int cloud_transition_into_prerun(job *pjob)
   cache_store_local(pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str, "cluster", cached);
 
   ps = parse_nodespec(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
-  dbg_consistency(ps != NULL, "The nodespec should be well formed when reaching this point.");
+  assert(ps != NULL);
   if (ps == NULL)
     return 0;
 
-  cloud_name = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
+  //cloud_name = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
 
   iter = ps->nodes;
 
@@ -408,11 +409,10 @@ void cloud_transition_into_running(job *pjob)
     svr_mailowner(pjob, MAIL_BEGIN, MAIL_NORMAL, NULL);
     }
 
-  dbg_consistency(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_flags & ATR_VFLAG_SET,
-      "JOB_ATR_sched_spec has to be set at this point");
+  assert(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_flags & ATR_VFLAG_SET);
 
   ps = parse_nodespec(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
-  dbg_consistency(ps != NULL, "The nodespec should be well formed when reaching this point.");
+  assert(ps != NULL);
   if (ps == NULL)
     return;
 
@@ -425,8 +425,7 @@ void cloud_transition_into_running(job *pjob)
     char *c;
 
     /* dig up the alternative from cloud mapping */
-    dbg_consistency((pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_flags & ATR_VFLAG_SET) != 0,
-        "Cloud mapping has to be set at this point.");
+    assert((pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_flags & ATR_VFLAG_SET) != 0);
 
     pars_prop *name;
     if (iter->host == NULL)
@@ -452,11 +451,10 @@ void cloud_transition_into_stopped(job *pjob)
   pars_spec_node *iter;
   char *netresc = NULL;
 
-  dbg_consistency(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_flags & ATR_VFLAG_SET,
-      "JOB_ATR_sched_spec has to be set at this point");
+  assert(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_flags & ATR_VFLAG_SET);
 
   ps = parse_nodespec(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
-  dbg_consistency(ps != NULL, "The nodespec should be well formed when reaching this point.");
+  assert(ps != NULL);
   if (ps == NULL)
     return;
 

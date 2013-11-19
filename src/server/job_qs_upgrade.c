@@ -274,10 +274,8 @@ int upgrade_2_3_X(
 
   {
   ji_qs_2_3_X qs_old;
-  char basename[PBS_JOBBASE + 1];
-
-
-  basename[PBS_JOBBASE] = '\0';
+//  char basename[PBS_JOBBASE + 1];
+//  basename[PBS_JOBBASE] = '\0';
 
   if (read(fds, (char*)&qs_old, sizeof(qs_old)) != sizeof(qs_old))
     {

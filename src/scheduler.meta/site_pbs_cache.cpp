@@ -190,13 +190,13 @@ struct repository_alternatives **dup_bootable_alternatives(struct repository_alt
   if ((r = (struct repository_alternatives **)
              malloc( sizeof(struct repository_alternatives*)
 		                   * (num + 1) ) ) == NULL ) {
-            log_err(errno, "get_bootable_alternatives", "Error allocating memory");
+            log_err(errno, (char*)"get_bootable_alternatives", (char*)"Error allocating memory");
             return NULL;
   }
   for(num=0;old[num]!=NULL;num++){
       r[num]=(repository_alternatives*) malloc(sizeof(struct repository_alternatives));
       if (r[num]==NULL) { 
-	  log_err(errno, "get_bootable_alternatives", "Error allocating memory"); 
+	  log_err(errno, (char*)"get_bootable_alternatives", (char*)"Error allocating memory");
 	  return NULL; 
       }
       r[num]->r_name=strdup(old[num]->r_name);

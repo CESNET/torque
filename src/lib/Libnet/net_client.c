@@ -198,6 +198,7 @@ static int await_connect(
   /* calculate needed size for fd_set in select() */
 
   MaxNumDescriptors = get_max_num_descriptors();
+  (void)MaxNumDescriptors; /* TODO clean unused variable */
 
   BigFDSet = (fd_set *)calloc(1,sizeof(char) * get_fdset_size());
 

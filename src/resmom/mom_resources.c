@@ -18,7 +18,7 @@ extern char mom_host[];
 void export_variable(const char* name, const char* value, struct var_table *vtable)
   {
   if (vtable != NULL)
-    bld_env_variables(vtable,name,value);
+    bld_env_variables(vtable,(char*)name,(char*)value);
   else
     setenv(name,value,1);
   }

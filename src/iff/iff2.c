@@ -157,6 +157,7 @@ int main(
   if ((ptr = getenv("PBSLOGLEVEL")) != NULL)
     {
     PBSLOGLEVEL = (int)strtol(ptr, NULL, 10);
+    (void)PBSLOGLEVEL; /* TODO remove unused variable */
     }
 
   /* Need to unset LOCALDOMAIN if set, want local host name */

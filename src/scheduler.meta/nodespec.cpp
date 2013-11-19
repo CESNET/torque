@@ -287,7 +287,7 @@ void nodes_preassign_clean(node_info **ninfo_arr, int count)
 
   for (i = 0; i < count; i++)
     {
-    dbg_consistency(ninfo_arr[i] != NULL, "Given count/real count mismatch");
+    assert(ninfo_arr[i] != NULL);
 
     if (ninfo_arr[i]->temp_assign != NULL)
       free_pars_spec_node(&ninfo_arr[i]->temp_assign);
@@ -370,8 +370,7 @@ static void get_target(stringstream& s, node_info *ninfo, int mode)
  */
 static void get_target_full(stringstream& s, job_info *jinfo, node_info *ninfo)
   {
-  dbg_precondition(jinfo != NULL, "This function does not accept NULL.");
-  dbg_precondition(ninfo != NULL, "This function does not accept NULL.");
+  assert(jinfo != NULL || ninfo != NULL);
 
   if (ninfo->temp_assign == NULL)
     return;

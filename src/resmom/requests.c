@@ -2980,6 +2980,8 @@ retry:
       rc = return_file(pjob, StdErr, sock, FALSE);
       }
 
+    (void)rc; /* TODO remove unused variable */
+
     reply_ack(preq);
 
     close(sock);
@@ -3753,7 +3755,7 @@ void req_cpyfile(
 
         /* success - allow if word count is 1 */
         strcpy(arg3, arg3exp.we_wordv[0]);
-        for (int i = 1; i < arg3exp.we_wordc; i++)
+        for (unsigned i = 1; i < arg3exp.we_wordc; i++)
           {
           strcat(arg3, "\\ ");
           strcat(arg3, arg3exp.we_wordv[i]);

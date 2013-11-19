@@ -1739,8 +1739,6 @@ int add_cluster_addrs(
   int stream) /* I */
 
   {
-  char id[] = "add_cluster_addrs";
-
   int i, j, ret;
 
   struct pbsnode *np;

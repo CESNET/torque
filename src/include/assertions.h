@@ -1,12 +1,17 @@
+#include "log.h"
+#include "pbs_error.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <assert.h>
+
+#if 0
+
 #ifndef ASSERTIONS_H_
 #define ASSERTIONS_H_
 
 #ifndef NDEBUG
 
-#include "log.h"
-#include "pbs_error.h"
-#include <stdlib.h>
-#include <stdio.h>
+
 
 /* TODO provide better solution, this is ugly */
 static char whereami[1024];
@@ -34,6 +39,8 @@ static char whereami[1024];
 #define dbg_precondition(expr, comment) {}
 #define dbg_postcondition(expr, comment) {}
 #define dbg_consistency(expr, comment) {}
+
+#endif
 
 #endif
 

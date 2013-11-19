@@ -1248,6 +1248,7 @@ int pbsd_init(
            the cloning process off at num_cloned. Someone must have been 
            naughty and did a kill -9 on pbs_server  */
         wt = set_task(WORK_Timed, time_now + 1, job_clone_wt, (void*)pjob);
+        (void)wt; /* TODO remove unused variable */
 
         }
 

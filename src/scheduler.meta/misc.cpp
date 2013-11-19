@@ -577,7 +577,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
  */
 int is_num(const char* value)
   {
-  dbg_precondition(value != NULL, "Cannot check null pointer.");
+  assert(value != NULL);
   if (isdigit(*value))
     return 1;
   else

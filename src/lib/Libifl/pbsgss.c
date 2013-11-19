@@ -319,16 +319,16 @@ static void display_status_1(m, code, type)
      OM_uint32 msg_ctx;
      
      msg_ctx = 0;
-     do {
-       maj_stat = gss_display_status(&min_stat, code,
-				     type, GSS_C_NULL_OID,
-				     &msg_ctx, &msg);
-       fprintf(stderr,"%s : %.*s\n",m,
-	       (int)msg.length,
-	       (char *)msg.value);
-	  (void) gss_release_buffer(&min_stat, &msg);
+     do
+       {
+       maj_stat = gss_display_status(&min_stat, code, type, GSS_C_NULL_OID, &msg_ctx, &msg);
+       fprintf(stderr,"%s : %.*s\n",m, (int)msg.length, (char *)msg.value);
+       (void) gss_release_buffer(&min_stat, &msg);
+       }
+     while (msg_ctx != 0);
 
-     } while (msg_ctx != 0);
+     (void)maj_stat;
+     (void)min_stat;
 }
 
 /*

@@ -24,7 +24,7 @@ CheckResult node_info::has_prop(pars_prop* property, bool physical_only)
   {
   bool negative = false;
 
-  dbg_precondition(property != NULL, "This functions does not accept NULL.");
+  assert(property != NULL);
 
   char *prop_name  = property->name;
   char *prop_value = property->value;
@@ -70,7 +70,7 @@ bool node_info::has_prop(const char* property)
   pars_prop *prop;
   CheckResult ret;
 
-  dbg_precondition(property != NULL, "This functions does not accept NULL.");
+  assert(property != NULL);
 
   buf = strdup(property);
   prop = parse_prop(buf);

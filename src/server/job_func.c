@@ -963,6 +963,7 @@ void job_clone_wt(
   if (rn != NULL)
     {
     new_task = set_task(WORK_Timed, time_now + 1, job_clone_wt, ptask->wt_parm1);
+    (void)new_task; /* TODO remove unused variable */
     }
   else
     {

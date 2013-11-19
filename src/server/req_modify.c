@@ -309,6 +309,7 @@ void chkpt_xfr_hold(
   release_req(ptask);
 
   ptasknew = set_task(WORK_Immed, 0, mom_cleanup_checkpoint_hold, (void*)pjob);
+  (void)ptasknew; /* TODO remove unused variable */
 
   return;
   }  /* END chkpt_xfr_hold() */
@@ -326,13 +327,13 @@ void chkpt_xfr_done(
   struct work_task *ptask)
 
   {
+#if 0
   job       *pjob;
-
   struct batch_request *preq;
 
   preq = (struct batch_request *)ptask->wt_parm1;
   pjob = (job *)preq->rq_extra;
-  
+#endif
   release_req(ptask);
 
   return;

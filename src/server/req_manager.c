@@ -1685,6 +1685,8 @@ void mgr_node_unset(
     total_count = 1;
     }
 
+  (void)allnodes; /* TODO remove unused variable */
+
   if (pnode == NULL)
     {
     req_reject(PBSE_UNKQUE, 0, preq, NULL, NULL);

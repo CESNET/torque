@@ -2500,8 +2500,9 @@ void req_jobobit(
     
     free_br(tmppreq);
     }
-
-#endif    /* USESAVEDRESOURCES */
+#else /* USESAVEDRESOURCES */
+  (void)have_resc_used;
+#endif
 
   strncat(mailbuf, (acctbuf + accttail), RESC_USED_BUF - strlen(mailbuf) - 1);
 

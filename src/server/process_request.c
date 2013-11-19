@@ -301,6 +301,10 @@ int get_creds(int sd, char *username, char *hostname)
 #endif
 #endif /* END ENABLE_UNIX_SOCKETS */
 
+#ifdef PBS_MOM
+#include "../resmom/mom_server.h"
+extern mom_server *mom_server_find_by_name(char *name);
+#endif
 
 /*
  * process_request - process an request from the network:
