@@ -6,7 +6,7 @@
 #include "assertions.h"
 #include "misc.h"
 #include "RescInfoDb.h"
-
+#include "site_pbs_cache_scheduler.h"
 
 using namespace std;
 
@@ -20,7 +20,7 @@ CheckResult result_helper(bool result)
     return CheckNonFit;
   }
 
-CheckResult node_info::has_prop(pars_prop* property, bool physical_only)
+CheckResult node_info::has_prop(const pars_prop* property, bool physical_only) const
   {
   bool negative = false;
 
@@ -64,7 +64,7 @@ CheckResult node_info::has_prop(pars_prop* property, bool physical_only)
   return result_helper(negative); /* if negative property and not found return true, otherwise return false */
   }
 
-bool node_info::has_prop(const char* property)
+bool node_info::has_prop(const char* property) const
   {
   char *buf;
   pars_prop *prop;
@@ -83,7 +83,7 @@ bool node_info::has_prop(const char* property)
   return ret == CheckAvailable;
   }
 
-CheckResult node_info::has_proc(job_info *job, pars_spec_node *spec)
+CheckResult node_info::has_proc(const job_info *job, const pars_spec_node *spec) const
   {
   // for admin slots, check the admin slot instead
   if (job->queue->is_admin_queue)
@@ -127,7 +127,7 @@ CheckResult node_info::has_proc(job_info *job, pars_spec_node *spec)
     }
   }
 
-CheckResult node_info::has_mem(job_info *job, pars_spec_node *spec)
+CheckResult node_info::has_mem(const job_info *job, const pars_spec_node *spec) const
   {
   if (job->queue->is_admin_queue)
     return CheckAvailable;
@@ -152,6 +152,15 @@ CheckResult node_info::has_mem(job_info *job, pars_spec_node *spec)
   return CheckAvailable;
   }
 
+unsigned long long node_info::get_mem_total() const
+{
+  struct resource *mem = find_resource(res,"mem");
+  if (mem == NULL)
+    return 0;
+
+  return mem->max;
+}
+
 CheckResult check_scratch_helper(resource *reslist, const char *name, unsigned long long value)
   {
   struct resource *res = find_resource(reslist,name);
@@ -168,7 +177,7 @@ CheckResult check_scratch_helper(resource *reslist, const char *name, unsigned l
   return CheckOccupied;
   }
 
-CheckResult node_info::has_scratch(job_info *job, pars_spec_node *spec, ScratchType *scratch)
+CheckResult node_info::has_scratch(const job_info *job, const pars_spec_node *spec, ScratchType *scratch) const
   {
   if (job->queue->is_admin_queue) // admin jobs skip scratch check
     return CheckAvailable;
@@ -234,7 +243,7 @@ CheckResult node_info::has_scratch(job_info *job, pars_spec_node *spec, ScratchT
   }
 
 
-CheckResult node_info::has_resc(pars_prop *prop)
+CheckResult node_info::has_resc(const pars_prop *prop) const
   {
   if (res_check_type(prop->name) == ResCheckDynamic) // already checked elsewhere
     return CheckAvailable;
@@ -276,15 +285,15 @@ CheckResult node_info::has_resc(pars_prop *prop)
   }
 
 
-CheckResult node_info::has_props_boot(job_info *job, pars_spec_node *spec, repository_alternatives *virt_conf)
+CheckResult node_info::has_props_boot(const job_info *job, const pars_spec_node *spec, const repository_alternatives *virt_conf) const
   {
   CheckResult result = CheckAvailable;
   pars_prop *prop = spec->properties;
 
   while (prop != NULL)
     {
-    CheckResult test_phys = has_prop(prop,true);
-    CheckResult test_virt = (alternative_has_property(virt_conf,prop->name) == 0)?CheckNonFit:CheckAvailable;
+    CheckResult test_phys = this->has_prop(prop,true);
+    CheckResult test_virt = (alternative_has_property(const_cast<repository_alternatives*>(virt_conf),prop->name) == 0)?CheckNonFit:CheckAvailable;
 
     if (test_phys == CheckNonFit && test_virt == CheckNonFit)
       return CheckNonFit;
@@ -298,7 +307,7 @@ CheckResult node_info::has_props_boot(job_info *job, pars_spec_node *spec, repos
   return result;
   }
 
-CheckResult node_info::has_props_run(job_info *job, pars_spec_node *spec)
+CheckResult node_info::has_props_run(const job_info *job, const pars_spec_node *spec) const
   {
   CheckResult result = CheckAvailable;
   pars_prop *prop = spec->properties;
@@ -317,7 +326,7 @@ CheckResult node_info::has_props_run(job_info *job, pars_spec_node *spec)
   return result;
   }
 
-CheckResult node_info::has_spec(job_info *job, pars_spec_node *spec, ScratchType *scratch)
+CheckResult node_info::has_spec(const job_info *job, const pars_spec_node *spec, ScratchType *scratch) const
   {
   CheckResult proc_result = has_proc(job,spec);
   CheckResult mem_result  = has_mem(job,spec);
@@ -340,7 +349,7 @@ CheckResult node_info::has_spec(job_info *job, pars_spec_node *spec, ScratchType
   return CheckAvailable;
   }
 
-CheckResult node_info::has_bootable_state()
+CheckResult node_info::has_bootable_state() const
   {
   // wrong type of node for booting jobs
   if (type != NodeVirtual)
@@ -405,7 +414,7 @@ CheckResult node_info::has_bootable_state()
   return CheckAvailable;
   }
 
-CheckResult node_info::has_runnable_state()
+CheckResult node_info::has_runnable_state() const
   {
   // wrong type of node for running jobs
   if (type == NodeTimeshared || type == NodeCloud)
@@ -442,7 +451,7 @@ CheckResult node_info::has_runnable_state()
   }
 
 
-CheckResult node_info::can_boot_job(job_info *jinfo)
+CheckResult node_info::can_boot_job(const job_info *jinfo) const
   {
   CheckResult result = has_bootable_state();
   if (result == CheckNonFit)
@@ -466,7 +475,7 @@ CheckResult node_info::can_boot_job(job_info *jinfo)
   return result;
   }
 
-CheckResult node_info::can_run_job(job_info *jinfo)
+CheckResult node_info::can_run_job(const job_info *jinfo) const
   {
   CheckResult result = has_runnable_state();
   if (result == CheckNonFit)
@@ -509,7 +518,7 @@ CheckResult node_info::can_run_job(job_info *jinfo)
   return result;
   }
 
-CheckResult node_info::can_fit_job_for_run(job_info *jinfo, pars_spec_node *spec, ScratchType *scratch)
+CheckResult node_info::can_fit_job_for_run(const job_info *jinfo, const pars_spec_node *spec, ScratchType *scratch) const
   {
   CheckResult result;
   CheckResult node_test;
@@ -532,7 +541,7 @@ CheckResult node_info::can_fit_job_for_run(job_info *jinfo, pars_spec_node *spec
   return result;
   }
 
-CheckResult node_info::can_fit_job_for_boot(job_info *jinfo, pars_spec_node *spec, ScratchType *scratch, repository_alternatives **alternative)
+CheckResult node_info::can_fit_job_for_boot(const job_info *jinfo, const pars_spec_node *spec, ScratchType *scratch, repository_alternatives **alternative) const
   {
   CheckResult result;
   CheckResult node_test;
@@ -592,5 +601,111 @@ void node_info::fetch_bootable_alternatives()
   if ((resc = find_resource(this->res,"magrathea")) != NULL)
     {
     this->alternatives = get_bootable_alternatives(this->name,NULL);
+    }
+  }
+
+
+bool node_info::operator < (const node_info& right)
+  {
+  if (this->node_priority > right.node_priority) // bigger number = bigger priority
+    return true;
+  else if (this->node_priority < right.node_priority)
+    return false;
+
+  /* nodes have the same priority, sort by magrathea status
+     - usable for run first
+     - usable for boot next
+  */
+
+  int left_magrathea = 9;
+  int right_magrathea = 9;
+
+  switch (this->magrathea_status)
+    {
+    case MagratheaStateRunningCluster: left_magrathea = 0; break;
+
+    case MagratheaStateRunning:
+    case MagratheaStateRunningPriority: left_magrathea = 1; break;
+
+    case MagratheaStateFree: left_magrathea = 2; break;
+
+    case MagratheaStateRunningPreemptible: left_magrathea = 3; break;
+
+    case MagratheaStateOccupiedWouldPreempt: left_magrathea = 4; break;
+
+    case MagratheaStateDownBootable: left_magrathea = 5; break;
+
+    default: left_magrathea = 9;
+    }
+
+  switch (right.magrathea_status)
+    {
+    case MagratheaStateRunningCluster: right_magrathea = 0; break;
+
+    case MagratheaStateRunning:
+    case MagratheaStateRunningPriority: right_magrathea = 1; break;
+
+    case MagratheaStateFree: right_magrathea = 2; break;
+
+    case MagratheaStateRunningPreemptible: right_magrathea = 3; break;
+
+    case MagratheaStateOccupiedWouldPreempt: right_magrathea = 4; break;
+
+    case MagratheaStateDownBootable: right_magrathea = 5; break;
+
+    default: right_magrathea = 9;
+    }
+
+  if (this->type != NodeVirtual) left_magrathea = -1;
+  if (right.type != NodeVirtual) right_magrathea = -1;
+
+  if (left_magrathea < right_magrathea)
+    return true;
+  else if (left_magrathea > right_magrathea)
+    return false;
+
+  // nodes have the same priority and magrathea status
+  // schedule nodes with smaller gaps first
+
+  if (this->p_core_free < right.p_core_free)
+    return true;
+  else if (this->p_core_free > right.p_core_free)
+    return false;
+
+  return strcmp(this->name,right.name) < 0;
+  }
+
+void node_info::process_magrathea_status()
+  {
+  resource *res_magrathea;
+  res_magrathea = find_resource(this->res, "magrathea");
+
+  if (res_magrathea == NULL || magrathea_decode_new(res_magrathea,&this->magrathea_status) != 0)
+    {
+    this->magrathea_status = MagratheaStateNone;
+    return;
+    }
+
+  if (this->jobs != NULL && this->jobs[0] != NULL)
+    {
+    // if there are already jobs on this node, the magrathea state can't be free/down-bootable
+    if (this->magrathea_status == MagratheaStateDownBootable || this->magrathea_status == MagratheaStateFree)
+      {
+      this->magrathea_status = MagratheaStateNone;
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, this->name, "Node had inconsistent magrathea state.");
+      return;
+      }
+    }
+
+  if (this->host != NULL)
+  if (this->host->jobs != NULL && this->host->jobs[0] != NULL)
+    {
+    // if the host already has jobs, the magrathea state can't be down-bootable
+    if (this->magrathea_status == MagratheaStateDownBootable)
+      {
+      this->magrathea_status = MagratheaStateNone;
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, this->name, "Node had inconsistent magrathea state.");
+      return;
+      }
     }
   }

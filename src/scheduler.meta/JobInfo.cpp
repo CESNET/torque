@@ -2,9 +2,11 @@
 #include "misc.h"
 #include "data_types.h"
 #include "nodespec_sch.h"
-
+#include "NodeFilters.h"
+#include "NodeSort.h"
 #include "RescInfoDb.h"
 
+#include <algorithm>
 using namespace std;
 
 bool job_info::on_host(node_info *ninfo)
@@ -152,3 +154,48 @@ void job_info::plan_on_server(server_info* sinfo)
     }
   }
 
+int job_info::preprocess()
+  {
+  const char* processed_nodespec;
+  if (this->nodespec == NULL || this->nodespec[0] == '\0')
+    processed_nodespec = "1:ppn=1";
+  else
+    processed_nodespec = this->nodespec;
+
+  if ((this->parsed_nodespec = parse_nodespec(processed_nodespec)) == NULL)
+    return SCHD_ERROR;
+
+  /* setup some side values, that need parsed nodespec to be determined */
+  this->is_exclusive = this->parsed_nodespec->is_exclusive;
+  this->is_multinode = (this->parsed_nodespec->total_nodes > 1)?1:0;
+
+  return SUCCESS;
+  }
+
+double job_info::calculate_fairshare_cost(const vector<node_info*>& nodes) const
+  {
+  double fairshare_cost = 0;
+
+  pars_spec_node *iter = this->parsed_nodespec->nodes;
+  while (iter != NULL)
+    {
+    vector<node_info*> fairshare_nodes; // construct possible nodes
+    NodeSuitableForSpec::filter_fairshare(nodes,fairshare_nodes,this,iter);
+    sort(fairshare_nodes.begin(),fairshare_nodes.end(),NodeCostSort(iter->procs,iter->mem));
+
+    unsigned i = 0;
+    for (unsigned count = 0; count < iter->node_count; count++)
+      {
+      while (fairshare_nodes[i]->temp_fairshare_used)
+        i++;
+
+      unsigned long long node_procs = fairshare_nodes[i]->get_proc_total();
+      unsigned long long node_mem   = fairshare_nodes[i]->get_mem_total();
+      fairshare_cost += max(static_cast<double>(iter->mem)/node_mem,static_cast<double>(iter->procs)/node_procs)*node_procs;
+      fairshare_nodes[i]->temp_fairshare_used = true;
+      }
+    iter = iter->next;
+    }
+
+  return fairshare_cost;
+  }

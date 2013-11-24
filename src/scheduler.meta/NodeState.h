@@ -19,14 +19,14 @@ class NodeState
   public:
     void reset_state(const char *state);
 
-    bool is_down() { return p_is_down; }
-    bool is_free() { return p_is_free; }
-    bool is_offline() { return p_is_offline; }
-    bool is_unknown() { return p_is_unknown; }
-    bool is_reserved() { return p_is_reserved; }
-    bool is_busy() { return p_is_busy; }
-    bool is_job_exclusive() { return p_is_job_excl; }
-    bool is_job_shared() { return p_is_job_share; }
+    bool is_down() const { return p_is_down; }
+    bool is_free() const { return p_is_free; }
+    bool is_offline() const { return p_is_offline; }
+    bool is_unknown() const { return p_is_unknown; }
+    bool is_reserved() const { return p_is_reserved; }
+    bool is_busy() const { return p_is_busy; }
+    bool is_job_exclusive() const { return p_is_job_excl; }
+    bool is_job_shared() const { return p_is_job_share; }
 
   protected:
     NodeState();

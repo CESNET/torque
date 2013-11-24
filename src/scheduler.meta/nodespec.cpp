@@ -17,92 +17,27 @@ extern "C" {
 
 #include "RescInfoDb.h"
 
+#include "NodeFilters.h"
+#include "NodeSort.h"
+
 #include <sstream>
 #include <cassert>
+#include <algorithm>
 using namespace std;
 
-/** Phony test, real test done in check.c */
-int is_dynamic_resource(pars_prop* property)
+static int assign_node(job_info *jinfo, pars_spec_node *spec, const vector<node_info*>& suitable_nodes)
   {
-  if (res_check_type(property->name) == ResCheckDynamic)
-    return 1;
-  else
-    return 0;
-  }
-
-void node_set_magrathea_status(node_info *ninfo)
-  {
-  resource *res_magrathea;
-  res_magrathea = find_resource(ninfo->res, "magrathea");
-
-  if (res_magrathea != NULL)
-    {
-    if (magrathea_decode_new(res_magrathea,&ninfo->magrathea_status) != 0)
-      ninfo->magrathea_status = MagratheaStateNone;
-    }
-  else
-    {
-    ninfo->magrathea_status = MagratheaStateNone;
-    }
-
-  if (ninfo->jobs != NULL && ninfo->jobs[0] != NULL)
-    {
-    // if there are already jobs on this node, the magrathea state can't be free/down-bootable
-    if (ninfo->magrathea_status == MagratheaStateDownBootable || ninfo->magrathea_status == MagratheaStateFree)
-      {
-      ninfo->magrathea_status = MagratheaStateNone;
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, ninfo->name, "Node had inconsistent magrathea state.");
-      }
-    }
-
-  if (ninfo->host != NULL)
-  if (ninfo->host->jobs != NULL && ninfo->host->jobs[0] != NULL)
-    {
-    /*
-    if (ninfo->magrathea_status == MagratheaStateFree)
-      ninfo->magrathea_status = MagratheaStateNone;
-    if (ninfo->magrathea_status == MagratheaStateRunning)
-      ninfo->magrathea_status = MagratheaStateNone;
-    if (ninfo->magrathea_status == MagratheaStateRunningPreemptible)
-      ninfo->magrathea_status = MagratheaStateNone;
-    if (ninfo->magrathea_status == MagratheaStateRunningPriority)
-      ninfo->magrathea_status = MagratheaStateNone;
-    */
-
-    // if the host already has jobs, the magrathea state can't be down-bootable
-    if (ninfo->magrathea_status == MagratheaStateDownBootable)
-      {
-      ninfo->magrathea_status = MagratheaStateNone;
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, ninfo->name, "Node had inconsistent magrathea state.");
-      }
-    }
-  }
-
-static int assign_node(job_info *jinfo, pars_spec_node *spec, int avail_nodes, node_info **ninfo_arr)
-  {
-  int i;
   ScratchType scratch = ScratchNone;
-  int fit_nonfit = 0, fit_occupied = 0;
-  repository_alternatives *ra;
+  int fit_occupied = 0;
+  repository_alternatives *ra = NULL;
   CheckResult node_test;
 
-  for (i = 0; i < avail_nodes; i++) /* for each node */
+  for (size_t i = 0; i < suitable_nodes.size(); i++) /* for each node */
     {
-    if (ninfo_arr[i]->temp_assign != NULL)
-      {
-      fit_occupied++;
-      continue;
-      }
-
     // jobs requesting runs
     if (jinfo->cluster_mode != ClusterCreate)
       {
-      if ((node_test = ninfo_arr[i]->can_fit_job_for_run(jinfo,spec,&scratch)) == CheckNonFit)
-        {
-        ++fit_nonfit;
-        continue;
-        }
-      else if (node_test == CheckOccupied)
+      if ((node_test = suitable_nodes[i]->can_fit_job_for_run(jinfo,spec,&scratch)) != CheckAvailable)
         {
         ++fit_occupied;
         continue;
@@ -110,116 +45,79 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, int avail_nodes, n
       }
     else if (jinfo->cluster_mode == ClusterCreate)
       {
-      if ((node_test = ninfo_arr[i]->can_fit_job_for_boot(jinfo,spec,&scratch,&ra)) == CheckNonFit)
-        {
-        ++fit_nonfit;
-        continue;
-        }
-      else if (node_test == CheckOccupied)
+      if ((node_test = suitable_nodes[i]->can_fit_job_for_boot(jinfo,spec,&scratch,&ra)) != CheckAvailable)
         {
         ++fit_occupied;
         continue;
         }
       }
 
-    ninfo_arr[i]->temp_assign = clone_pars_spec_node(spec);
-    ninfo_arr[i]->temp_assign_scratch = scratch;
+    suitable_nodes[i]->temp_assign = clone_pars_spec_node(spec);
+    suitable_nodes[i]->temp_assign_scratch = scratch;
 
     if (ra != NULL)
-      ninfo_arr[i]->temp_assign_alternative = ra;
+      suitable_nodes[i]->temp_assign_alternative = ra;
     else
-      ninfo_arr[i]->temp_assign_alternative = NULL; /* FIXME META Prepsat do citelneho stavu */
+      suitable_nodes[i]->temp_assign_alternative = NULL; /* FIXME META Prepsat do citelneho stavu */
 
     return 0;
     }
 
-  if (fit_nonfit == avail_nodes)
-    {
-    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Nodespec doesn't match any nodes. Job held.");
-    return 2;
-    }
-
-  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Nodespec not matched: %d total nodes, %d not fit, %d occupied.", avail_nodes, fit_nonfit, fit_occupied);
+  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Nodespec not matched: %d suitable, %d occupied.", suitable_nodes.size(), fit_occupied);
   return 1;
   }
 
 
-static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, int avail_nodes, node_info **ninfo_arr)
+static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, const vector<node_info*>& nodes)
   {
-  int i;
-  repository_alternatives* ra;
-  ScratchType scratch = ScratchNone;
-  int fit_nonfit = 0, starving = 0;
-  CheckResult node_test;
+  int starving = 0;
 
-  for (i = 0; i < avail_nodes; i++) /* for each node */
+  vector<node_info*> suitable_nodes;
+  NodeSuitableForSpec::filter_starving(nodes,suitable_nodes,jinfo,spec);
+
+  for (size_t i = 0; i < suitable_nodes.size(); i++) /* for each node */
     {
-    if (ninfo_arr[i]->no_starving_jobs || ninfo_arr[i]->temp_assign != NULL)
-      {
-      ++fit_nonfit;
-      continue;
-      }
-
-    // jobs requesting runs
-    if (jinfo->cluster_mode != ClusterCreate)
-      {
-      if ((node_test = ninfo_arr[i]->can_fit_job_for_run(jinfo,spec,&scratch)) == CheckNonFit)
-        {
-        ++fit_nonfit;
-        continue;
-        }
-      }
-    else if (jinfo->cluster_mode == ClusterCreate)
-      {
-      if ((node_test = ninfo_arr[i]->can_fit_job_for_boot(jinfo,spec,&scratch,&ra)) == CheckNonFit)
-        {
-        ++fit_nonfit;
-        continue;
-        }
-      }
-
     ++starving;
-    jinfo->plan_on_node(ninfo_arr[i],spec);
-    continue;
+    jinfo->plan_on_node(suitable_nodes[i],spec);
     }
 
-  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Starving job: %d total nodes, %d starved nodes.", avail_nodes, starving);
+  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Starving job: %d total nodes, %d starved nodes.", nodes.size(), starving);
   return 1;
   }
-
 
 int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info **ninfo_arr, int preassign_starving)
   {
-  /* read the nodespec, has to be sent from server */
-  const char *node_spec = jinfo->nodespec;
-  if ( node_spec == NULL || node_spec[0] == '\0')
-    {
-    sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER,
-        jinfo->name,"No nodespec was provided for this job, assuming 1:ppn=1.");
-    node_spec = "1:ppn=1";
-    }
-
-  /* re-parse the nodespec */
-  pars_spec *spec;
-  if ((spec = parse_nodespec(node_spec)) == NULL)
-    return SCHD_ERROR;
-
-  /* setup some side values, that need parsed nodespec to be determined */
-  jinfo->is_exclusive = spec->is_exclusive;
-  jinfo->is_multinode = (spec->total_nodes > 1)?1:0;
-
   int missed_nodes = 0;
   CheckResult result = CheckAvailable;
 
+  vector<node_info*> nodes(&ninfo_arr[0],&ninfo_arr[nodecount]);
+
+  // nodes suitable for job
+  vector<node_info*> suitable_nodes;
+  NodeSuitableForJob::filter(nodes,suitable_nodes,jinfo);
+
   /* for each part of the nodespec, try to assign the requested amount of nodes */
-  pars_spec_node *iter;
-  iter = spec->nodes;
+  pars_spec_node *iter = jinfo->parsed_nodespec->nodes;
   while (iter != NULL)
     {
+    // nodes suitable for nodespec
+    vector<node_info*> fit_nodes;
+    NodeSuitableForSpec::filter_assign(suitable_nodes,fit_nodes,jinfo,iter);
+
+    if (fit_nodes.size() < iter->node_count)
+      {
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Nodespec doesn't match enough nodes. Job held.");
+      nodes_preassign_clean(ninfo_arr,nodecount);
+      return REQUEST_NOT_MATCHED;
+      }
+
+    // sort nodes according to state & schedule
+    sort(fit_nodes.begin(),fit_nodes.end(),NodeStateSort());
+
     for (unsigned i = 0; i < iter->node_count; i++)
       {
       int ret;
-      if ((ret = assign_node(jinfo,iter,nodecount,ninfo_arr)) == 2)
+      if ((ret = assign_node(jinfo,iter,fit_nodes)) == 2)
         {
         result = CheckNonFit;
         break;
@@ -241,7 +139,6 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
   if (result == CheckNonFit)
     {
     nodes_preassign_clean(ninfo_arr,nodecount);
-    free_parsed_nodespec(spec);
     return REQUEST_NOT_MATCHED;
     }
 
@@ -249,28 +146,27 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
     {
     if (jinfo->queue->is_admin_queue)
       {
-      free_parsed_nodespec(spec);
       return NODESPEC_NOT_ENOUGH_NODES_TOTAL;
       }
+
     nodes_preassign_clean(ninfo_arr,nodecount);
     if (jinfo->is_starving) /* if starving, eat out the resources anyway */
       {
-      iter = spec->nodes;
+      iter = jinfo->parsed_nodespec->nodes;
       while (iter != NULL)
         {
-        assign_all_nodes(jinfo, iter, nodecount, ninfo_arr);
+        assign_all_nodes(jinfo, iter, suitable_nodes);
         iter = iter->next;
         }
       jinfo->plan_on_server(sinfo);
       jinfo->plan_on_queue(jinfo->queue);
       }
 
-    free_parsed_nodespec(spec);
     return NODESPEC_NOT_ENOUGH_NODES_TOTAL;
     }
 
-  free_parsed_nodespec(spec);
-
+  double fairshare_cost = jinfo->calculate_fairshare_cost(suitable_nodes); // TODO pass upwards
+  (void)fairshare_cost;
   return SUCCESS; /* if we reached this point, we are done */
   }
 
@@ -294,6 +190,7 @@ void nodes_preassign_clean(node_info **ninfo_arr, int count)
 
     ninfo_arr[i]->temp_assign = NULL;
     ninfo_arr[i]->temp_assign_alternative = NULL;
+    ninfo_arr[i]->temp_fairshare_used = false;
     }
   }
 

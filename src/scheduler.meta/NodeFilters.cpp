@@ -1,0 +1,66 @@
+#include "NodeFilters.h"
+using namespace std;
+
+NodeSuitableForJob::NodeSuitableForJob(const job_info *jinfo) : p_jinfo(jinfo) {}
+
+bool NodeSuitableForJob::operator ()(const node_info* node) const
+  {
+  if (p_jinfo->cluster_mode != ClusterCreate && node->can_run_job(p_jinfo) == CheckNonFit)
+    return false;
+  if (p_jinfo->cluster_mode == ClusterCreate && node->can_boot_job(p_jinfo) == CheckNonFit)
+    return false;
+  return true;
+  }
+
+NodeSuitableForSpec::NodeSuitableForSpec(const job_info *jinfo, const pars_spec_node *spec, SuitableNodeFilterMode mode) : p_jinfo(jinfo), p_spec(spec), p_mode(mode) {}
+
+bool NodeSuitableForSpec::operator()(const node_info* node) const
+  {
+  ScratchType scratch = ScratchNone;
+  repository_alternatives *ra;
+
+  if (p_mode == SuitableAssignMode && node->temp_assign != NULL)
+    return false;
+  if (p_mode == SuitableStarvingMode && node->no_starving_jobs)
+    return false;
+  if (p_mode == SuitableFairshareMode && node->temp_fairshare_used)
+    return false;
+  if (p_jinfo->cluster_mode != ClusterCreate && node->can_fit_job_for_run(p_jinfo,p_spec,&scratch) == CheckNonFit)
+    return false;
+  if (p_jinfo->cluster_mode == ClusterCreate && node->can_fit_job_for_boot(p_jinfo,p_spec,&scratch,&ra) == CheckNonFit)
+    return false;
+
+  return true;
+  }
+
+namespace {
+template < typename T >
+void filter_nodes(const vector<node_info*>& nodes, vector<node_info*>& output, const T &filter)
+  {
+  output.reserve(nodes.size());
+
+  for (size_t i = 0; i < nodes.size(); ++i)
+    if (filter(nodes[i]))
+      output.push_back(nodes[i]);
+  }
+}
+
+void NodeSuitableForSpec::filter_fairshare(const vector<node_info*>& nodes, vector<node_info*>& result, const job_info* jinfo, const pars_spec_node* spec)
+  {
+  filter_nodes(nodes,result,NodeSuitableForSpec(jinfo,spec,SuitableFairshareMode));
+  }
+
+void NodeSuitableForSpec::filter_starving(const vector<node_info*>& nodes, vector<node_info*>& result, const job_info* jinfo, const pars_spec_node* spec)
+  {
+  filter_nodes(nodes,result,NodeSuitableForSpec(jinfo,spec,SuitableStarvingMode));
+  }
+
+void NodeSuitableForSpec::filter_assign(const vector<node_info*>& nodes, vector<node_info*>& result, const job_info* jinfo, const pars_spec_node* spec)
+  {
+  filter_nodes(nodes,result,NodeSuitableForSpec(jinfo,spec,SuitableAssignMode));
+  }
+
+void NodeSuitableForJob::filter(const vector<node_info*>& nodes, vector<node_info*>& result, const job_info* jinfo)
+  {
+  filter_nodes(nodes,result,NodeSuitableForJob(jinfo));
+  }

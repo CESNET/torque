@@ -44,7 +44,8 @@ void free_pars_prop(pars_prop **prop)
   {
   pars_prop *tmp;
 
-  assert(prop != NULL && (*prop) != NULL);
+  if (prop == NULL || *prop == NULL)
+    return;
 
   tmp = *prop;
   /* keep the list linked */
@@ -245,7 +246,8 @@ void free_pars_spec_node(pars_spec_node **node)
   {
   pars_spec_node *tmp;
 
-  assert(node != NULL && (*node) != NULL);
+  if (node == NULL || *node == NULL)
+    return;
 
   free((*node)->alternative);
   (*node)->alternative = NULL;
@@ -541,7 +543,8 @@ pars_spec *init_pars_spec()
 
 void free_parsed_nodespec(pars_spec *nodespec)
   {
-  assert(nodespec != NULL);
+  if (nodespec == NULL)
+    return;
 
   while (nodespec->nodes != NULL)
     {

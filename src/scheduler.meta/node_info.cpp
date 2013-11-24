@@ -351,6 +351,7 @@ node_info *new_node_info()
   tmp->temp_assign = NULL;
   tmp->temp_assign_scratch = ScratchNone;
   tmp->temp_assign_alternative = NULL;
+  tmp->temp_fairshare_used = false;
 
   tmp -> res = NULL;
 

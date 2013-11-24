@@ -366,6 +366,8 @@ job_info *new_job_info()
 
   jinfo -> nodespec = NULL;
 
+  jinfo -> parsed_nodespec = NULL;
+
   return jinfo;
   }
 
@@ -455,6 +457,7 @@ void free_job_info(job_info *jinfo)
   free_resource_req_list(jinfo -> resused);
   free(jinfo -> cluster_name);
   free(jinfo -> nodespec);
+  free_parsed_nodespec(jinfo -> parsed_nodespec);
   delete jinfo;
   }
 

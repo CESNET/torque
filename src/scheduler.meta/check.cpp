@@ -166,6 +166,12 @@ int is_ok_to_run_job(server_info *sinfo, queue_info *qinfo,
   {
   int rc;                       /* Return Code */
 
+  if ((rc = jinfo->preprocess()) != SUCCESS)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Couldn't process jobs nodespec.");
+    return rc;
+    }
+
   if ((rc = check_server_max_run(sinfo)))
     {
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Job isn't eligible for run, because server limit of running jobs was already reached.");

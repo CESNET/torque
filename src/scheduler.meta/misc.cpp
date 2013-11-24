@@ -560,8 +560,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
   /* decode magrathea status */
   for (i=0; i<sinfo->num_nodes; i++)
     {
-    node=sinfo->nodes[i];
-    node_set_magrathea_status(node);
+    sinfo->nodes[i]->process_magrathea_status();
     }
 
   return;

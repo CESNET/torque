@@ -153,8 +153,6 @@ server_info *query_server(int pbs_sd)
     sinfo->nodes[i]->fetch_bootable_alternatives();
     }
 
-  sort_nodes(sinfo,cmp_magrathea);
-
   /* get the queues */
   if ((sinfo -> queues = query_queues(pbs_sd, sinfo)) == NULL)
     {

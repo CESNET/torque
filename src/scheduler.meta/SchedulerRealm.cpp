@@ -278,8 +278,7 @@ void World::update_last_running()
 int World::try_run_job(job_info *jinfo)
   {
   int booting = 0;
-  char *best_node_name = NULL;
-  best_node_name = nodes_preassign_string(jinfo, p_info->nodes, p_info->num_nodes, &booting);
+  char *best_node_name = nodes_preassign_string(jinfo, p_info->nodes, p_info->num_nodes, &booting);
 
   int ret = 0;
 
@@ -322,6 +321,8 @@ int World::try_run_job(job_info *jinfo)
       update_job_comment(socket, jinfo, COMMENT_NODE_STILL_BOOTING);
     ret = 0;
     }
+
+  free(best_node_name); // cleanup memory
 
   if (ret == 0)
     {
@@ -422,12 +423,13 @@ void World::run()
         break;
         }
 
-//      JobLog log(string(jinfo->name));
-
       int ret;
       if ((ret = is_ok_to_run_job(p_info, jinfo->queue, jinfo, 0)) == SUCCESS)
         {
         active_cycle = true;
+
+        // finish fairshare calculation
+        // CALCULATE MIN SPEC
 
         sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Trying to execute job.");
 

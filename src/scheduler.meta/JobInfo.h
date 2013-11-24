@@ -32,6 +32,7 @@ struct job_info
   char *custom_name; /**< user selected job/cluster name */
 
   char *nodespec; /**< processed nodespec from the server */
+  pars_spec *parsed_nodespec;
 
   struct queue_info *queue; /* queue where job resides */
   int priority;   /* PBS priority of job */
@@ -40,6 +41,8 @@ struct job_info
   resource_req *resreq;  /* list of resources requested */
   resource_req *resused; /* a list of resources used */
   group_info *ginfo;  /* the fair share node for the owner */
+
+  double fairshare_mult;
 
   std::map< std::string, std::vector<pars_spec_node*> > schedule; /* currently considered schedule */
 
@@ -51,6 +54,10 @@ struct job_info
   void plan_on_node(node_info* ninfo, pars_spec_node* spec);
   void plan_on_queue(queue_info* qinfo);
   void plan_on_server(server_info* sinfo);
+
+  int preprocess();
+
+  double calculate_fairshare_cost(const std::vector<node_info *>& nodes) const;
   };
 
 #endif /* JOBINFO_H_ */
