@@ -178,7 +178,6 @@ int    ForceServerUpdate = 0;
 
 int    verbositylevel = 0;
 double cputfactor = 1.00;
-double machine_performance = 20.0;
 unsigned int default_server_port = 0;
 int    exiting_tasks = 0;
 float  ideal_load_val = -1.0;
@@ -407,8 +406,6 @@ static unsigned long setremchkptdirlist(char *);
 static unsigned long setmaxconnecttimeout(char *);
 static unsigned long setkilldelay(char *);
 static unsigned long setlbreportusageinterval(char *);
-static unsigned long setcpufactor(char*);
-
 
 static struct specials
   {
@@ -477,7 +474,6 @@ static struct specials
   { "max_conn_timeout_micro_sec",   setmaxconnecttimeout },
   { "kill_delay",          setkilldelay },
   { "lb_report_usage_interval", setlbreportusageinterval },
-  { "cpu_factor", setcpufactor },
   { NULL,                  NULL }
   };
 
@@ -2113,24 +2109,6 @@ static u_long cputmult(
 
   return(1);
   }  /* END cputmult() */
-
-static u_long setcpufactor(
-
-  char *value)  /* I */
-
-  {
-  static char id[] = "cpufactor";
-
-  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, id, value);
-
-  if ((machine_performance = atof(value)) == 0.0)
-    {
-    return(0); /* error */
-    }
-
-  return(1);
-  }  /* END cpufactor() */
-
 
 
 static u_long wallmult(
