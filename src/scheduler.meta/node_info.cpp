@@ -260,6 +260,12 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
     else if (!strcmp(attrp -> name, ATTR_NODE_no_multinode_jobs))
       ninfo -> no_multinode_jobs = !strcmp(attrp -> value,"True");
 
+    // fairshare
+    else if (!strcmp(attrp -> name, ATTR_NODE_fairshare_coef))
+      ninfo -> node_cost = atof(attrp->value);
+    else if (!strcmp(attrp -> name, ATTR_NODE_machine_spec))
+      ninfo -> node_spec = atof(attrp->value);
+
     else if (!strcmp(attrp -> name, ATTR_NODE_queue))
       {
       ninfo->queue = strdup(attrp->value);

@@ -22,6 +22,7 @@ extern "C" {
 
 #include <sstream>
 #include <cassert>
+#include <cmath>
 #include <algorithm>
 using namespace std;
 
@@ -165,8 +166,7 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
     return NODESPEC_NOT_ENOUGH_NODES_TOTAL;
     }
 
-  double fairshare_cost = jinfo->calculate_fairshare_cost(suitable_nodes); // TODO pass upwards
-  (void)fairshare_cost;
+  jinfo->calculated_fairshare = jinfo->calculate_fairshare_cost(suitable_nodes);
   return SUCCESS; /* if we reached this point, we are done */
   }
 
@@ -283,11 +283,14 @@ static void get_target_full(stringstream& s, job_info *jinfo, node_info *ninfo)
  * @param ninfo_arr List of nodes to parse
  * @return Allocated string containing the targets
  */
-char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, int *booting)
+char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, int &booting, double &minspec)
   {
   stringstream s;
   bool first = true;
   int i;
+
+  booting = 0;
+  minspec = NAN;
 
   assert(ninfo_arr != NULL);
 
@@ -295,7 +298,7 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, 
     {
     if (ninfo_arr[i]->temp_assign != NULL && ninfo_arr[i]->magrathea_status == MagratheaStateBooting)
       {
-      *booting = 1;
+      booting = 1;
       return NULL;
       }
     }
@@ -307,6 +310,11 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, 
       if (!first) s << "+";
       first = false;
       get_target_full(s,jinfo,ninfo_arr[i]);
+
+      if (minspec == NAN)
+        minspec = ninfo_arr[i]->node_spec;
+      else
+        minspec = min(minspec,ninfo_arr[i]->node_spec);
       }
     }
 

@@ -150,7 +150,7 @@ node_info *find_node_info(char *nodename, node_info **ninfo_arr);
  */
 void print_node(node_info *ninfo, int brief);
 
-char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, int *booting);
+char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, int &booting, double &minspec);
 void nodes_preassign_clean(node_info **ninfo_arr, int count);
 int nodes_preassign(const char *matching_spec, node_info **ninfo_arr, int count, int needcount);
 void node_set_magrathea_status(node_info *ninfo);

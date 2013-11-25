@@ -278,7 +278,9 @@ void World::update_last_running()
 int World::try_run_job(job_info *jinfo)
   {
   int booting = 0;
-  char *best_node_name = nodes_preassign_string(jinfo, p_info->nodes, p_info->num_nodes, &booting);
+  double minspec = 0;
+  char *best_node_name = nodes_preassign_string(jinfo, p_info->nodes, p_info->num_nodes, booting, minspec);
+
 
   int ret = 0;
 
@@ -297,6 +299,9 @@ int World::try_run_job(job_info *jinfo)
     {
     socket = p_connections.get_master_connection();
     }
+
+  double final_fairshare = minspec * jinfo->queue->queue_cost * jinfo->calculated_fairshare;
+  update_job_fairshare(socket, jinfo, final_fairshare);
 
   if (!booting)
     {

@@ -789,6 +789,29 @@ int update_job_comment(int pbs_sd, job_info *jinfo, const char *comment)
   return 1;
   }
 
+int update_job_fairshare(int pbs_sd, job_info *jinfo, double fairshare)
+  {
+  /* the pbs_alterjob() call takes a linked list of attrl structures to alter
+   * a job.  All we are interested in doing is changing the comment.
+   */
+
+  struct attrl attr =
+    {
+    NULL, (char*)ATTR_fairshare_cost, NULL, NULL, SET
+    };
+
+  if (jinfo == NULL)
+    return 1;
+
+  char value[80] = { 0 };
+
+  sprintf(value,"%.3f",fairshare);
+
+  pbs_alterjob(pbs_sd, jinfo -> name, &attr, NULL);
+
+  return 0;
+  }
+
 /*
  *
  * update_jobs_cant_run - update an array of jobs which can not run

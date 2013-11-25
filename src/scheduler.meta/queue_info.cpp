@@ -402,6 +402,10 @@ queue_info *query_queue_info(struct batch_status *queue, server_info *sinfo)
 
       qinfo->starving_support = count;
       }
+    else if (!strcmp(attrp -> name, ATTR_fairshare_coef)) /* starving support */
+      {
+      qinfo->queue_cost = atof(attrp -> value);
+      }
     else if (!strcmp(attrp -> name, ATTR_admin_queue))
       {
       if (!strcmp(attrp -> value, "True"))
@@ -493,6 +497,8 @@ queue_info *new_queue_info()
   qinfo -> excl_node_count = 0;
   qinfo -> excl_node_capacity = 0;
   qinfo -> excl_nodes = NULL;
+
+  qinfo -> queue_cost = 1.0;
 
   return qinfo;
   }

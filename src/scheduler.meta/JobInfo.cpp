@@ -191,7 +191,7 @@ double job_info::calculate_fairshare_cost(const vector<node_info*>& nodes) const
 
       unsigned long long node_procs = fairshare_nodes[i]->get_proc_total();
       unsigned long long node_mem   = fairshare_nodes[i]->get_mem_total();
-      fairshare_cost += max(static_cast<double>(iter->mem)/node_mem,static_cast<double>(iter->procs)/node_procs)*node_procs;
+      fairshare_cost += max(static_cast<double>(iter->mem)/node_mem,static_cast<double>(iter->procs)/node_procs)*node_procs*fairshare_nodes[i]->node_cost;
       fairshare_nodes[i]->temp_fairshare_used = true;
       }
     iter = iter->next;

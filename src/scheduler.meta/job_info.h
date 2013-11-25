@@ -162,6 +162,7 @@ void update_job_on_run(int pbs_sd, job_info *jinfo);
  *      update_job_comment - update a jobs comment attribute
  */
 int update_job_comment(int pbs_sd, job_info *jinfo, const char *comment);
+int update_job_fairshare(int pbs_sd, job_info *jinfo, double fairshare);
 
 /*
  *      update_jobs_cant_run - update an array of jobs which can not run

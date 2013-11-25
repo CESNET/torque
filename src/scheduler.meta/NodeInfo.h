@@ -54,6 +54,10 @@ unsigned is_usable_for_boot : 1; /* node is usable for booting jobs */
 
   std::string scratch_pool;
 
+  // fairshare
+  double node_cost;
+  double node_spec;
+
   CheckResult has_prop(const pars_prop* property, bool physical_only) const;
   bool has_prop(const char* property) const;
 
@@ -115,7 +119,7 @@ private:
   bool p_exclusively_assigned;
 
 public:
-  node_info() : p_core_total(0), p_core_free(0), p_core_assigned(0), p_admin_slot_enabled(false), p_admin_slot_avail(false), p_exclusively_assigned(false) {}
+  node_info() : node_cost(1.0), node_spec(10.0), p_core_total(0), p_core_free(0), p_core_assigned(0), p_admin_slot_enabled(false), p_admin_slot_avail(false), p_exclusively_assigned(false) {}
   };
 
 #endif /* NODEINFO_H_ */

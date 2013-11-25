@@ -231,6 +231,8 @@ unsigned is_admin_queue : 1; /* admin job queue */
   unsigned excl_node_count;
   unsigned excl_node_capacity;
   node_info **excl_nodes;
+
+  double queue_cost;
   };
 
 #include "JobInfo.h"

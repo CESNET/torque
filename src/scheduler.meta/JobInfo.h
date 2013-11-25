@@ -42,7 +42,7 @@ struct job_info
   resource_req *resused; /* a list of resources used */
   group_info *ginfo;  /* the fair share node for the owner */
 
-  double fairshare_mult;
+  double calculated_fairshare;
 
   std::map< std::string, std::vector<pars_spec_node*> > schedule; /* currently considered schedule */
 
