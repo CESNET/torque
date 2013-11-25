@@ -257,6 +257,8 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
       jinfo -> account = strdup(attrp -> value);
     else if (!strcmp(attrp -> name, ATTR_egroup))    /* group name */
       jinfo -> group = strdup(attrp -> value);
+    else if (!strcmp(attrp -> name, ATTR_fairshare_cost))
+      jinfo -> calculated_fairshare = atof(attrp->value);
     else if (!strcmp(attrp -> name, ATTR_l))    /* resources requested*/
       {
       /* special handling for cluster */
@@ -367,6 +369,8 @@ job_info *new_job_info()
   jinfo -> nodespec = NULL;
 
   jinfo -> parsed_nodespec = NULL;
+
+  jinfo -> calculated_fairshare = -1;
 
   return jinfo;
   }
@@ -806,6 +810,7 @@ int update_job_fairshare(int pbs_sd, job_info *jinfo, double fairshare)
   char value[80] = { 0 };
 
   sprintf(value,"%.3f",fairshare);
+  attr.value = value;
 
   pbs_alterjob(pbs_sd, jinfo -> name, &attr, NULL);
 

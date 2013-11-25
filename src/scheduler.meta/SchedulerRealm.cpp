@@ -175,9 +175,17 @@ void World::update_fairshare()
 
       if (jobs[j] != NULL)
         {
-        resource_req *tmp = find_resource_req(jobs[j]->resreq, "procs");
-        user -> usage += (calculate_usage_value(jobs[j] -> resused) -
-                         calculate_usage_value(p_last_running[i].resused))*tmp->amount;
+        if (jobs[j]->calculated_fairshare != -1)
+          {
+          user -> usage += (calculate_usage_value(jobs[j] -> resused) -
+                           calculate_usage_value(p_last_running[i].resused))*jobs[j]->calculated_fairshare;
+          }
+        else
+          {
+          resource_req *tmp = find_resource_req(jobs[j]->resreq, "procs");
+          user -> usage += (calculate_usage_value(jobs[j] -> resused) -
+              calculate_usage_value(p_last_running[i].resused))*tmp->amount;
+          }
         }
       }
 

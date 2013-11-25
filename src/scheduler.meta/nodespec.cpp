@@ -290,7 +290,7 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, 
   int i;
 
   booting = 0;
-  minspec = NAN;
+  minspec = -1;
 
   assert(ninfo_arr != NULL);
 
@@ -311,7 +311,7 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, 
       first = false;
       get_target_full(s,jinfo,ninfo_arr[i]);
 
-      if (minspec == NAN)
+      if (minspec == -1)
         minspec = ninfo_arr[i]->node_spec;
       else
         minspec = min(minspec,ninfo_arr[i]->node_spec);

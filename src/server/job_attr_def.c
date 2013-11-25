@@ -993,7 +993,7 @@ attribute_def job_attr_def[] =
     comp_dbl,
     free_null,
     NULL_FUNC,
-    READ_ONLY,
+    NO_USER_SET | ATR_DFLAG_SvWR,
     ATR_TYPE_DOUBLE,
     PARENT_TYPE_JOB
   },
