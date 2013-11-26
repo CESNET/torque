@@ -35,6 +35,9 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, const vector<node_
 
   for (size_t i = 0; i < suitable_nodes.size(); i++) /* for each node */
     {
+    if (suitable_nodes[i]->temp_assign != NULL)
+      continue;
+
     // jobs requesting runs
     if (jinfo->cluster_mode != ClusterCreate)
       {
