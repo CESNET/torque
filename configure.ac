@@ -30,7 +30,7 @@ m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
 AC_REVISION($Revision$)
 AC_CONFIG_SRCDIR([src/cmds/qrun.c])
 AC_CONFIG_AUX_DIR([buildutils])
-AC_CONFIG_HEADERS([config.h])
+AC_CONFIG_HEADERS([config.h],[src/include/pbs_config.h])
 AC_CANONICAL_HOST
 AC_PROG_CXX
 
@@ -56,7 +56,7 @@ AC_SUBST(program_suffix)
 dnl  Instead of putting a long list of defines on the command line
 dnl  for each compile, use a file called "pbs_config.h" that will
 dnl  be created in the include directory.
-AM_CONFIG_HEADER([src/include/pbs_config.h])
+dnl AM_CONFIG_HEADER([src/include/pbs_config.h])
 
 
 dnl
