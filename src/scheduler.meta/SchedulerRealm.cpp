@@ -441,9 +441,6 @@ void World::run()
         {
         active_cycle = true;
 
-        // finish fairshare calculation
-        // CALCULATE MIN SPEC
-
         sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Trying to execute job.");
 
         /* split local vs. remote */

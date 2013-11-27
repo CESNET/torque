@@ -35,6 +35,11 @@ void DynamicResource::add_scheduled(ResourceBaseType v)
   p_scheduled_use += v;
   }
 
+void DynamicResource::remove_scheduled(ResourceBaseType v)
+  {
+  p_scheduled_use -= v;
+  }
+
 bool DynamicResource::would_fit(ResourceBaseType amount)
   {
   if (p_reported_use >= 0) /* this dynamic resource reports used amount */

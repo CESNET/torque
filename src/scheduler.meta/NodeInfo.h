@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <set>
+#include <map>
 #include <string>
 #include <cstdlib>
 #include <cstring>
@@ -17,9 +18,6 @@ struct node_info : public NodeState
   {
 unsigned no_multinode_jobs: 1; /* no multinode jobs on this node */
 unsigned no_starving_jobs:  1; /* no starving jobs no this node */
-unsigned is_bootable: 1;
-unsigned is_usable_for_run  : 1; /* node is usable for running jobs */
-unsigned is_usable_for_boot : 1; /* node is usable for booting jobs */
 
   long node_priority;
 
@@ -51,6 +49,8 @@ unsigned is_usable_for_boot : 1; /* node is usable for booting jobs */
 
   node_info* host; /*< the physical host of this node */
   std::vector< node_info* > hosted; /*< virtual nodes hosted on this node */
+
+  pars_spec_node *starving_spec;
 
   std::string scratch_pool;
 
@@ -92,6 +92,7 @@ public:
 
   int get_proc_total() const { return p_core_total; }
   void deplete_proc(int count) { p_core_assigned += count; }
+  void freeup_proc(int count) { p_core_assigned -= count; }
 
   unsigned long long get_mem_total() const;
 

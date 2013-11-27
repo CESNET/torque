@@ -178,8 +178,7 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
         {
         sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_NODE, ninfo_arr[i]->name,
                   "Bad configuration, virtual node without physical host.");
-        ninfo_arr[i]->is_usable_for_boot = 0;
-        ninfo_arr[i]->is_usable_for_run = 0;
+        ninfo_arr[i]->set_notusable();
         continue;
         }
 
@@ -365,13 +364,10 @@ node_info *new_node_info()
 
   tmp -> alternatives = NULL;
 
-  tmp -> is_bootable = 0;
-
-  tmp->is_usable_for_boot = 1;
-  tmp->is_usable_for_run  = 1;
-
   tmp->host = NULL;
   tmp->hosted.reserve(2);
+
+  tmp->starving_spec = NULL;
 
   return tmp;
   }

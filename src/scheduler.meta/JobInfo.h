@@ -52,6 +52,7 @@ struct job_info
   bool on_host(node_info *ninfo);
 
   void plan_on_node(node_info* ninfo, pars_spec_node* spec);
+  void unplan_from_node(node_info* ninfo, pars_spec_node* spec);
   void plan_on_queue(queue_info* qinfo);
   void plan_on_server(server_info* sinfo);
 

@@ -72,6 +72,61 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, const vector<node_
   }
 
 
+static pars_spec_node* merge_node_specs(pars_spec_node *first, pars_spec_node *second)
+  {
+  pars_spec_node *result = clone_pars_spec_node(first);
+  result->mem = max(result->mem,second->mem);
+  result->vmem = max(result->vmem,second->vmem);
+  result->procs = max(result->procs,second->procs);
+  result->scratch = max(result->scratch,second->scratch);
+
+  pars_prop *iter = second->properties;
+  while (iter != NULL)
+    {
+    if (iter->value == NULL)
+      { iter = iter->next; continue; }
+
+    if (res_check_type(iter->name) != ResCheckNone)
+      {
+      pars_prop *iter2 = result->properties;
+      while (iter2 != NULL && strcmp(iter2->name,iter->name) != 0)
+        { iter2 = iter2->next; }
+
+      if (iter2 == NULL)
+        {
+        pars_prop *prop = init_pars_prop();
+        prop->name = strdup(iter->name);
+        prop->value = strdup(iter->value);
+        if (result->properties_end == NULL)
+          {
+          result->properties = prop;
+          result->properties_end = prop;
+          }
+        else
+          {
+          result->properties_end->next = prop;
+          prop->prev = result->properties_end;
+          result->properties_end = prop;
+          }
+        }
+      else
+        {
+        sch_resource_t value1 = res_to_num(iter->value);
+        sch_resource_t value2 = res_to_num(iter2->value);
+
+        if (value1 >= value2)
+          {
+          free(iter2->value);
+          iter2->value = strdup(iter->value);
+          }
+        }
+      }
+    iter = iter->next;
+    }
+
+  return result;
+  }
+
 static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, const vector<node_info*>& nodes)
   {
   int starving = 0;
@@ -81,8 +136,25 @@ static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, const vector<
 
   for (size_t i = 0; i < suitable_nodes.size(); i++) /* for each node */
     {
+    node_info *node = suitable_nodes[i];
+    if (node->starving_spec != NULL)
+      {
+      pars_spec_node *starved = node->starving_spec;
+      jinfo->unplan_from_node(node,starved);
+
+      // join specs
+      pars_spec_node *joined = merge_node_specs(spec,starved);
+      jinfo->plan_on_node(node,joined);
+      free_pars_spec_node(&starved);
+      node->starving_spec = joined;
+      }
+    else
+      {
+      jinfo->plan_on_node(node,spec);
+      pars_spec_node *joined = clone_pars_spec_node(spec);
+      node->starving_spec = joined;
+      }
     ++starving;
-    jinfo->plan_on_node(suitable_nodes[i],spec);
     }
 
   sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Starving job: %d total nodes, %d starved nodes.", nodes.size(), starving);
@@ -131,6 +203,7 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
         missed_nodes += ret;
         }
       }
+
     if (missed_nodes > 0)
       {
       result = CheckOccupied;
@@ -194,6 +267,12 @@ void nodes_preassign_clean(node_info **ninfo_arr, int count)
     ninfo_arr[i]->temp_assign = NULL;
     ninfo_arr[i]->temp_assign_alternative = NULL;
     ninfo_arr[i]->temp_fairshare_used = false;
+
+    if (ninfo_arr[i]->starving_spec != NULL)
+      {
+      free_pars_spec_node(&(ninfo_arr[i]->starving_spec));
+      ninfo_arr[i]->starving_spec = NULL;
+      }
     }
   }
 

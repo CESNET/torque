@@ -20,6 +20,7 @@ class DynamicResource
 
     void add_assigned(ResourceBaseType v);
     void add_scheduled(ResourceBaseType v);
+    void remove_scheduled(ResourceBaseType v);
 
     /** \brief Test whether the specified amount can be scheduled to a job */
     bool would_fit(ResourceBaseType amount);

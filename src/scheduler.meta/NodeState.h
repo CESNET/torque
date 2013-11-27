@@ -11,7 +11,8 @@ enum NodeStateRaw {
   NodeStateJobExclusive,//!< NodeStateJobExclusive
   NodeStateJobSharing,  //!< NodeStateJobSharing
   NodeStateReserved,    //!< NodeStateReserved
-  NodeStateBusy         //!< NodeStateBusy
+  NodeStateBusy,        //!< NodeStateBusy
+  NodeStateNotUsable
 };
 
 class NodeState
@@ -27,6 +28,9 @@ class NodeState
     bool is_busy() const { return p_is_busy; }
     bool is_job_exclusive() const { return p_is_job_excl; }
     bool is_job_shared() const { return p_is_job_share; }
+    bool is_notusable() const { return p_is_notusable; }
+
+    void set_notusable() { p_is_notusable = true; }
 
   protected:
     NodeState();
@@ -41,6 +45,7 @@ class NodeState
     bool p_is_job_excl;
     bool p_is_job_share;
     bool p_is_busy;
+    bool p_is_notusable;
   };
 
 #endif /* NODESTATE_H_ */

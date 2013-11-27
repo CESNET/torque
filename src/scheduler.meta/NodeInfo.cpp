@@ -453,6 +453,9 @@ CheckResult node_info::has_runnable_state() const
 
 CheckResult node_info::can_boot_job(const job_info *jinfo) const
   {
+  if (this->is_notusable())
+    return CheckNonFit;
+
   CheckResult result = has_bootable_state();
   if (result == CheckNonFit)
     return CheckNonFit;
@@ -477,6 +480,9 @@ CheckResult node_info::can_boot_job(const job_info *jinfo) const
 
 CheckResult node_info::can_run_job(const job_info *jinfo) const
   {
+  if (this->is_notusable())
+    return CheckNonFit;
+
   CheckResult result = has_runnable_state();
   if (result == CheckNonFit)
     return CheckNonFit;

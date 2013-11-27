@@ -5,7 +5,7 @@
 
 #include <cstring>
 
-NodeState::NodeState() : p_is_down(false), p_is_free(false), p_is_offline(false), p_is_unknown(false), p_is_reserved(false), p_is_job_excl(false), p_is_job_share(false), p_is_busy(false) {}
+NodeState::NodeState() : p_is_down(false), p_is_free(false), p_is_offline(false), p_is_unknown(false), p_is_reserved(false), p_is_job_excl(false), p_is_job_share(false), p_is_busy(false), p_is_notusable(false) {}
 NodeState::~NodeState() {}
 
 /** \brief Reset the node states from state string */

@@ -28,6 +28,74 @@ bool job_info::on_node(node_info *ninfo)
   return (schedule.find(string(ninfo->name)) != schedule.end());
   }
 
+void job_info::unplan_from_node(node_info* ninfo, pars_spec_node* spec)
+  {
+  resource *res;
+
+  if (is_exclusive)
+    ninfo->freeup_proc(ninfo->get_proc_total());
+  else
+    ninfo->freeup_proc(spec->procs);
+
+  /* mem */
+  res = find_resource(ninfo->res,"mem");
+  if (res != NULL)
+    res->assigned -= spec->mem;
+
+  /* vmem */
+  res = find_resource(ninfo->res,"vmem");
+  if (res != NULL)
+    res->assigned -= spec->vmem;
+
+  if (ninfo->temp_assign_scratch == ScratchLocal)
+    {
+    res = find_resource(ninfo->res,"scratch_local");
+    if (res != NULL)
+      res->assigned -= spec->scratch;
+    }
+
+  if (ninfo->temp_assign_scratch == ScratchSSD)
+    {
+    res = find_resource(ninfo->res,"scratch_ssd");
+    if (res != NULL)
+      res->assigned -= spec->scratch;
+    }
+
+  if (ninfo->temp_assign_scratch == ScratchShared)
+    {
+    res = find_resource(ninfo->res,"scratch_pool");
+    if (res != NULL)
+      {
+      string pool = res->str_avail;
+      map<string,DynamicResource>::iterator i;
+      i = ninfo->server->dynamic_resources.find(pool);
+      if (i != ninfo->server->dynamic_resources.end())
+        {
+        i->second.remove_scheduled(spec->scratch);
+        }
+      }
+    }
+
+  /* the rest */
+  pars_prop *iter = spec->properties;
+  while (iter != NULL)
+    {
+    if (iter->value == NULL)
+      { iter = iter->next; continue; }
+
+    if (res_check_type(iter->name) != ResCheckNone)
+      {
+      res = find_resource(ninfo->res,iter->name);
+      if (res != NULL)
+        {
+        res->assigned -= res_to_num(iter->value);
+        }
+      }
+
+    iter = iter->next;
+    }
+  }
+
 void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
   {
   resource *res;
@@ -36,14 +104,13 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
     {
     for (size_t i = 0; i < ninfo->host->hosted.size(); i++)
       {
-      ninfo->host->hosted[i]->is_usable_for_run = 0;
-      ninfo->host->hosted[i]->is_usable_for_boot = 0;
+      ninfo->host->hosted[i]->set_notusable();
       sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
                 "Node marked as incapable of running and booting jobs, because it, or it's sister is servicing a cluster job.");
       }
     }
 
-  if (is_exclusive)
+  if (this->is_exclusive)
     ninfo->deplete_proc(ninfo->get_proc_total());
   else
     ninfo->deplete_proc(spec->procs);
