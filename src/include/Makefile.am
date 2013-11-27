@@ -18,7 +18,7 @@ BUILT_SOURCES = site_job_attr_def.h site_job_attr_enum.h \
 		site_qmgr_node_print.h site_qmgr_que_print.h \
 		site_qmgr_svr_print.h site_que_attr_def.h \
 		site_que_attr_enum.h site_svr_attr_def.h \
-		site_svr_attr_enum.h
+		site_svr_attr_enum.h config.h
 
 EXTRA_DIST = site_job_attr_def.ht site_job_attr_enum.ht \
 	     site_qmgr_node_print.ht site_qmgr_que_print.ht \
@@ -32,6 +32,9 @@ SUFFIXES = .ht .h
 
 .ht.h:
 	cp $< $@
+
+config.h:
+	ln -s pbs_config.h config.h
 
 dist-hook:
 	(cd $(distdir) && rm -f $(BUILT_SOURCES))
