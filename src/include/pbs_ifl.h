@@ -311,6 +311,7 @@
 #define ATTR_npdefault  "np_default"
 #define ATTR_jobstarttimeout "job_start_timeout"
 #define ATTR_jobforcecanceltime "job_force_cancel_time"
+#define ATTR_MaxInstallingNodes "max_installing_nodes"
 #define ATTR_ResourcesToStore "node_resources_to_store"
 #define ATTR_ResourcesMappings "node_resources_mappings"
 #define ATTR_krb_realm_submit_acl "krb_realm_submit_acl"

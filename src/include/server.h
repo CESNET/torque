@@ -173,6 +173,7 @@ enum srv_atr
   SRV_ATR_NPDefault,
   SRV_ATR_JobStartTimeout,
   SRV_ATR_JobForceCancelTime,
+  SVR_ATR_MaxInstallingNodes,
   SRV_ATR_ResourcesToStore,
   SRV_ATR_ResourcesMappings,
   SRV_ATR_krb_realm_submit_acl,

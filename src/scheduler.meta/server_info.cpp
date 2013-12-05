@@ -297,6 +297,15 @@ server_info *query_server_info(struct batch_status *server)
 
       sinfo -> max_group_run = count;
       }
+    else if (!strcmp(attrp -> name, ATTR_MaxInstallingNodes))
+      {
+      count = strtol(attrp -> value, &endp, 10);
+
+      if (*endp != '\0')
+        count = -1;
+
+      sinfo -> max_installing_nodes = count;
+      }
     else if (!strcmp(attrp -> name, ATTR_rescavail))    /* resources_available*/
       {
       count = res_to_num(attrp -> value);
@@ -527,6 +536,8 @@ server_info *new_server_info()
   sinfo -> max_user_run = INFINITY;
 
   sinfo -> max_group_run = INFINITY;
+
+  sinfo -> max_installing_nodes = INFINITY;
 
   sinfo -> tokens = NULL;
 

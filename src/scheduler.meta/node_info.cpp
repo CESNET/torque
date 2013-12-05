@@ -212,7 +212,7 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
 node_info *query_node_info(struct batch_status *node, server_info *sinfo)
   {
   node_info *ninfo;  /* the new node_info */
-  int count;
+  sch_resource_t count;
   resource *resp;
   struct attrl *attrp;  /* used to cycle though attribute list */
 
@@ -363,6 +363,8 @@ node_info *new_node_info()
   tmp -> cluster_name = NULL;
 
   tmp -> alternatives = NULL;
+
+  tmp -> is_building_cluster  = false;
 
   tmp->host = NULL;
   tmp->hosted.reserve(2);

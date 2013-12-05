@@ -561,7 +561,10 @@ void query_external_cache(server_info *sinfo, int dynamic)
   for (i=0; i<sinfo->num_nodes; i++)
     {
     sinfo->nodes[i]->process_magrathea_status();
+    sinfo->nodes[i]->process_machine_cluster();
     }
+
+  sinfo->recount_installing_nodes();
 
   return;
   }

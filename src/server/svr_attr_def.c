@@ -1101,6 +1101,19 @@ attribute_def svr_attr_def[] =
       PARENT_TYPE_SERVER
   },
 
+  /* SVR_ATR_MaxInstallingNodes */
+  { ATTR_MaxInstallingNodes,  /* "max_installing_nodes" */
+    decode_l,
+    encode_l,
+    set_l,
+    comp_l,
+    free_null,
+    NULL_FUNC,
+    NO_USER_SET,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_SERVER
+  },
+
   /* SRV_ATR_ResourcesToStore */
   {   ATTR_ResourcesToStore, /* "resources_to_store" */
       decode_arst,

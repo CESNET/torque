@@ -42,6 +42,10 @@ unsigned no_starving_jobs:  1; /* no starving jobs no this node */
   MagratheaState magrathea_status;
   struct repository_alternatives ** alternatives;
 
+  bool is_building_cluster;
+  std::string virtual_cluster;
+  std::string virtual_image;
+
   pars_spec_node *temp_assign; /**< Temporary job assignment */
   repository_alternatives *temp_assign_alternative; /**< Alternative assignment */
   ScratchType temp_assign_scratch;
@@ -107,6 +111,7 @@ public:
   bool operator < (const node_info& right);
 
   void process_magrathea_status();
+  void process_machine_cluster();
 
 private:
   // CPU related section

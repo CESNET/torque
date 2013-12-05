@@ -33,6 +33,12 @@ struct server_info
   node_info **timesharing_nodes;/* array of timesharing nodes */
   token **tokens;               /* array of tokens */
 
+  int max_installing_nodes;
+  int installing_node_count;
+
+  void recount_installing_nodes();
+  bool installing_nodes_overlimit();
+
   int job_start_timeout;
   };
 

@@ -466,13 +466,16 @@ CheckResult node_info::can_boot_job(const job_info *jinfo) const
   if (no_multinode_jobs && jinfo->is_multinode)
     return CheckNonFit;
 
-  resource *res_machine = find_resource(res, "machine_cluster");
   // User does not have an account on this machine - can never run
-  if (site_user_has_account(jinfo->account,name,cluster_name) == CHECK_NO)
+  if (site_user_has_account(jinfo->account,this->name,cluster_name) == CHECK_NO)
     return CheckNonFit;
 
+  // Server already installing to many machines
+  if (this->server->installing_nodes_overlimit())
+    return CheckOccupied;
+
   // Machine is already allocated to a virtual cluster, only ClusterUse type of jobs allowed
-  if (res_machine != NULL)
+  if (find_resource(this->res, "machine_cluster") != NULL)
     result = CheckOccupied;
 
   return result;
@@ -497,7 +500,7 @@ CheckResult node_info::can_run_job(const job_info *jinfo) const
   if (no_multinode_jobs && jinfo->is_multinode)
     return CheckNonFit;
 
-  resource *res_machine = find_resource(res, "machine_cluster");
+  resource *res_machine = find_resource(this->res, "machine_cluster");
   if (jinfo->cluster_mode != ClusterUse) /* users can always go inside a cluster */
     {
     // User does not have an account on this machine - can never run
@@ -713,5 +716,43 @@ void node_info::process_magrathea_status()
       sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, this->name, "Node had inconsistent magrathea state.");
       return;
       }
+    }
+  }
+
+void node_info::process_machine_cluster()
+  {
+  resource *res_cluster;
+  res_cluster = find_resource(this->res, "machine_cluster");
+
+  this->virtual_cluster = "";
+  this->virtual_image = "";
+  this->is_building_cluster = false;
+
+  if (res_cluster == NULL)
+    {
+    return;
+    }
+
+  string value = res_cluster->str_avail;
+  size_t pos = value.find(';');
+
+  if (pos != value.npos)
+    {
+    this->virtual_cluster = value.substr(0,pos);
+    this->virtual_image = value.substr(pos+1,value.length()-pos-1);
+    }
+  else
+    {
+    this->virtual_cluster = value;
+    }
+
+  // determine whether node is currently booting
+  if (this->virtual_cluster.substr(0,strlen("internal")) == "internal")
+    {
+    this->is_building_cluster = true;
+    }
+  else if (this->magrathea_status != MagratheaStateRunningCluster)
+    {
+    this->is_building_cluster = true;
     }
   }
