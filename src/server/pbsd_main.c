@@ -1626,17 +1626,6 @@ int main(
     msg_daemonname,
     log_buffer);
 
-  /* initialize the server objects and perform specified recovery */
-  /* will be left in the server's private directory  */
-  /* NOTE:  env cleared in pbsd_init() */
-
-  if (pbsd_init(server_init_type) != 0)
-    {
-    log_err(-1, msg_daemonname, "pbsd_init failed");
-
-    exit(3);
-    }
-
   /* initialize the network interface */
 
   sprintf(log_buffer, "Using ports Server:%d  Scheduler:%d  MOM:%d (server: '%s')",
@@ -1669,6 +1658,16 @@ int main(
     exit(3);
     }
 
+  /* initialize the server objects and perform specified recovery */
+  /* will be left in the server's private directory  */
+  /* NOTE:  env cleared in pbsd_init() */
+
+  if (pbsd_init(server_init_type) != 0)
+    {
+    log_err(-1, msg_daemonname, "pbsd_init failed");
+
+    exit(3);
+    }
 
   /* handle running in the background or not if we're debugging */
 
