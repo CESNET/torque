@@ -19,7 +19,7 @@ extern "C" {
 }
 
 /* New magrathea decode */
-int magrathea_decode_new(resource *res, MagratheaState *state)
+int magrathea_decode_new(resource *res, MagratheaState *state, bool &is_rebootable)
   {
   char *s, *c;
 
@@ -28,6 +28,11 @@ int magrathea_decode_new(resource *res, MagratheaState *state)
 
   if (res == NULL || res->str_avail == NULL)
     return -1;
+
+  if (strstr(res->str_avail,"dynamic_reboot=1") != NULL)
+    is_rebootable = true;
+  else
+    is_rebootable = false;
 
   if ((s = strdup(res->str_avail)) == NULL)
     return -1;
@@ -47,6 +52,8 @@ int magrathea_decode_new(resource *res, MagratheaState *state)
     *state = MagratheaStateBooting;
   else if (strcmp(s,"free") == 0)
     *state = MagratheaStateFree;
+  else if (strcmp(s,"free-bootable") == 0)
+    *state = MagratheaStateFreeBootable;
   else if (strcmp(s,"occupied-would-preempt") == 0)
     *state = MagratheaStateOccupiedWouldPreempt;
   else if (strcmp(s,"occupied") == 0)

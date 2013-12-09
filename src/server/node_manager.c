@@ -5149,7 +5149,7 @@ static void set_one_old(
 
 
 
-
+extern void reset_alternative_on_node(job *pjob);
 
 /*
  * set_old_nodes - set "old" nodes as in use - called from pbsd_init()

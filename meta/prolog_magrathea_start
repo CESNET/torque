@@ -106,6 +106,8 @@ exit_with_rollback()
 MAGRATHEA_STATUS=
 XM_STATUS=
 CACHE_STATUS=
+NODE_REBOOTABLE=
+MACHINE_NEEDS_SHUTDOWN=
 
 fetch_xm_status()
 {
@@ -137,31 +139,65 @@ fetch_magrathea_status()
 	MAGRATHEA_STATUS=`$ADMIN_COMMAND status | awk -F"[ \t;]+" '/^'$DOMAIN'/ { print $2 }'`;
 }
 
+fetch_rebootable_status()
+{
+	NODE_REBOOTABLE=`$ADMIN_COMMAND status $DOMAIN | grep "dynamic_reboot=1"`;
+}
+
 test_status_start()
 {
-	fetch_xm_status;
-	if [ "$XM_STATUS" != "offline" ]; then
-		logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received while XEN machine is not offline.";
+	fetch_rebootable_status;
+	if [ -z "$NODE_REBOOTABLE" ] && [ "$CLOUD_TYPE" == "internal" ]; then
+		logger -p daemon.crit -t magrathea_prologue "Fatal State. Cannot run internal cluster on a non-rebootable node.";
 		exit_with_rollback 1;
 	fi
 
+	fetch_magrathea_status;
+	fetch_xm_status;
 	fetch_cache_status;
 	if [ -z "$CACHE_STATUS" ]; then
 		logger -p daemon.crit -t magrathea_prologue "Fatal state. Cluster request received but machine state not found in cache.";
 		exit_with_rollback 1;
 	fi
 
-	if [ "$CACHE_STATUS" != "down-bootable" ]; then
-		logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received but machine state in cache is not down-bootable.";
-		# try to update cache
-		$CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "inconsistent;0;changed=$NOW" # overwrite magrathea state
-		exit_with_rollback 1;
-	fi
+	if [ -z "$NODE_REBOOTABLE" ]; then
+		if [ "$XM_STATUS" != "offline" ]; then
+			logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received while XEN machine is not offline.";
+			exit_with_rollback 1;
+		fi
 
-	fetch_magrathea_status;
-	if [ "$MAGRATHEA_STATUS" != "down-bootable" ] && [ ! -z "$MAGRATHEA_STATUS" ]; then
-		logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received but magrathea state isn't bootable.";
-		return_with_rollback 1;
+		if [ "$CACHE_STATUS" != "down-bootable" ]; then
+			logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received but machine state in cache is not down-bootable.";
+			# try to update cache
+			$CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "inconsistent;0;changed=$NOW" # overwrite magrathea state
+			exit_with_rollback 1;
+		fi
+
+		if [ "$MAGRATHEA_STATUS" != "down-bootable" ] && [ ! -z "$MAGRATHEA_STATUS" ]; then
+			logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received but magrathea state isn't bootable.";
+			return_with_rollback 1;
+		fi
+	else
+		if [ "$XM_STATUS" != "offline" ] && [ "$XM_STATUS" != "online" ]; then
+			logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received while XEN machine is not offline or online.";
+			exit_with_rollback 1;
+		fi
+
+		if [ "$CACHE_STATUS" != "down-bootable" ] && [ "$CACHE_STATUS" != "free-bootable" ]; then
+			logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received but machine state in cache is not down-bootable or free.";
+			# try to update cache
+			$CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "inconsistent;0;changed=$NOW" # overwrite magrathea state
+			exit_with_rollback 1;
+		fi
+
+		if [ "$MAGRATHEA_STATUS" != "down-bootable" ] && [ "$MAGRATHEA_STATUS" != "free-bootable" ] && [ ! -z "$MAGRATHEA_STATUS" ]; then
+			logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received but magrathea state isn't bootable or free.";
+			return_with_rollback 1;
+		fi
+
+		if [ "$MAGRATHEA_STATUS" == "free-bootable" ]; then
+			MACHINE_NEEDS_SHUTDOWN="yes";
+		fi
 	fi
 }
 
@@ -353,6 +389,9 @@ case $PROG in
 	;;
 	*start)
 		test_status_start;
+		if [ ! -z "$MACHINE_NEEDS_SHUTDOWN" ]; then # set in test_status_start
+			magrathea_stop;
+		fi
 		invoke_booot;
 		magrathea_start;
 		exit 0;

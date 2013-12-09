@@ -51,6 +51,22 @@ int is_cloud_job(job *pjob)
   return(0);
   }
 
+/* internal jobs are determined from nodespec */
+int is_cloud_job_internal(job *pjob, const char *nodespec)
+  {
+  if (nodespec == NULL || nodespec[0] == '\0')
+    return 0;
+
+  /* cluster create would satisfy */
+  if (is_cloud_job(pjob))
+    return 0;
+
+  if (strstr(nodespec,":alternative=") != NULL)
+    return 1;
+
+  return 0;
+  }
+
 /** Determine the type of private network usage
  * 
  * 0 - no VPN
@@ -74,6 +90,121 @@ int is_cloud_job_private(job *pjob, char** netresc)
   
   return 0;
   }
+
+extern int get_next_jobid(char *jidbuf);
+extern int create_job_file(char *namebuf, char *basename);
+extern void job_init_wattr(job *pj);
+extern job *job_clone_simple(job *pjob);
+extern void regenerate_total_resources(job * pjob);
+
+
+job *cloud_make_build_job(job *pjob, char **destin)
+  {
+  char   jidbuf[PBS_MAXSVRJOBID + 1];
+  char   namebuf[MAXPATHLEN + 1];
+  char   basename[PBS_JOBBASE + 1];
+  resource_def *rdef;
+  resource *res;
+
+  job *pj;
+  char *buf;
+
+  if ((pj = job_clone_simple(pjob)) == NULL)
+    return NULL;
+
+  if (get_next_jobid(jidbuf) != 0)
+    {
+    return NULL;
+    }
+
+  strncpy(basename, jidbuf, PBS_JOBBASE);
+
+  basename[PBS_JOBBASE] = '\0';
+
+  if (create_job_file(namebuf,basename) != 0)
+    {
+    return NULL;
+    }
+
+  strcpy(pj->ji_qs.ji_jobid, jidbuf);
+
+  strcpy(pj->ji_qs.ji_fileprefix, basename);
+
+  pj->ji_modified       = 1;
+  pj->ji_qs.ji_svrflags = JOB_SVFLG_HERE;
+  pj->ji_qs.ji_un_type  = JOB_UNION_TYPE_NEW;
+
+  /* TODO could collide with unique job names for cloud jobs */
+  buf = malloc(strlen("internal_ondemand_builder_")+strlen(pj->ji_qs.ji_jobid)+1);
+  sprintf(buf,"internal_ondemand_builder_%s",pj->ji_qs.ji_jobid);
+  free(pj->ji_wattr[JOB_ATR_jobname].at_val.at_str);
+  pj->ji_wattr[JOB_ATR_jobname].at_val.at_str = buf;
+
+  job_attr_def[(int)JOB_ATR_mailpnts].at_decode(
+    &pj->ji_wattr[(int)JOB_ATR_mailpnts],
+    NULL,
+    NULL,
+    "n");
+
+  job_attr_def[(int)JOB_ATR_interactive].at_decode(
+    &pj->ji_wattr[(int)JOB_ATR_interactive],
+    NULL,
+    NULL,
+    "0");
+
+  regenerate_total_resources(pj);
+  if (svr_enquejob(pj,1) != 0)
+    {
+    return NULL;
+    }
+
+  if (job_save(pj, SAVEJOB_FULL) != 0)
+    {
+    return NULL;
+    }
+
+  /* flip the destination nodespec */
+  if (destin != NULL && *destin != NULL)
+    {
+    pars_spec *spec;
+    pars_spec_node *node;
+    spec = parse_nodespec(*destin);
+    node = spec->nodes;
+    while (node != NULL)
+      {
+      if (node->alternative == NULL)
+        {
+        pars_spec_node *tmp = node;
+        node = node->next;
+        remove_node_from_nodespec(spec,tmp);
+        free_pars_spec_node(&tmp);
+        }
+      else
+        {
+        node = node->next;
+        }
+      }
+
+    free(*destin);
+    *destin = concat_nodespec(spec,1,with_alternative,NULL);
+    }
+
+  rdef = find_resc_def(svr_resc_def, "cluster", svr_resc_size);
+  if (rdef != NULL)
+    {
+    res = find_resc_entry(&pj->ji_wattr[JOB_ATR_resource],rdef);
+    if (res == NULL)
+      {
+      res = add_resource_entry(&pj->ji_wattr[JOB_ATR_resource],rdef);
+      }
+
+    rdef->rs_decode(&res->rs_value,NULL,NULL,"internal");
+    }
+
+  return pj;
+  }
+
+
 
 static char *construct_mapping(char* old, char* new, char* alternative)
   {

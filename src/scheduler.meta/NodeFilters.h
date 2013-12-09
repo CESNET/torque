@@ -16,7 +16,7 @@ struct NodeSuitableForJob
     const job_info *p_jinfo;
   };
 
-enum SuitableNodeFilterMode { SuitableAssignMode, SuitableFairshareMode, SuitableStarvingMode };
+enum SuitableNodeFilterMode { SuitableAssignMode, SuitableFairshareMode, SuitableStarvingMode, SuitableRebootMode };
 
 
 /** \brief Filter nodes usable for a node specification */
@@ -31,6 +31,8 @@ struct NodeSuitableForSpec
   static void filter_starving(const std::vector<node_info*>& nodes, std::vector<node_info*>& result, const job_info* jinfo, const pars_spec_node* spec);
   /** \brief Filter for purposes of scheduling */
   static void filter_assign(const std::vector<node_info*>& nodes, std::vector<node_info*>& result, const job_info* jinfo, const pars_spec_node* spec);
+  /** \brief Filter for purposes of rebooting nodes */
+  static void filter_reboot(const std::vector<node_info*>& nodes, std::vector<node_info*>& result, const job_info* jinfo, const pars_spec_node* spec);
 
   private:
     const job_info *p_jinfo;

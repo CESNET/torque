@@ -1048,6 +1048,14 @@ void req_quejob(
     return;
     }
 
+  /* "internal_" prefix in job name is reserved for system jobs */
+  if (strncmp(pj->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str,"internal_",strlen("internal_")) == 0)
+    {
+    job_purge(pj);
+    req_reject(PBSE_CLOUD_NAME,0,preq,NULL,NULL);
+    return;
+    }
+
   /* FIXME: if EMsg[0] != '\0', send a warning email to the user */
 
   strcpy(pj->ji_qs.ji_queue, pque->qu_qs.qu_name);

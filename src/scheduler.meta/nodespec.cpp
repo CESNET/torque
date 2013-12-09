@@ -72,6 +72,42 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, const vector<node_
   }
 
 
+static int ondemand_reboot(job_info *jinfo, pars_spec_node *spec, const vector<node_info*>& suitable_nodes)
+  {
+  ScratchType scratch = ScratchNone;
+  int fit_occupied = 0;
+  repository_alternatives *ra = NULL;
+  CheckResult node_test;
+
+  if (jinfo->cluster_mode != ClusterNone) // only for normal jobs
+    return 2;
+
+  for (size_t i = 0; i < suitable_nodes.size(); i++) /* for each node */
+    {
+    if (suitable_nodes[i]->temp_assign != NULL)
+      continue;
+
+    if ((node_test = suitable_nodes[i]->can_fit_job_for_boot(jinfo,spec,&scratch,&ra)) != CheckAvailable)
+      {
+      ++fit_occupied;
+      continue;
+      }
+
+    suitable_nodes[i]->temp_assign = clone_pars_spec_node(spec);
+    suitable_nodes[i]->temp_assign_scratch = scratch;
+
+    if (ra != NULL)
+      suitable_nodes[i]->temp_assign_alternative = ra;
+    else
+      suitable_nodes[i]->temp_assign_alternative = NULL; /* FIXME META Prepsat do citelneho stavu */
+
+    return 0;
+    }
+
+  sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Nodespec not matched: %d suitable, %d occupied.", suitable_nodes.size(), fit_occupied);
+  return 1;
+  }
+
 static pars_spec_node* merge_node_specs(pars_spec_node *first, pars_spec_node *second)
   {
   pars_spec_node *result = clone_pars_spec_node(first);
@@ -177,8 +213,9 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
   while (iter != NULL)
     {
     // nodes suitable for nodespec
-    vector<node_info*> fit_nodes;
+    vector<node_info*> fit_nodes, reboot_nodes;
     NodeSuitableForSpec::filter_assign(suitable_nodes,fit_nodes,jinfo,iter);
+    NodeSuitableForSpec::filter_reboot(suitable_nodes,reboot_nodes,jinfo,iter);
 
     if (fit_nodes.size() < iter->node_count)
       {
@@ -189,11 +226,20 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
 
     // sort nodes according to state & schedule
     sort(fit_nodes.begin(),fit_nodes.end(),NodeStateSort());
+    sort(reboot_nodes.begin(),reboot_nodes.end(),NodeStateSort());
 
     for (unsigned i = 0; i < iter->node_count; i++)
       {
-      int ret;
-      if ((ret = assign_node(jinfo,iter,fit_nodes)) == 2)
+      // first try normal execution
+      int ret = assign_node(jinfo,iter,fit_nodes);
+
+      // if there are some rebootable nodes and we didn't find any normal nodes, try ondemand reboot
+      if (ret != 0 && reboot_nodes.size() > 0)
+        {
+        ret = ondemand_reboot(jinfo,iter,fit_nodes);
+        }
+
+      if (ret == 2)
         {
         result = CheckNonFit;
         break;

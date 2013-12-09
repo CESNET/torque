@@ -8,11 +8,12 @@
 #include <cstdlib>
 #include <cstring>
 
-typedef enum node_type { NodeTimeshared, NodeCluster, NodeVirtual, NodeCloud } node_type;
+enum node_type { NodeTimeshared, NodeCluster, NodeVirtual, NodeCloud };
 enum ResourceCheckMode { MaxOnly, Avail };
 enum CheckResult { CheckAvailable, CheckOccupied, CheckNonFit };
 
 #include "NodeState.h"
+#include "JobInfo.h"
 
 struct node_info : public NodeState
   {
@@ -20,6 +21,7 @@ unsigned no_multinode_jobs: 1; /* no multinode jobs on this node */
 unsigned no_starving_jobs:  1; /* no starving jobs no this node */
 
   long node_priority;
+  bool is_rebootable;
 
   node_type type; /**<type of the node (cluster,timeshared,virtual,cloud) */
 
@@ -82,14 +84,16 @@ public:
   CheckResult has_props_boot(const job_info *job, const pars_spec_node *spec, const repository_alternatives *virt_conf) const;
   CheckResult has_props_run(const job_info *job, const pars_spec_node *spec) const;
 
-  CheckResult has_bootable_state() const;
+  CheckResult has_bootable_state(enum ClusterMode mode) const;
   CheckResult has_runnable_state() const;
 
   CheckResult can_run_job(const job_info *jinfo) const;
   CheckResult can_boot_job(const job_info *jinfo) const;
+  CheckResult can_reboot_job(const job_info *jinfo) const;
 
   CheckResult can_fit_job_for_run(const job_info *jinfo, const pars_spec_node *spec, ScratchType *scratch) const;
   CheckResult can_fit_job_for_boot(const job_info *jinfo, const pars_spec_node *spec, ScratchType *scratch, repository_alternatives **alternative) const;
+  CheckResult can_fit_job_for_reboot(const job_info *jinfo, const pars_spec_node *spec, ScratchType *scratch, repository_alternatives **alternative) const;
 
   void deplete_admin_slot();
   void deplete_exclusive_access();
@@ -125,7 +129,7 @@ private:
   bool p_exclusively_assigned;
 
 public:
-  node_info() : node_cost(1.0), node_spec(10.0), p_core_total(0), p_core_free(0), p_core_assigned(0), p_admin_slot_enabled(false), p_admin_slot_avail(false), p_exclusively_assigned(false) {}
+  node_info() : node_priority(0), is_rebootable(false), node_cost(1.0), node_spec(10.0), p_core_total(0), p_core_free(0), p_core_assigned(0), p_admin_slot_enabled(false), p_admin_slot_avail(false), p_exclusively_assigned(false) {}
   };
 
 #endif /* NODEINFO_H_ */

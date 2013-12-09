@@ -7,10 +7,6 @@
 
 #include "data_types.h"
 
-enum ClusterMode { ClusterNone, ClusterCreate, ClusterUse };
-enum JobState { JobNoState, JobQueued, JobRunning, JobHeld, JobWaiting, JobTransit, JobExiting, JobSuspended, JobCompleted, JobCrossRun };
-static const char* JobStateString[] = { "none", "queued", "running", "held", "waiting", "transit", "exiting", "suspended", "completed", NULL };
-
 struct job_info
   {
   JobState state;

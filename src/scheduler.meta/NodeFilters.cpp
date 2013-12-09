@@ -19,16 +19,27 @@ bool NodeSuitableForSpec::operator()(const node_info* node) const
   ScratchType scratch = ScratchNone;
   repository_alternatives *ra;
 
+  if (p_mode == SuitableRebootMode && node->temp_assign != NULL)
+    return false;
   if (p_mode == SuitableAssignMode && node->temp_assign != NULL)
     return false;
   if (p_mode == SuitableStarvingMode && node->no_starving_jobs)
     return false;
   if (p_mode == SuitableFairshareMode && node->temp_fairshare_used)
     return false;
-  if (p_jinfo->cluster_mode != ClusterCreate && node->can_fit_job_for_run(p_jinfo,p_spec,&scratch) == CheckNonFit)
-    return false;
-  if (p_jinfo->cluster_mode == ClusterCreate && node->can_fit_job_for_boot(p_jinfo,p_spec,&scratch,&ra) == CheckNonFit)
-    return false;
+
+  if (p_mode == SuitableRebootMode)
+    {
+    if (node->can_fit_job_for_boot(p_jinfo,p_spec,&scratch,&ra) == CheckNonFit)
+      return false;
+    }
+  else
+    {
+    if (p_jinfo->cluster_mode != ClusterCreate && node->can_fit_job_for_run(p_jinfo,p_spec,&scratch) == CheckNonFit)
+      return false;
+    if (p_jinfo->cluster_mode == ClusterCreate && node->can_fit_job_for_boot(p_jinfo,p_spec,&scratch,&ra) == CheckNonFit)
+      return false;
+    }
 
   return true;
   }
@@ -58,6 +69,11 @@ void NodeSuitableForSpec::filter_starving(const vector<node_info*>& nodes, vecto
 void NodeSuitableForSpec::filter_assign(const vector<node_info*>& nodes, vector<node_info*>& result, const job_info* jinfo, const pars_spec_node* spec)
   {
   filter_nodes(nodes,result,NodeSuitableForSpec(jinfo,spec,SuitableAssignMode));
+  }
+
+void NodeSuitableForSpec::filter_reboot(const vector<node_info*>& nodes, vector<node_info*>& result, const job_info* jinfo, const pars_spec_node* spec)
+  {
+  filter_nodes(nodes,result,NodeSuitableForSpec(jinfo,spec,SuitableRebootMode));
   }
 
 void NodeSuitableForJob::filter(const vector<node_info*>& nodes, vector<node_info*>& result, const job_info* jinfo)

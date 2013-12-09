@@ -14,7 +14,7 @@ extern "C" {
 #include "data_types.h"
 
 /** \brief Decode magrathea resource */
-int magrathea_decode_new(resource *res, MagratheaState *state);
+int magrathea_decode_new(resource *res, MagratheaState *state, bool &is_rebootable);
 
 /* function for magrathea */
 int magrathea_decode(resource *res, long int *status,long int *count,long int *used,long int *m_free,long int *m_possible);

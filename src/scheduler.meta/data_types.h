@@ -85,6 +85,11 @@
 #include <string>
 #include <map>
 
+enum ClusterMode { ClusterNone, ClusterCreate, ClusterUse };
+enum JobState { JobNoState, JobQueued, JobRunning, JobHeld, JobWaiting, JobTransit, JobExiting, JobSuspended, JobCompleted, JobCrossRun };
+static const char* JobStateString[] = { "none", "queued", "running", "held", "waiting", "transit", "exiting", "suspended", "completed", NULL };
+
+
 #include "torque.h"
 #include "constant.h"
 #include "config.h"
@@ -150,6 +155,7 @@ typedef enum {
   MagratheaStateDownBootable,
   MagratheaStateBooting,
   MagratheaStateFree,
+  MagratheaStateFreeBootable,
   MagratheaStateOccupiedWouldPreempt,
   MagratheaStateOccupied,
   MagratheaStateRunningPreemptible,

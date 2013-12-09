@@ -349,7 +349,7 @@ CheckResult node_info::has_spec(const job_info *job, const pars_spec_node *spec,
   return CheckAvailable;
   }
 
-CheckResult node_info::has_bootable_state() const
+CheckResult node_info::has_bootable_state(ClusterMode mode) const
   {
   // wrong type of node for booting jobs
   if (type != NodeVirtual)
@@ -369,6 +369,13 @@ CheckResult node_info::has_bootable_state() const
 
   switch (magrathea_status)
     {
+    case MagratheaStateFreeBootable:
+    case MagratheaStateDownBootable:
+      // down bootable nodes can only be used for ondemand clusters if rebootable
+      if (mode == ClusterNone && (!this->is_rebootable))
+        return CheckNonFit;
+      break;
+
     // wrong magrathea state (configuration level)
     case MagratheaStateFree:
     case MagratheaStateOccupiedWouldPreempt:
@@ -456,7 +463,7 @@ CheckResult node_info::can_boot_job(const job_info *jinfo) const
   if (this->is_notusable())
     return CheckNonFit;
 
-  CheckResult result = has_bootable_state();
+  CheckResult result = has_bootable_state(jinfo->cluster_mode);
   if (result == CheckNonFit)
     return CheckNonFit;
 
@@ -614,6 +621,38 @@ void node_info::fetch_bootable_alternatives()
   }
 
 
+static int get_magrathea_value(MagratheaState state)
+  {
+  switch (state)
+    {
+    case MagratheaStateRunningCluster:
+      return 0;
+
+    case MagratheaStateRunning:
+    case MagratheaStateRunningPriority:
+      return 1;
+
+    case MagratheaStateDownBootable:
+      return 2;
+
+    case MagratheaStateFreeBootable:
+      return 3;
+
+    case MagratheaStateFree:
+      return 4;
+
+    case MagratheaStateRunningPreemptible:
+      return 5;
+
+    case MagratheaStateOccupiedWouldPreempt:
+      return 6;
+
+    default: return 99;
+    }
+
+  return 99;
+  }
+
 bool node_info::operator < (const node_info& right)
   {
   if (this->node_priority > right.node_priority) // bigger number = bigger priority
@@ -626,44 +665,8 @@ bool node_info::operator < (const node_info& right)
      - usable for boot next
   */
 
-  int left_magrathea = 9;
-  int right_magrathea = 9;
-
-  switch (this->magrathea_status)
-    {
-    case MagratheaStateRunningCluster: left_magrathea = 0; break;
-
-    case MagratheaStateRunning:
-    case MagratheaStateRunningPriority: left_magrathea = 1; break;
-
-    case MagratheaStateFree: left_magrathea = 2; break;
-
-    case MagratheaStateRunningPreemptible: left_magrathea = 3; break;
-
-    case MagratheaStateOccupiedWouldPreempt: left_magrathea = 4; break;
-
-    case MagratheaStateDownBootable: left_magrathea = 5; break;
-
-    default: left_magrathea = 9;
-    }
-
-  switch (right.magrathea_status)
-    {
-    case MagratheaStateRunningCluster: right_magrathea = 0; break;
-
-    case MagratheaStateRunning:
-    case MagratheaStateRunningPriority: right_magrathea = 1; break;
-
-    case MagratheaStateFree: right_magrathea = 2; break;
-
-    case MagratheaStateRunningPreemptible: right_magrathea = 3; break;
-
-    case MagratheaStateOccupiedWouldPreempt: right_magrathea = 4; break;
-
-    case MagratheaStateDownBootable: right_magrathea = 5; break;
-
-    default: right_magrathea = 9;
-    }
+  int left_magrathea = get_magrathea_value(this->magrathea_status);
+  int right_magrathea = get_magrathea_value(right.magrathea_status);
 
   if (this->type != NodeVirtual) left_magrathea = -1;
   if (right.type != NodeVirtual) right_magrathea = -1;
@@ -689,7 +692,7 @@ void node_info::process_magrathea_status()
   resource *res_magrathea;
   res_magrathea = find_resource(this->res, "magrathea");
 
-  if (res_magrathea == NULL || magrathea_decode_new(res_magrathea,&this->magrathea_status) != 0)
+  if (res_magrathea == NULL || magrathea_decode_new(res_magrathea,&this->magrathea_status,this->is_rebootable) != 0)
     {
     this->magrathea_status = MagratheaStateNone;
     return;
@@ -729,9 +732,7 @@ void node_info::process_machine_cluster()
   this->is_building_cluster = false;
 
   if (res_cluster == NULL)
-    {
     return;
-    }
 
   string value = res_cluster->str_avail;
   size_t pos = value.find(';');
@@ -747,7 +748,7 @@ void node_info::process_machine_cluster()
     }
 
   // determine whether node is currently booting
-  if (this->virtual_cluster.substr(0,strlen("internal")) == "internal")
+  if (this->virtual_cluster.substr(0,strlen("internal_")) == "internal_")
     {
     this->is_building_cluster = true;
     }

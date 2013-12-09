@@ -28,6 +28,13 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec);
 int cloud_transition_into_prerun(job *pjob);
 void cloud_transition_into_running(job *pjob);
 void cloud_transition_into_stopped(job *pjob);
-void reset_alternative_on_node(job *pjob);
+//void reset_alternative_on_node(job *pjob);
+void reset_cloud(struct job *pj);
+void set_cloud(char *nodename, char *cloud_name);
+void clear_cloud(char *nodename);
+
+
+int is_cloud_job_internal(job *pjob, const char *nodespec);
+job *cloud_make_build_job(job *pjob, char **destin);
 
 #endif /* CLOUD_H_ */

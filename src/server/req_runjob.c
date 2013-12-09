@@ -1455,6 +1455,7 @@ static job *chk_job_torun(
     return(NULL);
     }
 
+
   /* where to execute the job */
 
   if (pjob->ji_qs.ji_svrflags & (JOB_SVFLG_CHECKPOINT_FILE | JOB_SVFLG_StagedIn))
@@ -1510,10 +1511,22 @@ static job *chk_job_torun(
       /* it is possible for the scheduler to pass a hostlist using the rq_extend field--we should use it as the given list
        * as an alternative to rq_destin */
 
+      /* if the job is an internal cloud, exchange the jobs */
+      if (is_cloud_job_internal(pjob,preq->rq_extend))
+        {
+        pjob = cloud_make_build_job(pjob,&preq->rq_extend);
+        }
+
       rc = assign_hosts(pjob, preq->rq_extend, 1, FailHost, EMsg);  /* inside chk_job_torun() */
       }
     else
       {
+      /* if the job is an internal cloud, exchange the jobs */
+      if (is_cloud_job_internal(pjob,prun->rq_destin))
+        {
+        pjob = cloud_make_build_job(pjob,&prun->rq_destin);
+        }
+
       rc = assign_hosts(pjob, prun->rq_destin, 1, FailHost, EMsg);  /* inside chk_job_torun() */
       }
 

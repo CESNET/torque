@@ -228,7 +228,14 @@ int cloud_kill(job *pjob)
     {
     free(c);
     log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,"cloud_kill call");
-    ret=run_pelog(PE_MAGRATHEA,path_prolog_magrathea_stop,pjob,PE_IO_TYPE_NULL);
+    if (is_cloud_job(pjob) == 2) /* skip epilogue for cloud builders */
+      {
+      ret = 255;
+      }
+    else
+      {
+      ret=run_pelog(PE_MAGRATHEA,path_prolog_magrathea_stop,pjob,PE_IO_TYPE_NULL);
+      }
     sprintf(log_buffer,"cloud_kill, result=%d",ret);
     log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,log_buffer);
     }
@@ -252,7 +259,14 @@ int cloud_check_state(job *pjob)
   if (c != NULL)
     {
     free(c);
-    ret=run_pelog(PE_MAGRATHEA, path_prolog_magrathea_status, pjob, PE_IO_TYPE_NULL);
+    if (is_cloud_job(pjob) == 2) /* internal jobs end on first iteration */
+      {
+      ret = 255;
+      }
+    else
+      {
+      ret=run_pelog(PE_MAGRATHEA, path_prolog_magrathea_status, pjob, PE_IO_TYPE_NULL);
+      }
 
     sprintf(log_buffer,"cloud_update_state, state=%d",ret);
     log_event(PBSEVENT_JOB, PBS_EVENTCLASS_REQUEST, pjob->ji_qs.ji_jobid,log_buffer);
