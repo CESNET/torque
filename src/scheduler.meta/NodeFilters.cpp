@@ -5,9 +5,11 @@ NodeSuitableForJob::NodeSuitableForJob(const job_info *jinfo) : p_jinfo(jinfo) {
 
 bool NodeSuitableForJob::operator ()(const node_info* node) const
   {
-  if (p_jinfo->cluster_mode != ClusterCreate && node->can_run_job(p_jinfo) == CheckNonFit)
+  if (p_jinfo->cluster_mode == ClusterUse && node->can_run_job(p_jinfo) == CheckNonFit)
     return false;
   if (p_jinfo->cluster_mode == ClusterCreate && node->can_boot_job(p_jinfo) == CheckNonFit)
+    return false;
+  if (node->can_run_job(p_jinfo) == CheckNonFit && node->can_boot_job(p_jinfo) == CheckNonFit)
     return false;
   return true;
   }
@@ -28,18 +30,13 @@ bool NodeSuitableForSpec::operator()(const node_info* node) const
   if (p_mode == SuitableFairshareMode && node->temp_fairshare_used)
     return false;
 
-  if (p_mode == SuitableRebootMode)
-    {
-    if (node->can_fit_job_for_boot(p_jinfo,p_spec,&scratch,&ra) == CheckNonFit)
-      return false;
-    }
-  else
-    {
-    if (p_jinfo->cluster_mode != ClusterCreate && node->can_fit_job_for_run(p_jinfo,p_spec,&scratch) == CheckNonFit)
-      return false;
-    if (p_jinfo->cluster_mode == ClusterCreate && node->can_fit_job_for_boot(p_jinfo,p_spec,&scratch,&ra) == CheckNonFit)
-      return false;
-    }
+  if (p_jinfo->cluster_mode == ClusterUse && node->can_fit_job_for_run(p_jinfo,p_spec,&scratch) == CheckNonFit)
+    return false;
+  if (p_jinfo->cluster_mode == ClusterCreate && node->can_fit_job_for_boot(p_jinfo,p_spec,&scratch,&ra) == CheckNonFit)
+    return false;
+
+  if (node->can_fit_job_for_run(p_jinfo,p_spec,&scratch) == CheckNonFit && node->can_fit_job_for_boot(p_jinfo,p_spec,&scratch,&ra) == CheckNonFit)
+    return false;
 
   return true;
   }

@@ -217,7 +217,7 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
     NodeSuitableForSpec::filter_assign(suitable_nodes,fit_nodes,jinfo,iter);
     NodeSuitableForSpec::filter_reboot(suitable_nodes,reboot_nodes,jinfo,iter);
 
-    if (fit_nodes.size() < iter->node_count)
+    if (fit_nodes.size() + reboot_nodes.size() < iter->node_count)
       {
       sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Nodespec doesn't match enough nodes. Job held.");
       nodes_preassign_clean(ninfo_arr,nodecount);
@@ -236,7 +236,7 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
       // if there are some rebootable nodes and we didn't find any normal nodes, try ondemand reboot
       if (ret != 0 && reboot_nodes.size() > 0)
         {
-        ret = ondemand_reboot(jinfo,iter,fit_nodes);
+        ret = ondemand_reboot(jinfo,iter,reboot_nodes);
         }
 
       if (ret == 2)
