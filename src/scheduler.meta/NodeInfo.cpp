@@ -370,6 +370,8 @@ CheckResult node_info::has_bootable_state(ClusterMode mode) const
   switch (magrathea_status)
     {
     case MagratheaStateFreeBootable:
+      if (!this->is_free())
+        return CheckOccupied;
     case MagratheaStateDownBootable:
       // down bootable nodes can only be used for ondemand clusters if rebootable
       if (mode == ClusterNone && (!this->is_rebootable))

@@ -393,14 +393,14 @@ static void get_target(stringstream& s, node_info *ninfo, int mode)
  *
  * @note Expects a valid node info
  */
-static void get_target_full(stringstream& s, job_info *jinfo, node_info *ninfo)
+static void get_target_full(stringstream& s, job_info *jinfo, node_info *ninfo, bool cluster)
   {
   assert(jinfo != NULL || ninfo != NULL);
 
   if (ninfo->temp_assign == NULL)
     return;
 
-  if (jinfo->cluster_mode == ClusterCreate)
+  if (jinfo->cluster_mode == ClusterCreate || cluster)
     get_target(s,ninfo,1);
   else
     get_target(s,ninfo,0);
@@ -414,6 +414,7 @@ static void get_target_full(stringstream& s, job_info *jinfo, node_info *ninfo)
 char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, int &booting, double &minspec)
   {
   stringstream s;
+  bool cluster = false;
   bool first = true;
   int i;
 
@@ -433,11 +434,17 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, 
 
   for (i = 0; i < count && ninfo_arr[i] != NULL; i++)
     {
+    if (ninfo_arr[i]->temp_assign_alternative != NULL)
+      cluster = true;
+    }
+
+  for (i = 0; i < count && ninfo_arr[i] != NULL; i++)
+    {
     if (ninfo_arr[i]->temp_assign != NULL)
       {
       if (!first) s << "+";
       first = false;
-      get_target_full(s,jinfo,ninfo_arr[i]);
+      get_target_full(s,jinfo,ninfo_arr[i],cluster);
 
       if (minspec == -1)
         minspec = ninfo_arr[i]->node_spec;
