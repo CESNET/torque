@@ -106,14 +106,27 @@ job *cloud_make_build_job(job *pjob, char **destin)
   resource_def *rdef;
   resource *res;
 
-  job *pj;
   char *buf;
+  buf = malloc(strlen("internal_ondemand_builder_")+strlen(pjob->ji_qs.ji_jobid)+1);
+  sprintf(buf,"internal_ondemand_builder_%s",pjob->ji_qs.ji_jobid);
+
+  if (find_job_by_name(buf) != NULL)
+    {
+    free(buf);
+    return NULL;
+    }
+
+  job *pj;
 
   if ((pj = job_clone_simple(pjob)) == NULL)
+    {
+    free(buf);
     return NULL;
+    }
 
   if (get_next_jobid(jidbuf) != 0)
     {
+    free(buf);
     return NULL;
     }
 
@@ -123,6 +136,7 @@ job *cloud_make_build_job(job *pjob, char **destin)
 
   if (create_job_file(namebuf,basename) != 0)
     {
+    free(buf);
     return NULL;
     }
 
@@ -135,8 +149,6 @@ job *cloud_make_build_job(job *pjob, char **destin)
   pj->ji_qs.ji_un_type  = JOB_UNION_TYPE_NEW;
 
   /* TODO could collide with unique job names for cloud jobs */
-  buf = malloc(strlen("internal_ondemand_builder_")+strlen(pj->ji_qs.ji_jobid)+1);
-  sprintf(buf,"internal_ondemand_builder_%s",pj->ji_qs.ji_jobid);
   free(pj->ji_wattr[JOB_ATR_jobname].at_val.at_str);
   pj->ji_wattr[JOB_ATR_jobname].at_val.at_str = buf;
 

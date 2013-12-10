@@ -1598,7 +1598,7 @@ void on_job_exit(
         MustReport = TRUE;
         }
 
-      if (KeepSeconds <= 0)
+      if (KeepSeconds <= 0 || is_cloud_job(pjob) == 2)
         {
         if (MustReport)
           {

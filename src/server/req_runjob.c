@@ -1517,7 +1517,10 @@ static job *chk_job_torun(
         pjob = cloud_make_build_job(pjob,&preq->rq_extend);
         }
 
-      rc = assign_hosts(pjob, preq->rq_extend, 1, FailHost, EMsg);  /* inside chk_job_torun() */
+      if (pjob != NULL)
+        rc = assign_hosts(pjob, preq->rq_extend, 1, FailHost, EMsg);  /* inside chk_job_torun() */
+      else
+        rc = PBSE_BADSTATE;
       }
     else
       {
@@ -1527,7 +1530,10 @@ static job *chk_job_torun(
         pjob = cloud_make_build_job(pjob,&prun->rq_destin);
         }
 
-      rc = assign_hosts(pjob, prun->rq_destin, 1, FailHost, EMsg);  /* inside chk_job_torun() */
+      if (pjob != NULL)
+        rc = assign_hosts(pjob, prun->rq_destin, 1, FailHost, EMsg);  /* inside chk_job_torun() */
+      else
+        rc = PBSE_BADSTATE;
       }
 
     if (rc != 0)
