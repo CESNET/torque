@@ -318,6 +318,8 @@ void update_node_state(
         {
         sp->inuse |= INUSE_DOWN;
         }
+
+      clear_alternative(np);
       }
 
     /* ignoring the obvious possibility of a "down,busy" node */
@@ -339,12 +341,15 @@ void update_node_state(
       {
       np->nd_state &= ~INUSE_DOWN;
 
+      set_alternative_from_cache(np);
+
       /* clear down on all subnodes */
 
       for (sp = np->nd_psn;sp != NULL;sp = sp->next)
         {
         sp->inuse &= ~INUSE_DOWN;
         }
+
       }
     }  /* END else if (newstate & INUSE_BUSY) */
   else if (newstate == INUSE_FREE)
@@ -535,6 +540,8 @@ void update_node_state(
     if (np->nd_state & INUSE_DOWN)
       {
       np->nd_state &= ~INUSE_DOWN;
+
+      set_alternative_from_cache(np);
 
       /* clear down on all subnodes */
 
@@ -2085,6 +2092,8 @@ found:
       /* CLUSTER_ADDRS successful */
 #endif
       node->nd_state &= ~(INUSE_NEEDS_HELLO_PING|INUSE_FROZEN|INUSE_DOWN);
+
+      set_alternative_from_cache(node);
 
       break;
 
@@ -5271,7 +5280,7 @@ void set_old_nodes(
     while (ps != NULL);
 
     /* reset alternatives on nodes */
-    reset_alternative_on_node(pjob);
+    //reset_alternative_on_node(pjob);
 
     free(fold);
     free(fspec);

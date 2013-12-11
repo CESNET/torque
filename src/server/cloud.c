@@ -288,55 +288,89 @@ char *switch_nodespec_to_cloud(job  *pjob, char *nodespec)
   return buf;
   }
 
-extern int check_and_read_config(char *filename,config_line_s **lines,time_t *last_modification,int *last_line);
-
-void set_alternative_on_node(char *nodename, char *alternative, char *cloud_name)
+void clear_alternative(struct pbsnode *np)
   {
-  char            *c;
-  struct pbsnode  *np;
-  struct attribute props;
-  struct prop    **plink;
-  struct prop     *pdest;
-  int              nad_props;
-  int              i;
-  extern attribute_def node_attr_def[];
-
-  np = find_nodebyname(nodename);
-  if ((np = find_nodebyname(nodename)) == NULL)
-    return;
-
-  log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_NODE, nodename, "Found node and setting alternative.");
-
-  c = get_alternative_properties(alternative);
-
-  if (c == NULL)
-    return;
-
-  log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_NODE, nodename, "Found alternative and setting.");
-
-  /* clean the previous data */
   free_prop_list(np->x_ad_prop);
   if (np->x_ad_properties)
     free(np->x_ad_properties->as_buf);
   free(np->x_ad_properties);
-
-  np->xn_ad_prop = 0;
-  np->x_ad_properties = NULL;
   np->x_ad_prop = NULL;
+  np->x_ad_properties = NULL;
+  np->xn_ad_prop = 0;
+  }
 
+extern int check_and_read_config(char *filename,config_line_s **lines,time_t *last_modification,int *last_line);
+
+char *get_image_from_cache(const char* hostname)
+  {
+  char *image;
+  if ((image = pbs_cache_get_local((char*)hostname,(char*)"magrathea")) == NULL)
+    return NULL;
+
+  char *tmp = cache_value_only(image);
+  free(image);
+  image = tmp;
+
+  tmp = strstr("image=",image);
+  if (tmp != NULL)
+    {
+    char *i = strchr(tmp,';');
+    char *tmp2;
+    if (i == NULL)
+      tmp2 = strdup(tmp);
+    else
+      tmp2 = strndup(tmp,i-tmp);
+
+    free(image);
+    image = tmp2;
+    }
+  else
+    {
+    free(image);
+    image = NULL;
+    }
+
+  return image;
+  }
+
+
+void set_alternative_from_cache(struct pbsnode *np)
+  {
+  char *image = get_image_from_cache(np->nd_name);
+  set_alternative(np,image);
+  }
+
+void set_alternative(struct pbsnode *np, char *image)
+  {
+  if (image == NULL)
+    {
+    clear_alternative(np);
+    return;
+    }
+
+  char *alter_prop = get_alternative_properties(image);
+
+  /* clean the previous data */
+  clear_alternative(np);
+
+  if (alter_prop == NULL)
+    return;
+
+  // reset data on node
+  struct prop    **plink;
+  struct prop     *pdest;
+  int              nad_props;
+  extern attribute_def node_attr_def[];
+
+  struct attribute props;
   props.at_val.at_arst = 0;
   props.at_flags = 0;
   props.at_type = ATR_TYPE_ARST;
 
   /* decode the new value into the temporary attribute */
-  node_attr_def[(int)ND_ATR_adproperties].at_decode(&props,
-                                                    ATTR_NODE_adproperties,
-                                                    0,
-                                                    c);
+  node_attr_def[(int)ND_ATR_adproperties].at_decode(&props, ATTR_NODE_adproperties, 0, alter_prop);
   /* set the real structure attribute */
-  node_attr_def[(int)ND_ATR_adproperties].at_action(&props,
-                                                    np,
-                                                    ATR_ACTION_ALTER);
+  node_attr_def[(int)ND_ATR_adproperties].at_action(&props, np, ATR_ACTION_ALTER);
 
   /* update additional properties list based on new additional properties array */
   plink = &np->x_ad_prop;
@@ -345,7 +379,7 @@ void set_alternative_on_node(char *nodename, char *alternative, char *cloud_name
     {
     nad_props = np->x_ad_properties->as_usedptr;
 
-    for (i = 0; i < nad_props; ++i)
+    for (int i = 0; i < nad_props; ++i)
       {
       pdest = init_prop(np->x_ad_properties->as_string[i]);
 
@@ -355,7 +389,16 @@ void set_alternative_on_node(char *nodename, char *alternative, char *cloud_name
     }
 
   np->xn_ad_prop = nad_props;
+  }
 
+void set_alternative_on_node(char *nodename, char *image, char *cloud_name)
+  {
+  struct pbsnode  *np;
+
+  if ((np = find_nodebyname(nodename)) == NULL)
+    return;
+
+  set_alternative(np,image);
   free(np->cloud);
   np->cloud = strdup(cloud_name);
 
@@ -369,14 +412,7 @@ void clear_alternative_on_node(char *nodename)
   if ((np = find_nodebyname(nodename)) == NULL)
     return;
 
-  free_prop_list(np->x_ad_prop);
-  if (np->x_ad_properties)
-    free(np->x_ad_properties->as_buf);
-  free(np->x_ad_properties);
-  np->x_ad_prop = NULL;
-  np->x_ad_properties = NULL;
-  np->xn_ad_prop = 0;
-
+  clear_alternative(np);
   free(np->cloud);
   np->cloud = NULL;
 

@@ -33,6 +33,10 @@ void reset_cloud(struct job *pj);
 void set_cloud(char *nodename, char *cloud_name);
 void clear_cloud(char *nodename);
 
+void clear_alternative(struct pbsnode *np);
+void set_alternative(struct pbsnode *np, char *image);
+void set_alternative_from_cache(struct pbsnode *np);
+
 
 int is_cloud_job_internal(job *pjob, const char *nodespec);
 job *cloud_make_build_job(job *pjob, char **destin);
