@@ -311,15 +311,15 @@ char *get_image_from_cache(const char* hostname)
   free(image);
   image = tmp;
 
-  tmp = strstr("image=",image);
+  tmp = strstr(image,"image=");
   if (tmp != NULL)
     {
     char *i = strchr(tmp,';');
     char *tmp2;
     if (i == NULL)
-      tmp2 = strdup(tmp);
+      tmp2 = strdup(tmp+strlen("image="));
     else
-      tmp2 = strndup(tmp,i-tmp);
+      tmp2 = strndup(tmp+strlen("image="),i-tmp-strlen("image="));
 
     free(image);
     image = tmp2;
@@ -565,6 +565,8 @@ int cloud_transition_into_prerun(job *pjob)
     {
     /* update cache information that this machine now belongs to the following vcluster */
     cache_store_local(iter->host,"machine_cluster",pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
+    // setup properties
+    set_alternative_on_node(iter->host,get_alternative_name(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,iter->host),pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
 
     iter = iter->next;
     }

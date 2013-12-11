@@ -251,6 +251,8 @@ cleanup_boot()
 
 cleanup_magrathea_cluster()
 {
+	$ADMIN_COMMAND set-image $DOMAIN none
+
 	fetch_magrathea_status;
 #	if [ "$MAGRATHEA_STATUS" = "running-cluster" ]; then
         if [ "$CLOUDTYPE" != "internal" ]; then
@@ -261,7 +263,6 @@ cleanup_magrathea_cluster()
 	fi
 #	fi
 
-	$ADMIN_COMMAND set-image $DOMAIN none
 }
 
 cleanup_magrathea_booting()
@@ -322,6 +323,8 @@ invoke_booot()
 # start domU using magrathea
 magrathea_start()
 {
+	$ADMIN_COMMAND set-image $DOMAIN $ALTERNATIVE
+
 	if [ -z "$MAGRATHEA_STATUS" ]; then
 		$ADMIN_COMMAND create $DOMAIN ${DOMAIN/\.*/} normal `host $DOMAIN | awk '// { print $4 }'` $MAGRATHEA_DOMAIN_FOREIGN;
 		test_status_start;
@@ -368,8 +371,6 @@ magrathea_start()
 			exit_with_rollback 1;
 		fi
 	fi
-
-	$ADMIN_COMMAND set-image $DOMAIN $ALTERNATIVE
 }
 
 #########################

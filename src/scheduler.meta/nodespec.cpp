@@ -377,14 +377,9 @@ static void get_target(stringstream& s, node_info *ninfo, int mode)
     s << ":scratch_volume=" << ninfo->temp_assign->scratch / 1024 << "mb";
     }
 
-  if (ninfo->alternatives != NULL && ninfo->alternatives[0] != NULL)
+  if (ninfo->alternatives != NULL && ninfo->alternatives[0] != NULL && ninfo->temp_assign_alternative != NULL)
     {
-    s << ":alternative=";
-
-    if (ninfo->temp_assign_alternative != NULL)
-      s << ninfo->temp_assign_alternative->r_name;
-    else
-      s << ninfo->alternatives[0]->r_name;
+    s << ":alternative=" << ninfo->temp_assign_alternative->r_name;
     }
 
   }
