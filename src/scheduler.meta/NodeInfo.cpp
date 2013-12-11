@@ -370,7 +370,7 @@ CheckResult node_info::has_bootable_state(ClusterMode mode) const
   switch (magrathea_status)
     {
     case MagratheaStateFreeBootable:
-      if (!this->is_free())
+      if (!this->is_free() || this->is_down() || this->is_offline() || this->is_unknown())
         return CheckOccupied;
     case MagratheaStateDownBootable:
       // down bootable nodes can only be used for ondemand clusters if rebootable
@@ -527,10 +527,9 @@ CheckResult node_info::can_run_job(const job_info *jinfo) const
 
     // Check whether this machine is running the cluster user is requesting
     if ((res_machine == NULL) || (res_machine -> str_avail == NULL))
-      result = CheckOccupied;
-
-    if (strcmp(res_machine -> str_avail,jinfo->cluster_name)!=0)
-      result = CheckOccupied;
+      return CheckOccupied;
+    else if (strcmp(res_machine -> str_avail,jinfo->cluster_name)!=0)
+      return CheckOccupied;
     }
 
   return result;

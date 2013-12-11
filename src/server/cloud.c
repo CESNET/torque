@@ -400,7 +400,8 @@ void set_alternative_on_node(char *nodename, char *image, char *cloud_name)
 
   set_alternative(np,image);
   free(np->cloud);
-  np->cloud = strdup(cloud_name);
+  if (cloud_name != NULL)
+    np->cloud = strdup(cloud_name);
 
   log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_NODE, np->nd_name, "additional properties set on node");
   }
@@ -566,7 +567,8 @@ int cloud_transition_into_prerun(job *pjob)
     /* update cache information that this machine now belongs to the following vcluster */
     cache_store_local(iter->host,"machine_cluster",pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
     // setup properties
-    set_alternative_on_node(iter->host,get_alternative_name(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,iter->host),pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
+    //set_alternative_on_node(iter->host,get_alternative_name(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,iter->host),pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
+    set_alternative_on_node(iter->host,get_alternative_name(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,iter->host),NULL);
 
     iter = iter->next;
     }
@@ -651,7 +653,8 @@ void cloud_transition_into_stopped(job *pjob)
     cache_remove_local(iter->host == NULL ? name->name : iter->host,"machine_cluster");
 
     /* remove any alternative stored on the node */
-    clear_alternative_on_node(iter->host == NULL ? name->name : iter->host);
+    if (is_cloud_job(pjob) != 2) // for ondemand clusters keep alternative on node
+      clear_alternative_on_node(iter->host == NULL ? name->name : iter->host);
 
     iter = iter->next;
     }
