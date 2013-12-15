@@ -138,7 +138,7 @@ int decode_time(
   char *pc;
   long  rv = 0;
   char *workval;
-  char *workvalsv;
+  char *workvalsv = NULL;
 
   if ((val == NULL) || (strlen(val) == 0))
     {
@@ -151,82 +151,158 @@ int decode_time(
     return(0);
     }
 
+  /* FORMAT: [0w][0d][0h][0m][0s] */
+  if (strpbrk(val,"sSmMhHdDwW") != NULL)
+    {
+    const char *old_time = val;
+
+    long long total_time = 0;
+
+    // seconds
+    const char *seconds = strpbrk(old_time,"sS");
+    if (seconds != old_time && seconds != NULL)
+      {
+      --seconds;
+      while (seconds != old_time && isdigit(*seconds))
+        --seconds;
+      if (seconds != old_time)
+        ++seconds;
+
+      total_time += atoi(seconds);
+      }
+
+    // minutes
+    const char *minutes = strpbrk(old_time,"mM");
+    if (minutes != old_time && minutes != NULL)
+      {
+      --minutes;
+      while (minutes != old_time && isdigit(*minutes))
+        --minutes;
+      if (minutes != old_time)
+        ++minutes;
+
+      total_time += atoi(minutes)*60;
+      }
+
+    // hours
+    const char *hours = strpbrk(old_time,"hH");
+    if (hours != old_time && hours != NULL)
+      {
+      --hours;
+      while (hours != old_time && isdigit(*hours))
+        --hours;
+      if (hours != old_time)
+        ++hours;
+
+      total_time += atoi(hours)*60*60;
+      }
+
+    // days
+    const char *days = strpbrk(old_time,"dD");
+    if (days != old_time && days != NULL)
+      {
+      --days;
+      while (days != old_time && isdigit(*days))
+        --days;
+      if (days != old_time)
+        ++days;
+
+      total_time += atoi(days)*24*60*60;
+      }
+
+    // weeks
+    const char *weeks = strpbrk(old_time,"wW");
+    if (weeks != old_time && weeks != NULL)
+      {
+      --weeks;
+      while (weeks != old_time && isdigit(*weeks))
+        --weeks;
+      if (weeks != old_time)
+        ++weeks;
+
+      total_time += atoi(weeks)*7*24*60*60;
+      }
+
+    rv = total_time;
+    }
   /* FORMAT:  [DD]:HH:MM:SS[.MS] */
-
-  workval = strdup(val);
-
-  workvalsv = workval;
-
-  if (workvalsv == NULL)
+  else
     {
-    /* FAILURE - cannot alloc memory */
+    workval = strdup(val);
 
-    goto badval;
-    }
+    workvalsv = workval;
 
-  for (i = 0;i < 3;++i)
-    msec[i] = '0';
-
-  msec[i] = '\0';
-
-  for (pc = workval;*pc;++pc)
-    {
-    if (*pc == ':')
+    if (workvalsv == NULL)
       {
-      if (++ncolon > 3)
-        goto badval;
+      /* FAILURE - cannot alloc memory */
 
-      /* are days specified? */
-      if (ncolon > 2)
-        use_days = 1;
+      goto badval;
       }
-    }
 
-  for (pc = workval;*pc;++pc)
-    {
-    if (*pc == ':')
+    for (i = 0;i < 3;++i)
+      msec[i] = '0';
+
+    msec[i] = '\0';
+
+    for (pc = workval;*pc;++pc)
       {
-
-      *pc = '\0';
-
-      if (use_days)
+      if (*pc == ':')
         {
-        days = atoi(workval);
-        use_days = 0;
+        if (++ncolon > 3)
+          goto badval;
+
+        /* are days specified? */
+        if (ncolon > 2)
+          use_days = 1;
         }
-      else
+      }
+
+    for (pc = workval;*pc;++pc)
+      {
+      if (*pc == ':')
         {
-        rv = (rv * 60) + atoi(workval);
+
+        *pc = '\0';
+
+        if (use_days)
+          {
+          days = atoi(workval);
+          use_days = 0;
+          }
+        else
+          {
+          rv = (rv * 60) + atoi(workval);
+          }
+
+        workval = pc + 1;
+
         }
+      else if (*pc == '.')
+        {
+        *pc++ = '\0';
 
-      workval = pc + 1;
+        for (i = 0; (i < 3) && *pc; ++i)
+          msec[i] = *pc++;
 
+        break;
+        }
+      else if (!isdigit((int)*pc))
+        {
+        goto badval; /* bad value */
+        }
       }
-    else if (*pc == '.')
-      {
-      *pc++ = '\0';
 
-      for (i = 0; (i < 3) && *pc; ++i)
-        msec[i] = *pc++;
+    rv = (rv * 60) + atoi(workval);
 
-      break;
-      }
-    else if (!isdigit((int)*pc))
-      {
-      goto badval; /* bad value */
-      }
+    if (days > 0)
+     rv = rv + (days * 24 * 3600);
+
+    if (rv > PBS_MAX_TIME)
+      goto badval;
+
+    if (atoi(msec) >= 500)
+      rv++;
     }
-
-  rv = (rv * 60) + atoi(workval);
-  
-  if (days > 0)
-   rv = rv + (days * 24 * 3600);
-
-  if (rv > PBS_MAX_TIME)
-    goto badval;
-
-  if (atoi(msec) >= 500)
-    rv++;
 
   patr->at_val.at_long = rv;
 
