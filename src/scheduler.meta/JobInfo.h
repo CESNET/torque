@@ -40,12 +40,7 @@ struct job_info
 
   double calculated_fairshare;
 
-  std::map< std::string, std::vector<pars_spec_node*> > schedule; /* currently considered schedule */
-
-  /** \brief Determine whether a sjob is already planned on node */
-  bool on_node(node_info *ninfo);
-  /** \brief Determine whether a job is already planned on node, or any of its virtual sisters */
-  bool on_host(node_info *ninfo);
+  std::vector<node_info*> schedule; /* currently considered schedule */
 
   void plan_on_node(node_info* ninfo, pars_spec_node* spec);
   void unplan_from_node(node_info* ninfo, pars_spec_node* spec);

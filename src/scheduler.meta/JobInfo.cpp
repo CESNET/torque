@@ -9,25 +9,6 @@
 #include <algorithm>
 using namespace std;
 
-bool job_info::on_host(node_info *ninfo)
-  {
-  if (ninfo->host == NULL)
-    return on_node(ninfo);
-
-  for (size_t i = 0; i < ninfo->host->hosted.size(); i++)
-    {
-    if (on_node(ninfo->host->hosted[i]))
-      return true;
-    }
-
-  return false;
-  }
-
-bool job_info::on_node(node_info *ninfo)
-  {
-  return (schedule.find(string(ninfo->name)) != schedule.end());
-  }
-
 void job_info::unplan_from_node(node_info* ninfo, pars_spec_node* spec)
   {
   resource *res;

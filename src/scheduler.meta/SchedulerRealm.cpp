@@ -380,6 +380,7 @@ int World::try_run_job(job_info *jinfo)
     }
 
   nodes_preassign_clean(p_info->nodes, p_info->num_nodes);
+  jinfo->schedule.clear();
 
   return ret;
   }
@@ -435,6 +436,8 @@ void World::run()
         sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SERVER, "cycle", "Cycle ending prematurely due to time limit.");
         break;
         }
+
+      jinfo->schedule.clear();
 
       int ret;
       if ((ret = is_ok_to_run_job(p_info, jinfo->queue, jinfo, 0)) == SUCCESS)

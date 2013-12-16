@@ -34,5 +34,8 @@ maple10p	{ err " "	type "dynamic" }
 maple11		{ err " "	type "dynamic" }
 maple		{ err " "	type "dynamic" }
 
+minspec		{ err " "	type "status" }
+maxspec		{ err " "	type "status" }
+
 #include "resources_matlab.def"
 #include "resources_ncbr.def"

@@ -182,6 +182,14 @@ void regenerate_total_resources(job * pjob)
         resource decoded;
         int total_count = 1;
 
+        // blacklist
+        if (strcmp(prop->name,"minspec")==0 ||
+            strcmp(prop->name,"maxspec")==0)
+          {
+          prop = prop->next;
+          continue;
+          }
+
         if ((rd->rs_flags & ATR_DFLAG_SELECT_MOM) != 0)
           total_count = node->node_count;
         if ((rd->rs_flags & ATR_DFLAG_SELECT_PROC) != 0)

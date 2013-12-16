@@ -64,6 +64,8 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, const vector<node_
     else
       suitable_nodes[i]->temp_assign_alternative = NULL; /* FIXME META Prepsat do citelneho stavu */
 
+    jinfo->schedule.push_back(suitable_nodes[i]);
+
     return 0;
     }
 
@@ -221,6 +223,7 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
       {
       sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Nodespec doesn't match enough nodes. Job held.");
       nodes_preassign_clean(ninfo_arr,nodecount);
+      jinfo->schedule.clear();
       return REQUEST_NOT_MATCHED;
       }
 
@@ -433,19 +436,16 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, 
       cluster = true;
     }
 
-  for (i = 0; i < count && ninfo_arr[i] != NULL; i++)
+  for (i = 0; (unsigned)i < jinfo->schedule.size(); i++)
     {
-    if (ninfo_arr[i]->temp_assign != NULL)
-      {
-      if (!first) s << "+";
+    if (!first) s << "+";
       first = false;
-      get_target_full(s,jinfo,ninfo_arr[i],cluster);
+      get_target_full(s,jinfo,jinfo->schedule[i],cluster);
 
       if (minspec == -1)
-        minspec = ninfo_arr[i]->node_spec;
+        minspec = jinfo->schedule[i]->node_spec;
       else
-        minspec = min(minspec,ninfo_arr[i]->node_spec);
-      }
+        minspec = min(minspec,jinfo->schedule[i]->node_spec);
     }
 
   if (jinfo->is_exclusive)

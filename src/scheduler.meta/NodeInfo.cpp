@@ -251,6 +251,24 @@ CheckResult node_info::has_resc(const pars_prop *prop) const
   if (res_check_type(prop->name) == ResCheckNone) // this resource shouldn't be checked
     return CheckAvailable;
 
+  if (strcmp(prop->name,"minspec")==0)
+    {
+    double value = atof(prop->value);
+    if (this->node_spec >= value)
+      return CheckAvailable;
+    else
+      return CheckNonFit;
+    }
+
+  if (strcmp(prop->name,"maxspec")==0)
+    {
+    double value = atof(prop->value);
+    if (this->node_spec <= value)
+      return CheckAvailable;
+    else
+      return CheckNonFit;
+    }
+
   struct resource *resc;
   if ((resc = find_resource(res,prop->name)) == NULL)
     return CheckNonFit;

@@ -15,6 +15,14 @@ enum CheckResult { CheckAvailable, CheckOccupied, CheckNonFit };
 #include "NodeState.h"
 #include "JobInfo.h"
 
+struct assigned_nodespec
+  {
+  pars_spec_node *temp_assign; /**< Temporary job assignment */
+  repository_alternatives *temp_assign_alternative; /**< Alternative assignment */
+  ScratchType temp_assign_scratch;
+  bool temp_fairshare_used;
+  };
+
 struct node_info : public NodeState
   {
 unsigned no_multinode_jobs: 1; /* no multinode jobs on this node */

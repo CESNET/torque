@@ -2507,6 +2507,11 @@ int hasres(struct pbsnode *pnode, char  *name, char *value, int proc_count, int 
   if (strcmp("scratch_type",name) == 0)
     return 1;
 
+  if (strcmp("minspec",name) == 0)
+    return 1;
+  if (strcmp("maxspec",name) == 0)
+    return 1;
+
   if ((rd->rs_flags & (ATR_DFLAG_SELECT_PROC | ATR_DFLAG_SELECT_MOM)) == 0)
     return 1; /* this resource is not per-proc or per-node and therefore not checked */
 
