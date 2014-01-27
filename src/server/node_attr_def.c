@@ -324,6 +324,32 @@ attribute_def node_attr_def[] =
     PARENT_TYPE_NODE,
   },
 
+  /* ND_ATR_available_before */
+  { ATTR_NODE_available_before, /* node available before certain time */
+    decode_l,
+    encode_l,
+    set_l,
+    comp_null,
+    free_null,
+    node_avail_before,
+    MGR_ONLY_SET,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_NODE,
+  },
+
+  /* ND_ATR_available_after */
+  { ATTR_NODE_available_after, /* node available after certain time */
+    decode_l,
+    encode_l,
+    set_l,
+    comp_null,
+    free_null,
+    node_avail_after,
+    MGR_ONLY_SET,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_NODE,
+  },
+
   /* ND_ATR_machine_spec */
   { ATTR_NODE_machine_spec, /* machine_spec */
     decode_dbl,

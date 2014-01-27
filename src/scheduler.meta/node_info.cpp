@@ -272,6 +272,11 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
     else if (!strcmp(attrp -> name, ATTR_NODE_noautoresv))
       ninfo -> no_starving_jobs = !strcmp(attrp->value,"True");
 
+    else if (!strcmp(attrp -> name, ATTR_NODE_available_after))
+      ninfo -> avail_after = atol(attrp->value);
+    else if (!strcmp(attrp -> name, ATTR_NODE_available_before))
+      ninfo -> avail_before = atol(attrp->value);
+
     else if (!strcmp(attrp -> name, ATTR_NODE_exclusively_assigned))
       ninfo->set_exclusively_assigned(attrp->value);
     else if (!strcmp(attrp -> name, ATTR_NODE_admin_slot_available))

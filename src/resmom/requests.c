@@ -2608,7 +2608,7 @@ static int del_files(
       /* the job's stdout/stderr */
 
 #if NO_SPOOL_OUTPUT == 0
-      strncpy(path, path_spool, sizeof(path));
+      strncpy(path, path_spool, MAXPATHLEN);
 #endif /* !NO_SPOOL_OUTPUT */
       }
     else if (AsUser == FALSE)

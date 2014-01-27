@@ -473,6 +473,8 @@ extern int      node_note        A_((attribute*, void*, int));
 extern int node_queue(attribute *anew, void *pnode, int actmode);
 extern int node_cloud(attribute *anew, void *pnode, int actmode);
 extern int node_priority(attribute *anew, void *pnode, int actmode);
+extern int node_avail_after(attribute *anew, void *pnode, int actmode);
+extern int node_avail_before(attribute *anew, void *pnode, int actmode);
 extern int node_machine_spec(attribute *anew, void *pnode, int actmode);
 extern int node_fairshare_coef(attribute *anew, void *pnode, int actmode);
 extern int node_no_multinode(attribute *anew, void *pnode, int actmode);

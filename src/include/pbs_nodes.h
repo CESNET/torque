@@ -172,6 +172,9 @@ struct pbsnode
   double nd_machine_spec;
   double nd_fairshare_coef;
 
+  long nd_avail_before;
+  long nd_avail_after;
+
   struct attribute attributes[2]; /* resources_total, resources_used */
   char *queue;
   char *cloud;
@@ -287,6 +290,8 @@ enum nodeattr
   ND_ATR_cloud,
   ND_ATR_noautoresv,
   ND_ATR_priority,
+  ND_ATR_available_before,
+  ND_ATR_available_after,
   ND_ATR_machine_spec,
   ND_ATR_node_cost,
   ND_ATR_admin_slot_enabled,

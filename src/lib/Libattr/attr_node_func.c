@@ -1818,4 +1818,59 @@ int node_fairshare_coef(attribute *new, void *pnode, int actmode)
   return(rc);
   }
 
+int node_avail_after(attribute *new, void *pnode, int actmode)
+  {
+  int rc = 0;
+  struct pbsnode  *np;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+    case ATR_ACTION_NEW:
+      new->at_val.at_long  = np->nd_avail_after;
+      new->at_flags       = ATR_VFLAG_SET;
+      new->at_type        = ATR_TYPE_LONG;
+      break;
+
+    case ATR_ACTION_ALTER:
+      np->nd_avail_after = new->at_val.at_long;
+      break;
+
+    default:
+      rc = PBSE_INTERNAL;
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
+
+int node_avail_before(attribute *new, void *pnode, int actmode)
+  {
+  int rc = 0;
+  struct pbsnode  *np;
+
+  np = (struct pbsnode *)pnode;    /* because of at_action arg type */
+
+  switch (actmode)
+    {
+    case ATR_ACTION_NEW:
+      new->at_val.at_long  = np->nd_avail_before;
+      new->at_flags       = ATR_VFLAG_SET;
+      new->at_type        = ATR_TYPE_LONG;
+      break;
+
+    case ATR_ACTION_ALTER:
+      np->nd_avail_before = new->at_val.at_long;
+      break;
+
+    default:
+      rc = PBSE_INTERNAL;
+      break;
+    }  /* END switch(actmode) */
+
+  return(rc);
+  }
+
+
 /* END attr_node_func.c */

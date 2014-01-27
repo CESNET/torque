@@ -385,6 +385,14 @@ CheckResult node_info::has_bootable_state(ClusterMode mode) const
   if (host->type != NodeCloud)
     return CheckNonFit;
 
+  // check after & before
+  long now = time(NULL);
+  if (this->avail_after != 0 && now < this->avail_after)
+    return CheckNonFit;
+
+  if (this->avail_before != 0 && now > this->avail_before)
+    return CheckNonFit;
+
   switch (magrathea_status)
     {
     case MagratheaStateFreeBootable:
@@ -447,6 +455,14 @@ CheckResult node_info::has_runnable_state() const
   if (type == NodeTimeshared || type == NodeCloud)
     return CheckNonFit;
 
+  // check after & before
+  long now = time(NULL);
+  if (this->avail_after != 0 && now < this->avail_after)
+    return CheckNonFit;
+
+  if (this->avail_before != 0 && now > this->avail_before)
+    return CheckNonFit;
+
   if (type == NodeVirtual)
     {
     switch (magrathea_status)
@@ -485,6 +501,10 @@ CheckResult node_info::can_boot_job(const job_info *jinfo) const
 
   CheckResult result = has_bootable_state(jinfo->cluster_mode);
   if (result == CheckNonFit)
+    return CheckNonFit;
+
+  long now = time(NULL);
+  if (this->avail_before - jinfo->get_walltime() > now)
     return CheckNonFit;
 
   if (jinfo->cluster_mode == ClusterUse)

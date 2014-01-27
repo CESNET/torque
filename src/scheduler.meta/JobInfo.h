@@ -47,6 +47,8 @@ struct job_info
   void plan_on_queue(queue_info* qinfo);
   void plan_on_server(server_info* sinfo);
 
+  long get_walltime() const;
+
   int preprocess();
 
   double calculate_fairshare_cost(const std::vector<node_info *>& nodes) const;

@@ -68,6 +68,9 @@ unsigned no_starving_jobs:  1; /* no starving jobs no this node */
 
   std::string scratch_pool;
 
+  long avail_before;
+  long avail_after;
+
   // fairshare
   double node_cost;
   double node_spec;
@@ -97,11 +100,9 @@ public:
 
   CheckResult can_run_job(const job_info *jinfo) const;
   CheckResult can_boot_job(const job_info *jinfo) const;
-  CheckResult can_reboot_job(const job_info *jinfo) const;
 
   CheckResult can_fit_job_for_run(const job_info *jinfo, const pars_spec_node *spec, ScratchType *scratch) const;
   CheckResult can_fit_job_for_boot(const job_info *jinfo, const pars_spec_node *spec, ScratchType *scratch, repository_alternatives **alternative) const;
-  CheckResult can_fit_job_for_reboot(const job_info *jinfo, const pars_spec_node *spec, ScratchType *scratch, repository_alternatives **alternative) const;
 
   void deplete_admin_slot();
   void deplete_exclusive_access();
@@ -137,7 +138,7 @@ private:
   bool p_exclusively_assigned;
 
 public:
-  node_info() : node_priority(0), is_rebootable(false), node_cost(1.0), node_spec(10.0), p_core_total(0), p_core_free(0), p_core_assigned(0), p_admin_slot_enabled(false), p_admin_slot_avail(false), p_exclusively_assigned(false) {}
+  node_info() : node_priority(0), is_rebootable(false), avail_before(0), avail_after(0), node_cost(1.0), node_spec(10.0), p_core_total(0), p_core_free(0), p_core_assigned(0), p_admin_slot_enabled(false), p_admin_slot_avail(false), p_exclusively_assigned(false) {}
   };
 
 #endif /* NODEINFO_H_ */

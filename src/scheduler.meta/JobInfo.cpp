@@ -229,7 +229,7 @@ double job_info::calculate_fairshare_cost(const vector<node_info*>& nodes) const
     {
     vector<node_info*> fairshare_nodes; // construct possible nodes
     NodeSuitableForSpec::filter_fairshare(nodes,fairshare_nodes,this,iter);
-    sort(fairshare_nodes.begin(),fairshare_nodes.end(),NodeCostSort(iter->procs,iter->mem));
+    sort(fairshare_nodes.begin(),fairshare_nodes.end(),NodeCostSort(iter->procs,iter->mem,this->is_exclusive));
 
     unsigned i = 0;
     for (unsigned count = 0; count < iter->node_count; count++)
@@ -239,11 +239,25 @@ double job_info::calculate_fairshare_cost(const vector<node_info*>& nodes) const
 
       unsigned long long node_procs = fairshare_nodes[i]->get_proc_total();
       unsigned long long node_mem   = fairshare_nodes[i]->get_mem_total();
-      fairshare_cost += max(static_cast<double>(iter->mem)/node_mem,static_cast<double>(iter->procs)/node_procs)*node_procs*fairshare_nodes[i]->node_cost;
+
+      if (this->is_exclusive)
+        fairshare_cost += node_procs*fairshare_nodes[i]->node_cost;
+      else
+        fairshare_cost += max(static_cast<double>(iter->mem)/node_mem,static_cast<double>(iter->procs)/node_procs)*node_procs*fairshare_nodes[i]->node_cost;
+
       fairshare_nodes[i]->temp_fairshare_used = true;
       }
     iter = iter->next;
     }
 
   return fairshare_cost;
+  }
+
+long job_info::get_walltime() const
+  {
+  resource_req *resc = find_resource_req(this->resreq,"walltime");
+  if (resc == NULL)
+    return 0;
+
+  return resc->amount;
   }

@@ -440,6 +440,8 @@ static unsigned old_no_multinode = 0;
 static long old_priority = 100;
 static double old_fairshare_coef = 1;
 static double old_machine_spec = 10.0;
+static long old_np_avail_after = 0;
+static long old_np_avail_before = 0;
 
 
 
@@ -472,6 +474,8 @@ void save_characteristic(
   old_priority = pnode->nd_priority;
   old_machine_spec = pnode->nd_machine_spec;
   old_fairshare_coef = pnode->nd_fairshare_coef;
+  old_np_avail_after = pnode->nd_avail_after;
+  old_np_avail_before = pnode->nd_avail_before;
 
   /* if there was a previous note stored here, free it first */
 
@@ -664,6 +668,12 @@ int chk_characteristic(
   if (pnode->nd_admin_slot_enabled != old_np_admin)
     *pneed_todo |= WRITE_NEW_NODESFILE;
 
+  if (pnode->nd_avail_after != old_np_avail_after)
+    *pneed_todo |= WRITE_NEW_NODESFILE;
+
+  if (pnode->nd_avail_before != old_np_avail_before)
+    *pneed_todo |= WRITE_NEW_NODESFILE;
+
   return(0);
   }  /* END chk_characteristic() */
 
@@ -739,6 +749,10 @@ int status_nodeattrib(
       atemp[i].at_val.at_long = pnode->nd_noautoresv;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_priority))
       atemp[i].at_val.at_long = pnode->nd_priority;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_available_before))
+      atemp[i].at_val.at_long = pnode->nd_avail_before;
+    else if (!strcmp((padef + i)->at_name, ATTR_NODE_available_after))
+      atemp[i].at_val.at_long = pnode->nd_avail_after;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_machine_spec))
       atemp[i].at_val.at_double = pnode->nd_machine_spec;
     else if (!strcmp((padef + i)->at_name, ATTR_NODE_fairshare_coef))
@@ -903,6 +917,8 @@ static void initialize_pbsnode(
   pnode->nd_fairshare_coef = 1;
   pnode->nd_machine_spec = 10.0;
 
+  pnode->nd_avail_after = 0;
+  pnode->nd_avail_before = 0;
 
 
   for (i = 0;pul[i];i++)
@@ -1410,11 +1426,17 @@ update_nodes_file(void)
     if (np->nd_priority != 100)
       fprintf(nin, " priority=%ld", np->nd_priority);
 
+    if (np->nd_avail_after != 0)
+      fprintf(nin, " %s=%ld", ATTR_NODE_available_after, np->nd_avail_after);
+
+    if (np->nd_avail_before != 0)
+      fprintf(nin, " %s=%ld", ATTR_NODE_available_before, np->nd_avail_before);
+
     if (np->nd_machine_spec != 10.0)
-      fprintf(nin, " %s=%f", ATTR_NODE_machine_spec, np->nd_machine_spec);
+      fprintf(nin, " %s=%0.4f", ATTR_NODE_machine_spec, np->nd_machine_spec);
 
     if (np->nd_fairshare_coef != 1.0)
-      fprintf(nin, " %s=%f", ATTR_NODE_fairshare_coef, np->nd_fairshare_coef);
+      fprintf(nin, " %s=%0.4f", ATTR_NODE_fairshare_coef, np->nd_fairshare_coef);
 
     if (np->nd_no_multinode)
       fprintf(nin, " %s=1",ATTR_NODE_no_multinode_jobs);

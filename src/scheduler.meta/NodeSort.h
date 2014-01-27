@@ -12,12 +12,13 @@ struct NodeStateSort
 /** \brief Sort nodes by fairshare cost */
 struct NodeCostSort
   {
-  NodeCostSort(unsigned procs, unsigned long long mem);
+  NodeCostSort(unsigned procs, unsigned long long mem, bool exclusive);
   bool operator ()(node_info *left, node_info *right) const;
 
   private:
     unsigned p_procs;
     unsigned long long p_mem;
+    bool p_excl;
   };
 
 #endif /* NODESORT_H_ */
