@@ -195,10 +195,6 @@ server_info *query_server(int pbs_sd)
     res = res -> next;
     }
 
-  sinfo -> timesharing_nodes =
-
-    node_filter(sinfo -> nodes, sinfo -> num_nodes, is_node_timeshared, NULL);
-
   sinfo -> non_dedicated_nodes =
 
     node_filter(sinfo -> nodes, sinfo -> num_nodes, is_node_non_dedicated, NULL);
@@ -443,9 +439,6 @@ void free_server_info(server_info *sinfo)
   if (sinfo -> running_jobs != NULL)
     free(sinfo -> running_jobs);
 
-  if (sinfo -> timesharing_nodes != NULL)
-    free(sinfo -> timesharing_nodes);
-
   if (sinfo -> non_dedicated_nodes != NULL)
     free(sinfo -> non_dedicated_nodes);
 
@@ -524,8 +517,6 @@ server_info *new_server_info()
   sinfo -> nodes = NULL;
 
   sinfo -> non_dedicated_nodes = NULL;
-
-  sinfo -> timesharing_nodes = NULL;
 
   sinfo -> num_queues = 0;
 

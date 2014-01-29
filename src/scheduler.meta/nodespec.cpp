@@ -60,7 +60,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, const vector<node_
     suitable_nodes[i]->temp_assign = clone_pars_spec_node(spec);
     if (jinfo->is_exclusive) // allocate all processors and memory, when job is exclusive
       {
-      suitable_nodes[i]->temp_assign->procs = suitable_nodes[i]->get_proc_total();
+      suitable_nodes[i]->temp_assign->procs = suitable_nodes[i]->get_cores_total();
       suitable_nodes[i]->temp_assign->mem   = suitable_nodes[i]->get_mem_total();
       }
     suitable_nodes[i]->temp_assign_scratch = scratch;

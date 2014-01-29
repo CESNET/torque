@@ -40,16 +40,12 @@ CheckResult node_info::has_prop(const pars_prop* property, bool physical_only) c
     if (strcmp(name,prop_name) == 0)
       return result_helper(!negative);
 
-    set<string>::iterator it;
-
-    it = physical_properties.find(string(prop_name));
-    if (it != physical_properties.end())
+    if (this->has_phys_prop(prop_name))
       return result_helper(!negative);
 
     if (!physical_only)
       {
-      it = virtual_properties.find(string(prop_name));
-      if (it != virtual_properties.end())
+      if (this->has_virt_prop(prop_name))
         return result_helper(!negative);
       }
     }
@@ -97,7 +93,7 @@ CheckResult node_info::has_proc(const job_info *job, const pars_spec_node *spec)
     }
   else
     {
-    if (p_core_total < static_cast<int>(spec->procs)) // This node simply doesn't have enough processors
+    if (this->get_cores_total() < static_cast<int>(spec->procs)) // This node simply doesn't have enough processors
       {
       return CheckNonFit;
       }
@@ -107,19 +103,19 @@ CheckResult node_info::has_proc(const job_info *job, const pars_spec_node *spec)
       return CheckOccupied;
       }
 
-    if (p_core_free - p_core_assigned == 0) // Node is completely full
+    if (this->get_cores_free() - p_core_assigned == 0) // Node is completely full
       {
       return CheckOccupied;
       }
 
     if (job->is_exclusive)
       {
-      if (p_core_free - p_core_assigned != p_core_total) // Some processors are in use
+      if (this->get_cores_free() - p_core_assigned != this->get_cores_total()) // Some processors are in use
         return CheckOccupied;
       }
     else
       {
-      if (p_core_free - p_core_assigned < static_cast<int>(spec->procs)) // Not enough currently free processors
+      if (this->get_cores_free() - p_core_assigned < static_cast<int>(spec->procs)) // Not enough currently free processors
         return CheckOccupied;
       }
 
@@ -370,7 +366,7 @@ CheckResult node_info::has_spec(const job_info *job, const pars_spec_node *spec,
 CheckResult node_info::has_bootable_state(ClusterMode mode) const
   {
   // wrong type of node for booting jobs
-  if (type != NodeVirtual)
+  if (this->get_type() != NodeVirtual)
     return CheckNonFit;
 
   // machine doesn't have configured any virtual images
@@ -382,7 +378,7 @@ CheckResult node_info::has_bootable_state(ClusterMode mode) const
     return CheckNonFit;
 
   // configured physical host is not a cloud node
-  if (host->type != NodeCloud)
+  if (host->get_type() != NodeCloud)
     return CheckNonFit;
 
   // check after & before
@@ -452,7 +448,7 @@ CheckResult node_info::has_bootable_state(ClusterMode mode) const
 CheckResult node_info::has_runnable_state() const
   {
   // wrong type of node for running jobs
-  if (type == NodeTimeshared || type == NodeCloud)
+  if (this->get_type() == NodeTimeshared || this->get_type() == NodeCloud)
     return CheckNonFit;
 
   // check after & before
@@ -463,7 +459,7 @@ CheckResult node_info::has_runnable_state() const
   if (this->avail_before != 0 && now > this->avail_before)
     return CheckNonFit;
 
-  if (type == NodeVirtual)
+  if (this->get_type() == NodeVirtual)
     {
     switch (magrathea_status)
       {
@@ -510,7 +506,7 @@ CheckResult node_info::can_boot_job(const job_info *jinfo) const
   if (jinfo->cluster_mode == ClusterUse)
     return CheckNonFit;
 
-  if (no_multinode_jobs && jinfo->is_multinode)
+  if (this->get_nomultinode() && jinfo->is_multinode)
     return CheckNonFit;
 
   // User does not have an account on this machine - can never run
@@ -541,10 +537,10 @@ CheckResult node_info::can_run_job(const job_info *jinfo) const
     return CheckNonFit;
 
   // job requires a virtual cluster, node is a physical non-virtual node
-  if (type == NodeCluster && jinfo->cluster_mode != ClusterNone)
+  if (this->get_type() == NodeCluster && jinfo->cluster_mode != ClusterNone)
     return CheckNonFit;
 
-  if (no_multinode_jobs && jinfo->is_multinode)
+  if (this->get_nomultinode() && jinfo->is_multinode)
     return CheckNonFit;
 
   resource *res_machine = find_resource(this->res, "machine_cluster");
@@ -649,7 +645,7 @@ CheckResult node_info::can_fit_job_for_boot(const job_info *jinfo, const pars_sp
 void node_info::fetch_bootable_alternatives()
   {
   // only virtual nodes can have bootable alternatives
-  if (this->type != NodeVirtual)
+  if (this->get_type() != NodeVirtual)
     return;
 
   resource *resc;
@@ -694,9 +690,9 @@ static int get_magrathea_value(MagratheaState state)
 
 bool node_info::operator < (const node_info& right)
   {
-  if (this->node_priority > right.node_priority) // bigger number = bigger priority
+  if (this->get_priority() > right.get_priority()) // bigger number = bigger priority
     return true;
-  else if (this->node_priority < right.node_priority)
+  else if (this->get_priority() < right.get_priority())
     return false;
 
   /* nodes have the same priority, sort by magrathea status
@@ -707,8 +703,8 @@ bool node_info::operator < (const node_info& right)
   int left_magrathea = get_magrathea_value(this->magrathea_status);
   int right_magrathea = get_magrathea_value(right.magrathea_status);
 
-  if (this->type != NodeVirtual) left_magrathea = -1;
-  if (right.type != NodeVirtual) right_magrathea = -1;
+  if (this->get_type() != NodeVirtual) left_magrathea = -1;
+  if (right.get_type() != NodeVirtual) right_magrathea = -1;
 
   if (left_magrathea < right_magrathea)
     return true;
@@ -718,9 +714,9 @@ bool node_info::operator < (const node_info& right)
   // nodes have the same priority and magrathea status
   // schedule nodes with smaller gaps first
 
-  if (this->p_core_free < right.p_core_free)
+  if (this->get_cores_free() < right.get_cores_free())
     return true;
-  else if (this->p_core_free > right.p_core_free)
+  else if (this->get_cores_free() > right.get_cores_free())
     return false;
 
   return strcmp(this->name,right.name) < 0;

@@ -25,7 +25,7 @@ bool NodeSuitableForSpec::operator()(const node_info* node) const
     return false;
   if (p_mode == SuitableAssignMode && node->temp_assign != NULL)
     return false;
-  if (p_mode == SuitableStarvingMode && node->no_starving_jobs)
+  if (p_mode == SuitableStarvingMode && node->get_nostarving())
     return false;
   if (p_mode == SuitableFairshareMode && node->temp_fairshare_used)
     return false;

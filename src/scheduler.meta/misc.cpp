@@ -263,23 +263,6 @@ char **break_comma_list(char *list)
   return arr;
   }
 
-void comma_list_to_set(char *list, set<string>& s)
-  {
-  char *tok;
-
-  while ((tok = strchr(list,',')) != NULL)
-    {
-    *tok = '\0';
-    tok++;
-    while (isspace((int) *tok))
-      tok++;
-
-    s.insert(string(list));
-    list = tok;
-    }
-  s.insert(string(list));
-  }
-
 /*
  *
  * free_string_array - free an array of strings with a NULL as a sentinal

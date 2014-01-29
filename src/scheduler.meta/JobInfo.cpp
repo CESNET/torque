@@ -14,7 +14,7 @@ void job_info::unplan_from_node(node_info* ninfo, pars_spec_node* spec)
   resource *res;
 
   if (is_exclusive)
-    ninfo->freeup_proc(ninfo->get_proc_total());
+    ninfo->freeup_proc(ninfo->get_cores_total());
   else
     ninfo->freeup_proc(spec->procs);
 
@@ -92,7 +92,7 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
     }
 
   if (this->is_exclusive)
-    ninfo->deplete_proc(ninfo->get_proc_total());
+    ninfo->deplete_proc(ninfo->get_cores_total());
   else
     ninfo->deplete_proc(spec->procs);
 
@@ -237,7 +237,7 @@ double job_info::calculate_fairshare_cost(const vector<node_info*>& nodes) const
       while (fairshare_nodes[i]->temp_fairshare_used)
         i++;
 
-      unsigned long long node_procs = fairshare_nodes[i]->get_proc_total();
+      unsigned long long node_procs = fairshare_nodes[i]->get_cores_total();
       unsigned long long node_mem   = fairshare_nodes[i]->get_mem_total();
 
       if (this->is_exclusive)

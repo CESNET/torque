@@ -116,8 +116,6 @@ void sched_log(int event, int event_class, const char *name, const char *text, .
  */
 char **break_comma_list(char *list);
 
-void comma_list_to_set(char *list, std::set<std::string>& s);
-
 /*
  *      free_string_array - free an array of strings with a NULL as a sentinal
  */

@@ -30,7 +30,6 @@ struct server_info
   node_info **non_dedicated_nodes; /* array of nodes, not exclusively assigned anywhere */
   int non_dedicated_node_count;
 
-  node_info **timesharing_nodes;/* array of timesharing nodes */
   token **tokens;               /* array of tokens */
 
   int max_installing_nodes;

@@ -8,11 +8,13 @@
 #include <cstdlib>
 #include <cstring>
 
-enum node_type { NodeTimeshared, NodeCluster, NodeVirtual, NodeCloud };
+
 enum ResourceCheckMode { MaxOnly, Avail };
 enum CheckResult { CheckAvailable, CheckOccupied, CheckNonFit };
 
-#include "NodeState.h"
+#include "base/NodeData.h"
+using namespace Scheduler;
+using namespace Base;
 #include "JobInfo.h"
 
 struct assigned_nodespec
@@ -23,28 +25,23 @@ struct assigned_nodespec
   bool temp_fairshare_used;
   };
 
-struct node_info : public NodeState
+struct node_info : public NodeData // change to protected inheritance
   {
-unsigned no_multinode_jobs: 1; /* no multinode jobs on this node */
-unsigned no_starving_jobs:  1; /* no starving jobs no this node */
+  bool p_is_notusable;
 
-  long node_priority;
+  /// Test not-usable state
+  bool is_notusable() const { return p_is_notusable; }
+
+  /// Mark state as not usable
+  void set_notusable() { p_is_notusable = true; }
+
   bool is_rebootable;
-
-  node_type type; /**<type of the node (cluster,timeshared,virtual,cloud) */
-
   char *name;   /* name of the node */
-
-  std::set<std::string> physical_properties;  /* the node properties */
-  std::set<std::string> virtual_properties;   /* additional properties */
-
   char **jobs;   /* the jobs currently running on the node */
-  char **big_status; /**< List of status strings */
 
   struct resource *res;  /* list of resources */
 
   server_info *server;  /* server that the node is associated with */
-  char *queue; /**< queue the node is assigned to (attribute) */
   queue_info *excl_queue; /**< pointer to queue the node is exclusive to */
 
   char *cluster_name;
@@ -107,14 +104,11 @@ public:
   void deplete_admin_slot();
   void deplete_exclusive_access();
 
-  int get_proc_total() const { return p_core_total; }
   void deplete_proc(int count) { p_core_assigned += count; }
   void freeup_proc(int count) { p_core_assigned -= count; }
 
   unsigned long long get_mem_total() const;
 
-  void set_proc_total(const char* value) { p_core_total = atoi(value); } // TODO add validity checking
-  void set_proc_free(const char* value) { p_core_free = atoi(value); } // TODO add validity checking
   void set_admin_slot_enabled(const char* value) { p_admin_slot_enabled = !strcmp(value,"True"); }
   void set_admin_slot_avail(const char* value) { p_admin_slot_avail = !strcmp(value,"True"); }
   void set_exclusively_assigned(const char* value) { p_exclusively_assigned = !strcmp(value,"True"); }
@@ -128,8 +122,6 @@ public:
 
 private:
   // CPU related section
-  int p_core_total;
-  int p_core_free;
   int p_core_assigned;
 
   bool p_admin_slot_enabled;
@@ -138,7 +130,7 @@ private:
   bool p_exclusively_assigned;
 
 public:
-  node_info() : node_priority(0), is_rebootable(false), avail_before(0), avail_after(0), node_cost(1.0), node_spec(10.0), p_core_total(0), p_core_free(0), p_core_assigned(0), p_admin_slot_enabled(false), p_admin_slot_avail(false), p_exclusively_assigned(false) {}
+  node_info() : p_is_notusable(false), is_rebootable(false), avail_before(0), avail_after(0), node_cost(1.0), node_spec(10.0), p_core_assigned(0), p_admin_slot_enabled(false), p_admin_slot_avail(false), p_exclusively_assigned(false) {}
   };
 
 #endif /* NODEINFO_H_ */

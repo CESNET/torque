@@ -419,7 +419,7 @@ queue_info *query_queue_info(struct batch_status *queue, server_info *sinfo)
       for (i = 0; i < sinfo->num_nodes; i++)
         {
         if (sinfo->nodes[i]->has_prop(attrp->value)
-            && sinfo->nodes[i]->queue == NULL) /* ignore nodes with queue=... */
+            && sinfo->nodes[i]->get_dedicated_queue_name() == NULL) /* ignore nodes with queue=... */
           push_excl_node(qinfo,sinfo->nodes[i]);
         }
       }
@@ -430,8 +430,8 @@ queue_info *query_queue_info(struct batch_status *queue, server_info *sinfo)
   /* go through all nodes, and check the queue attribute */
   for (i = 0; i < sinfo->num_nodes; i++)
     {
-    if (sinfo->nodes[i]->queue != NULL)
-      if (strcmp(sinfo->nodes[i]->queue,qinfo->name) == 0)
+    if (sinfo->nodes[i]->get_dedicated_queue_name() != NULL)
+      if (strcmp(sinfo->nodes[i]->get_dedicated_queue_name(),qinfo->name) == 0)
         push_excl_node(qinfo,sinfo->nodes[i]);
     }
 

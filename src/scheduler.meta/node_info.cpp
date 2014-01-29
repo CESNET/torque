@@ -91,6 +91,9 @@ using namespace std;
 #include "globals.h"
 #include "api.hpp"
 #include "global_macros.h"
+#include "base/MiscHelpers.h"
+using namespace Scheduler;
+using namespace Base;
 
 
 /* Internal functions */
@@ -170,7 +173,7 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
   /* setup virtual <-> physical nodes mapping */
   for (i = 0; i < num_nodes; i++)
     {
-    if (ninfo_arr[i]->type == NodeVirtual)
+    if (ninfo_arr[i]->get_type() == NodeVirtual)
       {
       node_info *physical;
       char *cache = xpbs_cache_get_local(ninfo_arr[i]->name,"host");
@@ -227,50 +230,46 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
 
   while (attrp != NULL)
     {
-    /* Node State... i.e. offline down free etc */
-    if (!strcmp(attrp -> name, ATTR_NODE_state))
-      ninfo->reset_state(attrp -> value);
-
-    if (!strcmp(attrp -> name, ATTR_NODE_priority))
-      ninfo->node_priority = atol(attrp->value);
-
     /* properties from the servers nodes file */
-    else if (!strcmp(attrp -> name, ATTR_NODE_properties))
-      comma_list_to_set(attrp->value,ninfo->physical_properties);
+    if (!strcmp(attrp -> name, ATTR_NODE_properties))
+      ninfo->set_phys_props(attrp->value);
+    /* properties from the servers nodes file */
     else if (!strcmp(attrp -> name, ATTR_NODE_adproperties))
-      comma_list_to_set(attrp->value,ninfo->virtual_properties);
+      ninfo->set_virt_props(attrp->value);
+    /* Node State... i.e. offline down free etc */
+    else if (!strcmp(attrp -> name, ATTR_NODE_state))
+      ninfo->reset_state(attrp -> value);
+    /* Node priority */
+    else if (!strcmp(attrp -> name, ATTR_NODE_priority))
+      ninfo->set_priority(attrp->value);
+    /* the node type... i.e. timesharing or cluster */
+    else if (!strcmp(attrp -> name, ATTR_NODE_ntype))
+      ninfo->set_type(attrp->value);
+    /* No multinode jobs on node */
+    else if (!strcmp(attrp -> name, ATTR_NODE_no_multinode_jobs))
+      ninfo->set_nomultinode(attrp->value);
+    /* No starving reservations on this node */
+    else if (!strcmp(attrp -> name, ATTR_NODE_noautoresv))
+      ninfo->set_nostarving(attrp->value);
+    /* Total number of cores on node */
+    else if (!strcmp(attrp -> name, ATTR_NODE_np))
+      ninfo->set_proc_total(attrp->value);
+    /* Free cores on node */
+    else if (!strcmp(attrp -> name, ATTR_NODE_npfree))
+      ninfo->set_proc_free(attrp->value);
+    /* Name of the dedicated queue */
+    else if (!strcmp(attrp -> name, ATTR_NODE_queue))
+      ninfo->set_ded_queue(attrp->value);
+
 
     /* the jobs running on the node */
     else if (!strcmp(attrp -> name, ATTR_NODE_jobs))
       ninfo -> jobs = break_comma_list(attrp -> value);
-
-    /* the node type... i.e. timesharing or cluster */
-    else if (!strcmp(attrp -> name, ATTR_NODE_ntype))
-      set_node_type(ninfo, attrp -> value);
-
-    else if (!strcmp(attrp -> name, ATTR_NODE_np))
-      ninfo->set_proc_total(attrp->value);
-    else if (!strcmp(attrp -> name, ATTR_NODE_npfree))
-      ninfo->set_proc_free(attrp->value);
-
-    else if (!strcmp(attrp -> name, ATTR_NODE_status))
-      ninfo -> big_status = break_comma_list(attrp -> value);
-
-    else if (!strcmp(attrp -> name, ATTR_NODE_no_multinode_jobs))
-      ninfo -> no_multinode_jobs = !strcmp(attrp -> value,"True");
-
     // fairshare
     else if (!strcmp(attrp -> name, ATTR_NODE_fairshare_coef))
       ninfo -> node_cost = atof(attrp->value);
     else if (!strcmp(attrp -> name, ATTR_NODE_machine_spec))
       ninfo -> node_spec = atof(attrp->value);
-
-    else if (!strcmp(attrp -> name, ATTR_NODE_queue))
-      {
-      ninfo->queue = strdup(attrp->value);
-      }
-    else if (!strcmp(attrp -> name, ATTR_NODE_noautoresv))
-      ninfo -> no_starving_jobs = !strcmp(attrp->value,"True");
 
     else if (!strcmp(attrp -> name, ATTR_NODE_available_after))
       ninfo -> avail_after = atol(attrp->value);
@@ -351,12 +350,9 @@ node_info *new_node_info()
     perror("Memory Allocation Error");
     return NULL;
     }
-  tmp -> no_multinode_jobs = 0;
 
   tmp -> name = NULL;
   tmp -> jobs = NULL;
-  tmp -> big_status = NULL;
-  tmp -> queue = NULL;
 
   tmp->temp_assign = NULL;
   tmp->temp_assign_scratch = ScratchNone;
@@ -416,47 +412,11 @@ void free_node_info(node_info *ninfo)
     {
     free(ninfo -> name);
     free_string_array(ninfo -> jobs);
-    free_string_array(ninfo -> big_status);
     free_resource_list(ninfo -> res);
     free_bootable_alternatives(ninfo->alternatives);
-    free(ninfo -> queue);
     free(ninfo -> cluster_name);
     delete ninfo;
     }
-  }
-
-/*
- *
- * set_node_type - set the node type bits
- *
- *   ninfo - the node to set the type
- *   ntype - the type string from the server
- *
- * returns non-zero on error
- *
- */
-int set_node_type(node_info *ninfo, char *ntype)
-  {
-  if (ntype != NULL && ninfo != NULL)
-    {
-    if (!strcmp(ntype, ND_timeshared))
-      ninfo -> type = NodeTimeshared;
-    else if (!strcmp(ntype, ND_cluster))
-      ninfo -> type = NodeCluster;
-    else if (!strcmp(ntype, ND_cloud))
-      ninfo -> type = NodeCloud;
-    else if (!strcmp(ntype, ND_virtual))
-      ninfo -> type = NodeVirtual;
-    else
-      {
-      sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo -> name, "Unknown node type: %s", ntype);
-      return 1;
-      }
-
-    return 0;
-    }
-
-  return 1;
   }
 
 /*
@@ -512,33 +472,10 @@ node_info **node_filter(node_info **nodes, int size,
   return new_nodes;
   }
 
-/*
- *
- *      is_node_timeshared - check if a node is timeshared
- *
- *        node - node to check
- *        arg  - unused argument
- *
- *      returns
- *        1: is a timeshared node
- *        0: is not a timeshared node
- *
- *      NOTE: this function used for node_filter
- *
- */
-int is_node_timeshared(node_info *node, void * UNUSED(arg))
-  {
-  if (node != NULL)
-    return (node->type == NodeTimeshared);
-
-  return 0;
-  }
-
-
 int is_node_non_dedicated(node_info *node, void * UNUSED(arg))
   {
   if (node != NULL)
-    return (node->queue == NULL);
+    return (node->get_dedicated_queue_name() == NULL);
 
   return 0;
   }
