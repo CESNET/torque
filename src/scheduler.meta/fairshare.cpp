@@ -475,7 +475,7 @@ float test_perc(group_info *root)
  * returns nothing
  *
  */
-void update_usage_on_run(job_info *jinfo)
+void update_usage_on_run(job_info *jinfo) // TODO zaintegrovat mem
   {
   resource_req *tmp = find_resource_req(jinfo->resreq, "procs");
   jinfo -> ginfo -> temp_usage += calculate_usage_value(jinfo -> resreq)*tmp->amount;
@@ -698,6 +698,7 @@ read_usage(void)
 
     if (ginfo != NULL)
       ginfo -> usage = grp.usage;
+      ginfo -> temp_usage = grp.usage;
     }
 
   fclose(fp);
