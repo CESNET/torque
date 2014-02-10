@@ -1033,6 +1033,17 @@ int run_pelog(
         }
       }
 
+    /* Set umask */
+    if (pjob->ji_wattr[(int)JOB_ATR_umask].at_flags & ATR_VFLAG_SET)
+      {
+      char *buf = calloc(strlen("PBS_UMASK=")+16,1);
+      if (buf != NULL)
+        {
+        sprintf(buf,"PBS_UMASK=%#o",pjob->ji_wattr[(int)JOB_ATR_umask].at_val.at_long);
+        putenv(buf);
+        }
+      }
+
     /* Set PBS_O_Workdir */
       {
       char *envname = "PBS_O_WORKDIR";
