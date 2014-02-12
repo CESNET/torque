@@ -21,21 +21,21 @@ fi
 DIR="/scratch"
 if [ "$TORQUE_RESC_SCRATCH_TYPE" = "local" ]; then
 	if [ -d $DIR ]; then
-		mkdir -p "$DIR/$USER/job_$JOBID" && chown "$USER" "$DIR/$USER" && chmod 511 "$DIR/$USER" && chown "$USER" "$DIR/$USER/job_$JOBID" && chgrp "$GROUP" "$DIR/$USER/job_$JOBID"
+		mkdir -p "$DIR/$USER/job_$JOBID" && chown "$USER" "$DIR/$USER" && chmod 711 "$DIR/$USER" && chown "$USER" "$DIR/$USER/job_$JOBID" && chgrp "$GROUP" "$DIR/$USER/job_$JOBID"
 	fi
 fi
 
 DIR="/scratch.shared"
 if [ "$TORQUE_RESC_SCRATCH_TYPE" = "shared" ]; then
 	if [ -d $DIR ]; then
-		mkdir -p "$DIR/$USER/job_$JOBID" && chown "$USER" "$DIR/$USER" && chmod 511 "$DIR/$USER" && chown "$USER" "$DIR/$USER/job_$JOBID" && chgrp "$GROUP" "$DIR/$USER/job_$JOBID"
+		mkdir -p "$DIR/$USER/job_$JOBID" && chown "$USER" "$DIR/$USER" && chmod 711 "$DIR/$USER" && chown "$USER" "$DIR/$USER/job_$JOBID" && chgrp "$GROUP" "$DIR/$USER/job_$JOBID"
 	fi
 fi
 
 DIR="/scratch.ssd"
 if [ "$TORQUE_RESC_SCRATCH_TYPE" = "ssd" ]; then
 	if [ -d $DIR ]; then
-		mkdir -p "$DIR/$USER/job_$JOBID" && chown "$USER" "$DIR/$USER" && chmod 511 "$DIR/$USER" && chown "$USER" "$DIR/$USER/job_$JOBID" && chgrp "$GROUP" "$DIR/$USER/job_$JOBID"
+		mkdir -p "$DIR/$USER/job_$JOBID" && chown "$USER" "$DIR/$USER" && chmod 711 "$DIR/$USER" && chown "$USER" "$DIR/$USER/job_$JOBID" && chgrp "$GROUP" "$DIR/$USER/job_$JOBID"
 	fi
 fi
 
