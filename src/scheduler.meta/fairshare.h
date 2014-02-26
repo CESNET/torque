@@ -81,34 +81,7 @@
 #define FAIR_SHARE_H
 
 #include "data_types.h"
-/*
- *      add_child - add a ginfo to the resource group tree
- */
-void add_child(group_info *ginfo, group_info *parent);
-
-/*
- *      find_group_info - recursive function to find a ginfo in the
-     resgroup tree
- */
-group_info *find_group_info(const char *name, group_info *root);
-
-/*
- *      find_alloc_ginfo - trys to find a ginfo in the fair share tree.  If it
- *                        can not find the ginfo, then allocate a new one and
- *                        add it to the "unknown" group
- */
-group_info *find_alloc_ginfo(char *name);
-
-
-/*
- *      new_group_info - allocate a new group_info struct and initalize it
- */
-group_info * new_group_info();
-
-/*
- *      parse_group - parse the resource group file
- */
-int parse_group(const char *fname);
+#include "logic/FairshareTree.h"
 
 /*
  *      preload_tree -  load the "root" group into the fair share tree
@@ -116,13 +89,8 @@ int parse_group(const char *fname);
  *                      the "unknown" group.  This group is for any user that
  *                      is not specified in the resource group file.
  */
-int preload_tree();
-
-
-/*
- *      count_shares - count the shares in the current resource group
- */
-int count_shares(group_info *grp);
+int init_fairshare();
+void free_fairshare_trees();
 
 /*
  *      calc_fair_share_perc - walk the fair share group tree and calculate
@@ -145,10 +113,10 @@ usage_t calculate_usage_value(resource_req *resreq);
 
 
 /*
- *      decay_fairshare_tree - decay the usage information kept in the fair
- *                             share tree
+ *      decay_fairshare_trees - decay the usage information kept in the fair
+ *                              share tree
  */
-void decay_fairshare_tree(group_info *root);
+void decay_fairshare_trees();
 
 /*
  *      extract_fairshare - extract the first job from the user with the
@@ -157,37 +125,18 @@ void decay_fairshare_tree(group_info *root);
 job_info *extract_fairshare(job_info **jobs);
 
 /*
- *
- *      print_fairshare - print out the usage for all the users
- *
- *        root - root of subtree
- *
- *      returns nothing
- *
- */
-void print_fairshare(group_info *root);
-
-/*
  *      write_usage - write the usage information to the usage file
  *                    This fuction uses a recursive helper function
  */
-int write_usage();
-
-/*
- *      rec_write_usage - recursive helper function which will write out all
- *                        the group_info structs of the resgroup tree
- */
-void rec_write_usage(group_info *root, FILE *fp);
-
-/*
- *      read_usage - read the usage information and load it into the
- *                   resgroup tree.
- */
-int read_usage();
+void write_usages();
 
 /*
  *      free_group_tree - free the data used by a the fair share tree
  */
 void free_group_tree(group_info *root);
+
+void dump_all_fairshare();
+
+Scheduler::Logic::FairshareTree& get_tree(const std::string& tree);
 
 #endif

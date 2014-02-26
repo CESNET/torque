@@ -15,6 +15,8 @@
 #include <cstdlib>
 using namespace std;
 
+#include "logic/FairshareTree.h"
+
 extern "C" {
 #include "dis.h"
 }
@@ -216,7 +218,7 @@ void World::update_fairshare()
   while (t - last_decay > conf.half_life)
     {
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SERVER, "", "Decaying Fairshare Tree");
-    decay_fairshare_tree(conf.group_root);
+    decay_fairshare_trees();
     t -= conf.half_life;
     decayed = true;
     }
@@ -234,7 +236,7 @@ void World::update_fairshare()
 
   if (cstat.current_time - last_sync > conf.sync_time)
     {
-    write_usage();
+    write_usages();
     last_sync = cstat.current_time;
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SERVER, "", "Usage Sync");
     }
@@ -483,7 +485,7 @@ void World::run()
       {
       update_last_running();
       sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_REQUEST, "", "Dumping fairshare\n");
-      dump_current_fairshare(conf.group_root);
+      dump_all_fairshare();
       }
 
     cleanup_servers();
@@ -492,7 +494,7 @@ void World::run()
     }
 
   if (conf.prime_fs || conf.non_prime_fs)
-    write_usage();
+    write_usages();
   }
   catch (const exception& e)
     {

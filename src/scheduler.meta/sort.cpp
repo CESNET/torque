@@ -87,6 +87,8 @@
 #include "fairshare.h"
 #include "site_pbs_cache_scheduler.h"
 
+#include "logic/FairshareTree.h"
+
 
 /*
  * sort.c

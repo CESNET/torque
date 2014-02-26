@@ -98,6 +98,8 @@ using namespace std;
 #include "global_macros.h"
 #include "nodespec_sch.h"
 
+#include "fairshare.h"
+
 
 /*
  *
@@ -178,7 +180,10 @@ job_info **query_jobs(int pbs_sd, queue_info *qinfo)
 
     /* get the fair share group info node */
     if (jinfo -> account != NULL)
-      jinfo -> ginfo = find_alloc_ginfo(jinfo -> account);
+      {
+      Scheduler::Logic::FairshareTree &tmp = get_tree(jinfo->queue->fairshare_tree);
+      jinfo -> ginfo = tmp.find_alloc_ginfo(jinfo -> account);
+      }
 
     /* if the job is not in the queued state, don't even allow
      * it to be considered to be run.

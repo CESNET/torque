@@ -143,6 +143,7 @@ enum queueattr
   QE_ATR_starving_support,
   QE_ATR_admin_queue,
   QE_ATR_queue_purpose,
+  QE_ATR_fairshare_tree,
   QE_ATR_MaxProc,
   QE_ATR_MaxUserProc,
   QE_ATR_MaxGrpProc,

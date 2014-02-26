@@ -333,6 +333,13 @@ queue_info *query_queue_info(struct batch_status *queue, server_info *sinfo)
 
       qinfo -> max_group_proc = count;
       }
+    else if (!strcmp(attrp->name, ATTR_fairshare_tree)) /* fairshare_tree */
+      {
+      if (qinfo->fairshare_tree != NULL)
+        free(qinfo->fairshare_tree);
+
+      qinfo->fairshare_tree = strdup(attrp->value);
+      }
     else if (!strcmp(attrp -> name, ATTR_p))    /* priority */
       {
       count = strtol(attrp -> value, &endp, 10);
@@ -499,6 +506,8 @@ queue_info *new_queue_info()
   qinfo -> excl_nodes = NULL;
 
   qinfo -> queue_cost = 1.0;
+
+  qinfo -> fairshare_tree = strdup("default");
 
   return qinfo;
   }

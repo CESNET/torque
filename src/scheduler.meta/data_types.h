@@ -238,6 +238,8 @@ unsigned is_admin_queue : 1; /* admin job queue */
   unsigned excl_node_capacity;
   node_info **excl_nodes;
 
+  char *fairshare_tree;
+
   double queue_cost;
   };
 
@@ -286,37 +288,7 @@ unsigned eol:
 
 /* global data types */
 
-struct group_info
-  {
-  char *name;    /* name of user/group */
-  int resgroup;    /* resgroup the group is in */
-  int cresgroup;   /* resgroup of the children of group */
-  int shares;    /* number of shares this group has */
-  float percentage;   /* overall percentage the group has */
-  usage_t usage;   /* calculated usage info */
-  usage_t temp_usage;   /* usage plus any temporary usage */
-
-  group_info *parent;   /* parent node */
-  group_info *sibling;   /* sibling node */
-  group_info *child;   /* child node */
-  };
-
 /* This structure is used to write out the usage to disk */
-
-struct group_node_usage
-  {
-  char name[9];
-  usage_t usage;
-  };
-
-
-struct usage_info
-  {
-  char *name;   /* name of the user */
-
-  struct resource_req *reslist; /* list of resources */
-  int computed_value;  /* value computed from usage info */
-  };
 
 struct t
   {
@@ -416,7 +388,6 @@ unsigned priority_fairshare :
   struct sort_info *prime_sort;  /* prime time sort */
 
   struct sort_info *non_prime_sort; /* non-prime time sort */
-  group_info *group_root;  /* root of group_info tree */
   time_t half_life;   /* half-life time in seconds */
   time_t sync_time;   /* time between syncing usage to disk */
 

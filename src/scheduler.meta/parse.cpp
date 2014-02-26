@@ -439,6 +439,7 @@ init_config(void)
       }
     memset(conf.slave_servers[i],0,PBS_MAXSERVERNAME+1);
     }
+
   return 1;
   }
 
@@ -456,7 +457,7 @@ reinit_config(void)
   int i;
   free(conf.prime_sort);
   free(conf.non_prime_sort);
-  free_group_tree(conf.group_root);
+  free_fairshare_trees();
   for (i = 0; i < MAX_IGNORED_QUEUES; i++)
     {
     free(conf.ignored_queues[i]);
@@ -465,5 +466,5 @@ reinit_config(void)
     {
     free(conf.slave_servers[i]);
     }
-  return init_config();
+   return init_config();
   }

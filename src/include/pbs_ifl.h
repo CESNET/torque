@@ -241,6 +241,7 @@
 #define ATTR_starving_support "jobs_starving_after"
 #define ATTR_admin_queue "admin_queue"
 #define ATTR_queue_purpose "queue_purpose"
+#define ATTR_fairshare_tree "fairshare_tree"
 #define ATTR_maxuserproc "max_user_proc"
 #define ATTR_maxgrpproc  "max_group_proc"
 #define ATTR_maxproc     "max_proc"

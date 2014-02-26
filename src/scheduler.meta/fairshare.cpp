@@ -88,382 +88,67 @@
 #include "constant.h"
 #include "config.h"
 #include "utility.h"
+#include "api.hpp"
 
-/*
- *
- * add_child - add a group_info to the resource group tree
- *
- *   ginfo - ginfo to add to the tree
- *   parent - parent ginfo
- *
- * returns nothing
- *
- */
-void add_child(group_info *ginfo, group_info *parent)
+#include <string>
+#include <stdexcept>
+#include <sstream>
+using namespace std;
+using namespace Scheduler;
+using namespace Logic;
+
+/* multiple trees support */
+
+map<string,FairshareTree> fairshare_trees;
+
+FairshareTree& get_tree(const string& tree)
   {
-  if (parent != NULL)
+  map<string,FairshareTree>::iterator i = fairshare_trees.find(tree);
+  if (i != fairshare_trees.end())
+    return i->second;
+
+  pair<map<string,FairshareTree>::iterator,bool> it = fairshare_trees.insert(make_pair(tree,FairshareTree(tree)));
+
+  return it.first->second;
+  }
+
+void free_fairshare_trees()
+  {
+  fairshare_trees.clear();
+  }
+
+void dump_all_fairshare()
+  {
+  map<string,FairshareTree>::iterator it = fairshare_trees.begin();
+  while (it != fairshare_trees.end())
     {
-    ginfo -> sibling = parent -> child;
-    parent -> child = ginfo;
-    ginfo -> parent = parent;
-    ginfo -> resgroup = parent -> cresgroup;
+    it->second.dump_to_cache();
     }
   }
 
-/*
- *
- * add_unknown - add a ginfo to the "unknown" group
- *
- *   ginfo - ginfo to add
- *
- * returns nothing
- *
- */
-void add_unknown(group_info *ginfo)
+int init_fairshare()
   {
-  group_info *unknown;  /* ptr to the "unknown" group */
-
-  unknown = find_group_info("unknown", conf.group_root);
-  add_child(ginfo, unknown);
-  calc_fair_share_perc(unknown -> child, UNSPECIFIED);
+  fairshare_trees.insert(make_pair(string("default"),FairshareTree("default")));
+  return 0;
   }
 
-/*
- *
- * find_group_info - recursive function to find a group_info in the
- *     resgroup tree
- *
- *   name - name of the ginfo to find
- *   root - the root of the current sub-tree
- *
- * returns the found group_info or NULL
- *
- */
-group_info *find_group_info(const char *name, group_info *root)
+void write_usages()
   {
-  group_info *ginfo;  /* the found group */
-
-  if (root == NULL || !strcmp(name, root -> name))
-    return root;
-
-  ginfo = find_group_info(name, root -> sibling);
-
-  if (ginfo == NULL)
-    ginfo = find_group_info(name, root -> child);
-
-  return ginfo;
-  }
-
-/*
- *
- * find_alloc_ginfo - trys to find a ginfo in the fair share tree.  If it
- *     can not find the ginfo, then allocate a new one and
- *     add it to the "unknown" group
- *
- *   name - name of the ginfo to find
- *
- * returns the found ginfo or the newly allocated ginfo
- *
- */
-group_info *find_alloc_ginfo(char *name)
-  {
-  group_info *ginfo;  /* the found group or allocated group */
-
-  ginfo = find_group_info(name, conf.group_root);
-
-  if (ginfo == NULL)
+  map<string,FairshareTree>::iterator it = fairshare_trees.begin();
+  while (it != fairshare_trees.end())
     {
-    if ((ginfo = new_group_info()) == NULL)
-      return NULL;
-
-    retnull_on_null(ginfo-> name = strdup(name));
-
-    ginfo -> shares = 1;
-
-    add_unknown(ginfo);
+    it->second.dump_to_file();
     }
-
-  return ginfo;
   }
 
-/*
- *
- * new_group_info - allocate a new group_info struct and initalize it
- *
- * returns a ptr to the new group_info
- *
- */
-group_info *new_group_info()
+void decay_fairshare_trees()
   {
-  group_info *tmp;  /* the new group */
-
-  if ((tmp = (group_info *) malloc(sizeof(group_info))) == NULL)
+  map<string,FairshareTree>::iterator it = fairshare_trees.begin();
+  while (it != fairshare_trees.end())
     {
-    perror("Error allocating memory");
-    return NULL ;
+    it->second.decay();
     }
-
-  tmp -> name = NULL;
-
-  tmp -> resgroup = UNSPECIFIED;
-  tmp -> cresgroup = UNSPECIFIED;
-  tmp -> shares = UNSPECIFIED;
-  tmp -> percentage = 0.0;
-  tmp -> usage = 1;
-  tmp -> temp_usage = 1;
-  tmp -> parent = NULL;
-  tmp -> sibling = NULL;
-  tmp -> child = NULL;
-
-  return tmp;
   }
-
-/*
- *
- * parse_group - parse the resource group file
- *
- *   fname - name of the file
- *
- * returns success/failure
- *
- *
- * FORMAT:   name cresgrp  grpname  shares
- *
- *   name    - name of user/grp
- *   cresgrp - resource group of the children of this group (if group)
- *   grpname - resource group of this user/group
- *   shares  - the amount of shares the user/group has in its resgroup
- *
- */
-int parse_group(const char *fname)
-  {
-  group_info *ginfo;  /* ptr to parent group */
-  group_info *new_ginfo; /* used to add each new group */
-  char buf[256];  /* used to read each line from the file */
-  char *nametok;  /* strtok: name of new group */
-  char *grouptok;  /* strtok: parent group name */
-  char *cgrouptok;  /* strtok: resgrp of the children of newgrp */
-  char *sharestok;  /* strtok: the amount of shares for newgrp */
-  FILE *fp;   /* file pointer to the resource group file */
-  char error = 0;  /* boolean: is there an error ? */
-  int shares;   /* number of shares for the new group */
-  int cgroup;   /* resource group of the children of the grp */
-  char *endp;   /* used for strtol() */
-  int linenum = 0;  /* current line number in the file */
-
-  if ((fp = fopen(fname, "r")) == NULL)
-    {
-    perror("Warning: resource group file error, fair share will not work");
-    return 0;
-    }
-
-  while (fgets(buf, 256, fp) != NULL)
-    {
-    if (buf[strlen(buf)-1] == '\n')
-      buf[strlen(buf)-1] = '\0';
-
-    linenum++;
-
-    if (!skip_line(buf))
-      {
-      nametok = strtok(buf, " \t");
-      cgrouptok = strtok(NULL, " \t");
-      grouptok = strtok(NULL, " \t");
-      sharestok= strtok(NULL,  " \t");
-
-      ginfo = find_alloc_ginfo(grouptok);
-
-      if (ginfo != NULL)
-        {
-        shares = strtol(sharestok, &endp, 10);
-
-        if (*endp == '\0')
-          {
-          cgroup = strtol(cgrouptok, &endp, 10);
-
-          if (*endp == '\0')
-            {
-            if ((new_ginfo = new_group_info()) == NULL)
-              return 0;
-
-            new_ginfo -> name = strdup(nametok);
-
-            new_ginfo -> resgroup = ginfo -> cresgroup;
-
-            new_ginfo -> cresgroup = cgroup;
-
-            new_ginfo -> shares = shares;
-
-            add_child(new_ginfo, ginfo);
-            }
-          else
-            error = 1;
-          }
-        else
-          error = 1;
-        }
-      else
-        {
-        error = 1;
-        fprintf(stderr, "Parent ginfo of %s doesnt exist.\n", nametok);
-        }
-
-      if (error)
-        fprintf(stderr, "resgroup: error on line %d.\n", linenum);
-
-      error = 0;
-      }
-    }
-
-  return 1;
-  }
-
-/*
- *
- * free_group_tree - free the data used by a the fair share tree
- *
- *   root - root of subtree
- *
- */
-void free_group_tree(group_info *root)
-  {
-  if (root == NULL)
-    return;
-
-  free_group_tree(root -> sibling);
-
-  free_group_tree(root -> child);
-
-  free(root);
-  }
-
-/*
- *
- * preload_tree -  load the "root" group into the fair share tree
- *   the "root" group is the entire machine.  Also load
- *   the "unknown" group.  This group is for any user that
- *   is not specified in the resource group file.
- *
- * returns success/failure
- *
- */
-int
-preload_tree(void)
-  {
-  group_info *unknown;  /* pointer to the "unknown" group */
-
-  if ((conf.group_root = new_group_info()) == NULL)
-    return 0;
-
-  if ((unknown = new_group_info()) == NULL)
-    return 0;
-
-  if ((conf.group_root -> name = (char*) malloc(5 * sizeof(char))) == NULL)
-    {
-    perror("Memory allocation error");
-    return 0;
-    }
-
-  if ((unknown -> name = (char*) malloc(8 * sizeof(char))) == NULL)
-    {
-    perror("Memory Allocation Error");
-    return 0;
-    }
-
-  strcpy(conf.group_root -> name, "root");
-
-  conf.group_root -> resgroup = -1;
-  conf.group_root -> cresgroup = 0;
-  conf.group_root -> percentage = 1.0;
-
-  strcpy(unknown -> name, "unknown");
-  unknown -> shares = conf.unknown_shares;
-  unknown -> resgroup = 0;
-  unknown -> cresgroup = 1;
-  unknown -> parent = conf.group_root;
-  conf.group_root -> child = unknown;
-  return 1;
-  }
-
-/*
- *
- * count_shares - count the shares in a resource group
- *         a resource group is a group_info and all of its
- *         siblings
- *
- *  grp - The start of a sibling chain
- *
- * returns the number of shares
- *
- */
-int count_shares(group_info *grp)
-  {
-  int shares = 0;  /* accumulator to count the shares */
-  group_info *cur_grp;  /* the current group in a sibling chain */
-
-  cur_grp = grp;
-
-  while (cur_grp != NULL)
-    {
-    shares += cur_grp -> shares;
-    cur_grp = cur_grp -> sibling;
-    }
-
-  return shares;
-  }
-
-/*
- *
- * calc_fair_share_perc - walk the fair share group tree and calculate
- *          the overall percentage of the machine a user/
- *          group gets if all usage is equal
- *
- *   root - the root of the current subtree
- *   shares - the number of total shares in the group
- *
- * returns success/failure
- *
- */
-int calc_fair_share_perc(group_info *root, int shares)
-  {
-  int cur_shares;  /* total number of shares in the resgrp */
-
-  if (root == NULL)
-    return 0;
-
-  if (shares == UNSPECIFIED)
-    cur_shares = count_shares(root);
-  else
-    cur_shares = shares;
-
-  root -> percentage = (float) root -> shares / (float) cur_shares *
-                       root -> parent -> percentage;
-
-  calc_fair_share_perc(root -> sibling, cur_shares);
-
-  calc_fair_share_perc(root -> child, UNSPECIFIED);
-
-  return 1;
-  }
-
-/*
- *
- * test_perc - a debugging function to check if the fair_share
- *      percentanges calculated add up to 100%
- *
- *   root - root of the current subtree
- *
- * returns total percentage (hopefully 1.0)
- *
- */
-float test_perc(group_info *root)
-  {
-  if (root == NULL)
-    return 0;
-
-  return (root -> child == NULL ? root -> percentage : 0) + test_perc(root -> sibling) + test_perc(root -> child);
-  }
-
 
 /*
  *
@@ -479,59 +164,6 @@ void update_usage_on_run(job_info *jinfo) // TODO zaintegrovat mem
   {
   resource_req *tmp = find_resource_req(jinfo->resreq, "procs");
   jinfo -> ginfo -> temp_usage += calculate_usage_value(jinfo -> resreq)*tmp->amount;
-  }
-
-/*
- *
- * calculate_usage_value - calcualte a value that represents the usage
- *    information
- *
- *   resreq - a resource_req list that holds the resource info
- *
- * returns the calculated value
- *
- * NOTE: currently it will only return the number of cpu seconds used.
- *       This function can be more complicated
- *
- */
-usage_t calculate_usage_value(resource_req *resreq)
-  {
-  resource_req *tmp;
-
-  if (resreq != NULL)
-    {
-    tmp = find_resource_req(resreq, "walltime");
-
-    if (tmp != NULL)
-      return tmp -> amount;
-    }
-
-  return 0L;
-  }
-
-/*
- *
- * decay_fairshare_tree - decay the usage information kept in the fair
- *          share tree
- *
- *   root - the root of the fairshare tree
- *
- * returns nothing
- *
- */
-void decay_fairshare_tree(group_info *root)
-  {
-  if (root == NULL)
-    return;
-
-  decay_fairshare_tree(root -> sibling);
-
-  decay_fairshare_tree(root -> child);
-
-  root -> usage /= 2;
-
-  if (root -> usage == 0)
-    root -> usage = 1;
   }
 
 /*
@@ -589,119 +221,29 @@ job_info *extract_fairshare(job_info **jobs)
 
 /*
  *
- * print_fairshare - print out the fair share tree
+ * calculate_usage_value - calcualte a value that represents the usage
+ *    information
  *
- *   root - root of subtree
+ *   resreq - a resource_req list that holds the resource info
  *
- * returns nothing
+ * returns the calculated value
  *
- */
-void print_fairshare(group_info *root)
-  {
-  if (root == NULL)
-    return;
-
-  if (root -> child == NULL)
-    printf("User: %-10s Grp: %d cgrp: %d Usage %lld Perc: %f\n", root -> name,
-           root -> resgroup, root -> cresgroup, root -> usage, root -> percentage);
-
-  print_fairshare(root -> sibling);
-
-  print_fairshare(root -> child);
-  }
-
-/*
- *
- * write_usage - write the usage information to the usage file
- *        This fuction uses a recursive helper function
- *
- *
- * returns success/failure
+ * NOTE: currently it will only return the number of cpu seconds used.
+ *       This function can be more complicated
  *
  */
-int
-write_usage(void)
+usage_t calculate_usage_value(resource_req *resreq)
   {
-  FILE *fp;  /* file pointer to usage file */
+  resource_req *tmp;
 
-  if ((fp = fopen(USAGE_FILE, "wb")) == NULL)
+  if (resreq != NULL)
     {
-    perror("Error opening file " USAGE_FILE);
-    return 0;
+    tmp = find_resource_req(resreq, "walltime");
+
+    if (tmp != NULL)
+      return tmp -> amount;
     }
 
-  rec_write_usage(conf.group_root, fp);
-
-  fclose(fp);
-  return 1;
+  return 0L;
   }
 
-/*
- *
- * rec_write_usage - recursive helper function which will write out all
- *     the group_info structs of the resgroup tree
- *
- *   root - the root of the current subtree
- *   fp   - the file to write the ginfo out to
- *
- * returns nothing
- *
- */
-void rec_write_usage(group_info *root, FILE *fp)
-  {
-
-  struct group_node_usage grp;  /* used to write out usage info */
-
-  if (root == NULL)
-    return;
-
-  if (root -> usage != 1)   /* usage defaults to 1 */
-    {
-    strcpy(grp.name, root -> name);
-    grp.usage = root -> usage;
-
-    if (!fwrite(&grp, sizeof(struct group_node_usage), 1, fp))
-      return;
-    }
-
-  rec_write_usage(root -> sibling, fp);
-
-  rec_write_usage(root -> child, fp);
-  }
-
-/*
- *
- * read_usage - read the usage information and load it into the
- *       resgroup tree.
- *
- * returns success/failure
- *
- */
-int
-read_usage(void)
-  {
-  FILE *fp;    /* file pointer to usage file */
-
-  struct group_node_usage grp;  /* struct used to read in usage info */
-  group_info *ginfo;   /* ptr to current group usage */
-
-
-  if ((fp = fopen(USAGE_FILE, "r")) == NULL)
-    {
-    perror("Can not open file " USAGE_FILE);
-    return 0;
-    }
-
-  while (fread(&grp, sizeof(struct group_node_usage), 1, fp))
-    {
-    ginfo = find_alloc_ginfo(grp.name);
-
-    if (ginfo != NULL)
-      ginfo -> usage = grp.usage;
-      ginfo -> temp_usage = grp.usage;
-    }
-
-  fclose(fp);
-
-  return 1;
-  }

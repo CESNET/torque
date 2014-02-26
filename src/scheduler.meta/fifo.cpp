@@ -144,16 +144,10 @@ int schedinit(int UNUSED(argc), char * UNUSED(argv[]))
   parse_ded_file(DEDTIME_FILE);
 
   /* preload the static members to the fairshare tree */
-  preload_tree();
-
-  parse_group(RESGROUP_FILE);
-
-  calc_fair_share_perc(conf.group_root -> child, UNSPECIFIED);
+  init_fairshare();
 
   if (conf.prime_fs || conf.non_prime_fs)
     {
-    read_usage();
-
     /*
      * initialize the last_decay to the current time, since we do not know when
      * the last decay happened
@@ -217,22 +211,6 @@ int job_is_movable(job_info* job)
   else
     return 1;
 }
-void dump_current_fairshare(group_info *root)
-  {
-  if (root == NULL) return;
-
-  if (root->child == NULL) /* found a leaf */
-    {
-    double prio = root->percentage / root->usage;
-    ostringstream s;
-    s << prio;
-    xcache_store_local(root->name,"fairshare",s.str().c_str());
-    }
-
-  dump_current_fairshare(root->sibling);
-  dump_current_fairshare(root->child);
-  }
-
 
 /*
  *
