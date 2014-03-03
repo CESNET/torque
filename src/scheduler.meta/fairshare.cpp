@@ -123,6 +123,7 @@ void dump_all_fairshare()
   while (it != fairshare_trees.end())
     {
     it->second.dump_to_cache();
+    ++it;
     }
   }
 
@@ -138,6 +139,7 @@ void write_usages()
   while (it != fairshare_trees.end())
     {
     it->second.dump_to_file();
+    ++it;
     }
   }
 
@@ -147,6 +149,7 @@ void decay_fairshare_trees()
   while (it != fairshare_trees.end())
     {
     it->second.decay();
+    ++it;
     }
   }
 

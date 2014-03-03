@@ -164,7 +164,7 @@ FairshareTree::FairshareTree(const std::string& name) : p_name(name), p_count(NU
     throw runtime_error("Couldn't initialize fairshare root.");
 
   this->read_configuration();
-  calc_fair_share_perc(this->p_tree,UNSPECIFIED);
+  calc_fair_share_perc(this->p_tree->child,UNSPECIFIED);
   this->read_usage();
 }
 
@@ -228,7 +228,7 @@ group_info* FairshareTree::find_ginfo(const char *name, group_info *root) const
   group_info *ginfo;  /* the found group */
 
   if (root == NULL || !strcmp(name, root -> name))
-    return p_tree;
+    return root;
 
   ginfo = this->find_ginfo(name, root -> sibling);
 
@@ -361,7 +361,7 @@ void FairshareTree::read_usage()
 
   if ((fp = fopen(filename.c_str(), "r")) == NULL) // fallthrough error, file will be created with the first write
     {
-    string errtxt = string("Error opening usage file ")+filename+string(" for writing.");
+    string errtxt = string("Error opening usage file ")+filename+string(" for reading.");
     perror(errtxt.c_str());
     return;
     }

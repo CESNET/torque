@@ -30,45 +30,49 @@ struct group_node_usage
 namespace Scheduler {
 namespace Logic {
 
-/** \brief Class for holding one fairshare tree
- *
- */
+/// \brief Class for holding a single fairshare tree
 class FairshareTree
   {
   public:
+    /** \brief Construct the fairshare tree with the desired name
+     *
+     *  Requires the existence of the configuration file resource_group.name
+     *
+     * @param name Name of the desired tree
+     */
     FairshareTree(const std::string& name);
-    FairshareTree(const FairshareTree& src);
-    ~FairshareTree();
+    FairshareTree(const FairshareTree& src); ///< Copy constructor
+    ~FairshareTree(); ///< Destructor
 
-    const std::string& get_name() const { return p_name; }
-    const group_info * get_tree() const { return p_tree; }
+    const std::string& get_name() const { return p_name; }  ///< Get the tree name
+    const group_info * get_tree() const { return p_tree; }  ///< Get the associated fairshare tree data
 
-    group_info *find_alloc_ginfo(const char *name);
-    group_info *find_alloc_ginfo(const std::string& name);
+    group_info *find_alloc_ginfo(const char *name);         ///< Find a specific fairshare group inside this tree, if not present create it
+    group_info *find_alloc_ginfo(const std::string& name);  ///< Find a specific fairshare group inside this tree, if not present create it
 
-    group_info *find_ginfo(const char *name) const;
-    group_info *find_ginfo(const std::string& name) const;
+    group_info *find_ginfo(const char *name) const;         ///< Find a specific faishare group inside this tree
+    group_info *find_ginfo(const std::string& name) const;  ///< Find a specific faishare group inside this tree
 
-    void dump_to_cache() const;
-    void dump_to_file() const;
+    void dump_to_cache() const;   ///< Dump information from this fairshare tree to pbs_cache
+    void dump_to_file() const;    ///< Dump information from this fairshare to a file (usage.name)
 
-    void decay();
+    void decay(); ///< Decay this fairshare tree
 
   private:
-    std::string p_name;
+    std::string p_name; ///< Name of the tree
 
     int        *p_count; ///< Shared pointer count
     group_info *p_tree;  ///< The actual fairshare data
 
-    group_info* find_ginfo(const char *name, group_info *root) const;
-    void add_unknown(group_info *ginfo);
-    void dump_to_cache(const std::string& metric, group_info *ginfo) const;
-    void dump_to_file(group_info *root, FILE *fp) const;
+    group_info* find_ginfo(const char *name, group_info *root) const; ///< Recursive find
+    void add_unknown(group_info *ginfo);  ///< Add this group into unknown
+    void dump_to_cache(const std::string& metric, group_info *ginfo) const; ///< Recursive store to cache
+    void dump_to_file(group_info *root, FILE *fp) const;  ///< Recursive store to file
 
-    void read_configuration();
-    void read_usage();
+    void read_configuration();  ///< Read configuration file (resource_group.name)
+    void read_usage();          ///< Read usage file (usage.name)
 
-    void decay_tree(group_info *root);
+    void decay_tree(group_info *root); ///< Recursively decay the tree
   };
 
 }}
