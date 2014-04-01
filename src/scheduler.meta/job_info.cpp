@@ -283,6 +283,10 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
         {
         jinfo->nodespec = strdup(attrp->value);
         }
+      else if (strcmp(attrp->resource,"place") == 0)
+        {
+        jinfo->placement = strdup(attrp->value);
+        }
       }
     else if (!strcmp(attrp -> name, ATTR_total_resources))
       {
@@ -377,6 +381,8 @@ job_info *new_job_info()
 
   jinfo -> calculated_fairshare = -1;
 
+  jinfo -> placement = NULL;
+
   return jinfo;
   }
 
@@ -467,6 +473,7 @@ void free_job_info(job_info *jinfo)
   free(jinfo -> cluster_name);
   free(jinfo -> nodespec);
   free_parsed_nodespec(jinfo -> parsed_nodespec);
+  free(jinfo -> placement);
   delete jinfo;
   }
 

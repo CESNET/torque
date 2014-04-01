@@ -406,7 +406,6 @@ int cstrcmp(char *s1, char *s2)
 
 void query_external_cache(server_info *sinfo, int dynamic)
   {
-  resource *res;
   node_info *node;
   char *value;
   int i;
@@ -426,36 +425,8 @@ void query_external_cache(server_info *sinfo, int dynamic)
            node=sinfo -> nodes[i];
            value=xcache_hash_find(ptable,node->name);
            if (value!=NULL)
-             {
-             res = find_alloc_resource( node -> res, j->second.name.c_str() );
-
-             if (node->res == NULL)
-               node->res = res;
-
-             if (res != NULL)
-               {
-               free(res -> str_avail);
-               if (is_num(value))
-                 {
-                 res -> is_string = 0;
-                 res -> avail = res_to_num(value);
-                 res -> str_avail = value;
-                 res -> assigned = 0;
-                 res -> max = UNSPECIFIED;
-                 }
-               else
-                 {
-                 res -> is_string = 1;
-                 res -> str_avail = value;
-                 res -> avail = 0;
-                 res -> assigned = 0;
-                 }
-               }
-             }
-           else
-             {
-             free(value);
-             }
+             node->set_resource_dynamic(j->second.name.c_str(),value);
+           free(value);
           }
         }
       else

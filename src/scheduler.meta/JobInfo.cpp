@@ -19,33 +19,28 @@ void job_info::unplan_from_node(node_info* ninfo, pars_spec_node* spec)
     ninfo->freeup_proc(spec->procs);
 
   /* mem */
-  res = find_resource(ninfo->res,"mem");
-  if (res != NULL)
+  if ((res = ninfo->get_resource("mem")) != NULL)
     res->assigned -= spec->mem;
 
   /* vmem */
-  res = find_resource(ninfo->res,"vmem");
-  if (res != NULL)
+  if ((res = ninfo->get_resource("vmem")) != NULL)
     res->assigned -= spec->vmem;
 
   if (ninfo->temp_assign_scratch == ScratchLocal)
     {
-    res = find_resource(ninfo->res,"scratch_local");
-    if (res != NULL)
+    if ((res = ninfo->get_resource("scratch_local")) != NULL)
       res->assigned -= spec->scratch;
     }
 
   if (ninfo->temp_assign_scratch == ScratchSSD)
     {
-    res = find_resource(ninfo->res,"scratch_ssd");
-    if (res != NULL)
+    if ((res = ninfo->get_resource("scratch_ssd")) != NULL)
       res->assigned -= spec->scratch;
     }
 
   if (ninfo->temp_assign_scratch == ScratchShared)
     {
-    res = find_resource(ninfo->res,"scratch_pool");
-    if (res != NULL)
+    if ((res = ninfo->get_resource("scratch_pool")) != NULL)
       {
       string pool = res->str_avail;
       map<string,DynamicResource>::iterator i;
@@ -66,8 +61,7 @@ void job_info::unplan_from_node(node_info* ninfo, pars_spec_node* spec)
 
     if (res_check_type(iter->name) != ResCheckNone)
       {
-      res = find_resource(ninfo->res,iter->name);
-      if (res != NULL)
+      if ((res = ninfo->get_resource(iter->name)) != NULL)
         {
         res->assigned -= res_to_num(iter->value);
         }
@@ -97,33 +91,28 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
     ninfo->deplete_proc(spec->procs);
 
   /* mem */
-  res = find_resource(ninfo->res,"mem");
-  if (res != NULL)
+  if ((res = ninfo->get_resource("mem")) != NULL)
     res->assigned += spec->mem;
 
   /* vmem */
-  res = find_resource(ninfo->res,"vmem");
-  if (res != NULL)
+  if ((res = ninfo->get_resource("vmem")) != NULL)
     res->assigned += spec->vmem;
 
   if (ninfo->temp_assign_scratch == ScratchLocal)
     {
-    res = find_resource(ninfo->res,"scratch_local");
-    if (res != NULL)
+    if ((res = ninfo->get_resource("scratch_local")) != NULL)
       res->assigned += spec->scratch;
     }
 
   if (ninfo->temp_assign_scratch == ScratchSSD)
     {
-    res = find_resource(ninfo->res,"scratch_ssd");
-    if (res != NULL)
+    if ((res = ninfo->get_resource("scratch_ssd")) != NULL)
       res->assigned += spec->scratch;
     }
 
   if (ninfo->temp_assign_scratch == ScratchShared)
     {
-    res = find_resource(ninfo->res,"scratch_pool");
-    if (res != NULL)
+    if ((res = ninfo->get_resource("scratch_pool")) != NULL)
       {
       string pool = res->str_avail;
       map<string,DynamicResource>::iterator i;
@@ -144,8 +133,7 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
 
     if (res_check_type(iter->name) != ResCheckNone)
       {
-      res = find_resource(ninfo->res,iter->name);
-      if (res != NULL)
+      if ((res = ninfo->get_resource(iter->name)) != NULL)
         {
         res->assigned += res_to_num(iter->value);
         }
@@ -241,9 +229,9 @@ double job_info::calculate_fairshare_cost(const vector<node_info*>& nodes) const
       unsigned long long node_mem   = fairshare_nodes[i]->get_mem_total();
 
       if (this->is_exclusive)
-        fairshare_cost += node_procs*fairshare_nodes[i]->node_cost;
+        fairshare_cost += node_procs*fairshare_nodes[i]->get_node_cost();
       else
-        fairshare_cost += max(static_cast<double>(iter->mem)/node_mem,static_cast<double>(iter->procs)/node_procs)*node_procs*fairshare_nodes[i]->node_cost;
+        fairshare_cost += max(static_cast<double>(iter->mem)/node_mem,static_cast<double>(iter->procs)/node_procs)*node_procs*fairshare_nodes[i]->get_node_cost();
 
       fairshare_nodes[i]->temp_fairshare_used = true;
       }

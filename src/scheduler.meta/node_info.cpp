@@ -215,8 +215,6 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
 node_info *query_node_info(struct batch_status *node, server_info *sinfo)
   {
   node_info *ninfo;  /* the new node_info */
-  sch_resource_t count;
-  resource *resp;
   struct attrl *attrp;  /* used to cycle though attribute list */
 
   if ((ninfo = new_node_info()) == NULL)
@@ -260,73 +258,36 @@ node_info *query_node_info(struct batch_status *node, server_info *sinfo)
     /* Name of the dedicated queue */
     else if (!strcmp(attrp -> name, ATTR_NODE_queue))
       ninfo->set_ded_queue(attrp->value);
-
+    /* Is admin slot available */
+    else if (!strcmp(attrp -> name, ATTR_NODE_admin_slot_available))
+      ninfo->set_admin_slot_avail(attrp->value);
+    /* Is admin slot enabled */
+    else if (!strcmp(attrp -> name, ATTR_NODE_admin_slot_enabled))
+      ninfo->set_admin_slot_enabled(attrp->value);
+    /* Node fairshare cost */
+    else if (!strcmp(attrp -> name, ATTR_NODE_fairshare_coef))
+      ninfo->set_node_cost(attrp->value);
+    /* Node machine spec */
+    else if (!strcmp(attrp -> name, ATTR_NODE_machine_spec))
+      ninfo->set_node_spec(attrp->value);
+    /* Node available after */
+    else if (!strcmp(attrp -> name, ATTR_NODE_available_after))
+      ninfo->set_avail_after(attrp->value);
+    /* Node available before */
+    else if (!strcmp(attrp -> name, ATTR_NODE_available_before))
+      ninfo->set_avail_before(attrp->value);
+    /* Resource capacity */
+    else if (!strcmp(attrp -> name, ATTR_NODE_resources_total))
+      ninfo->set_resource_capacity(attrp->resource,attrp->value);
+    /* Resource utilisation */
+    else if (!strcmp(attrp -> name, ATTR_NODE_resources_used))
+      ninfo->set_resource_utilisation(attrp->resource,attrp->value);
 
     /* the jobs running on the node */
     else if (!strcmp(attrp -> name, ATTR_NODE_jobs))
       ninfo -> jobs = break_comma_list(attrp -> value);
-    // fairshare
-    else if (!strcmp(attrp -> name, ATTR_NODE_fairshare_coef))
-      ninfo -> node_cost = atof(attrp->value);
-    else if (!strcmp(attrp -> name, ATTR_NODE_machine_spec))
-      ninfo -> node_spec = atof(attrp->value);
-
-    else if (!strcmp(attrp -> name, ATTR_NODE_available_after))
-      ninfo -> avail_after = atol(attrp->value);
-    else if (!strcmp(attrp -> name, ATTR_NODE_available_before))
-      ninfo -> avail_before = atol(attrp->value);
-
     else if (!strcmp(attrp -> name, ATTR_NODE_exclusively_assigned))
       ninfo->set_exclusively_assigned(attrp->value);
-    else if (!strcmp(attrp -> name, ATTR_NODE_admin_slot_available))
-      ninfo->set_admin_slot_avail(attrp->value);
-    else if (!strcmp(attrp -> name, ATTR_NODE_admin_slot_enabled))
-      ninfo->set_admin_slot_enabled(attrp->value);
-
-    else if (!strcmp(attrp -> name, ATTR_NODE_resources_total))
-      {
-      if (is_num(attrp -> value))
-        {
-        count = res_to_num(attrp -> value);
-        }
-      else count = UNSPECIFIED;
-
-      resp = find_alloc_resource(ninfo -> res, attrp -> resource);
-
-      if (ninfo -> res == NULL)
-        ninfo -> res = resp;
-
-      if (resp != NULL)
-        {
-        if (count != UNSPECIFIED)
-          {
-          resp -> max = count;
-          if (resp->avail == UNSPECIFIED) resp->avail = 0;
-          }
-        else
-          { /* uncounted string resource */
-          resp -> max = UNSPECIFIED;
-          resp -> is_string = 1;
-          resp -> str_avail = strdup(attrp -> value);
-          resp -> avail = UNSPECIFIED;
-          resp -> assigned = UNSPECIFIED;
-          }
-        }
-      }
-    else if (!strcmp(attrp -> name, ATTR_NODE_resources_used))
-      {
-      count = res_to_num(attrp -> value);
-      resp = find_alloc_resource(ninfo -> res, attrp -> resource);
-
-      if (ninfo -> res == NULL)
-        ninfo -> res = resp;
-
-      if (resp != NULL)
-        {
-        resp -> assigned = count;
-        if (resp->max == UNSPECIFIED) resp->max = 0;
-        }
-      }
 
     attrp = attrp -> next;
     }
@@ -358,8 +319,6 @@ node_info *new_node_info()
   tmp->temp_assign_scratch = ScratchNone;
   tmp->temp_assign_alternative = NULL;
   tmp->temp_fairshare_used = false;
-
-  tmp -> res = NULL;
 
   tmp -> cluster_name = NULL;
 
@@ -412,7 +371,6 @@ void free_node_info(node_info *ninfo)
     {
     free(ninfo -> name);
     free_string_array(ninfo -> jobs);
-    free_resource_list(ninfo -> res);
     free_bootable_alternatives(ninfo->alternatives);
     free(ninfo -> cluster_name);
     delete ninfo;

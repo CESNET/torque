@@ -84,9 +84,9 @@ CheckResult node_info::has_proc(const job_info *job, const pars_spec_node *spec)
   // for admin slots, check the admin slot instead
   if (job->queue->is_admin_queue)
     {
-    if (p_admin_slot_avail)    // admin slot currently free
+    if (this->get_admin_slot_avail())    // admin slot currently free
       return CheckAvailable;
-    else if (p_admin_slot_enabled) // admin slot occupied, but enabled
+    else if (this->get_admin_slot_enabled()) // admin slot occupied, but enabled
       return CheckOccupied;
     else                         // admin slot not enabled
       return CheckNonFit;
@@ -129,7 +129,7 @@ CheckResult node_info::has_mem(const job_info *job, const pars_spec_node *spec) 
     return CheckAvailable;
 
   // vmem currently ignored
-  struct resource *mem = find_resource(res,"mem");
+  struct resource *mem = this->get_resource("mem");
 
   if (mem != NULL)
     {
@@ -150,16 +150,16 @@ CheckResult node_info::has_mem(const job_info *job, const pars_spec_node *spec) 
 
 unsigned long long node_info::get_mem_total() const
 {
-  struct resource *mem = find_resource(res,"mem");
+  struct resource *mem = this->get_resource("mem");
   if (mem == NULL)
     return 0;
 
   return mem->max;
 }
 
-CheckResult check_scratch_helper(resource *reslist, const char *name, unsigned long long value)
+CheckResult check_scratch_helper(const node_info * const ninfo, const char *name, unsigned long long value)
   {
-  struct resource *res = find_resource(reslist,name);
+  struct resource *res = ninfo->get_resource(name);
 
   if (res == NULL)
     return CheckNonFit;
@@ -181,8 +181,8 @@ CheckResult node_info::has_scratch(const job_info *job, const pars_spec_node *sp
   if (spec->scratch_type == ScratchNone) // if no scratch was requested, atomatic avail
     return CheckAvailable;
 
-  CheckResult has_local = check_scratch_helper(res,"scratch_local",spec->scratch);
-  CheckResult has_ssd  = check_scratch_helper(res,"scratch_ssd",spec->scratch);
+  CheckResult has_local = check_scratch_helper(this,"scratch_local",spec->scratch);
+  CheckResult has_ssd  = check_scratch_helper(this,"scratch_ssd",spec->scratch);
   CheckResult has_shared = CheckNonFit;
 
   if (scratch_pool.length() > 0)
@@ -250,7 +250,7 @@ CheckResult node_info::has_resc(const pars_prop *prop) const
   if (strcmp(prop->name,"minspec")==0)
     {
     double value = atof(prop->value);
-    if (this->node_spec >= value)
+    if (this->get_node_spec() >= value)
       return CheckAvailable;
     else
       return CheckNonFit;
@@ -259,14 +259,14 @@ CheckResult node_info::has_resc(const pars_prop *prop) const
   if (strcmp(prop->name,"maxspec")==0)
     {
     double value = atof(prop->value);
-    if (this->node_spec <= value)
+    if (this->get_node_spec() <= value)
       return CheckAvailable;
     else
       return CheckNonFit;
     }
 
   struct resource *resc;
-  if ((resc = find_resource(res,prop->name)) == NULL)
+  if ((resc = this->get_resource(prop->name)) == NULL)
     return CheckNonFit;
 
   if (resc->is_string) // string resources work as properties
@@ -279,19 +279,19 @@ CheckResult node_info::has_resc(const pars_prop *prop) const
 
   sch_resource_t amount = res_to_num(prop->value);
 
-  if (res->max != INFINITY && res->max != UNSPECIFIED && res->max < amount) // there is a max and it's lower than the requested amount
+  if (resc->max != INFINITY && resc->max != UNSPECIFIED && resc->max < amount) // there is a max and it's lower than the requested amount
     return CheckNonFit;
 
-  if (res->max == UNSPECIFIED || res->max == INFINITY) // no max value present, only current
+  if (resc->max == UNSPECIFIED || resc->max == INFINITY) // no max value present, only current
     {
-    if (res->avail - res->assigned >= amount)
+    if (resc->avail - resc->assigned >= amount)
       return CheckAvailable;
     else
       return CheckOccupied;
     }
   else // max value present
     {
-    if (res->max - res->assigned >= amount)
+    if (resc->max - resc->assigned >= amount)
       return CheckAvailable;
     else
       return CheckOccupied;
@@ -383,10 +383,10 @@ CheckResult node_info::has_bootable_state(ClusterMode mode) const
 
   // check after & before
   long now = time(NULL);
-  if (this->avail_after != 0 && now < this->avail_after)
+  if (this->get_avail_after() != 0 && now < this->get_avail_after())
     return CheckNonFit;
 
-  if (this->avail_before != 0 && now > this->avail_before)
+  if (this->get_avail_before() != 0 && now > this->get_avail_before())
     return CheckNonFit;
 
   switch (magrathea_status)
@@ -453,10 +453,10 @@ CheckResult node_info::has_runnable_state() const
 
   // check after & before
   long now = time(NULL);
-  if (this->avail_after != 0 && now < this->avail_after)
+  if (this->get_avail_after() != 0 && now < this->get_avail_after())
     return CheckNonFit;
 
-  if (this->avail_before != 0 && now > this->avail_before)
+  if (this->get_avail_before() != 0 && now > this->get_avail_before())
     return CheckNonFit;
 
   if (this->get_type() == NodeVirtual)
@@ -495,12 +495,15 @@ CheckResult node_info::can_boot_job(const job_info *jinfo) const
   if (this->is_notusable())
     return CheckNonFit;
 
+  if (jinfo->placement != NULL && this->get_resource(jinfo->placement) == NULL)
+    return CheckNonFit;
+
   CheckResult result = has_bootable_state(jinfo->cluster_mode);
   if (result == CheckNonFit)
     return CheckNonFit;
 
   long now = time(NULL);
-  if (this->avail_before - jinfo->get_walltime() > now)
+  if (this->get_avail_before() - jinfo->get_walltime() > now)
     return CheckNonFit;
 
   if (jinfo->cluster_mode == ClusterUse)
@@ -518,7 +521,7 @@ CheckResult node_info::can_boot_job(const job_info *jinfo) const
     return CheckOccupied;
 
   // Machine is already allocated to a virtual cluster, only ClusterUse type of jobs allowed
-  if (find_resource(this->res, "machine_cluster") != NULL)
+  if (this->get_resource("machine_cluster") != NULL)
     result = CheckOccupied;
 
   return result;
@@ -529,8 +532,15 @@ CheckResult node_info::can_run_job(const job_info *jinfo) const
   if (this->is_notusable())
     return CheckNonFit;
 
+  if (jinfo->placement != NULL && this->get_resource(jinfo->placement) == NULL)
+    return CheckNonFit;
+
   CheckResult result = has_runnable_state();
   if (result == CheckNonFit)
+    return CheckNonFit;
+
+  long now = time(NULL);
+  if (this->get_avail_before() - jinfo->get_walltime() > now)
     return CheckNonFit;
 
   if (jinfo->cluster_mode == ClusterCreate)
@@ -543,7 +553,7 @@ CheckResult node_info::can_run_job(const job_info *jinfo) const
   if (this->get_nomultinode() && jinfo->is_multinode)
     return CheckNonFit;
 
-  resource *res_machine = find_resource(this->res, "machine_cluster");
+  resource *res_machine = this->get_resource("machine_cluster");
   if (jinfo->cluster_mode != ClusterUse) /* users can always go inside a cluster */
     {
     // User does not have an account on this machine - can never run
@@ -649,7 +659,7 @@ void node_info::fetch_bootable_alternatives()
     return;
 
   resource *resc;
-  if ((resc = find_resource(this->res,"magrathea")) != NULL)
+  if ((resc = this->get_resource("magrathea")) != NULL)
     {
     this->alternatives = get_bootable_alternatives(this->name,NULL);
     }
@@ -725,7 +735,7 @@ bool node_info::operator < (const node_info& right)
 void node_info::process_magrathea_status()
   {
   resource *res_magrathea;
-  res_magrathea = find_resource(this->res, "magrathea");
+  res_magrathea = this->get_resource("magrathea");
 
   if (res_magrathea == NULL || magrathea_decode_new(res_magrathea,&this->magrathea_status,this->is_rebootable) != 0)
     {
@@ -760,7 +770,7 @@ void node_info::process_magrathea_status()
 void node_info::process_machine_cluster()
   {
   resource *res_cluster;
-  res_cluster = find_resource(this->res, "machine_cluster");
+  res_cluster = this->get_resource("machine_cluster");
 
   this->virtual_cluster = "";
   this->virtual_image = "";

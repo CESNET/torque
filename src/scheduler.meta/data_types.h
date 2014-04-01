@@ -248,6 +248,7 @@ unsigned is_admin_queue : 1; /* admin job queue */
 
 struct resource
   {
+  // TODO rewrite into objective model
   unsigned is_string : 1;
 
   char *name;   /* name of the resource */
@@ -258,6 +259,9 @@ struct resource
   char *str_avail;
 
   struct resource *next; /* next resource in list */
+
+  resource() : is_string(0), name(NULL), avail(UNSPECIFIED), max(INFINITY), assigned(UNSPECIFIED), str_avail(NULL), next(NULL) {}
+  ~resource() { free(name); free(str_avail); }
   };
 
 struct resource_req

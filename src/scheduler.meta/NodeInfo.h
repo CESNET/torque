@@ -39,8 +39,6 @@ struct node_info : public NodeData // change to protected inheritance
   char *name;   /* name of the node */
   char **jobs;   /* the jobs currently running on the node */
 
-  struct resource *res;  /* list of resources */
-
   server_info *server;  /* server that the node is associated with */
   queue_info *excl_queue; /**< pointer to queue the node is exclusive to */
 
@@ -64,13 +62,6 @@ struct node_info : public NodeData // change to protected inheritance
   pars_spec_node *starving_spec;
 
   std::string scratch_pool;
-
-  long avail_before;
-  long avail_after;
-
-  // fairshare
-  double node_cost;
-  double node_spec;
 
   CheckResult has_prop(const pars_prop* property, bool physical_only) const;
   bool has_prop(const char* property) const;
@@ -108,9 +99,6 @@ public:
   void freeup_proc(int count) { p_core_assigned -= count; }
 
   unsigned long long get_mem_total() const;
-
-  void set_admin_slot_enabled(const char* value) { p_admin_slot_enabled = !strcmp(value,"True"); }
-  void set_admin_slot_avail(const char* value) { p_admin_slot_avail = !strcmp(value,"True"); }
   void set_exclusively_assigned(const char* value) { p_exclusively_assigned = !strcmp(value,"True"); }
 
   void fetch_bootable_alternatives();
@@ -123,14 +111,10 @@ public:
 private:
   // CPU related section
   int p_core_assigned;
-
-  bool p_admin_slot_enabled;
-  bool p_admin_slot_avail;
-
   bool p_exclusively_assigned;
 
 public:
-  node_info() : p_is_notusable(false), is_rebootable(false), avail_before(0), avail_after(0), node_cost(1.0), node_spec(10.0), p_core_assigned(0), p_admin_slot_enabled(false), p_admin_slot_avail(false), p_exclusively_assigned(false) {}
+  node_info() : p_is_notusable(false), is_rebootable(false), p_core_assigned(0), p_exclusively_assigned(false) {}
   };
 
 #endif /* NODEINFO_H_ */

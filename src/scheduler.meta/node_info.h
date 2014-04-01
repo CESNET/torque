@@ -152,6 +152,7 @@ void print_node(node_info *ninfo, int brief);
 
 char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, int &booting, double &minspec);
 void nodes_preassign_clean(node_info **ninfo_arr, int count);
+void nodes_preassign_clean(const std::vector<node_info*>& nodes);
 int nodes_preassign(const char *matching_spec, node_info **ninfo_arr, int count, int needcount);
 void node_set_magrathea_status(node_info *ninfo);
 

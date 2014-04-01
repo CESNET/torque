@@ -19,13 +19,13 @@ bool NodeCostSort::operator ()(node_info *left, node_info *right) const
 
   if (p_excl)
     {
-    left_cost = left->node_cost*left_cores;
-    right_cost = right->node_cost*right_cores;
+    left_cost = left->get_node_cost()*left_cores;
+    right_cost = right->get_node_cost()*right_cores;
     }
   else
     {
-    double left_perc = max(static_cast<double>(p_procs)/left_cores,static_cast<double>(p_mem)/left->get_mem_total())*left->node_cost;
-    double right_perc = max(static_cast<double>(p_procs)/right_cores,static_cast<double>(p_mem)/right->get_mem_total())*right->node_cost;
+    double left_perc = max(static_cast<double>(p_procs)/left_cores,static_cast<double>(p_mem)/left->get_mem_total())*left->get_node_cost();
+    double right_perc = max(static_cast<double>(p_procs)/right_cores,static_cast<double>(p_mem)/right->get_mem_total())*right->get_node_cost();
 
     left_cost = left_perc*left_cores;
     right_cost = right_perc*right_cores;

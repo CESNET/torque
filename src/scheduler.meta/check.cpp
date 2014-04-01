@@ -420,28 +420,6 @@ int check_dynamic_resources(server_info* sinfo, job_info *jinfo)
 
 /*
  *
- * dynamic_avail - find out how much of a resource is available on a
- *   server.  If the resources_available attribute is
- *   set, use that, else use resources_max.
- *
- *   res - the resource to check
- *
- * returns the available amount of the resource
- *
- */
-
-sch_resource_t dynamic_avail(resource *res)
-  {
-  if (res -> max == INFINITY && res -> avail == UNSPECIFIED)
-    return INFINITY;
-  else if (res -> avail == UNSPECIFIED)
-    return res -> max;
-  else
-    return res -> avail - res -> assigned;
-  }
-
-/*
- *
  * count_by_user - count the amount of jobs a user has in a job array
  *
  *   jobs - job array

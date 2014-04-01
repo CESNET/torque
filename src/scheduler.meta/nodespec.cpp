@@ -19,6 +19,7 @@ extern "C" {
 
 #include "NodeFilters.h"
 #include "NodeSort.h"
+#include "base/PropRegistry.h"
 
 #include <sstream>
 #include <cassert>
@@ -205,10 +206,83 @@ static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, const vector<
   return 1;
   }
 
+
+CheckResult try_assign_nodes(job_info *jinfo, pars_spec_node *spec, const vector<node_info*>& run_nodes, const vector<node_info*>& boot_nodes)
+  {
+  for (unsigned i = 0; i < spec->node_count; i++)
+    {
+    int run_ret = 2;
+    int boot_ret = 2;
+
+    if (run_nodes.size() > 0)
+      {
+      // first try normal execution
+      // if successful, just continue to next requested node
+      if ((run_ret = assign_node(jinfo,spec,run_nodes)) == 0)
+        continue;
+      }
+
+    // if there are some rebootable nodes and we didn't find any normal nodes, try ondemand reboot
+    if (boot_nodes.size() > 0)
+      {
+      // if successful, just continue to next requested node
+      if ((boot_ret = ondemand_reboot(jinfo,spec,boot_nodes)) == 0)
+        continue;
+      }
+
+    // Not ever possible to run, or on-demand boot request
+    if (run_ret == 2 && boot_ret == 2)
+      return CheckNonFit;
+
+    return CheckOccupied;
+    }
+
+  // all requested nodes were successfuly assigned
+  return CheckAvailable;
+  }
+
+CheckResult try_assign_spec(job_info *jinfo, const vector<node_info*>& nodes)
+  {
+  CheckResult result = CheckAvailable;
+  pars_spec_node *iter = jinfo->parsed_nodespec->nodes;
+
+  while (iter != NULL)
+    {
+    // nodes suitable for nodespec
+    vector<node_info*> fit_nodes, reboot_nodes;
+    NodeSuitableForSpec::filter_assign(nodes,fit_nodes,jinfo,iter);
+    NodeSuitableForSpec::filter_reboot(nodes,reboot_nodes,jinfo,iter);
+
+    size_t sum_count = fit_nodes.size() + reboot_nodes.size(); // base sum
+
+    for (size_t i = 0; i < fit_nodes.size(); i++) // remove all duplicates
+      for (size_t j = 0; j < reboot_nodes.size(); j++)
+        if (strcmp(fit_nodes[i]->name,reboot_nodes[j]->name) == 0)
+          --sum_count;
+
+    if (sum_count < iter->node_count)
+      return CheckNonFit;
+
+    // sort nodes according to state & schedule
+    sort(fit_nodes.begin(),fit_nodes.end(),NodeStateSort());
+    sort(reboot_nodes.begin(),reboot_nodes.end(),NodeStateSort());
+
+    CheckResult ret;
+    if ((ret = try_assign_nodes(jinfo,iter,fit_nodes,reboot_nodes)) == CheckNonFit)
+      return CheckNonFit;
+
+    if (ret == CheckOccupied)
+      result = CheckOccupied;
+
+    iter = iter->next;
+    }
+
+  return result;
+  }
+
 int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info **ninfo_arr, int preassign_starving)
   {
-  int missed_nodes = 0;
-  CheckResult result = CheckAvailable;
+  CheckResult result = CheckNonFit;
 
   vector<node_info*> nodes(&ninfo_arr[0],&ninfo_arr[nodecount]);
 
@@ -216,65 +290,48 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
   vector<node_info*> suitable_nodes;
   NodeSuitableForJob::filter(nodes,suitable_nodes,jinfo);
 
-  /* for each part of the nodespec, try to assign the requested amount of nodes */
-  pars_spec_node *iter = jinfo->parsed_nodespec->nodes;
-  while (iter != NULL)
+  if (jinfo->placement != NULL)
     {
-    // nodes suitable for nodespec
-    vector<node_info*> fit_nodes, reboot_nodes;
-    NodeSuitableForSpec::filter_assign(suitable_nodes,fit_nodes,jinfo,iter);
-    NodeSuitableForSpec::filter_reboot(suitable_nodes,reboot_nodes,jinfo,iter);
+    pair<bool,size_t> reg = get_prop_registry()->get_property_id(jinfo->placement);
+    if (!reg.first)
+      return CheckNonFit;
 
-    if (fit_nodes.size() + reboot_nodes.size() < iter->node_count)
+    size_t prop_id = reg.second;
+    size_t max_val_id = get_prop_registry()->value_count(prop_id).second;
+
+    for (size_t i = 0; i < max_val_id; i++)
       {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Nodespec doesn't match enough nodes. Job held.");
       nodes_preassign_clean(ninfo_arr,nodecount);
       jinfo->schedule.clear();
-      return REQUEST_NOT_MATCHED;
-      }
 
-    // sort nodes according to state & schedule
-    sort(fit_nodes.begin(),fit_nodes.end(),NodeStateSort());
-    sort(reboot_nodes.begin(),reboot_nodes.end(),NodeStateSort());
+      vector<node_info*> nodes_set;
+      NodeSuitableForPlace::filter(suitable_nodes,nodes_set,prop_id,i);
 
-    for (unsigned i = 0; i < iter->node_count; i++)
-      {
-      // first try normal execution
-      int ret = assign_node(jinfo,iter,fit_nodes);
-
-      // if there are some rebootable nodes and we didn't find any normal nodes, try ondemand reboot
-      if (ret != 0 && reboot_nodes.size() > 0)
+      CheckResult ret;
+      if ((ret = try_assign_spec(jinfo,nodes_set)) == CheckAvailable)
         {
-        ret = ondemand_reboot(jinfo,iter,reboot_nodes);
-        }
-
-      if (ret == 2)
-        {
-        result = CheckNonFit;
+        result = CheckAvailable;
         break;
         }
-      else
+      else if (ret == CheckOccupied)
         {
-        missed_nodes += ret;
+        result = CheckOccupied;
         }
       }
-
-    if (missed_nodes > 0)
-      {
-      result = CheckOccupied;
-      break;
-      }
-
-    iter = iter->next;
+    }
+  else
+    {
+    result = try_assign_spec(jinfo,suitable_nodes);
     }
 
+  // PROCESS SCHEDULING RESULTS
   if (result == CheckNonFit)
     {
     nodes_preassign_clean(ninfo_arr,nodecount);
     return REQUEST_NOT_MATCHED;
     }
 
-  if (missed_nodes > 0 && result != CheckNonFit) /* some part of nodespec couldn't be assigned */
+  if (result == CheckOccupied) /* some part of nodespec couldn't be assigned */
     {
     if (jinfo->queue->is_admin_queue)
       {
@@ -284,7 +341,7 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
     nodes_preassign_clean(ninfo_arr,nodecount);
     if (jinfo->is_starving) /* if starving, eat out the resources anyway */
       {
-      iter = jinfo->parsed_nodespec->nodes;
+      struct pars_spec_node * iter = jinfo->parsed_nodespec->nodes;
       while (iter != NULL)
         {
         assign_all_nodes(jinfo, iter, suitable_nodes);
@@ -327,6 +384,25 @@ void nodes_preassign_clean(node_info **ninfo_arr, int count)
       {
       free_pars_spec_node(&(ninfo_arr[i]->starving_spec));
       ninfo_arr[i]->starving_spec = NULL;
+      }
+    }
+  }
+
+void nodes_preassign_clean(const vector<node_info*>& nodes)
+  {
+  for (size_t i = 0; i < nodes.size(); i++)
+    {
+    if (nodes[i]->temp_assign != NULL)
+      free_pars_spec_node(&nodes[i]->temp_assign);
+
+    nodes[i]->temp_assign = NULL;
+    nodes[i]->temp_assign_alternative = NULL;
+    nodes[i]->temp_fairshare_used = false;
+
+    if (nodes[i]->starving_spec != NULL)
+      {
+      free_pars_spec_node(&(nodes[i]->starving_spec));
+      nodes[i]->starving_spec = NULL;
       }
     }
   }
@@ -449,9 +525,9 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, 
       get_target_full(s,jinfo,jinfo->schedule[i],cluster);
 
       if (minspec == -1)
-        minspec = jinfo->schedule[i]->node_spec;
+        minspec = jinfo->schedule[i]->get_node_spec();
       else
-        minspec = min(minspec,jinfo->schedule[i]->node_spec);
+        minspec = min(minspec,jinfo->schedule[i]->get_node_spec());
     }
 
   if (jinfo->is_exclusive)

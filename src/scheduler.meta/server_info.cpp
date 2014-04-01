@@ -458,10 +458,7 @@ void free_server_info(server_info *sinfo)
  */
 void free_resource(resource *res)
   {
-  res -> next = NULL;
-  free(res -> name);
-  free(res -> str_avail);
-  free(res);
+  delete res;
   }
 
 /*
@@ -548,23 +545,7 @@ server_info *new_server_info()
  */
 resource *new_resource()
   {
-  resource *resp;  /* the new resource */
-
-  if ((resp = (resource*) malloc(sizeof(resource))) == NULL)
-    return NULL;
-
-  resp -> next = NULL;
-
-  resp -> max = INFINITY;
-
-  resp -> assigned = UNSPECIFIED;
-
-  resp -> avail = UNSPECIFIED;
-
-  resp -> is_string = 0;
-  resp -> str_avail = NULL;
-
-  return resp;
+  return new (std::nothrow) resource;
   }
 
 /*

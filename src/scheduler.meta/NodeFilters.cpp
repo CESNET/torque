@@ -77,3 +77,17 @@ void NodeSuitableForJob::filter(const vector<node_info*>& nodes, vector<node_inf
   {
   filter_nodes(nodes,result,NodeSuitableForJob(jinfo));
   }
+
+
+NodeSuitableForPlace::NodeSuitableForPlace(size_t place_id, size_t value_id) : p_place(place_id), p_value(value_id)
+  {}
+
+bool NodeSuitableForPlace::operator ()(const node_info* node) const
+  {
+  return node->has_reg_prop(this->p_place,this->p_value);
+  }
+
+void NodeSuitableForPlace::filter(const vector<node_info*>& nodes, vector<node_info*>& result, size_t place_id, size_t value_id)
+  {
+  filter_nodes(nodes,result,NodeSuitableForPlace(place_id,value_id));
+  }

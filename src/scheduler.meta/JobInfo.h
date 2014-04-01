@@ -42,6 +42,8 @@ struct job_info
 
   std::vector<node_info*> schedule; /* currently considered schedule */
 
+  char *placement;
+
   void plan_on_node(node_info* ninfo, pars_spec_node* spec);
   void unplan_from_node(node_info* ninfo, pars_spec_node* spec);
   void plan_on_queue(queue_info* qinfo);

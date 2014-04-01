@@ -40,4 +40,16 @@ struct NodeSuitableForSpec
     SuitableNodeFilterMode p_mode;
   };
 
+struct NodeSuitableForPlace
+  {
+  NodeSuitableForPlace(size_t place_id, size_t value_id);
+  bool operator()(const node_info* node) const;
+
+  static void filter(const std::vector<node_info*>& nodes, std::vector<node_info*>& result, size_t place_id, size_t value_id);
+
+  private:
+    const size_t p_place;
+    const size_t p_value;
+  };
+
 #endif /* NODEFILTERS_H_ */
