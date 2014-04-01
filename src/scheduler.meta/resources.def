@@ -37,5 +37,10 @@ maple		{ err " "	type "dynamic" }
 minspec		{ err " "	type "status" }
 maxspec		{ err " "	type "status" }
 
+room		{ err " "	type "status" }
+city		{ err " "	type "status" }
+infiniband	{ err " "	type "status" }
+home		{ err " "	type "status" }
+
 #include "resources_matlab.def"
 #include "resources_ncbr.def"
