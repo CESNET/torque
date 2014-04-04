@@ -83,54 +83,6 @@
 #include "prev_job_info.h"
 #include "job_info.h"
 
-
-/*
- *
- * create_prev_job_info - create the prev_job_info array from an array
- *    of jobs
- *
- *   jinfo_arr - job_info array
- *   size - size of jinfo_arr or UNSPECIFIED if unknown
- *
- * returns new prev_job_array
- *
- * NOTE: jinfo_arr is modified
- *
- */
-prev_job_info *create_prev_job_info(job_info **jinfo_arr, int size)
-  {
-  prev_job_info *tmp;  /* new prev_job_info array */
-  int local_size;  /* the size of the array */
-  int i;
-
-  if (size == UNSPECIFIED)
-    {
-    for (i = 0; jinfo_arr[i] != NULL; i++)
-      ;
-
-    local_size = i;
-    }
-  else
-    local_size = size;
-
-  if ((tmp = (prev_job_info *) malloc(sizeof(prev_job_info)  * local_size)) == NULL)
-    {
-    return NULL;
-    }
-
-  for (i = 0; jinfo_arr[i] != NULL; i++)
-    {
-    /* changed into deep copies */
-    tmp[i].name = strdup(jinfo_arr[i] -> name);
-    tmp[i].resused = clone_resource_req_list(jinfo_arr[i] -> resused);
-    tmp[i].account = strdup(jinfo_arr[i] -> account);
-    tmp[i].ginfo = jinfo_arr[i] -> ginfo; /* no need to deep copy,
-                                          just a pointer to elsewhere */
-    }
-
-  return tmp;
-  }
-
 /*
  *
  * free_prev_job_info - free a prev_job_info struct
@@ -142,33 +94,7 @@ prev_job_info *create_prev_job_info(job_info **jinfo_arr, int size)
  */
 void free_prev_job_info(prev_job_info *pjinfo)
   {
-  if (pjinfo -> name != NULL)
-    free(pjinfo -> name);
-
-  if (pjinfo -> account != NULL)
-    free(pjinfo -> account);
-
+  free(pjinfo -> name);
+  free(pjinfo -> account);
   free_resource_req_list(pjinfo -> resused);
-  }
-
-/*
- *
- * free_pjobs - free a list of prev_job_info structs
- *
- *   pjinfo_arr - array of prev_job_info structs to free
- *
- * returns nothing
- *
- */
-void free_pjobs(prev_job_info *pjinfo_arr, int size)
-  {
-  int i;
-
-  if (pjinfo_arr == NULL)
-    return;
-
-  for (i = 0; i < size; i++)
-    free_prev_job_info(&pjinfo_arr[i]);
-
-  free(pjinfo_arr);
   }

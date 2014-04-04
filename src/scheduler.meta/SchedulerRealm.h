@@ -13,6 +13,8 @@ class World
   public:
     /** \brief Initialize the world */
     World(int argc, char *argv[]);
+    /** \brief Cleanup */
+    ~World();
 
     void run();
 

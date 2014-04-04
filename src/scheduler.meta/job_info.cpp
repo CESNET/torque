@@ -610,12 +610,8 @@ void free_resource_req_list(resource_req *list)
     tmp = resreq;
     resreq = resreq -> next;
 
-    if (tmp -> name != NULL)
-      free(tmp -> name);
-
-    if (tmp -> res_str != NULL)
-      free(tmp -> res_str);
-
+    free(tmp -> name);
+    free(tmp -> res_str);
     free(tmp);
     }
   }

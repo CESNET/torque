@@ -84,19 +84,8 @@
 #include "data_types.h"
 
 /*
- *      create_prev_job_info - create the prev_job_info array from an array
- *                              of jobs
- */
-prev_job_info *create_prev_job_info(job_info **jinfo_arr, int size);
-
-/*
  *      free_prev_job_info - free a prev_job_info struct
  */
 void free_prev_job_info(prev_job_info *pjinfo);
-
-/*
- *      free_pjobs - free a list of prev_job_info structs
- */
-void free_pjobs(prev_job_info *pjinfo_arr, int size);
 
 #endif

@@ -501,3 +501,15 @@ void World::run()
     sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, "Unexpected exception caught : %s", e.what());
     }
   }
+
+World::~World()
+  {
+  /* Correctly cleanup last running jobs */
+  for (size_t i = 0; i < p_last_running.size(); i++)
+    {
+    free_prev_job_info(&p_last_running[i]);
+    }
+
+  /* Correctly free fairshare trees */
+  free_fairshare_trees();
+  }

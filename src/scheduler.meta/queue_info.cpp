@@ -658,18 +658,14 @@ void update_queue_on_run(queue_info *qinfo, job_info *jinfo)
  */
 void free_queue_info(queue_info *qinfo)
   {
-  if (qinfo -> name != NULL)
-    free(qinfo -> name);
+  free(qinfo -> name);
 
   if (qinfo -> qres != NULL)
     free_resource_list(qinfo -> qres);
 
-  if (qinfo -> running_jobs != NULL)
-    free(qinfo -> running_jobs);
-
-  if (qinfo -> excl_nodes != NULL)
-    free(qinfo -> excl_nodes);
-
+  free(qinfo -> running_jobs);
+  free(qinfo -> excl_nodes);
+  free(qinfo -> fairshare_tree);
   free(qinfo);
   }
 

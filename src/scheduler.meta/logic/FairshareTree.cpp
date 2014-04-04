@@ -59,9 +59,11 @@ void free_group_tree(group_info *root)
   if (root == NULL)
     return;
 
-  free_group_tree(root -> sibling);
+  if (root->name == NULL)
+    free(root->name);
 
-  free_group_tree(root -> child);
+  free_group_tree(root->sibling);
+  free_group_tree(root->child);
 
   free(root);
   }
@@ -402,6 +404,7 @@ void FairshareTree::dump_to_file() const
 void FairshareTree::dump_to_file(group_info *root, FILE *fp) const
   {
   struct group_node_usage grp;  /* used to write out usage info */
+  memset(&grp,0,sizeof(struct group_node_usage));
 
   if (root == NULL)
     return;
