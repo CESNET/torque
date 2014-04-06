@@ -10,7 +10,9 @@ namespace Base {
 
 pair<size_t,size_t> PropRegistry::register_property(const char* property, const char* value)
   {
-  return this->register_property(string(property),string(value));
+  string prop(property);
+  string val(value);
+  return this->register_property(prop,val);
   }
 
 pair<size_t,size_t> PropRegistry::register_property(const string& property, const string& value)

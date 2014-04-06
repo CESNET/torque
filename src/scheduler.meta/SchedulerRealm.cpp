@@ -370,6 +370,8 @@ int World::try_run_job(job_info *jinfo)
     if (ret == PBSE_PROTOCOL || ret == PBSE_TIMEOUT)
       {
       log_err(ret,(char*)"pbs_runjob",(char*)"Protocol problem while communicating with the server.");
+      nodes_preassign_clean(p_info->nodes, p_info->num_nodes);
+      jinfo->schedule.clear();
       return ret;
       }
 
@@ -478,6 +480,9 @@ void World::run()
             update_jobs_cant_run(p_connections.get_master_connection(), jinfo->queue->jobs, jinfo, COMMENT_STRICT_FIFO, START_AFTER_JOB);
             }
           }
+
+        nodes_preassign_clean(this->p_info->nodes,this->p_info->num_nodes);
+        jinfo->schedule.clear();
         }
       }
 
