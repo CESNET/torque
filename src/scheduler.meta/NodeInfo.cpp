@@ -503,7 +503,8 @@ CheckResult node_info::can_boot_job(const job_info *jinfo) const
     return CheckNonFit;
 
   long now = time(NULL);
-  if (this->get_avail_before() - jinfo->get_walltime() > now)
+  if (this->get_avail_before() != 0)
+  if (this->get_avail_before() - jinfo->get_walltime() <= now)
     return CheckNonFit;
 
   if (jinfo->cluster_mode == ClusterUse)
@@ -540,7 +541,8 @@ CheckResult node_info::can_run_job(const job_info *jinfo) const
     return CheckNonFit;
 
   long now = time(NULL);
-  if (this->get_avail_before() - jinfo->get_walltime() > now)
+  if (this->get_avail_before() != 0)
+  if (this->get_avail_before() - jinfo->get_walltime() <= now)
     return CheckNonFit;
 
   if (jinfo->cluster_mode == ClusterCreate)
