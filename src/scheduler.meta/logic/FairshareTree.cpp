@@ -59,9 +59,7 @@ void free_group_tree(group_info *root)
   if (root == NULL)
     return;
 
-  if (root->name == NULL)
-    free(root->name);
-
+  free(root->name);
   free_group_tree(root->sibling);
   free_group_tree(root->child);
 
