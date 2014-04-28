@@ -121,6 +121,7 @@
 #include "mcom.h"
 #include "resource.h"
 #include "mom_resources.h"
+#include "nodespec.h"
 
 #include "cloud.h"
 
@@ -182,7 +183,7 @@ typedef enum
 
 /* Global Variables */
 
-
+extern char  mom_host[];
 extern int  spoolasfinalname;
 extern int  num_var_env;
 extern char       **environ;
@@ -1283,29 +1284,43 @@ int InitUserEnv(
 	}
 
   /* PBS_NUM_NODES and PBS_NPPN */
-  prd = find_resc_def(svr_resc_def,"nodes",svr_resc_size);
+  pars_spec *spec = parse_nodespec(pjob->ji_wattr[JOB_ATR_sched_spec].at_val.at_str);
+  pars_spec_node *node = find_node_in_spec(spec,mom_host);
 
-  presc = find_resc_entry(pattr,prd);
-
-  if (presc != NULL)
+  if (node != NULL) /* FIXME - cloud jobs on cloud nodes don't have record in nodespec */
     {
-    char *ppn_str = "ppn=";
-    char *tmp;
+    num_ppn = node->procs;
+    num_nodes = spec->total_nodes;
+    }
+  else
+    {
+    prd = find_resc_def(svr_resc_def,"nodes",svr_resc_size);
+    presc = find_resc_entry(pattr,prd);
 
-    if (presc->rs_value.at_val.at_str != NULL)
+    if (presc != NULL)
       {
-      num_nodes = atoi(presc->rs_value.at_val.at_str);
-      if (num_nodes != 0)
+      char *ppn_str = "ppn=";
+      char *tmp;
+
+      if (presc->rs_value.at_val.at_str != NULL)
         {
-        if ((tmp = strstr(presc->rs_value.at_val.at_str,ppn_str)) != NULL)
+        num_nodes = atoi(presc->rs_value.at_val.at_str);
+        if (num_nodes != 0)
           {
-          tmp += strlen(ppn_str);
-          
-          num_ppn = atoi(tmp);
+          if ((tmp = strstr(presc->rs_value.at_val.at_str,ppn_str)) != NULL)
+            {
+            tmp += strlen(ppn_str);
+
+            num_ppn = atoi(tmp);
+            }
           }
         }
       }
     }
+
+  free_parsed_nodespec(spec);
+
+
 
   /* these values have been initialized to 1, and will always be in the 
    * environment */

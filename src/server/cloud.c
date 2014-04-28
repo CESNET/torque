@@ -625,6 +625,16 @@ void cloud_transition_into_running(job *pjob)
 
     iter = iter->next;
     }
+
+  if (pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags & ATR_VFLAG_SET)
+    free(pjob->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str);
+
+  time_t result = time(NULL);
+  sprintf(log_buffer,"Virtual cluster successfully built at %s",asctime(localtime(&result)));
+
+  pjob->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str = strdup(log_buffer);
+  pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags |= ATR_VFLAG_SET;
+
   free_parsed_nodespec(ps);
   }
 
