@@ -206,3 +206,6 @@ server_locking: false
 
 # job_moving - control job moving support
 job_moving: false
+
+# maximum number of job runs for user
+max_user_run: 10

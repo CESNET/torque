@@ -39,6 +39,8 @@ struct server_info
   bool installing_nodes_overlimit();
 
   int job_start_timeout;
+
+  std::map<std::string,int> exec_count; /* executed jobs this cycle per-user */
   };
 
 #endif /* SERVERINFO_H_ */

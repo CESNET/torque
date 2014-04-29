@@ -1084,6 +1084,11 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg)
         sprintf(log_msg,INFO_REQUEST_NOT_MATCHED);
         break;
 
+      case SCHEDULER_LOOP_RUN_LIMIT_REACHED:
+        strcpy(comment_msg, COMMENT_SCHEDULER_LOOP_RUN_LIMIT_REACHED);
+        sprintf(log_msg, INFO_SCHEDULER_LOOP_RUN_LIMIT_REACHED);
+        break;
+
       default:
         rc = 0;
         comment_msg[0] = '\0';

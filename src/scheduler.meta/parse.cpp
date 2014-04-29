@@ -264,6 +264,8 @@ int parse_config(const char *fname)
           conf.log_filter = num;
         else if (!strcmp(config_name, PARSE_CYCLE_TIME))
           conf.max_cycle = res_to_num(config_value);
+        else if (!strcmp(config_name, PARSE_MAX_USER_RUN))
+          conf.max_user_run = res_to_num(config_value);
         else if (!strcmp(config_name, PARSE_DEDICATED_PREFIX))
           {
           if (strlen(config_value) > PBS_MAXQUEUENAME)
@@ -439,6 +441,8 @@ init_config(void)
       }
     memset(conf.slave_servers[i],0,PBS_MAXSERVERNAME+1);
     }
+
+  conf.max_user_run = 15;
 
   return 1;
   }

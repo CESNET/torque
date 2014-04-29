@@ -166,6 +166,12 @@ int is_ok_to_run_job(server_info *sinfo, queue_info *qinfo,
   {
   int rc;                       /* Return Code */
 
+  if (sinfo->exec_count[string(jinfo->account)] >= conf.max_user_run)
+    {
+    sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Too many job starts for this user.");
+    return SCHEDULER_LOOP_RUN_LIMIT_REACHED;
+    }
+
   if ((rc = jinfo->preprocess()) != SUCCESS)
     {
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Couldn't process jobs nodespec.");

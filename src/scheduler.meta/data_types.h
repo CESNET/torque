@@ -409,6 +409,7 @@ unsigned priority_fairshare :
   time_t max_starve;   /* starving threshold */
   char* ignored_queues[MAX_IGNORED_QUEUES]; /* list of ignored queues */
   char* slave_servers[MAX_SLAVE_SERVERS]; /* list of slave servers */
+  int max_user_run;
 
   time_t max_cycle; /* maximum cycle length */
   };

@@ -448,6 +448,8 @@ void World::run()
         {
         active_cycle = true;
 
+        p_info->exec_count[string(jinfo->account)] += 1;
+
         sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Trying to execute job.");
 
         /* split local vs. remote */
