@@ -110,6 +110,7 @@
 #include "net_connect.h"
 #include "pbs_proto.h"
 #include "cloud.h"
+#include "nodespec.h"
 
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -1713,6 +1714,11 @@ int assign_hosts(
                NULL,
                NULL,
                hosttoalloc); /* we don't really care if this fails */
+
+  pars_spec *spec = parse_nodespec(hosttoalloc);
+  pres = find_resc_entry( &pjob->ji_wattr[(int)JOB_ATR_total_resources], find_resc_def(svr_resc_def, "procs", svr_resc_size));
+  pres->rs_value.at_val.at_long = spec->total_procs;
+  free_parsed_nodespec(spec);
 
   /* do we need to allocate the (cluster) node(s)? */
 
