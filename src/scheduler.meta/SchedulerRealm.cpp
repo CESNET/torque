@@ -435,7 +435,7 @@ void World::run()
     job_info *jinfo;
     while ((run_errors <= 3) && (jinfo = next_job(p_info, 0)))
       {
-      if (difftime(time(NULL),cycle_start) > conf.max_cycle)
+      if (active_cycle && difftime(time(NULL),cycle_start) > conf.max_cycle)
         {
         sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_SERVER, "cycle", "Cycle ending prematurely due to time limit.");
         break;
