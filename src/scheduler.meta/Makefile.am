@@ -24,7 +24,7 @@ pbs_sched_SOURCES = pbs_sched.cpp check.cpp dedtime.cpp fairshare.cpp fifo.cpp g
             nodespec.cpp nodespec_sch.h site_pbs_cache.cpp \
             ../lib/Libsite/site_pbs_cache_common.c JobInfo.cpp DynamicResource.cpp NodeInfo.cpp SchedulerRealm.h SchedulerRealm.cpp JobLog.h JobLog.cpp ConnectionMgr.h ConnectionMgr.cpp \
             utility.h utility.cpp RescInfoDb.h RescInfoDb.cpp base/MiscHelpers.cpp base/NodeState.cpp base/NodeData.cpp NodeFilters.cpp NodeSort.cpp ServerInfo.cpp logic/FairshareTree.cpp \
-            base/PropRegistry.cpp
+            base/PropRegistry.cpp logic/JobAssign.cpp
 
 install-exec-hook:
 	rm -f $(DESTDIR)$(sbindir)/$(program_prefix)qschedd$(program_suffix)$(EXEEXT)

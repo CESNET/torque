@@ -21,13 +21,13 @@ bool NodeSuitableForSpec::operator()(const node_info* node) const
   ScratchType scratch = ScratchNone;
   repository_alternatives *ra;
 
-  if (p_mode == SuitableRebootMode && node->temp_assign != NULL)
+  if (p_mode == SuitableRebootMode && node->has_assignment())
     return false;
-  if (p_mode == SuitableAssignMode && node->temp_assign != NULL)
+  if (p_mode == SuitableAssignMode && node->has_assignment())
     return false;
   if (p_mode == SuitableStarvingMode && node->get_nostarving())
     return false;
-  if (p_mode == SuitableFairshareMode && node->temp_fairshare_used)
+  if (p_mode == SuitableFairshareMode && node->has_fairshare_flag())
     return false;
 
   if (p_jinfo->cluster_mode == ClusterUse && node->can_fit_job_for_run(p_jinfo,p_spec,&scratch) == CheckNonFit)

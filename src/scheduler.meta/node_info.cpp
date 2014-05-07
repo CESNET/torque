@@ -116,7 +116,6 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
 
   struct batch_status *cur_node; /* used to cycle through nodes */
   node_info **ninfo_arr;  /* array of nodes for scheduler's use */
-  node_info *ninfo;   /* used to set up a node */
   char *err;    /* used with pbs_geterrmsg() */
   int num_nodes = 0;   /* the number of nodes */
   int i;
@@ -147,21 +146,13 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
 
   for (i = 0; cur_node != NULL; i++)
     {
-    if ((ninfo = query_node_info(cur_node, sinfo)) == NULL)
+    if ((ninfo_arr[i] = new (nothrow) node_info(cur_node)) == NULL)
       {
       pbs_statfree(nodes);
       free_nodes(ninfo_arr);
       return NULL;
       }
-#if 0
-    /* query mom on the node for resources */
-    if (!conf.no_mom_talk)
-      {
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, "", "Talking with node.");
-      talk_with_mom(ninfo);
-      }
-#endif
-    ninfo_arr[i] = ninfo;
+    ninfo_arr[i]->server = sinfo;
 
     cur_node = cur_node -> next;
     }
@@ -176,10 +167,10 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
     if (ninfo_arr[i]->get_type() == NodeVirtual)
       {
       node_info *physical;
-      char *cache = xpbs_cache_get_local(ninfo_arr[i]->name,"host");
+      char *cache = xpbs_cache_get_local(ninfo_arr[i]->get_name(),"host");
       if (cache == NULL)
         {
-        sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_NODE, ninfo_arr[i]->name,
+        sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_NODE, ninfo_arr[i]->get_name(),
                   "Bad configuration, virtual node without physical host.");
         ninfo_arr[i]->set_notusable();
         continue;
@@ -204,138 +195,6 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
 
 /*
  *
- *      query_node_info - collect information from a batch_status and
- *                        put it in a node_info struct for easier access
- *
- *   node - a node returned from a pbs_statnode() call
- *
- * returns a node_info filled with information from node
- *
- */
-node_info *query_node_info(struct batch_status *node, server_info *sinfo)
-  {
-  node_info *ninfo;  /* the new node_info */
-  struct attrl *attrp;  /* used to cycle though attribute list */
-
-  if ((ninfo = new_node_info()) == NULL)
-    return NULL;
-
-  attrp = node -> attribs;
-
-  ninfo -> name = strdup(node -> name);
-
-  ninfo -> server = sinfo;
-
-  while (attrp != NULL)
-    {
-    /* properties from the servers nodes file */
-    if (!strcmp(attrp -> name, ATTR_NODE_properties))
-      ninfo->set_phys_props(attrp->value);
-    /* properties from the servers nodes file */
-    else if (!strcmp(attrp -> name, ATTR_NODE_adproperties))
-      ninfo->set_virt_props(attrp->value);
-    /* Node State... i.e. offline down free etc */
-    else if (!strcmp(attrp -> name, ATTR_NODE_state))
-      ninfo->reset_state(attrp -> value);
-    /* Node priority */
-    else if (!strcmp(attrp -> name, ATTR_NODE_priority))
-      ninfo->set_priority(attrp->value);
-    /* the node type... i.e. timesharing or cluster */
-    else if (!strcmp(attrp -> name, ATTR_NODE_ntype))
-      ninfo->set_type(attrp->value);
-    /* No multinode jobs on node */
-    else if (!strcmp(attrp -> name, ATTR_NODE_no_multinode_jobs))
-      ninfo->set_nomultinode(attrp->value);
-    /* No starving reservations on this node */
-    else if (!strcmp(attrp -> name, ATTR_NODE_noautoresv))
-      ninfo->set_nostarving(attrp->value);
-    /* Total number of cores on node */
-    else if (!strcmp(attrp -> name, ATTR_NODE_np))
-      ninfo->set_proc_total(attrp->value);
-    /* Free cores on node */
-    else if (!strcmp(attrp -> name, ATTR_NODE_npfree))
-      ninfo->set_proc_free(attrp->value);
-    /* Name of the dedicated queue */
-    else if (!strcmp(attrp -> name, ATTR_NODE_queue))
-      ninfo->set_ded_queue(attrp->value);
-    /* Is admin slot available */
-    else if (!strcmp(attrp -> name, ATTR_NODE_admin_slot_available))
-      ninfo->set_admin_slot_avail(attrp->value);
-    /* Is admin slot enabled */
-    else if (!strcmp(attrp -> name, ATTR_NODE_admin_slot_enabled))
-      ninfo->set_admin_slot_enabled(attrp->value);
-    /* Node fairshare cost */
-    else if (!strcmp(attrp -> name, ATTR_NODE_fairshare_coef))
-      ninfo->set_node_cost(attrp->value);
-    /* Node machine spec */
-    else if (!strcmp(attrp -> name, ATTR_NODE_machine_spec))
-      ninfo->set_node_spec(attrp->value);
-    /* Node available after */
-    else if (!strcmp(attrp -> name, ATTR_NODE_available_after))
-      ninfo->set_avail_after(attrp->value);
-    /* Node available before */
-    else if (!strcmp(attrp -> name, ATTR_NODE_available_before))
-      ninfo->set_avail_before(attrp->value);
-    /* Resource capacity */
-    else if (!strcmp(attrp -> name, ATTR_NODE_resources_total))
-      ninfo->set_resource_capacity(attrp->resource,attrp->value);
-    /* Resource utilisation */
-    else if (!strcmp(attrp -> name, ATTR_NODE_resources_used))
-      ninfo->set_resource_utilisation(attrp->resource,attrp->value);
-
-    /* the jobs running on the node */
-    else if (!strcmp(attrp -> name, ATTR_NODE_jobs))
-      ninfo -> jobs = break_comma_list(attrp -> value);
-    else if (!strcmp(attrp -> name, ATTR_NODE_exclusively_assigned))
-      ninfo->set_exclusively_assigned(attrp->value);
-
-    attrp = attrp -> next;
-    }
-
-  return ninfo;
-  }
-
-/*
- *
- *      new_node_info - allocates a new node_info
- *
- * returns the new node_info
- *
- */
-node_info *new_node_info()
-  {
-  node_info *tmp;
-
-  if ((tmp = new (nothrow) node_info) == NULL)
-    {
-    perror("Memory Allocation Error");
-    return NULL;
-    }
-
-  tmp -> name = NULL;
-  tmp -> jobs = NULL;
-
-  tmp->temp_assign = NULL;
-  tmp->temp_assign_scratch = ScratchNone;
-  tmp->temp_assign_alternative = NULL;
-  tmp->temp_fairshare_used = false;
-
-  tmp -> cluster_name = NULL;
-
-  tmp -> alternatives = NULL;
-
-  tmp -> is_building_cluster  = false;
-
-  tmp->host = NULL;
-  tmp->hosted.reserve(2);
-
-  tmp->starving_spec = NULL;
-
-  return tmp;
-  }
-
-/*
- *
  * free_nodes - free all the nodes in a node_info array
  *
  *   ninfo_arr - the node info array
@@ -350,30 +209,9 @@ void free_nodes(node_info **ninfo_arr)
   if (ninfo_arr != NULL)
     {
     for (i = 0; ninfo_arr[i] != NULL; i++)
-      free_node_info(ninfo_arr[i]);
+      delete ninfo_arr[i];
 
     free(ninfo_arr);
-    }
-  }
-
-/*
- *
- *      free_node_info - frees memory used by a node_info
- *
- *   ninfo - the node to free
- *
- * returns nothing
- *
- */
-void free_node_info(node_info *ninfo)
-  {
-  if (ninfo != NULL)
-    {
-    free(ninfo -> name);
-    free_string_array(ninfo -> jobs);
-    free_bootable_alternatives(ninfo->alternatives);
-    free(ninfo -> cluster_name);
-    delete ninfo;
     }
   }
 
@@ -455,7 +293,7 @@ node_info *find_node_info(char *nodename, node_info **ninfo_arr)
   if (nodename != NULL && ninfo_arr != NULL)
     {
     for (i = 0; ninfo_arr[i] != NULL &&
-         strcmp(ninfo_arr[i] -> name, nodename); i++)
+         strcmp(ninfo_arr[i] -> get_name(), nodename); i++)
       ;
 
     return ninfo_arr[i];

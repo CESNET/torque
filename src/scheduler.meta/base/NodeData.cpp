@@ -19,15 +19,86 @@ using namespace std;
 namespace Scheduler {
 namespace Base {
 
-NodeData::NodeData() :  p_phys_props(), p_virt_props(), p_priority(0), p_type(NodeCluster),
+NodeData::NodeData(struct batch_status *node_data) :  p_phys_props(), p_virt_props(), p_priority(0), p_type(NodeCluster),
                         p_no_multinode(false), p_ded_queue_name(NULL), p_admin_slot_enabled(false),
                         p_admin_slot_avail(false), p_node_cost(1.0), p_node_spec(10.0),
-                        p_avail_before(0), p_avail_after(0), p_resc(NULL), p_reg_props(100,numeric_limits<size_t>::max()) {}
+                        p_avail_before(0), p_avail_after(0), p_resc(NULL), p_reg_props(100,numeric_limits<size_t>::max()), p_name(NULL), p_jobs(),
+                        p_exclusively_assigned(false)
+  {
+  struct attrl *attrp = node_data->attribs;  /* used to cycle though attribute list */
+  this->set_name(node_data->name);
+
+  while (attrp != NULL)
+    {
+    /* properties from the servers nodes file */
+    if (!strcmp(attrp -> name, ATTR_NODE_properties))
+      this->set_phys_props(attrp->value);
+    /* properties from the servers nodes file */
+    else if (!strcmp(attrp -> name, ATTR_NODE_adproperties))
+      this->set_virt_props(attrp->value);
+    /* Node State... i.e. offline down free etc */
+    else if (!strcmp(attrp -> name, ATTR_NODE_state))
+      this->reset_state(attrp -> value);
+    /* Node priority */
+    else if (!strcmp(attrp -> name, ATTR_NODE_priority))
+      this->set_priority(attrp->value);
+    /* the node type... i.e. timesharing or cluster */
+    else if (!strcmp(attrp -> name, ATTR_NODE_ntype))
+      this->set_type(attrp->value);
+    /* No multinode jobs on node */
+    else if (!strcmp(attrp -> name, ATTR_NODE_no_multinode_jobs))
+      this->set_nomultinode(attrp->value);
+    /* No starving reservations on this node */
+    else if (!strcmp(attrp -> name, ATTR_NODE_noautoresv))
+      this->set_nostarving(attrp->value);
+    /* Total number of cores on node */
+    else if (!strcmp(attrp -> name, ATTR_NODE_np))
+      this->set_proc_total(attrp->value);
+    /* Free cores on node */
+    else if (!strcmp(attrp -> name, ATTR_NODE_npfree))
+      this->set_proc_free(attrp->value);
+    /* Name of the dedicated queue */
+    else if (!strcmp(attrp -> name, ATTR_NODE_queue))
+      this->set_ded_queue(attrp->value);
+    /* Is admin slot available */
+    else if (!strcmp(attrp -> name, ATTR_NODE_admin_slot_available))
+      this->set_admin_slot_avail(attrp->value);
+    /* Is admin slot enabled */
+    else if (!strcmp(attrp -> name, ATTR_NODE_admin_slot_enabled))
+      this->set_admin_slot_enabled(attrp->value);
+    /* Node fairshare cost */
+    else if (!strcmp(attrp -> name, ATTR_NODE_fairshare_coef))
+      this->set_node_cost(attrp->value);
+    /* Node machine spec */
+    else if (!strcmp(attrp -> name, ATTR_NODE_machine_spec))
+      this->set_node_spec(attrp->value);
+    /* Node available after */
+    else if (!strcmp(attrp -> name, ATTR_NODE_available_after))
+      this->set_avail_after(attrp->value);
+    /* Node available before */
+    else if (!strcmp(attrp -> name, ATTR_NODE_available_before))
+      this->set_avail_before(attrp->value);
+    /* Resource capacity */
+    else if (!strcmp(attrp -> name, ATTR_NODE_resources_total))
+      this->set_resource_capacity(attrp->resource,attrp->value);
+    /* Resource utilisation */
+    else if (!strcmp(attrp -> name, ATTR_NODE_resources_used))
+      this->set_resource_utilisation(attrp->resource,attrp->value);
+    /* the jobs running on the node */
+    else if (!strcmp(attrp -> name, ATTR_NODE_jobs))
+      this->set_jobs(attrp->value);
+    else if (!strcmp(attrp -> name, ATTR_NODE_exclusively_assigned))
+      this->set_exclusively_assigned(attrp->value);
+
+    attrp = attrp -> next;
+    }
+  }
 
 NodeData::~NodeData()
   {
   free(p_ded_queue_name);
   free_resource_list(p_resc);
+  free(p_name);
   }
 
 void NodeData::set_virt_props(char *comma_sep_list)
@@ -98,6 +169,12 @@ void NodeData::set_admin_slot_enabled(const char *value)
   this->p_admin_slot_enabled = (strcmp(value,"True") == 0);
   }
 
+void NodeData::set_jobs(char *comma_sep_list)
+  {
+  comma_list_to_set(comma_sep_list,this->p_jobs);
+  }
+
+
 void NodeData::set_admin_slot_avail(const char *value)
   {
   this->p_admin_slot_avail = (strcmp(value,"True") == 0);
@@ -133,6 +210,11 @@ void NodeData::set_avail_before(const char *data)
   this->p_avail_before = strtol(data,&end,10);
   if (data == end)
     throw invalid_argument("Unable to convert available before value to a number.");
+  }
+
+void NodeData::set_exclusively_assigned(const char* value)
+  {
+  p_exclusively_assigned = !strcmp(value,"True");
   }
 
 void NodeData::set_resource_capacity(const char *name, char *value)
@@ -244,6 +326,26 @@ bool NodeData::has_reg_prop(size_t propid, size_t valueid) const
     return false;
 
   return true;
+  }
+
+const char *NodeData::get_name() const
+  {
+  return p_name;
+  }
+
+void NodeData::set_name(const char *name)
+  {
+  p_name = strdup(name);
+  }
+
+bool NodeData::has_jobs() const
+  {
+  return p_jobs.size() != 0;
+  }
+
+bool NodeData::is_exclusively_assigned() const
+  {
+  return p_exclusively_assigned;
   }
 
 }}

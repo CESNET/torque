@@ -37,7 +37,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, const vector<node_
 
   for (size_t i = 0; i < suitable_nodes.size(); i++) /* for each node */
     {
-    if (suitable_nodes[i]->temp_assign != NULL)
+    if (suitable_nodes[i]->has_assignment())
       continue;
 
     // jobs requesting runs
@@ -58,18 +58,18 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, const vector<node_
         }
       }
 
-    suitable_nodes[i]->temp_assign = clone_pars_spec_node(spec);
+    suitable_nodes[i]->set_assignment(spec);
     if (jinfo->is_exclusive) // allocate all processors and memory, when job is exclusive
       {
-      suitable_nodes[i]->temp_assign->procs = suitable_nodes[i]->get_cores_total();
-      suitable_nodes[i]->temp_assign->mem   = suitable_nodes[i]->get_mem_total();
+      suitable_nodes[i]->get_assignment()->procs = suitable_nodes[i]->get_cores_total();
+      suitable_nodes[i]->get_assignment()->mem   = suitable_nodes[i]->get_mem_total();
       }
-    suitable_nodes[i]->temp_assign_scratch = scratch;
+    suitable_nodes[i]->set_scratch_assign(scratch);
 
     if (ra != NULL)
-      suitable_nodes[i]->temp_assign_alternative = ra;
+      suitable_nodes[i]->set_selected_alternative(ra);
     else
-      suitable_nodes[i]->temp_assign_alternative = NULL; /* FIXME META Prepsat do citelneho stavu */
+      suitable_nodes[i]->set_selected_alternative(NULL); /* FIXME META Prepsat do citelneho stavu */
 
     jinfo->schedule.push_back(suitable_nodes[i]);
 
@@ -93,7 +93,7 @@ static int ondemand_reboot(job_info *jinfo, pars_spec_node *spec, const vector<n
 
   for (size_t i = 0; i < suitable_nodes.size(); i++) /* for each node */
     {
-    if (suitable_nodes[i]->temp_assign != NULL)
+    if (suitable_nodes[i]->has_assignment())
       continue;
 
     if ((node_test = suitable_nodes[i]->can_fit_job_for_boot(jinfo,spec,&scratch,&ra)) != CheckAvailable)
@@ -102,13 +102,13 @@ static int ondemand_reboot(job_info *jinfo, pars_spec_node *spec, const vector<n
       continue;
       }
 
-    suitable_nodes[i]->temp_assign = clone_pars_spec_node(spec);
-    suitable_nodes[i]->temp_assign_scratch = scratch;
+    suitable_nodes[i]->set_assignment(spec);
+    suitable_nodes[i]->set_scratch_assign(scratch);
 
     if (ra != NULL)
-      suitable_nodes[i]->temp_assign_alternative = ra;
+      suitable_nodes[i]->set_selected_alternative(ra);
     else
-      suitable_nodes[i]->temp_assign_alternative = NULL; /* FIXME META Prepsat do citelneho stavu */
+      suitable_nodes[i]->set_selected_alternative(NULL); /* FIXME META Prepsat do citelneho stavu */
 
     return 0;
     }
@@ -182,22 +182,22 @@ static int assign_all_nodes(job_info *jinfo, pars_spec_node *spec, const vector<
   for (size_t i = 0; i < suitable_nodes.size(); i++) /* for each node */
     {
     node_info *node = suitable_nodes[i];
-    if (node->starving_spec != NULL)
+    if (node->has_starving_assignment())
       {
-      pars_spec_node *starved = node->starving_spec;
+      pars_spec_node *starved = node->get_starving_assignment();
       jinfo->unplan_from_node(node,starved);
 
       // join specs
       pars_spec_node *joined = merge_node_specs(spec,starved);
       jinfo->plan_on_node(node,joined);
       free_pars_spec_node(&starved);
-      node->starving_spec = joined;
+      node->set_starving_assignment(joined);
+      free_pars_spec_node(&joined);
       }
     else
       {
       jinfo->plan_on_node(node,spec);
-      pars_spec_node *joined = clone_pars_spec_node(spec);
-      node->starving_spec = joined;
+      node->set_starving_assignment(spec);
       }
     ++starving;
     }
@@ -257,7 +257,7 @@ CheckResult try_assign_spec(job_info *jinfo, const vector<node_info*>& nodes)
 
     for (size_t i = 0; i < fit_nodes.size(); i++) // remove all duplicates
       for (size_t j = 0; j < reboot_nodes.size(); j++)
-        if (strcmp(fit_nodes[i]->name,reboot_nodes[j]->name) == 0)
+        if (strcmp(fit_nodes[i]->get_name(),reboot_nodes[j]->get_name()) == 0)
           --sum_count;
 
     if (sum_count < iter->node_count)
@@ -372,101 +372,14 @@ void nodes_preassign_clean(node_info **ninfo_arr, int count)
   for (i = 0; i < count; i++)
     {
     assert(ninfo_arr[i] != NULL);
-
-    if (ninfo_arr[i]->temp_assign != NULL)
-      free_pars_spec_node(&ninfo_arr[i]->temp_assign);
-
-    ninfo_arr[i]->temp_assign = NULL;
-    ninfo_arr[i]->temp_assign_alternative = NULL;
-    ninfo_arr[i]->temp_fairshare_used = false;
-
-    if (ninfo_arr[i]->starving_spec != NULL)
-      {
-      free_pars_spec_node(&(ninfo_arr[i]->starving_spec));
-      ninfo_arr[i]->starving_spec = NULL;
-      }
+    ninfo_arr[i]->clean_assign();
     }
   }
 
 void nodes_preassign_clean(const vector<node_info*>& nodes)
   {
   for (size_t i = 0; i < nodes.size(); i++)
-    {
-    if (nodes[i]->temp_assign != NULL)
-      free_pars_spec_node(&nodes[i]->temp_assign);
-
-    nodes[i]->temp_assign = NULL;
-    nodes[i]->temp_assign_alternative = NULL;
-    nodes[i]->temp_fairshare_used = false;
-
-    if (nodes[i]->starving_spec != NULL)
-      {
-      free_pars_spec_node(&(nodes[i]->starving_spec));
-      nodes[i]->starving_spec = NULL;
-      }
-    }
-  }
-
-/** Construct one part of nodespec from assigned node
- *
- * @param ninfo Node for which to construct the node part
- * @param mode Type of operation 0 - normal, 1 - no properties, 2 - only integer resources
- * @return New constructed nodespec part
- */
-static void get_target(stringstream& s, node_info *ninfo, int mode)
-  {
-  int skip;
-  pars_prop *iter;
-
-  s << "host=" << ninfo->name << ":ppn=" << ninfo->temp_assign->procs;
-  s << ":mem=" << ninfo->temp_assign->mem << "KB";
-  s << ":vmem=" << ninfo->temp_assign->vmem << "KB";
-
-  iter = ninfo->temp_assign->properties;
-  while (iter != NULL)
-    {
-    skip = 0;
-
-    /* avoid duplicate hostname properties */
-    if (strcmp(ninfo->name,iter->name) == 0)
-      {
-      iter = iter->next;
-      continue;
-      }
-
-    if (res_check_type(iter->name) == ResCheckDynamic)
-      skip = 1;
-    if (res_check_type(iter->name) == ResCheckCache)
-      skip = 1;
-
-    if ((!skip) && (mode == 0 || /* in mode 0 - normal nodespec */
-        (mode == 1 && iter->value != NULL) || /* in mode 1 - properties only */
-        (mode == 2 && iter->value != NULL && atoi(iter->value) > 0))) /* in mode 2 - integer properties only */
-      {
-      s << ":" << iter->name;
-      if (iter->value != NULL)
-        s << "=" << iter->value;
-      }
-    iter = iter->next;
-    }
-
-  if (ninfo->temp_assign_scratch != ScratchNone)
-    {
-    s << ":scratch_type=";
-    if (ninfo->temp_assign_scratch == ScratchSSD)
-      s << "ssd";
-    else if (ninfo->temp_assign_scratch == ScratchShared)
-      s << "shared";
-    else if (ninfo->temp_assign_scratch == ScratchLocal)
-      s << "local";
-    s << ":scratch_volume=" << ninfo->temp_assign->scratch / 1024 << "mb";
-    }
-
-  if (ninfo->alternatives != NULL && ninfo->alternatives[0] != NULL && ninfo->temp_assign_alternative != NULL)
-    {
-    s << ":alternative=" << ninfo->temp_assign_alternative->r_name;
-    }
-
+    nodes[i]->clean_assign();
   }
 
 /** Construct a full target node specification (hostname:nodespec)
@@ -477,13 +390,13 @@ static void get_target_full(stringstream& s, job_info *jinfo, node_info *ninfo, 
   {
   assert(jinfo != NULL || ninfo != NULL);
 
-  if (ninfo->temp_assign == NULL)
+  if (!ninfo->has_assignment())
     return;
 
   if (jinfo->cluster_mode == ClusterCreate || cluster)
-    get_target(s,ninfo,1);
+    ninfo->get_assign_string(s,RescOnlyAssignString);
   else
-    get_target(s,ninfo,0);
+    ninfo->get_assign_string(s,FullAssignString);
   }
 
 /** Get the target string from preassigned nodes
@@ -505,7 +418,7 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, 
 
   for (i = 0; i < count && ninfo_arr[i] != NULL; i++)
     {
-    if (ninfo_arr[i]->temp_assign != NULL && ninfo_arr[i]->magrathea_status == MagratheaStateBooting)
+    if (ninfo_arr[i]->has_assignment() && ninfo_arr[i]->magrathea_status == MagratheaStateBooting)
       {
       booting = 1;
       return NULL;
@@ -514,7 +427,7 @@ char* nodes_preassign_string(job_info *jinfo, node_info **ninfo_arr, int count, 
 
   for (i = 0; i < count && ninfo_arr[i] != NULL; i++)
     {
-    if (ninfo_arr[i]->temp_assign_alternative != NULL)
+    if (ninfo_arr[i]->has_selected_alternative())
       cluster = true;
     }
 

@@ -37,7 +37,7 @@ CheckResult node_info::has_prop(const pars_prop* property, bool physical_only) c
 
   if (prop_value == NULL) /* property, not a resource */
     {
-    if (strcmp(name,prop_name) == 0)
+    if (strcmp(this->get_name(),prop_name) == 0)
       return result_helper(!negative);
 
     if (this->has_phys_prop(prop_name))
@@ -51,7 +51,7 @@ CheckResult node_info::has_prop(const pars_prop* property, bool physical_only) c
     }
   else /* resource or ppn */
     {
-    if (strcmp(prop_name,"host") == 0 && strcmp(prop_value, name) == 0)
+    if (strcmp(prop_name,"host") == 0 && strcmp(prop_value, this->get_name()) == 0)
       return result_helper(!negative);
 
     return has_resc(property);
@@ -98,7 +98,7 @@ CheckResult node_info::has_proc(const job_info *job, const pars_spec_node *spec)
       return CheckNonFit;
       }
 
-    if (p_exclusively_assigned) // Node is completely full
+    if (this->is_exclusively_assigned()) // Node is completely full
       {
       return CheckOccupied;
       }
@@ -429,12 +429,12 @@ CheckResult node_info::has_bootable_state(ClusterMode mode) const
   int jobs_present = 0;
   if (host != NULL)
     {
-    if (host->jobs != NULL && host->jobs[0] != NULL)
+    if (host->has_jobs())
       jobs_present = 1;
 
     for (size_t i = 0; i < host->hosted.size(); i++)
       {
-      if (host->hosted[i]->jobs != NULL && host->hosted[i]->jobs[0] != NULL)
+      if (host->hosted[i]->has_jobs())
         jobs_present = 1;
       }
     }
@@ -514,7 +514,7 @@ CheckResult node_info::can_boot_job(const job_info *jinfo) const
     return CheckNonFit;
 
   // User does not have an account on this machine - can never run
-  if (site_user_has_account(jinfo->account,this->name,cluster_name) == CHECK_NO)
+  if (site_user_has_account(jinfo->account,const_cast<char*>(this->get_name()),cluster_name) == CHECK_NO) // TODO const fix
     return CheckNonFit;
 
   // Server already installing to many machines
@@ -559,7 +559,7 @@ CheckResult node_info::can_run_job(const job_info *jinfo) const
   if (jinfo->cluster_mode != ClusterUse) /* users can always go inside a cluster */
     {
     // User does not have an account on this machine - can never run
-    if (site_user_has_account(jinfo->account,name,cluster_name) == CHECK_NO)
+    if (site_user_has_account(jinfo->account,const_cast<char*>(this->get_name()),cluster_name) == CHECK_NO) // TODO const char fix
       return CheckNonFit;
 
     // Machine is already allocated to a virtual cluster, only ClusterUse type of jobs allowed
@@ -663,7 +663,7 @@ void node_info::fetch_bootable_alternatives()
   resource *resc;
   if ((resc = this->get_resource("magrathea")) != NULL)
     {
-    this->alternatives = get_bootable_alternatives(this->name,NULL);
+    this->alternatives = get_bootable_alternatives(const_cast<char*>(this->get_name()),NULL); // TODO const char fix
     }
   }
 
@@ -731,7 +731,7 @@ bool node_info::operator < (const node_info& right)
   else if (this->get_cores_free() > right.get_cores_free())
     return false;
 
-  return strcmp(this->name,right.name) < 0;
+  return strcmp(this->get_name(),right.get_name()) < 0;
   }
 
 void node_info::process_magrathea_status()
@@ -745,25 +745,24 @@ void node_info::process_magrathea_status()
     return;
     }
 
-  if (this->jobs != NULL && this->jobs[0] != NULL)
+  if (this->has_jobs())
     {
     // if there are already jobs on this node, the magrathea state can't be free/down-bootable
     if (this->magrathea_status == MagratheaStateDownBootable || this->magrathea_status == MagratheaStateFree)
       {
       this->magrathea_status = MagratheaStateNone;
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, this->name, "Node had inconsistent magrathea state.");
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, this->get_name(), "Node had inconsistent magrathea state.");
       return;
       }
     }
 
-  if (this->host != NULL)
-  if (this->host->jobs != NULL && this->host->jobs[0] != NULL)
+  if (this->host != NULL && this->host->has_jobs())
     {
     // if the host already has jobs, the magrathea state can't be down-bootable
     if (this->magrathea_status == MagratheaStateDownBootable)
       {
       this->magrathea_status = MagratheaStateNone;
-      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, this->name, "Node had inconsistent magrathea state.");
+      sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_NODE, this->get_name(), "Node had inconsistent magrathea state.");
       return;
       }
     }

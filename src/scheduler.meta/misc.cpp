@@ -423,7 +423,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
         for (i=0;i<sinfo -> num_nodes;i++)
           {
            node=sinfo -> nodes[i];
-           value=xcache_hash_find(ptable,node->name);
+           value=xcache_hash_find(ptable,node->get_name());
            if (value!=NULL)
              node->set_resource_dynamic(j->second.name.c_str(),value);
            free(value);
@@ -448,7 +448,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
       for (i=0;i<sinfo -> num_nodes;i++)
         {
         node=sinfo -> nodes[i];
-        value=xcache_hash_find(ptable,node->name);
+        value=xcache_hash_find(ptable,node->get_name());
         if (value != NULL)
           {
           free(node->cluster_name);
@@ -470,7 +470,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
       for (i=0;i<sinfo -> num_nodes;i++)
         {
         node=sinfo -> nodes[i];
-        value=xcache_hash_find(ptable,node->name);
+        value=xcache_hash_find(ptable,node->get_name());
         if (value != NULL)
           {
           node->scratch_pool = string(value);

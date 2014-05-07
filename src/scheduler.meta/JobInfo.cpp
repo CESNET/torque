@@ -26,19 +26,19 @@ void job_info::unplan_from_node(node_info* ninfo, pars_spec_node* spec)
   if ((res = ninfo->get_resource("vmem")) != NULL)
     res->assigned -= spec->vmem;
 
-  if (ninfo->temp_assign_scratch == ScratchLocal)
+  if (ninfo->get_scratch_assign() == ScratchLocal)
     {
     if ((res = ninfo->get_resource("scratch_local")) != NULL)
       res->assigned -= spec->scratch;
     }
 
-  if (ninfo->temp_assign_scratch == ScratchSSD)
+  if (ninfo->get_scratch_assign() == ScratchSSD)
     {
     if ((res = ninfo->get_resource("scratch_ssd")) != NULL)
       res->assigned -= spec->scratch;
     }
 
-  if (ninfo->temp_assign_scratch == ScratchShared)
+  if (ninfo->get_scratch_assign() == ScratchShared)
     {
     if ((res = ninfo->get_resource("scratch_pool")) != NULL)
       {
@@ -80,7 +80,7 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
     for (size_t i = 0; i < ninfo->host->hosted.size(); i++)
       {
       ninfo->host->hosted[i]->set_notusable();
-      sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->name,
+      sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->get_name(),
                 "Node marked as incapable of running and booting jobs, because it, or it's sister is servicing a cluster job.");
       }
     }
@@ -98,19 +98,19 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
   if ((res = ninfo->get_resource("vmem")) != NULL)
     res->assigned += spec->vmem;
 
-  if (ninfo->temp_assign_scratch == ScratchLocal)
+  if (ninfo->get_scratch_assign() == ScratchLocal)
     {
     if ((res = ninfo->get_resource("scratch_local")) != NULL)
       res->assigned += spec->scratch;
     }
 
-  if (ninfo->temp_assign_scratch == ScratchSSD)
+  if (ninfo->get_scratch_assign() == ScratchSSD)
     {
     if ((res = ninfo->get_resource("scratch_ssd")) != NULL)
       res->assigned += spec->scratch;
     }
 
-  if (ninfo->temp_assign_scratch == ScratchShared)
+  if (ninfo->get_scratch_assign() == ScratchShared)
     {
     if ((res = ninfo->get_resource("scratch_pool")) != NULL)
       {
@@ -222,7 +222,7 @@ double job_info::calculate_fairshare_cost(const vector<node_info*>& nodes) const
     unsigned i = 0;
     for (unsigned count = 0; count < iter->node_count; count++)
       {
-      while (fairshare_nodes[i]->temp_fairshare_used)
+      while (fairshare_nodes[i]->has_fairshare_flag())
         i++;
 
       unsigned long long node_procs = fairshare_nodes[i]->get_cores_total();
@@ -233,7 +233,7 @@ double job_info::calculate_fairshare_cost(const vector<node_info*>& nodes) const
       else
         fairshare_cost += max(static_cast<double>(iter->mem)/node_mem,static_cast<double>(iter->procs)/node_procs)*node_procs*fairshare_nodes[i]->get_node_cost();
 
-      fairshare_nodes[i]->temp_fairshare_used = true;
+      fairshare_nodes[i]->set_fairshare_flag();
       }
     iter = iter->next;
     }

@@ -8,36 +8,26 @@
 #include <cstdlib>
 #include <cstring>
 
-
 enum ResourceCheckMode { MaxOnly, Avail };
 enum CheckResult { CheckAvailable, CheckOccupied, CheckNonFit };
 
 #include "base/NodeData.h"
 using namespace Scheduler;
 using namespace Base;
+#include "logic/JobAssign.h"
+using namespace Logic;
 #include "JobInfo.h"
 
-struct assigned_nodespec
-  {
-  pars_spec_node *temp_assign; /**< Temporary job assignment */
-  repository_alternatives *temp_assign_alternative; /**< Alternative assignment */
-  ScratchType temp_assign_scratch;
-  bool temp_fairshare_used;
-  };
-
-struct node_info : public NodeData // change to protected inheritance
+struct node_info : public NodeData, public JobAssign // change to protected inheritance
   {
   bool p_is_notusable;
 
   /// Test not-usable state
   bool is_notusable() const { return p_is_notusable; }
-
   /// Mark state as not usable
   void set_notusable() { p_is_notusable = true; }
 
   bool is_rebootable;
-  char *name;   /* name of the node */
-  char **jobs;   /* the jobs currently running on the node */
 
   server_info *server;  /* server that the node is associated with */
   queue_info *excl_queue; /**< pointer to queue the node is exclusive to */
@@ -51,20 +41,16 @@ struct node_info : public NodeData // change to protected inheritance
   std::string virtual_cluster;
   std::string virtual_image;
 
-  pars_spec_node *temp_assign; /**< Temporary job assignment */
-  repository_alternatives *temp_assign_alternative; /**< Alternative assignment */
-  ScratchType temp_assign_scratch;
-  bool temp_fairshare_used;
-
   node_info* host; /*< the physical host of this node */
   std::vector< node_info* > hosted; /*< virtual nodes hosted on this node */
-
-  pars_spec_node *starving_spec;
 
   std::string scratch_pool;
 
   CheckResult has_prop(const pars_prop* property, bool physical_only) const;
   bool has_prop(const char* property) const;
+
+  void get_assign_string(std::stringstream& s, AssignStringMode mode) const
+    { JobAssign::get_assign_string(s,this->get_name(),mode); }
 
 public:
   // CPU, admin slot, exclusively assigned
@@ -99,7 +85,6 @@ public:
   void freeup_proc(int count) { p_core_assigned -= count; }
 
   unsigned long long get_mem_total() const;
-  void set_exclusively_assigned(const char* value) { p_exclusively_assigned = !strcmp(value,"True"); }
 
   void fetch_bootable_alternatives();
 
@@ -111,10 +96,11 @@ public:
 private:
   // CPU related section
   int p_core_assigned;
-  bool p_exclusively_assigned;
 
 public:
-  node_info() : p_is_notusable(false), is_rebootable(false), p_core_assigned(0), p_exclusively_assigned(false) {}
+  node_info(struct batch_status *node_data) : NodeData(node_data), p_is_notusable(false), is_rebootable(false), cluster_name(NULL), alternatives(NULL), is_building_cluster(false), host(NULL), p_core_assigned(0)
+  { hosted.reserve(2); }
+  ~node_info() { free(cluster_name); free_bootable_alternatives(alternatives); }
   };
 
 #endif /* NODEINFO_H_ */

@@ -648,8 +648,8 @@ void update_server_on_move(server_info *sinfo, job_info *jinfo)
     }
 
   for (i = 0; i < sinfo->num_nodes; i++)
-    if (sinfo->nodes[i]->temp_assign != NULL)
-      jinfo->plan_on_node(sinfo->nodes[i],sinfo->nodes[i]->temp_assign);
+    if (sinfo->nodes[i]->has_assignment())
+      jinfo->plan_on_node(sinfo->nodes[i],sinfo->nodes[i]->get_assignment());
   }
 
 /*
@@ -671,8 +671,8 @@ void update_server_on_run(server_info *sinfo, job_info *jinfo)
   jinfo->plan_on_server(sinfo);
 
   for (int i = 0; i < sinfo->num_nodes; i++)
-    if (sinfo->nodes[i]->temp_assign != NULL)
-      jinfo->plan_on_node(sinfo->nodes[i],sinfo->nodes[i]->temp_assign);
+    if (sinfo->nodes[i]->has_assignment())
+      jinfo->plan_on_node(sinfo->nodes[i],sinfo->nodes[i]->get_assignment());
   }
 
 /*
