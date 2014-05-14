@@ -34,6 +34,11 @@ maple10p	{ err " "	type "dynamic" }
 maple11		{ err " "	type "dynamic" }
 maple		{ err " "	type "dynamic" }
 
+math8		{ err " "	type "dynamic" }
+gridmath8	{ err " "	type "dynamic" }
+geneious	{ err " "	type "dynamic" }
+clcgenomics	{ err " "	type "dynamic" }
+
 minspec		{ err " "	type "status" }
 maxspec		{ err " "	type "status" }
 

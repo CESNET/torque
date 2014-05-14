@@ -804,6 +804,8 @@ resource_def svr_resc_def_const[] =
   { "maple", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
   { "math8", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
   { "gridmath8", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
+  { "geneious", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
+  { "clcgenomics", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
 
   /* matlab toolbox licenses */
   { "matlab_Statistics_Toolbox", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
