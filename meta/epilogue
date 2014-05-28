@@ -23,8 +23,7 @@ for i in `$CACHE_LIST arien gpu_allocation | grep $JOBID | sed -n 's/'$HOST'://p
 	$CACHE_UPDATE arien `hostname`:$i gpu_allocation unallocated;
 done
 
-# Clean GPU file
-rm -f /var/spool/torque/aux/gpu-$JOBID
+/var/spool/torque/mom_priv/torque-gpu-mgr.sh $JOBID rls
 
 # Cloud support
 

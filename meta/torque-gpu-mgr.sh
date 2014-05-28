@@ -2,12 +2,13 @@
 
 CACHE_LIST=/software/pbs-7.0.0/cache/list_cache
 CACHE_UPDATE=/software/pbs-7.0.0/cache/update_cache
+MOMCTL=/usr/sbin/momctl
 SERVER=$(cat /var/spool/torque/server_name);
 JOBID=$1;
 OPR=$2;
 COUNT=$3;
 
-if [ $# -lt 3 ]; then
+if [ $# -lt 2 ]; then
 	exit 1;
 fi
 
@@ -15,7 +16,7 @@ if [ "$OPR" = "lock" ]; then
 	# Verify - consistency of aux files
 	for i in $(ls /var/spool/torque/aux/gpu-* 2>/dev/null); do
 		jobid=$(echo $i | cut -d\- -f2);
-		if [ "$(momctl -q jobs | grep $jobid)" = "" ]; then
+		if [ "$($MOMCTL -q jobs 2>/dev/null | grep $jobid)" = "" ]; then
 			# Inconsistency detected
 			if [ -r /var/spool/torque/aux/$jobid ]; then
 				logger -p daemon.crit -t pbs_mom "Node doesn't report job whose files are still present in aux.";
@@ -28,7 +29,7 @@ if [ "$OPR" = "lock" ]; then
 
 	# Verify - consistency of cache
 	for i in $($CACHE_LIST $SERVER gpu_allocation | grep -v unallocated | grep `hostname` | cut -f3 | sort -u); do
-		if [ "$(momctl -q jobs | grep $i)" = "" ]; then
+		if [ "$($MOMCTL -q jobs 2>/dev/null | grep $i)" = "" ]; then
 			# Inconsistency detected
 			if [ -r /var/spool/torque/aux/$i ]; then
 				logger -p daemon.crit -t pbs_mom "Node doesn't report job whose files are still present in aux.";
@@ -79,7 +80,7 @@ case $OPR in
 				$CACHE_UPDATE $SERVER `hostname`:$CARD gpu_allocation $JOBID;
 
 				let id+=1;
-				let GPU-=1;
+				let COUNT-=1;
 			done
 
 			chmod 644 /var/spool/torque/aux/gpu-$JOBID &>/dev/null

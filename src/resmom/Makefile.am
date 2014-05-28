@@ -63,10 +63,12 @@ install-exec-hook:
 	ln -s prolog_magrathea_start $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_status
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/torque-gpu-mgr.sh
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue.parallel
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
 	cp $(top_srcdir)/meta/prologue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue
 	cp $(top_srcdir)/meta/epilogue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue
+	cp $(top_srcdir)/meta/torque-gpu-mgr.sh $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/torque-gpu-mgr.sh
 	ln -s prologue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue.parallel
 	ln -s epilogue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
 	cp $(top_srcdir)/meta/mom_environ $(DESTDIR)$(sbindir)/mom_environ
@@ -82,6 +84,7 @@ uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue.parallel
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/torque-gpu-mgr.sh
 	rm -f $(DESTDIR)$(sbindir)/mom_environ
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/report_scratch
 
