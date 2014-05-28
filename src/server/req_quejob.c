@@ -201,6 +201,15 @@ static int filter_job(job *pj)
   /* find ncpus in the resource list (nodespec only) and replace */
   if (pj->ji_wattr[(int)JOB_ATR_resource].at_flags & ATR_VFLAG_SET)
     {
+    // check all resources for values
+    resource *jbrc = (resource *)GET_NEXT(pj->ji_wattr[(int)JOB_ATR_resource].at_val.at_list);
+    while (jbrc != NULL)
+      {
+      if ((jbrc->rs_value.at_flags & ATR_VFLAG_SET) == 0)
+        return -1;
+      jbrc = (resource*)GET_NEXT(jbrc->rs_link);
+      }
+
     resource_def *d_nodes;
 
     if ((d_nodes = find_resc_def(svr_resc_def,"nodes",svr_resc_size)) != 0)
@@ -1009,10 +1018,14 @@ void req_quejob(
     server_name);
 
   /* filter/modify the received job */
-  if (filter_job(pj) != 0)
+  int ret = filter_job(pj);
+  if (ret != 0)
     {
     job_purge(pj);
-    req_reject(PBSE_SYSTEM, 0, preq, NULL, "couldn't allocate memory for filtered nodespec");
+    if (ret == 1)
+      req_reject(PBSE_SYSTEM, 0, preq, NULL, "Couldn't allocate memory for filtered nodespec");
+    else if (ret == -1)
+      req_reject(PBSE_SYSTEM, 0, preq, NULL, "Empty resources are not allowed in job submission.");
     return;
     }
 
