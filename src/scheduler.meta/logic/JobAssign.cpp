@@ -91,6 +91,7 @@ void JobAssign::clean_assign()
 
   p_boot_alternative = NULL;
   p_scratch_type = ScratchNone;
+  p_flag_fairshare = false;
   }
 
 JobAssign::JobAssign() : p_flag_fairshare(false), p_scratch_type(ScratchNone), p_boot_alternative(NULL), p_nodespec(NULL), p_starved_nodespec(NULL)
