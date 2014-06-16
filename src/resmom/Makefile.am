@@ -64,15 +64,20 @@ install-exec-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/torque-gpu-mgr.sh
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/torque-gpu-mgr.sh
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/torque-scratch-mgr.sh
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recheck_leftover_scratch
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue.parallel
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
 	cp $(top_srcdir)/meta/prologue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue
 	cp $(top_srcdir)/meta/epilogue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue
-	cp $(top_srcdir)/meta/torque-gpu-mgr.sh $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/torque-gpu-mgr.sh
+	cp $(top_srcdir)/meta/torque-gpu-mgr.sh $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/torque-gpu-mgr.sh
+	cp $(top_srcdir)/meta/torque-scratch-mgr.sh $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/torque-scratch-mgr.sh
 	ln -s prologue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue.parallel
 	ln -s epilogue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
 	cp $(top_srcdir)/meta/mom_environ $(DESTDIR)$(sbindir)/mom_environ
 	cp $(top_srcdir)/meta/report_scratch $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/report_scratch
+	cp $(top_srcdir)/meta/recheck_leftover_scratch $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recheck_leftover_scratch
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_ENVIRON)
@@ -87,4 +92,7 @@ uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/torque-gpu-mgr.sh
 	rm -f $(DESTDIR)$(sbindir)/mom_environ
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/report_scratch
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/torque-gpu-mgr.sh
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/torque-scratch-mgr.sh
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recheck_leftover_scratch
 

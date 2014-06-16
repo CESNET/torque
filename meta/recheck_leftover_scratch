@@ -1,0 +1,29 @@
+#!/bin/bash
+
+SCRATCHES="/scratch /scratch.shared /scratch.ssd"
+for scr in $SCRATCHES; do
+
+	find $scr -maxdepth 2 -type f -name "*.size" | while read x; do
+
+		if [ ! -d "$(dirname $x)/$(basename $x .size)" ]; then
+			rm $x;
+		fi
+
+	done
+
+done
+
+CACHE_LIST=/software/pbs-7.0.0/cache/list_cache
+CACHE_DELETE=/software/pbs-7.0.0/cache/delete_cache
+SERVER=$(cat /var/spool/torque/server_name);
+
+$CACHE_LIST $SERVER scratch_leftover | grep $(hostname) | cut -f1 | while read x; do
+
+	filename=$(echo $x | cut -d@ -f2 | cut -d: -f2);
+
+	if [ ! -f $filename ]; then
+		$CACHE_DELETE $SERVER $x scratch_leftover
+	fi
+
+done
+

@@ -1,20 +1,31 @@
 #!/bin/bash
 
-
 JOBID="$1"
 USER="$2"
+CACHE_UPDATE=/software/pbs-7.0.0/cache/update_cache;
+CACHE_LIST=/software/pbs-7.0.0/cache/list_cache;
+SERVER=$(cat /var/spool/torque/server_name);
+
+source /var/spool/torque/mom_scripts/torque-scratch-mgr.sh
 
 SCRATCHES="/scratch /scratch.shared /scratch.ssd"
 for scr in $SCRATCHES;do
         if [ -d "$scr/$USER/job_$JOBID" ];then
-		du -sk $scr/$USER/job_$JOBID 2>&1| sed 's/\t/ /'| logger -t pbs_scratch_usage -p local0.info
+		left_over=$(dead_quota_size $scr/$USER/job_$JOBID);
+
+		if [ ! -z $left_over ]; then
+			echo $left_over job_$JOBID | logger -t pbs_scratch_usage -p local0.info
+			echo $left_over >$scr/$USER/job_${JOBID}.size
+		else
+			left_over=0;
+		fi
+
+                $CACHE_UPDATE $SERVER "$USER@`hostname`:$scr/$USER/job_${JOBID}.size" scratch_leftover $left_over;
                 rmdir --ignore-fail-on-non-empty "$scr/$USER/job_$JOBID" 2>/dev/null
         fi
 done
 
 # GPU support
-CACHE_LIST=/software/pbs-7.0.0/cache/list_cache
-CACHE_UPDATE=/software/pbs-7.0.0/cache/update_cache
 
 HOST=`hostname`
 for i in `$CACHE_LIST arien gpu_allocation | grep $JOBID | sed -n 's/'$HOST'://p' | cut -f1`; do
@@ -23,7 +34,7 @@ for i in `$CACHE_LIST arien gpu_allocation | grep $JOBID | sed -n 's/'$HOST'://p
 	$CACHE_UPDATE arien `hostname`:$i gpu_allocation unallocated;
 done
 
-/var/spool/torque/mom_priv/torque-gpu-mgr.sh $JOBID rls
+/var/spool/torque/mom_scripts/torque-gpu-mgr.sh $JOBID rls
 
 # Cloud support
 
