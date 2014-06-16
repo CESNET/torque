@@ -294,7 +294,7 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
     {
     pair<bool,size_t> reg = get_prop_registry()->get_property_id(jinfo->placement);
     if (!reg.first)
-      return CheckNonFit;
+      return UNKNOWN_LOCATION_PROPERTY_REQUEST;
 
     size_t prop_id = reg.second;
     size_t max_val_id = get_prop_registry()->value_count(prop_id).second;

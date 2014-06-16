@@ -178,6 +178,7 @@
 #define INFO_QUEUE_GROUP_PROC_LIMIT_REACHED "Group has reached queue occupied processor limit."
 #define INFO_REQUEST_NOT_MATCHED "This jobs requirements will never be satisfied under the current grid configuration."
 #define INFO_SCHEDULER_LOOP_RUN_LIMIT_REACHED "Internal scheduler limit for job executions of a single user reached."
+#define INFO_UNKNOWN_LOCATION_PROPERTY_REQUEST "Unknown location property request."
 
 #define COMMENT_QUEUE_NOT_STARTED "Not Running: Queue not started."
 #define COMMENT_QUEUE_NOT_EXEC    "Not Running: Queue not an execution queue."
@@ -212,5 +213,6 @@
 #define COMMENT_QUEUE_GROUP_PROC_LIMIT_REACHED "Not Running: Group has reached queue occupied processor limit."
 #define COMMENT_REQUEST_NOT_MATCHED "Never Running: This jobs requirements will never be satisfied under the current grid configuration."
 #define COMMENT_SCHEDULER_LOOP_RUN_LIMIT_REACHED "Not Running: Internal scheduler limit for job executions of a single user reached."
+#define COMMENT_UNKNOWN_LOCATION_PROPERTY_REQUEST "Not Running: Unknown location property request."
 
 #endif

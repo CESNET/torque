@@ -1089,6 +1089,11 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg)
         sprintf(log_msg, INFO_SCHEDULER_LOOP_RUN_LIMIT_REACHED);
         break;
 
+      case UNKNOWN_LOCATION_PROPERTY_REQUEST:
+        strcpy(comment_msg, COMMENT_UNKNOWN_LOCATION_PROPERTY_REQUEST);
+        sprintf(log_msg, INFO_UNKNOWN_LOCATION_PROPERTY_REQUEST);
+        break;
+
       default:
         rc = 0;
         comment_msg[0] = '\0';
