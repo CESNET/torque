@@ -26,14 +26,21 @@ HOSTNAME=$(hostname -f)
 if [ -d /scratch ]; then
 	if [ "$(mount|cut -d\  -f3|grep /scratch|grep -v /scratch.)" !=  "" ]; then
 		SCRATCHSIZE=$(df -Pk /scratch|grep -v Available|awk '{print $4;}')
+		if [ -f /scratch/dead.size ]; then
+			SCRATCHDEAD=$(cat /scratch/dead.size);
+		else
+			SCRATCHDEAD=0
+		fi
 	else
 		SCRATCHSIZE=0
+		SCRATCHDEAD=0
 	fi
 else
 	SCRATCHSIZE=0
+	SCRATCHDEAD=0
 fi
 
-$CACHE_UPDATE $PBS_SERVER $HOSTNAME scratch_local $SCRATCHSIZE
+$CACHE_UPDATE $PBS_SERVER $HOSTNAME scratch_local $SCRATCHSIZE\;$SCRATCHDEAD
 
 ######################
 # REPORT SSD SCRATCH #
@@ -42,11 +49,18 @@ $CACHE_UPDATE $PBS_SERVER $HOSTNAME scratch_local $SCRATCHSIZE
 if [ -d /scratch.ssd ]; then
 	if [ "$(mount|cut -d\  -f3|grep /scratch.ssd)" != "" ]; then
 		SCRATCHSIZE=$(df -Pk /scratch.ssd|grep -v Available|awk '{print $4;}')
+		if [ -f /scratch.ssd/dead.size ]; then
+			SCRATCHDEAD=$(cat /scratch.ssd/dead.size);
+		else
+			SCRATCHDEAD=0
+		fi
 	else
 		SCRATCHSIZE=0
+		SCRATCHDEAD=0
 	fi
 else
 	SCRATCHSIZE=0
+	SCRATCHDEAD=0
 fi
 
-$CACHE_UPDATE $PBS_SERVER $HOSTNAME scratch_ssd $SCRATCHSIZE
+$CACHE_UPDATE $PBS_SERVER $HOSTNAME scratch_ssd $SCRATCHSIZE\;$SCRATCHDEAD
