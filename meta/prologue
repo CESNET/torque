@@ -8,8 +8,7 @@ USER="$2"
 GROUP="$3"
 
 # GPU handling
-CACHE_LIST=/software/pbs-7.0.0/cache/list_cache
-CACHE_UPDATE=/software/pbs-7.0.0/cache/update_cache
+source /var/spool/torque/mom_scripts/torque-sw-paths.sh
 
 if [ "$PBS_UMASK" != "" ]; then
 	umask $PBS_UMASK

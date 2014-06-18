@@ -1,9 +1,8 @@
 #!/bin/bash
 
-CACHE_LIST=/software/pbs-7.0.0/cache/list_cache
-CACHE_UPDATE=/software/pbs-7.0.0/cache/update_cache
+source /var/spool/torque/mom_scripts/torque-sw-paths.sh
+
 MOMCTL=/usr/sbin/momctl
-SERVER=$(cat /var/spool/torque/server_name);
 JOBID=$1;
 OPR=$2;
 COUNT=$3;

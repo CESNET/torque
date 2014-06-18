@@ -27,10 +27,6 @@ INVOKE_BOOT=1
 # configure variables                                     #
 ###########################################################
 
-if [ "$PBS_SERVER" == "" ]; then
-	PBS_SERVER=`cat /var/spool/torque/server_name`;
-fi
-
 #########################
 ## prologue parameters ##
 #########################
@@ -60,9 +56,9 @@ export PBS_GROUP=$GROUP
 ## commands and path   ##
 #########################
 ADMIN_COMMAND=/usr/sbin/magrathea-admin
-CACHE_LIST=/usr/sbin/list_cache
-CACHE_UPDATE=/usr/sbin/update_cache
 PBSNODES=/usr/bin/pbsnodes.bin
+
+source /var/spool/torque/mom_scripts/torque-sw-paths.sh # setup other paths
 
 #########################
 ## load system presets ##
@@ -132,7 +128,7 @@ fetch_xm_status()
 
 fetch_cache_status()
 {
-	CACHE_STATUS=`$CACHE_LIST $PBS_SERVER magrathea | awk -F"[ \t;]+" '/^'$DOMAIN'/ { print $3 }'`;        # get status string from cache
+	CACHE_STATUS=`$CACHE_LIST $SERVER magrathea | awk -F"[ \t;]+" '/^'$DOMAIN'/ { print $3 }'`;        # get status string from cache
 }
 
 fetch_magrathea_status()
@@ -170,7 +166,7 @@ test_status_start()
 		if [ "$CACHE_STATUS" != "down-bootable" ]; then
 			logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received but machine state in cache is not down-bootable.";
 			# try to update cache
-			$CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "inconsistent;0;changed=$NOW" # overwrite magrathea state
+			$CACHE_UPDATE $SERVER $DOMAIN magrathea "inconsistent;0;changed=$NOW" # overwrite magrathea state
 			exit_with_rollback 1;
 		fi
 
@@ -187,7 +183,7 @@ test_status_start()
 		if [ "$CACHE_STATUS" != "down-bootable" ] && [ "$CACHE_STATUS" != "free-bootable" ]; then
 			logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received but machine state in cache is not down-bootable or free.";
 			# try to update cache
-			$CACHE_UPDATE $PBS_SERVER $DOMAIN magrathea "inconsistent;0;changed=$NOW" # overwrite magrathea state
+			$CACHE_UPDATE $SERVER $DOMAIN magrathea "inconsistent;0;changed=$NOW" # overwrite magrathea state
 			exit_with_rollback 1;
 		fi
 

@@ -1,5 +1,6 @@
 #!/bin/bash
 
+source /var/spool/torque/mom_scripts/torque-sw-paths.sh
 source /var/spool/torque/mom_scripts/torque-scratch-mgr.sh
 
 # LOCAL Scratches
@@ -14,14 +15,12 @@ for scr in $SCRATCHES; do
 			fi
 
 		done
+
+	dead_quota_sum $scr >$scr/.dead.size
+
 	fi
 
-	dead_quota_sum $scr >$scr/dead.size
 done
-
-CACHE_LIST=/software/pbs-7.0.0/cache/list_cache
-CACHE_DELETE=/software/pbs-7.0.0/cache/delete_cache
-SERVER=$(cat /var/spool/torque/server_name);
 
 $CACHE_LIST $SERVER scratch_leftover | grep $(hostname) | grep -v scratch.shared | cut -f1 | while read x; do
 

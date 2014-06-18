@@ -2,10 +2,8 @@
 
 JOBID="$1"
 USER="$2"
-CACHE_UPDATE=/software/pbs-7.0.0/cache/update_cache;
-CACHE_LIST=/software/pbs-7.0.0/cache/list_cache;
-SERVER=$(cat /var/spool/torque/server_name);
 
+source /var/spool/torque/mom_scripts/torque-sw-paths.sh
 source /var/spool/torque/mom_scripts/torque-scratch-mgr.sh
 
 if [ -z "$(echo $0 | grep .parallel)" ]; then
