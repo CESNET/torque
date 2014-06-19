@@ -205,6 +205,8 @@ static char *walltime A_((struct rm_attribute *));
 static char *quota    A_((struct rm_attribute *));
 static char *netload  A_((struct rm_attribute *));
 static char *users (struct rm_attribute *);
+static char *scratch_local (struct rm_attribute *);
+static char *scratch_ssd (struct rm_attribute *);
 
 #ifndef mbool_t
 #define mbool_t char
@@ -247,6 +249,8 @@ struct config dependent_config[] =
     { "netload",  {netload} },
     { "size",     {size} },
     { "users",    {users} },
+    { "scratch_local", {scratch_local} },
+    { "scratch_ssd", {scratch_ssd} },
     { NULL, {nullproc} }
   };
 
@@ -3635,6 +3639,41 @@ static char *physmem(
 
 
 
+static char *scratch_local(struct rm_attribute *attrib)
+  {
+  long long size;
+
+  FILE *scratch = popen("df -Pk /scratch | grep \"/scratch\" | awk '{ print $2; }'","r");
+  if (fscanf(scratch,"%lld",&size) == 1) // SUCCESS
+    {
+    sprintf(ret_string, "%lldkb", size);
+    }
+  else
+    {
+    strcpy(ret_string, "");
+    }
+  pclose(scratch);
+
+  return ret_string;
+  }  /* END scratch_local() */
+
+static char *scratch_ssd(struct rm_attribute *attrib)
+  {
+  long long size;
+
+  FILE *scratch = popen("df -Pk /scratch.ssd | grep \"/scratch.ssd\" | awk '{ print $2; }'","r");
+  if (fscanf(scratch,"%lld",&size) == 1) // SUCCESS
+    {
+    sprintf(ret_string, "%lldkb", size);
+    }
+  else
+    {
+    strcpy(ret_string, "");
+    }
+  pclose(scratch);
+
+  return ret_string;
+  }  /* END scratch_local() */
 
 
 char *size_fs(

@@ -1086,6 +1086,8 @@ stat_record stats[] = {
   {"jobs",        gen_gen},
   {"jobdata",     gen_jdata},
   {"varattr",     gen_gen},
+  {"scratch_local", gen_gen},
+  {"scratch_ssd", gen_gen},
   {NULL,          NULL}
   };
 

@@ -768,7 +768,8 @@ resource_def svr_resc_def_const[] =
   { "scratch",        decode_scratch, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
   { "scratch_volume", decode_size, encode_size, set_size, comp_size, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG | ATR_DFLAG_SELECT_MOM, ATR_TYPE_SIZE },
   { "scratch_type",   decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG | ATR_DFLAG_SELECT_MOM, ATR_TYPE_STR },
-
+  { "scratch_local", decode_size, encode_size, set_size, comp_size, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG | ATR_DFLAG_SELECT_MOM, ATR_TYPE_SIZE },
+  { "scratch_ssd", decode_size, encode_size, set_size, comp_size, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG | ATR_DFLAG_SELECT_MOM, ATR_TYPE_SIZE },
 
   /* resource for requesting job clustering */
   { "place", decode_str, encode_str, set_str, comp_str, free_str, NULL_FUNC, READ_WRITE, ATR_TYPE_STR },
