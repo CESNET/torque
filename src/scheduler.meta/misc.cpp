@@ -509,6 +509,68 @@ void query_external_cache(server_info *sinfo, int dynamic)
                 "Couldn't fetch pbs_cache info for [dynamic_resources] metric.");
       }
     cache_hash_destroy(ptable);
+
+    /* read scratch local dead data usage */
+    ptable=cache_hash_init();
+    if (xcache_hash_fill_local("scratch_local",ptable)==0)
+      {
+      for (i=0;i<sinfo -> num_nodes;i++)
+        {
+        node=sinfo -> nodes[i];
+        value=xcache_hash_find(ptable,node->get_name());
+        if (value != NULL)
+          {
+          char *usage = strchr(value,';');
+          if (usage != NULL)
+            {
+            ++usage;
+            resource *res = node->get_resource("scratch_local");
+            if (res != NULL)
+              {
+              res->assigned += res_to_num(usage);
+              }
+            }
+          }
+        free(value);
+        }
+      }
+    else
+      {
+      sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, "scratch_local",
+                "Couldn't fetch pbs_cache info for [scratch_local] metric.");
+      }
+    cache_hash_destroy(ptable);
+
+    /* read scratch ssd dead data usage */
+    ptable=cache_hash_init();
+    if (xcache_hash_fill_local("scratch_ssd",ptable)==0)
+      {
+      for (i=0;i<sinfo -> num_nodes;i++)
+        {
+        node=sinfo -> nodes[i];
+        value=xcache_hash_find(ptable,node->get_name());
+        if (value != NULL)
+          {
+          char *usage = strchr(value,';');
+          if (usage != NULL)
+            {
+            ++usage;
+            resource *res = node->get_resource("scratch_ssd");
+            if (res != NULL)
+              {
+              res->assigned += res_to_num(usage);
+              }
+            }
+          }
+        free(value);
+        }
+      }
+    else
+      {
+      sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, "scratch_ssd",
+                "Couldn't fetch pbs_cache info for [scratch_ssd] metric.");
+      }
+    cache_hash_destroy(ptable);
     }
 
   /* decode magrathea status */

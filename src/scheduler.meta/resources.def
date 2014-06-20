@@ -16,8 +16,8 @@ ncpus		{ err "Not enough cpus available"				type "status"  }
 nodect		{ err "Not enough nodes available"				type "status"  }
 cput		{ err "The job time requirement is over the max time limit"	type "status"  }
 scratch		{ err "Not enough scratch space available"			type "cache"   }
-scratch_local	{ err "Not enough local scratch space available"		type "cache"   }
-scratch_ssd	{ err "Not enough ssd scratch space available"			type "cache"   }
+scratch_local	{ err "Not enough local scratch space available"		type "status"   }
+scratch_ssd	{ err "Not enough ssd scratch space available"			type "status"   }
 scratch_shared	{ err "Not enough shared scratch space available"		type "dynamic" }
 gpu		{ err "Not enough GPU cards available"				type "status"  }
 

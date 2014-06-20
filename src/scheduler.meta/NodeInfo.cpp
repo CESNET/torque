@@ -164,10 +164,10 @@ CheckResult check_scratch_helper(const node_info * const ninfo, const char *name
   if (res == NULL)
     return CheckNonFit;
 
-  if (res->avail - res->assigned <= 0)
+  if (res->max - res->assigned <= 0)
     return CheckOccupied;
 
-  if (static_cast<unsigned long long>(res->avail - res->assigned) >= value)
+  if (static_cast<unsigned long long>(res->max - res->assigned) >= value)
     return CheckAvailable;
 
   return CheckOccupied;
