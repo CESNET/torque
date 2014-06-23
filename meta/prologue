@@ -3,6 +3,8 @@
 #
 # Started just before job execution by superior mom
 
+exec 1>/tmp/log-prologue 2>&1
+
 JOBID="$1"
 USER="$2"
 GROUP="$3"

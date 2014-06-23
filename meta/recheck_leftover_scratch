@@ -1,5 +1,7 @@
 #!/bin/bash
 
+exec 1>/tmp/log-recheck 2>&1
+
 source /var/spool/torque/mom_scripts/torque-sw-paths.sh
 source /var/spool/torque/mom_scripts/torque-scratch-mgr.sh
 

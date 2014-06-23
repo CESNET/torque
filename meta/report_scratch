@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # hide all errors
-exec >/dev/null 2>&1
+exec >/tmp/log-report 2>&1
 
 # configuration
 source /var/spool/torque/mom_scripts/torque-sw-paths.sh
