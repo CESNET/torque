@@ -21,17 +21,18 @@ for scr in $SCRATCHES;do
 		left_over=$(dead_quota_size $scr/$USER/job_$JOBID);
 
 		if [ ! -z $left_over ]; then
-			echo $left_over job_$JOBID | logger -t pbs_scratch_usage -p local0.info
-			echo $left_over >$scr/$USER/job_${JOBID}.size
+			if [ $left_over -gt 0 ]; then
+				echo $left_over job_$JOBID | logger -t pbs_scratch_usage -p local0.info
+				echo $left_over >$scr/$USER/job_${JOBID}.size
 
-			if [ -z "$(echo $scr | grep .shared)" ]; then
-				dead_quota_sum $scr >$scr/.dead.size
+				if [ -z "$(echo $scr | grep .shared)" ]; then
+					dead_quota_sum $scr >$scr/.dead.size
+				fi
+
+				user_sum=$(dead_quota_user_sum $scr/$USER)
+				$CACHE_UPDATE $SERVER "$USER@`hostname`:$scr" scratch_leftover $user_sum;
 			fi
-		else
-			left_over=0;
 		fi
-
-		$CACHE_UPDATE $SERVER "$USER@`hostname`:$scr/$USER/job_${JOBID}.size" scratch_leftover $left_over;
         fi
 done
 

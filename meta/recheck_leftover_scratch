@@ -9,6 +9,8 @@ source /var/spool/torque/mom_scripts/torque-scratch-mgr.sh
 SCRATCHES="/scratch /scratch.ssd"
 for scr in $SCRATCHES; do
 
+	UPDATED=
+
 	if [ -d $scr ]; then
 		find "$scr/" -maxdepth 2 -type f -name "*.size" | while read x; do
 
@@ -16,9 +18,18 @@ for scr in $SCRATCHES; do
 				rm $x;
 			fi
 
+			user_dir=$(dirname $x)
+			USER=$(basename $user_dir)
+			scr=$(dirname $user_dir)
+			user_sum=$(dead_quota_user_sum $user_dir)
+			$CACHE_UPDATE $SERVER "$USER@`hostname`:$scr" scratch_leftover $user_sum;
+
+			UPDATED=1
 		done
 
-	dead_quota_sum $scr >$scr/.dead.size
+		if [ ! -z $UPDATED ]; then
+			dead_quota_sum $scr >$scr/.dead.size
+		fi
 
 	fi
 
