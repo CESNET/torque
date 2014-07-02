@@ -7,11 +7,10 @@ extern "C" {
 }
 
 #include <iosfwd>
+#include "LogicFwd.h"
 
 namespace Scheduler {
 namespace Logic {
-
-enum AssignStringMode { FullAssignString, RescOnlyAssignString, NumericOnlyAssignString };
 
 /// \brief Class for storing a job-2-node assignment during scheduling process
 class JobAssign

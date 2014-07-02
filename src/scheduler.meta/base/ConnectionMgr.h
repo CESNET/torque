@@ -4,6 +4,11 @@
 #include <map>
 #include <string>
 
+namespace Scheduler {
+namespace Base {
+
+/** \brief Manager for network connections to Torque servers
+ */
 class ConnectionMgr
   {
   public:
@@ -48,5 +53,7 @@ class ConnectionMgr
   std::string p_master;
 
   };
+
+}}
 
 #endif /* CONNECTIONMGR_H_ */

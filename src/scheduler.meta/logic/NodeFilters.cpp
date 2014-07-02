@@ -1,6 +1,9 @@
 #include "NodeFilters.h"
 using namespace std;
 
+namespace Scheduler {
+namespace Logic {
+
 NodeSuitableForJob::NodeSuitableForJob(const job_info *jinfo) : p_jinfo(jinfo) {}
 
 bool NodeSuitableForJob::operator ()(const node_info* node) const
@@ -91,3 +94,5 @@ void NodeSuitableForPlace::filter(const vector<node_info*>& nodes, vector<node_i
   {
   filter_nodes(nodes,result,NodeSuitableForPlace(place_id,value_id));
   }
+
+}}

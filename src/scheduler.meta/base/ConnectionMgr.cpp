@@ -18,6 +18,9 @@ extern "C"{
 #include "server_limits.h"
 }
 
+namespace Scheduler {
+namespace Base {
+
 bool verify_fqdn(const string& fqdn)
   {
   struct addrinfo addr;
@@ -187,3 +190,4 @@ int ConnectionMgr::get_connection(const string& hostname) const
   return i->second;
   }
 
+}}

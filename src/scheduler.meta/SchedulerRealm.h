@@ -6,7 +6,7 @@
 #include <map>
 
 #include "data_types.h"
-#include "ConnectionMgr.h"
+#include "base/ConnectionMgr.h"
 
 class World
   {
@@ -27,7 +27,7 @@ class World
     void update_last_running();
     int try_run_job(job_info *jinfo);
 
-    ConnectionMgr p_connections;
+    Scheduler::Base::ConnectionMgr p_connections;
 
     server_info *p_info;
     std::vector<prev_job_info> p_last_running;

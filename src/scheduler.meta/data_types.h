@@ -98,6 +98,8 @@ extern "C" {
 #include "site_pbs_cache.h"
 }
 
+#include "logic/LogicFwd.h"
+
 struct server_info;
 
 struct state_count;

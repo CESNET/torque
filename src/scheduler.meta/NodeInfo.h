@@ -9,16 +9,15 @@
 #include <cstring>
 
 enum ResourceCheckMode { MaxOnly, Avail };
-enum CheckResult { CheckAvailable, CheckOccupied, CheckNonFit };
 
-#include "base/NodeData.h"
+#include "logic/JobAssign.h"
+#include "logic/NodeLogic.h"
 using namespace Scheduler;
 using namespace Base;
-#include "logic/JobAssign.h"
 using namespace Logic;
 #include "JobInfo.h"
 
-struct node_info : public NodeData, public JobAssign // change to protected inheritance
+struct node_info : public NodeLogic, public JobAssign // change to protected inheritance
   {
   bool p_is_notusable;
 
@@ -60,8 +59,8 @@ public:
    * Check whether there are enough processors to match the specified job/nodespec to this node.
    * Also handles admin slots and exclusive requests.
    */
-  CheckResult has_proc(const job_info *job, const pars_spec_node *spec) const;
-  CheckResult has_mem(const job_info *job, const pars_spec_node *spec) const;
+
+
   CheckResult has_scratch(const job_info *job, const pars_spec_node *spec, ScratchType *scratch) const;
   CheckResult has_spec(const job_info *job, const pars_spec_node *spec, ScratchType *scratch) const;
   CheckResult has_resc(const pars_prop *prop) const;
@@ -81,9 +80,6 @@ public:
   void deplete_admin_slot();
   void deplete_exclusive_access();
 
-  void deplete_proc(int count) { p_core_assigned += count; }
-  void freeup_proc(int count) { p_core_assigned -= count; }
-
   unsigned long long get_mem_total() const;
 
   void fetch_bootable_alternatives();
@@ -94,11 +90,10 @@ public:
   void process_machine_cluster();
 
 private:
-  // CPU related section
-  int p_core_assigned;
+
 
 public:
-  node_info(struct batch_status *node_data) : NodeData(node_data), p_is_notusable(false), is_rebootable(false), cluster_name(NULL), alternatives(NULL), is_building_cluster(false), host(NULL), p_core_assigned(0)
+  node_info(struct batch_status *node_data) : NodeLogic(node_data), p_is_notusable(false), is_rebootable(false), cluster_name(NULL), alternatives(NULL), is_building_cluster(false), host(NULL)
   { hosted.reserve(2); }
   ~node_info() { free(cluster_name); free_bootable_alternatives(alternatives); }
   };

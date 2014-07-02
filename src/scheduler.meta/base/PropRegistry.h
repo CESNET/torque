@@ -13,6 +13,13 @@
 namespace Scheduler {
 namespace Base {
 
+/** \brief Property registry
+ *
+ * This class is capable of registering and storing information about the existing string resource combinations (resource <-> value).
+ *
+ * This speeds up scheduling as it assigns an unique ID to each resource and then an unique ID for each value within that resource.
+ * Scheduler can then simply store the combinations as an integer array where the array index is the resource ID and the value is the value ID.
+ */
 class PropRegistry
   {
     public:

@@ -79,74 +79,9 @@ bool node_info::has_prop(const char* property) const
   return ret == CheckAvailable;
   }
 
-CheckResult node_info::has_proc(const job_info *job, const pars_spec_node *spec) const
-  {
-  // for admin slots, check the admin slot instead
-  if (job->queue->is_admin_queue)
-    {
-    if (this->get_admin_slot_avail())    // admin slot currently free
-      return CheckAvailable;
-    else if (this->get_admin_slot_enabled()) // admin slot occupied, but enabled
-      return CheckOccupied;
-    else                         // admin slot not enabled
-      return CheckNonFit;
-    }
-  else
-    {
-    if (this->get_cores_total() < static_cast<int>(spec->procs)) // This node simply doesn't have enough processors
-      {
-      return CheckNonFit;
-      }
 
-    if (this->is_exclusively_assigned()) // Node is completely full
-      {
-      return CheckOccupied;
-      }
 
-    if (this->get_cores_free() - p_core_assigned == 0) // Node is completely full
-      {
-      return CheckOccupied;
-      }
 
-    if (job->is_exclusive)
-      {
-      if (this->get_cores_free() - p_core_assigned != this->get_cores_total()) // Some processors are in use
-        return CheckOccupied;
-      }
-    else
-      {
-      if (this->get_cores_free() - p_core_assigned < static_cast<int>(spec->procs)) // Not enough currently free processors
-        return CheckOccupied;
-      }
-
-    return CheckAvailable;
-    }
-  }
-
-CheckResult node_info::has_mem(const job_info *job, const pars_spec_node *spec) const
-  {
-  if (job->queue->is_admin_queue)
-    return CheckAvailable;
-
-  // vmem currently ignored
-  struct resource *mem = this->get_resource("mem");
-
-  if (mem != NULL)
-    {
-    if (static_cast<long long>(spec->mem) > mem->max) // requested more than the node can ever provide
-      return CheckNonFit;
-
-    if (static_cast<long long>(spec->mem) + mem->assigned > mem->max) // requested more than the can currently provide
-      return CheckOccupied;
-    }
-  else
-    {
-    if (spec->mem != 0) // requested node doesn't have memory, but memory requested
-      return CheckNonFit;
-    }
-
-  return CheckAvailable;
-  }
 
 unsigned long long node_info::get_mem_total() const
 {
@@ -175,10 +110,12 @@ CheckResult check_scratch_helper(const node_info * const ninfo, const char *name
 
 CheckResult node_info::has_scratch(const job_info *job, const pars_spec_node *spec, ScratchType *scratch) const
   {
-  if (job->queue->is_admin_queue) // admin jobs skip scratch check
+  // admin jobs skip scratch check
+  if (job->queue->is_admin_queue)
     return CheckAvailable;
 
-  if (spec->scratch_type == ScratchNone) // if no scratch was requested, atomatic avail
+  // if no scratch was requested, node is fitting
+  if (spec->scratch_type == ScratchNone)
     return CheckAvailable;
 
   CheckResult has_local = check_scratch_helper(this,"scratch_local",spec->scratch);

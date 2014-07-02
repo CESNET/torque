@@ -5,7 +5,7 @@
 #include <map>
 #include <set>
 #include <string>
-#include "DynamicResource.h"
+#include "base/DynamicResource.h"
 
 #define DEFAULT_JOB_START_TIMEOUT 60
 
@@ -14,7 +14,7 @@ struct server_info
   char *name;   /* name of server */
 
   struct resource *res;  /* list of resources */
-  std::map<std::string, DynamicResource> dynamic_resources; /* list of dynamic resources */
+  std::map<std::string, Scheduler::Base::DynamicResource> dynamic_resources; /* list of dynamic resources */
   char *default_queue;  /* the default queue atribute of the server */
   int max_run;   /* max jobs that can be run at one time */
   int max_user_run;  /* max jobs a user can run at one time */

@@ -3,8 +3,16 @@
 
 #include <vector>
 #include "data_types.h"
+#include "LogicFwd.h"
 
-/** \brief Filter nodes usable for a job */
+namespace Scheduler {
+namespace Logic {
+
+/** \brief Filter nodes usable for a job
+ *
+ * General test for initial filter of nodes that can fit a job.
+ * Currently only filters out bad matches of physical/virtual machines vs. normal/cloud jobs
+ */
 struct NodeSuitableForJob
   {
   NodeSuitableForJob(const job_info *jinfo);
@@ -16,10 +24,11 @@ struct NodeSuitableForJob
     const job_info *p_jinfo;
   };
 
-enum SuitableNodeFilterMode { SuitableAssignMode, SuitableFairshareMode, SuitableStarvingMode, SuitableRebootMode };
-
-
-/** \brief Filter nodes usable for a node specification */
+/** \brief Filter nodes usable for a node specification
+ *
+ * General test for whether a node is suitable for the presented nodespec.
+ * Supports testing for assignment, rebooting, starving and fairshare calculation.
+ */
 struct NodeSuitableForSpec
   {
   NodeSuitableForSpec(const job_info *jinfo, const pars_spec_node *spec, SuitableNodeFilterMode mode);
@@ -40,6 +49,11 @@ struct NodeSuitableForSpec
     SuitableNodeFilterMode p_mode;
   };
 
+/** \brief Filter nodes depending on a particular "placement" resource
+ *
+ * Filter out nodes that are capable of providing a particular resource=value combination.
+ * IDs are routed through the PropRegistry
+ */
 struct NodeSuitableForPlace
   {
   NodeSuitableForPlace(size_t place_id, size_t value_id);
@@ -51,5 +65,7 @@ struct NodeSuitableForPlace
     const size_t p_place;
     const size_t p_value;
   };
+
+}}
 
 #endif /* NODEFILTERS_H_ */

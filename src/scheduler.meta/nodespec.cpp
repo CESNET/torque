@@ -17,7 +17,7 @@ extern "C" {
 
 #include "RescInfoDb.h"
 
-#include "NodeFilters.h"
+#include "logic/NodeFilters.h"
 #include "NodeSort.h"
 #include "base/PropRegistry.h"
 

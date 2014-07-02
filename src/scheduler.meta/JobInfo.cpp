@@ -2,7 +2,7 @@
 #include "misc.h"
 #include "data_types.h"
 #include "nodespec_sch.h"
-#include "NodeFilters.h"
+#include "logic/NodeFilters.h"
 #include "NodeSort.h"
 #include "RescInfoDb.h"
 

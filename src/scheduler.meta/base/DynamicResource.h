@@ -4,7 +4,10 @@
 #include "BaseTypes.h"
 #include <string>
 
-/** \brief Dynamic resource storage class */
+namespace Scheduler {
+namespace Base {
+
+/** \brief Dynamic resource helper class */
 class DynamicResource
   {
   ResourceBaseType  p_avail;
@@ -25,5 +28,7 @@ class DynamicResource
     /** \brief Test whether the specified amount can be scheduled to a job */
     bool would_fit(ResourceBaseType amount);
   };
+
+}}
 
 #endif /* DYNAMICRESOURCE_H_ */

@@ -20,6 +20,7 @@ enum node_type { NodeTimeshared, NodeCluster, NodeVirtual, NodeCloud };
 
 /** \brief Class for holding and manipulating node data
  *
+ * This class provides storage for all the PBS server handled node data.
  */
 class NodeData : public Internals::NodeState
   {

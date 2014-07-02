@@ -1,6 +1,9 @@
 #include "DynamicResource.h"
 #include <cstdlib>
 
+namespace Scheduler {
+namespace Base {
+
 DynamicResource::DynamicResource()
   : p_avail(-1), p_assigned(0), p_reported_use(-1), p_scheduled_use(0), p_name("")
   {
@@ -54,3 +57,5 @@ bool DynamicResource::would_fit(ResourceBaseType amount)
     return p_avail - p_assigned >= amount;
     }
   }
+
+}}

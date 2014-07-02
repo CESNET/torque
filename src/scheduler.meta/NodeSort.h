@@ -3,13 +3,17 @@
 
 #include "data_types.h"
 
-/** \brief Sort nodes by current state */
+/** \brief Sort nodes by current state
+ *
+ */
 struct NodeStateSort
   {
   bool operator()(node_info* left, node_info* right) const;
   };
 
-/** \brief Sort nodes by fairshare cost */
+/** \brief Sort nodes by fairshare cost
+ *
+ */
 struct NodeCostSort
   {
   NodeCostSort(unsigned procs, unsigned long long mem, bool exclusive);
