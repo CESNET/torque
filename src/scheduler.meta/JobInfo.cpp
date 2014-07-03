@@ -6,6 +6,10 @@
 #include "NodeSort.h"
 #include "RescInfoDb.h"
 
+#include "base/MiscHelpers.h"
+using namespace Scheduler;
+using namespace Base;
+
 #include <algorithm>
 using namespace std;
 
@@ -44,8 +48,8 @@ void job_info::unplan_from_node(node_info* ninfo, pars_spec_node* spec)
       {
       string pool = res->str_avail;
       map<string,DynamicResource>::iterator i;
-      i = ninfo->server->dynamic_resources.find(pool);
-      if (i != ninfo->server->dynamic_resources.end())
+      i = ninfo->get_parent_server()->dynamic_resources.find(pool);
+      if (i != ninfo->get_parent_server()->dynamic_resources.end())
         {
         i->second.remove_scheduled(spec->scratch);
         }
@@ -116,8 +120,8 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
       {
       string pool = res->str_avail;
       map<string,DynamicResource>::iterator i;
-      i = ninfo->server->dynamic_resources.find(pool);
-      if (i != ninfo->server->dynamic_resources.end())
+      i = ninfo->get_parent_server()->dynamic_resources.find(pool);
+      if (i != ninfo->get_parent_server()->dynamic_resources.end())
         {
         i->second.add_scheduled(spec->scratch);
         }

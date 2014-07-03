@@ -28,7 +28,6 @@ struct node_info : public NodeLogic, public JobAssign // change to protected inh
 
   bool is_rebootable;
 
-  server_info *server;  /* server that the node is associated with */
   queue_info *excl_queue; /**< pointer to queue the node is exclusive to */
 
   char *cluster_name;
@@ -42,8 +41,6 @@ struct node_info : public NodeLogic, public JobAssign // change to protected inh
 
   node_info* host; /*< the physical host of this node */
   std::vector< node_info* > hosted; /*< virtual nodes hosted on this node */
-
-  std::string scratch_pool;
 
   CheckResult has_prop(const pars_prop* property, bool physical_only) const;
   bool has_prop(const char* property) const;
@@ -59,12 +56,7 @@ public:
    * Check whether there are enough processors to match the specified job/nodespec to this node.
    * Also handles admin slots and exclusive requests.
    */
-
-
-  CheckResult has_scratch(const job_info *job, const pars_spec_node *spec, ScratchType *scratch) const;
   CheckResult has_spec(const job_info *job, const pars_spec_node *spec, ScratchType *scratch) const;
-  CheckResult has_resc(const pars_prop *prop) const;
-
   CheckResult has_props_boot(const job_info *job, const pars_spec_node *spec, const repository_alternatives *virt_conf) const;
   CheckResult has_props_run(const job_info *job, const pars_spec_node *spec) const;
 
@@ -94,7 +86,9 @@ private:
 
 public:
   node_info(struct batch_status *node_data) : NodeLogic(node_data), p_is_notusable(false), is_rebootable(false), cluster_name(NULL), alternatives(NULL), is_building_cluster(false), host(NULL)
-  { hosted.reserve(2); }
+  {
+    hosted.reserve(2);
+  }
   ~node_info() { free(cluster_name); free_bootable_alternatives(alternatives); }
   };
 

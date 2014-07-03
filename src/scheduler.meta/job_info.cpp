@@ -100,6 +100,8 @@ using namespace std;
 
 #include "fairshare.h"
 
+#include "base/MiscHelpers.h"
+
 
 /*
  *

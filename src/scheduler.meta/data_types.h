@@ -146,9 +146,8 @@ typedef struct prev_job_info prev_job_info;
 
 typedef struct token token;
 
-typedef RESOURCE_TYPE sch_resource_t;
 /* since resource values and usage values are linked */
-typedef sch_resource_t usage_t;
+
 
 typedef enum {
   MagratheaStateNone,

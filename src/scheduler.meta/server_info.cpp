@@ -99,6 +99,9 @@ extern "C" {
 #include "global_macros.h"
 
 #include "RescInfoDb.h"
+#include "base/MiscHelpers.h"
+using namespace Scheduler;
+using namespace Base;
 
 #include <new>
 using namespace std;

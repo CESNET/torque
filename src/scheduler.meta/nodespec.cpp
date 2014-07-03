@@ -20,6 +20,9 @@ extern "C" {
 #include "logic/NodeFilters.h"
 #include "NodeSort.h"
 #include "base/PropRegistry.h"
+#include "base/MiscHelpers.h"
+using namespace Scheduler;
+using namespace Base;
 
 #include <sstream>
 #include <cassert>

@@ -79,10 +79,6 @@ bool node_info::has_prop(const char* property) const
   return ret == CheckAvailable;
   }
 
-
-
-
-
 unsigned long long node_info::get_mem_total() const
 {
   struct resource *mem = this->get_resource("mem");
@@ -91,150 +87,6 @@ unsigned long long node_info::get_mem_total() const
 
   return mem->max;
 }
-
-CheckResult check_scratch_helper(const node_info * const ninfo, const char *name, unsigned long long value)
-  {
-  struct resource *res = ninfo->get_resource(name);
-
-  if (res == NULL)
-    return CheckNonFit;
-
-  if (res->max - res->assigned <= 0)
-    return CheckOccupied;
-
-  if (static_cast<unsigned long long>(res->max - res->assigned) >= value)
-    return CheckAvailable;
-
-  return CheckOccupied;
-  }
-
-CheckResult node_info::has_scratch(const job_info *job, const pars_spec_node *spec, ScratchType *scratch) const
-  {
-  // admin jobs skip scratch check
-  if (job->queue->is_admin_queue)
-    return CheckAvailable;
-
-  // if no scratch was requested, node is fitting
-  if (spec->scratch_type == ScratchNone)
-    return CheckAvailable;
-
-  CheckResult has_local = check_scratch_helper(this,"scratch_local",spec->scratch);
-  CheckResult has_ssd  = check_scratch_helper(this,"scratch_ssd",spec->scratch);
-  CheckResult has_shared = CheckNonFit;
-
-  if (scratch_pool.length() > 0)
-    {
-    map<string, DynamicResource>::iterator i = server->dynamic_resources.find(scratch_pool);
-    if (i != server->dynamic_resources.end())
-      {
-      if (i->second.would_fit(spec->scratch)) // shared pool present and free
-        {
-        has_shared = CheckAvailable;
-        }
-      else // shared pool present, but currently doesn't provide enough
-        {
-        has_shared = CheckOccupied;
-        }
-      }
-    else // no shared pool present
-      {
-      has_shared = CheckNonFit;
-      }
-    }
-
-  if (spec->scratch_type == ScratchSSD && has_ssd == CheckNonFit)
-    return CheckNonFit;
-
-  if (spec->scratch_type == ScratchShared && has_shared == CheckNonFit)
-    return CheckNonFit;
-
-  if (spec->scratch_type == ScratchLocal && has_local == CheckNonFit)
-    return CheckNonFit;
-
-  if (has_local == CheckNonFit && has_ssd == CheckNonFit && has_shared == CheckNonFit)
-    return CheckNonFit;
-
-  if ((spec->scratch_type == ScratchAny || spec->scratch_type == ScratchSSD) && has_ssd == CheckAvailable)
-    {
-    *scratch = ScratchSSD;
-    return CheckAvailable;
-    }
-
-  if ((spec->scratch_type == ScratchAny || spec->scratch_type == ScratchShared) && has_shared == CheckAvailable)
-    {
-    *scratch = ScratchShared;
-    return CheckAvailable;
-    }
-
-  if ((spec->scratch_type == ScratchAny || spec->scratch_type == ScratchLocal) && has_local == CheckAvailable)
-    {
-    *scratch = ScratchLocal;
-    return CheckAvailable;
-    }
-
-  return CheckOccupied;
-  }
-
-
-CheckResult node_info::has_resc(const pars_prop *prop) const
-  {
-  if (res_check_type(prop->name) == ResCheckDynamic) // already checked elsewhere
-    return CheckAvailable;
-
-  if (res_check_type(prop->name) == ResCheckNone) // this resource shouldn't be checked
-    return CheckAvailable;
-
-  if (strcmp(prop->name,"minspec")==0)
-    {
-    double value = atof(prop->value);
-    if (this->get_node_spec() >= value)
-      return CheckAvailable;
-    else
-      return CheckNonFit;
-    }
-
-  if (strcmp(prop->name,"maxspec")==0)
-    {
-    double value = atof(prop->value);
-    if (this->get_node_spec() <= value)
-      return CheckAvailable;
-    else
-      return CheckNonFit;
-    }
-
-  struct resource *resc;
-  if ((resc = this->get_resource(prop->name)) == NULL)
-    return CheckNonFit;
-
-  if (resc->is_string) // string resources work as properties
-    {
-    if (strcmp(resc->str_avail,prop->value) != 0)
-      return CheckNonFit;
-    else
-      return CheckAvailable;
-    }
-
-  sch_resource_t amount = res_to_num(prop->value);
-
-  if (resc->max != INFINITY && resc->max != UNSPECIFIED && resc->max < amount) // there is a max and it's lower than the requested amount
-    return CheckNonFit;
-
-  if (resc->max == UNSPECIFIED || resc->max == INFINITY) // no max value present, only current
-    {
-    if (resc->avail - resc->assigned >= amount)
-      return CheckAvailable;
-    else
-      return CheckOccupied;
-    }
-  else // max value present
-    {
-    if (resc->max - resc->assigned >= amount)
-      return CheckAvailable;
-    else
-      return CheckOccupied;
-    }
-  }
-
 
 CheckResult node_info::has_props_boot(const job_info *job, const pars_spec_node *spec, const repository_alternatives *virt_conf) const
   {
@@ -455,7 +307,7 @@ CheckResult node_info::can_boot_job(const job_info *jinfo) const
     return CheckNonFit;
 
   // Server already installing to many machines
-  if (this->server->installing_nodes_overlimit())
+  if (this->get_parent_server()->installing_nodes_overlimit())
     return CheckOccupied;
 
   // Machine is already allocated to a virtual cluster, only ClusterUse type of jobs allowed

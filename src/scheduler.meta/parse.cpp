@@ -92,6 +92,10 @@
 #include "prime.h"
 #include "node_info.h"
 
+#include "base/MiscHelpers.h"
+using namespace Scheduler;
+using namespace Base;
+
 
 /*
  *

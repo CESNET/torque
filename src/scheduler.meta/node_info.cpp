@@ -152,7 +152,7 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
       free_nodes(ninfo_arr);
       return NULL;
       }
-    ninfo_arr[i]->server = sinfo;
+    ninfo_arr[i]->set_parent_server(sinfo);
 
     cur_node = cur_node -> next;
     }

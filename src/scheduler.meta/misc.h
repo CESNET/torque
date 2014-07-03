@@ -86,13 +86,6 @@
 #include "job_info.h"
 
 /*
- *      res_to_num - convert a resource string to an integer in the lowest
- *                      form of resource on the machine (btye/word)
- *                      example: 1kb -> 1024 or 1kw -> 1024
- */
-sch_resource_t res_to_num(char * res_str);
-
-/*
  *      skip_line - find if the line of the config file needs to be skipped
  *                  due to it being a comment or other means
  */

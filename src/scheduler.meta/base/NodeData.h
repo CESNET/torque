@@ -5,13 +5,13 @@
 #ifndef NODEDATA_H_
 #define NODEDATA_H_
 
+#include "BaseFwd.h"
+
 #include "NodeState.h"
 #include <set>
 #include <string>
 #include <vector>
 #include "torque.h"
-
-struct resource;
 
 namespace Scheduler {
 namespace Base {
@@ -48,6 +48,8 @@ class NodeData : public Internals::NodeState
       long get_avail_before() const { return p_avail_before; }
       long get_avail_after() const { return p_avail_after; }
 
+      const std::string& get_scratch_pool() const { return p_scratch_pool; }
+
       resource *get_resource(const char *name) const;
 
       const char *get_dedicated_queue_name() const { return p_ded_queue_name; }
@@ -58,6 +60,9 @@ class NodeData : public Internals::NodeState
 
       bool has_jobs() const;
       bool is_exclusively_assigned() const;
+
+      void set_parent_server(server_info* server) { p_server = server; }
+      server_info* get_parent_server() const { return p_server; }
 
 
     private:
@@ -104,8 +109,15 @@ class NodeData : public Internals::NodeState
       /// \brief Is node exclusively assigned
       bool p_exclusively_assigned;
 
+      /// \brief Shared scratch pool
+      std::string p_scratch_pool;
+
+      /// \brief Parent server
+      server_info *p_server;
+
     public:
       void set_resource_dynamic(const char *resc, char *value);
+      void set_scratch_pool(const char *pool);
 
     private:
       void set_phys_props(char *comma_sep_list);

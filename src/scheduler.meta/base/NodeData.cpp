@@ -23,7 +23,7 @@ NodeData::NodeData(struct batch_status *node_data) :  p_phys_props(), p_virt_pro
                         p_no_multinode(false), p_ded_queue_name(NULL), p_admin_slot_enabled(false),
                         p_admin_slot_avail(false), p_node_cost(1.0), p_node_spec(10.0),
                         p_avail_before(0), p_avail_after(0), p_resc(NULL), p_reg_props(100,numeric_limits<size_t>::max()), p_name(NULL), p_jobs(),
-                        p_exclusively_assigned(false)
+                        p_exclusively_assigned(false), p_scratch_pool(), p_server(NULL)
   {
   struct attrl *attrp = node_data->attribs;  /* used to cycle though attribute list */
   this->set_name(node_data->name);
@@ -99,6 +99,11 @@ NodeData::~NodeData()
   free(p_ded_queue_name);
   free_resource_list(p_resc);
   free(p_name);
+  }
+
+void NodeData::set_scratch_pool(const char *pool)
+  {
+  p_scratch_pool = pool;
   }
 
 void NodeData::set_virt_props(char *comma_sep_list)

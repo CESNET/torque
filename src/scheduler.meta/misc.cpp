@@ -99,81 +99,11 @@
 
 #include "data_types.h"
 #include "RescInfoDb.h"
+#include "base/MiscHelpers.h"
 
 #include <string>
 #include <utility>
 using namespace std;
-
-/*
- *
- *      res_to_num - convert a resource string to a  sch_resource_t to
- *                      kilobytes
- *                      example: 1mb -> 1024
- *     1mw -> 1024 * SIZE_OF_WORD
- *
- *      res_str - the resource string
- *
- *      return a number in kilobytes or UNSPECIFIED on error
- *
- */
-
-sch_resource_t res_to_num(char * res_str)
-  {
-  sch_resource_t count = UNSPECIFIED; /* convert string resource to numeric */
-  sch_resource_t count2 = UNSPECIFIED; /* convert string resource to numeric */
-  char *endp;    /* used for strtol() */
-  char *endp2;    /* used for strtol() */
-  long multiplier;   /* multiplier to count */
-
-  count = strtol(res_str, &endp, 10);
-
-  if (*endp == ':')   /* time resource -> convert to seconds */
-    {
-    count2 = strtol(endp + 1, &endp2, 10);
-
-    if (*endp2 == ':')   /* form of HH:MM:SS */
-      {
-      count *= 3600;
-      count += count2 * 60;
-      count += strtol(endp2 + 1, &endp, 10);
-
-      if (*endp != '\0')
-        count = UNSPECIFIED;
-      }
-    else   /* form of MM:SS */
-      {
-      count *= 60;
-      count += count2;
-      }
-
-    multiplier = 1;
-    }
-  else if (*endp == 'k' || *endp == 'K')
-    multiplier = 1;
-  else if (*endp == 'm' || *endp == 'M')
-    multiplier = MEGATOKILO;
-  else if (*endp == 'g' || *endp == 'G')
-    multiplier = GIGATOKILO;
-  else if (*endp == 't' || *endp == 'T')
-    multiplier = TERATOKILO;
-  else if (*endp == 'b' || *endp == 'B')
-    {
-    count /= KILO;
-    multiplier = 1;
-    }
-  else if (*endp == 'w')
-    {
-    count /= KILO;
-    multiplier = SIZE_OF_WORD;
-    }
-  else /* catch all */
-    multiplier = 1;
-
-  if (*endp != '\0' && *(endp + 1) == 'w')
-    multiplier *= SIZE_OF_WORD;
-
-  return count * multiplier;
-  }
 
 /*
  *
@@ -473,7 +403,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
         value=xcache_hash_find(ptable,node->get_name());
         if (value != NULL)
           {
-          node->scratch_pool = string(value);
+          node->set_scratch_pool(value);
           resc_info_db.insert(value," ",ResCheckDynamic); // register as new dynamic resource
           }
         free(value);
@@ -569,6 +499,49 @@ void query_external_cache(server_info *sinfo, int dynamic)
       {
       sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, "scratch_ssd",
                 "Couldn't fetch pbs_cache info for [scratch_ssd] metric.");
+      }
+    cache_hash_destroy(ptable);
+
+    /* read scratch priority */
+    ptable=cache_hash_init();
+    if (xcache_hash_fill_local("scratch_priority",ptable)==0)
+      {
+      for (i=0;i<sinfo -> num_nodes;i++)
+        {
+        node=sinfo -> nodes[i];
+        value=xcache_hash_find(ptable,node->get_name());
+        if (value != NULL)
+          {
+          char *head = value;
+          char *div = NULL;
+
+          // parse the X;Y;Z format
+          for (size_t j = 0; j < 3; j++)
+            {
+            div = strchr(head,';');
+            if (div != NULL)
+              {
+              *div = '\0';
+              ++div;
+              }
+
+            if (strcmp(head,"ssd")==0 || strcmp(head,"SSD")==0)
+              node->set_scratch_priority(j,ScratchSSD);
+            else if (strcmp(head,"shared")==0 || strcmp(head,"SHARED")==0 || strcmp(head,"Shared")==0)
+              node->set_scratch_priority(j,ScratchShared);
+            else if (strcmp(head,"local")==0 || strcmp(head,"LOCAL")==0 || strcmp(head,"Local")==0)
+              node->set_scratch_priority(j,ScratchLocal);
+
+            head = div;
+            }
+          }
+        free(value);
+        }
+      }
+    else
+      {
+      sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, "scratch_priority",
+                "Couldn't fetch pbs_cache info for [scratch_priority] metric.");
       }
     cache_hash_destroy(ptable);
     }

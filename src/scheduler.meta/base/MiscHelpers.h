@@ -7,6 +7,7 @@
 
 #include <set>
 #include <string>
+#include "BaseFwd.h"
 
 namespace Scheduler {
 namespace Base {
@@ -16,6 +17,12 @@ namespace Base {
  * @param s set of strings to be filled
  */
 void comma_list_to_set(char *list, std::set<std::string>& s);
+
+/** \brief Convert a string to a resource value
+ *
+ * Converts units (k,m,g,t)
+ */
+sch_resource_t res_to_num(char * res_str);
 
 }}
 

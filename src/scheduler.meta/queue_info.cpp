@@ -89,6 +89,10 @@
 #include "globals.h"
 #include "nodespec_sch.h"
 
+#include "base/MiscHelpers.h"
+using namespace Scheduler;
+using namespace Base;
+
 /*
  *
  * query_queues - creates an array of queue_info structs which contain
