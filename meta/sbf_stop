@@ -2,9 +2,6 @@
 #
 # sbf_stop
 #
-exec 2>>/tmp/mujtrace
-set -x
-
 RAW_PARAMS="$*"
 
 ex=0

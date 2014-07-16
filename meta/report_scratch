@@ -1,8 +1,5 @@
 #!/bin/bash
 
-# hide all errors
-exec >/tmp/log-report 2>&1
-
 # configuration
 source /var/spool/torque/mom_scripts/torque-sw-paths.sh
 HOSTNAME=$(hostname -f)

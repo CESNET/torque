@@ -7,16 +7,16 @@
 # setup logging                                           #
 ###########################################################
 
-echo >>/tmp/log
-echo "---------------------------" `date ` "---------------------------------------">>/tmp/log
-echo "program:   $0" >>/tmp/log
-echo "parametes: $*" >>/tmp/log
-echo >>/tmp/log
-env >>/tmp/log
+#echo >>/tmp/log
+#echo "---------------------------" `date ` "---------------------------------------">>/tmp/log
+#echo "program:   $0" >>/tmp/log
+#echo "parametes: $*" >>/tmp/log
+#echo >>/tmp/log
+#env >>/tmp/log
 
 
-exec 1>>/tmp/log 2>&1
-set -x
+#exec 1>>/tmp/log 2>&1
+#set -x
 
 ###########################################################
 # run mode 1 - with boot 0 - without boot                 #

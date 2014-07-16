@@ -1,7 +1,5 @@
 #!/bin/bash
 
-exec >/tmp/log-epilogue 2>&1
-
 JOBID="$1"
 USER="$2"
 

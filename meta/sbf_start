@@ -4,9 +4,6 @@
 #
 # TODO pouzit misto random jen jmeno clusteru?
 
-exec 2>>/tmp/mujtrace
-set -x
-
 RAW_PARAMS="$*"
 
 SBF_BIN=/software/magrathea/bin/sbf

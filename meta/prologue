@@ -3,8 +3,6 @@
 #
 # Started just before job execution by superior mom
 
-exec 1>/tmp/log-prologue 2>&1
-
 JOBID="$1"
 USER="$2"
 GROUP="$3"
@@ -31,7 +29,8 @@ fi
 DIR="/scratch.shared"
 if [ "$TORQUE_RESC_SCRATCH_TYPE" = "shared" ]; then
 	if [ -d $DIR/$USER ]; then
-		mkdir "$DIR/$USER/job_$JOBID" && chown "$USER" "$DIR/$USER/job_$JOBID" && chgrp "$GROUP" "$DIR/$USER/job_$JOBID" || exit 5;
+		mkdir "$DIR/$USER/job_$JOBID" 2>/dev/null 1>&2;
+		stat "$DIR/$USER/job_$JOBID" 2>/dev/null 1>&2 && chown "$USER" "$DIR/$USER/job_$JOBID" && chgrp "$GROUP" "$DIR/$USER/job_$JOBID" || exit 5;
 	else
 		exit 5;
 	fi
