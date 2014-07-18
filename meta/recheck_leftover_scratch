@@ -3,29 +3,39 @@
 source /var/spool/torque/mom_scripts/torque-sw-paths.sh
 source /var/spool/torque/mom_scripts/torque-scratch-mgr.sh
 
+
+function search_dirs
+{
+	UPDATED=0
+	find "$1/" -mindepth 2 -maxdepth 2 -type f -name "*.size" | { while read x; do
+		rmdir --ignore-fail-on-non-empty "$(dirname $x)/$(basename $x .size)" 2>/dev/null
+
+		if [ ! -d "$(dirname $x)/$(basename $x .size)" ]; then
+			rm $x;
+		fi
+
+		user_dir=$(dirname $x)
+		USER=$(basename $user_dir)
+		scr=$(dirname $user_dir)
+		user_sum=$(dead_quota_user_sum $user_dir)
+		$CACHE_UPDATE $SERVER "$USER@`hostname`:$scr" scratch_leftover $user_sum;
+
+		UPDATED=1
+	done
+	echo $UPDATED;
+	}
+}
+
 # LOCAL Scratches
 SCRATCHES="/scratch /scratch.ssd"
 for scr in $SCRATCHES; do
 
-	UPDATED=
+	UPDATED=0
 
 	if [ -d $scr ]; then
-		find "$scr/" -maxdepth 2 -type f -name "*.size" | while read x; do
+		UPDATED=$(search_dirs $scr);
 
-			if [ ! -d "$(dirname $x)/$(basename $x .size)" ]; then
-				rm $x;
-			fi
-
-			user_dir=$(dirname $x)
-			USER=$(basename $user_dir)
-			scr=$(dirname $user_dir)
-			user_sum=$(dead_quota_user_sum $user_dir)
-			$CACHE_UPDATE $SERVER "$USER@`hostname`:$scr" scratch_leftover $user_sum;
-
-			UPDATED=1
-		done
-
-		if [ ! -z $UPDATED ]; then
+		if [ "$UPDATED" -ne 0 ]; then
 			dead_quota_sum $scr >$scr/.dead.size
 		fi
 
@@ -35,9 +45,11 @@ done
 
 $CACHE_LIST $SERVER scratch_leftover | grep $(hostname) | grep -v scratch.shared | cut -f1 | while read x; do
 
-	filename=$(echo $x | cut -d@ -f2 | cut -d: -f2);
+	user=$(echo $x | cut -d@ -f1);
+	dir=$(echo $x | cut -d@ -f2 | cut -d: -f2);
+	sum=$(dead_quota_user_sum $dir/$user);
 
-	if [ ! -f $filename ]; then
+	if [ -z $sum ] || [ $sum -eq 0 ]; then
 		$CACHE_DELETE $SERVER $x scratch_leftover
 	fi
 
