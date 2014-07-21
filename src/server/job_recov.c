@@ -240,6 +240,7 @@ int job_save(
           {
           log_err(errno, "job_save", "lseek");
 
+          fsync(fds);
           close(fds);
 
           return(-1);
@@ -251,6 +252,7 @@ int job_save(
         {
         log_err(errno, "job_save", "quickwrite");
 
+        fsync(fds);
         close(fds);
 
         /* FAILURE */
@@ -259,6 +261,7 @@ int job_save(
         }
       }
 
+    fsync(fds);
     close(fds);
     }
   else /* SAVEJOB_FULL, SAVEJOB_NEW, SAVEJOB_ARY */
@@ -336,6 +339,7 @@ int job_save(
         }
       }  /* END for (i) */
 
+    fsync(fds);
     close(fds);
 
     if (i >= MAX_SAVE_TRIES)
@@ -350,17 +354,13 @@ int job_save(
       {
       unlink(namebuf1);
 
-      if (link(namebuf2, namebuf1) == -1)
+      if (rename(namebuf2,namebuf1) != 0)
         {
         LOG_EVENT(
           PBSEVENT_ERROR | PBSEVENT_SECURITY,
           PBS_EVENTCLASS_JOB,
           pjob->ji_qs.ji_jobid,
           "Link in job_save failed");
-        }
-      else
-        {
-        unlink(namebuf2);
         }
       }
 

@@ -290,6 +290,7 @@ int task_save(
         {
         log_err(errno, id, "lseek");
 
+        fsync(fds);
         close(fds);
 
         return(-1);
@@ -300,6 +301,7 @@ int task_save(
 
     log_err(errno, id, "quickwrite");
 
+    fsync(fds);
     close(fds);
 
     return(-1);
@@ -307,6 +309,7 @@ int task_save(
 
   /* SUCCESS */
 
+  fsync(fds);
   close(fds);
 
   return(0);

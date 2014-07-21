@@ -582,7 +582,10 @@ out:
        unlink(pid_file);
     }
     if (fd != -1)
-       close(fd);
+      {
+      fsync(fd);
+      close(fd);
+      }
        
     return ret;
   }

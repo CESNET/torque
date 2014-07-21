@@ -678,11 +678,13 @@ void req_jobscript(
 
     req_reject(PBSE_INTERNAL, 0, preq, mom_host, "cannot write job command file");
 
+    fsync(fds);
     close(fds);
 
     return;
     }
 
+  fsync(fds);
   close(fds);
 
   pj->ji_qs.ji_un.ji_newt.ji_scriptsz += preq->rq_ind.rq_jobfile.rq_size;

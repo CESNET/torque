@@ -401,6 +401,7 @@ int create_job_file(char *namebuf, char *basename)
       }
     }
   while (fds < 0);
+  fsync(fds);
   close(fds);
 
   return 0;
