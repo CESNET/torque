@@ -437,6 +437,7 @@ static int old_np = 0;
 static unsigned old_np_admin = 0;
 static struct attribute *old_resources = (struct attribute*)0;
 static unsigned old_no_multinode = 0;
+static unsigned old_no_starving = 0;
 static long old_priority = 100;
 static double old_fairshare_coef = 1;
 static double old_machine_spec = 10.0;
@@ -472,6 +473,7 @@ void save_characteristic(
   old_np_admin = pnode->nd_admin_slot_enabled;
   old_no_multinode = pnode->nd_no_multinode;
   old_priority = pnode->nd_priority;
+  old_no_starving = pnode->nd_noautoresv;
   old_machine_spec = pnode->nd_machine_spec;
   old_fairshare_coef = pnode->nd_fairshare_coef;
   old_np_avail_after = pnode->nd_avail_after;
@@ -654,6 +656,9 @@ int chk_characteristic(
     }
 
   if (pnode->nd_priority != old_priority)
+    *pneed_todo |= WRITE_NEW_NODESFILE;
+
+  if (pnode->nd_noautoresv != old_no_starving)
     *pneed_todo |= WRITE_NEW_NODESFILE;
 
   if (pnode->nd_machine_spec != old_machine_spec)
@@ -906,6 +911,7 @@ static void initialize_pbsnode(
   pnode->queue = NULL;
   pnode->cloud = NULL;
   pnode->nd_no_multinode = 0;
+  pnode->nd_noautoresv = 0;
   pnode->nd_exclusive = 0;
   pnode->x_ad_prop = NULL;
   pnode->x_ad_properties = NULL;
@@ -1421,10 +1427,10 @@ update_nodes_file(void)
 
     /* write out queue */
     if (np->queue != NULL)
-      fprintf(nin, " queue=%s", np->queue);
+      fprintf(nin, " %s=%s", ATTR_NODE_queue, np->queue);
 
     if (np->nd_priority != 100)
-      fprintf(nin, " priority=%ld", np->nd_priority);
+      fprintf(nin, " %s=%ld", ATTR_NODE_priority, np->nd_priority);
 
     if (np->nd_avail_after != 0)
       fprintf(nin, " %s=%ld", ATTR_NODE_available_after, np->nd_avail_after);
@@ -1440,6 +1446,9 @@ update_nodes_file(void)
 
     if (np->nd_no_multinode)
       fprintf(nin, " %s=1",ATTR_NODE_no_multinode_jobs);
+
+    if (np->nd_noautoresv)
+      fprintf(nin, " %s=1",ATTR_NODE_noautoresv);
 
     if (np->nd_admin_slot_enabled)
       fprintf(nin, " %s=1",ATTR_NODE_admin_slot_enabled);
