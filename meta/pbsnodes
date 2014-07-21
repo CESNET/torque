@@ -12,24 +12,21 @@ if [ "$QNODES" == "" ]; then
 	exit 1;
 fi
 
-# MM 11/2006 Pokud chci vypsat vsechny uzly co jsou mimo PBS, ukaz i uzly
-# v maintenace rezimu (pro PBS se tvari jako pouzitelne uzly)
+for arg in "$@"; do
+	case "$arg" in
+	-l)	$QNODES -a | awk '	/^[a-z]/ {host=$1;c="";q="";}
+					/state =/ {state=$3;}
+					/comment =/ {$1="";$2="";c=$0; gsub("^  *", "", c); }
+					/queue =/ {q=$3;}
+					/^$/ {
+						if (state!="free" && state!="job-busy" && state!="job-exclusive" )
+							print host"\t"state,c;
+						else if (q!="") print host"\t"q;
+						}'
+		exit 0;;
+	-*)	pargs="$pargs $arg";;
+	*)	pargs="$pargs $(LC_ALL=C host -TtA $arg | awk '/has address/{ print $1 }')";;
+	esac
+done
 
-if [ "$1" = "-l" ]
-then
-        $QNODES -a | awk\
-        '\
-                /^[a-z]/ {host=$1;c="";q="";} \
-                /state =/ {state=$3;} \
-                /comment =/ {$1="";$2="";c=$0; gsub("^  *", "", c); }\
-                /queue =/ {q=$3;}\
-                /^$/ {\
-                        if (state!="free" && state!="job-busy" && \
-                                        state!="job-exclusive" )\
-                                print host"\t"state,c;\
-                        else if (q!="") print host"\t"q;\
-        }'
-else
-        $QNODES $@
-fi
-
+$QNODES $pargs
