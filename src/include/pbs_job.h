@@ -256,6 +256,8 @@ enum job_atr
   JOB_ATR_outpath,
   JOB_ATR_priority,
   JOB_ATR_qtime,
+  JOB_ATR_planned_start,
+  JOB_ATR_planned_nodes,
   JOB_ATR_rerunable,
   JOB_ATR_resource,
   JOB_ATR_session_id,

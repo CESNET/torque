@@ -1195,6 +1195,7 @@ void display_statjob(
                 !strcmp(a->name, ATTR_etime) ||
                 !strcmp(a->name, ATTR_mtime) ||
                 !strcmp(a->name, ATTR_qtime) ||
+                !strcmp(a->name, ATTR_planned_start) ||
                 !strcmp(a->name, ATTR_start_time) ||
                 !strcmp(a->name, ATTR_comp_time) ||
                 !strcmp(a->name, ATTR_checkpoint_time) ||

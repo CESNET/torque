@@ -431,6 +431,32 @@ attribute_def job_attr_def[] =
     ATR_TYPE_LONG,
     PARENT_TYPE_JOB
   },
+
+  /* JOB_ATR_planned_start */
+  { ATTR_planned_start,  /* "planned_start" */
+    decode_l,
+    encode_l,
+    set_l,
+    comp_l,
+    free_null,
+    NULL_FUNC,
+    READ_ONLY | ATR_DFLAG_SSET,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_JOB
+  },
+  /* JOB_ATR_planned_nodes */
+  { ATTR_planned_nodes,  /* "scheduled node" */
+    decode_str,
+    encode_str,
+    set_str,
+    comp_str,
+    free_str,
+    NULL_FUNC,
+    READ_ONLY | ATR_DFLAG_SSET,
+    ATR_TYPE_STR,
+    PARENT_TYPE_JOB
+  },
+
   /* JOB_ATR_rerunable */
   { ATTR_r,   /* "Rerunable" */
     decode_b,
