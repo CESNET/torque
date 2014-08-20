@@ -704,9 +704,9 @@ void restore_jobs_to_resend(job **jobs, unsigned count)
            }
          }
       }
-    free(line);
     }
 
+  free(line);
   fclose(storage);
   }
 
