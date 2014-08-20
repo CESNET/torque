@@ -196,6 +196,39 @@ static int user_account_read_user A_((char *));
 
 static char *pbs_o_que = "PBS_O_QUEUE=";
 
+static int filter_job_replaceppn(resource_def *d_nodes, job* pj)
+  {
+  resource *nodes;
+  /* is node resource present? */
+  if ((nodes = find_resc_entry(&pj->ji_wattr[(int)JOB_ATR_resource],d_nodes)) != 0)
+    {
+    /* go through the old nodestr and construct a new one */
+    char *nodestr, *newnodestr, *p;
+
+    nodestr = nodes->rs_value.at_val.at_str;
+    newnodestr = malloc(strlen(nodestr)+1);
+    if (newnodestr == NULL)
+      return 1;
+
+    memset(newnodestr,0,strlen(nodestr)+1);
+
+    while ((p = strstr(nodestr,"ncpus")) != NULL)
+      {
+      strncat(newnodestr,nodestr,p-nodestr); /* copy the necesary number of characters */
+      strcat(newnodestr,"ppn");
+      nodestr = p + strlen("ncpus"); /* move past the ncpus */
+      }
+
+    /* concat the rest */
+    strcat(newnodestr,nodestr);
+
+    free(nodes->rs_value.at_val.at_str);
+    nodes->rs_value.at_val.at_str = newnodestr;
+    }
+
+  return 0;
+  }
+
 static int filter_job(job *pj)
   {
   /* find ncpus in the resource list (nodespec only) and replace */
@@ -210,69 +243,34 @@ static int filter_job(job *pj)
       jbrc = (resource*)GET_NEXT(jbrc->rs_link);
       }
 
+    // replace ncpus with ppn
     resource_def *d_nodes;
 
     if ((d_nodes = find_resc_def(svr_resc_def,"nodes",svr_resc_size)) != 0)
       {
+      if (filter_job_replaceppn(d_nodes,pj) != 0) { return 1; }
+
+      // add -l place=infiniband if infiniband property is present
       resource *nodes;
-      /* is node resource present? */
       if ((nodes = find_resc_entry(&pj->ji_wattr[(int)JOB_ATR_resource],d_nodes)) != 0)
         {
-        /* go through the old nodestr and construct a new one */
-        char *nodestr, *newnodestr, *p;
-
-        nodestr = nodes->rs_value.at_val.at_str;
-        newnodestr = malloc(strlen(nodestr)+1);
-        if (newnodestr == NULL)
-          return 1;
-
-        memset(newnodestr,0,strlen(nodestr)+1);
-
-        while ((p = strstr(nodestr,"ncpus")) != NULL)
+        if (strstr(nodes->rs_value.at_val.at_str,"infiniband") != NULL)
           {
-          strncat(newnodestr,nodestr,p-nodestr); /* copy the necesary number of characters */
-          strcat(newnodestr,"ppn");
-          nodestr = p + strlen("ncpus"); /* move past the ncpus */
+          resource_def *place_def;
+          resource *place_val;
+          if ((place_def = find_resc_def(svr_resc_def,"place",svr_resc_size)) != 0)
+          if ((place_val = find_resc_entry(&pj->ji_wattr[(int)JOB_ATR_resource],place_def)) == 0)
+          if ((place_val = add_resource_entry(&pj->ji_wattr[(int)JOB_ATR_resource],place_def)) != 0)
+            {
+            place_val->rs_value.at_val.at_str = strdup("infiniband");
+            place_val->rs_value.at_flags |= ATR_VFLAG_SET;
+            }
           }
-
-        /* concat the rest */
-        strcat(newnodestr,nodestr);
-
-        free(nodes->rs_value.at_val.at_str);
-        nodes->rs_value.at_val.at_str = newnodestr;
         }
       }
 
     if ((d_nodes = find_resc_def(svr_resc_def,"neednodes",svr_resc_size)) != 0)
-      {
-      resource *nodes;
-      /* is node resource present? */
-      if ((nodes = find_resc_entry(&pj->ji_wattr[(int)JOB_ATR_resource],d_nodes)) != 0)
-        {
-        /* go through the old nodestr and construct a new one */
-        char *nodestr, *newnodestr, *p;
-
-        nodestr = nodes->rs_value.at_val.at_str;
-        newnodestr = malloc(strlen(nodestr)+1);
-        if (newnodestr == NULL)
-          return 1;
-
-        memset(newnodestr,0,strlen(nodestr)+1);
-
-        while ((p = strstr(nodestr,"ncpus")) != NULL)
-          {
-          strncat(newnodestr,nodestr,p-nodestr); /* copy the necesary number of characters */
-          strcat(newnodestr,"ppn");
-          nodestr = p + strlen("ncpus"); /* move past the ncpus */
-          }
-
-        /* concat the rest */
-        strcat(newnodestr,nodestr);
-
-        free(nodes->rs_value.at_val.at_str);
-        nodes->rs_value.at_val.at_str = newnodestr;
-        }
-      }
+      if (filter_job_replaceppn(d_nodes,pj) != 0) { return 1; }
     }
 
   return 0;
