@@ -1,0 +1,32 @@
+momctl -q jobs | cut -d\' -f2 | cut -d= -f2 | tr ' ' '\n' | while read JOBID; do
+  HOSTNAME=$(hostname);
+  JOBSTAT="$(qstat -f1 $JOBID 2>/dev/null)";
+  USER=$(echo "$JOBSTAT" | awk -F= '/euser/ { print $2 }' | tr -d ' ');
+  NODESPEC=$(echo "$JOBSTAT" | awk '/sched_nodespec/ { print $3 }' | tr '+' '\n' | grep $HOSTNAME);
+  DIR=$(echo $NODESPEC | tr ':' '\n' | awk -F= '/scratch_type/ { print $2 }');
+  VOL=$(echo $NODESPEC | tr ':' '\n' | awk -F= '/scratch_volume/ { print $2 }' | tr -d 'mb');
+
+  case $DIR in
+  shared)
+    PHYSDIR="/scratch.shared"
+    ;;
+  local)
+    PHYSDIR="/scratch"
+    ;;
+  ssd)
+    PHYSDIR="/scratch.ssd"
+    ;;
+  esac
+
+  echo "$PHYSDIR/$USER/job_$JOBID";
+  if [ -d "$PHYSDIR/$USER/job_$JOBID" ]; then
+    REQSIZE=$(($VOL*1024));
+    REALSIZE=$(du -sk $PHYSDIR/$USER/job_$JOBID);
+
+    
+    echo $REQSIZE;
+    echo $REALSIZE;
+  fi
+
+  echo "-------------------------";
+done
