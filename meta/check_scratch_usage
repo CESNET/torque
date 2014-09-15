@@ -1,32 +1,54 @@
-momctl -q jobs | cut -d\' -f2 | cut -d= -f2 | tr ' ' '\n' | while read JOBID; do
-  HOSTNAME=$(hostname);
-  JOBSTAT="$(qstat -f1 $JOBID 2>/dev/null)";
-  USER=$(echo "$JOBSTAT" | awk -F= '/euser/ { print $2 }' | tr -d ' ');
-  NODESPEC=$(echo "$JOBSTAT" | awk '/sched_nodespec/ { print $3 }' | tr '+' '\n' | grep $HOSTNAME);
-  DIR=$(echo $NODESPEC | tr ':' '\n' | awk -F= '/scratch_type/ { print $2 }');
-  VOL=$(echo $NODESPEC | tr ':' '\n' | awk -F= '/scratch_volume/ { print $2 }' | tr -d 'mb');
+#!/bin/bash
 
-  case $DIR in
-  shared)
-    PHYSDIR="/scratch.shared"
-    ;;
-  local)
-    PHYSDIR="/scratch"
-    ;;
-  ssd)
-    PHYSDIR="/scratch.ssd"
-    ;;
-  esac
+HOSTNAME=$(hostname);
 
-  echo "$PHYSDIR/$USER/job_$JOBID";
-  if [ -d "$PHYSDIR/$USER/job_$JOBID" ]; then
-    REQSIZE=$(($VOL*1024));
-    REALSIZE=$(du -sk $PHYSDIR/$USER/job_$JOBID);
+# get running jobs from pbs_mom
+JOBLIST=$(momctl -q jobs 2>/dev/null);
+if [ $? -ne 0 ]; then
+	logger -p daemon.crit -t pbs_mom "Could not get list of running jobs from pbs_mom."
+	exit 1;
+fi
 
-    
-    echo $REQSIZE;
-    echo $REALSIZE;
-  fi
+# iterate over running jobs and get full information from qstat -f
+echo "$JOBLIST" | cut -d\' -f2 | cut -d= -f2 | tr ' ' '\n' | while read JOBID; do
 
-  echo "-------------------------";
+	JOBSTAT="$(qstat -f1 $JOBID 2>/dev/null)";
+	if [ $? -ne 0 ]; then
+		logger -p daemon.crit -t pbs_mom "Could not stat job $JOBID";
+		continue
+	fi
+
+	USER=$(echo "$JOBSTAT" | awk -F= '/euser/ { print $2 }' | tr -d ' ');
+	# parse out nodespec for this particular node
+	NODESPEC=$(echo "$JOBSTAT" | awk '/sched_nodespec/ { print $3 }' | tr '+' '\n' | grep $HOSTNAME);
+	# get scratch  directory
+	DIR=$(echo $NODESPEC | tr ':' '\n' | awk -F= '/scratch_type/ { print $2 }');
+	# and scratch size
+	VOL=$(echo $NODESPEC | tr ':' '\n' | awk -F= '/scratch_volume/ { print $2 }' | tr -d 'mb');
+
+	case $DIR in
+	shared)
+		PHYSDIR="/scratch.shared"
+		;;
+	local)
+		PHYSDIR="/scratch"
+		;;
+	ssd)
+		PHYSDIR="/scratch.ssd"
+		;;
+	*)
+		# unrecognized scratch type - skip to next job
+		continue
+		;;
+	esac
+
+	if [ -d "$PHYSDIR/$USER/job_$JOBID" ]; then
+		REQSIZE=$(($VOL*1024));
+		REALSIZE=$(du -sk $PHYSDIR/$USER/job_$JOBID);
+
+		# over limit - report to syslog
+		if [ $REALSIZE -gt $REQSIZE ]; then
+			logger -p daemon.crit -t pbs_mom "SCRATCH_OVER_LIMIT;{$USER} user [$JOBID] scratch $DIR using more space ($(($REALSIZE/1024))mb) than requested ${VOL}mb.";
+		fi
+	fi
 done

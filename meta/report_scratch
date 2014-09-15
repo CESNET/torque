@@ -28,6 +28,7 @@ fi
 $CACHE_UPDATE $SERVER $HOSTNAME scratch_local $SCRATCHSIZE\;$SCRATCHDEAD >/dev/null 2>&1
 if [ $? -ne 0 ]; then
 	logger -p daemon.crit -t pbs_mom "Reporting local scratch size to pbs_cache failed.";
+	exit 1
 fi
 
 ######################
@@ -54,4 +55,5 @@ fi
 $CACHE_UPDATE $SERVER $HOSTNAME scratch_ssd $SCRATCHSIZE\;$SCRATCHDEAD >/dev/null 2>&1
 if [ $? -ne 0 ]; then
 	logger -p daemon.crit -t pbs_mom "Reporting SSD scratch size to pbs_cache failed.";
+	exit 1
 fi

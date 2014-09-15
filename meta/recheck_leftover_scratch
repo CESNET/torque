@@ -22,6 +22,7 @@ function search_dirs
 		$CACHE_UPDATE $SERVER "$USER@`hostname`:$scr" scratch_leftover $user_sum >/dev/null 2>&1;
 		if [ $? -ne 0 ]; then
 			logger -p daemon.crit -t pbs_mom "Could not update leftover scratch for user \"$USER\".";
+			exit 1
 		fi
 
 		UPDATED=1
@@ -51,6 +52,7 @@ done
 SCRATCH_LEFTOVER=`$CACHE_LIST $SERVER scratch_leftover 2>/dev/null`;
 if [ $? -ne 0 ]; then
 	logger -p daemon.crit -t pbs_mom "Could not get pbs_cache information for leftover scratch.";
+	exit 1
 fi
 
 echo $SCRATCH_LEFTOVER | grep $(hostname) | grep -v scratch.shared | cut -f1 | while read x; do
@@ -63,6 +65,7 @@ echo $SCRATCH_LEFTOVER | grep $(hostname) | grep -v scratch.shared | cut -f1 | w
 		$CACHE_DELETE $SERVER $x scratch_leftover >/dev/null 2>&1
 		if [ $? -ne 0 ]; then
 			logger -p daemon.crit -t pbs_mom "Could not delete leftover scratch record for user \"$user\".";
+			exit 1
 		fi
 	fi
 
