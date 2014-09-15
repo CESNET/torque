@@ -68,6 +68,7 @@ install-exec-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/torque-scratch-mgr.sh
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/torque-sw-paths.sh
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recheck_leftover_scratch
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/check_scratch_usage
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue.parallel
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
 	cp $(top_srcdir)/meta/prologue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue
@@ -80,6 +81,7 @@ install-exec-hook:
 	cp $(top_srcdir)/meta/mom_environ $(DESTDIR)$(sbindir)/mom_environ
 	cp $(top_srcdir)/meta/report_scratch $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/report_scratch
 	cp $(top_srcdir)/meta/recheck_leftover_scratch $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recheck_leftover_scratch
+	cp $(top_srcdir)/meta/check_scratch_usage $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/check_scratch_usage
 
 uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_ENVIRON)
@@ -98,4 +100,5 @@ uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/torque-scratch-mgr.sh
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/torque-sw-paths.sh
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recheck_leftover_scratch
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/check_scratch_usage
 

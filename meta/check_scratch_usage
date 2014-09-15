@@ -44,7 +44,7 @@ echo "$JOBLIST" | cut -d\' -f2 | cut -d= -f2 | tr ' ' '\n' | while read JOBID; d
 
 	if [ -d "$PHYSDIR/$USER/job_$JOBID" ]; then
 		REQSIZE=$(($VOL*1024));
-		REALSIZE=$(du -sk $PHYSDIR/$USER/job_$JOBID);
+		REALSIZE=$(du -sk $PHYSDIR/$USER/job_$JOBID | awk '{ print $1 }');
 
 		# over limit - report to syslog
 		if [ $REALSIZE -gt $REQSIZE ]; then
