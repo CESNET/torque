@@ -87,7 +87,7 @@ void set_resource_vars(job *pjob, struct var_table *vtable)
   else if (node->scratch_type == ScratchShared)
     sprintf(buf_val,"/scratch.shared/%s/job_%s",pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,pjob->ji_qs.ji_jobid);
 
-  if (node->scratch_type != ScratchNone)
+  if (node->scratch_type != ScratchNone && node->scratch_type != ScratchAny)
     {
     export_variable("SCRATCHDIR",buf_val,vtable);
     export_variable("SCRATCH",buf_val,vtable);

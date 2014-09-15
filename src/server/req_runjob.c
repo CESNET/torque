@@ -111,6 +111,7 @@
 #include "pbs_proto.h"
 #include "cloud.h"
 #include "nodespec.h"
+#include "pbs_nodes.h"
 
 #ifdef HAVE_NETINET_IN_H
 #include <netinet/in.h>
@@ -1718,6 +1719,25 @@ int assign_hosts(
   pars_spec *spec = parse_nodespec(hosttoalloc);
   pres = find_resc_entry( &pjob->ji_wattr[(int)JOB_ATR_total_resources], find_resc_def(svr_resc_def, "procs", svr_resc_size));
   pres->rs_value.at_val.at_long = spec->total_procs;
+
+  pars_spec_node *node = spec->nodes;
+  while (node != NULL)
+    {
+    if (node->host == NULL || find_nodebyname(node->host) == NULL)
+      {
+      free_parsed_nodespec(spec);
+      return PBSE_BADHOST;
+      }
+
+    if (node->scratch_type == ScratchAny)
+      {
+      free_parsed_nodespec(spec);
+      return PBSE_BADHOST;
+      }
+
+    node = node->next;
+    }
+
   free_parsed_nodespec(spec);
 
   /* do we need to allocate the (cluster) node(s)? */
