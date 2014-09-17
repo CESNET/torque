@@ -1,0 +1,36 @@
+# chmatak Ivan (c) 2014
+# - pravidelne touchuje SCRATCHDIR bezicich uloh
+
+#!/bin/bash
+
+# zjisti bezici ulohy
+JOBS=`/usr/sbin/momctl -q jobs 2>/dev/null`
+if [ $? -ne 0 ]
+then
+	sleep 10
+	JOBS=`/usr/sbin/momctl -q jobs 2>/dev/null`
+	if [ $? -ne 0 ]
+	then
+		logger -p daemon.crit -t pbs_mom "Could not get list of running jobs from momctl."
+		exit 0
+	fi
+fi
+
+
+# pro vsechny ulohy co bezi na tomto uzlu...
+for i in `echo "$JOBS" |sed "s/.* 'jobs=//"| sed "s/'//"`
+do
+	# ...zjisti kde maji SCRATCHDIR...
+        user=`/usr/bin/printjob /var/spool/torque/mom_priv/jobs/$i.JB 2>/dev/null| grep "^euser"| sed 's/euser = //'`;
+	host=`hostname`
+        type=`/usr/bin/printjob /var/spool/torque/mom_priv/jobs/$i.JB 2>/dev/null| grep "^sched_nodespec"| sed 's/+/\n/'| grep "$host"| grep scratch_type| sed 's/.*scratch_type=//'|sed 's/:.*//'`;
+
+	# ...pokud nevis, skonci...
+	if [ -z "$type" ]; then exit 0; fi # nektere chyby jsou normalni (type neni nastaven u jobu, ktere stavi virtualni clustery)
+	if [ -z "$user" -o -z "$host" ]; then echo "Pro $i je type/user/host prazdny, koncim"; exit 1; fi # jine vazne
+
+	#...jinak na nej sahni
+        if [ $type = local ]; then type=''; else type='.'$type; fi;
+
+        touch -c /scratch${type}/${user}/job_$i 2>/dev/null;
+done
