@@ -12,7 +12,7 @@ fi
 # iterate over running jobs and get full information from qstat -f
 echo "$JOBLIST" | cut -d\' -f2 | cut -d= -f2 | tr ' ' '\n' | while read JOBID; do
 
-	JOBSTAT="$(qstat -f1 $JOBID 2>/dev/null)";
+	JOBSTAT="$(/usr/bin/printjob /var/spool/torque/mom_priv/jobs/$JOBID.JB 2>/dev/null)";
 	if [ $? -ne 0 ]; then
 		logger -p daemon.crit -t pbs_mom "Could not stat job $JOBID";
 		continue

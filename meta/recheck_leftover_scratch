@@ -22,6 +22,7 @@ function search_dirs
 		$CACHE_UPDATE $SERVER "$USER@`hostname`:$scr" scratch_leftover $user_sum >/dev/null 2>&1;
 		if [ $? -ne 0 ]; then
 			logger -p daemon.crit -t pbs_mom "Could not update leftover scratch for user \"$USER\".";
+			echo "0";
 			exit 1
 		fi
 
