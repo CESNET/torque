@@ -1024,6 +1024,19 @@ attribute_def job_attr_def[] =
     PARENT_TYPE_JOB
   },
 
+  /* JOB_ATR_interactive_submit */
+  { ATTR_interactive_submit,
+    decode_b,
+    encode_b,
+    set_b,
+    comp_b,
+    free_null,
+    NULL_FUNC,
+    READ_WRITE | ATR_DFLAG_ALTRUN | ATR_DFLAG_SELEQ | ATR_DFLAG_MOM,
+    ATR_TYPE_LONG,
+    PARENT_TYPE_JOB
+  },
+
 #ifdef HAVE_GLITE_LB
     { ATTR_lb_jobid, /* "lb_jobid" */
       decode_str,

@@ -4871,6 +4871,11 @@ int main(
       }
     }
 
+  if (isatty(STDIN_FILENO) && isatty(STDOUT_FILENO))
+    {
+    set_attr(&attrib, ATTR_interactive_submit, "true");
+    }
+
   set_opt_defaults();  /* set option default values */
 
   server_out[0] = '\0';
