@@ -94,6 +94,7 @@
 #include <errno.h>
 #include <assert.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <sys/socket.h>
 #include <sys/time.h>
 #include <netinet/in.h>
@@ -171,6 +172,31 @@ typedef struct event_info
 
 static event_info *event_hash[EVENT_HASH];
 static int  event_count = 0;
+
+/*
+ * check if the owner of this process matches the owner of pid
+ *  returns TRUE if so, FALSE otherwise
+ */
+bool ispidowner(pid_t pid)
+  {
+  char        path[MAXPATHLEN];
+  struct stat sbuf;
+
+  /* build path to pid */
+  snprintf(path, sizeof(path), "/proc/%d", pid);
+
+  /* do the stat */
+  /*   if it fails, assume not owner */
+  if (stat(path, &sbuf) != 0)
+    return(FALSE);
+ 
+  /* see if caller is the owner of pid */
+  if (getuid() != sbuf.st_uid)
+    return(FALSE);
+
+  /* caller is owner */
+  return(TRUE);
+  }
 
 /*
 ** Find an event number or return a NULL.
@@ -1648,8 +1674,8 @@ err:
  *     some mpiruns simply use rsh to start remote processes - no AMS
  *     tracking or management facilities are available.
  *
- *     This function allows any task (session) to be adopted into a PBS
- *     job. It is used by:
+ *     This function allows any task (session) owned by the owner
+ *     of the job to be adopted into a PBS job. It is used by:
  *         -  "adopter" (which is in turn used by our pvmrun)
  *         -  our rmsloader wrapper (a home-brew replacement for RMS'
  *            rmsloader that does some work and then exec()s the real
@@ -1683,7 +1709,8 @@ err:
  *     the mom. Returns TM_ENOTFOUND if the mom couldn't find a job
  *     with the given RMS resource id. Returns TM_ESYSTEM or
  *     TM_ENOTCONNECTED if there was some sort of comms error talking
- *     to the mom
+ *     to the mom. Returns TM_EPERM if an attempt was made to adopt
+ *     a session not owned by the owner of the job.
  *
  * Side effects:
  *     Sets the tm_* globals to fake values if tm_init() has never
@@ -1700,6 +1727,10 @@ int tm_adopt(char *id, int adoptCmd, pid_t pid)
   char *env;
 
   sid = getsid(pid);
+
+  /* do not adopt a sid not owned by caller */
+  if (!ispidowner(sid))
+    return(TM_EPERM);
 
   /* Must be the only call to call to tm and
      must only be called once */
