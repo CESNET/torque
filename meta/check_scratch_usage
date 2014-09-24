@@ -5,7 +5,7 @@ HOSTNAME=$(hostname);
 # get running jobs from pbs_mom
 JOBLIST=$(momctl -q jobs 2>/dev/null);
 if [ $? -ne 0 ]; then
-	logger -p daemon.crit -t pbs_mom "Could not get list of running jobs from pbs_mom."
+	logger -p daemon.warn -t scratch_report "Could not get list of running jobs from pbs_mom."
 	exit 1;
 fi
 
@@ -14,7 +14,7 @@ echo "$JOBLIST" | cut -d\' -f2 | cut -d= -f2 | tr ' ' '\n' | while read JOBID; d
 
 	JOBSTAT="$(/usr/bin/printjob /var/spool/torque/mom_priv/jobs/$JOBID.JB 2>/dev/null)";
 	if [ $? -ne 0 ]; then
-		logger -p daemon.crit -t pbs_mom "Could not stat job $JOBID";
+		logger -p daemon.warn -t scratch_report "Could not stat job $JOBID";
 		continue
 	fi
 
@@ -48,7 +48,7 @@ echo "$JOBLIST" | cut -d\' -f2 | cut -d= -f2 | tr ' ' '\n' | while read JOBID; d
 
 		# over limit - report to syslog
 		if [ $REALSIZE -gt $REQSIZE ]; then
-			logger -p daemon.crit -t pbs_mom "SCRATCH_OVER_LIMIT;{$USER} user [$JOBID] scratch $DIR using more space ($(($REALSIZE/1024))mb) than requested ${VOL}mb.";
+			logger -p daemon.notice -t scratch_report "SCRATCH_OVER_LIMIT;{$USER} user [$JOBID] scratch $DIR using more space ($(($REALSIZE/1024))mb) than requested ${VOL}mb.";
 		fi
 	fi
 done

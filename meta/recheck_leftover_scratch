@@ -21,7 +21,7 @@ function search_dirs
 
 		$CACHE_UPDATE $SERVER "$USER@`hostname`:$scr" scratch_leftover $user_sum >/dev/null 2>&1;
 		if [ $? -ne 0 ]; then
-			logger -p daemon.crit -t pbs_mom "Could not update leftover scratch for user \"$USER\".";
+			logger -p daemon.warn -t scratch_report "Could not update leftover scratch for user \"$USER\".";
 			echo "0";
 			exit 1
 		fi
@@ -42,7 +42,7 @@ for scr in $SCRATCHES; do
 		UPDATED=$(search_dirs $scr);
 
 		if [ "$UPDATED" -ne 0 ]; then
-			$(dead_quota_sum $scr >$scr/.dead.size) 2>/dev/null
+			(dead_quota_sum $scr >$scr/.dead.size) 2>/dev/null
 		fi
 
 	fi
@@ -52,20 +52,21 @@ done
 # remove leftover records for directories previously removed
 SCRATCH_LEFTOVER=`$CACHE_LIST $SERVER scratch_leftover 2>/dev/null`;
 if [ $? -ne 0 ]; then
-	logger -p daemon.crit -t pbs_mom "Could not get pbs_cache information for leftover scratch.";
+	logger -p daemon.warn -t scratch_report "Could not get pbs_cache information for leftover scratch.";
 	exit 1
 fi
 
-echo $SCRATCH_LEFTOVER | grep $(hostname) | grep -v scratch.shared | cut -f1 | while read x; do
+echo "$SCRATCH_LEFTOVER" | grep $(hostname) | grep -v scratch.shared | cut -f1 | while read x; do
 
 	user=$(echo $x | cut -d@ -f1);
 	dir=$(echo $x | cut -d@ -f2 | cut -d: -f2);
 	sum=$(dead_quota_user_sum $dir/$user);
 
 	if [ -z $sum ] || [ $sum -eq 0 ]; then
-		$CACHE_DELETE $SERVER $x scratch_leftover >/dev/null 2>&1
+#		$CACHE_DELETE $SERVER $x scratch_leftover >/dev/null 2>&1
+		$CACHE_UPDATE $SERVER $x scratch_leftover 0 >/dev/null 2>&1
 		if [ $? -ne 0 ]; then
-			logger -p daemon.crit -t pbs_mom "Could not delete leftover scratch record for user \"$user\".";
+			logger -p daemon.warn -t scratch_report "Could not delete leftover scratch record for user \"$user\".";
 			exit 1
 		fi
 	fi

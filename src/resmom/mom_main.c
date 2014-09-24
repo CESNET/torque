@@ -8318,7 +8318,6 @@ void main_loop(void)
 
   extern time_t wait_time;
   double        myla;
-  job          *pjob;
   time_t        tmpTime;
 #ifdef USESAVEDRESOURCES
   int           check_dead = TRUE;
@@ -8498,11 +8497,30 @@ void main_loop(void)
     if (sigprocmask(SIG_BLOCK, &allsigs, NULL) == -1)
       log_err(errno, id, "sigprocmask(BLOCK)");
 
-
-    if ((pjob = (job *)GET_NEXT(svr_alljobs)) == NULL)
       {
-      MOMCheckRestart();  /* There are no jobs, see if the server needs to be restarted. */
+      /* if there are only local jobs that are currently in running state, restart */
+      int can_restart = 1;
+      job *pjob = (job *)GET_NEXT(svr_alljobs);
+      while (pjob != NULL && can_restart != 0)
+        {
+        if (pjob->ji_numnodes != 1)
+          can_restart = 0;
+
+        if (pjob->ji_qs.ji_state != JOB_STATE_RUNNING)
+          can_restart = 0;
+
+        if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
+          can_restart = 0;
+
+        pjob = (job*)GET_NEXT(pjob->ji_alljobs);
+        }
+
+      if (can_restart != 0)
+        {
+        MOMCheckRestart();  /* There are no jobs, see if the server needs to be restarted. */
+        }
       }
+
     }      /* END while (mom_run_state == MOM_RUN_STATE_RUNNING) */
 
   return;

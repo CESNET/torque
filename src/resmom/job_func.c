@@ -773,10 +773,27 @@ void job_purge(
 
   job_free(pjob);
 
-  /* if no jobs are left, check if MOM should be restarted */
+    {
+    /* if there are only local jobs that are currently in running state, restart */
+    int can_restart = 1;
+    job *pjob = (job *)GET_NEXT(svr_alljobs);
+    while (pjob != NULL && can_restart != 0)
+      {
+      if (pjob->ji_numnodes != 1)
+        can_restart = 0;
 
-  if (((job *)GET_NEXT(svr_alljobs)) == NULL)
-    MOMCheckRestart();
+      if (pjob->ji_qs.ji_state != JOB_STATE_RUNNING)
+        can_restart = 0;
+
+      if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
+        can_restart = 0;
+
+      pjob = (job*)GET_NEXT(pjob->ji_alljobs);
+      }
+
+    if (can_restart != 0)
+      MOMCheckRestart();
+    }
 
   return;
   }  /* END job_purge() */

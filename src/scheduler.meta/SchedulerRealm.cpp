@@ -211,7 +211,7 @@ void World::update_fairshare()
     }
   else
     {
-    last_decay = cstat.current_time;
+    last_decay = 0;
     }
 
   bool decayed = false;
