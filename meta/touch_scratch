@@ -10,7 +10,7 @@ then
 	JOBS=`/usr/sbin/momctl -q jobs 2>/dev/null`
 	if [ $? -ne 0 ]
 	then
-		logger -p daemon.crit -t pbs_mom "Could not get list of running jobs from momctl."
+		logger -p daemon.err -t scratch_cleanup "Could not get list of running jobs from momctl."
 		exit 0
 	fi
 fi

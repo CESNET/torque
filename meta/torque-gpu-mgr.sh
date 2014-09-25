@@ -20,7 +20,7 @@ if [ "$OPR" = "lock" ]; then
 			if [ -r /var/spool/torque/aux/$jobid ]; then
 				logger -p daemon.crit -t pbs_mom "Node doesn't report job whose files are still present in aux.";
 			else
-				logger -p daemon.crit -t pbs_mom "Cleaned up stale gpu aux file.";
+				logger -p daemon.info -t pbs_mom "Cleaned up stale gpu aux file.";
 				rm $i;
 			fi
 		fi
@@ -33,7 +33,7 @@ if [ "$OPR" = "lock" ]; then
 			if [ -r /var/spool/torque/aux/$i ]; then
 				logger -p daemon.crit -t pbs_mom "Node doesn't report job whose files are still present in aux.";
 			else
-				logger -p daemon.crit -t pbs_mom "Cleaned up stale cache record.";
+				logger -p daemon.info -t pbs_mom "Cleaned up stale cache record.";
 				for j in $($CACHE_LIST $SERVER gpu_allocation | grep -v unallocated | grep `hostname` | grep $i | cut -f1); do
 					$CACHE_UPDATE $SERVER $j gpu_allocation unallocated;
 				done
