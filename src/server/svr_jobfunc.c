@@ -1518,8 +1518,7 @@ int svr_chkque(
                ACL_Gid);
         }
 
-      if ((rc == 0) && slpygrp &&
-          (!(pjob->ji_wattr[(int)JOB_ATR_grouplst].at_flags & ATR_VFLAG_SET)))
+      if ((rc == 0) && slpygrp)
         {
         /* check group acl against all accessible groups */
 
