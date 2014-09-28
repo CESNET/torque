@@ -192,6 +192,6 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg);
 /*
  *      calc_assn_resource - calcualte the assigned resource in a job array
  */
-int calc_assn_resource(job_info **jinfo_arr, char *resstr);
+int calc_assn_resource(job_info **jinfo_arr, const char *resstr);
 
 #endif

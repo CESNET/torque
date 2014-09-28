@@ -183,8 +183,8 @@ node_info **query_nodes(int pbs_sd, server_info *sinfo)
       if (physical == NULL)
       { free(host); continue; }
 
-      ninfo_arr[i]->host = physical;
-      physical->hosted.push_back(ninfo_arr[i]);
+      ninfo_arr[i]->set_host(physical);
+      physical->get_hosted().push_back(ninfo_arr[i]);
 
       free(host);
       }
@@ -271,7 +271,7 @@ node_info **node_filter(node_info **nodes, int size,
 int is_node_non_dedicated(node_info *node, void * UNUSED(arg))
   {
   if (node != NULL)
-    return (node->get_dedicated_queue_name() == NULL);
+    return (node->get_dedicated_queue_name().size() == 0);
 
   return 0;
   }

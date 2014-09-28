@@ -381,8 +381,7 @@ void query_external_cache(server_info *sinfo, int dynamic)
         value=xcache_hash_find(ptable,node->get_name());
         if (value != NULL)
           {
-          free(node->cluster_name);
-          node->cluster_name = value;
+          node->set_phys_cluster(value);
           }
         }
       }
@@ -454,11 +453,9 @@ void query_external_cache(server_info *sinfo, int dynamic)
           if (usage != NULL)
             {
             ++usage;
-            resource *res = node->get_resource("scratch_local");
+            Resource *res = node->get_resource("scratch_local");
             if (res != NULL)
-              {
-              res->assigned += res_to_num(usage);
-              }
+              res->consume_resource(usage);
             }
           }
         free(value);
@@ -485,11 +482,9 @@ void query_external_cache(server_info *sinfo, int dynamic)
           if (usage != NULL)
             {
             ++usage;
-            resource *res = node->get_resource("scratch_ssd");
+            Resource *res = node->get_resource("scratch_ssd");
             if (res != NULL)
-              {
-              res->assigned += res_to_num(usage);
-              }
+              res->consume_resource(usage);
             }
           }
         free(value);

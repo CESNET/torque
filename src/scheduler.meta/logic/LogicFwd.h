@@ -23,7 +23,6 @@ struct NodeSuitableForSpec;
 struct NodeSuitableForPlace;
 
 // NodeLogic
-enum CheckResult { CheckAvailable, CheckOccupied, CheckNonFit };
 class NodeLogic;
 
 }}

@@ -97,43 +97,14 @@ server_info *query_server(int pbs_sd);
 server_info *query_server_info(struct batch_status *server);
 
 /*
- * find_alloc_resource - try and find a resource, and if it is not there
- *         alocate space for it and add it to the resource
- *         list
- */
-
-resource *find_alloc_resource(resource *resplist, const char *name);
-
-/*
- * find_resource - finds a resource in a resource list
- */
-
-resource *find_resource(resource *reslist, const char *name);
-
-/*
  * free_server_info - free the space used by a server_info structure
  */
 void free_server_info(server_info *sinfo);
 
 /*
- *      free_resource - free a resource struct
- */
-void free_resource(resource *res);
-
-/*
- *      free_resource_list - free a resource list
- */
-void free_resource_list(resource *res_list);
-
-/*
  *      new_server_info - allocate and initalize a new server_info struct
  */
 server_info *new_server_info();
-
-/*
- *      new_resource - allocate and initialize new resoruce struct
- */
-resource *new_resource();
 
 /*
  *      print_server_info - print server_info structure

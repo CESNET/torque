@@ -4,7 +4,6 @@
 #include "config.h"
 #include "constant.h"
 
-struct resource;
 struct server_info;
 
 /* resources can get too large for a 32 bit number, so the ability to use the
@@ -12,5 +11,7 @@ struct server_info;
  */
 typedef RESOURCE_TYPE sch_resource_t;
 typedef sch_resource_t usage_t;
+
+enum CheckResult { CheckAvailable, CheckOccupied, CheckNonFit };
 
 #endif

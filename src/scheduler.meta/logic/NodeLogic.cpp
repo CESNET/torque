@@ -84,42 +84,27 @@ CheckResult NodeLogic::has_mem(const job_info *job, const pars_spec_node *spec) 
     return CheckAvailable;
 
   // Only checking mem, vmem currently skipped
-  struct resource *mem = this->get_resource("mem");
-
-  if (mem != NULL)
+  Resource *mem = this->get_resource("mem");
+  if (mem == NULL)
     {
-    // requested more than the node can ever provide
-    if (static_cast<long long>(spec->mem) > mem->max)
+    if (spec->mem != 0)
       return CheckNonFit;
-
-    // requested more than the can currently provide
-    if (static_cast<long long>(spec->mem) + mem->assigned > mem->max)
-      return CheckOccupied;
+    else
+      return CheckAvailable;
     }
   else
     {
-    // requested node doesn't have memory, but memory requested
-    if (spec->mem != 0)
-      return CheckNonFit;
+    return mem->check_numeric_fit(spec->mem);
     }
-
-  return CheckAvailable;
   }
 
 static CheckResult check_scratch_helper(const NodeLogic * const ninfo, const char *name, unsigned long long value)
   {
-  struct resource *res = ninfo->get_resource(name);
-
+  Resource *res = ninfo->get_resource(name);
   if (res == NULL)
     return CheckNonFit;
 
-  if (res->max - res->assigned <= 0)
-    return CheckOccupied;
-
-  if (static_cast<unsigned long long>(res->max - res->assigned) >= value)
-    return CheckAvailable;
-
-  return CheckOccupied;
+  return res->check_numeric_fit(value);
   }
 
 CheckResult NodeLogic::has_scratch(const job_info *job, const pars_spec_node *spec, ScratchType *scratch) const
@@ -226,37 +211,11 @@ CheckResult NodeLogic::has_resc(const pars_prop *prop) const
       return CheckNonFit;
     }
 
-  struct resource *resc;
+  Resource *resc;
   if ((resc = this->get_resource(prop->name)) == NULL)
     return CheckNonFit;
 
-  if (resc->is_string) // string resources work as properties
-    {
-    if (strcmp(resc->str_avail,prop->value) != 0)
-      return CheckNonFit;
-    else
-      return CheckAvailable;
-    }
-
-  sch_resource_t amount = Base::res_to_num(prop->value);
-
-  if (resc->max != INFINITY && resc->max != UNSPECIFIED && resc->max < amount) // there is a max and it's lower than the requested amount
-    return CheckNonFit;
-
-  if (resc->max == UNSPECIFIED || resc->max == INFINITY) // no max value present, only current
-    {
-    if (resc->avail - resc->assigned >= amount)
-      return CheckAvailable;
-    else
-      return CheckOccupied;
-    }
-  else // max value present
-    {
-    if (resc->max - resc->assigned >= amount)
-      return CheckAvailable;
-    else
-      return CheckOccupied;
-    }
+  return resc->check_fit(prop->value);
   }
 
 }}

@@ -122,7 +122,7 @@ server_info *query_server(int pbs_sd)
   struct batch_status *server; /* info about the server */
   server_info *sinfo;  /* scheduler internal form of server info */
   queue_info **qinfo;  /* array of queues on the server */
-  resource *res;  /* ptr to cycle through sources on server */
+
   int i;
 
   /* get server information from pbs server */
@@ -188,16 +188,6 @@ server_info *query_server(int pbs_sd)
   sinfo -> running_jobs =
     job_filter(sinfo -> jobs, sinfo -> sc.total, check_run_job, NULL);
 
-  res = sinfo -> res;
-
-  while (res != NULL)
-    {
-    if (res -> assigned == UNSPECIFIED)
-      res -> assigned = calc_assn_resource(sinfo -> running_jobs, res -> name);
-
-    res = res -> next;
-    }
-
   sinfo -> non_dedicated_nodes =
 
     node_filter(sinfo -> nodes, sinfo -> num_nodes, is_node_non_dedicated, NULL);
@@ -254,7 +244,6 @@ server_info *query_server_info(struct batch_status *server)
 
   struct attrl *attrp; /* linked list of attributes */
   server_info *sinfo; /* internal scheduler structure for server info */
-  resource *resp; /* a resource to help create the resource list */
   sch_resource_t count; /* used to convert string -> integer */
   char *endp;  /* used with strtol() */
 
@@ -305,39 +294,6 @@ server_info *query_server_info(struct batch_status *server)
 
       sinfo -> max_installing_nodes = count;
       }
-    else if (!strcmp(attrp -> name, ATTR_rescavail))    /* resources_available*/
-      {
-      count = res_to_num(attrp -> value);
-      resp = find_alloc_resource(sinfo -> res, attrp -> resource);
-
-      if (sinfo -> res == NULL)
-        sinfo -> res = resp;
-
-      if (resp != NULL)
-        resp -> avail = count;
-      }
-    else if (!strcmp(attrp -> name, ATTR_rescmax))   /* resources_max */
-      {
-      count = res_to_num(attrp -> value);
-      resp = find_alloc_resource(sinfo -> res, attrp -> resource);
-
-      if (sinfo -> res == NULL)
-        sinfo -> res = resp;
-
-      if (resp != NULL)
-        resp -> max = count;
-      }
-    else if (!strcmp(attrp -> name, ATTR_rescassn))   /* resources_assigned */
-      {
-      count = res_to_num(attrp -> value);
-      resp = find_alloc_resource(sinfo -> res, attrp -> resource);
-
-      if (sinfo -> res == NULL)
-        sinfo -> res = resp;
-
-      if (resp != NULL)
-        resp -> assigned = count;
-      }
     else if (!strcmp(attrp -> name, ATTR_tokens))  /* tokens */
       {
       sinfo->tokens = get_token_array(attrp -> value);
@@ -356,69 +312,6 @@ server_info *query_server_info(struct batch_status *server)
     }
 
   return sinfo;
-  }
-
-/*
- *
- * find_alloc_resource - try and find a resource, and if it is not there
- *         alocate space for it and add it to the resource
- *         list
- *
- *   resplist - the resoruce list
- *   name - the name of the resource
- *
- * returns either the found resource or newly allocated resource
- *
- */
-
-resource *find_alloc_resource(resource *resplist, const char *name)
-  {
-  resource *resp;  /* used to search through list of resources */
-  resource *prev = NULL; /* the previous resources in the list */
-
-  resp = resplist;
-
-  while (resp != NULL && strcmp(resp -> name, name))
-    {
-    prev = resp;
-    resp = resp -> next;
-    }
-
-  if (resp == NULL)
-    {
-    if ((resp = new_resource()) == NULL)
-      return NULL;
-
-    retnull_on_null(resp -> name = strdup(name));
-
-    if (prev != NULL)
-      prev -> next = resp;
-    }
-
-  return resp;
-  }
-
-/*
- *
- * find_resource - finds a resource in a resource list
- *
- *   reslist - resource list
- *   name - name of resource to find
- *
- * returns resource if found or NULL if not
- *
- */
-
-resource *find_resource(resource *reslist, const char *name)
-  {
-  resource *resp; /* used to search through list of resources */
-
-  resp = reslist;
-
-  while (resp != NULL && strcmp(resp -> name, name))
-    resp = resp -> next;
-
-  return resp;
   }
 
 /*
@@ -445,47 +338,7 @@ void free_server_info(server_info *sinfo)
   if (sinfo -> non_dedicated_nodes != NULL)
     free(sinfo -> non_dedicated_nodes);
 
-  free_resource_list(sinfo -> res);
-
   delete sinfo;
-  }
-
-/*
- *
- * free_resource - free a resource struct
- *
- *   res - the resource to free
- *
- * returns nothing
- *
- */
-void free_resource(resource *res)
-  {
-  delete res;
-  }
-
-/*
- *
- * free_resource_list - free a resource list
- *
- *   reslist - the reslist to free
- *
- * returns nothing
- *
- */
-void free_resource_list(resource *res_list)
-  {
-  resource *tmp; /* temporary next resource holder */
-  resource *res; /* current resource to free */
-
-  res = res_list;
-
-  while (res != NULL)
-    {
-    tmp = res -> next;
-    free_resource(res);
-    res = tmp;
-    }
   }
 
 /*
@@ -503,8 +356,6 @@ server_info *new_server_info()
     return NULL;
 
   sinfo -> name = NULL;
-
-  sinfo -> res = NULL;
 
   sinfo -> default_queue = NULL;
 
@@ -537,60 +388,6 @@ server_info *new_server_info()
   init_state_count(&(sinfo -> sc));
 
   return sinfo;
-  }
-
-/*
- *
- * new_resource - allocate and initialize new resoruce struct
- *
- * returns new struct
- *
- */
-resource *new_resource()
-  {
-  return new (std::nothrow) resource;
-  }
-
-/*
- *
- * print_server_info - print server_info structure
- *
- *   sinfo - the struct to print
- *   brief - only print the name of the server
- *
- * returns nothing
- *
- */
-void print_server_info(server_info *sinfo, char brief)
-  {
-  resource *resp; /* used in printing the resources */
-
-  if (sinfo == NULL)
-    return;
-
-  if (sinfo -> name != NULL)
-    printf("Server name: %s\n", sinfo -> name);
-
-  if (!brief)
-    {
-    printf("default_queue: %s\n", sinfo -> default_queue);
-    printf("max_run: %d\n", sinfo -> max_run);
-    printf("max_user_run: %d\n", sinfo -> max_user_run);
-    printf("max_group_run: %d\n", sinfo -> max_group_run);
-    printf("num_nodes: %d\n", sinfo -> num_nodes);
-    printf("num_queues: %d\n", sinfo -> num_queues);
-    print_state_count(&sinfo -> sc);
-
-    resp = sinfo -> res;
-
-    while (resp != NULL)
-      {
-      printf("res %s max: %-10lld avail: %-10lld assigned: %-10lld\n",
-             resp -> name, resp -> max, resp -> avail, resp -> assigned);
-
-      resp = resp -> next;
-      }
-    }
   }
 
 /*
@@ -630,27 +427,10 @@ void free_server(server_info *sinfo, int free_objs_too)
  */
 void update_server_on_move(server_info *sinfo, job_info *jinfo)
   {
-  /* TODO: should we update the total as well? */
-  resource_req *resreq;  /* used to cycle through resources to update */
-  resource *res;  /* used in finding a resource to update */
-  int i;
-
   sinfo -> sc.running++;
   jinfo -> queue -> server -> sc.queued--;
 
-  resreq = jinfo -> resreq;
-
-  while (resreq != NULL)
-    {
-    res = find_resource(sinfo -> res, resreq -> name);
-
-    if (res)
-      res -> assigned += resreq -> amount;
-
-    resreq = resreq -> next;
-    }
-
-  for (i = 0; i < sinfo->num_nodes; i++)
+  for (int i = 0; i < sinfo->num_nodes; i++)
     if (sinfo->nodes[i]->has_assignment())
       jinfo->plan_on_node(sinfo->nodes[i],sinfo->nodes[i]->get_assignment());
   }

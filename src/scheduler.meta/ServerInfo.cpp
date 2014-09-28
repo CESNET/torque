@@ -6,7 +6,7 @@ void server_info::recount_installing_nodes()
 
   for (int i=0; i<this->num_nodes; i++)
     {
-    if (this->nodes[i]->is_building_cluster)
+    if (this->nodes[i]->is_building_cluster())
       ++(this->installing_node_count);
     }
   }

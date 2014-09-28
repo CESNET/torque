@@ -15,7 +15,7 @@ using namespace std;
 
 void job_info::unplan_from_node(node_info* ninfo, pars_spec_node* spec)
   {
-  resource *res;
+  Resource *res;
 
   if (is_exclusive)
     ninfo->freeup_proc(ninfo->get_cores_total());
@@ -24,29 +24,25 @@ void job_info::unplan_from_node(node_info* ninfo, pars_spec_node* spec)
 
   /* mem */
   if ((res = ninfo->get_resource("mem")) != NULL)
-    res->assigned -= spec->mem;
-
-  /* vmem */
-  if ((res = ninfo->get_resource("vmem")) != NULL)
-    res->assigned -= spec->vmem;
+    res->freeup_resource(spec->mem);
 
   if (ninfo->get_scratch_assign() == ScratchLocal)
     {
     if ((res = ninfo->get_resource("scratch_local")) != NULL)
-      res->assigned -= spec->scratch;
+      res->freeup_resource(spec->scratch);
     }
 
   if (ninfo->get_scratch_assign() == ScratchSSD)
     {
     if ((res = ninfo->get_resource("scratch_ssd")) != NULL)
-      res->assigned -= spec->scratch;
+      res->freeup_resource(spec->scratch);
     }
 
   if (ninfo->get_scratch_assign() == ScratchShared)
     {
     if ((res = ninfo->get_resource("scratch_pool")) != NULL)
       {
-      string pool = res->str_avail;
+      string pool = res->get_str_val();
       map<string,DynamicResource>::iterator i;
       i = ninfo->get_parent_server()->dynamic_resources.find(pool);
       if (i != ninfo->get_parent_server()->dynamic_resources.end())
@@ -66,9 +62,7 @@ void job_info::unplan_from_node(node_info* ninfo, pars_spec_node* spec)
     if (res_check_type(iter->name) != ResCheckNone)
       {
       if ((res = ninfo->get_resource(iter->name)) != NULL)
-        {
-        res->assigned -= res_to_num(iter->value);
-        }
+        res->freeup_resource(iter->value);
       }
 
     iter = iter->next;
@@ -77,13 +71,13 @@ void job_info::unplan_from_node(node_info* ninfo, pars_spec_node* spec)
 
 void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
   {
-  resource *res;
+  Resource *res;
 
   if (this->cluster_mode == ClusterCreate)
     {
-    for (size_t i = 0; i < ninfo->host->hosted.size(); i++)
+    for (size_t i = 0; i < ninfo->get_host()->get_hosted().size(); i++)
       {
-      ninfo->host->hosted[i]->set_notusable();
+      ninfo->get_host()->get_hosted()[i]->set_notusable();
       sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_NODE, ninfo->get_name(),
                 "Node marked as incapable of running and booting jobs, because it, or it's sister is servicing a cluster job.");
       }
@@ -96,29 +90,25 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
 
   /* mem */
   if ((res = ninfo->get_resource("mem")) != NULL)
-    res->assigned += spec->mem;
-
-  /* vmem */
-  if ((res = ninfo->get_resource("vmem")) != NULL)
-    res->assigned += spec->vmem;
+    res->consume_resource(spec->mem);
 
   if (ninfo->get_scratch_assign() == ScratchLocal)
     {
     if ((res = ninfo->get_resource("scratch_local")) != NULL)
-      res->assigned += spec->scratch;
+      res->consume_resource(spec->scratch);
     }
 
   if (ninfo->get_scratch_assign() == ScratchSSD)
     {
     if ((res = ninfo->get_resource("scratch_ssd")) != NULL)
-      res->assigned += spec->scratch;
+      res->consume_resource(spec->scratch);
     }
 
   if (ninfo->get_scratch_assign() == ScratchShared)
     {
     if ((res = ninfo->get_resource("scratch_pool")) != NULL)
       {
-      string pool = res->str_avail;
+      string pool = res->get_str_val();
       map<string,DynamicResource>::iterator i;
       i = ninfo->get_parent_server()->dynamic_resources.find(pool);
       if (i != ninfo->get_parent_server()->dynamic_resources.end())
@@ -138,9 +128,7 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
     if (res_check_type(iter->name) != ResCheckNone)
       {
       if ((res = ninfo->get_resource(iter->name)) != NULL)
-        {
-        res->assigned += res_to_num(iter->value);
-        }
+        res->consume_resource(iter->value);
       }
 
     iter = iter->next;
@@ -149,39 +137,12 @@ void job_info::plan_on_node(node_info* ninfo, pars_spec_node* spec)
 
 void job_info::plan_on_queue(queue_info* qinfo)
   {
-  resource_req *req;  /* used to cycle through resources to update */
-  resource *res;  /* used in finding a resource to update */
-
-  /* count total used resources */
-  req = resreq;
-  while (req != NULL)
-    {
-    res = find_resource(qinfo->qres, req->name);
-    if (res)
-      res->assigned += req->amount;
-
-    req = req->next;
-    }
   }
 
 void job_info::plan_on_server(server_info* sinfo)
   {
-  resource_req *req;  /* used to cycle through resources to update */
-  resource *res;  /* used in finding a resource to update */
-
-  /* count total used resources */
-  req = resreq;
-  while (req != NULL)
-    {
-    res = find_resource(sinfo->res, req->name);
-    if (res)
-      res->assigned += req->amount;
-
-    req = req->next;
-    }
-
   /* count dynamic resources */
-  req = resreq;
+  resource_req *req = resreq;
   while (req != NULL)
     {
     map<string,DynamicResource>::iterator it = sinfo->dynamic_resources.find(string(req->name));

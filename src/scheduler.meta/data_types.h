@@ -100,6 +100,9 @@ extern "C" {
 
 #include "logic/LogicFwd.h"
 
+#include "boost/shared_ptr.hpp"
+#include "boost/weak_ptr.hpp"
+
 struct server_info;
 
 struct state_count;
@@ -109,8 +112,6 @@ struct queue_info;
 struct node_info;
 
 struct job_info;
-
-struct resource;
 
 struct resource_req;
 
@@ -133,8 +134,6 @@ typedef struct queue_info queue_info;
 typedef struct job_info job_info;
 
 typedef struct node_info node_info;
-
-typedef struct resource resource;
 
 typedef struct resource_req resource_req;
 
@@ -231,7 +230,6 @@ unsigned is_admin_queue : 1; /* admin job queue */
   int priority;                 /* priority of queue */
   time_t starving_support;      /* time required for jobs to starve */
 
-  struct resource *qres; /* list of resources on the queue */
   job_info **jobs;  /* array of jobs that reside in queue */
   job_info **running_jobs; /* array of jobs in the running state */
 
@@ -246,24 +244,6 @@ unsigned is_admin_queue : 1; /* admin job queue */
 
 #include "JobInfo.h"
 #include "NodeInfo.h"
-
-struct resource
-  {
-  // TODO rewrite into objective model
-  unsigned is_string : 1;
-
-  char *name;   /* name of the resource */
-  sch_resource_t avail;  /* availble amount of the resource */
-  sch_resource_t max;  /* max amount of the resource */
-  sch_resource_t assigned; /* amount of the resource assigned */
-
-  char *str_avail;
-
-  struct resource *next; /* next resource in list */
-
-  resource() : is_string(0), name(NULL), avail(UNSPECIFIED), max(INFINITY), assigned(UNSPECIFIED), str_avail(NULL), next(NULL) {}
-  ~resource() { free(name); free(str_avail); }
-  };
 
 struct resource_req
   {

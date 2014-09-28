@@ -129,9 +129,6 @@ queue_info **query_queues(int pbs_sd, server_info *sinfo)
   /* buffer to store log message */
   char log_msg[MAX_LOG_SIZE];
 
-  /* used to cycle through jobs to calculate assigned resources */
-  resource *res;
-
   int i;
   int num_queues = 0;
 
@@ -200,16 +197,6 @@ queue_info **query_queues(int pbs_sd, server_info *sinfo)
 
     qinfo -> running_jobs = job_filter(qinfo -> jobs, qinfo -> sc.total, check_run_job, NULL);
 
-    res = qinfo -> qres;
-
-    while (res != NULL)
-      {
-      if (res -> assigned == UNSPECIFIED)
-        res -> assigned = calc_assn_resource(qinfo -> running_jobs, res-> name);
-
-      res = res -> next;
-      }
-
     qinfo_arr[i] = qinfo;
 
     cur_queue = cur_queue -> next;
@@ -242,7 +229,7 @@ static void push_excl_node(queue_info *qinfo, node_info *ninfo)
   qinfo->excl_nodes[qinfo->excl_node_count] = ninfo;
   qinfo->excl_nodes[qinfo->excl_node_count+1] = NULL;
   qinfo->excl_node_count++;
-  ninfo->excl_queue = qinfo;
+  ninfo->set_excl_queue(qinfo);
   }   
 
 /*
@@ -263,7 +250,6 @@ queue_info *query_queue_info(struct batch_status *queue, server_info *sinfo)
   struct attrl *attrp;  /* linked list of attributes from server */
 
   struct queue_info *qinfo; /* queue_info being created */
-  resource *resp;  /* resource in resource qres list */
   char *endp;   /* used with strtol() */
   int count,i;   /* used to convert string -> integer */
 
@@ -366,39 +352,6 @@ queue_info *query_queue_info(struct batch_status *queue, server_info *sinfo)
         qinfo -> is_exec = 0;
         }
       }
-    else if (!strcmp(attrp -> name, ATTR_rescavail))    /* resources_available*/
-      {
-      count = res_to_num(attrp -> value);
-      resp = find_alloc_resource(qinfo -> qres, attrp -> resource);
-
-      if (qinfo -> qres == NULL)
-        qinfo -> qres = resp;
-
-      if (resp != NULL)
-        resp -> avail = count;
-      }
-    else if (!strcmp(attrp -> name, ATTR_rescmax))      /* resources_max */
-      {
-      count = res_to_num(attrp -> value);
-      resp = find_alloc_resource(qinfo -> qres, attrp -> resource);
-
-      if (qinfo -> qres == NULL)
-        qinfo -> qres = resp;
-
-      if (resp != NULL)
-        resp -> max = count;
-      }
-    else if (!strcmp(attrp -> name, ATTR_rescassn))     /* resources_assigned */
-      {
-      count = res_to_num(attrp -> value);
-      resp = find_alloc_resource(qinfo -> qres, attrp -> resource);
-
-      if (qinfo -> qres == NULL)
-        qinfo -> qres = resp;
-
-      if (resp != NULL)
-        resp -> assigned = count;
-      }
     else if (!strcmp(attrp -> name, ATTR_is_transit)) /* transit queue */
       {
       if (!strcmp(attrp -> value, "True"))
@@ -430,7 +383,7 @@ queue_info *query_queue_info(struct batch_status *queue, server_info *sinfo)
       for (i = 0; i < sinfo->num_nodes; i++)
         {
         if (sinfo->nodes[i]->has_prop(attrp->value)
-            && sinfo->nodes[i]->get_dedicated_queue_name() == NULL) /* ignore nodes with queue=... */
+            && sinfo->nodes[i]->get_dedicated_queue_name().size() == 0) /* ignore nodes with queue=... */
           push_excl_node(qinfo,sinfo->nodes[i]);
         }
       }
@@ -441,8 +394,8 @@ queue_info *query_queue_info(struct batch_status *queue, server_info *sinfo)
   /* go through all nodes, and check the queue attribute */
   for (i = 0; i < sinfo->num_nodes; i++)
     {
-    if (sinfo->nodes[i]->get_dedicated_queue_name() != NULL)
-      if (strcmp(sinfo->nodes[i]->get_dedicated_queue_name(),qinfo->name) == 0)
+    if (sinfo->nodes[i]->get_dedicated_queue_name().size() != 0)
+      if (sinfo->nodes[i]->get_dedicated_queue_name() == qinfo->name)
         push_excl_node(qinfo,sinfo->nodes[i]);
     }
 
@@ -496,8 +449,6 @@ queue_info *new_queue_info()
 
   qinfo -> name   = NULL;
 
-  qinfo -> qres   = NULL;
-
   qinfo -> jobs   = NULL;
 
   qinfo -> running_jobs  = NULL;
@@ -514,64 +465,6 @@ queue_info *new_queue_info()
   qinfo -> fairshare_tree = strdup("default");
 
   return qinfo;
-  }
-
-/*
- *
- * print_queue_info - print all information in a queue_info struct
- *
- *   qinfo - queue to print
- *   brief - only print queue name
- *   deep  - print jobs in queue also
- *
- * returns nothing
- *
- */
-void print_queue_info(queue_info *qinfo, char brief, char deep)
-  {
-  job_info *jinfo;
-  struct resource *i;
-
-  if (qinfo == NULL)
-    return;
-
-  if (qinfo -> name != NULL)
-    printf("\n%sQueue name: %s\n", brief ? "    " : "", qinfo -> name);
-
-  if (!brief)
-    {
-    printf("is_started: %s\n", qinfo -> is_started ? "TRUE" : "FALSE");
-    printf("is_exec: %s\n", qinfo -> is_exec ? "TRUE" : "FALSE");
-    printf("is_route: %s\n", qinfo -> is_route ? "TRUE" : "FALSE");
-    printf("dedtime_queue: %s\n", qinfo -> dedtime_queue ? "TRUE" : "FALSE");
-    printf("is_ok_to_run: %s\n", qinfo -> is_ok_to_run ? "TRUE" : "FALSE");
-    printf("max_run: %d\n", qinfo -> max_run);
-    printf("max_user_run: %d\n", qinfo -> max_user_run);
-    printf("max_group_run: %d\n", qinfo -> max_group_run);
-    printf("max_proc: %d\n", qinfo -> max_proc);
-    printf("max_user_proc: %d\n", qinfo -> max_user_proc);
-    printf("max_group_proc: %d\n", qinfo -> max_group_proc);
-    printf("priority: %d\n", qinfo -> priority);
-    print_state_count(&(qinfo -> sc));
-
-    printf("Resource limits: \n");
-    for (i = qinfo->qres; i != NULL; i = i->next)
-      {
-      printf("\t %s : max = %d | avail = %d | assigned = %d\n",i->name,
-             (int)i->max,(int)i->avail,(int)i->assigned);
-      }
-    }
-
-  if (deep)
-    {
-    jinfo = qinfo -> jobs[0];
-
-    while (jinfo != NULL)
-      {
-      print_job_info(jinfo, brief);
-      jinfo++;
-      }
-    }
   }
 
 /*
@@ -614,25 +507,8 @@ void free_queues(queue_info **qarr, char free_jobs_too)
  */
 void update_queue_on_move(queue_info *qinfo, job_info *jinfo)
   {
-  /* we pretend that the job is immediately running */
-  resource_req *resreq;
-  resource *res;
-
   qinfo -> sc.running++; /* update the target queue */
   jinfo -> queue -> sc.queued--; /* update the local queue */
-
-  resreq = jinfo -> resreq;
-
-  while (resreq != NULL)
-    {
-    res = find_resource(qinfo -> qres, resreq -> name);
-
-    if (res)
-      res -> assigned += resreq -> amount;
-
-    resreq = resreq -> next;
-    }
-
   }
 
 /*
@@ -663,10 +539,6 @@ void update_queue_on_run(queue_info *qinfo, job_info *jinfo)
 void free_queue_info(queue_info *qinfo)
   {
   free(qinfo -> name);
-
-  if (qinfo -> qres != NULL)
-    free_resource_list(qinfo -> qres);
-
   free(qinfo -> running_jobs);
   free(qinfo -> excl_nodes);
   free(qinfo -> fairshare_tree);

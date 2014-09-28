@@ -13,6 +13,8 @@
 #include <vector>
 #include "torque.h"
 
+#include "ResourceSet.h"
+
 namespace Scheduler {
 namespace Base {
 
@@ -50,9 +52,9 @@ class NodeData : public Internals::NodeState
 
       const std::string& get_scratch_pool() const { return p_scratch_pool; }
 
-      resource *get_resource(const char *name) const;
+      Resource *get_resource(const char *name) const;
 
-      const char *get_dedicated_queue_name() const { return p_ded_queue_name; }
+      const std::string& get_dedicated_queue_name() const { return p_ded_queue_name; }
 
       bool has_reg_prop(size_t propid, size_t valueid) const;
 
@@ -63,7 +65,6 @@ class NodeData : public Internals::NodeState
 
       void set_parent_server(server_info* server) { p_server = server; }
       server_info* get_parent_server() const { return p_server; }
-
 
     private:
       /// \brief Node physical properties
@@ -83,7 +84,7 @@ class NodeData : public Internals::NodeState
       /// \brief Number of free cores on node
       int p_core_free;
       /// \brief Name of queue this node is dedicated to
-      char *p_ded_queue_name;
+      std::string p_ded_queue_name;
       /// \brief Is admin slot enabled
       bool p_admin_slot_enabled;
       /// \brief Is admin slot available
@@ -96,14 +97,14 @@ class NodeData : public Internals::NodeState
       long p_avail_before;
       /// \brief Node available after
       long p_avail_after;
-      /// \brief Resources
-      struct resource *p_resc;
+      /// \brief Node resource list
+      ResourceSet p_resc;
 
       void add_reg_props(size_t propid, size_t valueid);
       std::vector<size_t> p_reg_props;
 
       /// \brief Node name
-      char *p_name;
+      std::string p_name;
       /// \brief Set of jobs currently running on node
       std::set<std::string> p_jobs;
       /// \brief Is node exclusively assigned
@@ -128,7 +129,7 @@ class NodeData : public Internals::NodeState
       void set_nostarving(char *data);
       void set_proc_total(char *data);
       void set_proc_free(char *data);
-      void set_ded_queue(char *data);
+      void set_ded_queue(const char *data);
       void set_node_cost(const char *value);
       void set_node_spec(const char *value);
       void set_avail_before(const char *value);

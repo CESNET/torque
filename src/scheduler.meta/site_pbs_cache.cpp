@@ -13,28 +13,32 @@
 #include <unistd.h>
 #include <signal.h>
 
+#include <string>
+
 #include "data_types.h"
 extern "C" {
 #include "site_pbs_cache.h"
 }
 
+using namespace std;
+
 /* New magrathea decode */
-int magrathea_decode_new(resource *res, MagratheaState *state, bool &is_rebootable)
+int magrathea_decode_new(Resource *res, MagratheaState *state, bool &is_rebootable)
   {
   char *s, *c;
 
   if (state != NULL)
     *state = MagratheaStateNone;
 
-  if (res == NULL || res->str_avail == NULL)
+  if (res == NULL || res->get_str_val() == "")
     return -1;
 
-  if (strstr(res->str_avail,"dynamic_reboot=1") != NULL)
+  if (res->get_str_val().find("dynamic_reboot=1") != string::npos)
     is_rebootable = true;
   else
     is_rebootable = false;
 
-  if ((s = strdup(res->str_avail)) == NULL)
+  if ((s = strdup(res->get_str_val().c_str())) == NULL)
     return -1;
   if ((c = strpbrk(s,":;")) != NULL)
     *c = '\0';

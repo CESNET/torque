@@ -97,18 +97,6 @@ int is_ok_to_run_job(server_info *sinfo, queue_info *qinfo,
                      job_info *jinfo, int preassign_starving);
 
 /*
- *      check_avail_resources - check if there is available resources to run
- *                              a job on the server
- */
-int check_avail_resources(resource *reslist, job_info *jinfo);
-
-
-/*
- * dynamic_avail - find out how much of a resource is available on a
- */
-sch_resource_t dynamic_avail(resource *res);
-
-/*
  *      check_run_job - function used by job_filter to filter out
  *                      non-running jobs.
  */

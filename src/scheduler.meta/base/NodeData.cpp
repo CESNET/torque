@@ -15,14 +15,15 @@ extern "C" {
 #include <limits>
 #include "base/PropRegistry.h"
 using namespace std;
+using namespace boost;
 
 namespace Scheduler {
 namespace Base {
 
 NodeData::NodeData(struct batch_status *node_data) :  p_phys_props(), p_virt_props(), p_priority(0), p_type(NodeCluster),
-                        p_no_multinode(false), p_ded_queue_name(NULL), p_admin_slot_enabled(false),
+                        p_no_multinode(false), p_ded_queue_name(), p_admin_slot_enabled(false),
                         p_admin_slot_avail(false), p_node_cost(1.0), p_node_spec(10.0),
-                        p_avail_before(0), p_avail_after(0), p_resc(NULL), p_reg_props(100,numeric_limits<size_t>::max()), p_name(NULL), p_jobs(),
+                        p_avail_before(0), p_avail_after(0), p_resc(), p_reg_props(100,numeric_limits<size_t>::max()), p_name(), p_jobs(),
                         p_exclusively_assigned(false), p_scratch_pool(), p_server(NULL)
   {
   struct attrl *attrp = node_data->attribs;  /* used to cycle though attribute list */
@@ -94,12 +95,7 @@ NodeData::NodeData(struct batch_status *node_data) :  p_phys_props(), p_virt_pro
     }
   }
 
-NodeData::~NodeData()
-  {
-  free(p_ded_queue_name);
-  free_resource_list(p_resc);
-  free(p_name);
-  }
+NodeData::~NodeData() {}
 
 void NodeData::set_scratch_pool(const char *pool)
   {
@@ -164,9 +160,9 @@ void NodeData::set_nostarving(char *data)
   this->p_no_starving = (strcmp(data,"True") == 0);
   }
 
-void NodeData::set_ded_queue(char *data)
+void NodeData::set_ded_queue(const char *data)
   {
-  this->p_ded_queue_name = strdup(data);
+  this->p_ded_queue_name = data;
   }
 
 void NodeData::set_admin_slot_enabled(const char *value)
@@ -224,27 +220,13 @@ void NodeData::set_exclusively_assigned(const char* value)
 
 void NodeData::set_resource_capacity(const char *name, char *value)
   {
-  resource *resc = find_alloc_resource(this->p_resc, name);
-  if (resc == NULL)
+  boost::shared_ptr<Resource> result = p_resc.get_alloc_resource(string(name));
+  if (!result)
     throw runtime_error("Couldn't allocate a new resource.");
 
-  if (this->p_resc == NULL)
-    this->p_resc = resc; // TODO ugly, needs rewrite -- find_alloc_resource needs change
-
-  if (is_num(value))
+  result->set_capacity(value);
+  if (result->is_string())
     {
-    resc->is_string = 0;
-    resc->max = res_to_num(value);
-    resc->str_avail = strdup(value);
-    }
-  else
-    {
-    resc->is_string = 1;
-    resc->max = UNSPECIFIED;
-    resc->str_avail = strdup(value);
-    resc->avail = UNSPECIFIED;
-    resc->assigned = UNSPECIFIED;
-
     pair<size_t,size_t> ids = get_prop_registry()->register_property(name,value);
     this->add_reg_props(ids.first,ids.second);
     }
@@ -252,53 +234,35 @@ void NodeData::set_resource_capacity(const char *name, char *value)
 
 void NodeData::set_resource_utilisation(const char *name, char *value)
   {
-  resource *resc = find_alloc_resource(this->p_resc, name);
-  if (resc == NULL)
+  boost::shared_ptr<Resource> result = p_resc.get_alloc_resource(string(name));
+  if (!result)
     throw runtime_error("Couldn't allocate a new resource.");
 
-  if (this->p_resc == NULL)
-    this->p_resc = resc; // TODO ugly, needs rewrite -- find_alloc_resource needs change
-
-  resc->assigned = res_to_num(value);
-  if (resc->max == UNSPECIFIED)
-    resc->max = 0;
+  result->set_utilization(value);
   }
 
 void NodeData::set_resource_dynamic(const char *name, char *value)
   {
-  resource *resc = find_alloc_resource(this->p_resc, name);
-  if (resc == NULL)
+  boost::shared_ptr<Resource> result = p_resc.get_alloc_resource(string(name));
+  if (!result)
     throw runtime_error("Couldn't allocate a new resource.");
 
-  if (this->p_resc == NULL)
-    this->p_resc = resc; // TODO ugly, needs rewrite -- find_alloc_resource needs change
-
-  free(resc->str_avail);
-
-  if (is_num(value))
+  result->reset();
+  result->set_avail(value);
+  if (result->is_string())
     {
-    resc->is_string = 0;
-    resc->avail = res_to_num(value);
-    resc->str_avail = strdup(value);
-    resc->assigned = 0;
-    resc->max = UNSPECIFIED; // dynamic resources don't have capacity
-    }
-  else
-    {
-    resc->is_string = 1;
-    resc->avail = 0;
-    resc->str_avail = strdup(value);
-    resc->assigned = 0;
-    resc->max = UNSPECIFIED;
-
     pair<size_t,size_t> ids = get_prop_registry()->register_property(name,value);
     this->add_reg_props(ids.first,ids.second);
     }
   }
 
-resource *NodeData::get_resource(const char *name) const
+Resource *NodeData::get_resource(const char *name) const
   {
-  return find_resource(this->p_resc,name);
+  boost::shared_ptr<Resource> result = p_resc.get_resource(string(name));
+  if (result)
+    return result.get();
+  else
+    return NULL;
   }
 
 bool NodeData::has_phys_prop(const char *name) const
@@ -335,12 +299,12 @@ bool NodeData::has_reg_prop(size_t propid, size_t valueid) const
 
 const char *NodeData::get_name() const
   {
-  return p_name;
+  return p_name.c_str();
   }
 
 void NodeData::set_name(const char *name)
   {
-  p_name = strdup(name);
+  p_name = name;
   }
 
 bool NodeData::has_jobs() const

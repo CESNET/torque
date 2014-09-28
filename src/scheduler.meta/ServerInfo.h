@@ -13,7 +13,6 @@ struct server_info
   {
   char *name;   /* name of server */
 
-  struct resource *res;  /* list of resources */
   std::map<std::string, Scheduler::Base::DynamicResource> dynamic_resources; /* list of dynamic resources */
   char *default_queue;  /* the default queue atribute of the server */
   int max_run;   /* max jobs that can be run at one time */

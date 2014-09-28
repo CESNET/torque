@@ -81,11 +81,11 @@ bool node_info::has_prop(const char* property) const
 
 unsigned long long node_info::get_mem_total() const
 {
-  struct resource *mem = this->get_resource("mem");
+  Resource *mem = this->get_resource("mem");
   if (mem == NULL)
     return 0;
 
-  return mem->max;
+  return mem->get_capacity();
 }
 
 CheckResult node_info::has_props_boot(const job_info *job, const pars_spec_node *spec, const repository_alternatives *virt_conf) const
@@ -163,11 +163,11 @@ CheckResult node_info::has_bootable_state(ClusterMode mode) const
     return CheckNonFit;
 
   // no physical host configured for the virtual node
-  if (host == NULL)
+  if (this->get_host() == NULL)
     return CheckNonFit;
 
   // configured physical host is not a cloud node
-  if (host->get_type() != NodeCloud)
+  if (this->get_host()->get_type() != NodeCloud)
     return CheckNonFit;
 
   // check after & before
@@ -185,7 +185,7 @@ CheckResult node_info::has_bootable_state(ClusterMode mode) const
         return CheckOccupied;
     case MagratheaStateDownBootable:
       // down bootable nodes can only be used for ondemand clusters if rebootable
-      if (mode == ClusterNone && (!this->is_rebootable))
+      if (mode == ClusterNone && (!this->p_is_rebootable))
         return CheckNonFit;
       break;
 
@@ -212,18 +212,18 @@ CheckResult node_info::has_bootable_state(ClusterMode mode) const
     default: break;
     }
 
-  if (host->is_down() || host->is_offline() || host->is_unknown())
+  if (this->get_host()->is_down() || this->get_host()->is_offline() || this->get_host()->is_unknown())
     return CheckOccupied;
 
   int jobs_present = 0;
-  if (host != NULL)
+  if (this->get_host() != NULL)
     {
-    if (host->has_jobs())
+    if (this->get_host()->has_jobs())
       jobs_present = 1;
 
-    for (size_t i = 0; i < host->hosted.size(); i++)
+    for (size_t i = 0; i < this->get_host()->get_hosted().size(); i++)
       {
-      if (host->hosted[i]->has_jobs())
+      if (this->get_host()->get_hosted()[i]->has_jobs())
         jobs_present = 1;
       }
     }
@@ -303,7 +303,7 @@ CheckResult node_info::can_boot_job(const job_info *jinfo) const
     return CheckNonFit;
 
   // User does not have an account on this machine - can never run
-  if (site_user_has_account(jinfo->account,const_cast<char*>(this->get_name()),cluster_name) == CHECK_NO) // TODO const fix
+  if (site_user_has_account(jinfo->account,const_cast<char*>(this->get_name()),const_cast<char*>(this->get_phys_cluster().c_str())) == CHECK_NO) // TODO const fix
     return CheckNonFit;
 
   // Server already installing to many machines
@@ -344,11 +344,11 @@ CheckResult node_info::can_run_job(const job_info *jinfo) const
   if (this->get_nomultinode() && jinfo->is_multinode)
     return CheckNonFit;
 
-  resource *res_machine = this->get_resource("machine_cluster");
+  Resource *res_machine = this->get_resource("machine_cluster");
   if (jinfo->cluster_mode != ClusterUse) /* users can always go inside a cluster */
     {
     // User does not have an account on this machine - can never run
-    if (site_user_has_account(jinfo->account,const_cast<char*>(this->get_name()),cluster_name) == CHECK_NO) // TODO const char fix
+    if (site_user_has_account(jinfo->account,const_cast<char*>(this->get_name()),const_cast<char*>(this->get_phys_cluster().c_str())) == CHECK_NO) // TODO const char fix
       return CheckNonFit;
 
     // Machine is already allocated to a virtual cluster, only ClusterUse type of jobs allowed
@@ -361,10 +361,10 @@ CheckResult node_info::can_run_job(const job_info *jinfo) const
       return CheckNonFit;
 
     // Check whether this machine is running the cluster user is requesting
-    if ((res_machine == NULL) || (res_machine -> str_avail == NULL))
-      return CheckOccupied;
-    else if (strcmp(res_machine -> str_avail,jinfo->cluster_name)!=0)
-      return CheckOccupied;
+    if ((res_machine == NULL) || (res_machine->get_str_val() == ""))
+      return CheckNonFit;
+    else if (res_machine->get_str_val() != jinfo->cluster_name)
+      return CheckNonFit;
     }
 
   return result;
@@ -449,7 +449,7 @@ void node_info::fetch_bootable_alternatives()
   if (this->get_type() != NodeVirtual)
     return;
 
-  resource *resc;
+  Resource *resc;
   if ((resc = this->get_resource("magrathea")) != NULL)
     {
     this->alternatives = get_bootable_alternatives(const_cast<char*>(this->get_name()),NULL); // TODO const char fix
@@ -525,10 +525,10 @@ bool node_info::operator < (const node_info& right)
 
 void node_info::process_magrathea_status()
   {
-  resource *res_magrathea;
+  Resource *res_magrathea;
   res_magrathea = this->get_resource("magrathea");
 
-  if (res_magrathea == NULL || magrathea_decode_new(res_magrathea,&this->magrathea_status,this->is_rebootable) != 0)
+  if (res_magrathea == NULL || magrathea_decode_new(res_magrathea,&this->magrathea_status,this->p_is_rebootable) != 0)
     {
     this->magrathea_status = MagratheaStateNone;
     return;
@@ -545,7 +545,7 @@ void node_info::process_magrathea_status()
       }
     }
 
-  if (this->host != NULL && this->host->has_jobs())
+  if (this->get_host() != NULL && this->get_host()->has_jobs())
     {
     // if the host already has jobs, the magrathea state can't be down-bootable
     if (this->magrathea_status == MagratheaStateDownBootable)
@@ -559,36 +559,36 @@ void node_info::process_magrathea_status()
 
 void node_info::process_machine_cluster()
   {
-  resource *res_cluster;
+  Resource *res_cluster;
   res_cluster = this->get_resource("machine_cluster");
 
-  this->virtual_cluster = "";
-  this->virtual_image = "";
-  this->is_building_cluster = false;
+  this->set_virtual_cluster("");
+  this->set_virtual_image("");
+  this->p_is_building_cluster = false;
 
   if (res_cluster == NULL)
     return;
 
-  string value = res_cluster->str_avail;
+  string value = res_cluster->get_str_val();
   size_t pos = value.find(';');
 
   if (pos != value.npos)
     {
-    this->virtual_cluster = value.substr(0,pos);
-    this->virtual_image = value.substr(pos+1,value.length()-pos-1);
+    this->set_virtual_cluster(value.substr(0,pos));
+    this->set_virtual_image(value.substr(pos+1,value.length()-pos-1));
     }
   else
     {
-    this->virtual_cluster = value;
+    this->set_virtual_cluster(value);
     }
 
   // determine whether node is currently booting
-  if (this->virtual_cluster.substr(0,strlen("internal_")) == "internal_")
+  if (this->get_virtual_cluster().substr(0,strlen("internal_")) == "internal_")
     {
-    this->is_building_cluster = true;
+    this->p_is_building_cluster = true;
     }
   else if (this->magrathea_status != MagratheaStateRunningCluster)
     {
-    this->is_building_cluster = true;
+    this->p_is_building_cluster = true;
     }
   }

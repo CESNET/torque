@@ -1107,33 +1107,3 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg)
   return rc;
   }
 
-/*
- *
- * calc_assn_resource - calcualte the assigned resource in a job array
- *
- *   jinfo_arr - array of jobs
- *   resstr    - resource to calculate
- *
- * returns the calculated resource
- *  -1 on error
- *
- */
-int calc_assn_resource(job_info **jinfo_arr, char *resstr)
-  {
-  resource_req *req;
-  int res_amm = 0;
-  int i;
-
-  if (resstr == NULL || jinfo_arr == NULL)
-    return -1;
-
-  for (i = 0; jinfo_arr[i] != NULL; i++)
-    {
-    req = find_resource_req(jinfo_arr[i] -> resreq, resstr);
-
-    if (req != NULL)
-      res_amm += req -> amount;
-    }
-
-  return res_amm;
-  }
