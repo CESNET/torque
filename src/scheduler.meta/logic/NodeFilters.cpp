@@ -24,9 +24,9 @@ bool NodeSuitableForSpec::operator()(const node_info* node) const
   ScratchType scratch = ScratchNone;
   repository_alternatives *ra;
 
-  if (p_mode == SuitableRebootMode && node->has_assignment())
+  if (p_mode == SuitableRebootMode && (node->has_assignment() || node->get_source_node()->has_virtual_assignment()))
     return false;
-  if (p_mode == SuitableAssignMode && node->has_assignment())
+  if (p_mode == SuitableAssignMode && (node->has_assignment() || node->get_source_node()->has_virtual_assignment()))
     return false;
   if (p_mode == SuitableStarvingMode && node->get_nostarving())
     return false;

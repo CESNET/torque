@@ -280,7 +280,7 @@ void NodeData::add_reg_props(size_t propid, size_t valueid)
   if (propid >= p_reg_props.size())
     {
     size_t oldsize = p_reg_props.size();
-    p_reg_props.resize(oldsize+max(size_t(50),propid-oldsize),numeric_limits<size_t>::max());
+    p_reg_props.resize(oldsize+std::max(size_t(50),propid-oldsize),numeric_limits<size_t>::max());
     }
 
   p_reg_props[propid] = valueid;

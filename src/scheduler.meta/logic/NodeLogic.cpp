@@ -70,7 +70,7 @@ CheckResult NodeLogic::has_proc(const job_info *job, const pars_spec_node *spec)
   else
     {
     // Not enough currently free processors
-    if (this->get_cores_free() - p_core_assigned < static_cast<int>(spec->procs))
+    if (this->get_cores_free() - this->p_core_assigned < static_cast<int>(spec->procs))
       return CheckOccupied;
     }
 

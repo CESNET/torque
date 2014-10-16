@@ -34,6 +34,7 @@ struct job_info
   int priority;   /* PBS priority of job */
   int sch_priority;  /* internal scheduler priority */
   time_t qtime;   /* the time the job was last queued */
+  time_t stime;   /* the time the job was started */
   resource_req *resreq;  /* list of resources requested */
   resource_req *resused; /* a list of resources used */
   group_info *ginfo;  /* the fair share node for the owner */
@@ -43,6 +44,8 @@ struct job_info
   std::vector<node_info*> schedule; /* currently considered schedule */
 
   char *placement;
+
+  std::string sched_nodespec; // filled in when job is run
 
   void plan_on_node(node_info* ninfo, pars_spec_node* spec);
   void unplan_from_node(node_info* ninfo, pars_spec_node* spec);
@@ -54,6 +57,8 @@ struct job_info
   int preprocess();
 
   double calculate_fairshare_cost(const std::vector<node_info *>& nodes) const;
+
+  time_t completion_time();
   };
 
 #endif /* JOBINFO_H_ */

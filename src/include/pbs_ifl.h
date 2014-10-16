@@ -143,6 +143,7 @@
 #define ATTR_qtime      "qtime"
 #define ATTR_planned_start    "planned_start"
 #define ATTR_planned_nodes    "planned_nodes"
+#define ATTR_waiting_for  "waiting_for_jobs"
 #define ATTR_session    "session_id"
 #define ATTR_euser      "euser"
 #define ATTR_egroup     "egroup"

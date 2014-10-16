@@ -37,6 +37,7 @@ class Resource
     const std::string& get_str_val() const { return p_str_val; }
 
     sch_resource_t get_capacity() const { return p_max; }
+    sch_resource_t get_utilization() const { return p_assign; }
 
   private:
     ResourceType p_res_type;

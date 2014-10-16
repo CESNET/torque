@@ -11,6 +11,7 @@ using namespace Scheduler;
 using namespace Base;
 
 #include <algorithm>
+#include <limits>
 using namespace std;
 
 void job_info::unplan_from_node(node_info* ninfo, pars_spec_node* spec)
@@ -213,4 +214,13 @@ long job_info::get_walltime() const
     return 0;
 
   return resc->amount;
+  }
+
+time_t job_info::completion_time()
+  {
+  resource_req *req = find_resource_req(this->resreq,"walltime");
+  if (req == NULL)
+    return numeric_limits<time_t>::max();
+
+  return stime + req->amount;
   }

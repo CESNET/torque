@@ -457,6 +457,19 @@ attribute_def job_attr_def[] =
     PARENT_TYPE_JOB
   },
 
+  /* JOB_ATR_waiting_for */
+  { ATTR_waiting_for, /* waiting_for */
+    decode_str,
+    encode_str,
+    set_str,
+    comp_str,
+    free_str,
+    NULL_FUNC,
+    READ_ONLY | ATR_DFLAG_SSET,
+    ATR_TYPE_STR,
+    PARENT_TYPE_JOB
+  },
+
   /* JOB_ATR_rerunable */
   { ATTR_r,   /* "Rerunable" */
     decode_b,

@@ -21,6 +21,11 @@ extern "C"{
 namespace Scheduler {
 namespace Base {
 
+/** \brief Verify that the given string represents a valid FQDN
+ *
+ * @param fqdn Tested FQDN
+ * @return \c TRUE if given FQDN is valid, \c FALSE if not
+ */
 bool verify_fqdn(const string& fqdn)
   {
   struct addrinfo addr;
@@ -49,6 +54,11 @@ bool verify_fqdn(const string& fqdn)
   return result;
   }
 
+/** \brief Deduce a FQDN from a given hostname
+ *
+ * @param host Input hostname
+ * @return Deduced FQDN
+ */
 std::string get_fqdn(const std::string& host)
   {
   struct addrinfo addr;
@@ -75,6 +85,10 @@ std::string get_fqdn(const std::string& host)
   return result;
   }
 
+/** \brief Get the FQDN for the local system
+ *
+ * @return FQDN of local machine
+ */
 std::string get_local_fqdn()
   {
   char hostname[1024+1] = {0};

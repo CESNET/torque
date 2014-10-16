@@ -44,7 +44,9 @@ struct node_info : public NodeLogic, public JobAssign // change to protected inh
   bool is_building_cluster() const { return p_is_building_cluster; }
 
 
-
+  // TODO set assignment, propagate resources
+  //void set_assignment(scratch,alternative,nodespec)....
+  void propagate_resources(node_info *source);
 
   MagratheaState magrathea_status;
   struct repository_alternatives ** alternatives;
@@ -85,18 +87,38 @@ struct node_info : public NodeLogic, public JobAssign // change to protected inh
   void process_magrathea_status();
   void process_machine_cluster();
 
-  void expand_virtual_nodes()
-    {
-    // nodes cannot be expanded once assigned
-    assert((!this->has_assignment()) && (!this->has_starving_assignment()));
+  void expand_virtual_nodes();
 
+  bool is_virtual_node() const
+    {
+    return this->p_phys_node != NULL;
     }
+
+  const std::vector<boost::shared_ptr<node_info> >& get_slave_nodes() const { return p_slave_nodes; }
+
+  const node_info *get_source_node() const
+    {
+    if (this->p_phys_node != NULL)
+      return this->p_phys_node;
+    else
+      return this;
+    }
+
+  node_info *get_source_node()
+      {
+      if (this->p_phys_node != NULL)
+        return this->p_phys_node;
+      else
+        return this;
+      }
+
+  const std::string& get_waiting_jobs() const { return p_waiting_on_jobs; }
 
 private:
   node_info& operator = (const node_info& src) { return *this; }
 
 public:
-  node_info(struct batch_status *node_data) : NodeLogic(node_data), alternatives(NULL), p_is_notusable(false), p_is_rebootable(false), p_is_building_cluster(false), p_virtual_image(), p_virtual_cluster(), p_phys_cluster(), p_excl_queue(NULL), p_host(NULL), p_hosted()
+  node_info(struct batch_status *node_data) : NodeLogic(node_data), alternatives(NULL), p_is_notusable(false), p_is_rebootable(false), p_is_building_cluster(false), p_virtual_image(), p_virtual_cluster(), p_phys_cluster(), p_excl_queue(NULL), p_host(NULL), p_hosted(), p_phys_node(NULL), p_slave_nodes(), p_waiting_on_jobs()
   {
     p_hosted.reserve(2);
   }
@@ -105,7 +127,7 @@ public:
   node_info(const node_info& src) : NodeLogic(src), JobAssign(src), magrathea_status(src.magrathea_status), alternatives(NULL),
                                     p_is_notusable(src.p_is_notusable), p_is_rebootable(src.p_is_rebootable), p_is_building_cluster(src.p_is_building_cluster),
                                     p_virtual_image(src.p_virtual_image), p_virtual_cluster(src.p_virtual_cluster), p_phys_cluster(src.p_phys_cluster),
-                                    p_excl_queue(src.p_excl_queue), p_host(src.p_host), p_hosted(src.p_hosted)
+                                    p_excl_queue(src.p_excl_queue), p_host(src.p_host), p_hosted(src.p_hosted), p_phys_node(src.p_phys_node), p_slave_nodes(src.p_slave_nodes), p_waiting_on_jobs(src.p_waiting_on_jobs)
 
     {
     if (src.alternatives != NULL)
@@ -127,6 +149,10 @@ public:
     queue_info *p_excl_queue; /**< pointer to queue the node is exclusive to */
     node_info *p_host; /*< the physical host of this node */
     std::vector<node_info*> p_hosted; /*< virtual nodes hosted on this node */
+
+    node_info* p_phys_node;
+    std::vector< boost::shared_ptr<node_info> > p_slave_nodes;
+    std::string p_waiting_on_jobs;
 
   };
 

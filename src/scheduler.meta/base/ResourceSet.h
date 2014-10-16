@@ -18,10 +18,12 @@ class ResourceSet
     ResourceSet();
     ResourceSet(const ResourceSet& src);
 
+    ResourceSet& operator = (const ResourceSet& src);
+
+    void join_resources(const ResourceSet& right);
+
   private:
     std::map<std::string, boost::shared_ptr<Resource> > p_resc;
-
-    ResourceSet& operator = (const ResourceSet& src) { return *this; }
   };
 
 }}

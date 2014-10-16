@@ -179,6 +179,7 @@
 #define INFO_REQUEST_NOT_MATCHED "This jobs requirements will never be satisfied under the current grid configuration."
 #define INFO_SCHEDULER_LOOP_RUN_LIMIT_REACHED "Internal scheduler limit for job executions of a single user reached."
 #define INFO_UNKNOWN_LOCATION_PROPERTY_REQUEST "Unknown location property request."
+#define INFO_JOB_SCHEDULED "Job has received an allocation of nodes, waiting for running jobs to end."
 
 #define COMMENT_QUEUE_NOT_STARTED "Not Running: Queue not started."
 #define COMMENT_QUEUE_NOT_EXEC    "Not Running: Queue not an execution queue."
@@ -214,5 +215,6 @@
 #define COMMENT_REQUEST_NOT_MATCHED "Never Running: This jobs requirements will never be satisfied under the current grid configuration."
 #define COMMENT_SCHEDULER_LOOP_RUN_LIMIT_REACHED "Not Running: Internal scheduler limit for job executions of a single user reached."
 #define COMMENT_UNKNOWN_LOCATION_PROPERTY_REQUEST "Not Running: Unknown location property request."
+#define COMMENT_JOB_SCHEDULED "Not Running: Job has received an allocation of nodes, waiting for running jobs to end."
 
 #endif

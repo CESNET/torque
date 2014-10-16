@@ -256,6 +256,15 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
       else
         jinfo -> qtime = -1;
       }
+    else if (!strcmp(attrp -> name, ATTR_start_time))
+      {
+      count = strtol(attrp -> value, &endp, 10);
+
+      if (*endp != '\n')
+        jinfo -> stime = count;
+      else
+        jinfo -> stime = -1;
+      }
     else if (!strcmp(attrp -> name, ATTR_state))   /* state of job */
       set_state(attrp -> value, jinfo);
     else if (!strcmp(attrp -> name, ATTR_comment))   /* job comment */
@@ -266,6 +275,8 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
       jinfo -> group = strdup(attrp -> value);
     else if (!strcmp(attrp -> name, ATTR_fairshare_cost))
       jinfo -> calculated_fairshare = atof(attrp->value);
+    else if (!strcmp(attrp -> name, ATTR_schedspec))
+      jinfo -> sched_nodespec = attrp -> value;
     else if (!strcmp(attrp -> name, ATTR_l))    /* resources requested*/
       {
       /* special handling for cluster */
@@ -803,6 +814,60 @@ int update_job_comment(int pbs_sd, job_info *jinfo, const char *comment)
   return 1;
   }
 
+int update_job_planned_nodes(int pbs_sd, job_info *jinfo, const std::string& nodes)
+  {
+  struct attrl attr =
+    {
+    NULL, (char*)ATTR_planned_nodes, NULL, NULL, SET
+    };
+
+  if (jinfo == NULL)
+    return 1;
+
+  attr.value = (char*)nodes.c_str();
+
+  pbs_alterjob(pbs_sd, jinfo -> name, &attr, NULL);
+
+  return 0;
+  }
+
+int update_job_waiting_for(int pbs_sd, job_info *jinfo, const std::string& waiting)
+  {
+  struct attrl attr =
+    {
+    NULL, (char*)ATTR_waiting_for, NULL, NULL, SET
+    };
+
+  if (jinfo == NULL)
+    return 1;
+
+  attr.value = (char*)waiting.c_str();
+
+  pbs_alterjob(pbs_sd, jinfo -> name, &attr, NULL);
+
+  return 0;
+  }
+
+int update_job_earliest_start(int pbs_sd, job_info *jinfo, time_t earliest_start)
+  {
+  struct attrl attr =
+    {
+    NULL, (char*)ATTR_planned_start, NULL, NULL, SET
+    };
+
+  if (jinfo == NULL)
+    return 1;
+
+  char value[80] = { 0 };
+
+  sprintf(value,"%ld",earliest_start);
+  attr.value = value;
+
+  pbs_alterjob(pbs_sd, jinfo -> name, &attr, NULL);
+
+  return 0;
+  }
+
 int update_job_fairshare(int pbs_sd, job_info *jinfo, double fairshare)
   {
   /* the pbs_alterjob() call takes a linked list of attrl structures to alter
@@ -1094,6 +1159,11 @@ int translate_job_fail_code(int fail_code, char *comment_msg, char *log_msg)
       case UNKNOWN_LOCATION_PROPERTY_REQUEST:
         strcpy(comment_msg, COMMENT_UNKNOWN_LOCATION_PROPERTY_REQUEST);
         sprintf(log_msg, INFO_UNKNOWN_LOCATION_PROPERTY_REQUEST);
+        break;
+
+      case JOB_SCHEDULED:
+        strcpy(comment_msg, COMMENT_JOB_SCHEDULED);
+        sprintf(log_msg, INFO_JOB_SCHEDULED);
         break;
 
       default:

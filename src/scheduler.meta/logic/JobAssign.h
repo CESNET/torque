@@ -31,10 +31,6 @@ class JobAssign
     pars_spec_node *get_assignment() const;
     void set_assignment(pars_spec_node *spec);
 
-    bool has_starving_assignment() const;
-    pars_spec_node *get_starving_assignment() const;
-    void set_starving_assignment(pars_spec_node *spec);
-
     void clean_assign();
 
     JobAssign();
@@ -42,12 +38,15 @@ class JobAssign
 
     void get_assign_string(std::stringstream& s, const char *node_name, AssignStringMode mode) const;
 
+    bool has_virtual_assignment() const;
+    void set_virtual_assignment();
+
   private:
     bool p_flag_fairshare;
     ScratchType p_scratch_type;
     repository_alternatives *p_boot_alternative;
     pars_spec_node *p_nodespec;
-    pars_spec_node *p_starved_nodespec;
+    bool p_virtual_assignment;
   };
 
 }}

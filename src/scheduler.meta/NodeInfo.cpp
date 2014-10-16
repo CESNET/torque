@@ -7,8 +7,25 @@
 #include "misc.h"
 #include "RescInfoDb.h"
 #include "site_pbs_cache_scheduler.h"
+#include "boost/make_shared.hpp"
+#include "boost/shared_ptr.hpp"
 
 using namespace std;
+
+void node_info::propagate_resources(node_info *source)
+  {
+  // set physical node
+  this->p_core_assigned = max(this->p_core_assigned,source->p_core_assigned);
+  this->p_resc.join_resources(source->p_resc);
+
+  // go through virtual nodes
+  vector< boost::shared_ptr<node_info> >::const_iterator i;
+  for (i = this->p_slave_nodes.begin(); i != this->p_slave_nodes.end(); i++)
+    {
+    (*i)->p_core_assigned = max(source->p_core_assigned,(*i)->p_core_assigned);
+    (*i)->p_resc.join_resources(source->p_resc);
+    }
+  }
 
 int node_has_enough_resource(node_info *ninfo, char *name, char *value, enum ResourceCheckMode mode);
 
@@ -172,6 +189,8 @@ CheckResult node_info::has_bootable_state(ClusterMode mode) const
 
   // check after & before
   long now = time(NULL);
+
+  if (!this->is_virtual_node()) // for virtual nodes, available after has a special meaning
   if (this->get_avail_after() != 0 && now < this->get_avail_after())
     return CheckNonFit;
 
@@ -242,6 +261,8 @@ CheckResult node_info::has_runnable_state() const
 
   // check after & before
   long now = time(NULL);
+
+  if (!this->is_virtual_node()) // for virtual nodes, available after has a special meaning
   if (this->get_avail_after() != 0 && now < this->get_avail_after())
     return CheckNonFit;
 
@@ -491,6 +512,22 @@ static int get_magrathea_value(MagratheaState state)
 
 bool node_info::operator < (const node_info& right)
   {
+  // physical nodes go before all virtual nodes
+  if ((!this->is_virtual_node()) && right.is_virtual_node())
+    return true;
+  if (this->is_virtual_node() && (!right.is_virtual_node()))
+    return false;
+
+  // virtual nodes are sorted strictly by available time
+  if (this->is_virtual_node() && right.is_virtual_node())
+    {
+    if (this->p_avail_after < right.p_avail_after)
+      return true;
+    else if (this->p_avail_after > right.p_avail_after)
+      return false;
+    // if both nodes are available at the same time, continue with the standard comparison
+    }
+
   if (this->get_priority() > right.get_priority()) // bigger number = bigger priority
     return true;
   else if (this->get_priority() < right.get_priority())
@@ -591,4 +628,76 @@ void node_info::process_machine_cluster()
     {
     this->p_is_building_cluster = true;
     }
+  }
+
+
+bool compare_job_ends(job_info *left, job_info *right)
+  {
+  return left->completion_time() < right->completion_time();
+  }
+
+void node_info::expand_virtual_nodes()
+  {
+  // nodes cannot be expanded once assigned
+  assert(!(this->get_source_node()->has_virtual_assignment() || this->has_assignment()));
+  // cannot expand already virtual nodes
+  assert(!this->is_virtual_node());
+
+  set<job_info *,bool(*)(job_info*,job_info*)> running_jobs(compare_job_ends);
+
+  set<string> running_jobs_names;
+  set<string>::const_iterator i;
+  for (i = this->get_jobs().begin(); i != this->get_jobs().end(); i++)
+    {
+    size_t pos = i->find('/');
+    running_jobs_names.insert(i->substr(pos+1,i->length()-pos-1));
+    }
+
+  for (i = running_jobs_names.begin(); i != running_jobs_names.end(); i++)
+    {
+
+    // go through all the running jobs, find the corresponding one
+    for (int j = 0; this->get_parent_server()->running_jobs[j] != NULL; j++)
+      {
+      if (*i == this->get_parent_server()->running_jobs[j]->name)
+        {
+        running_jobs.insert(this->get_parent_server()->running_jobs[j]);
+        break;
+        }
+      }
+    }
+
+  node_info *source_node = this;
+
+  set<job_info*,bool(*)(job_info*,job_info*)>::const_iterator j;
+  for (j = running_jobs.begin(); j != running_jobs.end(); j++)
+    { // for each job (in the order of completion, unplan from node, creating a new virtual one)
+
+    pars_spec *nodespec = parse_nodespec((*j)->sched_nodespec.c_str());
+    pars_spec_node *node = nodespec->nodes;
+    while (node != NULL && this->p_name != node->host)
+      node = node->next;
+
+    if (node != NULL) // found this node in nodespec
+      {
+      // make a copy of the original node and assign it
+      boost::shared_ptr<node_info> slave = boost::make_shared<node_info>(*source_node);
+      slave->p_phys_node = this;
+      this->p_slave_nodes.push_back(slave);
+
+      // unplan job from this node and set available time
+      (*j)->unplan_from_node(slave.get(),node);
+      slave->p_avail_after = (*j)->completion_time();
+      // record jobs that need to finish for this node state to exist
+      if (source_node->p_waiting_on_jobs == "")
+        slave->p_waiting_on_jobs = string((*j)->name);
+      else
+        slave->p_waiting_on_jobs += string(", ") + string((*j)->name);
+
+      source_node = slave.get();
+      }
+
+    free_parsed_nodespec(nodespec);
+    }
+
   }

@@ -50,8 +50,8 @@ void Resource::set_avail(char *value)
 void Resource::set_utilization(sch_resource_t value)
   {
   this->p_assign = value;
-  if (this->p_max == UNSPECIFIED)
-    this->p_max = 0;
+//  if (this->p_max == UNSPECIFIED)
+//    this->p_max = 0;
   }
 
 void Resource::set_utilization(char *value)

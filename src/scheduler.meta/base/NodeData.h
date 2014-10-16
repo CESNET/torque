@@ -50,6 +50,8 @@ class NodeData : public Internals::NodeState
       long get_avail_before() const { return p_avail_before; }
       long get_avail_after() const { return p_avail_after; }
 
+      const std::set<std::string>& get_jobs() const { return p_jobs; }
+
       const std::string& get_scratch_pool() const { return p_scratch_pool; }
 
       Resource *get_resource(const char *name) const;
@@ -95,16 +97,20 @@ class NodeData : public Internals::NodeState
       double p_node_spec;
       /// \brief Node available before
       long p_avail_before;
+    public: // TODO Change to private!!!
       /// \brief Node available after
       long p_avail_after;
+    protected:
       /// \brief Node resource list
       ResourceSet p_resc;
 
       void add_reg_props(size_t propid, size_t valueid);
       std::vector<size_t> p_reg_props;
 
+    protected: // TODO change to private
       /// \brief Node name
       std::string p_name;
+    private:
       /// \brief Set of jobs currently running on node
       std::set<std::string> p_jobs;
       /// \brief Is node exclusively assigned

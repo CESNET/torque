@@ -93,7 +93,10 @@
 #include "globals.h"
 #include "dedtime.h"
 #include "RescInfoDb.h"
+#include "base/PropRegistry.h"
 
+using namespace Scheduler;
+using namespace Base;
 using namespace std;
 
 /* Internal functions */
@@ -170,6 +173,21 @@ int is_ok_to_run_job(server_info *sinfo, queue_info *qinfo,
     {
     sched_log(PBSEVENT_DEBUG2, PBS_EVENTCLASS_JOB, jinfo->name, "Too many job starts for this user.");
     return SCHEDULER_LOOP_RUN_LIMIT_REACHED;
+    }
+
+  if (jinfo->placement != NULL)
+    {
+    pair<bool,size_t> reg = get_prop_registry()->get_property_id(jinfo->placement);
+    if (!reg.first)
+      return UNKNOWN_LOCATION_PROPERTY_REQUEST;
+    }
+
+  // TODO CLEANUP!!!
+  node_info *debug = sinfo->nodes[0];
+  if (debug->get_slave_nodes().size() != 0)
+    {
+    node_info *slave = debug->get_slave_nodes()[0].get();
+    (void)slave;
     }
 
   if ((rc = jinfo->preprocess()) != SUCCESS)

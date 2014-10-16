@@ -82,6 +82,7 @@
 
 #include "torque.h"
 #include "data_types.h"
+#include <string>
 
 /*
  *      query_jobs - create an array of jobs in a specified queue
@@ -162,6 +163,9 @@ void update_job_on_run(int pbs_sd, job_info *jinfo);
  *      update_job_comment - update a jobs comment attribute
  */
 int update_job_comment(int pbs_sd, job_info *jinfo, const char *comment);
+int update_job_planned_nodes(int pbs_sd, job_info *jinfo, const std::string& nodes);
+int update_job_waiting_for(int pbs_sd, job_info *jinfo, const std::string& waiting);
+int update_job_earliest_start(int pbs_sd, job_info *jinfo, time_t earliest_start);
 int update_job_fairshare(int pbs_sd, job_info *jinfo, double fairshare);
 
 /*

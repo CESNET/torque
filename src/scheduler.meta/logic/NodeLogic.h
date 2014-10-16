@@ -38,8 +38,9 @@ class NodeLogic : public Base::NodeData
 
     void set_scratch_priority(size_t order, ScratchType scratch);
 
-  private:
+  protected:
     int p_core_assigned; ///< Number of scheduled cores
+  private:
     std::vector<ScratchType> p_scratch_priority; ///< Order of scratch allocation
   };
 

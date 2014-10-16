@@ -397,7 +397,9 @@ void World::run()
   const unsigned int sleep_suspend_passive = 30;
   bool active_cycle = false;
 
+#if 0
   try {
+#endif
   while (scheduler_not_dying)
     {
     // Suspend the scheduler for a while
@@ -484,6 +486,34 @@ void World::run()
             }
           }
 
+        if (ret == JOB_SCHEDULED)
+          { // update starving information
+          time_t earliest_start = -1;
+
+          string planned_nodes;
+          string waiting_for;
+
+          for (size_t i = 0; i < jinfo->schedule.size(); i++)
+            {
+            earliest_start = max(jinfo->schedule[i]->p_avail_after, earliest_start);
+
+            if (planned_nodes.length() == 0)
+              planned_nodes = jinfo->schedule[i]->get_name();
+            else
+              planned_nodes += string(", ") + string(jinfo->schedule[i]->get_name());
+
+            if (waiting_for.length() == 0)
+              waiting_for = jinfo->schedule[i]->get_waiting_jobs();
+            else
+              waiting_for += string(", ") + jinfo->schedule[i]->get_waiting_jobs();
+            }
+
+          update_job_planned_nodes(p_connections.get_master_connection(), jinfo, planned_nodes);
+          update_job_waiting_for(p_connections.get_master_connection(), jinfo, waiting_for);
+          update_job_earliest_start(p_connections.get_master_connection(), jinfo, earliest_start);
+
+          }
+
         nodes_preassign_clean(this->p_info->nodes,this->p_info->num_nodes);
         jinfo->schedule.clear();
         }
@@ -503,11 +533,16 @@ void World::run()
 
   if (conf.prime_fs || conf.non_prime_fs)
     write_usages();
+#if 0
   }
   catch (const exception& e)
     {
+    if (getenv("PBSDEBUG") != NULL)
+      throw e;
+
     sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, "Unexpected exception caught : %s", e.what());
     }
+#endif
   }
 
 World::~World()

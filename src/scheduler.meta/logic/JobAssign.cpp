@@ -9,6 +9,16 @@ using namespace std;
 namespace Scheduler {
 namespace Logic {
 
+bool JobAssign::has_virtual_assignment() const
+  {
+  return p_virtual_assignment;
+  }
+
+void JobAssign::set_virtual_assignment()
+  {
+  p_virtual_assignment = true;
+  }
+
 bool JobAssign::has_fairshare_flag() const
   {
   return p_flag_fairshare;
@@ -64,43 +74,25 @@ void JobAssign::set_assignment(pars_spec_node *spec)
   p_nodespec = clone_pars_spec_node(spec);
   }
 
-bool JobAssign::has_starving_assignment() const
-  {
-  return p_starved_nodespec != NULL;
-  }
-
-pars_spec_node *JobAssign::get_starving_assignment() const
-  {
-  return p_starved_nodespec;
-  }
-
-void JobAssign::set_starving_assignment(pars_spec_node *spec)
-  {
-  p_starved_nodespec = clone_pars_spec_node(spec);
-  }
-
 void JobAssign::clean_assign()
   {
   if (p_nodespec != NULL)
     free_pars_spec_node(&p_nodespec);
   p_nodespec = NULL;
 
-  if (p_starved_nodespec != NULL)
-    free_pars_spec_node(&p_starved_nodespec);
-  p_starved_nodespec = NULL;
-
   p_boot_alternative = NULL;
   p_scratch_type = ScratchNone;
   p_flag_fairshare = false;
+
+  p_virtual_assignment = false;
   }
 
-JobAssign::JobAssign() : p_flag_fairshare(false), p_scratch_type(ScratchNone), p_boot_alternative(NULL), p_nodespec(NULL), p_starved_nodespec(NULL)
+JobAssign::JobAssign() : p_flag_fairshare(false), p_scratch_type(ScratchNone), p_boot_alternative(NULL), p_nodespec(NULL), p_virtual_assignment(false)
   {}
 
 JobAssign::~JobAssign()
   {
   free_pars_spec_node(&p_nodespec);
-  free_pars_spec_node(&p_starved_nodespec);
   }
 
 void JobAssign::get_assign_string(stringstream& s, const char *node_name, AssignStringMode mode) const
