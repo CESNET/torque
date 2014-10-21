@@ -504,7 +504,7 @@ void World::run()
 
             if (waiting_for.length() == 0)
               waiting_for = jinfo->schedule[i]->get_waiting_jobs();
-            else
+            else if (jinfo->schedule[i]->get_waiting_jobs().length() != 0)
               waiting_for += string(", ") + jinfo->schedule[i]->get_waiting_jobs();
             }
 
@@ -515,6 +515,7 @@ void World::run()
           }
 
         nodes_preassign_clean(this->p_info->nodes,this->p_info->num_nodes);
+        nodes_preassign_clean(jinfo->schedule);
         jinfo->schedule.clear();
         }
       }

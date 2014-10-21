@@ -359,6 +359,8 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
       }
 
     nodes_preassign_clean(ninfo_arr,nodecount);
+    jinfo->schedule.clear();
+
     if (jinfo->is_starving) /* if starving, eat out the resources anyway */
       {
       // expand virtual nodes;
@@ -385,9 +387,11 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
 
       jinfo->plan_on_server(sinfo);
       jinfo->plan_on_queue(jinfo->queue);
+
+      return JOB_SCHEDULED;
       }
 
-    return JOB_SCHEDULED;
+    return NODESPEC_NOT_ENOUGH_NODES_TOTAL;
     }
 
   jinfo->calculated_fairshare = jinfo->calculate_fairshare_cost(suitable_nodes);
