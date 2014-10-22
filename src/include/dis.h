@@ -133,7 +133,7 @@ unsigned disrui A_((int stream, int *retval));
 
 /*#if USHRT_MAX == UINT_MAX*/
 #if SIZEOF_UNSIGNED_SHORT == SIZEOF_UNSIGNED_INT
-#define disrus(strea, retval) (unsigned short)disrui(stream, (retval))
+#define disrus(stream, retval) (unsigned short)disrui(stream, (retval))
 #else
 unsigned short disrus A_((int stream, int *retval));
 #endif

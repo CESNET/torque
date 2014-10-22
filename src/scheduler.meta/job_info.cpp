@@ -277,6 +277,19 @@ job_info *query_job_info(struct batch_status *job, queue_info *queue)
       jinfo -> calculated_fairshare = atof(attrp->value);
     else if (!strcmp(attrp -> name, ATTR_schedspec))
       jinfo -> sched_nodespec = attrp -> value;
+    else if (!strcmp(attrp -> name, ATTR_planned_nodes))
+      jinfo -> p_planned_nodes = attrp -> value;
+    else if (!strcmp(attrp -> name, ATTR_waiting_for))
+      jinfo -> p_waiting_for = attrp -> value;
+    else if (!strcmp(attrp -> name, ATTR_planned_start))
+      {
+      count = strtol(attrp -> value, &endp, 10);
+
+      if (*endp != '\n')
+        jinfo -> p_planned_start = count;
+      else
+        jinfo -> p_planned_start = -1;
+      }
     else if (!strcmp(attrp -> name, ATTR_l))    /* resources requested*/
       {
       /* special handling for cluster */
@@ -824,9 +837,12 @@ int update_job_planned_nodes(int pbs_sd, job_info *jinfo, const std::string& nod
   if (jinfo == NULL)
     return 1;
 
-  attr.value = (char*)nodes.c_str();
+  if (jinfo->p_planned_nodes != nodes)
+    {
+    attr.value = (char*)nodes.c_str();
 
-  pbs_alterjob(pbs_sd, jinfo -> name, &attr, NULL);
+    return pbs_alterjob(pbs_sd, jinfo -> name, &attr, NULL);
+    }
 
   return 0;
   }
@@ -841,9 +857,12 @@ int update_job_waiting_for(int pbs_sd, job_info *jinfo, const std::string& waiti
   if (jinfo == NULL)
     return 1;
 
-  attr.value = (char*)waiting.c_str();
+  if (jinfo->p_waiting_for != waiting)
+    {
+    attr.value = (char*)waiting.c_str();
 
-  pbs_alterjob(pbs_sd, jinfo -> name, &attr, NULL);
+    return pbs_alterjob(pbs_sd, jinfo -> name, &attr, NULL);
+    }
 
   return 0;
   }
@@ -858,12 +877,15 @@ int update_job_earliest_start(int pbs_sd, job_info *jinfo, time_t earliest_start
   if (jinfo == NULL)
     return 1;
 
-  char value[80] = { 0 };
+  if (jinfo->p_planned_start != earliest_start)
+    {
+    char value[80] = { 0 };
 
-  sprintf(value,"%ld",earliest_start);
-  attr.value = value;
+    sprintf(value,"%ld",earliest_start);
+    attr.value = value;
 
-  pbs_alterjob(pbs_sd, jinfo -> name, &attr, NULL);
+    return pbs_alterjob(pbs_sd, jinfo -> name, &attr, NULL);
+    }
 
   return 0;
   }

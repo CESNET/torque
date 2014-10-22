@@ -47,6 +47,13 @@ struct job_info
 
   std::string sched_nodespec; // filled in when job is run
 
+  /// \brief Planned nodes, for this job
+  std::string p_planned_nodes;
+  /// \brief Planned start, for this job
+  time_t p_planned_start;
+  /// \brief Jobs that are before this job
+  std::string p_waiting_for;
+
   void plan_on_node(node_info* ninfo, pars_spec_node* spec);
   void unplan_from_node(node_info* ninfo, pars_spec_node* spec);
   void plan_on_queue(queue_info* qinfo);
