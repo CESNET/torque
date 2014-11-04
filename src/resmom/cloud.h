@@ -37,4 +37,7 @@ char *cloud_mom_mapping(char *param,char *mom_name, char **alternative);
 int cloud_kill(job *pjob);
 int cloud_check_state(job *pjob);
 
+int magrathea_lock();
+int magrathea_unlock();
+
 #endif /* CLOUD_H_ */

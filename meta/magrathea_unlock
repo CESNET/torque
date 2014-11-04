@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if [ ! -x /usr/sbin/magrathea-cmd ]; then
+	exit 0;
+fi
+
+/usr/sbin/magrathea-cmd unlock &>/dev/null
+exit $?

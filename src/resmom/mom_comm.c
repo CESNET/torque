@@ -1232,6 +1232,8 @@ void node_bailout(
 
         job_start_error(pjob, PBSE_SISCOMM, np->hn_host);
 
+        magrathea_unlock();
+
         break;
 
       case IM_ABORT_JOB:
@@ -1272,7 +1274,10 @@ void node_bailout(
 
             job_save(pjob, SAVEJOB_QUICK);
             }
-            exiting_tasks = 1;
+
+          exiting_tasks = 1;
+
+          magrathea_unlock();
           }
 
         break;
@@ -2188,6 +2193,8 @@ void im_request(
 
         goto done;
         }
+
+      magrathea_lock();
 
       pjob->ji_stdout = disrsi(stream, &ret);
 
@@ -4490,6 +4497,8 @@ err:
   ** element is missing.  The likely case is the remote
   ** host has gone down.
   */
+
+  magrathea_unlock();
 
   sprintf(log_buffer, "error sending command %d to job %s",
           command,

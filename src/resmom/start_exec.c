@@ -5207,6 +5207,8 @@ void start_exec(
 	pjob->ji_stderr = socks[1];
 	
 	/* Send out a JOIN_JOB message to all the MOM's in the sisterhood. */
+
+	magrathea_lock();
 	
 	/* NOTE:  does not check success of join request */
 	

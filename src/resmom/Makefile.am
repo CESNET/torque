@@ -72,6 +72,8 @@ install-exec-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/touch_scratch
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue.parallel
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue.parallel
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_lock
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_unlock
 	cp $(top_srcdir)/meta/prologue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue
 	cp $(top_srcdir)/meta/epilogue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue
 	cp $(top_srcdir)/meta/torque-gpu-mgr.sh $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/torque-gpu-mgr.sh
@@ -84,6 +86,8 @@ install-exec-hook:
 	cp $(top_srcdir)/meta/recheck_leftover_scratch $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recheck_leftover_scratch
 	cp $(top_srcdir)/meta/check_scratch_usage $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/check_scratch_usage
 	cp $(top_srcdir)/meta/touch_scratch $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/touch_scratch
+	cp $(top_srcdir)/meta/magrathea_lock $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_lock
+	cp $(top_srcdir)/meta/magrathea_unlock $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_unlock
 
 
 uninstall-hook:
@@ -105,4 +109,6 @@ uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recheck_leftover_scratch
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/check_scratch_usage
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/touch_scratch
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_lock
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_unlock
 

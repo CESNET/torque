@@ -288,3 +288,14 @@ int cloud_check_state(job *pjob)
 
   return 0;
   }
+
+
+int magrathea_lock()
+  {
+  return system("/var/spool/torque/mom_scripts/magrathea_lock");
+  }
+
+int magrathea_unlock()
+  {
+  return system("/var/spool/torque/mom_scripts/magrathea_unlock");
+  }
