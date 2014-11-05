@@ -1,0 +1,8 @@
+#!/bin/bash
+
+if [ ! -x /usr/sbin/magrathea-admin ]; then
+	exit 0;
+fi
+
+/usr/sbin/magrathea-admin $1 unlock &>/dev/null
+exit $?

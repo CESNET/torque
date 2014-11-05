@@ -299,3 +299,51 @@ int magrathea_unlock()
   {
   return system("/var/spool/torque/mom_scripts/magrathea_unlock");
   }
+
+int magrathea_admin_lock(job *pjob)
+  {
+  const char *cmd = "/var/spool/torque/mom_scripts/magrathea_admin_lock";
+  char *cloud = cloud_mom_mapping(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,mom_host,NULL);
+  if (cloud == NULL)
+    return -1;
+
+  char *full = malloc(1+strlen(cmd)+1+strlen(cloud)+1+1);
+  if (full == NULL)
+    {
+    free(cloud);
+    return -1;
+    }
+
+  sprintf(full,"\"%s %s\"",cmd,cloud);
+
+  int ret = system(full);
+
+  free(cloud);
+  free(full);
+
+  return ret;
+  }
+
+int magrathea_admin_unlock(job *pjob)
+  {
+  const char *cmd = "/var/spool/torque/mom_scripts/magrathea_admin_unlock";
+  char *cloud = cloud_mom_mapping(pjob->ji_wattr[(int)JOB_ATR_cloud_mapping].at_val.at_str,mom_host,NULL);
+  if (cloud == NULL)
+    return -1;
+
+  char *full = malloc(1+strlen(cmd)+1+strlen(cloud)+1+1);
+  if (full == NULL)
+    {
+    free(cloud);
+    return -1;
+    }
+
+  sprintf(full,"\"%s %s\"",cmd,cloud);
+
+  int ret = system(full);
+
+  free(cloud);
+  free(full);
+
+  return ret;
+  }

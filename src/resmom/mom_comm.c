@@ -1232,7 +1232,10 @@ void node_bailout(
 
         job_start_error(pjob, PBSE_SISCOMM, np->hn_host);
 
-        magrathea_unlock();
+        if (is_cloud_job(pjob))
+          magrathea_admin_unlock(pjob);
+        else
+          magrathea_unlock();
 
         break;
 
@@ -1277,7 +1280,10 @@ void node_bailout(
 
           exiting_tasks = 1;
 
-          magrathea_unlock();
+          if (is_cloud_job(pjob))
+            magrathea_admin_unlock(pjob);
+          else
+            magrathea_unlock();
           }
 
         break;
@@ -2194,7 +2200,10 @@ void im_request(
         goto done;
         }
 
-      magrathea_lock();
+      if (is_cloud_job(pjob))
+        magrathea_admin_lock(pjob);
+      else
+        magrathea_lock();
 
       pjob->ji_stdout = disrsi(stream, &ret);
 
@@ -4498,7 +4507,10 @@ err:
   ** host has gone down.
   */
 
-  magrathea_unlock();
+  if (is_cloud_job(pjob))
+    magrathea_admin_unlock(pjob);
+  else
+    magrathea_unlock();
 
   sprintf(log_buffer, "error sending command %d to job %s",
           command,

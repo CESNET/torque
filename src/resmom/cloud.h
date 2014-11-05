@@ -40,4 +40,7 @@ int cloud_check_state(job *pjob);
 int magrathea_lock();
 int magrathea_unlock();
 
+int magrathea_admin_lock(job *pjob);
+int magrathea_admin_unlock(job *pjob);
+
 #endif /* CLOUD_H_ */
