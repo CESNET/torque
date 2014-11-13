@@ -8,7 +8,7 @@ function search_dirs
 {
 	UPDATED=0
 	find "$1/" -mindepth 2 -maxdepth 2 -type f -name "*.size" | { while read x; do
-		rmdir --ignore-fail-on-non-empty "$(dirname $x)/$(basename $x .size)" 2>/dev/null
+		/usr/bin/rmdir --ignore-fail-on-non-empty "$(dirname $x)/$(basename $x .size)" 2>/dev/null
 
 		if [ ! -d "$(dirname $x)/$(basename $x .size)" ]; then
 			rm $x;
@@ -73,3 +73,17 @@ echo "$SCRATCH_LEFTOVER" | grep $(hostname) | grep -v scratch.shared | cut -f1 |
 
 done
 
+# Check if there are any leftover directories
+JOBS=$($MOMCTL -q jobs 2>/dev/null);
+if [ $? -eq 0 ]; then
+	for scr in $SCRATCHES; do
+		if [ -d $scr ]; then
+			find $scr -mindepth 2 -maxdepth 2 -type d -mmin +3600 | while read x; do
+				JOBID=$(echo $x | cut -d_ -f2);
+				if [ "x$(echo $JOBS | grep $JOBID)" = "x" ]; then
+					/usr/bin/rmdir --ignore-fail-on-non-empty $x 2>/dev/null;
+				fi
+			done
+		fi
+	done
+fi

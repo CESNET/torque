@@ -1,9 +1,11 @@
 #!/bin/bash
 
-HOSTNAME=$(hostname);
+source /var/spool/torque/mom_scripts/torque-sw-paths.sh
+
+HOSTNAME=$(/bin/hostname);
 
 # get running jobs from pbs_mom
-JOBLIST=$(momctl -q jobs 2>/dev/null);
+JOBLIST=$($MOMCTL -q jobs 2>/dev/null);
 if [ $? -ne 0 ]; then
 	logger -p daemon.warn -t scratch_report "Could not get list of running jobs from pbs_mom."
 	exit 1;

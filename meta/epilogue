@@ -7,31 +7,36 @@ source /var/spool/torque/mom_scripts/torque-sw-paths.sh
 source /var/spool/torque/mom_scripts/torque-scratch-mgr.sh
 
 if [ -z "$(echo $0 | grep .parallel)" ]; then
+# For shared scratch, master node is the only one that handles it
 	SCRATCHES="/scratch /scratch.ssd /scratch.shared" # head node
 else
+# Other types of scratch are all local, thus handled everywhere
 	SCRATCHES="/scratch /scratch.ssd" # slave nodes
 fi
 
-for scr in $SCRATCHES;do
-        if [ -d "$scr/$USER/job_$JOBID" ];then
-		rmdir --ignore-fail-on-non-empty "$scr/$USER/job_$JOBID" 2>/dev/null
+for scr in $SCRATCHES; do
+	if [ -d "$scr/$USER/job_$JOBID" ]; then
+		/usr/bin/rmdir --ignore-fail-on-non-empty "$scr/$USER/job_$JOBID" 2>/dev/null
 
-		left_over=$(dead_quota_size $scr/$USER/job_$JOBID);
+		if [ -d "$scr/$USER/job_$JOBID" ]; then
 
-		if [ ! -z $left_over ]; then
-			if [ $left_over -gt 0 ]; then
-				echo $left_over job_$JOBID | logger -t pbs_scratch_usage -p local0.info
-				echo $left_over >$scr/$USER/job_${JOBID}.size
+			left_over=$(dead_quota_size $scr/$USER/job_$JOBID);
 
-				if [ -z "$(echo $scr | grep .shared)" ]; then
-					dead_quota_sum $scr >$scr/.dead.size
+			if [ ! -z $left_over ]; then
+				if [ $left_over -gt 0 ]; then
+					echo $left_over job_$JOBID | logger -t pbs_scratch_usage -p local0.info
+					echo $left_over >$scr/$USER/job_${JOBID}.size
+
+					if [ -z "$(echo $scr | grep .shared)" ]; then
+						dead_quota_sum $scr >$scr/.dead.size
+					fi
+
+					user_sum=$(dead_quota_user_sum $scr/$USER)
+					$CACHE_UPDATE $SERVER "$USER@`hostname`:$scr" scratch_leftover $user_sum;
 				fi
-
-				user_sum=$(dead_quota_user_sum $scr/$USER)
-				$CACHE_UPDATE $SERVER "$USER@`hostname`:$scr" scratch_leftover $user_sum;
 			fi
 		fi
-        fi
+	fi
 done
 
 # GPU support

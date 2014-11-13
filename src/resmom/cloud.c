@@ -314,7 +314,7 @@ int magrathea_admin_lock(job *pjob)
     return -1;
     }
 
-  sprintf(full,"\"%s %s\"",cmd,cloud);
+  sprintf(full,"%s %s",cmd,cloud);
 
   int ret = system(full);
 
@@ -338,7 +338,7 @@ int magrathea_admin_unlock(job *pjob)
     return -1;
     }
 
-  sprintf(full,"\"%s %s\"",cmd,cloud);
+  sprintf(full,"%s %s",cmd,cloud);
 
   int ret = system(full);
 

@@ -1,5 +1,20 @@
 #!/bin/bash
 
+# Path to momctl
+MOMCTL=
+
+if [ -x "/usr/sbin/momctl" ]; then
+	MOMCTL="/usr/sbin/momctl";
+elif [ -x "/usr/local/sbin/momctl" ]; then
+	MOMCTL="/usr/local/sbin/momctl";
+fi
+
+if [ -z "$MOMCTL" ]; then
+	echo "Fatal error, couldn't find momctl";
+	logger -p daemon.crit -t mom_shell_api "Fatal error, couldn't find momctl";
+	exit 1;
+fi
+
 # Path to list_cache
 CACHE_LIST=
 
