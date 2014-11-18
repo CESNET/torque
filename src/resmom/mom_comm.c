@@ -2200,11 +2200,6 @@ void im_request(
         goto done;
         }
 
-      if (is_cloud_job(pjob))
-        magrathea_admin_lock(pjob);
-      else
-        magrathea_lock();
-
       pjob->ji_stdout = disrsi(stream, &ret);
 
       if (ret != DIS_SUCCESS)
@@ -2359,6 +2354,20 @@ void im_request(
       pjob->ji_qs.ji_un.ji_newt.ji_fromaddr = addr->sin_addr.s_addr;
       pjob->ji_qs.ji_un.ji_newt.ji_scriptsz = 0;
       */
+
+      int ret = 0;
+      if (is_cloud_job(pjob))
+        ret = magrathea_admin_lock(pjob);
+      else
+        ret = magrathea_lock();
+
+      if (ret != 0)
+        {
+        sprintf(log_buffer, "%s: join_job request to node %d for job %s failed - cannot lock magrathea", id, nodeid, jobid);
+        log_err(-1, id, log_buffer);
+        goto err;
+        }
+
 
       if (!is_cloud_job(pjob))
       if (check_pwd(pjob) == NULL)

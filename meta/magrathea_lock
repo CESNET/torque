@@ -4,5 +4,17 @@ if [ ! -x /usr/sbin/magrathea-cmd ]; then
 	exit 0;
 fi
 
-/usr/sbin/magrathea-cmd lock &>/dev/null
-exit $?
+STATUS=$(/usr/sbin/magrathea-cmd status | awk -F"[;]" '{ print $1 }');
+
+if [ "x$STATUS" == "xfree"
+	-o "x$STATUS" == "xrunning"
+	-o "x$STATUS" == "xrunning-priority"
+	-o "x$STATUS" == "xrunning-preemptible"
+	-o "x$STATUS" == "xoccupied-would-preempt"
+	-o "x$STATUS" == "xrunning-cluster" ]; then
+	/usr/sbin/magrathea-cmd lock &>/dev/null
+	exit $?
+else
+	logger -p daemon.warning -t magrathea_prologue "Magrathea race condition encountered.";
+	exit 255;
+fi

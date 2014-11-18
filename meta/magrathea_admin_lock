@@ -4,5 +4,12 @@ if [ ! -x /usr/sbin/magrathea-admin ]; then
 	exit 0;
 fi
 
-/usr/sbin/magrathea-admin $1 lock &>/dev/null
-exit $?
+STATUS=$(/usr/sbin/magrathea-admin status $1 | awk -F"[;]" '{ print $1 }');
+
+if [ "x$STATUS" == "xfree-bootable" -o "x$STATUS" == "xdown-bootable" ]; then
+	/usr/sbin/magrathea-admin lock $1 &>/dev/null
+	exit $?
+else
+	logger -p logger daemon.warning -t magrathea_prologue "Magrathea race condition encountered.";
+	exit 255;
+fi

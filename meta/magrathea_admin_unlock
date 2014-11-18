@@ -4,5 +4,13 @@ if [ ! -x /usr/sbin/magrathea-admin ]; then
 	exit 0;
 fi
 
-/usr/sbin/magrathea-admin $1 unlock &>/dev/null
-exit $?
+STATUS=$(/usr/sbin/magrathea-admin status $1 | awk -F"[;-]" '{ print $1 }');
+SOURCE=$(/usr/sbin/magrathea-admin status $1 | tr ';' '\n' | awk -F"[=]" '/lock=/ { print $2 }');
+
+if [ "x$STATUS" == "locked" -a "x$SOURCE" == "x$HOSTNAME" ]; then
+	/usr/sbin/magrathea-admin unlock $1 &>/dev/null
+	return $?
+else
+	logger -p daemon.warning -t magrathea_prologue "Magrathea race condition encountered (cannot unlock).";
+	return 255;
+fi

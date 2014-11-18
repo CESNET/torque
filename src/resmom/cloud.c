@@ -292,12 +292,22 @@ int cloud_check_state(job *pjob)
 
 int magrathea_lock()
   {
-  return system("/var/spool/torque/mom_scripts/magrathea_lock");
+  int ret = system("/var/spool/torque/mom_scripts/magrathea_lock");
+
+  if (WIFEXITED(ret))
+    return WEXITSTATUS(ret);
+  else
+    return -1;
   }
 
 int magrathea_unlock()
   {
-  return system("/var/spool/torque/mom_scripts/magrathea_unlock");
+  int ret = system("/var/spool/torque/mom_scripts/magrathea_unlock");
+
+  if (WIFEXITED(ret))
+    return WEXITSTATUS(ret);
+  else
+    return -1;
   }
 
 int magrathea_admin_lock(job *pjob)
@@ -321,7 +331,10 @@ int magrathea_admin_lock(job *pjob)
   free(cloud);
   free(full);
 
-  return ret;
+  if (WIFEXITED(ret))
+    return WEXITSTATUS(ret);
+  else
+    return -1;
   }
 
 int magrathea_admin_unlock(job *pjob)
@@ -345,5 +358,8 @@ int magrathea_admin_unlock(job *pjob)
   free(cloud);
   free(full);
 
-  return ret;
+  if (WIFEXITED(ret))
+    return WEXITSTATUS(ret);
+  else
+    return -1;
   }

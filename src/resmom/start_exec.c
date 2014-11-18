@@ -5208,11 +5208,15 @@ void start_exec(
 	
 	/* Send out a JOIN_JOB message to all the MOM's in the sisterhood. */
 
+	int ret = 0;
 	if (is_cloud_job(pjob))
-	  magrathea_admin_lock(pjob);
+	  ret = magrathea_admin_lock(pjob);
 	else
-	  magrathea_lock();
+	  ret = magrathea_lock();
 	
+	if (ret != 0)
+	  exec_bail(pjob, JOB_EXEC_FAIL1);
+
 	/* NOTE:  does not check success of join request */
 	
 	for (i = 1;i < nodenum;i++)
