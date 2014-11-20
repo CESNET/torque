@@ -304,6 +304,8 @@ cleanup_magrathea_booting()
 	if [ $INVOKE_BOOT -eq 1 ]; then
 		$ADMIN_COMMAND set-foreign $DOMAIN 0
 	fi
+
+	$ADMIN_COMMAND unlock $DOMAIN
 }
 
 #########################
@@ -366,14 +368,14 @@ magrathea_start()
 	# check state each 10 seconds for 2 minutes total until in free state
 	for i in `seq 1 12`; do
 		fetch_magrathea_status;
-		if [ "$MAGRATHEA_STATUS" = "free" ] || [ "$MAGRATHEA_STATUS" = "free-bootable" ]; then
+		if [ "$MAGRATHEA_STATUS" = "free" ] || [ "$MAGRATHEA_STATUS" = "free-bootable" ] || [ "$MAGRATHEA_STATUS" == "locked-free" ] || [ "$MAGRATHEA_STATUS" == "locked-free-bootable" ]; then
 			break;
 		fi
 		sleep 10;
 	done
 
 	fetch_magrathea_status;
-	if [ "$MAGRATHEA_STATUS" != "free" ] && [ "$MAGRATHEA_STATUS" != "free-bootable" ]; then # still not online, try to cleanup
+	if [ "$MAGRATHEA_STATUS" != "free" ] && [ "$MAGRATHEA_STATUS" != "free-bootable" ] && [ "$MAGRATHEA_STATUS" != "locked-free" ] && [ "$MAGRATHEA_STATUS" != "locked-free-bootable" ]; then # still not online, try to cleanup
 		logger -p daemon.crit -t magrathea_prologue "Machine didn't switch to free state after force-boot.";
 		exit_with_rollback 1;
 	fi
@@ -394,6 +396,8 @@ magrathea_start()
 			sleep 10;
 		done
 	fi
+
+	$ADMIN_COMMAND unlock $DOMAIN
 }
 
 #########################

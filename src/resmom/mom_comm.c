@@ -2365,6 +2365,8 @@ void im_request(
         {
         sprintf(log_buffer, "%s: join_job request to node %d for job %s failed - cannot lock magrathea", id, nodeid, jobid);
         log_err(-1, id, log_buffer);
+
+        job_purge(pjob);
         goto err;
         }
 
@@ -4516,10 +4518,13 @@ err:
   ** host has gone down.
   */
 
-  if (is_cloud_job(pjob))
-    magrathea_admin_unlock(pjob);
-  else
-    magrathea_unlock();
+  if (command == IM_JOIN_JOB)
+    {
+    if (is_cloud_job(pjob))
+      magrathea_admin_unlock(pjob);
+    else
+      magrathea_unlock();
+    }
 
   sprintf(log_buffer, "error sending command %d to job %s",
           command,

@@ -527,7 +527,12 @@ void exec_bail(
 	
 	log_err(-1, id, log_buffer);
 	}
-  
+
+  if (is_cloud_job(pjob))
+    magrathea_admin_unlock(pjob);
+  else
+    magrathea_unlock();
+
   /* inform non-MS nodes that job is aborting */
   
 #ifdef HAVE_GLITE_LB

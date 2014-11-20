@@ -7,10 +7,10 @@ fi
 STATUS=$(/usr/sbin/magrathea-admin status $1 | awk -F"[;-]" '{ print $1 }');
 SOURCE=$(/usr/sbin/magrathea-admin status $1 | tr ';' '\n' | awk -F"[=]" '/lock=/ { print $2 }');
 
-if [ "x$STATUS" == "locked" -a "x$SOURCE" == "x$HOSTNAME" ]; then
+if [ "x$STATUS" == "xlocked" -a "x$SOURCE" == "x$1" ]; then
 	/usr/sbin/magrathea-admin unlock $1 &>/dev/null
-	return $?
+	exit $?
 else
 	logger -p daemon.warning -t magrathea_prologue "Magrathea race condition encountered (cannot unlock).";
-	return 255;
+	exit 255;
 fi

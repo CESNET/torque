@@ -6,12 +6,7 @@ fi
 
 STATUS=$(/usr/sbin/magrathea-cmd status | awk -F"[;]" '{ print $1 }');
 
-if [ "x$STATUS" == "xfree"
-	-o "x$STATUS" == "xrunning"
-	-o "x$STATUS" == "xrunning-priority"
-	-o "x$STATUS" == "xrunning-preemptible"
-	-o "x$STATUS" == "xoccupied-would-preempt"
-	-o "x$STATUS" == "xrunning-cluster" ]; then
+if [ "x$STATUS" == "xfree" -o "x$STATUS" == "xrunning" -o "x$STATUS" == "xrunning-priority" -o "x$STATUS" == "xrunning-preemptible" -o "x$STATUS" == "xoccupied-would-preempt" -o "x$STATUS" == "xrunning-cluster" ]; then
 	/usr/sbin/magrathea-cmd lock &>/dev/null
 	exit $?
 else
