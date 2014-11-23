@@ -27,6 +27,12 @@ magrathea	{ err " "	type "cache" }
 
 fluent		{ err " "	type "dynamic" }
 ansys		{ err " "	type "dynamic" }
+ansys-me	{ err " "	type "dynamic" }
+ansys-cfd	{ err " "	type "dynamic" }
+ansys-hpc	{ err " "	type "dynamic" }
+ansys-zcu-me	{ err " "	type "dynamic" }
+ansys-zcu-cfd	{ err " "	type "dynamic" }
+ansys-zcu-hpc	{ err " "	type "dynamic" }
 marc		{ err " "	type "dynamic" }
 marcn		{ err " "	type "dynamic" }
 maple10		{ err " "	type "dynamic" }
@@ -34,6 +40,8 @@ maple10p	{ err " "	type "dynamic" }
 maple11		{ err " "	type "dynamic" }
 maple		{ err " "	type "dynamic" }
 
+mathematica		{ err " "	type "dynamic" }
+gridmathematica		{ err " "	type "dynamic" }
 math8		{ err " "	type "dynamic" }
 gridmath8	{ err " "	type "dynamic" }
 geneious	{ err " "	type "dynamic" }

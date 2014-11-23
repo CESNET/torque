@@ -18,7 +18,7 @@ PBS_LIBS = ../lib/Libattr/libattr.a \
 EXTRA_DIST = rm_dep.h
 sbin_PROGRAMS = pbs_mom pbs_demux
 
-LDADD = @PBS_MACH@/libmommach.a $(MOMLIBS) $(PBS_LIBS) -lm $(GLITE_LDFLAGS) $(GLITE_LB_CLIENT_NOTHR_LIBS)
+LDADD = @PBS_MACH@/libmommach.a $(MOMLIBS) $(PBS_LIBS) -lm $(GLITE_LDFLAGS) $(GLITE_LB_COMMON_NOTHR_LIBS) $(GLITE_LB_CLIENT_NOTHR_LIBS) $(GLITE_SECURITY_GSS) $(GLITE_JOBID)
 
 if INCLUDE_GSSAPI
 LDADD += -lkafs

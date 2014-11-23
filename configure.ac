@@ -25,7 +25,7 @@ dnl by David Beer (dbeer@adaptivecomputing.com)
 dnl
 
 AC_PREREQ(2.53)
-AC_INIT([torque], [2.4.131], [torqueusers@supercluster.org])
+AC_INIT([torque], [2.4.132], [torqueusers@supercluster.org])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
 AC_REVISION($Revision$)
 AC_CONFIG_SRCDIR([src/cmds/qrun.c])
@@ -411,6 +411,7 @@ AS_IF([test "x$with_glite_lb" != "xno"],
 		[ac_link="./libtool --mode=link --tag=CXX $ac_link"
 		])])[]dnl
 	 GLITE_BASE
+         GLITE_CHECK_LB_COMMON
 	 GLITE_CHECK_LB_CLIENT
 	 AC_LANG(_AC_LANG)[]dnl
          ],

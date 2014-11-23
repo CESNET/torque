@@ -160,6 +160,10 @@ AC_LINK_IFELSE([],
 )
 LIBS=$save_LIBS
 
+
+AC_SUBST([GLITE_SECURITY_GSS],[-lglite_security_gss])
+AC_SUBST([GLITE_JOBID],[-lglite_jobid])
+
 AC_LANG_POP([C++])
 
 LDFLAGS="$save_LDFLAGS"

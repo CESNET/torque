@@ -796,6 +796,12 @@ resource_def svr_resc_def_const[] =
   { "matlab", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
   { "fluent", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
   { "ansys", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "ansys-me", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "ansys-cfd", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "ansys-hpc", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "ansys-zcu-me", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "ansys-zcu-cfd", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
+  { "ansys-zcu-hpc", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
   { "marc", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
   { "marcn", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
   { "maple10", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE | ATR_DFLAG_MOM | ATR_DFLAG_RMOMIG, ATR_TYPE_LONG },
@@ -807,6 +813,8 @@ resource_def svr_resc_def_const[] =
   { "gridmath8", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
   { "geneious", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
   { "clcgenomics", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
+  { "mathematica", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
+  { "gridmathematica", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
 
   /* matlab toolbox licenses */
   { "matlab_Statistics_Toolbox", decode_l, encode_l, set_l, comp_l, free_null, NULL_FUNC, READ_WRITE, ATR_TYPE_LONG },
