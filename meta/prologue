@@ -75,5 +75,6 @@ if [ $? -ne 0 ]; then
 fi
 
 /var/spool/torque/mom_scripts/magrathea_unlock
-exit $?
+#exit $?
+exit 0
 

@@ -5274,6 +5274,15 @@ void start_exec(
   else
 	{
 	/* Step 4.0B Launch Serial Task Locally */
+
+  int ret = 0;
+  if (is_cloud_job(pjob))
+   ret = magrathea_admin_lock(pjob);
+  else
+   ret = magrathea_lock();
+
+  if (ret != 0)
+   exec_bail(pjob, JOB_EXEC_FAIL1);
 	
 	/* serial job */
 	
