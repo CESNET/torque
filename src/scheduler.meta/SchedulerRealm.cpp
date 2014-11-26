@@ -291,6 +291,7 @@ int World::try_run_job(job_info *jinfo)
   double minspec = 0;
   char *best_node_name = nodes_preassign_string(jinfo, p_info->nodes, p_info->num_nodes, booting, minspec);
 
+  sched_log(PBSEVENT_SCHED, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, "Trying to execute job \"%s\".",best_node_name);
 
   int ret = 0;
 

@@ -5220,7 +5220,10 @@ void start_exec(
 	  ret = magrathea_lock();
 	
 	if (ret != 0)
+	  {
 	  exec_bail(pjob, JOB_EXEC_FAIL1);
+	  return;
+	  }
 
 	/* NOTE:  does not check success of join request */
 	
@@ -5282,7 +5285,10 @@ void start_exec(
    ret = magrathea_lock();
 
   if (ret != 0)
-   exec_bail(pjob, JOB_EXEC_FAIL1);
+    {
+    exec_bail(pjob, JOB_EXEC_FAIL1);
+    return;
+    }
 	
 	/* serial job */
 	

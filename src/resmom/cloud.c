@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/wait.h>
 
 extern char        *path_prolog_magrathea_status;
 extern char        *path_prolog_magrathea_start;

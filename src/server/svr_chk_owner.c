@@ -517,6 +517,17 @@ job *chk_job_request(
     return(NULL);
     }
 
+  if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_CROSSERVER)
+    {
+    if (preq->rq_fromsvr)
+      return pjob;
+
+    sprintf(log_buffer, "Job moved to a remote server [%s]", pjob->ji_wattr[(int)JOB_ATR_at_server].at_val.at_str);
+    log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, jobid, log_buffer);
+    req_reject(PBSE_UNKJOBID, 0, preq, NULL, log_buffer);
+    return NULL;
+    }
+
   if (svr_authorize_jobreq(preq, pjob) == -1)
     {
     sprintf(log_buffer, msg_permlog,
@@ -535,14 +546,6 @@ job *chk_job_request(
     req_reject(PBSE_PERM, 0, preq, NULL, "operation not permitted");
 
     return(NULL);
-    }
-
-  if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_CROSSERVER)
-    {
-    if (preq->rq_fromsvr)
-      return pjob;
-    else
-      return NULL;
     }
 
   if (pjob->ji_qs.ji_state >= JOB_STATE_EXITING)

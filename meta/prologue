@@ -60,7 +60,9 @@ fi
 
 # Determine if this is a cluster job, if it is, don't do anything
 if [ "$TORQUE_RESC_TOTAL_CLUSTER" != "" ]; then
-	exit 0;
+	/var/spool/torque/mom_scripts/magrathea_unlock
+	#exit $?
+	exit 0
 fi
 
 if [ $TORQUE_RESC_TOTAL_NODECT -gt 1 ]; then

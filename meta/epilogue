@@ -16,7 +16,7 @@ fi
 
 for scr in $SCRATCHES; do
 	if [ -d "$scr/$USER/job_$JOBID" ]; then
-		/usr/bin/rmdir --ignore-fail-on-non-empty "$scr/$USER/job_$JOBID" 2>/dev/null
+		$RMDIR --ignore-fail-on-non-empty "$scr/$USER/job_$JOBID" 2>/dev/null
 
 		if [ -d "$scr/$USER/job_$JOBID" ]; then
 

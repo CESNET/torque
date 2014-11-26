@@ -84,3 +84,18 @@ if [ -z "$SERVER" ]; then
 	logger -p daemon.crit -t mom_shell_api "Fatal error, couldn't set server name";
 	exit 1
 fi
+
+
+RMDIR=
+
+if [ -x "/bin/rmdir" ]; then
+	RMDIR="/bin/rmdir";
+elif [ -x "/usr/bin/rmdir" ]; then
+	RMDIR="/usr/bin/rmdir";
+fi
+
+if [ -z "$RMDIR" ]; then
+	echo "Fatal error, couldn't find rmdir";
+	logger -p daemon.cirt -t mom_shell_api "Fatal error, couldn't find rmdir";
+	exit 1;
+fi

@@ -14,7 +14,6 @@
 #echo >>/tmp/log
 #env >>/tmp/log
 
-
 #exec 1>>/tmp/log 2>&1
 #set -x
 
@@ -169,7 +168,7 @@ test_status_start()
 		exit_with_rollback 1;
 	fi
 
-	if [ -z "$MAGRATHEA_LOCK_OWNER" != "$DOMAIN" ]; then
+	if [ "$MAGRATHEA_LOCK_OWNER" != "$DOMAIN" ]; then
 		logger -p daemon.crit -t magrathea_prologue "Domain lock is owner by different hostname, this shouldn't happen.";
 		exit_with_rollback 1;
 	fi
@@ -197,19 +196,19 @@ test_status_start()
 			exit_with_rollback 1;
 		fi
 
-		if [ "$CACHE_STATUS" != "locked-down-bootable" ] && [ "$CACHE_STATUS" != "locked-down" ] && [ "$CACHE_STATUS" != "lock-free-bootable" ]; then
+		if [ "$CACHE_STATUS" != "locked-down-bootable" ] && [ "$CACHE_STATUS" != "locked-down" ] && [ "$CACHE_STATUS" != "locked-free-bootable" ] && [ "$CACHE_STATUS" != "locked-free" ]; then
 			logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received but machine state in cache is not down-bootable or free.";
 			# try to update cache
 			$CACHE_UPDATE $SERVER $DOMAIN magrathea "inconsistent;0;changed=$NOW" # overwrite magrathea state
 			exit_with_rollback 1;
 		fi
 
-		if [ "$MAGRATHEA_STATUS" != "locked-down-bootable" ] && [ "$MAGRATHEA_STATUS" != "locked-down" ] && [ "$MAGRATHEA_STATUS" != "locked-free-bootable" ] && [ ! -z "$MAGRATHEA_STATUS" ]; then
+		if [ "$MAGRATHEA_STATUS" != "locked-down-bootable" ] && [ "$MAGRATHEA_STATUS" != "locked-down" ] && [ "$MAGRATHEA_STATUS" != "locked-free-bootable" ] && [ "$MAGRATHEA_STATUS" != "locked-free" ] && [ ! -z "$MAGRATHEA_STATUS" ]; then
 			logger -p daemon.crit -t magrathea_prologue "Race condition. Cluster request received but magrathea state isn't bootable or free.";
 			return_with_rollback 1;
 		fi
 
-		if [ "$MAGRATHEA_STATUS" == "locked-free-bootable" ]; then
+		if [ "$MAGRATHEA_STATUS" == "locked-free-bootable" -o "$MAGRATHEA_STATUS" == "locked-free" ]; then
 			MACHINE_NEEDS_SHUTDOWN="yes";
 		fi
 	fi
@@ -229,7 +228,7 @@ test_status_running()
 		# silent
 	fi
 
-	if [ "$CACHE_STATUS" != "running-cluster" ]; then
+	if [ "$CACHE_STATUS" != "running-cluster" -a "$CACHE_STATUS" != "locked-running" ]; then
 		logger -p daemon.warning -t magrathea_prologue "Weird state. Cluster running, but magrathea cache record doesn't match.";
 		# silent
 	fi
@@ -240,7 +239,7 @@ test_status_running()
 		exit_with_rollback 1;
 	fi
 
-	if [ "$MAGRATHEA_STATUS" != "running-cluster" -a "$MAGRATHEA_STATUS" != "down-disappeared" -a "$MAGRATHEA_STATUS" != "booting" ]; then
+	if [ "$MAGRATHEA_STATUS" != "running-cluster" -a "$MAGRATHEA_STATUS" != "down-disappeared" -a "$MAGRATHEA_STATUS" != "booting" -a "$MAGRATHEA_STATUS" != "locked-running" -a "$MAGRATHEA_STATUS" != "locked-booting" ]; then
 		logger -p daemon.info -t magrathea_prologue "Magrathea reports non-running state. Tearing down cluster.";
 		exit_with_rollback 1;
 	fi

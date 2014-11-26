@@ -132,7 +132,14 @@ void req_locatejob(
 
   if (pjob)
     {
-    location = server_name;
+    if (pjob->ji_qs.ji_substate == JOB_SUBSTATE_CROSSERVER)
+      {
+      location = pjob->ji_wattr[(int)JOB_ATR_at_server].at_val.at_str;
+      }
+    else
+      {
+      location = server_name;
+      }
     }
   else
     {

@@ -116,6 +116,8 @@ static int ondemand_reboot(job_info *jinfo, pars_spec_node *spec, const vector<n
     else
       suitable_nodes[i]->get_source_node()->set_selected_alternative(NULL); /* FIXME META Prepsat do citelneho stavu */
 
+    jinfo->schedule.push_back(suitable_nodes[i]->get_source_node());
+
     return 0;
     }
 

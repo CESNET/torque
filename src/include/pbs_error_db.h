@@ -213,6 +213,8 @@ PbsErrClient(PBSE_CLOUD_NAME,        "Cloud with specified name already exists."
 PbsErrClient(PBSE_CLOUD_REQUEST,     "Command is not available for cloud jobs.")
 /* Can't submit from the current kerberos realm */
 PbsErrClient(PBSE_KERBEROS_ACL,      "Cannot submit from current kerberos realm.")
+/* Job executed on a different server */
+PbsErrClient(PBSE_CROSS_SVR,         "Job moved to a different server.")
 /* pbs client errors ceiling (max_client_err + 1) */
 PbsErrClient(PBSE_CEILING,           (char*)0)
 #endif

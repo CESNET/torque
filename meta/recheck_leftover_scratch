@@ -8,7 +8,7 @@ function search_dirs
 {
 	UPDATED=0
 	find "$1/" -mindepth 2 -maxdepth 2 -type f -name "*.size" | { while read x; do
-		/usr/bin/rmdir --ignore-fail-on-non-empty "$(dirname $x)/$(basename $x .size)" 2>/dev/null
+		$RMDIR --ignore-fail-on-non-empty "$(dirname $x)/$(basename $x .size)" 2>/dev/null
 
 		if [ ! -d "$(dirname $x)/$(basename $x .size)" ]; then
 			rm $x;
@@ -81,7 +81,7 @@ if [ $? -eq 0 ]; then
 			find $scr -mindepth 2 -maxdepth 2 -type d -mmin +3600 | while read x; do
 				JOBID=$(echo $x | cut -d_ -f2);
 				if [ "x$(echo $JOBS | grep $JOBID)" = "x" ]; then
-					/usr/bin/rmdir --ignore-fail-on-non-empty $x 2>/dev/null;
+					$RMDIR --ignore-fail-on-non-empty $x 2>/dev/null;
 				fi
 			done
 		fi
