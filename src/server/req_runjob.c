@@ -1047,6 +1047,9 @@ static int svr_strtjob2(
     svr_setjobstate(pjob,JOB_STATE_RUNNING,JOB_SUBSTATE_PRERUN);
     }
 
+  pjob->ji_modified = 1;
+  job_save(pjob, SAVEJOB_FULL);
+
   /* if job start timeout attribute is set use its value */
   
   if (((server.sv_attr[(int)SRV_ATR_JobStartTimeout].at_flags & ATR_VFLAG_SET) != 0)
