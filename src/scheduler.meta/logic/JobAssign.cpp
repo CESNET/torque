@@ -98,7 +98,9 @@ JobAssign::~JobAssign()
 void JobAssign::get_assign_string(stringstream& s, const char *node_name, AssignStringMode mode) const
   {
   s << "host=" << node_name << ":ppn=" << p_nodespec->procs;
-  s << ":mem=" << p_nodespec->mem << "KB";
+  if (p_nodespec->mem != 0)
+    s << ":mem=" << p_nodespec->mem << "KB";
+  if (p_nodespec->vmem != 0)
   s << ":vmem=" << p_nodespec->vmem << "KB";
 
   pars_prop *iter = p_nodespec->properties;
