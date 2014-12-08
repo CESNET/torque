@@ -273,6 +273,26 @@ static char *acct_job(
 
   ptr += Len;
 
+  if ((pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_flags & ATR_VFLAG_SET) != 0)
+    {
+    Len = strlen("sched_nodespec= ")+strlen(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
+
+    if(runningBufSize <= newStringLen+1)
+    {
+      Len = AdjustAcctBufSize(Buf, BufSize, newStringLen, pjob);
+      if(Len == 0)
+        return(ptr);
+      runningBufSize += newStringLen+EXTRA_PAD;
+    }
+    ptr = *Buf;
+    ptr += strlen(*Buf);
+
+    snprintf(ptr, runningBufSize, "sched_nodespec=%s ",pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
+
+    runningBufSize -= Len;
+    ptr += Len;
+    }
+
   /* now encode the job's resource_list attribute */
 
   resc_access_perm = READ_ONLY;
