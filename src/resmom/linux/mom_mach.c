@@ -1871,7 +1871,7 @@ int mom_over_limit(
       }
     }
 
-  if ((numll = resi_sum(pjob)) > node->mem * 1024)
+  if (node->mem != 0 && (numll = resi_sum(pjob)) > node->mem * 1024)
     {
     if ((exclusive && !strictmem) || simulatekill || ignmem)
       /* do not kill when simulatekill is turned on, ignmem is turned on, or exclusive and strictmem not set */
@@ -1891,7 +1891,7 @@ int mom_over_limit(
     }
 
 
-  if ((numll = vmem_sum(pjob)) > node->vmem * 1024)
+  if (node->vmem != 0 && (numll = vmem_sum(pjob)) > node->vmem * 1024)
     {
     if ((exclusive && !strictvmem) || simulatekill || ignvmem)
       /* do not kill when simulatekill is turned on, ignvmem is turned on, or exclusive and strictvmem not set */

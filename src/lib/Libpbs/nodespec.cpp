@@ -681,8 +681,10 @@ static void concat_node(stringstream& s, pars_spec_node *node, alter_flag with_a
   assert(node != NULL);
 
   s << node->node_count << ":ppn=" << node->procs;
-  s << ":mem=" << node->mem << "KB";
-  s << ":vmem=" << node->vmem << "KB";
+  if (node->mem != 0)
+    s << ":mem=" << node->mem << "KB";
+  if (node->vmem != 0)
+    s << ":vmem=" << node->vmem << "KB";
 
   if (node->host != NULL)
     s << ":host=" << node->host;
