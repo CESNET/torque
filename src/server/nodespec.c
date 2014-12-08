@@ -290,33 +290,39 @@ void regenerate_total_resources(job * pjob)
     char buf[128];
     attribute attr;
 
-    /* find the definition and decode the value */
-    rd = find_resc_def(svr_resc_def, "mem", svr_resc_size);
-    sprintf(buf,"%lluKB",mem);
-    rd->rs_decode(&attr,"mem","",buf);
+    if (mem != 0)
+      {
+      /* find the definition and decode the value */
+      rd = find_resc_def(svr_resc_def, "mem", svr_resc_size);
+      sprintf(buf,"%lluKB",mem);
+      rd->rs_decode(&attr,"mem","",buf);
 
-    /* check if mem is already present (shouldn't be) */
-    rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
-    if (rs == NULL)
-      rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+      /* check if mem is already present (shouldn't be) */
+      rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+      if (rs == NULL)
+        rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
 
-    ret = rd->rs_set(&rs->rs_value,&attr,SET);
-    if (ret != 0)
-      return;
+      ret = rd->rs_set(&rs->rs_value,&attr,SET);
+      if (ret != 0)
+        return;
+      }
 
-    /* find the definition and decode the value */
-    rd = find_resc_def(svr_resc_def, "vmem", svr_resc_size);
-    sprintf(buf,"%lluKB",vmem);
-    rd->rs_decode(&attr,"vmem","",buf);
+    if (vmem != 0)
+      {
+      /* find the definition and decode the value */
+      rd = find_resc_def(svr_resc_def, "vmem", svr_resc_size);
+      sprintf(buf,"%lluKB",vmem);
+      rd->rs_decode(&attr,"vmem","",buf);
 
-    /* check if vmem is already present (shouldn't be) */
-    rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
-    if (rs == NULL)
-      rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+      /* check if vmem is already present (shouldn't be) */
+      rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
+      if (rs == NULL)
+        rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
 
-    ret = rd->rs_set(&rs->rs_value,&attr,SET);
-    if (ret != 0)
-      return;
+      ret = rd->rs_set(&rs->rs_value,&attr,SET);
+      if (ret != 0)
+        return;
+      }
 
     if (scratch != 0)
       {
