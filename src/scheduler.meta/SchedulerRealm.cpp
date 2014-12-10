@@ -99,7 +99,7 @@ bool World::fetch_servers()
           if ((jobs = query_jobs(p_connections.make_remote_connection(string(conf.slave_servers[i])),p_info->queues[j])) == NULL)
             {
             sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, "Couldn't fetch information from server \"%s\".",conf.slave_servers[i]);
-            i++;
+            // soft error - continue with next queue
             continue;
             }
           }
@@ -107,8 +107,8 @@ bool World::fetch_servers()
         catch (const exception& e)
           {
           sched_log(PBSEVENT_ERROR, PBS_EVENTCLASS_SERVER, __PRETTY_FUNCTION__, e.what());
-          i++;
-          continue;
+          // hard error, break out of this server
+          break;
           }
 
         // merge the new jobs into the local queue
