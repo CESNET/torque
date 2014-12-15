@@ -14,3 +14,19 @@ script:
 compiler:
  - gcc
  - clang
+
+env:
+  global:
+   # The next declaration is the encrypted COVERITY_SCAN_TOKEN, created
+   #   via the "travis encrypt" command using the project repo's public key
+   - secure: "Bfk32//C2gAaMi66AsYwBllqgq0MYenjfTRD20FEcjuFnCT6cxrWqGmRoPzEp0uAYKGx6bb47iCB7QxZj2vk+A34TNOYdSym5mo/x7voSL/ap94V82LqgeK/atpV3qQbGzOjIQM0rqa1b5F+lXRxGtUfH7f7+aB7nYUSgq2ewss="
+
+addons:
+  coverity_scan:
+    project:
+      name: "CESNET/torque"
+      description: "Build submitted via Travis CI"
+    notification_email: happy.cerberus@gmail.com
+    build_command_prepend: "pushd magrathea/pbs_cache; make; sudo make_install; popd; autoreconf -ivf; CFLAGS=\"-std=gnu99 -pedantic -Wall -Wextra\" CXXFLAGS=\"-ansi -pedantic -Wall -Wextra\" ./configure --with-debug --with-rcp=scp --prefix=/usr --mandir=/usr/share/man --infodir=/usr/share/info --with-sendmail=/usr/sbin/sendmail --enable-syslog --enable-meta-fork; make clean"
+    build_command:   "make -j 4"
+    branch_pattern: coverity_scan
