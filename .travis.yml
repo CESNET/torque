@@ -1,3 +1,4 @@
 language: c
+before_install: pushd magrathea/pbs_cache; make && make install; popd
 script: autoreconf -ivf && CFLAGS="-std=gnu99 -pedantic -Wall -Wextra" CXXFLAGS="-ansi -pedantic -Wall -Wextra" ./configure --with-debug --with-rcp=scp --prefix=/usr --mandir=/usr/share/man --infodir=/usr/share/info --with-sendmail=/usr/sbin/sendmail --enable-syslog --enable-meta-fork && make
 compiler: gcc

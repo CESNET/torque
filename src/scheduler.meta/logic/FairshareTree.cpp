@@ -4,6 +4,7 @@
 #include "misc.h"
 #include "api.hpp"
 #include "utility.h"
+#include <errno.h>
 #include <cstdio>
 #include <sstream>
 #include <stdexcept>
@@ -390,7 +391,8 @@ void FairshareTree::dump_to_file() const
   FILE *fp = fopen(filename.c_str(),"wb");
   if (fp == NULL)
     {
-    throw runtime_error("Error while opening usage file for writing.");
+    string errtxt = string("Error while opening usage file for writing: ")+string(strerror(errno));
+    throw runtime_error(errtxt);
     return;
     }
 
