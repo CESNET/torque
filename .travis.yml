@@ -4,6 +4,7 @@ before_install:
  - pushd magrathea/pbs_cache
  - make
  - sudo make install
+ - popd
 
 script:
  - autoreconf -ivf
