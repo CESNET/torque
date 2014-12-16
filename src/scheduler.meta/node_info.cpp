@@ -263,6 +263,7 @@ node_info **node_filter(node_info **nodes, int size,
     {
     perror("Memory Allocation Error");
     free(new_nodes);
+    new_nodes = NULL;
     }
 
   return new_nodes;
