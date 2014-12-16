@@ -148,7 +148,7 @@ queue_info **query_queues(int pbs_sd, server_info *sinfo)
     cur_queue = cur_queue -> next;
     }
 
-  if ((qinfo_arr = (queue_info **) malloc(sizeof(queue_info *) * (num_queues + 1))) == NULL)
+  if ((qinfo_arr = static_cast<queue_info**>(calloc(num_queues+1,sizeof(queue_info *)))) == NULL)
     {
     perror("Memory Allocation error");
     pbs_statfree(queues);

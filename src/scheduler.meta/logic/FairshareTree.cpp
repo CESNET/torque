@@ -209,7 +209,11 @@ group_info* FairshareTree::find_alloc_ginfo(const char *name)
     if ((ginfo = new_group_info()) == NULL)
       return NULL;
 
-    retnull_on_null(ginfo-> name = strdup(name));
+    if ((ginfo->name = strdup(name)) == NULL)
+      {
+      free(ginfo);
+      return NULL;
+      }
 
     ginfo -> shares = 1;
 
