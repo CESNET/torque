@@ -96,7 +96,6 @@ using namespace std;
 #include "node_info.h"
 #include "utility.h"
 #include "global_macros.h"
-#include "nodespec_sch.h"
 
 #include "fairshare.h"
 

@@ -94,7 +94,6 @@
 extern "C" {
 #include "site_pbs_cache.h"
 }
-#include "nodespec_sch.h"
 #include "sort.h"
 #include "global_macros.h"
 

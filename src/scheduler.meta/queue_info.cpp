@@ -87,7 +87,6 @@
 #include "check.h"
 #include "config.h"
 #include "globals.h"
-#include "nodespec_sch.h"
 
 #include "base/MiscHelpers.h"
 using namespace Scheduler;

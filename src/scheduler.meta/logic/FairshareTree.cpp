@@ -351,6 +351,8 @@ void FairshareTree::read_configuration()
         }
       }
     }
+
+  fclose(fp);
   }
 
 void FairshareTree::read_usage()
