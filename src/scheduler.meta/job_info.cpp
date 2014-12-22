@@ -408,6 +408,8 @@ job_info *new_job_info()
 
   jinfo -> placement = NULL;
 
+  jinfo -> p_planned_start = -1;
+
   return jinfo;
   }
 
