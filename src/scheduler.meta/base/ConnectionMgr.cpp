@@ -147,6 +147,12 @@ int ConnectionMgr::make_master_connection(const string& hostname)
   /* pass-through errors */
   p_master = get_fqdn(hostname);
 
+  map<string,int>::const_iterator i = p_connections.find(p_master);
+  if (i != p_connections.end())
+    {
+    return i->second;
+    }
+
   int connector = privileged_connect(p_master.c_str());
   if (connector < 0)
     throw runtime_error(string("Connection to master server (\"" + p_master + "\") failed."));
@@ -160,6 +166,12 @@ int ConnectionMgr::make_remote_connection(const string& hostname)
   {
   /* pass-through errors */
   string connect = get_fqdn(hostname);
+
+  map<string,int>::const_iterator i = p_connections.find(connect);
+  if (i != p_connections.end())
+    {
+    return i->second;
+    }
 
   int connector = privileged_connect(connect.c_str());
   if (connector < 0)
