@@ -50,7 +50,7 @@ echo "$JOBLIST" | cut -d\' -f2 | cut -d= -f2 | tr ' ' '\n' | while read JOBID; d
 
 		# over limit - report to syslog
 		if [ $REALSIZE -gt $REQSIZE ]; then
-			logger -p daemon.notice -t scratch_report "SCRATCH_OVER_LIMIT;{$USER} user [$JOBID] scratch $DIR using more space ($(($REALSIZE/1024))mb) than requested ${VOL}mb.";
+			logger -p daemon.notice -t scratch_report "SCRATCH_OVER_LIMIT, {$USER@META} user [$JOBID] scratch $DIR using $(($REALSIZE/1024))mb than requested ${VOL}mb on node `hostname`.";
 		fi
 	fi
 done
