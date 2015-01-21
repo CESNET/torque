@@ -347,11 +347,13 @@ int str_res_to_num(const char *res, unsigned long long *value)
       }
     case 'B': case 'b':
       {
+      result += 1023; // ensure rounding up
       result /= 1024;
       break;
       }
     case 'w':
       {
+      result += 1024/SIZE_OF_WORD - 1; // ensure rounding up
       result /= 1024/SIZE_OF_WORD;
       break;
       }
@@ -698,7 +700,7 @@ static void concat_node(stringstream& s, pars_spec_node *node, alter_flag with_a
     if (node->scratch_type == ScratchSSD) { s << ":scratch_type=ssd"; }
     if (node->scratch_type == ScratchLocal) { s << ":scratch_type=local"; }
     if (node->scratch_type == ScratchShared) { s << ":scratch_type=shared"; }
-    s << ":scratch_volume=" << node->scratch / 1024 << "mb";
+    s << ":scratch_volume=" << (node->scratch + 1023) / 1024 << "mb";
     }
 
   pars_prop *prop = node->properties;
@@ -898,7 +900,7 @@ void add_scratch_to_nodespec(pars_spec *spec, char *scratch)
   if (str_res_to_num(value,&scratch_size) != 0)
       return;
 
-  if (scratch_size / 1024 == 0)
+  if (scratch_size == 0)
     return;
 
   if (delim1 == NULL)

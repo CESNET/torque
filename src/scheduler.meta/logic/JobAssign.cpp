@@ -140,13 +140,13 @@ void JobAssign::get_assign_string(stringstream& s, const char *node_name, Assign
       s << "shared";
     else if (p_scratch_type == ScratchLocal)
       s << "local";
-    s << ":scratch_volume=" << p_nodespec->scratch / 1024 << "mb";
+    s << ":scratch_volume=" << (p_nodespec->scratch + 1023) / 1024 << "mb";
 
     // new counted resources for local and ssd scratch
     if (p_scratch_type == ScratchLocal)
-      s << ":scratch_local=" << p_nodespec->scratch / 1024 << "mb";
+      s << ":scratch_local=" << (p_nodespec->scratch + 1023) / 1024 << "mb";
     else if (p_scratch_type == ScratchSSD)
-      s << ":scratch_ssd=" << p_nodespec->scratch / 1024 << "mb";
+      s << ":scratch_ssd=" << (p_nodespec->scratch + 1023) / 1024 << "mb";
     }
 
   if (this->has_selected_alternative())
