@@ -24,9 +24,9 @@ echo "$JOBLIST" | cut -d\' -f2 | cut -d= -f2 | tr ' ' '\n' | while read JOBID; d
 	# parse out nodespec for this particular node
 	NODESPEC=$(echo "$JOBSTAT" | awk '/sched_nodespec/ { print $3 }' | tr '+' '\n' | grep $HOSTNAME);
 	# get scratch  directory
-	DIR=$(echo $NODESPEC | tr ':' '\n' | awk -F= '/scratch_type/ { print $2 }');
+	DIR=$(echo $NODESPEC | tr ':#' '\n' | awk -F= '/scratch_type/ { print $2 }');
 	# and scratch size
-	VOL=$(echo $NODESPEC | tr ':' '\n' | awk -F= '/scratch_volume/ { print $2 }' | tr -d 'mb');
+	VOL=$(echo $NODESPEC | tr ':#' '\n' | awk -F= '/scratch_volume/ { print $2 }' | tr -d 'mb');
 
 	case $DIR in
 	shared)
