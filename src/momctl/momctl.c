@@ -503,7 +503,7 @@ int do_mom(
 
         closerm(sd);
 
-        return(-1);
+        return(FAILURE);
         }
 
       if ((Value = (char *)getreq(sd)) == NULL)
@@ -519,7 +519,7 @@ int do_mom(
 
         closerm(sd);
 
-        return(-1);
+        return(FAILURE);
         }
 
       /* job cleared */
@@ -579,7 +579,7 @@ int do_mom(
 
         closerm(sd);
 
-        return(-1);
+        return(FAILURE);
         }
 
       fprintf(stdout, "reconfig successful on %s\n",
@@ -599,6 +599,8 @@ int do_mom(
 
       char *Value;
 
+      int was_error = 0;
+
       for (rindex = 0;rindex < QueryI;rindex++)
         {
         if (addreq(sd, Query[rindex]) != 0)
@@ -611,6 +613,8 @@ int do_mom(
           pbs_strerror(errno),
           pbs_errno,
           pbs_strerror(pbs_errno));
+
+          was_error = 1;
           }
         }
 
@@ -631,6 +635,8 @@ int do_mom(
             pbs_strerror(errno),
             pbs_errno,
             pbs_strerror(pbs_errno));
+
+            was_error = 1;
           }
         else
           {
@@ -659,6 +665,7 @@ int do_mom(
           *ptr = '=';
           }
         }  /* END for (rindex) */
+        return (was_error);
       }    /* END BLOCK (case momQuery) */
 
     break;
