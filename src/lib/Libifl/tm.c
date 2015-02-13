@@ -112,6 +112,7 @@
 #include "net_connect.h"
 #include "pbs_ifl.h"
 
+#include <stdbool.h>
 
 /*
 ** Set up a debug print macro.
