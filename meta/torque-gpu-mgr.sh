@@ -19,7 +19,7 @@ if [ "$OPR" = "lock" ]; then
 		# Verify - consistency of aux files
 		for i in $(ls /var/spool/torque/aux/gpu-* 2>/dev/null); do
 			jobid=$(echo $i | cut -d\- -f2);
-			if [ "$(echo $MOMCTL_DATA | grep $jobid)" = "" ]; then
+			if [ "$(echo \"$MOMCTL_DATA\" | grep $jobid)" = "" ]; then
 				# Inconsistency detected
 				if [ -r /var/spool/torque/aux/$jobid ]; then
 					logger -p daemon.crit -t pbs_mom "Node doesn't report job whose files are still present in aux.";
@@ -32,7 +32,7 @@ if [ "$OPR" = "lock" ]; then
 
 		# Verify - consistency of cache
 		for i in $($CACHE_LIST $SERVER gpu_allocation | grep -v unallocated | grep `hostname` | cut -f3 | sort -u); do
-			if [ "$(echo $MOMCTL_DATA | grep $i)" = "" ]; then
+			if [ "$(echo \"$MOMCTL_DATA\" | grep $i)" = "" ]; then
 				# Inconsistency detected
 				if [ -r /var/spool/torque/aux/$i ]; then
 					logger -p daemon.crit -t pbs_mom "Node doesn't report job whose files are still present in aux.";
