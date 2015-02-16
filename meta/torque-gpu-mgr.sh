@@ -13,7 +13,7 @@ fi
 
 if [ "$OPR" = "lock" ]; then
 	MOMCTL_DATA=$($MOMCTL -q jobs 2>&1);
-	if [ $(echo $MOMCTL_DATA | grep "ERROR:") != "" ]; then
+	if [ "$(echo \"$MOMCTL_DATA\" | grep "ERROR:")" != "" ]; then
 		logger -p daemon.crit -t pbs_mom "Could not get mom information through momctl.";
 	else
 		# Verify - consistency of aux files
