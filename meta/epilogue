@@ -3,6 +3,14 @@
 JOBID="$1"
 USER="$2"
 
+# custom epilogue scripts
+SCRIPTS_DIR='/etc/torque/pbs_mom/epilogue.d'
+if [ -d "${SCRIPTS_DIR}" ]; then
+	for F in "${SCRIPTS_DIR}"/*.sh; do
+		source "${F}" || exit
+	done
+fi
+
 source /var/spool/torque/mom_scripts/torque-sw-paths.sh
 source /var/spool/torque/mom_scripts/torque-scratch-mgr.sh
 
