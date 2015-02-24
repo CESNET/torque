@@ -302,6 +302,8 @@ mk_mom_dirs()
 	install_dir $PBS_SERVER_HOME/undelivered  1777 || return 1
 	install_dir $PBS_SERVER_HOME/mom_priv 751 || return 1
 	install_dir $PBS_SERVER_HOME/mom_priv/jobs 751 || return 1
+	install_dir $PBS_SERVER_HOME/mom_priv/prologue.d 751 || return 1
+	install_dir $PBS_SERVER_HOME/mom_priv/epilogue.d 751 || return 1
 	install_dir $PBS_SERVER_HOME/mom_logs 755 || return 1
 	install_dir $PBS_SERVER_HOME/mom_scripts 755 || return 1
 
