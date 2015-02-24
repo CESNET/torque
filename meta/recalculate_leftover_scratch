@@ -1,0 +1,14 @@
+#!/bin/bash
+
+SCRATCHES="/scratch /scratch.ssd"
+for scr in $SCRATCHES; do
+	if [ -d $scr ]; then
+		find "$scr/" -mindepth 2 -maxdepth 2 -type f -name "*.size" | { while read x; do
+			left_over=$(du -sk $(dirname $x)/$(basename $x .size) 2>/dev/null | sed 's/\t/ /' | awk '{ print $1 }');
+			echo $left_over >$x;
+		done
+		}
+	fi
+done
+
+/var/spool/torque/mom_scripts/recheck_leftover_scratch
