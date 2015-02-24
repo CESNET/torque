@@ -7,6 +7,14 @@ JOBID="$1"
 USER="$2"
 GROUP="$3"
 
+# custom prologue scripts
+SCRIPTS_DIR='/etc/torque/pbs_mom/prologue.d'
+if [ -d "${SCRIPTS_DIR}" ]; then
+	for F in "${SCRIPTS_DIR}"/*.sh; do
+		source "${F}" || exit
+	done
+fi
+
 # GPU handling
 source /var/spool/torque/mom_scripts/torque-sw-paths.sh
 
