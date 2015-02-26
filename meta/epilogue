@@ -7,7 +7,9 @@ USER="$2"
 SCRIPTS_DIR='/var/spool/torque/mom_priv/epilogue.d'
 if [ -d "${SCRIPTS_DIR}" ]; then
 	for F in "${SCRIPTS_DIR}"/*.sh; do
-		source "${F}" || exit
+		if [ -x "${F}" ]; then
+			source "${F}" || exit
+		fi
 	done
 fi
 
