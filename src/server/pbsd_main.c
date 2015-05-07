@@ -128,7 +128,7 @@
 #ifdef USE_HA_THREADS
 #include <pthread.h>
 #endif /* USE_HA_THREADS */
-
+#include <time.h>
 
 #define TSERVER_HA_CHECK_TIME  1  /* 1 second sleep time between checks on the lock file for high availability */
 
@@ -1108,9 +1108,19 @@ main_loop(void)
 
   DBPRT(("pbs_server is up\n"));
 
+  struct timespec last_cycle = {0};
+  struct timespec this_cycle = {0};
   while (*state != SV_STATE_DOWN)
     {
     /* first process any task whose time delay has expired */
+    clock_gettime(CLOCK_MONOTONIC,&this_cycle);
+    if (last_cycle.tv_sec != 0)
+      {
+      long int diff = (this_cycle.tv_sec - last_cycle.tv_sec)*1000000000+(this_cycle.tv_nsec - last_cycle.tv_nsec);
+      sprintf(log_buffer,"Last server cycle took %lf seconds.",diff/1000000000.0);
+      log_event(PBSEVENT_SYSTEM | PBSEVENT_FORCE, PBS_EVENTCLASS_SERVER, msg_daemonname, log_buffer);
+      }
+    last_cycle = this_cycle;
 
     if (server.sv_attr[(int)SRV_ATR_PollJobs].at_val.at_long)
       waittime = MIN(next_task(), JobStatRate - (time_now - last_jobstat_time));
