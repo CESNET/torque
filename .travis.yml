@@ -8,7 +8,7 @@ before_install:
 
 script:
  - autoreconf -ivf
- - CFLAGS="-std=gnu99 -pedantic -Wall -Wextra" CXXFLAGS="-ansi -pedantic -Wall -Wextra" ./configure --with-debug --with-rcp=scp --prefix=/usr --mandir=/usr/share/man --infodir=/usr/share/info --with-sendmail=/usr/sbin/sendmail --enable-syslog --enable-meta-fork
+ - CFLAGS="-std=gnu99 -pedantic -Wall -Wextra -D_POSIX_C_SOURCE=200112L" CXXFLAGS="-ansi -pedantic -Wall -Wextra -D_POSIX_C_SOURCE=200112L" ./configure --with-debug --with-rcp=scp --prefix=/usr --mandir=/usr/share/man --infodir=/usr/share/info --with-sendmail=/usr/sbin/sendmail --enable-syslog --enable-meta-fork
  - make
 
 compiler: gcc
