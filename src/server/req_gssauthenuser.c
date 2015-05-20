@@ -108,7 +108,7 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
     }
   }
 
-  if ((status = pbsgss_server_establish_context(sock, server_creds, &client_creds, &context,
+  if ((status = pbsgss_server_establish_context(sock, server_creds, NULL, &context,
 						&client_name, &ret_flags)) < 0) {
     sprintf(log_buffer,"server_establish_context failed : %d",status);
     log_event(PBSEVENT_DEBUG,
@@ -137,10 +137,17 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
 	      "req_gssauthenuser",
 	      "Integrity protection not available on connection.");
     req_reject(PBSE_SYSTEM,0,preq,NULL,"no integrity protection");
+    return -1;
   }
   pbsgss_save_sec_context(&context,ret_flags,sock);
   log_event(PBSEVENT_DEBUG,
 	    PBS_EVENTCLASS_SERVER,"req_gssauthenuser calling con_credent","");
-  return gss_conn_credent(preq,sock);
 
+  if ((status = gss_conn_credent(preq,sock)) < 0)
+    {
+    req_reject(PBSE_BADCRED,0,preq,NULL,"Could not get credentials from connection (gss_conn_credent).");
+    return -1;
+    }
+
+  return 0;
 }
