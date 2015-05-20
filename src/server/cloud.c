@@ -551,6 +551,8 @@ int cloud_transition_into_prerun(job *pjob)
     store_cluster_attr(&cached, "group", pres->rs_value.at_val.at_str);
     }
 
+  store_cluster_attr(&cached,"jobid",pjob->ji_qs.ji_jobid);
+
   cache_store_local(pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str, "cluster", cached);
 
   ps = parse_nodespec(pjob->ji_wattr[(int)JOB_ATR_sched_spec].at_val.at_str);
