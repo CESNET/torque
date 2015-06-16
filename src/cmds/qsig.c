@@ -105,11 +105,13 @@ int main(
   int errflg = 0;
   int any_failed = 0;
   int runAsync = FALSE;
+  int connect=0;
 
   char job_id[PBS_MAXCLTJOBID];       /* from the command line */
 
   char job_id_out[PBS_MAXCLTJOBID];
   char server_out[MAXSERVERNAME];
+  char server_last[MAXSERVERNAME];
   char rmt_server[MAXSERVERNAME];
 
 #define MAX_SIGNAL_TYPE_LEN 32
@@ -142,9 +144,9 @@ int main(
     exit(2);
     }
 
+  server_last[0] = '\0';
   for (; optind < argc; optind++)
     {
-    int connect;
     int stat = 0;
     int located = FALSE;
 
@@ -159,7 +161,15 @@ int main(
 
 cnt:
 
-    connect = cnt2server(server_out);
+    // we are not connect to a server, or we are connected to a different server than we need to work with
+    if (!server_last[0] || strcmp(server_last,server_out)) {
+      // if we are already connected
+      if (connect>0)
+        pbs_disconnect(connect);
+
+      connect = cnt2server(server_out);
+      strcpy(server_last,server_out);
+      }
 
     if (connect <= 0)
       {
@@ -189,7 +199,6 @@ cnt:
 
       if (locate_job(job_id_out, server_out, rmt_server))
         {
-        pbs_disconnect(connect);
         strcpy(server_out, rmt_server);
         goto cnt;
         }
@@ -199,8 +208,10 @@ cnt:
       any_failed = pbs_errno;
       }
 
-    pbs_disconnect(connect);
     }
+
+    if (connect>0)
+      pbs_disconnect(connect);
 
   exit(any_failed);
   }
