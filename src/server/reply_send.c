@@ -284,9 +284,11 @@ int reply_send(
 #ifndef PBS_MOM
       if (LOGLEVEL >= 7)
         {
-        sprintf(log_buffer, "Reply sent for request type %s on socket %d",
+        sprintf(log_buffer, "Reply sent for request type %s on socket %d (%s@%s)",
           reqtype_to_txt(request->rq_type),
-          sfds);
+          sfds,
+          request->rq_user,
+          request->rq_host);
 
         log_record(
           PBSEVENT_JOB,
