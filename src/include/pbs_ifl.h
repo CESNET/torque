@@ -189,6 +189,7 @@
 #define ATTR_vlanid      "vlan_id"
 #define ATTR_fairshare_cost "fairshare_cost"
 #define ATTR_interactive_submit "interactive_submit"
+#define ATTR_cgroup "cgroup"
 
 #ifdef HAVE_GLITE_LB
 #define ATTR_lb_jobid   "lb_jobid"

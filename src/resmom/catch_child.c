@@ -617,7 +617,7 @@ scan_for_exiting(void)
           kill_job(pjob, SIGKILL, id, "connection to server lost - no obit sent");
           }
 
-        job_purge(pjob);
+        mom_deljob(pjob);
 
         continue;
         }
@@ -2054,6 +2054,13 @@ void mom_deljob(
       pjob->ji_qs.ji_jobid,
       log_buffer);
     }
+
+
+#ifdef MOM_MACH_LINUX
+
+  cgroup_destroy(pjob->ji_qs.ji_jobid);
+
+#endif
 
   job_purge(pjob);
 

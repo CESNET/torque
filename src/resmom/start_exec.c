@@ -124,6 +124,7 @@
 #include "nodespec.h"
 
 #include "cloud.h"
+#include "cgroup.h"
 
 #ifdef ENABLE_CPA
 	#include "pbs_cpa.h"
@@ -2926,6 +2927,45 @@ int TMomFinalizeChild(
 	
 	}		 /* END else (TJE->is_interactive == TRUE) */
   
+  // Initialize CGROUP if requested
+#ifdef MOM_MACH_LINUX
+
+  // check if we should move this session to a cgroup
+  if ((cgroup_detect_status() == 0) &&
+      (pjob->ji_wattr[(int)JOB_ATR_cgroup].at_flags & ATR_VFLAG_SET) &&
+      (pjob->ji_wattr[(int)JOB_ATR_cgroup].at_val.at_long > 0) &&
+      ((cgroup_get_cpu_enabled() != 0) || (cgroup_get_mem_enabled() != 0)) &&
+      ((cgroup_use_cpu != 0) || (cgroup_use_mem != 0)))
+    {
+    if (cgroup_get_info(pjob->ji_qs.ji_jobid,NULL,NULL,NULL) == -1)
+      {
+      if (cgroup_create(pjob->ji_qs.ji_jobid) != 0)
+        {
+        log_err(-1,id,"Could not create cgroup for job.");
+        starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr); /* exits */
+        }
+
+      pars_spec *spec = parse_nodespec(pjob->ji_wattr[JOB_ATR_sched_spec].at_val.at_str);
+
+      pars_spec_node *node = find_node_in_spec(spec,mom_host);
+      if (node == NULL)
+        {
+        log_err(-1,id,"Could not find node information in nodespec.");
+        starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr); /* exits */
+        }
+
+      cgroup_set_cpu_limit(pjob->ji_qs.ji_jobid,node->procs);
+      cgroup_set_mem_limit(pjob->ji_qs.ji_jobid,node->mem*1024);
+
+      free_parsed_nodespec(spec);
+
+      cgroup_add_process(pjob->ji_qs.ji_jobid,getpid());
+      }
+    }
+
+#endif
+
+
   /***********************************************************************/
   /* Set resource limits        */
   /* Both normal batch and interactive job come through here   */

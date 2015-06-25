@@ -128,6 +128,8 @@
 #endif
 
 #include "cloud.h"
+#include "mom_mach.h"
+#include "cgroup.h"
 
 /* Global Data Items */
 
@@ -184,6 +186,10 @@ extern int TMakeTmpDir(job *, char *);
 extern void mom_server_close_stream(int stream);
 char *cat_dirs(char *root, char *base);
 char *get_local_script_path(job *pjob, char *base);
+
+#ifdef MOM_MACH_LINUX
+int* getPidsInSession(int session);
+#endif
 
 #ifdef PENABLE_LINUX26_CPUSETS
 extern int use_cpusets(job *);
@@ -5994,6 +6000,22 @@ static int adoptSession(pid_t sid, char *id, int command, char *cookie)
     {
     pjob->maxAdoptedTaskId = TM_ADOPTED_TASKID_BASE;
     }
+
+#ifdef MOM_MACH_LINUX
+
+  // check if we should move this session to a cgroup
+  if ((cgroup_detect_status() == 0) &&
+      (pjob->ji_wattr[(int)JOB_ATR_cgroup].at_flags & ATR_VFLAG_SET) &&
+      (pjob->ji_wattr[(int)JOB_ATR_cgroup].at_val.at_long > 0) &&
+      ((cgroup_get_cpu_enabled() != 0) || (cgroup_get_mem_enabled() != 0)) &&
+      ((cgroup_use_cpu != 0) || (cgroup_use_mem != 0)))
+    {
+    int *buf = getPidsInSession(sid);
+    if (buf != NULL)
+      cgroup_add_pids(pjob->ji_qs.ji_jobid,buf);
+    }
+
+#endif
 
   /*
    * DJH 27 Feb 2002.

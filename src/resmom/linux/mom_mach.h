@@ -86,6 +86,7 @@
 
 #ifndef MOM_MACH
 #define MOM_MACH "linux"
+#define MOM_MACH_LINUX
 
 #define SET_LIMIT_SET   1
 #define SET_LIMIT_ALTER 0

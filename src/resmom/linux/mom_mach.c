@@ -4630,6 +4630,28 @@ mbool_t ProcIsChild(
   return(FALSE);
   }  /* END ProcIsChild() */
 
+int* getPidsInSession(int session)
+  {
+  int *buf = calloc(nproc,sizeof(int));
+
+  if (buf == NULL)
+    return NULL;
+
+  int index = 0;
+  for (int i = 0; i < nproc; i++)
+    {
+    if (proc_array[i].session == session)
+      {
+      buf[index] = proc_array[i].pid;
+      ++index;
+      }
+    }
+
+  buf[index] = -1;
+
+  return buf;
+  }
+
 /* END mom_mach.c */
 
 

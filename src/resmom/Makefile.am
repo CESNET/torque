@@ -27,7 +27,7 @@ endif
 pbs_mom_SOURCES = catch_child.c mom_comm.c mom_inter.c mom_main.c \
 		   mom_server.c prolog.c requests.c start_exec.c root_task.c \
            checkpoint.c tmsock_recov.c req_quejob.c job_func.c \
-           cloud.c mom_resources.c \
+           cloud.c mom_resources.c cgroup.cpp \
            ../server/attr_recov.c ../server/dis_read.c \
 		   ../server/job_attr_def.c \
 		   ../server/job_recov.c  \
