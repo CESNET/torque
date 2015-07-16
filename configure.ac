@@ -791,7 +791,9 @@ dnl PBS CACHE
 dnl
 
 AC_CHECK_HEADERS(pbs_cache_api.h)
-AC_CHECK_LIB([pbscache],[pbs_cache_get_local])
+AC_CHECK_LIB([pbscache],[pbs_cache_get_local],[],[
+	AC_MSG_ERROR([libpbscache not found.])
+])
 
 dnl
 dnl ######################################################################
