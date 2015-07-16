@@ -248,8 +248,15 @@ int reply_send_async(struct batch_request *request)
     // default to synchronous version
     return reply_send(request);
   else if (sfds >= 0)
+    {
+    int rc = dis_reply_write_async(sfds, &request->rq_reply);
+    if ((request->rq_type != PBS_BATCH_AsyModifyJob) || (request->rq_noreply == TRUE))
+      {
+      free_br(request);
+      }
+    }
     /* Otherwise, the reply is to be sent to a remote client */
-    return dis_reply_write_async(sfds, &request->rq_reply);
+
 
   return 0;
   }

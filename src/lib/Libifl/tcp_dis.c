@@ -559,13 +559,19 @@ int async_write_with_timeout(int fd, char *buff, size_t size, time_t sec_timeout
       if (sec_timeout + start_time > current_time)
         tv.tv_sec = sec_timeout - (current_time - start_time);
       else
+        {
+        free(buff);
         return -2; // timeout
+        }
 
       continue;
       }
 
     if (retval == -1) // error other than EINTR
+      {
+      free(buff);
       return -1;
+      }
 
     if (FD_ISSET(fd,&wfds))
       {
@@ -579,7 +585,10 @@ int async_write_with_timeout(int fd, char *buff, size_t size, time_t sec_timeout
           if (sec_timeout + start_time > current_time)
             tv.tv_sec = sec_timeout - (current_time - start_time);
           else
+            {
+            free(buff);
             return -2; // timeout
+            }
 
           FD_ZERO(&wfds);
           FD_SET(fd, &wfds);
@@ -587,9 +596,13 @@ int async_write_with_timeout(int fd, char *buff, size_t size, time_t sec_timeout
           }
 
         if (errno != EINTR)
+          {
+          free(buff);
           // we cannot handle this case and it shouldn't happen as write should never block
           return -1;
+          }
 
+        free(buff);
         // other error
         return -1;
         }
@@ -604,11 +617,15 @@ int async_write_with_timeout(int fd, char *buff, size_t size, time_t sec_timeout
       if (sec_timeout + start_time > current_time)
         tv.tv_sec = sec_timeout - (current_time - start_time);
       else
+        {
+        free(buff);
         return -2; // timeout
+        }
 
       }
     }
 
+  free(buff);
   return 0;
   }
 
