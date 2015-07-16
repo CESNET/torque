@@ -239,9 +239,6 @@ int  termin_child = 0;  /* boolean - one or more children need to be terminated 
 time_t  time_now = 0;
 time_t  last_poll_time = 0;
 extern tlist_head svr_requests;
-char cgroup_path[PATH_MAX+1];
-int cgroup_use_cpu = 1;
-int cgroup_use_mem = 1;
 
 extern struct var_table vtable; /* see start_exec.c */
 double  wallfactor = 1.00;
@@ -410,9 +407,8 @@ static unsigned long setremchkptdirlist(char *);
 static unsigned long setmaxconnecttimeout(char *);
 static unsigned long setkilldelay(char *);
 static unsigned long setlbreportusageinterval(char *);
-static unsigned long setcgrouppath(char *);
-static unsigned long setcgroupenablecpu(char *);
-static unsigned long setcgroupenablemem(char *);
+static unsigned long setcgrouppathcpu(char *value);
+static unsigned long setcgrouppathmem(char *value);
 
 
 static struct specials
@@ -482,9 +478,8 @@ static struct specials
   { "max_conn_timeout_micro_sec",   setmaxconnecttimeout },
   { "kill_delay",          setkilldelay },
   { "lb_report_usage_interval", setlbreportusageinterval },
-  { "cgroup_path", setcgrouppath },
-  { "cgroup_enable_cpu", setcgroupenablecpu },
-  { "cgroup_enable_mem", setcgroupenablemem },
+  { "cgroup_path_cpu", setcgrouppathcpu },
+  { "cgroup_path_mem", setcgrouppathmem },
   { NULL,                  NULL }
   };
 
@@ -2101,99 +2096,20 @@ static u_long setenablemomrestart(
   return(1);
   }  /* END setenablemomrestart() */
 
-static unsigned long setcgrouppath(char* value)
+static unsigned long setcgrouppathcpu(char *value)
   {
-  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "setcgrouppath", value);
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "setcgrouppathcpu", value);
 
-  strncpy(cgroup_path,value,sizeof(cgroup_path));
+  cgroup_set_path_cpu(value);
 
   return 1;
   }
 
-static unsigned long setcgroupenablecpu(char* value)
+static unsigned long setcgrouppathmem(char *value)
   {
-  int           enable = 1;
+  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "setcgrouppathmem", value);
 
-  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "setcgroupenablecpu", value);
-
-  /* accept various forms of "true", "yes", and "1" */
-  switch (value[0])
-    {
-
-    case 't':
-
-    case 'T':
-
-    case 'y':
-
-    case 'Y':
-
-    case '1':
-
-      enable = 1;
-
-      break;
-
-    case 'f':
-
-    case 'F':
-
-    case 'n':
-
-    case 'N':
-
-    case '0':
-
-      enable = 0;
-
-      break;
-    }
-
-  cgroup_use_cpu = enable;
-
-  return 1;
-  }
-
-static unsigned long setcgroupenablemem(char* value)
-  {
-  int           enable = 1;
-
-  log_record(PBSEVENT_SYSTEM, PBS_EVENTCLASS_SERVER, "setcgroupenablemem", value);
-
-  /* accept various forms of "true", "yes", and "1" */
-  switch (value[0])
-    {
-
-    case 't':
-
-    case 'T':
-
-    case 'y':
-
-    case 'Y':
-
-    case '1':
-
-      enable = 1;
-
-      break;
-
-    case 'f':
-
-    case 'F':
-
-    case 'n':
-
-    case 'N':
-
-    case '0':
-
-      enable = 0;
-
-      break;
-    }
-
-  cgroup_use_mem = enable;
+  cgroup_set_path_mem(value);
 
   return 1;
   }
@@ -7727,7 +7643,8 @@ int setup_program_environment(void)
     addclient(ret_string);
 
   // setup default cgroup path
-  strcpy(cgroup_path,"/sys/fs/cgroup");
+  cgroup_set_path_cpu("");
+  cgroup_set_path_mem("");
 
   tmpdir_basename[0] = '\0';
 

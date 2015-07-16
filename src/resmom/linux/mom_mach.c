@@ -4632,18 +4632,26 @@ mbool_t ProcIsChild(
 
 int* getPidsInSession(int session)
   {
+  // refresh proc information
+  mom_get_sample();
+
   int *buf = calloc(nproc,sizeof(int));
 
   if (buf == NULL)
     return NULL;
 
-  int index = 0;
-  for (int i = 0; i < nproc; i++)
+  buf[0] = session;
+  int index = 1;
+
+  for (int offset = 0; offset < index; offset++)
     {
-    if (proc_array[i].session == session)
+    for (int i = 0; i < nproc; i++)
       {
-      buf[index] = proc_array[i].pid;
-      ++index;
+      if (proc_array[i].ppid == buf[offset])
+        {
+        buf[index] = proc_array[i].pid;
+        index++;
+        }
       }
     }
 

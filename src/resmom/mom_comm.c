@@ -130,6 +130,7 @@
 #include "cloud.h"
 #include "mom_mach.h"
 #include "cgroup.h"
+#include "nodespec.h"
 
 /* Global Data Items */
 
@@ -6007,12 +6008,61 @@ static int adoptSession(pid_t sid, char *id, int command, char *cookie)
   if ((cgroup_detect_status() == 0) &&
       (pjob->ji_wattr[(int)JOB_ATR_cgroup].at_flags & ATR_VFLAG_SET) &&
       (pjob->ji_wattr[(int)JOB_ATR_cgroup].at_val.at_long > 0) &&
-      ((cgroup_get_cpu_enabled() != 0) || (cgroup_get_mem_enabled() != 0)) &&
-      ((cgroup_use_cpu != 0) || (cgroup_use_mem != 0)))
+      ((cgroup_get_cpu_enabled() != 0) || (cgroup_get_mem_enabled() != 0)))
     {
+    // create if cgroup doesn't exist
+    if (get_cgroup_exists(pjob->ji_qs.ji_jobid) != 0)
+      {
+      if (cgroup_create(pjob->ji_qs.ji_jobid) != 0)
+        {
+        sprintf(log_buffer, "CGROUP creation was requested, but failed for job %s. CPU cgroup is %s. MEM cgroup is %s.",
+            pjob->ji_qs.ji_jobid,
+            cgroup_get_cpu_enabled() != 0 ? "enabled" : "disabled",
+            cgroup_get_mem_enabled() != 0 ? "enabled" : "disabled");
+        log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, log_buffer);
+        return TM_ERROR;
+        }
+      }
+
+    // the cgroup does exist, progressing with resource limits
+    pars_spec *spec = parse_nodespec(pjob->ji_wattr[JOB_ATR_sched_spec].at_val.at_str);
+    if (spec == NULL)
+      {
+      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP creation failed, could not parse nodespec.");
+      return TM_ERROR;
+      }
+
+    pars_spec_node *node = find_node_in_spec(spec,mom_host);
+    if (node == NULL)
+      {
+      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP creation failed, node not found in nodespec.");
+      free_parsed_nodespec(spec);
+      return TM_ERROR;
+      }
+
+    if (cgroup_set_cpu_limit(pjob->ji_qs.ji_jobid,node->procs) != 0)
+      {
+      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP CPU limit could not be set.");
+      free_parsed_nodespec(spec);
+      return TM_ERROR;
+      }
+
+    if (cgroup_set_mem_limit(pjob->ji_qs.ji_jobid,node->mem*1024) != 0)
+      {
+      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP MEM limit could not be set.");
+      free_parsed_nodespec(spec);
+      return TM_ERROR;
+      }
+
+    free_parsed_nodespec(spec);
+
     int *buf = getPidsInSession(sid);
     if (buf != NULL)
-      cgroup_add_pids(pjob->ji_qs.ji_jobid,buf);
+    if (cgroup_add_pids(pjob->ji_qs.ji_jobid,buf) != 0)
+      {
+      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP adoption failed. Could not add pids to cgroup.");
+      return TM_ERROR;
+      }
     }
 
 #endif

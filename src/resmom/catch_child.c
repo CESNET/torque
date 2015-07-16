@@ -106,6 +106,7 @@
 #include "net_connect.h"
 #include "svrfunc.h"
 #include "mom_mach.h"
+#include "cgroup.h"
 #include "mom_func.h"
 #include "pbs_error.h"
 #include "pbs_proto.h"
@@ -740,11 +741,7 @@ scan_for_exiting(void)
           "all tasks complete - purging job as sister");
         }
 
-      DBPRT(("all tasks complete - purging job as sister (%s)\n",
-
-             pjob->ji_qs.ji_jobid));
-
-      job_purge(pjob);
+      mom_deljob(pjob);
 
       continue;
       }  /* END if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0) */

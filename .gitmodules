@@ -1,0 +1,3 @@
+[submodule "torque.build"]
+	path = torque.build
+	url = git@github.com:CESNET/torque.build.git

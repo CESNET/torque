@@ -4,7 +4,7 @@ PBS_LIBS = ../lib/Libpbs/libtorque.la
 
 sbin_PROGRAMS = pbs_sched
 schedprivdir = $(PBS_SERVER_HOME)/sched_priv
-schedpriv_DATA = sched_config resource_group holidays dedicated_time resources.def resources_matlab.def resources_ncbr.def
+schedpriv_DATA = sched_config resource_group.default holidays dedicated_time resources.def resources_matlab.def resources_ncbr.def
 
 EXTRA_DIST = $(schedpriv_DATA) README
 

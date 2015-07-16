@@ -1211,7 +1211,6 @@ int S_opt = FALSE;
 int V_opt = FALSE;
 int Depend_opt    = FALSE;
 int Interact_opt  = FALSE;
-int Cgroup_opt    = FALSE;
 int Run_Inter_opt = FALSE;
 int Stagein_opt   = FALSE;
 int Stageout_opt  = FALSE;
@@ -2836,7 +2835,7 @@ int process_opts(
   char search_string[256];
 
 #if !defined(PBS_NO_POSIX_VIOLATION)
-#define GETOPT_ARGS "a:A:b:c:C:d:D:e:fGhIj:k:Kl:m:M:N:o:p:P:q:r:S:t:T:u:v:Vw:W:Xxz-:"
+#define GETOPT_ARGS "a:A:b:c:C:d:D:e:fhIj:k:Kl:m:M:N:o:p:P:q:r:S:t:T:u:v:Vw:W:Xxz-:"
 #else
 #define GETOPT_ARGS "a:A:c:C:e:hj:k:l:m:M:N:o:p:q:r:S:u:v:VW:z"
 #endif /* PBS_NO_POSIX_VIOLATION */
@@ -3196,17 +3195,6 @@ int process_opts(
         break;
       
 #endif
-
-      case 'G':
-
-        if_cmd_line(Cgroup_opt)
-          {
-          Cgroup_opt = passet;
-
-          set_attr(&attrib, ATTR_cgroup, "TRUE");
-          }
-
-        break;
 
       case 'h':
 
