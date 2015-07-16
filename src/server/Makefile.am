@@ -9,8 +9,7 @@ sbin_PROGRAMS = pbs_server
 
 pbs_server_LDADD = $(PBS_LIBS) $(GLITE_LDFLAGS) $(GLITE_LB_COMMON_NOTHR_LIBS) $(GLITE_LB_CLIENT_NOTHR_LIBS) $(GLITE_SECURITY_GSS) $(GLITE_JOBID)
 AM_CFLAGS = -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\" -DPBS_ENVIRON=\"$(PBS_ENVIRON)\"
-
-INCLUDES = $(PBS_CACHE_INCLUDE) $(GLITE_CPPFLAGS)
+AM_CPPFLAGS += $(PBS_CACHE_INCLUDE) $(GLITE_CPPFLAGS) 
 
 pbs_server_SOURCES = accounting.c array_func.c array_upgrade.c attr_recov.c \
 		     dis_read.c geteusernam.c \

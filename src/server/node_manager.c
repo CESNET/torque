@@ -1541,7 +1541,7 @@ void ping_nodes(
 
   struct  sockaddr_in *addr;
   int                    i, ret, com;
-  extern  int            pbs_rm_port;
+  extern  unsigned int            pbs_rm_port;
 
   static  int            startcount = 0;
 

@@ -94,6 +94,7 @@
 #include <string.h>
 #include <errno.h>
 #include <sys/types.h>
+#include <pthread.h>
 #include "libpbs.h"
 #include "dis.h"
 #include "log.h"
@@ -166,9 +167,38 @@ static void set_err_msg(
   return;
   }  /* END set_err_msg() */
 
+int DIS_tcp_wflush_async(int fd);
 
+struct DISParam
+  {
+  int sfds;
+  struct batch_reply *preply;
+  };
 
+static int dis_reply_write_async(
 
+  int                 sfds,    /* I */
+  struct batch_reply *preply)  /* I */
+
+  {
+  int rc;
+
+  /* setup for DIS over tcp */
+
+  DIS_tcp_setup(sfds);
+
+  /* send message to remote client */
+
+  if ((rc = encode_DIS_reply(sfds, preply)) ||
+      (rc = DIS_tcp_wflush_async(sfds)))
+    {
+    sprintf(log_buffer, "DIS reply failure, %d", rc);
+    LOG_EVENT(PBSEVENT_SYSTEM, PBS_EVENTCLASS_REQUEST, "dis_reply_write", log_buffer);
+    close_conn(sfds);
+    }
+
+  return(rc);
+  }  /* END dis_reply_write_async() */
 
 
 static int dis_reply_write(
@@ -205,6 +235,24 @@ static int dis_reply_write(
 
 
 
+int reply_send_async(struct batch_request *request)
+  {
+  int      sfds = request->rq_conn;  /* socket */
+
+  // only thread client responses
+  if (svr_conn[sfds].cn_active != FromClientDIS)
+    return reply_send(request);
+
+  /* determine where the reply should go, remote or local */
+  if (sfds == PBS_LOCAL_CONNECTION)
+    // default to synchronous version
+    return reply_send(request);
+  else if (sfds >= 0)
+    /* Otherwise, the reply is to be sent to a remote client */
+    return dis_reply_write_async(sfds, &request->rq_reply);
+
+  return 0;
+  }
 
 /*
  * reply_send - Send a reply to a batch request, reply either goes to

@@ -25,11 +25,11 @@ dnl by David Beer (dbeer@adaptivecomputing.com)
 dnl
 
 AC_PREREQ(2.53)
-AC_INIT([torque], [2.4.142], [torqueusers@supercluster.org])
+AC_INIT([torque], [2.4.143], [torqueusers@supercluster.org])
+AC_CONFIG_AUX_DIR([buildutils])
+AC_CONFIG_SRCDIR([src/cmds/qrun.c])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
 AC_REVISION($Revision$)
-AC_CONFIG_SRCDIR([src/cmds/qrun.c])
-AC_CONFIG_AUX_DIR([buildutils])
 AC_CANONICAL_HOST
 AC_PROG_CXX
 

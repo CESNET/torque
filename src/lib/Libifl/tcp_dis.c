@@ -101,6 +101,14 @@
 #include "dis_init.h"
 #include "log.h"
 
+#include <aio.h>
+#include <string.h>
+#include <sys/stat.h>
+#include <errno.h>
+#include <unistd.h>
+
+#include <pthread.h>
+
 #ifdef HAVE_SYS_POLL_H
 #include <sys/poll.h>
 #endif
@@ -449,8 +457,251 @@ readmore:
   }  /* END tcp_read() */
 
 
+struct write_buff
+  {
+  int fd;
+  char *buff;
+  size_t size;
+  };
+
+int async_write_with_timeout(int fd, char *buff, size_t size, time_t sec_timeout);
+
+void *detached_write_thread(void *param)
+  {
+  struct write_buff *buff = (struct write_buff*)param;
+  async_write_with_timeout(buff->fd,buff->buff,buff->size,60*2);
+  return NULL;
+  }
+
+int detached_write(int fd, char *buff1, size_t size1)
+  {
+  struct write_buff *param = malloc(sizeof(struct write_buff));
+  if (param == NULL)
+    return -1;
+
+  param->size = size1;
+  param->buff = malloc(size1);
+  if (param->buff == NULL)
+    {
+    free(param);
+    return -1;
+    }
+
+  memcpy(param->buff,buff1,size1);
+  param->fd = fd;
+
+  pthread_t t;
+  int s = pthread_create(&t,NULL,detached_write_thread,(void*)param);
+  if (s != 0)
+    return -1;
+
+  pthread_detach(t);
+
+  return 0;
+  }
+
+int detached_write_x(int fd, char *buff1, size_t size1, char *buff2, size_t size2)
+  {
+  struct write_buff *param = malloc(sizeof(struct write_buff));
+  if (param == NULL)
+    return -1;
+
+  param->size = size1+size2;
+  param->buff = malloc(size1+size2);
+  if (param->buff == NULL)
+    {
+    free(param);
+    return -1;
+    }
+
+  memcpy(param->buff,buff1,size1);
+  memcpy(param->buff+size1,buff2,size2);
+  param->fd = fd;
+
+  pthread_t t;
+  int s = pthread_create(&t,NULL,detached_write_thread,(void*)param);
+  if (s != 0)
+    return -1;
+
+  pthread_detach(t);
+
+  return 0;
+  }
 
 
+
+int async_write_with_timeout(int fd, char *buff, size_t size, time_t sec_timeout)
+  {
+  fd_set wfds;
+  struct timeval tv;
+  int retval;
+
+  time_t start_time = time(NULL);
+
+  FD_ZERO(&wfds);
+  FD_SET(fd, &wfds);
+
+  /* Wait up to five seconds. */
+  tv.tv_sec = sec_timeout;
+  tv.tv_usec = 0;
+
+  char *p = buff;
+  size_t s = size;
+
+  while (s > 0)
+    {
+    retval = select(fd+1, NULL, &wfds, NULL, &tv);
+
+    if (retval == -1 && errno == EINTR)
+      {
+
+      time_t current_time = time(NULL);
+      if (sec_timeout + start_time > current_time)
+        tv.tv_sec = sec_timeout - (current_time - start_time);
+      else
+        return -2; // timeout
+
+      continue;
+      }
+
+    if (retval == -1) // error other than EINTR
+      return -1;
+
+    if (FD_ISSET(fd,&wfds))
+      {
+      int written = write(fd,p,s);
+      if (written == -1)
+        {
+        if (errno == EAGAIN)
+          {
+
+          time_t current_time = time(NULL);
+          if (sec_timeout + start_time > current_time)
+            tv.tv_sec = sec_timeout - (current_time - start_time);
+          else
+            return -2; // timeout
+
+          FD_ZERO(&wfds);
+          FD_SET(fd, &wfds);
+          continue;
+          }
+
+        if (errno != EINTR)
+          // we cannot handle this case and it shouldn't happen as write should never block
+          return -1;
+
+        // other error
+        return -1;
+        }
+
+      p += written;
+      s -= written;
+
+      FD_ZERO(&wfds);
+      FD_SET(fd, &wfds);
+
+      time_t current_time = time(NULL);
+      if (sec_timeout + start_time > current_time)
+        tv.tv_sec = sec_timeout - (current_time - start_time);
+      else
+        return -2; // timeout
+
+      }
+    }
+
+  return 0;
+  }
+
+int DIS_tcp_wflush_async(int fd)
+{
+  size_t ct;
+  int  i;
+  char *pb;
+
+  struct tcpdisbuf *tp;
+#ifdef GSSAPI
+  OM_uint32 major, minor;
+  gss_buffer_desc msg_in, msg_out;
+  int conf_state;
+  unsigned char nct[4];
+#endif
+
+  tp = &tcparray[fd]->writebuf;
+  pb = tp->tdis_thebuf;
+
+  ct = tp->tdis_trailp - tp->tdis_thebuf;
+
+// ***************************************************
+
+  int flags = fcntl(fd, F_GETFL);
+  if ((flags & O_NONBLOCK) == 0)
+    {
+    flags |= O_NONBLOCK;
+    fcntl(fd, F_SETFL, flags);
+    }
+
+#ifdef GSSAPI
+  msg_out.value = NULL;
+  msg_out.length = 0;
+  if (tcparray[fd]->gssctx != GSS_C_NO_CONTEXT)
+    {
+    msg_in.value  = pb;
+    msg_in.length = ct;
+
+    major = gss_wrap(&minor, tcparray[fd]->gssctx, tcparray[fd]->Confidential, GSS_C_QOP_DEFAULT, &msg_in, &conf_state, &msg_out);
+    if (major != GSS_S_COMPLETE)
+      {
+      if (getenv("PBSDEBUG") != NULL)
+        pbsgss_display_status("gss_wrap", major, minor);
+
+      gss_release_buffer(&minor, &msg_out);
+      return NULL;
+      }
+
+    if (tcparray[fd]->Confidential && !conf_state)
+      {
+      if (getenv("PBSDEBUG") != NULL)
+        fprintf(stderr, "gss_wrap() failed to encrypt as requested\n");
+
+      gss_release_buffer(&minor, &msg_out);
+      return NULL;
+      }
+
+    pb = msg_out.value;
+    ct = msg_out.length;
+    for (i=sizeof(nct); i>0; ct>>=8)
+      nct[--i] = ct & 0xff;
+
+    i = detached_write_x(fd,(char*)nct,sizeof(nct),msg_out.value,msg_out.length);
+
+  #ifdef GSSAPI
+    gss_release_buffer(&minor, &msg_out);
+  #endif
+
+    tp->tdis_eod = tp->tdis_leadp;
+    tcp_pack_buff(tp);
+
+    if (i < 0)
+      return -1;
+
+    return 0;
+    }
+#endif
+
+  i = detached_write(fd,pb,ct);
+
+#ifdef GSSAPI
+  gss_release_buffer(&minor, &msg_out);
+#endif
+
+  tp->tdis_eod = tp->tdis_leadp;
+  tcp_pack_buff(tp);
+
+  if (i < 0)
+    return -1;
+
+  return 0;
+  }  /* END DIS_tcp_wflush_async() */
 
 /*
  * DIS_tcp_wflush - flush tcp/dis write buffer

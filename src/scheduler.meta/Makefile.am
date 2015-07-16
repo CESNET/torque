@@ -8,9 +8,8 @@ schedpriv_DATA = sched_config resource_group holidays dedicated_time resources.d
 
 EXTRA_DIST = $(schedpriv_DATA) README
 
-INCLUDES = $(PBS_CACHE_INCLUDE)
-
 AM_CFLAGS = -DPBS_SERVER_HOME=\"$(PBS_SERVER_HOME)\" -DPBS_ENVIRON=\"$(PBS_ENVIRON)\"
+AM_CPPFLAGS += $(PBS_CACHE_INCLUDE)
 
 pbs_sched_LDADD = $(PBS_LIBS)
 pbs_sched_SOURCES = pbs_sched.cpp check.cpp dedtime.cpp fairshare.cpp fifo.cpp globals.cpp \

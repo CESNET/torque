@@ -536,7 +536,6 @@ int wait_request(
 
   for (i = 0;i < max_connection;i++)
     {
-
     struct connection *cp;
 
     cp = &svr_conn[i];

@@ -144,7 +144,7 @@ int  assign_hosts A_((job *, char *, int, char *, char *));
 /* Global Data Items: */
 
 extern pbs_net_t pbs_mom_addr;
-extern int  pbs_mom_port;
+extern unsigned int  pbs_mom_port;
 
 extern struct server server;
 extern char  server_host[PBS_MAXHOSTNAME + 1];

@@ -382,6 +382,7 @@ extern void  req_reject A_((int code, int aux, struct batch_request *, char *, c
 extern void  reply_badattr A_((int code, int aux, svrattrl *, struct batch_request *));
 extern void  reply_text A_((struct batch_request *, int code, char *text));
 extern int   reply_send A_((struct batch_request *));
+extern int   reply_send_async A_((struct batch_request *));
 extern int   reply_jobid A_((struct batch_request *, char *, int));
 extern void  reply_free A_((struct batch_reply *));
 extern int   authenticate_user A_((struct batch_request *, struct credential *));
