@@ -1,14 +1,30 @@
 language: c
+compiler: gcc
 
 before_install:
  - pushd magrathea/pbs_cache
  - make
- - sudo make install
+ - make install DESTDIR=$HOME/pbs_cache
  - popd
+
+install:
+- if [ "$CXX" = "g++" ]; then export CXX="g++-4.8" CC="gcc-4.8"; fi
 
 script:
  - autoreconf -ivf
- - CFLAGS="-std=gnu99 -pedantic -Wall -Wextra -lrt" CXXFLAGS="-ansi -pedantic -Wall -Wextra -lrt" ./configure --with-debug --with-rcp=scp --prefix=/usr --mandir=/usr/share/man --infodir=/usr/share/info --with-sendmail=/usr/sbin/sendmail --enable-syslog --enable-meta-fork
+ - CXX=g++-4.8 CC=gcc-4.8 CFLAGS="-std=gnu99 -pedantic -Wall -Wextra -lrt -I$HOME/pbs_cache/usr/include -L$HOME/pbs_cache/usr/lib -D__STDC_FORMAT_MACROS" CXXFLAGS="-std=gnu++11 -pedantic -Wall -Wextra -lrt -I$HOME/pbs_cache/usr/include -L$HOME/pbs_cache/usr/lib -D__STDC_FORMAT_MACROS" ./configure --with-debug --with-rcp=scp --prefix=/usr --mandir=/usr/share/man --infodir=/usr/share/info --with-sendmail=/usr/sbin/sendmail --enable-syslog --enable-meta-fork
+ - cat config.log
  - make
 
-compiler: gcc
+git:
+  submodules: false
+
+sudo: false
+
+addons:
+  apt:
+    sources:
+    - ubuntu-toolchain-r-test
+    packages:
+    - gcc-4.8
+    - g++-4.8
