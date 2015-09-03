@@ -96,6 +96,8 @@
 #include <string.h>
 #include <csv.h>
 
+#include "../cgroup.h"
+
 #ifdef Q_6_5_QUOTAON
 /* remap dqblk for SUSE 9.0 */
 #define dqblk if_dqblk
@@ -221,16 +223,6 @@ time_t wait_time = 10;
 
 /*8 \brief mom hostname from mom_main.c */
 extern char  mom_host[];
-
-typedef struct proc_mem
-  {
-  unsigned long long mem_total;
-  unsigned long long mem_used;
-  unsigned long long mem_free;
-  unsigned long long swap_total;
-  unsigned long long swap_used;
-  unsigned long long swap_free;
-  } proc_mem_t;
 
 /*
 ** local resource array
@@ -2126,7 +2118,23 @@ int mom_set_use(
 
   lp = &pres->rs_value.at_val.at_size.atsv_num;
 
-  lnum = (resi_sum(pjob) + 1023) >> pres->rs_value.at_val.at_size.atsv_shift; /* as KB */
+  if ((cgroup_detect_status() == 0) &&
+      (pjob->ji_wattr[(int)JOB_ATR_cgroup].at_flags & ATR_VFLAG_SET) &&
+      (pjob->ji_wattr[(int)JOB_ATR_cgroup].at_val.at_long > 0) &&
+      (cgroup_get_mem_enabled() != 0))
+    {
+    int64_t mem_usage = 0;
+    if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,&mem_usage) != 0)
+      {
+      mem_usage = resi_sum(pjob);
+      }
+
+    lnum = (mem_usage + 1023) >> pres->rs_value.at_val.at_size.atsv_shift;
+    }
+  else
+    { // if mem cgroup is not used, default to old approach
+    lnum = (resi_sum(pjob) + 1023) >> pres->rs_value.at_val.at_size.atsv_shift; /* as KB */
+    }
 
   *lp = MAX(*lp, lnum);
 

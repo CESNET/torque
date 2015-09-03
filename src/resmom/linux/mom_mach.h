@@ -92,6 +92,18 @@
 #define SET_LIMIT_ALTER 0
 #define PBS_CHECKPOINT_MIGRATE 0
 
+typedef struct proc_mem
+  {
+  unsigned long long mem_total;
+  unsigned long long mem_used;
+  unsigned long long mem_free;
+  unsigned long long swap_total;
+  unsigned long long swap_used;
+  unsigned long long swap_free;
+  } proc_mem_t;
+
+proc_mem_t *get_proc_mem(void);
+
 
 #ifdef USEJOBCREATE
 #ifndef JOBFAKE

@@ -2,6 +2,7 @@
 #include "nodespec.h"
 #include "resource.h"
 #include "pbs_job.h"
+#include "mom_mach.h"
 #include <stdio.h>
 #include <ctype.h>
 
@@ -161,6 +162,24 @@ void set_resource_vars(job *pjob, struct var_table *vtable)
     }
 
   free_parsed_nodespec(spec);
+
+  // export node capacity as resources
+  strcpy(buf_name,"TORQUE_RESC_CAPACITY_PROC");
+  FILE *f = fopen("/var/spool/torque/mom_priv/node_ppn","r");
+  if (f != NULL)
+    {
+    if (fscanf(f,"%s",buf_val) == 1)
+      export_variable(buf_name,buf_val,vtable);
+    fclose(f);
+    }
+
+  strcpy(buf_name,"TORQUE_RESC_CAPACITY_MEM");
+  proc_mem_t *meminfo = get_proc_mem();
+  if (meminfo != NULL)
+    {
+    sprintf(buf_val,"%lld",meminfo->mem_total);
+    export_variable(buf_name,buf_val,vtable);
+    }
   }
 
 void read_environ_script(job *pjob, struct var_table *vtable)

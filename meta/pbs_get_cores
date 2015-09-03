@@ -1,0 +1,46 @@
+#!/bin/bash
+# Read the number of cores attribute for this node, from the server
+
+HOSTNAME=
+if [ -x /bin/hostname ]; then
+	HOSTNAME=/bin/hostname
+elif [ -x /usr/bin/hostname ]; then
+	HOSTNAME=/usr/bin/hostname
+else
+	echo "Could not find hostname command.";
+	exit 1;
+fi
+
+PBSNODES=
+if [ -x /usr/bin/pbsnodes.bin ]; then
+	PBSNODES=/usr/bin/pbsnodes.bin
+else
+	echo "Could not find pbsnodes command.";
+	exit 1
+fi
+
+# determine full hostname
+HOST=`$HOSTNAME -f`
+if [ $? -ne 0 ]; then
+	echo "Could not read full machine hostname.";
+	exit 1
+fi
+
+# read pbsnodes output
+NODES=`$PBSNODES $HOST`
+if [ $? -ne 0 ]; then
+	echo "Could not read pbsnodes output.";
+	exit 1
+fi
+
+PROCS=`echo "$NODES" | awk '/np =/{ print $3 }'`;
+if [ $? -ne 0 ]; then
+	echo "Could not parse out out number of CPU cores.";
+	exit 1;
+fi
+
+if [ $PROCS -gt 0 ]; then
+	echo $PROCS >/var/spool/torque/mom_priv/node_ppn.new
+	mv /var/spool/torque/mom_priv/node_ppn.new /var/spool/torque/mom_priv/node_ppn
+fi
+

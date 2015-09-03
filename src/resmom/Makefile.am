@@ -58,6 +58,7 @@ install-exec-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_stop
 	rm -f $(DESTDIR)$(sbindir)/mom_environ
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/report_scratch
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/pbs_get_cores
 	cp $(top_srcdir)/meta/prolog_magrathea_start $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_start
 	ln -s prolog_magrathea_start $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_stop
 	ln -s prolog_magrathea_start $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prolog_magrathea_status
@@ -94,6 +95,7 @@ install-exec-hook:
 	cp $(top_srcdir)/meta/magrathea_unlock $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_unlock
 	cp $(top_srcdir)/meta/magrathea_admin_lock $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_admin_lock
 	cp $(top_srcdir)/meta/magrathea_admin_unlock $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_admin_unlock
+	cp $(top_srcidr)/meta/pbs_get_cores $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/pbs_get_cores
 
 
 uninstall-hook:
@@ -120,4 +122,5 @@ uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_admin_lock
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_admin_unlock
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recalculate_leftover_scratch
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/pbs_get_cores
 
