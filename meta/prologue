@@ -7,16 +7,6 @@ JOBID="$1"
 USER="$2"
 GROUP="$3"
 
-# custom prologue scripts
-SCRIPTS_DIR='/var/spool/torque/mom_priv/prologue.d'
-if [ -d "${SCRIPTS_DIR}" ]; then
-	for F in "${SCRIPTS_DIR}"/*.sh; do
-		if [ -x "${F}" ]; then
-			source "${F}" || exit
-		fi
-	done
-fi
-
 # GPU handling
 source /var/spool/torque/mom_scripts/torque-sw-paths.sh
 
@@ -60,6 +50,16 @@ if [ "$TORQUE_RESC_GPU" != "" ]; then
 	if [ $? -ne 0 ]; then
 		exit 3;
 	fi
+fi
+
+# custom prologue scripts
+SCRIPTS_DIR='/var/spool/torque/mom_priv/prologue.d'
+if [ -d "${SCRIPTS_DIR}" ]; then
+	for F in "${SCRIPTS_DIR}"/*.sh; do
+		if [ -x "${F}" ]; then
+			source "${F}" || exit
+		fi
+	done
 fi
 
 # Cloud handling
