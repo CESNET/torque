@@ -3,6 +3,9 @@
 JOBID="$1"
 USER="$2"
 
+source /var/spool/torque/mom_scripts/torque-sw-paths.sh
+source /var/spool/torque/mom_scripts/torque-scratch-mgr.sh
+
 # custom epilogue scripts
 SCRIPTS_DIR='/var/spool/torque/mom_priv/epilogue.d'
 if [ -d "${SCRIPTS_DIR}" ]; then
@@ -12,9 +15,6 @@ if [ -d "${SCRIPTS_DIR}" ]; then
 		fi
 	done
 fi
-
-source /var/spool/torque/mom_scripts/torque-sw-paths.sh
-source /var/spool/torque/mom_scripts/torque-scratch-mgr.sh
 
 if [ -z "$(echo $0 | grep .parallel)" ]; then
 # For shared scratch, master node is the only one that handles it
