@@ -21,7 +21,7 @@ sbin_PROGRAMS = pbs_mom pbs_demux
 LDADD = @PBS_MACH@/libmommach.a $(MOMLIBS) $(PBS_LIBS) -lm $(GLITE_LDFLAGS) $(GLITE_LB_COMMON_NOTHR_LIBS) $(GLITE_LB_CLIENT_NOTHR_LIBS) $(GLITE_SECURITY_GSS) $(GLITE_JOBID)
 
 if INCLUDE_GSSAPI
-LDADD += -lkafs
+LDADD += -lkafs -lcom_err
 endif
 
 pbs_mom_SOURCES = catch_child.c mom_comm.c mom_inter.c mom_main.c \
@@ -95,7 +95,7 @@ install-exec-hook:
 	cp $(top_srcdir)/meta/magrathea_unlock $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_unlock
 	cp $(top_srcdir)/meta/magrathea_admin_lock $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_admin_lock
 	cp $(top_srcdir)/meta/magrathea_admin_unlock $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_admin_unlock
-	cp $(top_srcidr)/meta/pbs_get_cores $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/pbs_get_cores
+	cp $(top_srcdir)/meta/pbs_get_cores $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/pbs_get_cores
 
 
 uninstall-hook:
