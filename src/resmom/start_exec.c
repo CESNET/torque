@@ -2928,7 +2928,7 @@ int TMomFinalizeChild(
 	
 	}		 /* END else (TJE->is_interactive == TRUE) */
   
-  // Initialize CGROUP if requested
+// Initialize CGROUP if requested
 #ifdef MOM_MACH_LINUX
 
   // check if we should move this session to a cgroup

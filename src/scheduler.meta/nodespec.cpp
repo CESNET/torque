@@ -29,6 +29,7 @@ using namespace Base;
 #include <cmath>
 #include <vector>
 #include <algorithm>
+#include <iterator>
 #include <stdexcept>
 using namespace std;
 
@@ -41,7 +42,7 @@ static int assign_node(job_info *jinfo, pars_spec_node *spec, const vector<node_
 
   for (size_t i = 0; i < suitable_nodes.size(); i++) /* for each node */
     {
-    if (suitable_nodes[i]->get_source_node()->has_virtual_assignment() ||
+    if (suitable_nodes[i]->physical_node()->has_virtual_assignment() ||
         suitable_nodes[i]->has_assignment())
       continue;
 
@@ -98,7 +99,7 @@ static int ondemand_reboot(job_info *jinfo, pars_spec_node *spec, const vector<n
 
   for (size_t i = 0; i < suitable_nodes.size(); i++) /* for each node */
     {
-    if (suitable_nodes[i]->get_source_node()->has_virtual_assignment() ||
+    if (suitable_nodes[i]->physical_node()->has_virtual_assignment() ||
         suitable_nodes[i]->has_assignment())
       continue;
 
@@ -108,15 +109,15 @@ static int ondemand_reboot(job_info *jinfo, pars_spec_node *spec, const vector<n
       continue;
       }
 
-    suitable_nodes[i]->get_source_node()->set_assignment(spec);
-    suitable_nodes[i]->get_source_node()->set_scratch_assign(scratch);
+    suitable_nodes[i]->physical_node()->set_assignment(spec);
+    suitable_nodes[i]->physical_node()->set_scratch_assign(scratch);
 
     if (ra != NULL)
-      suitable_nodes[i]->get_source_node()->set_selected_alternative(ra);
+      suitable_nodes[i]->physical_node()->set_selected_alternative(ra);
     else
-      suitable_nodes[i]->get_source_node()->set_selected_alternative(NULL); /* FIXME META Prepsat do citelneho stavu */
+      suitable_nodes[i]->physical_node()->set_selected_alternative(NULL); /* FIXME META Prepsat do citelneho stavu */
 
-    jinfo->schedule.push_back(suitable_nodes[i]->get_source_node());
+    jinfo->schedule.push_back(suitable_nodes[i]->physical_node());
 
     return 0;
     }
@@ -314,7 +315,11 @@ CheckResult find_nodes(job_info *jinfo, const vector<node_info*>& nodes)
       jinfo->schedule.clear();
 
       vector<node_info*> nodes_set;
-      NodeSuitableForPlace::filter(nodes,nodes_set,prop_id,i);
+      back_insert_iterator<vector<node_info*>> it(nodes_set);
+      copy_if(nodes.begin(), nodes.end(), it, [prop_id,i](node_info* node) {
+        return node->has_reg_prop(prop_id,i);
+      });
+      //NodeSuitableForPlace::filter(nodes,nodes_set,prop_id,i);
 
       CheckResult ret;
       if ((ret = try_assign_spec(jinfo,nodes_set)) == CheckAvailable)
@@ -384,7 +389,7 @@ int check_nodespec(server_info *sinfo, job_info *jinfo, int nodecount, node_info
         // plan on the possibly "future" node
         jinfo->plan_on_node(jinfo->schedule[i],jinfo->schedule[i]->get_assignment());
         // propagate resources from the "future" node to all other nodes belonging to the physical node
-        jinfo->schedule[i]->get_source_node()->propagate_resources(jinfo->schedule[i]);
+        jinfo->schedule[i]->physical_node()->propagate_resources(jinfo->schedule[i]);
         }
 
       jinfo->plan_on_server(sinfo);

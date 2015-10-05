@@ -639,7 +639,7 @@ bool compare_job_ends(job_info *left, job_info *right)
 void node_info::expand_virtual_nodes()
   {
   // nodes cannot be expanded once assigned
-  assert(!(this->get_source_node()->has_virtual_assignment() || this->has_assignment()));
+  assert(!(this->physical_node()->has_virtual_assignment() || this->has_assignment()));
   // cannot expand already virtual nodes
   assert(!this->is_virtual_node());
 

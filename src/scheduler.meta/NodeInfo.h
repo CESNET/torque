@@ -54,6 +54,7 @@ struct node_info : public NodeLogic, public JobAssign // change to protected inh
   CheckResult has_prop(const pars_prop* property, bool physical_only) const;
   bool has_prop(const char* property) const;
 
+  using JobAssign::get_assign_string;
   void get_assign_string(std::stringstream& s, AssignStringMode mode) const
     { JobAssign::get_assign_string(s,this->get_name(),mode); }
 
@@ -69,14 +70,13 @@ struct node_info : public NodeLogic, public JobAssign // change to protected inh
   CheckResult has_bootable_state(enum ClusterMode mode) const;
   CheckResult has_runnable_state() const;
 
+  CheckResult can_fit_job(const job_info *jinfo) const;
   CheckResult can_run_job(const job_info *jinfo) const;
   CheckResult can_boot_job(const job_info *jinfo) const;
 
+  CheckResult can_fit_job(const job_info *jinfo, const pars_spec_node *spec, ScratchType *scratch, repository_alternatives **alternative) const;
   CheckResult can_fit_job_for_run(const job_info *jinfo, const pars_spec_node *spec, ScratchType *scratch) const;
   CheckResult can_fit_job_for_boot(const job_info *jinfo, const pars_spec_node *spec, ScratchType *scratch, repository_alternatives **alternative) const;
-
-  void deplete_admin_slot();
-  void deplete_exclusive_access();
 
   unsigned long long get_mem_total() const;
 
@@ -96,7 +96,7 @@ struct node_info : public NodeLogic, public JobAssign // change to protected inh
 
   const std::vector<boost::shared_ptr<node_info> >& get_slave_nodes() const { return p_slave_nodes; }
 
-  const node_info *get_source_node() const
+  const node_info *physical_node() const
     {
     if (this->p_phys_node != NULL)
       return this->p_phys_node;
@@ -104,7 +104,7 @@ struct node_info : public NodeLogic, public JobAssign // change to protected inh
       return this;
     }
 
-  node_info *get_source_node()
+  node_info *physical_node()
       {
       if (this->p_phys_node != NULL)
         return this->p_phys_node;
