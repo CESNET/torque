@@ -242,7 +242,7 @@ cgroup_create_memory:
 
 cgroup_create_post:
   // UNINITIALIZED CPUSET FIX
-  if (cgroup_path_cpu[0] != '\0')
+  //if (cgroup_path_cpu[0] != '\0')
     {
     // we need make sure that the cpuset.cpus and cpuset.mems is initialized correctly
     char buff[8*1024] = {0};
@@ -255,7 +255,7 @@ cgroup_create_post:
       return -1;
     }
 
-  if (cgroup_path_mem[0] != '\0')
+  //if (cgroup_path_mem[0] != '\0')
     {
     char buff[8*1024] = {0};
     int bytes;
