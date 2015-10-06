@@ -242,16 +242,23 @@ cgroup_create_memory:
 
 cgroup_create_post:
   // UNINITIALIZED CPUSET FIX
-  if (strcmp(cgroup_path_cpu,cgroup_path_mem) == 0 && cgroup_path_cpu[0] != '\0')
+  if (cgroup_path_cpu[0] != '\0')
     {
     // we need make sure that the cpuset.cpus and cpuset.mems is initialized correctly
     char buff[8*1024] = {0};
     int bytes;
+
     if ((bytes = read_file_to_buf(buff,8*1024,"%s/%s",cgroup_path_cpu,"cpuset.cpus")) <= 0)
       return -1;
 
     if ((ret = write_buf_to_file(buff,bytes,"%s/%s/%s",cgroup_path_cpu,name,"cpuset.cpus")) != 0)
       return -1;
+    }
+
+  if (cgroup_path_mem[0] != '\0')
+    {
+    char buff[8*1024] = {0};
+    int bytes;
 
     strcpy(buff,"0");
     bytes = 1;
@@ -312,8 +319,9 @@ int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage
     return 0;
 
   // If MEM cgroup is not enabled, or does not exist yet, gracefully exit
-  if ((cgroup_detection_mem == 0) ||
-      (check_file_exists("%s/%s",cgroup_path_mem,name) != 0))
+  if ((mem_limit != NULL) &&
+      ((cgroup_detection_mem == 0) ||
+      (check_file_exists("%s/%s",cgroup_path_mem,name) != 0)))
     {
     *mem_limit = 0;
     return 0;
@@ -466,7 +474,10 @@ int cgroup_add_pid(const char *name, int pid)
 
   sprintf(file_path,"%s/%s/%s",cgroup_path_cpu,name,"tasks");
   if ((tasks = fopen(file_path,"a")) == NULL)
+    {
+    printf("Could not open tasks file : %s\n",strerror(errno));
     return -1;
+    }
 
   if (fprintf(tasks,"%d\n",pid) <= 0)
     return -1;
@@ -518,7 +529,10 @@ int cgroup_add_pids(const char *name, int* pids)
 
   sprintf(file_path,"%s/%s/%s",cgroup_path_cpu,name,"tasks");
   if ((tasks = fopen(file_path,"a")) == NULL)
+    {
+    printf("Could not open %s file : %s\n",file_path,strerror(errno));
     return -1;
+    }
 
   i = pids;
   while (*i > 0)
@@ -545,7 +559,10 @@ cgroup_add_pids_memory:
 
   sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,"tasks");
   if ((tasks = fopen(file_path,"a")) == NULL)
+    {
+    printf("Could not open %s file : %s\n",file_path,strerror(errno));
     return -1;
+    }
 
   i = pids;
   while (*i > 0)
@@ -693,10 +710,20 @@ int cgroup_set_cpu_limit(const char *name, double cpu_limit)
   FILE *cpu_period, *cpu_quota;
   char file_path[PATH_MAX] = {0};
 
-  sprintf(file_path,"%s/%s%s",cgroup_path_cpu,name,"cpu.cfs_period_us");
+  sprintf(file_path,"%s/%s/%s",cgroup_path_cpu,name,"cpu.cfs_period_us");
   cpu_period = fopen(file_path,"w");
+  if (cpu_period == NULL)
+    {
+    printf("Could not open %s file : %s\n",file_path,strerror(errno));
+    }
+
   sprintf(file_path,"%s/%s/%s",cgroup_path_cpu,name,"cpu.cfs_quota_us");
   cpu_quota = fopen(file_path,"w");
+
+  if (cpu_quota == NULL)
+    {
+    printf("Could not open %s file : %s\n",file_path,strerror(errno));
+    }
 
   if (cpu_period != NULL && cpu_quota != NULL)
     {
@@ -726,6 +753,10 @@ int cgroup_set_mem_limit(const char *name, int64_t mem_limit)
 
   sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,"memory.limit_in_bytes");
   mem = fopen(file_path,"w");
+  if (mem == NULL)
+    {
+    printf("Could not open %s file : %s\n",file_path,strerror(errno));
+    }
 
   if (mem != NULL)
     {
