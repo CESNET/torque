@@ -1863,22 +1863,43 @@ int mom_over_limit(
       }
     }
 
-  if (node->mem != 0 && (numll = resi_sum(pjob)) > node->mem * 1024)
+
+
+  if (node->mem != 0)
     {
-    if ((exclusive && !strictmem) || simulatekill || ignmem)
-      /* do not kill when simulatekill is turned on, ignmem is turned on, or exclusive and strictmem not set */
+    if ((cgroup_detect_status() == 0) &&
+          (pjob->ji_wattr[(int)JOB_ATR_cgroup].at_flags & ATR_VFLAG_SET) &&
+          (pjob->ji_wattr[(int)JOB_ATR_cgroup].at_val.at_long > 0) &&
+          (cgroup_get_mem_enabled() != 0))
       {
-      sprintf(log_buffer, "{%s} user [%s] mem %llu exceeded limit %llu on node %s", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->mem * 1024, mom_host);
-      log_err(0,"SIMULATED_KILL",log_buffer);
+      int64_t mem_usage = 0;
+      if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,&mem_usage) != 0)
+        numll = resi_sum(pjob);
+      else
+        numll = mem_usage;
       }
     else
       {
-      sprintf(log_buffer, "{%s} user [%s] mem %llu exceeded limit %llu on node %s", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->mem * 1024, mom_host);
-      log_err(0,"RESOURCE_KILL",log_buffer);
+      numll = resi_sum(pjob);
+      }
 
-      /* pass over to caller */
-      sprintf(log_buffer, "mem %lluMB exceeded limit %lluMB on node %s", numll/(1024*1024), node->mem / 1024, mom_host);
-      return(TRUE);
+    if (numll > node->mem * 1024)
+      {
+      if ((exclusive && !strictmem) || simulatekill || ignmem)
+        /* do not kill when simulatekill is turned on, ignmem is turned on, or exclusive and strictmem not set */
+        {
+        sprintf(log_buffer, "{%s} user [%s] mem %llu exceeded limit %llu on node %s", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->mem * 1024, mom_host);
+        log_err(0,"SIMULATED_KILL",log_buffer);
+        }
+      else
+        {
+        sprintf(log_buffer, "{%s} user [%s] mem %llu exceeded limit %llu on node %s", pjob->ji_wattr[JOB_ATR_job_owner].at_val.at_str,pjob->ji_qs.ji_jobid, numll, node->mem * 1024, mom_host);
+        log_err(0,"RESOURCE_KILL",log_buffer);
+
+        /* pass over to caller */
+        sprintf(log_buffer, "mem %lluMB exceeded limit %lluMB on node %s", numll/(1024*1024), node->mem / 1024, mom_host);
+        return(TRUE);
+        }
       }
     }
 
