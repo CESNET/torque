@@ -266,6 +266,20 @@ static int filter_job(job *pj)
             place_val->rs_value.at_flags |= ATR_VFLAG_SET;
             }
           }
+
+        // add #cgroup if -W cgroup=true is present
+        if ((pj->ji_wattr[(int)JOB_ATR_cgroup].at_flags & ATR_VFLAG_SET) &&
+            (pj->ji_wattr[(int)JOB_ATR_cgroup].at_val.at_long > 0))
+          {
+          char * nodespec = nodes->rs_value.at_val.at_str;
+          char * newnodes = malloc(strlen(nodes->rs_value.at_val.at_str)+strlen("#cgroup")+1);
+          if (newnodes != NULL)
+            {
+            sprintf(newnodes,"%s%s",nodes->rs_value.at_val.at_str,"#cgroup");
+            free(nodespec);
+            nodes->rs_value.at_val.at_str = newnodes;
+            }
+          }
         }
       }
 
