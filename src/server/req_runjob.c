@@ -1239,6 +1239,7 @@ static void post_sendmom(
         jobp->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str = strdup(log_buffer);
         jobp->ji_wattr[(int)JOB_ATR_Comment].at_flags |= ATR_VFLAG_SET;
 
+        jobp->ji_modified = 1;
         /* above saves job structure */
         }
 
