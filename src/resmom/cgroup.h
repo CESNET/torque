@@ -50,7 +50,7 @@
    *
    */
   int get_cgroup_pid_info(const char *name, int **pids);
-  int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage);
+  int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage, int64_t *swmem_usage);
   int get_cgroup_cpu_info(const char *name, double *cpu_limit);
 
   /** \brief Set CPU limit for a cgroup

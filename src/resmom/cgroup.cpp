@@ -15,6 +15,11 @@ extern "C" {
 #include <stdarg.h>
 #include <inttypes.h>
 
+// Temporary Debian 6 fix
+#ifndef SCNd64
+#define SCNd64 "ld"
+#endif
+
 static char cgroup_path_cpu[PATH_MAX];
 static char cgroup_path_mem[PATH_MAX];
 
@@ -313,7 +318,7 @@ int get_cgroup_cpu_info(const char *name, double *cpu_limit)
   return 0;
   }
 
-int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage)
+int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage, int64_t *swmem_usage)
   {
   if (mem_limit == NULL && mem_usage == NULL)
     return 0;
@@ -328,7 +333,7 @@ int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage
     }
 
   // read memory limit && usage
-  FILE *mem_lim = NULL, *mem_use = NULL;
+  FILE *mem_lim = NULL, *mem_use = NULL, *swmem_use = NULL;
   char file_path[PATH_MAX] = {0};
 
   if (mem_limit != NULL)
@@ -341,6 +346,12 @@ int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage
     {
     sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,"memory.usage_in_bytes");
     mem_use = fopen(file_path,"r");
+    }
+
+  if (swmem_usage != NULL)
+    {
+    sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,"memory.memsw.usage_in_bytes");
+    swmem_use = fopen(file_path,"r");
     }
 
   int64_t cap;
@@ -365,6 +376,17 @@ int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage
   else if (mem_usage != NULL && mem_use == NULL)
     {
     *mem_usage = 0;
+    return -1;
+    }
+
+  if (swmem_use != NULL && swmem_usage != NULL)
+    {
+    fscanf(swmem_use,"%" SCNd64,&cap);
+    *swmem_usage = cap;
+    }
+  else if (swmem_usage != NULL && swmem_use == NULL)
+    {
+    *swmem_usage = 0;
     return -1;
     }
 

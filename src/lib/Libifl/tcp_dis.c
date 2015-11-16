@@ -622,7 +622,17 @@ int async_write_with_timeout(int fd, char *buff, size_t size, time_t sec_timeout
         return -2; // timeout
         }
 
+      } else {
+        time_t current_time = time(NULL);
+        if (sec_timeout + start_time > current_time)
+          tv.tv_sec = sec_timeout - (current_time - start_time);
+        else
+          {
+          free(buff);
+          return -2;
+          }
       }
+
     }
 
   free(buff);
@@ -1320,6 +1330,8 @@ void DIS_tcp_setup(
 
         log_err(errno,"DIS_tcp_setup","calloc failure");
 
+        tcparraymax = hold;
+
         return;
         }
       }
@@ -1336,6 +1348,8 @@ void DIS_tcp_setup(
         /* FAILURE */
 
         log_err(errno,"DIS_tcp_setup","realloc failure");
+
+        tcparraymax = hold;
 
         return;
         }

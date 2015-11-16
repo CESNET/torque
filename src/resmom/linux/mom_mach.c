@@ -1873,7 +1873,7 @@ int mom_over_limit(
           (cgroup_get_mem_enabled() != 0))
       {
       int64_t mem_usage = 0;
-      if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,&mem_usage) != 0)
+      if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,&mem_usage,NULL) != 0)
         numll = resi_sum(pjob);
       else
         numll = mem_usage;
@@ -2068,14 +2068,16 @@ int mom_set_use(
     pres->rs_value.at_val.at_size.atsv_shift = 10; /* KB */
     pres->rs_value.at_val.at_size.atsv_units = ATR_SV_BYTESZ;
 
-    rd = find_resc_def(svr_resc_def, "fairshare", svr_resc_size);
+    rd = find_resc_def(svr_resc_def, "totmem", svr_resc_size);
 
     assert(rd != NULL);
 
     pres = add_resource_entry(at, rd);
 
     pres->rs_value.at_flags |= ATR_VFLAG_SET;
-    pres->rs_value.at_type = ATR_TYPE_DOUBLE;
+    pres->rs_value.at_type = ATR_TYPE_SIZE;
+    pres->rs_value.at_val.at_size.atsv_shift = 10; /* KB */
+    pres->rs_value.at_val.at_size.atsv_units = ATR_SV_BYTESZ;
     }  /* END if ((at->at_flags & ATR_VFLAG_SET) == 0) */
 
   /* get cputime */
@@ -2145,7 +2147,7 @@ int mom_set_use(
       (cgroup_get_mem_enabled() != 0))
     {
     int64_t mem_usage = 0;
-    if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,&mem_usage) != 0)
+    if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,&mem_usage,NULL) != 0)
       {
       mem_usage = resi_sum(pjob);
       }
@@ -2159,15 +2161,36 @@ int mom_set_use(
 
   *lp = MAX(*lp, lnum);
 
-  rd = find_resc_def(svr_resc_def, "fairshare", svr_resc_size);
+  rd = find_resc_def(svr_resc_def, "totmem", svr_resc_size);
 
   assert(rd != NULL);
 
   pres = find_resc_entry(at, rd);
 
-//  assert(pres != NULL);
-  if (pres != NULL)
-    pres->rs_value.at_val.at_double = calculate_fairshare(pjob);
+  assert(pres != NULL);
+
+  lp = &pres->rs_value.at_val.at_size.atsv_num;
+
+  if ((cgroup_detect_status() == 0) &&
+      (pjob->ji_wattr[(int)JOB_ATR_cgroup].at_flags & ATR_VFLAG_SET) &&
+      (pjob->ji_wattr[(int)JOB_ATR_cgroup].at_val.at_long > 0) &&
+      (cgroup_get_mem_enabled() != 0))
+    {
+    int64_t mem_usage = 0;
+    if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,NULL,&mem_usage) != 0)
+      {
+      mem_usage = resi_sum(pjob);
+      }
+
+    lnum = (mem_usage + 1023) >> pres->rs_value.at_val.at_size.atsv_shift;
+    }
+  else
+    { // if mem cgroup is not used, default to old approach
+    lnum = (resi_sum(pjob) + 1023) >> pres->rs_value.at_val.at_size.atsv_shift; /* as KB */
+    }
+
+  *lp = MAX(*lp, lnum);
+
 
   job_save(pjob,SAVEJOB_FULL);
 
@@ -3673,7 +3696,7 @@ static char *scratch_local(struct rm_attribute *attrib)
   long long size;
 
   FILE *scratch = popen("df -Pk /scratch | grep \"/scratch\" | awk '{ print $2; }'","r");
-  if (fscanf(scratch,"%lld",&size) == 1) // SUCCESS
+  if (scratch != NULL && fscanf(scratch,"%lld",&size) == 1) // SUCCESS
     {
     sprintf(ret_string, "%lldkb", size);
     }
@@ -3691,7 +3714,7 @@ static char *scratch_ssd(struct rm_attribute *attrib)
   long long size;
 
   FILE *scratch = popen("df -Pk /scratch.ssd | grep \"/scratch.ssd\" | awk '{ print $2; }'","r");
-  if (fscanf(scratch,"%lld",&size) == 1) // SUCCESS
+  if (scratch != NULL && fscanf(scratch,"%lld",&size) == 1) // SUCCESS
     {
     sprintf(ret_string, "%lldkb", size);
     }
