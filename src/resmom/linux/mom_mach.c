@@ -2023,104 +2023,56 @@ int mom_set_use(
 #endif    /* USESAVEDRESOURCES */
 
   at->at_flags |= ATR_VFLAG_MODIFY;
+  at->at_flags |= ATR_VFLAG_SET;
 
-  if ((at->at_flags & ATR_VFLAG_SET) == 0)
-    {
-    /* initialize usage structures */
-
-    at->at_flags |= ATR_VFLAG_SET;
-
-    rd = find_resc_def(svr_resc_def, "cput", svr_resc_size);
-
-    assert(rd != NULL);
-
-    pres = add_resource_entry(at, rd);
-    pres->rs_value.at_flags |= ATR_VFLAG_SET;
-    pres->rs_value.at_type = ATR_TYPE_LONG;
-
-    rd = find_resc_def(svr_resc_def, "vmem", svr_resc_size);
-
-    assert(rd != NULL);
-
-    pres = add_resource_entry(at, rd);
-
-    pres->rs_value.at_flags |= ATR_VFLAG_SET;
-    pres->rs_value.at_type = ATR_TYPE_SIZE;
-    pres->rs_value.at_val.at_size.atsv_shift = 10; /* KB */
-    pres->rs_value.at_val.at_size.atsv_units = ATR_SV_BYTESZ;
-
-    rd = find_resc_def(svr_resc_def, "walltime", svr_resc_size);
-
-    assert(rd != NULL);
-
-    pres = add_resource_entry(at, rd);
-    pres->rs_value.at_flags |= ATR_VFLAG_SET;
-    pres->rs_value.at_type = ATR_TYPE_LONG;
-
-    rd = find_resc_def(svr_resc_def, "mem", svr_resc_size);
-
-    assert(rd != NULL);
-
-    pres = add_resource_entry(at, rd);
-
-    pres->rs_value.at_flags |= ATR_VFLAG_SET;
-    pres->rs_value.at_type = ATR_TYPE_SIZE;
-    pres->rs_value.at_val.at_size.atsv_shift = 10; /* KB */
-    pres->rs_value.at_val.at_size.atsv_units = ATR_SV_BYTESZ;
-
-    rd = find_resc_def(svr_resc_def, "totmem", svr_resc_size);
-
-    assert(rd != NULL);
-
-    pres = add_resource_entry(at, rd);
-
-    pres->rs_value.at_flags |= ATR_VFLAG_SET;
-    pres->rs_value.at_type = ATR_TYPE_SIZE;
-    pres->rs_value.at_val.at_size.atsv_shift = 10; /* KB */
-    pres->rs_value.at_val.at_size.atsv_units = ATR_SV_BYTESZ;
-    }  /* END if ((at->at_flags & ATR_VFLAG_SET) == 0) */
-
-  /* get cputime */
-
+  // cput
   rd = find_resc_def(svr_resc_def, "cput", svr_resc_size);
-
   assert(rd != NULL);
 
-  pres = find_resc_entry(at, rd);
+  if ((pres = find_resc_entry(at,rd)) == NULL)
+    {
+    pres = add_resource_entry(at, rd);
+    assert(pres != NULL);
 
-  assert(pres != NULL);
+    pres->rs_value.at_flags |= ATR_VFLAG_SET;
+    pres->rs_value.at_type = ATR_TYPE_LONG;
+    }
 
   lp = (unsigned long *) & pres->rs_value.at_val.at_long;
-
   lnum = cput_sum(pjob);
-
   *lp = MAX(*lp, lnum);
 
-  /* get swap */
-
+  // vmem
   rd = find_resc_def(svr_resc_def, "vmem", svr_resc_size);
-
   assert(rd != NULL);
 
-  pres = find_resc_entry(at, rd);
+  if ((pres = find_resc_entry(at,rd)) == NULL)
+    {
+    pres = add_resource_entry(at, rd);
+    assert(pres != NULL);
 
-  assert(pres != NULL);
+    pres->rs_value.at_flags |= ATR_VFLAG_SET;
+    pres->rs_value.at_type = ATR_TYPE_SIZE;
+    pres->rs_value.at_val.at_size.atsv_shift = 10; /* KB */
+    pres->rs_value.at_val.at_size.atsv_units = ATR_SV_BYTESZ;
+    }
 
   lp = &pres->rs_value.at_val.at_size.atsv_num;
-
   lnum = (vmem_sum(pjob) + 1023) >> pres->rs_value.at_val.at_size.atsv_shift; /* as KB */
-
   *lp = MAX(*lp, lnum);
 
-  /* get walltime */
-
+  // walltime
   rd = find_resc_def(svr_resc_def, "walltime", svr_resc_size);
-
   assert(rd != NULL);
 
-  pres = find_resc_entry(at, rd);
+  if ((pres = find_resc_entry(at,rd)) == NULL)
+    {
+    pres = add_resource_entry(at, rd);
+    assert(pres != NULL);
 
-  assert(pres != NULL);
+    pres->rs_value.at_flags |= ATR_VFLAG_SET;
+    pres->rs_value.at_type = ATR_TYPE_LONG;
+    }
 
   /* NOTE: starting jobs can come through here before stime is recorded */
   if (pjob->ji_qs.ji_stime == 0)
@@ -2129,15 +2081,20 @@ int mom_set_use(
     pres->rs_value.at_val.at_long =
       (long)((double)(time_now - pjob->ji_qs.ji_stime) * wallfactor);
 
-  /* get memory */
-
+  // mem
   rd = find_resc_def(svr_resc_def, "mem", svr_resc_size);
-
   assert(rd != NULL);
 
-  pres = find_resc_entry(at, rd);
+  if ((pres = find_resc_entry(at,rd)) == NULL)
+    {
+    pres = add_resource_entry(at, rd);
+    assert(pres != NULL);
 
-  assert(pres != NULL);
+    pres->rs_value.at_flags |= ATR_VFLAG_SET;
+    pres->rs_value.at_type = ATR_TYPE_SIZE;
+    pres->rs_value.at_val.at_size.atsv_shift = 10; /* KB */
+    pres->rs_value.at_val.at_size.atsv_units = ATR_SV_BYTESZ;
+    }
 
   lp = &pres->rs_value.at_val.at_size.atsv_num;
 
@@ -2147,27 +2104,31 @@ int mom_set_use(
       (cgroup_get_mem_enabled() != 0))
     {
     int64_t mem_usage = 0;
+
     if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,&mem_usage,NULL) != 0)
-      {
       mem_usage = resi_sum(pjob);
-      }
 
     lnum = (mem_usage + 1023) >> pres->rs_value.at_val.at_size.atsv_shift;
     }
   else
-    { // if mem cgroup is not used, default to old approach
     lnum = (resi_sum(pjob) + 1023) >> pres->rs_value.at_val.at_size.atsv_shift; /* as KB */
-    }
 
   *lp = MAX(*lp, lnum);
 
+  // totmem
   rd = find_resc_def(svr_resc_def, "totmem", svr_resc_size);
-
   assert(rd != NULL);
 
-  pres = find_resc_entry(at, rd);
+  if ((pres = find_resc_entry(at,rd)) == NULL)
+    {
+    pres = add_resource_entry(at, rd);
+    assert(pres != NULL);
 
-  assert(pres != NULL);
+    pres->rs_value.at_flags |= ATR_VFLAG_SET;
+    pres->rs_value.at_type = ATR_TYPE_SIZE;
+    pres->rs_value.at_val.at_size.atsv_shift = 10; /* KB */
+    pres->rs_value.at_val.at_size.atsv_units = ATR_SV_BYTESZ;
+    }
 
   lp = &pres->rs_value.at_val.at_size.atsv_num;
 
@@ -2178,19 +2139,14 @@ int mom_set_use(
     {
     int64_t mem_usage = 0;
     if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,NULL,&mem_usage) != 0)
-      {
-      mem_usage = resi_sum(pjob);
-      }
+       mem_usage = resi_sum(pjob);
 
     lnum = (mem_usage + 1023) >> pres->rs_value.at_val.at_size.atsv_shift;
     }
   else
-    { // if mem cgroup is not used, default to old approach
-    lnum = (resi_sum(pjob) + 1023) >> pres->rs_value.at_val.at_size.atsv_shift; /* as KB */
-    }
+     lnum = (resi_sum(pjob) + 1023) >> pres->rs_value.at_val.at_size.atsv_shift; /* as KB */
 
   *lp = MAX(*lp, lnum);
-
 
   job_save(pjob,SAVEJOB_FULL);
 
