@@ -243,6 +243,28 @@ static int filter_job(job *pj)
       jbrc = (resource*)GET_NEXT(jbrc->rs_link);
       }
 
+    // imply -l place=scratch_pool for -l scratch=shared
+    resource_def *d_scratch;
+    if ((d_scratch = find_resc_def(svr_resc_def, "scratch", svr_resc_size)) != 0)
+      {
+      resource *scratch;
+      if ((scratch = find_resc_entry(&pj->ji_wattr[(int)JOB_ATR_resource],d_scratch)) != 0)
+        {
+        if (strstr(scratch->rs_value.at_val.at_str,"shared") != NULL)
+          {
+          resource_def *place_def;
+          resource *place_val;
+          if ((place_def = find_resc_def(svr_resc_def,"place",svr_resc_size)) != 0)
+          if ((place_val = find_resc_entry(&pj->ji_wattr[(int)JOB_ATR_resource],place_def)) == 0)
+          if ((place_val = add_resource_entry(&pj->ji_wattr[(int)JOB_ATR_resource],place_def)) != 0)
+            {
+            place_val->rs_value.at_val.at_str = strdup("scratch_pool");
+            place_val->rs_value.at_flags |= ATR_VFLAG_SET;
+            }
+          }
+        }
+      }
+
     // replace ncpus with ppn
     resource_def *d_nodes;
 

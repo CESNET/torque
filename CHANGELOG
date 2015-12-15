@@ -1,6 +1,6 @@
 c - crash     b - bug fix    e - enhancement    f - new feature  n - note
 
-2.4.147
+2.4.148
   n - current metacentrum release
 
 2.4.11 
@@ -1381,6 +1381,7 @@ Patches incorporated prior to patch 2:
   SDSC Log Buffer Patch -- Aug 2003 (SDSC)
 
     addresses log message overruns
+
 
 
 
