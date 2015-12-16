@@ -2495,6 +2495,9 @@ int hasres(struct pbsnode *pnode, char  *name, char *value, int proc_count, int 
   resource *total, *used, req, tmp;
   int rc;
 
+  memset(&tmp,0,sizeof(resource));
+  memset(&req,0,sizeof(resource));
+
   rd = find_resc_def(svr_resc_def,name,svr_resc_size);
 
   if (rd == NULL) /* unknown resource */
@@ -4842,6 +4845,8 @@ static void adjust_resource_value(attribute *pattr, char *name, char *value, int
   resource *val;
   resource decoded;
   int ret;
+
+  memset(&decoded,0,sizeof(resource));
 
   if (value == NULL)
     return;
