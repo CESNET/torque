@@ -3,4 +3,6 @@ if [ ! -r /var/spool/torque/server_priv/serverdb ]; then
 	DAEMON_SERVER_OPTS="-t create $DAEMON_SERVER_OPTS"
 fi
 
+# Ensure full core-dumps
+ulimit -c unlimited
 exec /usr/sbin/pbs_server $DAEMON_SERVER_OPTS
