@@ -743,7 +743,7 @@ int set_arst(
 
     case INCR:
 
-      j = 1.5 * (pas->as_usedptr + newpas->as_usedptr);
+      j = pas->as_usedptr + newpas->as_usedptr;
 
       /* malloc the tmp array strings */
       need = sizeof(struct array_strings) + (j-1) * sizeof(char *);
@@ -756,7 +756,7 @@ int set_arst(
 
       nsize = newpas->as_next - newpas->as_buf;   /* space needed */
       used = pas->as_next - pas->as_buf;
-      need = 2 * (nsize + used);
+      need = nsize + used;
       tmp_arst->as_bufsize = need;
 
       /* malloc the buffer size */
@@ -773,28 +773,29 @@ int set_arst(
        * array_strings struct */
 
       /* first, copy the new */
-      for (i = 0; i < newpas->as_usedptr; i++)
+      for (i = 0; i < pas->as_usedptr; i++)
         {
-        strcpy(tmp_arst->as_next,newpas->as_string[i]);
+        strcpy(tmp_arst->as_next,pas->as_string[i]);
 
-        tmp_arst->as_string[tmp_arst->as_usedptr++] = tmp_arst->as_next;
+        tmp_arst->as_string[tmp_arst->as_usedptr] = tmp_arst->as_next;
+        tmp_arst->as_usedptr += 1;
         tmp_arst->as_next += strlen(tmp_arst->as_next) + 1;
         }
 
       /* second, copy the old if not already there */
-      for (i = 0; i < pas->as_usedptr; i++)
+      for (i = 0; i < newpas->as_usedptr; i++)
         {
         char *tail;
         int   len;
         int   MatchFound = 0; /* boolean */
 
-        tail = strchr(pas->as_string[i],'=');
+        tail = strchr(newpas->as_string[i],'=');
         if (tail == NULL)
-          len = strlen(pas->as_string[i]);
+          len = strlen(newpas->as_string[i]);
         else
-          len = tail - pas->as_string[i];
+          len = tail - newpas->as_string[i];
 
-        for (j = 0;j < newpas->as_usedptr;j++)
+        for (j = 0;j < pas->as_usedptr;j++)
           {
           if (!strncmp(pas->as_string[i],newpas->as_string[j],len))
             {
@@ -806,7 +807,7 @@ int set_arst(
 
         if (MatchFound == 0)
           {
-          strcpy(tmp_arst->as_next,pas->as_string[i]);
+          strcpy(tmp_arst->as_next,newpas->as_string[i]);
           
           tmp_arst->as_string[tmp_arst->as_usedptr++] = tmp_arst->as_next;
           tmp_arst->as_next += strlen(tmp_arst->as_next) + 1;
@@ -826,6 +827,9 @@ int set_arst(
 
       for (j = 0;j < newpas->as_usedptr;j++)
         {
+        if (pas->as_usedptr == 0)
+          break;
+
         for (i = 0;i < pas->as_usedptr;i++)
           {
           if (!strcmp(pas->as_string[i], newpas->as_string[j]))
@@ -838,7 +842,7 @@ int set_arst(
 
             need = pas->as_next - pc;
 
-            memcpy(pas->as_string[i], pc, (size_t)need);
+            memmove(pas->as_string[i], pc, (size_t)need);
 
             pas->as_next -= nsize;
 
