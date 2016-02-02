@@ -584,17 +584,17 @@ void recov_acl(
 
   clear_attr(&tempat, pdef);
 
-  if (pdef->at_decode(&tempat, pdef->at_name, NULL, buf) < 0)
+  int ret = 0;
+
+  if ((ret = pdef->at_decode(&tempat, pdef->at_name, NULL, buf)) < 0)
     {
-    sprintf(log_buffer, "decode of acl %s failed",
-            pdef->at_name);
+    sprintf(log_buffer, "decode of acl %s failed [%d]", pdef->at_name, ret);
 
     log_err(errno, this_function_name, log_buffer);
     }
-  else if (pdef->at_set(pattr, &tempat, SET) != 0)
+  else if ((ret = pdef->at_set(pattr, &tempat, SET)) != 0)
     {
-    sprintf(log_buffer, "set of acl %s failed",
-            pdef->at_name);
+    sprintf(log_buffer, "set of acl %s failed [%d]", pdef->at_name, ret);
 
     log_err(errno, this_function_name, log_buffer);
     }
