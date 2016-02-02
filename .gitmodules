@@ -1,3 +1,6 @@
 [submodule "torque.build"]
 	path = torque.build
 	url = git@github.com:CESNET/torque.build.git
+[submodule "torque.fastsched"]
+	path = torque.fastsched
+	url = git@github.com:CESNET/TorqueFastSched.git
