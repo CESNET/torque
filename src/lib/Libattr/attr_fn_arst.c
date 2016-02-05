@@ -797,7 +797,7 @@ int set_arst(
 
         for (j = 0;j < pas->as_usedptr;j++)
           {
-          if (!strncmp(pas->as_string[i],newpas->as_string[j],len))
+          if (!strncmp(pas->as_string[j],newpas->as_string[i],len))
             {
             MatchFound = 1;
 

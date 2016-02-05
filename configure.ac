@@ -1651,7 +1651,6 @@ AC_OUTPUT(buildutils/pbs_mkdirs
 	  src/scheduler.cc/samples/msic_cluster/Makefile
 	  src/scheduler.cc/samples/sgi_origin/Makefile
 	  src/scheduler.cc/samples/umn_cluster/Makefile
-	  src/scheduler.meta/Makefile
 	  src/scheduler.tcl/Makefile
 	  src/server/Makefile
 	  src/tools/Makefile
