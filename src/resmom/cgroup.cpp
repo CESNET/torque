@@ -15,6 +15,12 @@ extern "C" {
 #include <stdarg.h>
 #include <inttypes.h>
 
+static const char * cgroup_mem_limit = "memory.memsw.limit_in_bytes";
+static const char * cgroup_mem_usage = "memory.usage_in_bytes";
+static const char * cgroup_swmem_usage = "memory.memsw.usage_in_bytes";
+static const char * cgroup_cpu_quota = "cpu.cfs_quota_us";
+static const char * cgroup_cpu_period = "cpu.cfs_period_us";
+
 // Temporary Debian 6 fix
 #ifndef SCNd64
 #define SCNd64 "ld"
@@ -191,10 +197,10 @@ int cgroup_detect_status()
 
     int cpu_detected = 0;
 
-    if ((ret = check_file_exists("%s/cpu.cfs_quota_us",cgroup_path_cpu)) == 0)
+    if ((ret = check_file_exists("%s/%s",cgroup_path_cpu,cgroup_cpu_quota)) == 0)
       ++cpu_detected;
 
-    if ((ret = check_file_exists("%s/cpu.cfs_period_us",cgroup_path_cpu)) == 0)
+    if ((ret = check_file_exists("%s/%s",cgroup_path_cpu,cgroup_cpu_period)) == 0)
       ++cpu_detected;
 
     if (cpu_detected == 2)
@@ -213,7 +219,7 @@ memory_detect:
       return 0;
       }
 
-    if ((ret = check_file_exists("%s/memory.limit_in_bytes",cgroup_path_mem)) == 0)
+    if ((ret = check_file_exists("%s/%s",cgroup_path_mem,cgroup_mem_limit)) == 0)
       cgroup_detection_mem = 1;
     else
       cgroup_detection_mem = 0;
@@ -293,9 +299,9 @@ int get_cgroup_cpu_info(const char *name, double *cpu_limit)
 
   long int cpu_per = 0, cpu_quo = 0;
 
-  sprintf(file_path,"%s/%s/%s",cgroup_path_cpu,name,"cpu.cfs_period_us");
+  sprintf(file_path,"%s/%s/%s",cgroup_path_cpu,name,cgroup_cpu_period);
   cpu_period = fopen(file_path,"r");
-  sprintf(file_path,"%s/%s/%s",cgroup_path_cpu,name,"cpu.cfs_quota_us");
+  sprintf(file_path,"%s/%s/%s",cgroup_path_cpu,name,cgroup_cpu_quota);
   cpu_quota = fopen(file_path,"r");
 
   if (cpu_period != NULL && cpu_quota != NULL)
@@ -338,19 +344,19 @@ int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage
 
   if (mem_limit != NULL)
     {
-    sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,"memory.limit_in_bytes");
+    sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,cgroup_mem_limit);
     mem_lim = fopen(file_path,"r");
     }
 
   if (mem_usage != NULL)
     {
-    sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,"memory.usage_in_bytes");
+    sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,cgroup_mem_usage);
     mem_use = fopen(file_path,"r");
     }
 
   if (swmem_usage != NULL)
     {
-    sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,"memory.memsw.usage_in_bytes");
+    sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,cgroup_swmem_usage);
     swmem_use = fopen(file_path,"r");
     }
 
@@ -732,14 +738,14 @@ int cgroup_set_cpu_limit(const char *name, double cpu_limit)
   FILE *cpu_period, *cpu_quota;
   char file_path[PATH_MAX] = {0};
 
-  sprintf(file_path,"%s/%s/%s",cgroup_path_cpu,name,"cpu.cfs_period_us");
+  sprintf(file_path,"%s/%s/%s",cgroup_path_cpu,name,cgroup_cpu_period);
   cpu_period = fopen(file_path,"w");
   if (cpu_period == NULL)
     {
     printf("Could not open %s file : %s\n",file_path,strerror(errno));
     }
 
-  sprintf(file_path,"%s/%s/%s",cgroup_path_cpu,name,"cpu.cfs_quota_us");
+  sprintf(file_path,"%s/%s/%s",cgroup_path_cpu,name,cgroup_cpu_quota);
   cpu_quota = fopen(file_path,"w");
 
   if (cpu_quota == NULL)
@@ -773,7 +779,7 @@ int cgroup_set_mem_limit(const char *name, int64_t mem_limit)
   FILE *mem;
   char file_path[PATH_MAX] = {0};
 
-  sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,"memory.limit_in_bytes");
+  sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,cgroup_mem_limit);
   mem = fopen(file_path,"w");
   if (mem == NULL)
     {
