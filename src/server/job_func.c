@@ -1043,22 +1043,22 @@ struct batch_request *cpy_checkpoint(
   char       *to = NULL;
   attribute  *pattr;
   mode_t     saveumask = 0;
-  
+
   pattr = &pjob->ji_wattr[(int)ati];
 
   if ((pattr->at_flags & ATR_VFLAG_SET) == 0)
     {
     /* no file to transfer */
-    
+
     return(preq);
     }
-    
+
   /* build up the name used for SERVER file */
 
   strcpy(serverfile, path_checkpoint);
   strcat(serverfile, pjob->ji_qs.ji_fileprefix);
   strcat(serverfile, JOB_CHECKPOINT_SUFFIX);
-  
+
   /*
    * We need to make sure the jobs checkpoint directory exists.  If it does
    * not we need to add it since this is the first time we are copying a
@@ -1129,7 +1129,7 @@ struct batch_request *cpy_checkpoint(
         log_buffer);
       }
    }
- 
+
   to = (char *)malloc(strlen(serverfile) + strlen(server_name) + 2);
 
   if (to == NULL)
@@ -1150,7 +1150,7 @@ struct batch_request *cpy_checkpoint(
   strcpy(to, server_name);
   strcat(to, ":");
   strcat(to, serverfile);
-  
+
   from = (char *)malloc(strlen(momfile) + 1);
 
   if (from == NULL)
@@ -1167,7 +1167,7 @@ struct batch_request *cpy_checkpoint(
 
     return(preq);
     }
-    
+
   strcpy(from, momfile);
 
   if (LOGLEVEL >= 7)
@@ -1179,7 +1179,7 @@ struct batch_request *cpy_checkpoint(
       pjob->ji_qs.ji_jobid,
       log_buffer);
     }
-  
+
   preq = setup_cpyfiles(preq, pjob, from, to, direction, JOBCKPFILE);
 
   return(preq);
@@ -1282,7 +1282,7 @@ static void post_restartfilecleanup(
           PBS_EVENTCLASS_JOB,
           pjob->ji_qs.ji_jobid,
           log_buffer);
-        
+
         svr_mailowner(
           pjob,
           MAIL_CHKPTCOPY,
@@ -1295,12 +1295,12 @@ static void post_restartfilecleanup(
       /* checkpoint restart file cleanup was successful */
 
       pjob->ji_qs.ji_svrflags |= JOB_SVFLG_CHECKPOINT_COPIED;
-      
+
       /* clear restart_name attribute that we just cleaned up */
-      
+
       pjob->ji_wattr[(int)JOB_ATR_restart_name].at_flags &= ~ATR_VFLAG_SET;
       pjob->ji_modified = 1;
-      
+
       job_save(pjob, SAVEJOB_FULL);
 
       if (LOGLEVEL >= 7)
@@ -1491,14 +1491,14 @@ void job_purge(
     }
 
   /* remove checkpoint restart file if there is one */
-  
+
   if (pjob->ji_wattr[(int)JOB_ATR_restart_name].at_flags & ATR_VFLAG_SET)
     {
     cleanup_restart_file(pjob);
     }
 
   /* delete checkpoint file directory if there is one */
-  
+
   if (pjob->ji_wattr[(int)JOB_ATR_checkpoint_name].at_flags & ATR_VFLAG_SET)
     {
     strcpy(namebuf, path_checkpoint);
@@ -1542,13 +1542,62 @@ void job_purge(
 
   /* make sure that the job is actually stored in the job file */
   job_save(pjob,SAVEJOB_FULL);
-  /* move the job file */
-  if (rename(namebuf,archivebuf) < 0)
+
+  struct stat origstat;
+  int err;
+  int orig;
+  int archive;
+
+  memset(&origstat,0,sizeof(struct stat));
+  orig = open(namebuf,O_RDONLY);
+  if (orig < 0)
     {
-    if (errno != ENOENT)
-      log_err(errno, id, msg_err_purgejob);
+    sprintf(log_buffer,"job_purge: Couldn't open job file for reading. (%s)",strerror(errno));
+    log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, log_buffer);
+
     }
-  else if (LOGLEVEL >= 6)
+
+  if (orig >= 0)
+    {
+    err = fstat(orig,&origstat);
+    if (err < 0)
+      {
+      sprintf(log_buffer,"job_purge: Couldn't determine size of job file. (%s)",strerror(errno));
+      log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, log_buffer);
+      }
+    }
+
+  if (orig >= 0 && err == 0)
+    {
+    mode_t mode = S_IRUSR | S_IWUSR;
+    archive = open(archivebuf,O_WRONLY | O_TRUNC | O_CREAT, mode);
+    if (archive < 0)
+      {
+      sprintf(log_buffer,"job_purge: Couldn't open job archive file for writing. (%s)",strerror(errno));
+      log_record(PBSEVENT_DEBUG, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, log_buffer);
+
+      close(orig);
+      }
+    }
+
+  if (orig >= 0 && archive >= 0 && err == 0)
+    {
+    char buff[8*1024];
+
+    ssize_t blocksz = read(orig,&buff,8*1024);
+    while (blocksz > 0)
+      {
+      write(archive,&buff,blocksz);
+      blocksz = read(orig,&buff,8*1024);
+      }
+
+    close(orig);
+    close(archive);
+
+    unlink(namebuf);
+    }
+
+  if (LOGLEVEL >= 6)
     {
     sprintf(log_buffer, "removed job file");
 
@@ -1594,7 +1643,7 @@ void job_purge(
 
 /*
  * get_correct_jobname() - makes sure the job searches for the correct name
- * necessary because of SRV_ATR_display_job_server_suffix and 
+ * necessary because of SRV_ATR_display_job_server_suffix and
  * SRV_ATR_job_suffix_alias
  *
  * allocs the correct job name
@@ -1730,7 +1779,7 @@ char *get_correct_jobname(
         jobid,server_name);
       }
     } /* END if (just server_suffix) */
-  else 
+  else
     {
     /* just the alias, not the server */
 

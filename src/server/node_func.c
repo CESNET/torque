@@ -1421,6 +1421,7 @@ update_nodes_file(void)
         patlist = (svrattrl *)GET_NEXT(head);
         fprintf(nin," resources_total.%s=%s", patlist->al_atopl.resource,
             patlist->al_atopl.value);
+        free_attrlist(&head);
         }
       head = *head.ll_next;
       }
