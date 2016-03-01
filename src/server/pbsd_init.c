@@ -295,7 +295,7 @@ int DArrayFree(
 
 
 /**
- * Append Item onto the end of Array, resizing it if necessary 
+ * Append Item onto the end of Array, resizing it if necessary
  * @param Array (I/O)
  * @param Item (I)
  */
@@ -791,7 +791,7 @@ int pbsd_init(
     {
     /* Open the server database (save file) and read it in */
 
-    if ((rc != 0) || ((rc = svr_recov(path_svrdb, FALSE)) == -1)) 
+    if ((rc != 0) || ((rc = svr_recov(path_svrdb, FALSE)) == -1))
       {
       log_err(rc, "pbsd_init", msg_init_baddb);
 
@@ -1070,7 +1070,7 @@ int pbsd_init(
             }
           else
             {
-            /* FIXME: what should we do here?  we won't be able to finish 
+            /* FIXME: what should we do here?  we won't be able to finish
                cloning this array because the initial job file is missing */
             }
 
@@ -1235,17 +1235,17 @@ int pbsd_init(
 
       if (pjob == NULL)
         {
-        /* TODO, we need to so something here, we can't finish cloning the 
+        /* TODO, we need to so something here, we can't finish cloning the
            array! */
 
         }
       else
         {
         /* TODO if num_cloned != num_recovered then something strange happend
-           it is possible num_recovered == num_cloned+1.  That means that the 
-           server terminated after cloning a job but before updating the saved 
+           it is possible num_recovered == num_cloned+1.  That means that the
+           server terminated after cloning a job but before updating the saved
            array_info struct. we probably should delete that last job and start
-           the cloning process off at num_cloned. Someone must have been 
+           the cloning process off at num_cloned. Someone must have been
            naughty and did a kill -9 on pbs_server  */
         wt = set_task(WORK_Timed, time_now + 1, job_clone_wt, (void*)pjob);
         (void)wt; /* TODO remove unused variable */
@@ -1320,7 +1320,7 @@ int pbsd_init(
 
     log_err(errno,"pbs_init","calloc failure");
 
-    return(-1);	
+    return(-1);
     }
 
   for (i = 0;i < server.sv_tracksize;i++)
@@ -2261,7 +2261,8 @@ static void init_abt_job(
     pjob->ji_qs.ji_jobid,
     msg_init_abt);
 
-  svr_mailowner(pjob, MAIL_ABORT, MAIL_NORMAL, msg_init_abt);
+  if (pjob->ji_qs.ji_state != JOB_STATE_COMPLETE)
+    svr_mailowner(pjob, MAIL_ABORT, MAIL_NORMAL, msg_init_abt);
 
   job_purge(pjob);
 
@@ -2283,8 +2284,8 @@ int get_svr_attr(
   static char id[] = "get_svr_attr";
   int	 rc;
   char	*suffix_slash = "/";
-  
-  if (type != RECOV_CREATE) 
+
+  if (type != RECOV_CREATE)
     {
     /* Open the server database (save file) and read it in */
 
@@ -2308,14 +2309,14 @@ int get_svr_attr(
         }
       }
 
-    if (((rc = chk_save_file(path_svrdb))!= 0) || ((rc = svr_recov(path_svrdb, TRUE)) == -1)) 
+    if (((rc = chk_save_file(path_svrdb))!= 0) || ((rc = svr_recov(path_svrdb, TRUE)) == -1))
       {
       log_err(rc, id ,msg_init_baddb);
 
       return(-1);
       }
 
-    } 
+    }
 
   return(0);
   }  /* END get_svr_attr() */
