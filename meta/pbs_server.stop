@@ -1,0 +1,26 @@
+#!/bin/sh
+PIDFILE=/var/spool/torque/server_priv/server.lock
+PID=
+
+if [ -f $PIDFILE ]; then
+	PID=$(<$PIDFILE)
+	kill -0 $PID
+	if [ $? -ne 0 ]; then
+		logger -p daemon.crit -t pbs_server "pbs_server pid file does not match any running process in pbs_server.stop";
+		PID=
+	fi
+fi
+
+if [ "x$PID" = "x" ]; then
+	PID=$(pidof pbs_server)
+fi
+
+/usr/bin/qterm -t quick
+
+while kill -0 $PID 2>/dev/null; do
+	sleep 60;
+	kill $PID 2>/dev/null
+done
+
+
+
