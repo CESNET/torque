@@ -790,16 +790,17 @@ void add_prop_to_nodespec(pars_spec *spec, pars_prop *prop)
       continue;
       }
 
-    tmp = clone_one_pars_prop(prop);
     if (node->properties_end == NULL && node->properties == NULL)
       {
-      node->properties = tmp;
-      node->properties_end = tmp;
+      node->properties = clone_one_pars_prop(prop);
+      node->properties_end = node->properties;
       }
     else
       {
       if (find_parsed_prop(node->properties,tmp->name) == NULL)
         {
+        tmp = clone_one_pars_prop(prop);
+
         node->properties_end->next = tmp;
         tmp->prev = node->properties_end;
         node->properties_end = tmp;
