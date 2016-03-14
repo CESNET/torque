@@ -1068,7 +1068,7 @@ typedef struct stat_record
 stat_record stats[] = {
   {"arch",        gen_arch},
   {"opsys",       gen_gen},
-  {"uname",       gen_gen},
+//  {"uname",       gen_gen}, // removed for security reasons
   {"sessions",    gen_gen},
   {"nsessions",   gen_gen},
   {"nusers",      gen_gen},

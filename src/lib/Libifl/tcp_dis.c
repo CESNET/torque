@@ -382,7 +382,7 @@ leftover:
       {
       memcpy(tp->tdis_eod, tcparray[fd]->unwrapped.value, f);
       tp->tdis_eod += f;
-      memmove(tcparray[fd]->unwrapped.value, 
+      memmove(tcparray[fd]->unwrapped.value,
 	      ((char *)tcparray[fd]->unwrapped.value)+f,
 	      l-f);
       tcparray[fd]->unwrapped.length = l-f;
@@ -470,6 +470,7 @@ void *detached_write_thread(void *param)
   {
   struct write_buff *buff = (struct write_buff*)param;
   async_write_with_timeout(buff->fd,buff->buff,buff->size,60*2);
+  free(buff);
   return NULL;
   }
 
@@ -893,7 +894,7 @@ timeout2:
 #ifdef GSSAPI
   gss_release_buffer(&minor, &msg_out);
 #endif
- 
+
   tp->tdis_eod = tp->tdis_leadp;
 
   tcp_pack_buff(tp);
@@ -1267,7 +1268,7 @@ DIS_tcp_funcs(void)
  * DIS_tcp_setup - setup supports routines for dis, "data is strings", to
  * use tcp stream I/O.  Also initializes an array of pointers to
  * buffers and a buffer to be used for the given fd.
- * 
+ *
  * NOTE:  tmpArray is global
  *
  * NOTE:  does not return FAILURE - FIXME
@@ -1296,7 +1297,7 @@ void DIS_tcp_setup(
     {
     int hold = tcparraymax;
     int flags;
-    
+
     /*
     ** Check if this is a valid file descriptor, if not log an error and don't
     ** do any memory allocations
@@ -1524,7 +1525,7 @@ void DIS_tcp_set_gss(
       if(tp->tdis_thebuf == NULL)
         {
         log_err(errno,"DIS_tcp_set_gss","malloc failure");
-        
+
         return;
         }
       tp->tdis_bufsize = bufsize;

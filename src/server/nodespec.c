@@ -107,13 +107,13 @@ void regenerate_total_resources(job * pjob)
               rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
               ret = rd->rs_set(&rs->rs_value,&jbrc->rs_value,SET);
               if (ret != 0)
-                return;
+                goto done;
               }
             else
               {
               ret = jbrc->rs_defin->rs_set(&rs->rs_value,&jbrc->rs_value,INCR);
               if (ret != 0)
-                return;
+                goto done;
               }
             break;
             }
@@ -126,13 +126,13 @@ void regenerate_total_resources(job * pjob)
                 rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
                 ret = jbrc->rs_defin->rs_set(&rs->rs_value,&jbrc->rs_value,SET);
                 if (ret != 0)
-                  return;
+                  goto done;
                 }
               else
                 {
                 ret = jbrc->rs_defin->rs_set(&rs->rs_value,&jbrc->rs_value,SET);
                 if (ret != 0)
-                  return;
+                  goto done;
                 }
               }
             break;
@@ -213,7 +213,7 @@ void regenerate_total_resources(job * pjob)
 
         ret = rd->rs_decode(&decoded.rs_value,0,prop->name,prop->value);
         if (ret != 0)
-          return;
+          goto done;
 
         rs = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
 
@@ -224,13 +224,13 @@ void regenerate_total_resources(job * pjob)
             rs = add_resource_entry(&pjob->ji_wattr[(int)JOB_ATR_total_resources],rd);
             ret = rd->rs_set(&rs->rs_value,&decoded.rs_value,SET);
             if (ret != 0)
-              return;
+              goto done;
             continue;
             }
 
           ret = rd->rs_set(&rs->rs_value,&decoded.rs_value,INCR);
           if (ret != 0)
-            return;
+            goto done;
           }
         }
       prop = prop->next;
@@ -257,7 +257,7 @@ void regenerate_total_resources(job * pjob)
 
     ret = rd->rs_set(&rs->rs_value,&attr,SET);
     if (ret != 0)
-      return;
+      goto done;
 
     /* find the definition and decode the value */
     rd = find_resc_def(svr_resc_def, "nodect", svr_resc_size);
@@ -271,7 +271,7 @@ void regenerate_total_resources(job * pjob)
 
     ret = rd->rs_set(&rs->rs_value,&attr,SET);
     if (ret != 0)
-      return;
+      goto done;
     }
 
   /* Step (7)
@@ -304,7 +304,7 @@ void regenerate_total_resources(job * pjob)
 
       ret = rd->rs_set(&rs->rs_value,&attr,SET);
       if (ret != 0)
-        return;
+        goto done;
       }
 
     if (vmem != 0)
@@ -321,7 +321,7 @@ void regenerate_total_resources(job * pjob)
 
       ret = rd->rs_set(&rs->rs_value,&attr,SET);
       if (ret != 0)
-        return;
+        goto done;
       }
 
     if (scratch != 0)
@@ -338,10 +338,11 @@ void regenerate_total_resources(job * pjob)
 
       ret = rd->rs_set(&rs->rs_value,&attr,SET);
       if (ret != 0)
-        return;
+        goto done;
       }
     }
 
+done:
   free_parsed_nodespec(spec);
 
   return;
