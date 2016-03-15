@@ -797,7 +797,7 @@ void add_prop_to_nodespec(pars_spec *spec, pars_prop *prop)
       }
     else
       {
-      if (find_parsed_prop(node->properties,tmp->name) == NULL)
+      if (find_parsed_prop(node->properties,prop->name) == NULL)
         {
         tmp = clone_one_pars_prop(prop);
 
