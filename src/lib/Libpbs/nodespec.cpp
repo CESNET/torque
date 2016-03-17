@@ -899,12 +899,16 @@ void add_scratch_to_nodespec(pars_spec *spec, char *scratch)
     }
 
   if (str_res_to_num(value,&scratch_size) != 0)
-      return;
-
-  free(value);
+    {
+    free(value);
+    return;
+    }
 
   if (scratch_size == 0)
+    {
+    free(value);
     return;
+    }
 
   if (delim1 == NULL)
     goto finished;
@@ -938,6 +942,8 @@ void add_scratch_to_nodespec(pars_spec *spec, char *scratch)
     first_only = true;
 
 finished:
+  free(value);
+
   node = spec->nodes;
   while (node != NULL)
     {
