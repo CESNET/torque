@@ -235,7 +235,7 @@ int decode_arst_direct(
   patr->at_val.at_arst = stp;
 
   free(tmpval);
- 
+
   /* SUCCESS */
 
   return(0);
@@ -381,7 +381,7 @@ int decode_arst_merge(
 
 
 
-    
+
 /*
  * encode_arst - encode attr of type ATR_TYPE_ARST into attrlist entry
  *
@@ -751,7 +751,7 @@ int set_arst(
 
       if (tmp_arst == NULL)
         return(PBSE_SYSTEM);
-      
+
       memset(tmp_arst,0,need);
 
       nsize = newpas->as_next - newpas->as_buf;   /* space needed */
@@ -769,7 +769,7 @@ int set_arst(
       tmp_arst->as_next = pc;
       tmp_arst->as_npointers = j;
 
-      /* now that everything is allocated, copy the strings into the new 
+      /* now that everything is allocated, copy the strings into the new
        * array_strings struct */
 
       /* first, copy the new */
@@ -797,6 +797,15 @@ int set_arst(
 
         for (j = 0;j < pas->as_usedptr;j++)
           {
+          if (strlen(pas->as_string[j]) != len)
+            {
+            char *ntail = strchr(pas->as_string[j],'=');
+            if (ntail == NULL) // different length and original does not contain '='
+              continue;
+            else if (len != ntail - pas->as_string[j]) // different length before '='
+              continue;
+            }
+
           if (!strncmp(pas->as_string[j],newpas->as_string[i],len))
             {
             MatchFound = 1;
@@ -808,7 +817,7 @@ int set_arst(
         if (MatchFound == 0)
           {
           strcpy(tmp_arst->as_next,newpas->as_string[i]);
-          
+
           tmp_arst->as_string[tmp_arst->as_usedptr++] = tmp_arst->as_next;
           tmp_arst->as_next += strlen(tmp_arst->as_next) + 1;
           }

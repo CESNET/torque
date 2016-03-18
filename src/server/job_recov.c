@@ -141,6 +141,14 @@ extern time_t time_now;
 
 static const unsigned int quicksize = sizeof(struct jobfix);
 
+#ifdef PBS_MOM
+static int save_jobflags(job *pjob)
+  {
+  save_struct((char*)&pjob->ji_flags,sizeof(pjob->ji_flags));
+  return 0;
+  }
+#endif
+
 /*
  * job_save() - Saves (or updates) a job structure image on disk
  *
@@ -319,6 +327,10 @@ int job_save(
         {
         redo++;
         }
+      else if (save_jobflags(pjob) != 0)
+        {
+        redo++;
+        }
 
 #endif  /* PBS_MOM */
       else if (save_flush() != 0)
@@ -370,8 +382,19 @@ int job_save(
   return(0);
   }  /* END job_save() */
 
+#ifdef PBS_MOM
+static int recov_jobflags(int fds, job *pjob)
+  {
+  if (read(fds, &pjob->ji_flags, sizeof(pjob->ji_flags)) != sizeof(pjob->ji_flags))
+    {
+    log_err(errno,"recov_jobflags","read");
+    pjob->ji_flags = 0;
+    return 1;
+    }
 
-
+  return 0;
+  }
+#endif
 
 
 /*
@@ -507,7 +530,7 @@ job *job_recov(
         pj->ji_wattr,
         (int)JOB_ATR_LAST,
         (int)JOB_ATR_UNKN,
-        TRUE) != 0) 
+        TRUE) != 0)
     {
     sprintf(log_buffer, "unable to recover %s (file is likely corrupted)",
             namebuf);
@@ -536,6 +559,13 @@ job *job_recov(
     {
     sprintf(log_buffer, "warning: root task not recovered from %s (written by an older pbs_mom?)",
             namebuf);
+
+    log_err(-1, "job_recov", log_buffer);
+    }
+
+  if (recov_jobflags(fds, pj) != 0)
+    {
+    sprintf(log_buffer, "warning: job flags not recovered from %s (written by an older pbs_mom?)", namebuf);
 
     log_err(-1, "job_recov", log_buffer);
     }

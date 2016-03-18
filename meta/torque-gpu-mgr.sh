@@ -2,51 +2,12 @@
 
 source /var/spool/torque/mom_scripts/torque-sw-paths.sh
 
-MOMCTL=/usr/sbin/momctl
 JOBID=$1;
 OPR=$2;
 COUNT=$3;
 
 if [ $# -lt 2 ]; then
 	exit 1;
-fi
-
-if [ "$OPR" = "lock" ]; then
-	MOMCTL_DATA=$($MOMCTL -q jobs 2>&1);
-	if [ "$(echo \"$MOMCTL_DATA\" | grep "ERROR:")" != "" ]; then
-		logger -p daemon.crit -t pbs_mom "Could not get mom information through momctl.";
-	else
-		# Verify - consistency of aux files
-		for i in $(ls /var/spool/torque/aux/gpu-* 2>/dev/null); do
-			jobid=$(echo $i | cut -d\- -f2);
-			if [ "$(echo \"$MOMCTL_DATA\" | grep $jobid)" = "" ]; then
-				# Inconsistency detected
-				if [ -r /var/spool/torque/aux/$jobid ]; then
-					logger -p daemon.crit -t pbs_mom "Node doesn't report job whose files are still present in aux.";
-				else
-					logger -p daemon.info -t pbs_mom "Cleaned up stale gpu aux file.";
-					rm $i;
-				fi
-			fi
-		done
-
-		# Verify - consistency of cache
-		for i in $($CACHE_LIST $SERVER gpu_allocation | grep -v unallocated | grep `hostname` | cut -f3 | sort -u); do
-			if [ "$(echo \"$MOMCTL_DATA\" | grep $i)" = "" ]; then
-				# Inconsistency detected
-				if [ -r /var/spool/torque/aux/$i ]; then
-					logger -p daemon.crit -t pbs_mom "Node doesn't report job whose files are still present in aux.";
-				else
-					logger -p daemon.info -t pbs_mom "Cleaned up stale cache record.";
-					for j in $($CACHE_LIST $SERVER gpu_allocation | grep -v unallocated | grep `hostname` | grep $i | cut -f1); do
-						$CACHE_UPDATE $SERVER $j gpu_allocation unallocated;
-					done
-				fi
-			fi
-		done
-	fi
-
-
 fi
 
 case $OPR in
@@ -69,6 +30,7 @@ case $OPR in
 			done
 
 			if [ $COUNT -gt $FREE_GPU ]; then # if requested more then present - bail out
+				logger -p daemon.crit -t pbs_mom "Inconsistent GPU allocation. Not enough unallocated GPU cards.";
 				exit 3;
 			fi
 

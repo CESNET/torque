@@ -12,7 +12,7 @@ AM_CPPFLAGS += -I$(top_srcdir)/src/resmom/@PBS_MACH@ -DPBS_MOM $(GLITE_CPPFLAGS)
 
 PBS_LIBS = ../lib/Libattr/libattr.a \
 	   ../lib/Libsite/libsite.a \
-		 ../lib/Libutils/libutils.a \
+	   ../lib/Libutils/libutils.a \
 	   ../lib/Libpbs/libtorque.la
 
 EXTRA_DIST = rm_dep.h
@@ -78,6 +78,7 @@ install-exec-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_admin_lock
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_admin_unlock
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recalculate_leftover_scratch
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recheck_gpu_allocations
 	cp $(top_srcdir)/meta/prologue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/prologue
 	cp $(top_srcdir)/meta/epilogue $(DESTDIR)$(PBS_SERVER_HOME)/mom_priv/epilogue
 	cp $(top_srcdir)/meta/torque-gpu-mgr.sh $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/torque-gpu-mgr.sh
@@ -96,6 +97,7 @@ install-exec-hook:
 	cp $(top_srcdir)/meta/magrathea_admin_lock $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_admin_lock
 	cp $(top_srcdir)/meta/magrathea_admin_unlock $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_admin_unlock
 	cp $(top_srcdir)/meta/pbs_get_cores $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/pbs_get_cores
+	cp $(top_srcdir)/meta/recheck_gpu_allocations $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recheck_gpu_allocations
 
 
 uninstall-hook:
@@ -122,5 +124,6 @@ uninstall-hook:
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_admin_lock
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/magrathea_admin_unlock
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recalculate_leftover_scratch
+	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/recheck_gpu_allocations
 	rm -f $(DESTDIR)$(PBS_SERVER_HOME)/mom_scripts/pbs_get_cores
 
