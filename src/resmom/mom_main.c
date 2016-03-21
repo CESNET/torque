@@ -184,7 +184,7 @@ int    exiting_tasks = 0;
 float  ideal_load_val = -1.0;
 int    internal_state = 0;
 /* by default, enforce these policies */
-int    ignwalltime = 0; 
+int    ignwalltime = 0;
 int    ignmem = 0;
 int    ignpmem = 0;
 int    igncput = 0;
@@ -286,7 +286,7 @@ long            system_ncpus = 0;
 char           *auto_ideal_load = NULL;
 char           *auto_max_load   = NULL;
 
-int             lb_report_usage_interval = 20 * 60; 
+int             lb_report_usage_interval = 20 * 60;
 int             lb_report_usage_last = 0;
 
 #define TMAX_JE  64
@@ -500,7 +500,7 @@ struct config common_config[] =
   {
   { "arch",      {arch} },             /* machine architecture           */
   { "opsys",     {opsys} },            /* operating system               */
-  { "uname",     {requname} },         /* user name     ???              */
+//  { "uname",     {requname} },         /* user name     ???              */
   { "validuser", {validuser} },        /* valid user    ???              */
   { "message",   {reqmsg} },           /* message       ???              */
   { "gres",      {reqgres} },          /* generic resource (licenses...) */
@@ -914,7 +914,7 @@ static char *getjoblist(
 
       /* since memory cannot be allocated, report no jobs */
 
-      return (" ");	
+      return (" ");
       }
 
     listlen = BUFSIZ;
@@ -1110,7 +1110,7 @@ retryread:
         tmpBuf[child_len] = '\0';
 
         /* Transfer returned data into var value field */
-        
+
         first_line = TRUE;
 
         ptr = strtok(tmpBuf,"\n;");
@@ -1119,7 +1119,7 @@ retryread:
 
         ptr2[0] = '\0';
 
-        /* 
+        /*
          * OUTPUT FORMAT:  Take what script gives us.
          * Script should output 1 or more lines of Name=value1+value2+...
          */
@@ -1902,7 +1902,7 @@ static u_long restricted(
 
       log_err(errno,id,"cannot alloc memory");
 
-      return(-1);	
+      return(-1);
       }
 
     mask_max = 4;
@@ -3186,7 +3186,7 @@ static unsigned long setlogfilesuffix(
 
 
 static unsigned long setlogkeepdays(
- 
+
   char *value)  /* I */
 
   {
@@ -3450,7 +3450,7 @@ static unsigned long setkilldelay(
     "setkilldelay",
     value);
 
-  if ((!strncasecmp(value,"t",1)) || 
+  if ((!strncasecmp(value,"t",1)) ||
       (value[0] == '1') ||
       (!strcasecmp(value,"on")))
     killdelay = 1;
@@ -3474,7 +3474,7 @@ static unsigned long setremchkptdirlist(
 
   int   index = 0;
   char  tmpLine[1024];
-  
+
   while ((TRemChkptDirList[index] != NULL) && (index < TMAX_RCDCOUNT))
     {
     index++;
@@ -3545,14 +3545,14 @@ static unsigned long setlbreportusageinterval(
 			  break;
 		  }
 	  }
-	  
+
 	  log_record(
 		  PBSEVENT_SYSTEM,
 		  PBS_EVENTCLASS_SERVER,
 		  "lb_report_usage_interval",
 		  value);
 
-  
+
 	  lb_report_usage_interval = unit * (int)strtol(value, NULL, 10);
 
 
@@ -3584,7 +3584,7 @@ check_log(void)
     snprintf(log_buffer,sizeof(log_buffer),"checking for old pbs_mom logs in dir '%s' (older than %d days)",
       path_log,
       LOGKEEPDAYS);
-   
+
     log_event(
       PBSEVENT_SYSTEM | PBSEVENT_FORCE,
       PBS_EVENTCLASS_SERVER,
@@ -8232,7 +8232,7 @@ void examine_all_jobs_to_resend(void)
 
   save_jobs_to_resend(JobsToResend,MAX_RESEND_JOBS);
   }  /* END examine_all_jobs_to_resend() */
-    
+
 
 
 
@@ -8299,7 +8299,7 @@ int mark_for_resend(
 
   for (jindex = 0;jindex < MAX_RESEND_JOBS;jindex++)
     {
-    if ((JobsToResend[jindex] == NULL) || 
+    if ((JobsToResend[jindex] == NULL) ||
         (JobsToResend[jindex] == (job *)DUMMY_JOB_PTR))
       {
       JobsToResend[jindex] = pjob;
@@ -8397,7 +8397,7 @@ void main_loop(void)
 
 #endif
       {
-      if ((time_now >= (LastServerUpdateTime + ServerStatUpdateInterval)) || 
+      if ((time_now >= (LastServerUpdateTime + ServerStatUpdateInterval)) ||
           (ForceServerUpdate == TRUE))
         {
         ForceServerUpdate = FALSE;
@@ -8480,7 +8480,7 @@ void main_loop(void)
       /* we can only do this once so set recover back to the default */
       recover = JOB_RECOV_RUNNING;
       }
-      
+
 
     if (exiting_tasks)
       scan_for_exiting();
@@ -8604,9 +8604,9 @@ void restart_mom(
 
 
 /*
- * This is for a mom starting with the -P option. Set all existing 
- * tasks to TI_STATE_EXITED so they can be cleanup up on the mom 
- * and at the server 
+ * This is for a mom starting with the -P option. Set all existing
+ * tasks to TI_STATE_EXITED so they can be cleanup up on the mom
+ * and at the server
  */
 void prepare_child_tasks_for_delete()
   {
