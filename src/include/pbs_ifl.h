@@ -324,6 +324,7 @@
 #define ATTR_acl_krb_realm_enable "acl_krb_realm_enable"
 #define ATTR_acl_krb_realms "acl_krb_realms"
 #define ATTR_lbserver "lb_server"
+#define ATTR_ignore_properties "ignore_properties"
 
 
 /* additional node "attributes" names */

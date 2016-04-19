@@ -276,6 +276,8 @@ static int filter_job(job *pj)
       resource *nodes;
       if ((nodes = find_resc_entry(&pj->ji_wattr[(int)JOB_ATR_resource],d_nodes)) != 0)
         {
+
+
         if (strstr(nodes->rs_value.at_val.at_str,"infiniband") != NULL)
           {
           resource_def *place_def;
@@ -300,6 +302,70 @@ static int filter_job(job *pj)
             sprintf(newnodes,"%s%s",nodes->rs_value.at_val.at_str,"#cgroup");
             free(nodespec);
             nodes->rs_value.at_val.at_str = newnodes;
+            }
+          }
+
+        // remove ignored properties
+        if ((server.sv_attr[(int)SRV_ATR_ignore_properties].at_flags & ATR_VFLAG_SET) &&
+            (server.sv_attr[(int)SRV_ATR_ignore_properties].at_val.at_arst->as_usedptr > 0))
+          {
+          for (int i = 0; i < server.sv_attr[(int)SRV_ATR_ignore_properties].at_val.at_arst->as_usedptr; ++i)
+            {
+            char *prop = server.sv_attr[(int)SRV_ATR_ignore_properties].at_val.at_arst->as_string[i];
+            char *nodestr = nodes->rs_value.at_val.at_str;
+            int len = strlen(prop);
+            char *pos;
+            char *iter = nodestr;
+            while ((pos = strstr(iter,prop)) != NULL)
+              {
+              //determine whether this is a real match :
+              // start of string, or preceeded by a delimiter
+              // followed by end of string or a delimiter
+              if (!((pos == nodestr || pos[-1] == ':' || pos[-1] == '+' || pos[-1] == '#') &&
+                  (pos[len] == '\0' || pos[len] == ':' || pos[len] == '+' || pos[len] == '#')))
+                {
+                // not a real match, move on
+                iter += len;
+                continue;
+                }
+
+              // this is a real match
+
+
+              // for trailing properties, just mark a new end of the string
+              if (pos[len] == '\0')
+                {
+                // do not leave the node string completely empty
+                if (pos == nodestr)
+                  {
+                  nodestr[0] = '1';
+                  nodestr[1] = '\0';
+                  break;
+                  }
+                else // there is a delimiter before our string
+                  {
+                  // remove the delimiter as well
+                  --pos;
+                  *pos = '\0';
+                  }
+                }
+              // if we are not at the end of nodespec, we must have
+              // a delimiter tat the end of the property
+              else if (pos[len] == ':' || pos[len] == '+' || pos[len] == '#' )
+                {
+                char *trail = pos+len;
+                if (pos == nodestr)
+                  {
+                  // do not copy the delimiter
+                  memmove(pos,trail+1,strlen(trail+1)+1);
+                  }
+                else if (pos[-1] == ':' || pos[-1] == '+' || pos[-1] == '#')
+                  {
+                  --pos;
+                  memmove(pos,trail,strlen(trail)+1);
+                  }
+                }
+              }
             }
           }
         }
@@ -725,12 +791,12 @@ void req_quejob(
 
 #ifdef GSSAPI
   /* save gssapi/krb5 creds for this job */
-  if (svr_conn[preq->rq_conn].cn_authen == PBS_NET_CONN_GSSAPIAUTH) { 
+  if (svr_conn[preq->rq_conn].cn_authen == PBS_NET_CONN_GSSAPIAUTH) {
       sprintf(log_buffer,"saving creds.  conn is %d, princ %s",
-          preq->rq_conn, svr_conn[preq->rq_conn].principal); 
+          preq->rq_conn, svr_conn[preq->rq_conn].principal);
       log_event(PBSEVENT_DEBUG,
-            PBS_EVENTCLASS_SERVER,"req_quejob",log_buffer); 
-      
+            PBS_EVENTCLASS_SERVER,"req_quejob",log_buffer);
+
       (void)job_attr_def[(int)JOB_SITE_ATR_krb_princ].at_decode(
 	&pj->ji_wattr[(int)JOB_SITE_ATR_krb_princ],
         NULL, NULL, svr_conn[preq->rq_conn].principal);
@@ -885,7 +951,7 @@ void req_quejob(
         (((pj->ji_wattr[(int)JOB_ATR_outpath].at_val.at_str[strlen(pj->ji_wattr[(int)JOB_ATR_outpath].at_val.at_str) - 1] == '/'))))
       {
         pj->ji_wattr[(int)JOB_ATR_outpath].at_val.at_str[strlen(pj->ji_wattr[(int)JOB_ATR_outpath].at_val.at_str) - 1] = '\0';
-        
+
         replace_attr_string(
           &pj->ji_wattr[(int)JOB_ATR_outpath],
           (add_std_filename(pj,
@@ -909,7 +975,7 @@ void req_quejob(
         (((pj->ji_wattr[(int)JOB_ATR_errpath].at_val.at_str[strlen(pj->ji_wattr[(int)JOB_ATR_errpath].at_val.at_str) - 1] == '/'))))
       {
         pj->ji_wattr[(int)JOB_ATR_errpath].at_val.at_str[strlen(pj->ji_wattr[(int)JOB_ATR_errpath].at_val.at_str) - 1] = '\0';
-        
+
         replace_attr_string(
           &pj->ji_wattr[(int)JOB_ATR_errpath],
           (add_std_filename(pj,

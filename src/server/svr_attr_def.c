@@ -800,7 +800,7 @@ attribute_def svr_attr_def[] =
       MGR_ONLY_SET,
       ATR_TYPE_LONG,
       PARENT_TYPE_SERVER
-  }, 
+  },
 
   /* SRV_ATR_LogFileMaxSize */
   {   ATTR_logfilemaxsize,      /* "log_file_max_size" */
@@ -984,7 +984,7 @@ attribute_def svr_attr_def[] =
       ATR_TYPE_LONG,
       PARENT_TYPE_SERVER
   },
-	
+
   /* SRV_ATR_JobMustReport */
   { ATTR_jobmustreport,      /* "job_must_report" */
     	decode_b,
@@ -1190,6 +1190,19 @@ attribute_def svr_attr_def[] =
       ATR_TYPE_STR,
       PARENT_TYPE_SERVER
     },
+
+  /* SRV_ATR_ignore_properties */
+  { ATTR_ignore_properties,
+    decode_arst,
+    encode_arst,
+    set_arst,
+    comp_arst,
+    free_arst,
+    NULL_FUNC,
+    MGR_ONLY_SET,
+    ATR_TYPE_ARST,
+    PARENT_TYPE_SERVER
+  },
 
   /* site supplied server attribute definitions if any, see site_svr_attr_*.h  */
 #include "site_svr_attr_def.h"

@@ -180,6 +180,7 @@ enum srv_atr
   SRV_ATR_acl_krb_realm_enable,
   SRV_ATR_acl_krb_realms,
   SRV_ATR_LBServer,
+  SRV_ATR_ignore_properties,
 #include "site_svr_attr_enum.h"
   /* This must be last */
   SRV_ATR_LAST
