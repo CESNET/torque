@@ -192,6 +192,7 @@ void read_environ_script(job *pjob, struct var_table *vtable)
   sprintf(cmd,"%s %s %s",ENVIRONGEN,pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str,pjob->ji_qs.ji_jobid);
 
   FILE *input = popen(cmd,"r");
+  free(cmd);
   if (input == NULL) /* couldn't start script */
     {
     log_err(-1, "read_environ_script", "cmd");
