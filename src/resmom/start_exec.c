@@ -126,6 +126,7 @@
 #include "cloud.h"
 #include "cgroup.h"
 #include "mom_mach.h"
+#include "renew.h"
 
 #ifdef ENABLE_CPA
 	#include "pbs_cpa.h"
@@ -306,8 +307,6 @@ extern int  mom_checkpoint_start_restart(job *pjob);
 extern void get_jobs_default_checkpoint_dir(job *pjob, char *defaultpath);
 extern char *get_local_script_path(job *pjob, char *base);
 
-extern int start_renewal(task *ptask, int, int);
-
 /* END prototypes */
 
 #ifdef USEJOBCREATE
@@ -366,139 +365,139 @@ struct passwd *check_pwd(
 
 /* I (modified) */
   {
-  
+
   struct passwd *pwdp;
-  
+
   struct group *grpp;
-  
+
   char          *ptr;
-  
+
   /* NOTE:  should cache entire pwd object (NYI) */
-  
+
   ptr = pjob->ji_wattr[(int)JOB_ATR_euser].at_val.at_str;
-  
+
   if (ptr == NULL)
 	{
 	/* FAILURE */
-	
+
 	sprintf(log_buffer, "no user specified for job");
-	
+
 	return(NULL);
 	}
-  
+
   pwdp = getpwnam(ptr);
-  
+
   if (pwdp == NULL)
 	{
 	/* FAILURE */
-	
+
 	sprintf(log_buffer, "no password entry for user %s",
 					ptr);
-	
+
 	return(NULL);
 	}
-  
+
   if (pjob->ji_grpcache != NULL)
 	{
 	/* SUCCESS */
-	
+
 	/* group cache previously loaded and cached */
-	
+
 	return(pwdp);
 	}
-  
+
   pjob->ji_qs.ji_un_type = JOB_UNION_TYPE_MOM;
-  
+
   pjob->ji_qs.ji_un.ji_momt.ji_exuid = pwdp->pw_uid;
-  
+
   pjob->ji_grpcache = malloc(sizeof(struct grpcache) + strlen(pwdp->pw_dir) + 1);
-  
+
   if (pjob->ji_grpcache == NULL)
 	{
 	/* FAILURE */
-	
+
 	sprintf(log_buffer, "malloc failed");
-	
+
 	return(NULL);
 	}
-  
+
   strcpy(pjob->ji_grpcache->gc_homedir, pwdp->pw_dir);
-  
+
   /* get the group and supplimentary under which the job is to be run */
-  
+
   if ((pjob->ji_wattr[(int)JOB_ATR_egroup].at_flags &
 		   (ATR_VFLAG_SET | ATR_VFLAG_DEFLT)) == ATR_VFLAG_SET)
 	{
 	/* execution group specified and not default of login group */
-	
+
 	/* NOTE: ideally egroup should be groupname, not groupid, but pbs_server
 	 * code will send a group ID over in some instances, so we should try
 	 * to work with a groupid if provided */
-	
+
 	grpp = getgrnam(pjob->ji_wattr[(int)JOB_ATR_egroup].at_val.at_str);
-	
+
 	if (grpp != NULL)
 	  {
 	  pjob->ji_qs.ji_un.ji_momt.ji_exgid = grpp->gr_gid;
-	  } 
+	  }
 	else
 	  {
 	  int tmpGID;
-	  
+
 	  /* check to see if we were given a groupid (group names cannot start
 	   * with a number) */
-	  
+
 	  tmpGID = (int)strtol(pjob->ji_wattr[(int)JOB_ATR_egroup].at_val.at_str,NULL,10);
-	  
+
 	  if (tmpGID != 0)
 		  {
 		  pjob->ji_qs.ji_un.ji_momt.ji_exgid = tmpGID;
 		  } else
 		  {
 		  /* FAILURE */
-	  
+
 		  sprintf(log_buffer, "no group entry for group %s, user=%s, errno=%d (%s)",
 						  pjob->ji_wattr[(int)JOB_ATR_egroup].at_val.at_str,
 						  ptr,
 						  errno,
 						  strerror(errno));
-	  
+
 		  return(NULL);
 		  }
 	  }	 /* END if (grpp != NULL) */
-	} 
+	}
   else
 	{
 	/* if no group specified, default to login group */
-	
+
 	pjob->ji_qs.ji_un.ji_momt.ji_exgid = pwdp->pw_gid;
 	}
-  
+
   if ((pjob->ji_grpcache->gc_ngroup = init_groups( pwdp->pw_name,
 												   pjob->ji_qs.ji_un.ji_momt.ji_exgid,
 												   NGROUPS_MAX,
 												   pjob->ji_grpcache->gc_groups)) < 0)
 	{
 	/* FAILURE */
-	
+
 	sprintf(log_buffer, "too many group entries");
-	
+
 	return(NULL);
 	}
-  
+
   /* perform site specific check on validatity of account */
-  
+
   if (site_mom_chkuser(pjob))
 	{
 	/* FAILURE */
-	
+
 	sprintf(log_buffer, "site_mom_chkuser failed");
-	
+
 	return(NULL);
 	}
-  
+
   /* SUCCESS */
-  
+
   return(pwdp);
   }	 /* END check_pwd() */
 
@@ -517,16 +516,16 @@ void exec_bail(
   {
   static char id[] = "exec_bail";
   int nodecount;
-  
+
   nodecount = send_sisters(pjob, IM_ABORT_JOB);
-  
+
   if (nodecount != pjob->ji_numnodes - 1)
 	{
 	sprintf(log_buffer, "%s: sent %d ABORT requests, should be %d",
 					id,
 					nodecount,
 					pjob->ji_numnodes - 1);
-	
+
 	log_err(-1, id, log_buffer);
 	}
 
@@ -536,25 +535,25 @@ void exec_bail(
     magrathea_unlock();
 
   /* inform non-MS nodes that job is aborting */
-  
+
 #ifdef HAVE_GLITE_LB
   svr_logjobstate(pjob, pjob->ji_qs.ji_state, JOB_SUBSTATE_EXITING, NULL);
 #endif
 
   pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
-  
+
   pjob->ji_qs.ji_un.ji_momt.ji_exitstat = code;
-  
+
   job_save(pjob, SAVEJOB_QUICK);
-  
+
   exiting_tasks = 1;
-  
+
   if (pjob->ji_stdout > 0)
     close(pjob->ji_stdout);
-  
+
   if (pjob->ji_stderr > 0)
     close(pjob->ji_stderr);
-  
+
   return;
   }	 /* END exec_bail() */
 
@@ -567,87 +566,87 @@ int open_demux(
 
   {
   static char id[] = "open_demux";
-  
+
   int         sock;
   int         i;
-  
+
   struct sockaddr_in remote;
-  
+
   remote.sin_addr.s_addr = addr;
   remote.sin_port = htons((unsigned short)port);
   remote.sin_family = AF_INET;
-  
+
   if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 	{
 	sprintf(log_buffer, "%s: socket %s",
 					id,
 					netaddr(&remote));
-	
+
 	log_err(errno, id, log_buffer);
-	
+
 	return(-1);
 	}
-  
+
   for (i = 0;i < RETRY;i++)
 	{
 	if (connect(sock, (struct sockaddr *)&remote, sizeof(remote)) == 0)
 	  {
 	  /* success */
-	  
+
 	  return(sock);
 	  }
-	
+
 	switch (errno)
 	  {
-	  
+
 	  case EINTR:
-	  
+
 	  case ETIMEDOUT:
-	  
+
 	  case ECONNRESET:
-	  
+
 		  sleep(2);
-	  
+
 		  continue;
-	  
+
 		  /*NOTREACHED*/
-	  
+
 		  break;
-	  
+
 	  case EADDRINUSE:
-	  
+
 	  case ECONNREFUSED:
-	  
+
 		  sprintf(log_buffer, "%s: cannot connect to %s",
 						  id,
 						  netaddr(&remote));
-	  
+
 		  log_err(errno, id, log_buffer);
-	  
+
 		  sleep(2);
-	  
+
 		  continue;
-	  
+
 		  /*NOTREACHED*/
-	  
+
 		  break;
-	  
+
 	  default:
-	  
+
 		  /* NO-OP */
-	  
+
 		  break;
 	  }	 /* END switch (errno) */
-	
+
 	break;
 	}	 /* END for (i) */
-  
+
   sprintf(log_buffer, "%s: connect %s", id,	netaddr(&remote));
-  
+
   log_err(errno, id, log_buffer);
-  
+
   close(sock);
-  
+
   return(-1);
   }	 /* END open_demux() */
 
@@ -664,21 +663,21 @@ static int open_pty(
   {
   char *name;
   int  pts;
-  
+
   /* Open the slave pty as the controlling tty */
-  
+
   name = pjob->ji_wattr[(int)JOB_ATR_outpath].at_val.at_str;
-  
+
   if ((pts = open(name, O_RDWR, 0600)) < 0)
 	{
 	log_err(errno, "open_pty", "cannot open slave");
-	} 
+	}
   else
 	{
 	FDMOVE(pts);
-	
+
 	fchmod(pts, 0620);
-	
+
 	if (fchown(pts, pjob->ji_qs.ji_un.ji_momt.ji_exuid,
 						 pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1)
 		{
@@ -686,7 +685,7 @@ static int open_pty(
 		log_err(errno, "open_pty", "cannot change slave's owner");
 		return -1;
 		}
-	
+
 #ifdef SETCONTROLLINGTTY
 
   #if defined(_CRAY)
@@ -725,9 +724,9 @@ int is_joined(
 
   {
   attribute *pattr;
-  
+
   pattr = &pjob->ji_wattr[(int)JOB_ATR_join];
-  
+
   if ((pattr->at_flags & ATR_VFLAG_SET) &&
 		  (pattr->at_val.at_str[0] != 'n'))
 	{
@@ -736,14 +735,14 @@ int is_joined(
 	  {
 	  return(1);
 	  }
-	
+
 	if ((pattr->at_val.at_str[0] == 'e') &&
 			(strchr(pattr->at_val.at_str, (int)'e') != 0))
 	  {
 	  return(-1);
 	  }
 	}
-  
+
   return(0);
   }	 /* END is_joined() */
 
@@ -763,72 +762,72 @@ static int open_std_out_err(
   int file_out = -2;
   int file_err = -2;
   int filemode = O_CREAT | O_WRONLY | O_APPEND | O_EXCL;
-  
+
   /* if std out/err joined (set and != "n"), which file is first */
-  
+
   i = is_joined(pjob);
-  
+
   if (timeout > 0)
 	{
 	alarm(timeout);
 	}
-  
+
   if (i == 1)
 	{
 	file_out = open_std_file(	pjob,
 							  StdOut,
 							  filemode,
 							  pjob->ji_qs.ji_un.ji_momt.ji_exgid);
-	
+
 	file_err = dup(file_out);
-	} 
+	}
   else if (i == -1)
 	{
 	file_err = open_std_file( pjob,
 							  StdErr,
 							  filemode,
 							  pjob->ji_qs.ji_un.ji_momt.ji_exgid);
-	
+
 	file_out = dup(file_err);
 	}
-  
+
   if (file_out == -2)
 	file_out = open_std_file( pjob,
 								StdOut,
 								filemode,
 								pjob->ji_qs.ji_un.ji_momt.ji_exgid);
-  
+
   if (file_err == -2)
 	file_err = open_std_file( pjob,
 							  StdErr,
 							  filemode,
 							  pjob->ji_qs.ji_un.ji_momt.ji_exgid);
-  
+
   alarm(0);	 /* disable alarm */
-  
+
   if ((file_out < 0) || (file_err < 0))
 	{
 	/* FAILURE - cannot load files */
-	
+
 	if ((file_out == -2) || (file_err == -2))
 	  {
 	  /* timeout occurred */
-	  
+
 	  char *path;
-	  
+
 	  int   keeping;
-	  
+
 	  path = std_file_name(pjob, StdOut, &keeping);
-	  
+
 	  sprintf(log_buffer, "unable to stat/open file '%s' within %d seconds - check filesystem",
 					  (path != NULL) ? path : "???",
 					  timeout);
-	  
+
 	  log_err(
 				   errno,
 				   "open_std_out_err",
 				   log_buffer);
-	  } 
+	  }
 	else
 	  {
 	  log_err(
@@ -836,36 +835,36 @@ static int open_std_out_err(
 				   "open_std_out_err",
 				   "unable to open standard output/error");
 	  }
-	
+
 	return(-1);
 	}	 /* END if ((file_out < 0) || (file_err < 0)) */
-  
+
   FDMOVE(file_out);	/* make sure descriptor > 2       */
-  
+
   FDMOVE(file_err);	/* so don't clobber stdin/out/err */
-  
+
   if (file_out != 1)
 	{
 	close(1);
-	
+
 	if (dup(file_out) == -1)
 	  {
 	  }
-	
+
 	close(file_out);
 	}
-  
+
   if (file_err != 2)
 	{
 	close(2);
-	
+
 	if (dup(file_err) == -1)
 	  {
 	  }
-	
+
 	close(file_err);
 	}
-  
+
   return(0);
   }	 /* END open_std_out_err() */
 
@@ -880,36 +879,36 @@ int mkdirtree(
   int rc = 0;
   mode_t oldmask = 0;
   char *path = NULL;
-  
+
   if (*dirpath != '/')
 	{
 	rc = -1;
-	
+
 	goto done;
 	}
-  
+
   /* make a copy to scribble NULLs on */
-  
+
   if ((path = strdup(dirpath)) == NULL)
 	{
 	rc = -1;
-	
+
 	goto done;
 	}
-  
+
   oldmask = umask(0000);
-  
+
   part = strtok(path, "/");
-  
+
   if (part == NULL)
 	{
 	rc = -1;
-	  
+
 	goto done;
 	}
-  
+
   *(part - 1) = '/';	/* leading '/' */
-  
+
   while ((part = strtok(NULL, "/")) != NULL)
 	{
 	if (mkdir(path, mode) == -1)
@@ -917,34 +916,34 @@ int mkdirtree(
 	  if (errno != EEXIST)
 		{
 		rc = errno;
-		
+
 		goto done;
 		}
 	  }
-	
+
 	*(part - 1) = '/';
 	}
-  
+
   /* very last component */
-  
+
   if (mkdir(path, mode) == -1)
 	{
 	if (errno != EEXIST)
 	  {
 	  rc = errno;
-	  
+
 	  goto done;
 	  }
 	}
-  
+
   done:
-  
+
   if (oldmask != 0)
 	  umask(oldmask);
-  
+
   if (path != NULL)
 	  free(path);
-  
+
   return(rc);
   }	 /* END mkdirtree() */
 
@@ -967,7 +966,7 @@ int TTmpDirName(
 	{
 	*tmpdir = '\0';
 	}
-  
+
   return(*tmpdir != '\0');	/* return "true" if tmpdir is set */
   }
 
@@ -981,46 +980,46 @@ int TMakeTmpDir(
 
   {
   char id[] = "TMakeTmpDir";
-  
+
   int   rc;
   int   retval;
-  
+
   struct stat  sb;
-  
+
   if ((setegid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1) ||
 		  (seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) == -1))
 	{
 	return(0);
 	}
-  
+
   retval = mkdirtree(tmpdir, 0755);
-  
+
   if (retval == 0)
 	{
 	/* We made it, it's ours */
-	
+
 	pjob->ji_flags |= MOM_HAS_TMPDIR;
-	} 
+	}
   else
 	{
 	rc = stat(tmpdir, &sb);
-	
+
 	if (rc)
 		rc = errno;
-	
+
 	switch (rc)
 	  {
-	  
+
 	  case ENOENT:
-	  
+
 		  sprintf(log_buffer,
 						  "Unable to make job transient directory: %s",
 						  tmpdir);
-	  
+
 		  break;
-	  
+
 	  case 0:
-	  
+
 		  if (S_ISDIR(sb.st_mode))
 			{
 			if (sb.st_uid == pjob->ji_qs.ji_un.ji_momt.ji_exuid)
@@ -1032,40 +1031,40 @@ int TMakeTmpDir(
 								"Job transient tmpdir %s already exists, owned by %d",
 								tmpdir,
 								sb.st_uid);
-		
+
 				retval = -1;
 				}
-			} 
+			}
 		  else
 			{
 			sprintf(log_buffer,
 							"Job transient tmpdir %s exists, but is not a directory",
 							tmpdir);
-		
+
 			retval = -1;
 			}
-	  
+
 		  break;
-	  
+
 	  default:
-	  
+
 		  sprintf(log_buffer,
 						  "Cannot name job tmp directory %s (on stat)",
 						  tmpdir);
-	  
+
 		  return(0);
-	  
+
 		  break;
 	  }
 	}		 /* END if (retval == 0) */
-  
+
   seteuid(0);
-  
+
   setegid(pbsgroup);
-  
+
   if (retval != 0)
     log_err(retval, id, log_buffer);
-  
+
   return(retval == 0);	/* return boolean */
   }	 /* END TMakeTmpDir() */
 
@@ -1084,7 +1083,7 @@ int InitUserEnv(
 
   {
   char id[] = "InitUserEnv";
-  
+
   struct array_strings *vstrs;
   int                   j = 0;
   int                   ebsize = 0;
@@ -1092,201 +1091,201 @@ int InitUserEnv(
   int                   usertmpdir = 0;
   int                   num_nodes = 1;
   int                   num_ppn = 1;
-  
+
   attribute            *pattr;
   resource             *presc;
   resource_def         *prd;
-  
+
   if (pjob == NULL)
 	{
 	sprintf(log_buffer, "passed a NULL pjob!");
-	
+
 	log_err(errno, id, log_buffer);
-	
+
 	return(-1);
 	}
-  
+
   /* initialize vtable */
-  
+
   if (envp != NULL)
 	{
 	for (j = 0, ebsize = 0;envp[j] != NULL;j++)
 		ebsize += strlen(envp[j]);
 	}
-  
+
   if (LOGLEVEL >= 10)
 	{
 	sprintf(log_buffer, "creating env buffer, count: %d  size: %d",
 					j,
 					ebsize);
-	
+
 	log_ext(-1, id, log_buffer, LOG_DEBUG);
 	}
-  
+
   vstrs = pjob->ji_wattr[(int)JOB_ATR_variables].at_val.at_arst;
-  
+
   vtable.v_bsize = ebsize + EXTRA_VARIABLE_SPACE +
 								   (vstrs != NULL ? (vstrs->as_next - vstrs->as_buf) : 0);
-  
+
   vtable.v_block = malloc(vtable.v_bsize);
-  
+
   if (vtable.v_block == NULL)
 	{
 	sprintf(log_buffer, "PBS: failed to init env, malloc: %s\n",
 					strerror(errno));
-	
+
 	log_err(errno, id, log_buffer);
-	
+
 	return(-1);
 	}
-  
+
   vtable.v_ensize =
-  
+
   num_var_else +
   num_var_env +
   j +
   EXTRA_ENV_PTRS +
   (vstrs != NULL ? vstrs->as_usedptr : 0);
-  
+
   vtable.v_used = 0;
-  
+
   vtable.v_envp = malloc((vtable.v_ensize + 1) * sizeof(char *));
-  
+
   if (vtable.v_envp == NULL)
 	{
 	sprintf(log_buffer, "PBS: failed to init env, malloc: %s\n",
 					strerror(errno));
-	
+
 	log_err(errno, id, log_buffer);
-	
+
 	return(-1);
 	}
-  
+
   /* First variables from the local environment */
-  
+
   for (j = 0;j < num_var_env;++j)
     bld_env_variables(&vtable, environ[j], NULL);
-  
+
   if (LOGLEVEL >= 10)
 	{
 	sprintf(log_buffer, "local env added, count: %d",
 					j);
-	
+
 	log_ext(-1, id, log_buffer, LOG_DEBUG);
 	}
-  
+
   /* Next, the variables passed with the job.  They may   */
   /* be overwritten with new correct values for this job  */
-  
+
   if (vstrs != NULL)
 	{
 	for (j = 0;j < vstrs->as_usedptr;++j)
 	  {
 	  bld_env_variables(&vtable, vstrs->as_string[j], NULL);
-	  
+
 	  if (!strncmp(
 							  vstrs->as_string[j],
 							  variables_else[tveTmpDir],
 							  strlen(variables_else[tveTmpDir])))
 		  usertmpdir = 1;
 	  }
-	
+
 	if (LOGLEVEL >= 10)
 	  {
 	  sprintf(log_buffer, "job env added, count: %d",
 					  j);
-	  
+
 	  log_ext(-1, id, log_buffer, LOG_DEBUG);
 	  }
 	}		 /* END if (vstrs != NULL) */
-  
+
   /* HOME */
-  
+
   if (pjob->ji_grpcache != NULL)
 	bld_env_variables(&vtable, variables_else[tveHome], pjob->ji_grpcache->gc_homedir);
-  
+
   /* LOGNAME */
-  
+
   if (pwdp != NULL)
 	bld_env_variables(&vtable, variables_else[tveLogName], pwdp->pw_name);
-  
+
   /* PBS_JOBNAME */
-  
+
   bld_env_variables( &vtable,
 					 variables_else[tveJobName],
 					 pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str);
-  
+
   /* PBS_JOBID */
-  
+
   bld_env_variables(&vtable, variables_else[tveJobID], pjob->ji_qs.ji_jobid);
-  
+
   /* PBS_QUEUE */
-  
+
   bld_env_variables( &vtable,
 					 variables_else[tveQueue],
 					 pjob->ji_wattr[(int)JOB_ATR_in_queue].at_val.at_str);
-  
+
   /* SHELL */
-  
+
   if (shell != NULL)
 	bld_env_variables(&vtable, variables_else[tveShell], shell);
-  
+
   /* USER, for compatability */
-  
+
   if (pwdp != NULL)
 	bld_env_variables(&vtable, variables_else[tveUser], pwdp->pw_name);
-  
+
   /* PBS_JOBCOOKIE */
-  
+
   bld_env_variables( &vtable,
 					 variables_else[tveJobCookie],
 					 pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str);
-  
+
   /* PBS_NODENUM */
-  
+
   sprintf(buf, "%d", pjob->ji_nodeid);
-  
+
   bld_env_variables(&vtable, variables_else[tveNodeNum], buf);
-  
+
   /* PBS_TASKNUM */
-  
+
   if (ptask != NULL)
 	{
 	sprintf(buf, "%d", (int)ptask->ti_qs.ti_task);
-	
+
 	bld_env_variables(&vtable, variables_else[tveTaskNum], buf);
 	}
-  
+
   /* PBS_MOMPORT */
-  
+
   sprintf(buf, "%d", pbs_rm_port);
-  
+
   bld_env_variables(&vtable, variables_else[tveMOMPort], buf);
-  
+
   /* PBS_NODEFILE */
-  
+
   if (pjob->ji_flags & MOM_HAS_NODEFILE)
 	{
 	sprintf(buf, "%s/%s",
 					path_aux,
 					pjob->ji_qs.ji_jobid);
-	
+
 	bld_env_variables(&vtable, variables_else[tveNodeFile], buf);
 	}
-  
+
   /* PBS_NNODES */
-  
+
   pattr = &pjob->ji_wattr[(int)JOB_ATR_resource];
-  
+
   prd = find_resc_def(svr_resc_def, "size", svr_resc_size);
-  
+
   presc = find_resc_entry(pattr, prd);
-  
+
   if (presc != NULL)
 	{
 	sprintf(buf, "%ld",
 					presc->rs_value.at_val.at_long);
-	
+
 	bld_env_variables(&vtable, variables_else[tveNumNodes], buf);
 	}
 
@@ -1329,34 +1328,34 @@ int InitUserEnv(
 
 
 
-  /* these values have been initialized to 1, and will always be in the 
+  /* these values have been initialized to 1, and will always be in the
    * environment */
   sprintf(buf,"%d",num_nodes);
   bld_env_variables(&vtable,variables_else[tveNumNodesStr],buf);
 
   sprintf(buf,"%d",num_ppn);
   bld_env_variables(&vtable,variables_else[tveNumPpn],buf);
-  
+
   /* setup TMPDIR */
-  
+
   if (!usertmpdir && TTmpDirName(pjob, buf))
 	  bld_env_variables(&vtable, variables_else[tveTmpDir], buf);
-  
+
   /* PBS_VERSION */
-  
+
   sprintf(buf, "TORQUE-%s",
 				  PACKAGE_VERSION);
-  
+
   bld_env_variables(&vtable, variables_else[tveVerID], buf);
-  
+
   /* passed-in environment for tasks */
-  
+
   if (envp != NULL)
 	{
 	for (j = 0;envp[j];j++)
 		bld_env_variables(&vtable, envp[j], NULL);
 	}
-  
+
   return(0);
   }	 /* END InitUserEnv() */
 
@@ -1380,38 +1379,38 @@ int TMomFinalizeJob1(
   torque_socklen_t   slen;
   int                 i;
   int                 rc;
-  
+
   attribute          *pattr;
   attribute          *pattri;
-  
+
   struct sockaddr_in  saddr;
   char                buf[MAXPATHLEN + 2];
   time_t              time_now;
   struct stat         sb;
-  
+
   *SC = 0;
   time_now = time(0);
-  
+
   if (TJE == NULL)
 	{
 	sprintf(log_buffer, "bad param in %s",
 					id);
-	
+
 	*SC = JOB_EXEC_RETRY;
-	
+
 	return(FAILURE);
 	}
-  
+
   /* initialize job exec struct */
-  
+
   memset(TJE, 0, sizeof(pjobexec_t));
-  
+
   TJE->ptc = -1;
-  
+
   TJE->pjob = (void *)pjob;
-  
+
   /* prepare job environment */
-  
+
   if (pjob->ji_numnodes > 1)
 	{
 	/*
@@ -1419,50 +1418,50 @@ int TMomFinalizeJob1(
 	** sockets are stored there so they can be closed later as
 	** Main MOM will not need them after the job is going.
 	*/
-  
+
 	slen = sizeof(saddr);
-  
+
 	if (getsockname( pjob->ji_stdout,
 					 (struct sockaddr *)&saddr,
 					 &slen) == -1)
 	  {
 	  sprintf(log_buffer, "getsockname on stdout");
-  
+
 	  *SC = JOB_EXEC_RETRY;
-  
+
 	  return(FAILURE);
 	  }
-  
+
 	TJE->port_out = (int)ntohs(saddr.sin_port);
-  
+
 	slen = sizeof(saddr);
-  
+
 	if (getsockname( pjob->ji_stderr,
 					 (struct sockaddr *)&saddr,
 					 &slen) == -1)
 	  {
 	  sprintf(log_buffer, "getsockname on stderr");
-  
+
 	  *SC = JOB_EXEC_RETRY;
-  
+
 	  return(FAILURE);
 	  }
-  
+
 	TJE->port_err = (int)ntohs(saddr.sin_port);
-	} 
+	}
   else
 	{
 	TJE->port_out = -1;
 	TJE->port_err = -1;
 	}
-  
+
   /* did the job request nodes?  will need to setup node file */
-  
+
   pattr = &pjob->ji_wattr[(int)JOB_ATR_resource];
 
   #ifdef MOM_FORCENODEFILE
   pjob->ji_flags |= MOM_HAS_NODEFILE;
-  
+
   #else /* MOM_FORCENODEFILE */
   resource       *presc;
   resource_def   *prd;
@@ -1473,13 +1472,13 @@ int TMomFinalizeJob1(
 
   if (presc != NULL)
 	  pjob->ji_flags |= MOM_HAS_NODEFILE;
-  
+
   #endif /* MOM_FORCENODEFILE */
   /*
    * get the password entry for the user under which the job is to be run
    * we do this now to save a few things in the job structure
    */
-  
+
   if ((TJE->pwdp = (void *)check_pwd(pjob)) == NULL)
 	{
 	LOG_EVENT(
@@ -1487,16 +1486,16 @@ int TMomFinalizeJob1(
 					 PBS_EVENTCLASS_JOB,
 					 pjob->ji_qs.ji_jobid,
 					 log_buffer);
-	
+
 	*SC = JOB_EXEC_FAIL1;
-	
+
 	return(FAILURE);
 	}
-  
+
   #if IBM_SP2==2        /* IBM SP with PSSP 3.1 */
-  
+
   /* load IBM SP switch table */
-  
+
   if (load_sp_switch(pjob) != 0)
 	{
 	LOG_EVENT(
@@ -1504,69 +1503,69 @@ int TMomFinalizeJob1(
 					 PBS_EVENTCLASS_JOB,
 					 pjob->ji_qs.ji_jobid,
 					 log_buffer);
-	
+
 	*SC = JOB_EXEC_RETRY;
-	
+
 	return(FAILURE);
 	}
-  
+
   #endif /* IBM SP */
-  
+
   /* Starting job */
-  
+
   mom_checkpoint_init_job_periodic_timer(pjob);
-  
+
   if (mom_checkpoint_job_has_checkpoint(pjob))
 	{
 	rc = mom_checkpoint_start_restart(pjob);
-	
+
 	if (rc == PBSE_NONE)
 	  {
 	  /* SUCCESS */
-	  
+
 	  log_ext(-1, id, "Restart succeeded", LOG_DEBUG);
-	  
+
 	  /* reset mtime so walltime will not include held time */
 	  /* update to time now minus the time already used    */
 	  /* unless it is suspended, see request.c/req_signal() */
-	  
+
 	  get_jobs_default_checkpoint_dir(pjob, buf);
 	  stat(buf, &sb);
-	  
-	  
+
+
 	  if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_Suspend) == 0)
 		{
 		if ((pjob->ji_qs.ji_stime == 0) &&
 			(pjob->ji_wattr[(int)JOB_ATR_start_time].at_flags & ATR_VFLAG_SET))
 		  {
-		  pjob->ji_qs.ji_stime = 
+		  pjob->ji_qs.ji_stime =
 		  (time_t)pjob->ji_wattr[(int)JOB_ATR_start_time].at_val.at_long;
 		  }
 		pjob->ji_qs.ji_stime = time_now - (sb.st_mtime - pjob->ji_qs.ji_stime);
 		pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
-		
+
 		if (mom_get_sample() != PBSE_NONE)
 		  mom_set_use(pjob);
-		} 
+		}
 	  else
 		{
 		pjob->ji_qs.ji_substate = JOB_SUBSTATE_SUSPEND;
 		}
-	  
+
 	  *SC = 0;
-	  
+
 	  return(FAILURE);
-	  } 
+	  }
 	else
 	  {
 	  /* FAILURE */
-	  
+
 	  log_err(-1, id, "Restart failed");
-	  
+
 	  /* retry for any kind of changable thing */
-	  
+
 	  if ((errno == EAGAIN) ||
-	
+
   #ifdef  ERFLOCK
    		  (errno == ERFLOCK) ||
   #endif
@@ -1591,30 +1590,30 @@ int TMomFinalizeJob1(
 		{
 		pjob->ji_qs.ji_un.ji_momt.ji_exitstat = JOB_EXEC_RETRY;
 		*SC = JOB_EXEC_RETRY;
-		} 
+		}
 	  else
 		{
 		pjob->ji_qs.ji_un.ji_momt.ji_exitstat = JOB_EXEC_BADRESRT;
 		*SC = JOB_EXEC_FAIL1;
 		}
-  
+
 	  pjob->ji_qs.ji_substate = JOB_SUBSTATE_EXITING;
-  
+
 	  exiting_tasks = 1;
-  
+
 	  sprintf(log_buffer, "Restart failed, error %d (%s)",
      			  errno, pbs_strerror(errno));
-  
+
 	  LOG_EVENT(
      			   PBSEVENT_JOB,
      			   PBS_EVENTCLASS_JOB,
      			   pjob->ji_qs.ji_jobid,
      			   log_buffer);
-  
+
 	  return(FAILURE);
 	  }
 	}	/* end of if mom_checkpoint_job_has_checkpoint(pjob) */
-  
+
   /*
    * if certain resource limits require that the job usage be
    * polled or it is a multinode job, we link the job to mom_polljobs.
@@ -1622,168 +1621,168 @@ int TMomFinalizeJob1(
    * NOTE: we overload the job field ji_jobque for this as it
    * is not used otherwise by MOM
    */
-  
+
   if ((pjob->ji_numnodes > 1) || (mom_do_poll(pjob) != 0))
 	  append_link(&mom_polljobs, &pjob->ji_jobque, pjob);
-  
+
   pattri = &pjob->ji_wattr[(int)JOB_ATR_interactive];
-  
+
   if ((pattri->at_flags & ATR_VFLAG_SET) &&
 		  (pattri->at_val.at_long != 0))
 	{
 	TJE->is_interactive = TRUE;
-	} 
+	}
   else
 	{
 	TJE->is_interactive = FALSE;
 	}
-  
+
   if (TJE->is_interactive == TRUE)
 	{
 	/*
 	 * open a master pty, need to do it here before we fork,
 	 * to save the slave name in the master's job structure
 	 */
-	
+
 	if ((TJE->ptc = open_master(&TJE->ptc_name)) < 0)
 	  {
 	  log_err(errno, id, "cannot open master pty");
-	  
+
 	  *SC = JOB_EXEC_RETRY;
-	  
+
 	  return(FAILURE);
 	  }
-	
+
 	FDMOVE(TJE->ptc)
-	
+
 	/* save pty name in job output/error file name */
-	
+
 	pattr = &pjob->ji_wattr[(int)JOB_ATR_outpath];
-	
+
 	job_attr_def[(int)JOB_ATR_outpath].at_free(pattr);
-	
+
 	job_attr_def[(int)JOB_ATR_outpath].at_decode( pattr,
 												  NULL,
 												  NULL,
 												  TJE->ptc_name);
-	
+
 	pjob->ji_wattr[(int)JOB_ATR_outpath].at_flags =
 	(ATR_VFLAG_SET | ATR_VFLAG_MODIFY | ATR_VFLAG_SEND);
-	
+
 	pattr = &pjob->ji_wattr[(int)JOB_ATR_errpath];
-	
+
 	job_attr_def[(int)JOB_ATR_errpath].at_free(pattr);
-	
+
 	job_attr_def[(int)JOB_ATR_errpath].at_decode( pattr,
 												  NULL,
 												  NULL,
 												  TJE->ptc_name);
-	
+
 	pjob->ji_wattr[(int)JOB_ATR_errpath].at_flags =
 	(ATR_VFLAG_SET | ATR_VFLAG_MODIFY | ATR_VFLAG_SEND);
 	}	 /* END if (TJE->is_interactive == TRUE) */
-  
+
   #if SHELL_USE_ARGV == 0
     #if SHELL_INVOKE == 1
-  
+
   if (TJE->is_interactive == FALSE)
 	{
 	/* need a pipe on which to write the shell script   */
 	/* file name to the input of the shell                      */
-	
+
 	if (pipe(TJE->pipe_script) == -1)
 	  {
 	  sprintf(log_buffer,
 					  "Failed to create shell name pipe, errno = %d (%s)",
 					  errno, strerror(errno));
-	  
+
 	  LOG_EVENT(
 					   PBSEVENT_JOB,
 					   PBS_EVENTCLASS_JOB,
 					   pjob->ji_qs.ji_jobid,
 					   log_buffer);
-	  
+
 	  *SC = JOB_EXEC_RETRY;
-	  
+
 	  return(FAILURE);
 	  }
 	}		 /* END if (TJE->is_interactive == FALSE) */
-  
+
 	  #endif /* SHELL_INVOKE */
   #endif /* !SHELL_USE_ARGV */
-  
+
   /* create pipes between MOM and the job starter   */
   /* fork the job starter which will become the job */
-  
+
   if ((pipe(TJE->mjspipe) == -1) || (pipe(TJE->jsmpipe) == -1))
 	{
 	i = -1;
-	} 
+	}
   else
 	{
 	i = 0;
-	
+
 	/* make sure pipe file descriptors are above 2 */
-	
+
 	if (TJE->jsmpipe[1] < 3)
 	  {
 	  TJE->upfds = fcntl(TJE->jsmpipe[1], F_DUPFD, 3);
-	  
+
 	  close(TJE->jsmpipe[1]);
-	  
+
 	  TJE->jsmpipe[1] = 0;
 	  }
 	else
 	  {
 	  TJE->upfds = TJE->jsmpipe[1];
 	  }
-	
+
 	if (TJE->mjspipe[0] < 3)
 	  {
 	  TJE->downfds = fcntl(TJE->mjspipe[0], F_DUPFD, 3);
-	  
+
 	  close(TJE->mjspipe[0]);
-	  
+
 	  TJE->mjspipe[0] = 0;
-	  } 
+	  }
 	else
 	  {
 	  TJE->downfds = TJE->mjspipe[0];
 	  }
 	}
-  
+
   if ((i == -1) || (TJE->upfds < 3) || (TJE->downfds < 3))
 	{
 	sprintf(log_buffer, "cannot create communication pipe");
-	
+
 	LOG_EVENT( PBSEVENT_JOB,
 			   PBS_EVENTCLASS_JOB,
 			   pjob->ji_qs.ji_jobid,
 			   log_buffer);
-	
+
 	*SC = JOB_EXEC_RETRY;
-	
+
 	return(FAILURE);
 	}
-  
+
   if ((TJE->ptask = (void *)pbs_task_create(pjob, TM_NULL_TASK)) == NULL)
 	{
 	sprintf(log_buffer, "cannot create job task");
-	
+
 	LOG_EVENT( PBSEVENT_JOB,
 			   PBS_EVENTCLASS_JOB,
 			   pjob->ji_qs.ji_jobid,
 			   log_buffer);
-	
+
 	*SC = JOB_EXEC_RETRY;
-	
+
 	return(FAILURE);
 	}
 
   pjob->ji_qs.ji_substate = JOB_SUBSTATE_STARTING;
-  
+
   pjob->ji_qs.ji_stime = time_now;
-  
+
   return(SUCCESS);
   }	 /* END TMomFinalizeJob1() */
 
@@ -1797,7 +1796,7 @@ int TMomFinalizeJob2(
 
   {
   static char          *id = "TMomFinalizeJob2";
-  
+
   char                  buf[MAXPATHLEN + 2];
   pid_t                 cpid;
 #if SHELL_USE_ARGV == 0
@@ -1805,11 +1804,11 @@ int TMomFinalizeJob2(
   int                   i, j;
   #endif /* SHELL_INVOKE */
 #endif  /* !SHELL_USE_ARGV */
-  
+
   job                  *pjob;
 
   pjob  = (job *)TJE->pjob;
-  
+
   if (LOGLEVEL >= 4)
 	{
 	log_record(
@@ -1817,118 +1816,118 @@ int TMomFinalizeJob2(
 			   PBS_EVENTCLASS_JOB,
 			   pjob->ji_qs.ji_jobid,
 			   "about to fork child which will become job");
-	
+
 	log_record(
 			   PBSEVENT_ERROR,
 			   PBS_EVENTCLASS_JOB,
 			   id,
 			   log_buffer);
 	}
-  
+
   /*
   ** fork the child that will become the job.
   */
-  
+
   if ((cpid = fork_me(-1)) < 0)
 	{
 	/* fork failed */
-	
+
 	sprintf(log_buffer, "fork of job '%s' failed in (errno=%d, '%s')",
 					pjob->ji_qs.ji_jobid,
 					errno,
 					strerror(errno));
-	
+
 	log_record(
 						PBSEVENT_ERROR,
 						PBS_EVENTCLASS_JOB,
 						id,
 						log_buffer);
-	
+
 	*SC = JOB_EXEC_RETRY;
-	
+
 	return(FAILURE);
 	}
-  
+
   if (cpid == 0)
 	{
 	/* CHILD:  handle child activities */
-	
+
 	TMomFinalizeChild(TJE);
-	
+
 	/*NOTREACHED*/
 	}
-  
+
   /* parent */
-  
+
   close(TJE->upfds);
-  
+
   close(TJE->downfds);
-  
+
   if (TJE->ptc >= 0)
     close(TJE->ptc);
-  
+
   strcpy(buf, path_jobs);
-  
+
   strcat(buf, pjob->ji_qs.ji_fileprefix);
-  
+
   strcat(buf, JOB_SCRIPT_SUFFIX);
-  
+
   if (chown( buf,
 			 pjob->ji_qs.ji_un.ji_momt.ji_exuid,
 			 pjob->ji_qs.ji_un.ji_momt.ji_exgid) == -1)
 	{
 	}
-  
+
 #if SHELL_USE_ARGV == 0
   #if SHELL_INVOKE == 1
-  
+
   if (TJE->is_interactive == FALSE)
 	{
 	int k;
-	
+
 	/* pass name of shell script on pipe */
 	/* will be stdin of shell  */
-	
+
 	close(TJE->pipe_script[0]);
 	strcat(buf, "\n");			/* setup above */
-	
+
 	i = strlen(buf);
 	j = 0;
-	
+
 	while (j < i)
 	  {
 	  if ((k = write(TJE->pipe_script[1], buf + j, i - j)) < 0)
 		  {
 		  if (errno == EINTR)
 			  continue;
-	  
+
 		  break;
 		  }
-	  
+
 	  j += k;
 	  }
-	
+
 	close(TJE->pipe_script[1]);
 	}	 /* END if (TJE->is_interactive == FALSE) */
-  
+
   #endif /* SHELL_INVOKE */
 #endif  /* !SHELL_USE_ARGV */
-  
+
   /* SUCCESS:  parent returns */
-  
+
   if (LOGLEVEL >= 3)
 	{
 	sprintf(log_buffer, "phase 2 of job launch successfully completed");
-	
+
 	log_record(
 						PBSEVENT_ERROR,
 						PBS_EVENTCLASS_JOB,
 						pjob->ji_qs.ji_jobid,
 						log_buffer);
 	}
-  
+
   *SC = 0;
-  
+
   return(SUCCESS);
   }	 /* END TMomFinalizeJob2() */
 
@@ -1940,32 +1939,32 @@ int determine_umask(
   {
   static char           *id = "determine_umask";
   int UMaskVal = 0077;
-  
+
   struct passwd *pwdp;
   FILE *fp;
   char retdata[20];
   char command[100];
-  
+
   if (DEFAULT_UMASK[0] != '\0')
 	{
 	if (!strcasecmp(DEFAULT_UMASK, "userdefault"))
 	  {
 	  /* apply user default */
-	  
+
 	  /* do we inherit umask when we do setuid(), NO */
 	  /* we want to try and determine what the users umask is */
 	  /* then we return its value so it can be set correctly */
-	  
+
 	  if ((pwdp = getpwuid(uid)) == NULL)
 		  {
 		  sprintf(log_buffer, "FAILED to get password structure for uid %d",
 						  uid);
-	  
+
 		  log_err(-1, id, log_buffer);
 		  } else
 		  {
 		  sprintf(command, "/bin/su - %s -c umask", pwdp->pw_name);
-	  
+
 		  if ((fp = popen(command, "r")) != NULL)
 			  {
 			  if (fgets(retdata, 20, fp) != NULL)
@@ -1976,32 +1975,32 @@ int determine_umask(
 			  pclose(fp);
 			  }
 		  }
-	  
-	  } 
+
+	  }
 	else
 	  {
 	  UMaskVal = (int)strtol(DEFAULT_UMASK, NULL, 0);
 	  }
-	
+
 	/* make sure that we have access to the file when we move the spooled file */
-	
+
 	UMaskVal = UMaskVal & 0377;
-	
+
 	if (LOGLEVEL > 7)
 	  {
 	  sprintf(log_buffer, "Using $job_output_file_umask value of %o",
 					  UMaskVal);
-	  
+
 	  log_ext(-1, id, log_buffer, LOG_DEBUG);
 	  }
 	}
-  
+
   return(UMaskVal);
   }	 /* END determine_umask() */
 
 
 
-#ifdef PENABLE_LINUX26_CPUSETS 
+#ifdef PENABLE_LINUX26_CPUSETS
 /**
  * indicates whether or not cpusets should be used to run this job
  *
@@ -2017,19 +2016,19 @@ int use_cpusets(
 #ifdef GEOMETRY_REQUESTS
   resource     *presc;
   resource_def *prd;
-  
+
   if (pjob == NULL)
 	  return(FALSE);
-  
+
   prd = find_resc_def(svr_resc_def,"procs_bitmap",svr_resc_size);
   presc = find_resc_entry(&pjob->ji_wattr[(int)JOB_ATR_resource],prd);
-  
+
   /* don't create a cpuset unless one was specifically requested */
-  if ((presc == NULL) || 
+  if ((presc == NULL) ||
 		  (presc->rs_value.at_flags & ATR_VFLAG_SET) == FALSE)
     {
     return(FALSE);
-    } 
+    }
   else
     return(TRUE);
 #else
@@ -2055,7 +2054,7 @@ int TMomFinalizeChild(
   char                   buf[MAXPATHLEN + 2];
   pid_t                  cpid;
   int                    i, j, vnodenum;
-  
+
   char                   qsubhostname[1024];
   char                  *phost = NULL;
   int                    pport = 0;
@@ -2067,134 +2066,134 @@ int TMomFinalizeChild(
   char                  *termtype;
   resource *presc;
   char *path_prologuserjob;
-  
+
 #ifdef USEJOBCREATE
   struct startjob_rtn    sjr = { 0, 0, 0};
 #else
   struct startjob_rtn    sjr = { 0, 0};
 #endif /* USEJOBCREATE */
-  
+
   job                   *pjob;
   task                  *ptask;
-  
+
   struct passwd         *pwdp;
   char                   EMsg[1024];
-  
+
   pjob  = (job *)TJE->pjob;
   ptask = (task *)TJE->ptask;
-  
+
   pwdp  = (struct passwd *)TJE->pwdp;
-  
+
   /*******************************************/
   /*                                         */
   /* The child process - will become the job */
   /*                                         */
   /*******************************************/
-  
+
   /* NOTE:  This child is launched on the mother superior node.
 					  It does not have access to stdout/stderr, failure
 					  messages will route to syslog via log_err() */
-  
+
   if (LOGLEVEL >= 10)
 	log_ext(-1, id, "starting", LOG_DEBUG);
-  
+
   if (lockfds >= 0)
     {
     close(lockfds);
-    
+
     lockfds = -1;
     }
-  
+
   close(TJE->jsmpipe[0]);
-  
+
   close(TJE->mjspipe[1]);
-  
+
   /*
    * find which shell to use, one specified or the login shell
    */
-  
+
   shell = set_shell(pjob, pwdp); /* in the machine dependent section */
-  
+
   if (LOGLEVEL >= 10)
 	  log_ext(-1, id, "shell initialized", LOG_DEBUG);
-  
+
   /* Setup user env */
-  
+
   if (InitUserEnv(pjob, ptask, NULL, pwdp, shell) < 0)
     {
     log_err(-1, id, "failed to setup user env");
-    
+
     starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_RETRY, &sjr);
     }
 
   if (LOGLEVEL >= 10)
     log_ext(-1, id, "env initialized", LOG_DEBUG);
-  
+
   /* Create the job's nodefile */
-  
+
   vnodenum = pjob->ji_numvnod;
-  
+
   if (pjob->ji_flags & MOM_HAS_NODEFILE)
     {
     FILE *nhow;
     char *BPtr;
-    
+
     sprintf(buf, "%s/%s",
       path_aux,
       pjob->ji_qs.ji_jobid);
-    
+
     if ((nhow = fopen(buf, "w")) == NULL)
       {
       sprintf(log_buffer, "cannot open %s",
         buf);
-  
+
       log_err(errno, id, log_buffer);
-	  
+
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL1, &sjr);
-      
+
       /*NOTREACHED*/
-	  
+
       exit(1);
       }
-	
+
     /*
      ** The file must be owned by root and readable by
      ** the user.  We take the easy way out and make
      ** it readable by anyone.
 	  */
-	
+
     if (fchmod(fileno(nhow), 0644) == -1)
       {
       sprintf(log_buffer, "cannot chmod %s",
         buf);
-      
+
       log_err(errno, id, log_buffer);
-      
+
       fclose(nhow);
-      
+
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL1, &sjr);
-      
+
       /*NOTREACHED*/
-      
+
       exit(1);
       }
 
     /* NOTE:  if BEOWULF_JOB_MAP is set, populate node file with this info */
-    
+
     BPtr = get_job_envvar(pjob, "BEOWULF_JOB_MAP");
 
     if (BPtr != NULL)
       {
       char tmpBuffer[1000000];
-      
+
       char *ptr;
-      
+
       /* FORMAT:  <HOST>[:<HOST>]... */
-      
+
       strncpy(tmpBuffer, BPtr, sizeof(tmpBuffer));
-      
+
       ptr = strtok(tmpBuffer, ":");
-      
+
       while (ptr != NULL)
         {
         if (nodefile_suffix != NULL)
@@ -2202,28 +2201,28 @@ int TMomFinalizeChild(
           fprintf(nhow, "%s%s\n",
             ptr,
             nodefile_suffix);
-          } 
+          }
         else
           {
           fprintf(nhow, "%s\n",
 						ptr);
           }
-        
+
         ptr = strtok(NULL, ":");
         }
-      } 
+      }
     else
       {
       for (j = 0;j < vnodenum;j++)
         {
         vnodent *vp = &pjob->ji_vnods[j];
-        
+
         if (nodefile_suffix != NULL)
           {
           fprintf(nhow, "%s%s\n",
             vp->vn_host->hn_host,
             nodefile_suffix);
-          } 
+          }
         else
           {
           fprintf(nhow, "%s\n",
@@ -2231,80 +2230,80 @@ int TMomFinalizeChild(
           }
         }		/* END for (j) */
       }
-    
+
     fclose(nhow);
     }	 /* END if (pjob->ji_flags & MOM_HAS_NODEFILE) */
 
   if (LOGLEVEL >= 10)
 	  log_ext(-1, id, "node file created", LOG_DEBUG);
-  
+
   /* Set PBS_VNODENUM */
-  
+
   sprintf(buf, "%d", 0);
-  
+
   bld_env_variables(&vtable, "PBS_VNODENUM", buf);
-  
+
   set_resource_vars(pjob,&vtable);
 
 #ifdef PENABLE_LINUX26_CPUSETS
 
-#ifndef ALWAYS_USE_CPUSETS  
+#ifndef ALWAYS_USE_CPUSETS
   if (use_cpusets(pjob) == TRUE)
 #endif /* ALWAYS_USE_CPUSETS */
     {
     sprintf(log_buffer, "about to create cpuset for job %s.\n",
       pjob->ji_qs.ji_jobid);
-    
+
     log_ext(-1, id, log_buffer, LOG_DEBUG);
-    
+
     if (create_jobset(pjob) == FAILURE)
       {
       /* FAILURE */
-      
+
       sprintf(log_buffer, "Could not create cpuset for job %s.\n",
         pjob->ji_qs.ji_jobid);
 
       log_err(-1, id, log_buffer);
-      
+
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_RETRY, &sjr);
       }
     }
-  
+
 #endif /* END PENABLE_LINUX26_CPUSETS */
-  
+
 #ifdef ENABLE_CPA
   /* Cray CPA setup */
   if ((j = CPACreatePartition(pjob, &vtable)) != 0)
     {
     log_err(-1, id, "CPACreatePartition failed");
-    
+
     starter_return(TJE->upfds, TJE->downfds, j, &sjr); /* exits */
-    
+
     /*NOTREACHED*/
-	
+
     exit(1);
     }
-  
+
 #endif /* END ENABLE_CPA */
-  
+
   /* specific system related variables */
-  
+
   j = set_mach_vars(pjob, &vtable);
-  
+
   if (j != 0)
     {
     log_err(-1, id, "failed to set mach vars");
-    
+
     starter_return(TJE->upfds, TJE->downfds, j, &sjr); /* exits */
-    
+
     /*NOTREACHED*/
-    
+
     exit(1);
     }
 
   if (LOGLEVEL >= 10)
     log_ext(-1, id, "system vars set", LOG_DEBUG);
-  
+
   if (pjob->ji_wattr[(int)JOB_ATR_umask].at_flags & ATR_VFLAG_SET)
     {
     umask(pjob->ji_wattr[(int)JOB_ATR_umask].at_val.at_long);
@@ -2318,12 +2317,12 @@ int TMomFinalizeChild(
     {
 
     struct sigaction act;
-    
+
     /*************************************************************/
     /* We have an "interactive" job, connect the standard  */
     /* streams to a socket connected to qsub.    */
     /*************************************************************/
-	
+
     sigemptyset(&act.sa_mask);
 #ifdef SA_INTERRUPT
     act.sa_flags   = SA_INTERRUPT;
@@ -2331,122 +2330,122 @@ int TMomFinalizeChild(
     act.sa_flags   = 0;
 #endif /* SA_INTERRUPT */
     act.sa_handler = no_hang;
-	
+
     sigaction(SIGALRM, &act, NULL);
-    
+
     /* only giving ourselves 5 seconds to connect to qsub
    	 * and get term settings */
 
     alarm(120);
-    
+
     /* once we connect to qsub and open a pty, the user can send us
 	   * a ctrl-c.  It is important that we block this until we exec()
 	   * the user's shell or we exit and the job gets stuck */
-	
+
     act.sa_handler = SIG_IGN;
-    
+
     sigaction(SIGINT, &act, (struct sigaction *)0);
-    
+
     /* Set environment to reflect interactive */
-    
+
     bld_env_variables(&vtable, "PBS_ENVIRONMENT", "PBS_INTERACTIVE");
-  	
+
     /* get host where qsub resides */
-    
+
     phost = arst_string("PBS_O_HOST", &pjob->ji_wattr[(int)JOB_ATR_variables]);
     pport = pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long;
-    
+
     if ((phost == NULL) || ((phost = strchr(phost, '=')) == NULL))
       {
       log_err(-1, id, "PBS_O_HOST not set");
-      
+
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL1, &sjr);
-      
+
       /*NOTREACHED*/
-      
+
       exit(1);
       }
-    
+
     phost++;
-    
+
     if (submithost_suffix != NULL)
       {
       snprintf(qsubhostname, sizeof(qsubhostname), "%s%s",
         phost,
         submithost_suffix);
-      } 
+      }
     else
       {
       strncpy(qsubhostname, phost, sizeof(qsubhostname));
       }
 
     qsub_sock = conn_qsub(qsubhostname, pport, EMsg);
-    
+
     if (qsub_sock < 0)
       {
       snprintf(log_buffer, 1024, "cannot open interactive qsub socket to host %s:%d - '%s' - check routing tables/multi-homed host issues",
         qsubhostname,
         pport,
         EMsg);
-      
+
       log_err(errno, id, log_buffer);
-      
+
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL1, &sjr);
-      
+
       /*NOTREACHED*/
-      
+
       exit(1);
       }
 
     FDMOVE(qsub_sock);
 
     /* send job id as validation to qsub */
-	
+
     if (write( qsub_sock,
           pjob->ji_qs.ji_jobid,
           PBS_MAXSVRJOBID + 1) != PBS_MAXSVRJOBID + 1)
       {
       log_err(errno, id, "cannot write jobid");
-      
+
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL1, &sjr);
       }
-  	
+
     /* receive terminal type and window size */
-	
+
     if ((termtype = rcvttype(qsub_sock)) == NULL)
       {
       log_err(errno, id, "cannot get termtype");
-      
+
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL1, &sjr);
-      
+
       /*NOTREACHED*/
-      
+
       exit(1);
       }
-	
+
     bld_env_variables(&vtable, termtype, NULL);
-    
+
     *(vtable.v_envp + vtable.v_used) = NULL; /* null term */
-    
+
     if (rcvwinsize(qsub_sock) == -1)
       {
       log_err(errno, id, "cannot get winsize");
-      
+
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL1, &sjr);
-      
+
       /*NOTREACHED*/
-      
+
       exit(1);
       }
-    
+
     /* turn off alarm set around qsub connect activities */
-    
+
     alarm(0);
-    
+
     act.sa_handler = SIG_DFL;
-    
+
     act.sa_flags   = 0;
-    
+
     sigaction(SIGALRM, &act, NULL);
 
 #ifdef USEJOBCREATE
@@ -2456,69 +2455,69 @@ int TMomFinalizeChild(
     sjr.sj_jobid  = get_jobid(pjob->ji_qs.ji_jobid);
 
     pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_val.at_ll = sjr.sj_jobid;
-    
+
     pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_flags =
       ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 #endif /* USEJOBCREATE */
-  	
+
     /* set up the job session (update sjr) */
-    
+
     j = set_job(pjob, &sjr);
-    
+
     memcpy(TJE->sjr, &sjr, sizeof(sjr));
-    
+
     if (j < 0)
       {
       if (j == -1)
         {
         /* set_job didn't leave message in log_buffer */
-        
+
         strcpy(log_buffer, "unable to set session");
         }
-      
+
       log_err(-1, id, log_buffer);
-      
+
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL1, &sjr);
-      
+
       /*NOTREACHED*/
-      
+
       exit(1);
       }
-    
+
     /* open the slave pty as the controlling tty */
-    
+
     if ((pts = open_pty(pjob)) < 0)
       {
       log_err(errno, id, "cannot open slave");
-      
+
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL1, &sjr);
-      
+
       /*NOTREACHED*/
-      
+
       exit(1);
       }
 
     act.sa_handler = SIG_IGN;	/* setup to ignore SIGTERM */
-	
+
     writerpid = fork();
-    
+
     if (writerpid == 0)
       {
       /* child is "writer" process */
-      
+
       sigaction(SIGTERM, &act, NULL);
-      
+
       close(TJE->upfds);
       close(TJE->downfds);
       close(pts);
-      
+
       mom_writer(qsub_sock, TJE->ptc);
-      
+
       shutdown(qsub_sock, 2);
-      
+
       exit(0);
       }
-    
+
     if (writerpid > 0)
       {
       /*
@@ -2526,21 +2525,21 @@ int TMomFinalizeChild(
 	     ** again.  the child becomes the job while the
        ** parent becomes the reader.
 	    */
-      
+
       close(1);
       close(2);
       dup2(pts, 1);
       dup2(pts, 2);
-      
+
       fflush(stdout);
       fflush(stderr);
-      
+
       set_termcc(pts); /* set terminal control char */
-      
+
       setwinsize(pts); /* set window size to qsub's */
-      
+
       /* run prolog - interactive job */
-      
+
       if (run_pelog( PE_PROLOG,
             path_prolog,
             pjob,
@@ -2550,30 +2549,30 @@ int TMomFinalizeChild(
 
         starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
         }
-	
+
 #ifdef ENABLE_CSA
       /*
 	     * Add a workload management start record
 	     */
-      
+
       add_wkm_start(sjr.sj_jobid, pjob->ji_qs.ji_jobid);
-      
+
 #endif /* ENABLE_CSA */
-      
+
       /* run user prolog */
-      
+
       if (run_pelog( PE_PROLOGUSER,
             path_prologuser,
             pjob,
             PE_IO_TYPE_ASIS) != 0)
         {
         log_err(-1, id, "interactive user prolog failed");
-        
+
         starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
-        
+
         /*NOTREACHED*/
         }
-      
+
       presc = find_resc_entry(
           &pjob->ji_wattr[(int)JOB_ATR_resource],
           find_resc_def(svr_resc_def, "prologue", svr_resc_size));
@@ -2581,9 +2580,9 @@ int TMomFinalizeChild(
         {
         if((presc->rs_value.at_flags & ATR_VFLAG_SET) && (presc->rs_value.at_val.at_str))
           {
-          
+
           path_prologuserjob = get_local_script_path(pjob, presc->rs_value.at_val.at_str);
-          
+
           if(path_prologuserjob)
             {
             if (run_pelog( PE_PROLOGUSERJOB,
@@ -2594,95 +2593,95 @@ int TMomFinalizeChild(
               log_err(-1, id, "batch job local user prolog failed");
               free(path_prologuserjob);
               starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
-              
-              
+
+
               /*NOTREACHED*/
               }
             free(path_prologuserjob);
-            
+
             }
           }
         }
-      
+
       shellpid = fork();
-      
+
       if (shellpid == 0)
         {
         /*********************************************/
         /* child - this will be the interactive job  */
         /* i/o is to slave tty        */
         /*********************************************/
-        
+
         close(0);
-        
+
         dup2(pts, 0);
-        
+
         fflush(stdin);
-        
+
         close(TJE->ptc);	/* close master side */
         close(pts);				/* dup'ed above */
         close(qsub_sock);
-        
+
         /* continue setting up and exec-ing shell */
-        } 
+        }
       else
         {
         if (shellpid > 0)
           {
           /* fork, parent is "reader" process  */
-          
+
           sigaction(SIGTERM, &act, NULL);
-          
+
           close(pts);
           close(TJE->upfds);
           close(TJE->downfds);
           close(1);
           close(2);
-          
+
           sigemptyset(&act.sa_mask);
-          
+
           act.sa_flags   = SA_NOCLDSTOP;
           act.sa_handler = catchinter;
-          
+
           sigaction(SIGCHLD, &act, NULL);
-          
+
           mom_reader_go = 1;
           mom_reader(qsub_sock, TJE->ptc);
-          } 
+          }
         else
           {
           log_err(errno, id, "can't fork reader");
           }
-        
+
         /* make sure qsub gets EOF */
-        
+
         shutdown(qsub_sock, 2);
-        
+
         /* change pty back to available after job is done */
-        
+
         chmod(TJE->ptc_name, 0666);
-        
+
         if (chown(TJE->ptc_name, 0, 0) == -1)
           {
           }
-		
+
         exit(0);
         }
       }		 /* END if (writerpid > 0) */
     else
       {
       /* FAILURE - fork failed */
-      
+
       log_err(errno, id, "cannot fork nanny");
-      
+
       /* change pty back to available */
-      
+
       chmod(TJE->ptc_name, 0666);
-      
+
       if (chown(TJE->ptc_name, 0, 0) == -1)
         {
         }
-      
+
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_RETRY, &sjr);
       }
     }		 /* END if (TJE->is_interactive == TRUE) */
@@ -2692,84 +2691,84 @@ int TMomFinalizeChild(
     /* We have a "normal" batch job, connect the standard  */
     /* streams to files      */
     /*************************************************************/
-    
+
     /* set Environment to reflect batch */
-    
+
     bld_env_variables(&vtable, "PBS_ENVIRONMENT", "PBS_BATCH");
     bld_env_variables(&vtable, "ENVIRONMENT", "BATCH");
-    
+
 #if SHELL_USE_ARGV == 1
     /* connect stdin to /dev/null and feed the name of
    	 * the script on the command line */
 
     if (TJE->is_interactive == FALSE)
       script_in = open("/dev/null", O_RDONLY, 0);
-    
+
 #elif SHELL_INVOKE == 1
     /* if passing script file name as input to shell */
-    
+
     close(TJE->pipe_script[1]);
-    
+
     script_in = TJE->pipe_script[0];
-    
+
 #else /* SHELL_USE_ARGV || SHELL_INVOKE */
     /* if passing script itself as input to shell */
-	
+
     strcpy(buf, path_jobs);
 
     strcat(buf, pjob->ji_qs.ji_fileprefix);
-	
+
     strcat(buf, JOB_SCRIPT_SUFFIX);
-    
+
     if ((script_in = open(buf, O_RDONLY, 0)) < 0)
       {
       if (errno == ENOENT)
         script_in = open("/dev/null", O_RDONLY, 0);
       }
-    
+
 #endif  /* SHELL_USE_ARGV */
 
     if (LOGLEVEL >= 10)
       log_ext(-1, id, "opening script", LOG_DEBUG);
-    
+
     if (script_in < 0)
       {
       log_err(errno, id, "unable to open script");
-      
+
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL1, &sjr);
-      
-      /*NOTREACHED*/
-      
-      exit(1);
-      }
-    
-    FDMOVE(script_in); /* make sure descriptor > 2 */
-    
-    if (script_in != 0)
-      {
-      close(0);
-      
-      if (dup(script_in) == -1)
-        {
-        }
-      
-      close(script_in);
-      }
-    
-    /* NOTE:  set arg2 to 5 to enable file open timeout check */
-    
-    if (open_std_out_err(pjob, 0) == -1)
-      {
-      log_err(-1, id, "unable to open stdout/stderr descriptors");
-      
-      starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_STDOUTFAIL, &sjr);
-      
+
       /*NOTREACHED*/
 
       exit(1);
-      
       }
-	
+
+    FDMOVE(script_in); /* make sure descriptor > 2 */
+
+    if (script_in != 0)
+      {
+      close(0);
+
+      if (dup(script_in) == -1)
+        {
+        }
+
+      close(script_in);
+      }
+
+    /* NOTE:  set arg2 to 5 to enable file open timeout check */
+
+    if (open_std_out_err(pjob, 0) == -1)
+      {
+      log_err(-1, id, "unable to open stdout/stderr descriptors");
+
+      starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_STDOUTFAIL, &sjr);
+
+      /*NOTREACHED*/
+
+      exit(1);
+
+      }
+
     if (LOGLEVEL >= 10)
       log_ext(-1, id, "stdout/stderr opened", LOG_DEBUG);
 
@@ -2780,121 +2779,121 @@ int TMomFinalizeChild(
     sjr.sj_jobid  = get_jobid(pjob->ji_qs.ji_jobid);
 
     pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_val.at_ll = sjr.sj_jobid;
-    
+
     pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_flags =
       ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 #endif /* USEJOBCREATE */
-  	
+
     /* set up the job session (update sjr) */
-    
+
     j = set_job(pjob, &sjr);
-    
+
     if (LOGLEVEL >= 10)
       log_ext(-1, id, "set_job complete", LOG_DEBUG);
-    
+
     memcpy(TJE->sjr, &sjr, sizeof(sjr));
-    
+
     if (j < 0)
       {
       /* FAILURE */
-      
+
       if (j != -2 && j != -3)
         {
         /* set_job didn't leave message in log_buffer */
-        
+
         strcpy(log_buffer, "unable to set session");
         }
-      
+
       /* set_job leaves message in log_buffer */
-      
+
       log_err(-1, id, log_buffer);
-      
+
       if (j == -3)
         {
         starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_RETRY, &sjr);
-        } 
+        }
       else
         {
         starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
         }
-      
+
       /*NOTREACHED*/
-	  
+
       exit(1);
       }
     /* run prolog - standard batch job */
-  	
+
     if ((j = run_pelog( PE_PROLOG,
             path_prolog,
             pjob,
             PE_IO_TYPE_ASIS)) != 0)
       {
       log_err(-1, id, "batch job prolog failed");
-      
+
       if (j == 1)
         {
         /* permanent failure - abort job */
-        
+
         starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
-        } 
+        }
       else
         {
         /* retry - requeue job */
 
         starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_RETRY, &sjr);
         }
-      
+
       /*NOTREACHED*/
       }
-    
+
     if (LOGLEVEL >= 10)
       log_ext(-1, id, "prolog complete", LOG_DEBUG);
-    
+
 #ifdef ENABLE_CSA
     /*
      * Add a workload management start record
      */
-    
+
     add_wkm_start(sjr.sj_jobid, pjob->ji_qs.ji_jobid);
-    
+
 #endif /* ENABLE_CSA */
-    
+
     /* run user prolog */
-    
+
     if ((j = run_pelog(	PE_PROLOGUSER,
             path_prologuser,
             pjob,
             PE_IO_TYPE_ASIS)) != 0)
       {
       log_err(-1, id, "batch job user prolog failed");
-      
+
       if (j == 1)
         {
         /* permanent failure - abort job */
-        
+
         starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
-        } 
+        }
       else
         {
         /* retry - requeue job */
-        
+
         starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_RETRY, &sjr);
         }
-      
+
       /*NOTREACHED*/
       }
-	
+
     presc = find_resc_entry(
         &pjob->ji_wattr[(int)JOB_ATR_resource],
         find_resc_def(svr_resc_def, "prologue", svr_resc_size));
-    
-    if (presc != NULL) 
+
+    if (presc != NULL)
       {
       if((presc->rs_value.at_flags & ATR_VFLAG_SET) && (presc->rs_value.at_val.at_str != NULL))
         {
-        
+
         path_prologuserjob = get_local_script_path(pjob, presc->rs_value.at_val.at_str);
-		
+
         if(path_prologuserjob)
           {
           if ((j = run_pelog( PE_PROLOGUSERJOB,
@@ -2903,31 +2902,31 @@ int TMomFinalizeChild(
 							  PE_IO_TYPE_ASIS)) != 0)
 			{
 			log_err(-1, id, "batch job user prolog failed");
-		
+
 			if (j == 1)
 			  {
 			  /* permanent failure - abort job */
-		
+
 			  free(path_prologuserjob);
 			  starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
-			  } 
+			  }
 			else
 			  {
 			  /* retry - requeue job */
-		
+
 			  free(path_prologuserjob);
 			  starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_RETRY, &sjr);
 			  }
-		
+
 				/*NOTREACHED*/
 			}
 		  free(path_prologuserjob);
 		  }
 		}
 	  }
-	
+
 	}		 /* END else (TJE->is_interactive == TRUE) */
-  
+
 // Initialize CGROUP if requested
 #ifdef MOM_MACH_LINUX
 
@@ -3008,101 +3007,101 @@ int TMomFinalizeChild(
   /*    output fds to the user are setup at this point, so write() all   */
   /*    errors (with a \n) directly to the user on fd 2 and fscync(2) it */
   /***********************************************************************/
-  
+
   read_environ_script(pjob,&vtable);
 
   pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long = sjr.sj_session;
-  
+
   pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags =
   ATR_VFLAG_SET | ATR_VFLAG_MODIFY | ATR_VFLAG_SEND;
-  
+
   /* leaving a note for myself to check this later...
 	   why is it necessary to set JOB_ATR_session_id above?  We are a child process
 	   and setting that attr should be useless.  But if it isn't set, MOM sometimes
 	   SIGKILLs herself with interactive jobs -garrick */
-  
+
 #ifdef PENABLE_LINUX26_CPUSETS
   /* Move this mom process into the cpuset so the job will start in it. */
-  
+
   if (use_cpusets(pjob) == TRUE)
 	  {
 	  move_to_jobset(getpid(), pjob);
 	  }
-  
+
 #endif  /* (PENABLE_LINUX26_CPUSETS) */
-  
+
   if (site_job_setup(pjob) != 0)
 	{
 	/* FAILURE */
-	
+
 	sprintf(log_buffer, "PBS: site specific job setup failed\n");
-	
+
 	if (write(2, log_buffer, strlen(log_buffer)) == -1)
 		{
 		}
-	
+
 	fsync(2);
-	
+
 	log_err(errno, id, log_buffer);
-	
+
 	starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);	/* exits */
-	
+
 	/*NOTREACHED*/
 	}
-  
+
   if (LOGLEVEL >= 10)
 	  log_ext(-1, id, "setting system limits", LOG_DEBUG);
-  
+
   log_buffer[0] = '\0';
-  
+
   if ((i = mom_set_limits(pjob, SET_LIMIT_SET)) != PBSE_NONE)
 	{
 	if (log_buffer[0] != '\0')
 	  {
 	  /* report error to user via stderr file */
-	  
+
 	  if (write(2, log_buffer, strlen(log_buffer)) == -1)
 		  {
 		  }
-	  
+
 	  fsync(2);
 	  }
-	
+
 	if (i == PBSE_RESCUNAV)
 	  {
 	  /* resource temp unavailable */
-	  
+
 	  if (TJE->is_interactive == TRUE)
 		  j = JOB_EXEC_FAIL2;
 	  else
 		  j	= JOB_EXEC_RETRY;
-	  } 
+	  }
 	else
 	  {
 	  j = JOB_EXEC_FAIL2;
 	  }
-	
+
 	if (log_buffer[0] != '\0')
 	  {
 	  log_err(errno, id, log_buffer);
-	  } 
+	  }
 	else
 	  {
 	  log_err(errno, id, "mom_set_limits failed");
 	  }
-	
+
 	starter_return(TJE->upfds, TJE->downfds, j, &sjr); /* exits */
-	
+
 	/*NOTREACHED*/
-	
+
 	return(-1);
 	}	 /* END if (mom_set_limits() == 0) */
-  
+
   endpwent();
-  
+
   if (LOGLEVEL >= 10)
     log_ext(-1, id, "system limits set", LOG_DEBUG);
-  
+
   if ((idir = get_job_envvar(pjob, "PBS_O_ROOTDIR")) != NULL)
 	{
 	if (chroot(idir) == -1)
@@ -3110,45 +3109,45 @@ int TMomFinalizeChild(
 	  sprintf(log_buffer, "PBS: chroot to '%.256s' failed: %s\n",
 					  idir,
 					  strerror(errno));
-	  
+
 	  if (write(2, log_buffer, strlen(log_buffer)) == -1)
 	    {
 	    }
-	  
+
 	  fsync(2);
-	  
+
 	  log_err(errno, id, log_buffer);
-	  
+
 	  starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
-	  
+
 	  /*NOTREACHED*/
-	  
+
 	  return(-1);
 	  }
 	}
 
 #ifdef GSSAPI
-  if (start_renewal(ptask,-1,-1))
+  if (start_renewal(ptask,-1,-1) != PBSGSS_OK)
     {
-    starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr); 
+    starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
     /*NOTREACHED*/
     return(-1);
     }
-#endif 
-  
+#endif
+
   /*
    * become the user, execv the shell and become the real job
    */
-  
+
   if (LOGLEVEL >= 10)
 	{
 	sprintf(log_buffer, "setting user/group credentials to %d/%d",
 					pjob->ji_qs.ji_un.ji_momt.ji_exuid,
 					pjob->ji_qs.ji_un.ji_momt.ji_exgid);
-	
+
 	log_ext(-1, id, log_buffer, LOG_DEBUG);
 	}
-  
+
   if (setgroups( pjob->ji_grpcache->gc_ngroup,
 				 (gid_t *)pjob->ji_grpcache->gc_groups) != 0)
 	{
@@ -3156,19 +3155,19 @@ int TMomFinalizeChild(
 					 "PBS: setgroups for UID = %lu failed: %s\n",
 					 (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
 					 strerror(errno));
-	
+
 	if (write(2, log_buffer, strlen(log_buffer)) == -1)
 		{
 		}
-	
+
 	fsync(2);
-	
+
 	log_err(errno,id,log_buffer);
-	
+
 	starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
 	}
-  
-  
+
+
   if (setgid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) != 0)
 	{
 	snprintf(log_buffer,sizeof(log_buffer),
@@ -3176,111 +3175,111 @@ int TMomFinalizeChild(
 					 (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exgid,
 					 (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
 					 strerror(errno));
-	
+
 	if (write(2, log_buffer, strlen(log_buffer)) == -1)
 	  {
 	  }
-	
+
 	fsync(2);
-	
+
 	log_err(errno,id,log_buffer);
-	
+
 	starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
 	}
-  
+
   if (setuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) < 0)
 	{
 	snprintf(log_buffer,sizeof(log_buffer),
 					 "PBS: setuid to %lu failed: %s\n",
 					 (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
 					 strerror(errno));
-	
+
 	if (write(2, log_buffer, strlen(log_buffer)) == -1)
 		{
 		}
-	
+
 	fsync(2);
-	
+
 	log_err(errno, id, log_buffer);
-	
+
 	starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
 	}
-  
+
 #ifdef _CRAY
   seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid); /* cray kludge */
-  
+
 #endif /* CRAY */
-  
+
   /*
    * cwd to PBS_O_INITDIR if specified, otherwise User's Home
    */
-  
+
   if ((idir = get_job_envvar(pjob, "PBS_O_INITDIR")) != NULL)
 	{
 	/* in TMomFinalizeChild() executed as user */
-	
+
 	if (chdir(idir) == -1)
 		{
 		sprintf(log_buffer, "PBS: chdir to '%.256s' failed: %s\n",
 						idir,
 						strerror(errno));
-	
+
 		if (write(2, log_buffer, strlen(log_buffer)) == -1)
 			{
 			}
-	
+
 		fsync(2);
-	
+
 		log_err(errno, id, log_buffer);
-	
+
 		starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
-	
+
 		/*NOTREACHED*/
-	
+
 		return(-1);
 		}
-	} 
+	}
   else
 	{
 	/* in TMomFinalizeChild() executed as user */
-	
+
 	if (chdir(pwdp->pw_dir) == -1)
 		{
 		sprintf(log_buffer, "PBS: chdir to '%.256s' failed: %s\n",
 						pwdp->pw_dir,
 						strerror(errno));
-	
+
 		if (write(2, log_buffer, strlen(log_buffer)) == -1)
 			{
 			}
-	
+
 		fsync(2);
-	
+
 		log_err(errno, id, log_buffer);
-	
+
 		starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr);
-	
+
 		/*NOTREACHED*/
-	
+
 		return(-1);
 		}
 	}
-  
+
   if (LOGLEVEL >= 10)
 	{
 	sprintf(log_buffer, "initial directory set to %s\n",
 					idir != NULL ? idir : pwdp->pw_dir);
-	
+
 	log_ext(-1, id, log_buffer, LOG_DEBUG);
 	}
-  
+
   /* X11 forwarding init */
-  
+
   if ((TJE->is_interactive == TRUE) &&
 		  pjob->ji_wattr[(int)JOB_ATR_forwardx11].at_val.at_str)
 	{
 	char display[512];
-	
+
 	if (x11_create_display(	1, /* use localhost only */
 							display, /* output */
 							qsubhostname,
@@ -3289,131 +3288,131 @@ int TMomFinalizeChild(
 							pjob->ji_wattr[(int)JOB_ATR_forwardx11].at_val.at_str) >= 0)
 	  {
 	  bld_env_variables(&vtable, "DISPLAY", display);
-	  } 
+	  }
 	else
 	  {
 	  sprintf(log_buffer, "PBS: X11 forwarding init failed\n");
-	 
+
 	  if (write(2, log_buffer, strlen(log_buffer)) == -1)
 		 {
 		 }
-	 
+
 	  fsync(2);
 	  }
 	}
-  
+
   /* NULL terminate the envp array, This is MUST DO */
-  
+
   *(vtable.v_envp + vtable.v_used) = NULL;
-  
+
   /* tell mom we are going */
-  
+
   if (LOGLEVEL >= 10)
 	  log_ext(-1, id, "forking child", LOG_DEBUG);
-  
+
   starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_OK, &sjr);
-  
+
   log_close(0);	 /* FIXME:  this is useless, right? */
-  
+
   if ((pjob->ji_numnodes == 1) ||
 		  ((cpid = fork()) > 0))
 	{
 	/* parent does the shell */
-	
+
 	/* close sockets that child uses */
-	
+
 	if (pjob->ji_stdout >= 0)
 		close(pjob->ji_stdout);
-	
+
 	if (pjob->ji_stderr >= 0)
 		close(pjob->ji_stderr);
-	
+
 	/* construct argv array */
-	
+
 	shellname = strrchr(shell, '/');
-	
+
 	if (shellname != NULL)
 		++shellname; /* go past last '/' */
 	else
 		shellname	= shell;
-	
+
 	aindex = 0;
-	
+
 	/* determine whether or not we bypass the sourcing of login shells */
-	
+
 	if (((TJE->is_interactive == TRUE) && (src_login_interactive == FALSE)) ||
 			((TJE->is_interactive != TRUE) && (src_login_batch == FALSE)))
 	  {
 	  arg[aindex] = malloc(strlen(shellname) + 1);
-	  
+
 	  if (arg[aindex] == NULL)
 		  {
 		  log_err(errno,id,"cannot alloc env");
-	  
+
 		  starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
-	  
+
 		  /*NOTREACHED*/
-	  
+
 		  return(-1);
 		  }
-	  
+
 	  strcpy(arg[aindex], shellname);
-	  
+
 	  if (LOGLEVEL >= 7)
 		  {
 		  sprintf(log_buffer, "bypass sourcing of login files for job %s",
 						  pjob->ji_qs.ji_jobid);
-	  
+
 		  log_ext(-1, id, log_buffer, LOG_DEBUG);
 		  }
-	  
-	  } 
+
+	  }
 	else
 	  {
 	  arg[aindex] = malloc(strlen(shellname) + 2);
-	  
+
 	  if (arg[aindex] == NULL)
 		  {
 		  log_err(errno,id,"cannot alloc env");
-	  
+
 		  starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
-	  
+
 		  /*NOTREACHED*/
-	  
+
 		  return(-1);
 		  }
-	  
+
 	  /* specifying '-' indicates this is a 'login' shell */
-	  
+
 	  strcpy(arg[aindex], "-");
-	  
+
 	  strcat(arg[aindex], shellname);
 	  }
-	
+
 	arg[aindex + 1] = NULL;
-	
+
 	aindex++;
-	
+
 	if (PRE_EXEC[0] != '\0')
 	  {
 	  arg[aindex] = strdup(PRE_EXEC);
-	  
+
 	  if (arg[aindex] == NULL)
       {
       log_err(errno,id,"cannot alloc env");
-      
+
       starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
-      
+
       /*NOTREACHED*/
-      
+
       return(-1);
       }
-	  
+
 	  arg[aindex + 1] = NULL;
-	  
+
 	  aindex++;
 	  }	 /* END if (PRE_EXEC[0] != '\0') */
-	
+
 #if SHELL_USE_ARGV == 1
 	/* Put the script's arguments on the command line (see configure option --enable-shell-use-argv). */
 	if (TJE->is_interactive == FALSE)
@@ -3421,104 +3420,104 @@ int TMomFinalizeChild(
 	  arg[aindex] = malloc( strlen(path_jobs) +
 							strlen(pjob->ji_qs.ji_fileprefix) +
 							strlen(JOB_SCRIPT_SUFFIX) + 1);
-	  
+
 	  if (arg[aindex] == NULL)
       {
       log_err(errno,id,"cannot alloc env");
-      
+
       starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
-      
+
       /*NOTREACHED*/
-      
+
       return(-1);
       }
-	  
+
 	  strcpy(arg[aindex], path_jobs);
 	  strcat(arg[aindex], pjob->ji_qs.ji_fileprefix);
 	  strcat(arg[aindex], JOB_SCRIPT_SUFFIX);
-	  
+
 	  arg[aindex + 1] = NULL;
-	  
+
 	  aindex++;
 	  }
-	
+
 #endif /* SHELL_USE_ARGV */
-	
+
 	if (TJE->is_interactive == TRUE)
 	  {
 	  struct sigaction act;
-	  
+
 	  /* restore SIGINT so that the child shell can use ctrl-c */
-	  
+
 	  sigemptyset(&act.sa_mask);
 	  act.sa_flags   = 0;
 	  act.sa_handler = SIG_DFL;
-	  
+
 	  sigaction(SIGINT, &act, (struct sigaction *)0);
-	  
+
 	  /* if the user specified command(s) then invoke it */
-	  
+
 	  if ((pjob->ji_wattr[(int)JOB_ATR_inter_cmd].at_flags & ATR_VFLAG_SET) != 0)
       {
       arg[aindex] = malloc(strlen("-c") + 1);
-      
+
       if (arg[aindex] == NULL)
         {
         log_err(errno,id,"cannot alloc env");
-        
+
         starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
-        
+
         /*NOTREACHED*/
-        
+
         return(-1);
         }
-      
+
       strcpy(arg[aindex], "-c");
-      
+
       arg[aindex + 1] = NULL;
-      
+
       aindex++;
-      
+
       arg[aindex] = malloc(strlen(pjob->ji_wattr[(int)JOB_ATR_inter_cmd].at_val.at_str) + 1);
-      
+
       if (arg[aindex] == NULL)
         {
         log_err(errno,id,"cannot alloc env");
-        
+
         starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
-        
+
         /*NOTREACHED*/
-        
+
         return(-1);
         }
       log_ext(-1, id, log_buffer, LOG_DEBUG);
-      
+
       strcpy(arg[aindex], pjob->ji_wattr[(int)JOB_ATR_inter_cmd].at_val.at_str);
-      
+
       arg[aindex + 1] = NULL;
-      
+
       aindex++;
       }
     }
-	
+
 	if (mom_checkpoint_job_is_checkpointable(pjob))
 	  {
 	  if (mom_checkpoint_execute_job(pjob, shell, arg, &vtable) == -1)
 		  {
 		  starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
-	  
+
 		  /*NOTREACHED*/
-	  
+
 		  return(-1);
 		  }
-	  } 
+	  }
 	else
 	  {
 	  if ((TRUE) || (LOGLEVEL >= 10))
 		{
 		char cmd[1024];
 		int i;
-		
+
 		strcpy(cmd,arg[0]);
 		strcat(cmd,",");
 		for (i = 1; arg[i] != NULL; i++)
@@ -3528,7 +3527,7 @@ int TMomFinalizeChild(
 		  strcat(cmd,",");
 		  }
 		strcat(cmd,")");
-		
+
 		sprintf(log_buffer, "execing command (%s) args (%s)\n", shell, cmd);
 		log_ext(-1, id, log_buffer, LOG_DEBUG);
 		}
@@ -3538,87 +3537,87 @@ int TMomFinalizeChild(
   else if (cpid == 0)
 	{
 	/* child does demux */
-	
+
 	char *demux = DEMUX;
-	
+
 	/* setup descriptors 3 and 4 */
-	
+
 	dup2(pjob->ji_stdout, 3);
-	
+
 	if (pjob->ji_stdout > 3)
 	  close(pjob->ji_stdout);
-	
+
 	dup2(pjob->ji_stderr, 4);
-	
+
 	if (pjob->ji_stderr > 4)
 	  close(pjob->ji_stderr);
-	
+
 	/* construct argv array */
-	
+
 	shellname = strrchr(demux, '/');
-	
+
 	if (shellname != NULL)
 	  ++shellname; /* go past last '/' */
 	else
 	  shellname	= shell;
-	
+
 	aindex = 0;
-	
+
 	arg[aindex] = malloc(strlen(shellname) + 1);
-	
+
 	if (arg[aindex] == NULL)
 	  {
 	  log_err(errno,id,"cannot alloc env");
-	  
+
 	  starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
-	  
+
 	  /*NOTREACHED*/
-	  
+
 	  return(-1);
 	  }
-	
+
 	strcpy(arg[aindex], shellname);
-	
+
 	arg[aindex + 1] = NULL;
-	
+
 	aindex++;
-	
+
 	if (PRE_EXEC[0] != '\0')
 	  {
 	  arg[aindex] = strdup(PRE_EXEC);
-	  
+
 	  if (arg[aindex] == NULL)
 		  {
 		  log_err(errno,id,"cannot alloc env");
-	  
+
 		  starter_return(TJE->upfds,TJE->downfds,JOB_EXEC_FAIL2,&sjr);
-	  
+
 		  /*NOTREACHED*/
-	  
+
 		  return(-1);
 		  }
-	  
+
 	  arg[aindex + 1] = NULL;
-	  
+
 	  aindex++;
 	  }	 /* END if (PRE_EXEC[0] != '\0') */
-	
+
 	execve(demux, arg, vtable.v_envp);
-	
+
 	/* reached only if execve fails */
-	
+
 	shell = demux;	/* for fprintf below */
 	}	 /* END else if (cpid == 0) */
-  
+
   sprintf(log_buffer, "PBS: exec of shell '%.256s' failed\n",
 				  shell);
-  
+
   if (write(2, log_buffer, strlen(log_buffer)) == -1)
 	{
 	}
-  
+
   fsync(2);
-  
+
   if (strlen(shell) == 0)
 	{
   #ifndef NDEBUG
@@ -3627,7 +3626,7 @@ int TMomFinalizeChild(
 	DBPRT(("user \"%s\" may not have a shell defined on node \"%s\"\n",
 				   pwdp->pw_name,
 				   mom_host));
-	} 
+	}
   else if (strstr(shell, "/bin/false") != NULL)
 	{
   #ifndef NDEBUG
@@ -3636,23 +3635,23 @@ int TMomFinalizeChild(
 	DBPRT(("user \"%s\" has shell \"/bin/false\" on node \"%s\"\n",
 				   pwdp->pw_name,
 				   mom_host));
-	} 
+	}
   else
     {
-  
+
     struct stat buf;
-  
+
 	if (stat(shell, &buf) != 0)
 	  {
 	  DBPRT(("stat of shell \"%s\" failed with error %d\n",
 				 shell,
 				 errno));
-	  } 
+	  }
 	else if (S_ISREG(buf.st_mode) == 0)
 	  {
 	  DBPRT(("shell \"%s\" is not a file\n",
 				 shell));
-	  } 
+	  }
 	else if ((buf.st_mode & S_IXUSR) != 0)
 	  {
 	  DBPRT(("shell \"%s\" is not executable by user \"%s\"\n",
@@ -3660,11 +3659,11 @@ int TMomFinalizeChild(
 				 pwdp->pw_name));
 	  }
 	}
-  
+
   exit(254); /* should never, ever get here */
-  
+
   /*NOTREACHED*/
-  
+
   return(-1);
   }	 /* END TMomFinalizeChild() */
 
@@ -3685,55 +3684,55 @@ int TMomFinalizeJob3(
 
   {
   char *id = "TMomFinalizeJob3";
-  
+
   struct startjob_rtn sjr;
-  
+
   job  *pjob;
   task *ptask;
-  
+
   pjob = (job *)TJE->pjob;
   ptask = (task *)TJE->ptask;
-  
+
   /* sjr populated in TMomFinalizeJob2() */
-  
+
   memcpy(&sjr, TJE->sjr, sizeof(sjr));
-  
+
   close(TJE->jsmpipe[0]);
-  
+
   if (ReadSize != sizeof(sjr))
 	{
 	/* FAILURE */
-	
+
 	sprintf(log_buffer, "read of pipe for sid failed for job %s (%d of %d bytes)",
 					pjob->ji_qs.ji_jobid,
 					ReadSize,
 					(int)sizeof(sjr));
-	
+
 	log_err(ReadErrno, id, log_buffer);
-	
+
 	sprintf(log_buffer, "start failed, improper sid");
-	
+
 	log_record(
 						PBSEVENT_ERROR,
 						PBS_EVENTCLASS_JOB,
 						id,
 						log_buffer);
-	
+
 	close(TJE->mjspipe[1]);
-	
+
 	*SC = JOB_EXEC_RETRY;
-	
+
 	return(FAILURE);
 	}
-  
+
   /* send back as an acknowledgement that MOM got it */
-  
+
   if (write(TJE->mjspipe[1], &sjr, sizeof(sjr)) == -1)
     {
     }
-  
+
   close(TJE->mjspipe[1]);
-  
+
   if (LOGLEVEL >= 3)
 	{
 #ifdef USEJOBCREATE
@@ -3748,94 +3747,94 @@ int TMomFinalizeJob3(
 					  sjr.sj_code,
 					  (long)sjr.sj_session);
 #endif /* USEJOBCREATE */
-  
+
 	log_record( PBSEVENT_ERROR,
 				  PBS_EVENTCLASS_JOB,
 				  id,
 				  log_buffer);
 	}
-  
+
   if (sjr.sj_code < 0)
 	{
 	char tmpLine[1024];
-	
+
 	/* FAILURE */
-	
+
 	tmpLine[0] = '\0';
-	
+
 	switch (sjr.sj_code)
 	  {
-	  
+
 	  case JOB_EXEC_OK:	 /* 0 */
-	  
+
 		  strcpy(tmpLine, "no failure");
-	  
+
 		  break;
-	  
+
 	  case JOB_EXEC_FAIL1:	/* -1 */
-	  
+
 		  strcpy(tmpLine, "job exec failure, before files staged, no retry");
-	  
+
 		  break;
-	  
+
 	  case JOB_EXEC_FAIL2:	/* -2 */
-	  
+
 		  strcpy(tmpLine, "job exec failure, after files staged, no retry");
-	  
+
 		  break;
-	  
+
 	  case JOB_EXEC_RETRY: /* -3 */
-	  
+
 		  strcpy(tmpLine, "job exec failure, retry will be attempted");
-	  
+
 		  if (sjr.sj_session < 0)
 			{
 			/* NOTE:  push sjr.sj_sid into job attribute X to be used by encode_used */
-		
+
 			ptask->ti_qs.ti_sid = sjr.sj_session;
 			}
-	  
+
 		  break;
-	  
+
 	  case JOB_EXEC_STDOUTFAIL:	 /* -9 */
-	  
+
 		  strcpy(tmpLine,"job exec failure, could not open/create stdout/stderr files, no retry");
-	  
+
 		  break;
-	  
+
 	  default:
-	  
+
 		  sprintf(tmpLine, "job exec failure, code=%d",
 						  sjr.sj_code);
-	  
+
 		  break;
 	  }	 /* END switch (sjr.sj_code) */
-	
+
 	sprintf(log_buffer, "job not started, %s %s (see syslog for more information)",
 					(sjr.sj_code == JOB_EXEC_RETRY) ? "Retry" : "Failure",
 					tmpLine);
-	
+
 	log_record(
 						PBSEVENT_ERROR,
 						PBS_EVENTCLASS_JOB,
 						id,
 						log_buffer);
-	
+
 	*SC = sjr.sj_code;
-	
+
 	return(FAILURE);
 	}	 /* END if (sjr.sj_code < 0) */
-  
+
   /* pjob modified */
-  
+
   set_globid(pjob, &sjr);
-  
+
   ptask->ti_qs.ti_sid    = sjr.sj_session;
-  
+
   ptask->ti_qs.ti_status = TI_STATE_RUNNING;
-  
+
   strcpy(ptask->ti_qs.ti_parentjobid, pjob->ji_qs.ji_jobid);
-  
+
   if (LOGLEVEL >= 6)
     {
     log_record( PBSEVENT_ERROR,
@@ -3843,23 +3842,23 @@ int TMomFinalizeJob3(
   			  pjob->ji_qs.ji_jobid,
   			  "saving task (TMomFinalizeJob3)");
     }
-  
+
   if (task_save(ptask) == -1)
 	{
 	/* FAILURE */
-	
+
 	sprintf(log_buffer, "Task save failed");
-	
+
 	log_record( PBSEVENT_ERROR,
 				PBS_EVENTCLASS_JOB,
 				id,
 				log_buffer);
-	
+
 	*SC = JOB_EXEC_RETRY;
-	
+
 	return(FAILURE);
 	}
-  
+
   if (pjob->ji_numnodes > 1)
 	{
 	/*
@@ -3869,55 +3868,55 @@ int TMomFinalizeJob3(
 	** here for use in start_process(), to connect to
 	** pbs_demux.
 	*/
-	
+
 	close(pjob->ji_stdout);
-	
+
 	pjob->ji_stdout = TJE->port_out;
-	
+
 	close(pjob->ji_stderr);
-	
+
 	pjob->ji_stderr = TJE->port_err;
 	}
-  
+
   /* return from the starter indicated the job is a go ... */
   /* record the start time and session/process id */
-  
+
   pjob->ji_wattr[(int)JOB_ATR_session_id].at_val.at_long = sjr.sj_session;
-  
+
   pjob->ji_wattr[(int)JOB_ATR_session_id].at_flags =
   ATR_VFLAG_SET | ATR_VFLAG_MODIFY | ATR_VFLAG_SEND;
 
 #ifdef USEJOBCREATE
   pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_val.at_ll = sjr.sj_jobid;
-  
+
   pjob->ji_wattr[(int)JOB_ATR_pagg_id].at_flags =
   ATR_VFLAG_SET | ATR_VFLAG_MODIFY;
 
 #endif /* USEJOBCREATE */
-  
+
 #ifdef HAVE_GLITE_LB
   svr_logjobstate(pjob, JOB_STATE_RUNNING, JOB_SUBSTATE_RUNNING, (void*)&sjr.sj_session);
 #endif
 
   pjob->ji_qs.ji_state    = JOB_STATE_RUNNING;
-  
+
   pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
-  
+
   pjob->ji_qs.ji_stime    = time_now;
-  
+
   /* changed from SAVEJOB_QUICK to SAVEJOB_FULL (USC - 2/5/2005) */
-  
+
   job_save(pjob, SAVEJOB_FULL);
-  
+
   sprintf(log_buffer, "job %s started, pid = %ld",
 				  pjob->ji_qs.ji_jobid,
 				  (long)sjr.sj_session);
-  
+
   log_record( PBSEVENT_ERROR,
 			  PBS_EVENTCLASS_JOB,
 			  id,
 			  log_buffer);
-  
+
   return(SUCCESS);
   }	 /* END TMomFinalizeJob3() */
 
@@ -3935,10 +3934,10 @@ int start_process(
   task  *ptask,	/* I */
   char **argv,		/* I */
   char **envp)		/* I */
-  
+
   {
   static char id[] = "start_process";
-  
+
   char  *idir;
   job *pjob = ptask->ti_job;
   pid_t pid;
@@ -3958,139 +3957,139 @@ int start_process(
 	  0, 0
   };
 #endif /* USEJOBCREATE */
-  
-  
+
+
   if (pipe(pipes) == -1)
 	{
 	return(-1);
 	}
-  
+
   if (pipes[1] < 3)
 	{
 	kid_write = fcntl(pipes[1], F_DUPFD, 3);
-	
+
 	close(pipes[1]);
-	} 
+	}
   else
 	{
 	kid_write = pipes[1];
 	}
-  
+
   parent_read = pipes[0];
-  
+
   if (pipe(pipes) == -1)
 	{
 	return(-1);
 	}
-  
+
   if (pipes[0] < 3)
 	{
 	kid_read = fcntl(pipes[0], F_DUPFD, 3);
-	
+
 	close(pipes[0]);
-	} 
+	}
   else
 	{
 	kid_read = pipes[0];
 	}
-  
+
   parent_write = pipes[1];
-  
+
   /*
   ** Get ipaddr to Mother Superior.
   */
-  
+
   if (pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE)	/* I'm MS */
 	{
 	ipaddr = htonl(localaddr);
-	} 
+	}
   else
 	{
-	
+
 	struct sockaddr_in *ap;
-	
+
 	/*
 	** We always have a stream open to MS at node 0.
 	*/
-	
+
 	i = pjob->ji_hosts[0].hn_stream;
-	
+
 	if ((ap = rpp_getaddr(i)) == NULL)
 	  {
 	  sprintf(log_buffer, "job %s has no stream to MS",
 					  pjob->ji_qs.ji_jobid);
-	  
+
 	  log_err(-1, id, log_buffer);
-	  
+
 	  return(-1);
 	  }
-	
+
 	ipaddr = ap->sin_addr.s_addr;
 	}	 /* END else (pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) */
-  
+
   /* A restarted mom will not have called this yet, but it is needed
    * to spawn tasks (ji_grpcache).
    */
-  
+
   if (!check_pwd(pjob))
 	{
 	log_err(-1, id, log_buffer);
-	
+
 	return(-1);
 	}
-  
+
   /*
   ** Begin a new process for the fledgling task.
   */
-  
+
   if ((pid = fork_me(-1)) == -1)
 	{
 	/* fork failed */
-	
+
 	return(-1);
 	}
-  
+
   if (pid != 0)
 	{
 	/* parent */
-	
+
 	int gotsuccess = 0;
-	
+
 	close(kid_read);
 	close(kid_write);
-	
+
 	/* read sid */
-	
+
 	for (;;)
 	  {
 	  i = read(parent_read, (char *) & sjr, sizeof(sjr));
-	  
+
 	  if ((i == -1) && (errno == EINTR))
 		  continue;
-	  
+
 	  if ((i == sizeof(sjr)) && (sjr.sj_code == 0) && !gotsuccess)
 		  {
 		  gotsuccess = 1;
-	  
+
 		  if (write(parent_write, &sjr, sizeof(sjr)) == -1)
 			  {
 			  }
-	  
+
 		  continue;
 		  }
-	  
+
 	  if (gotsuccess)
 		  {
 		  i = sizeof(sjr);
 		  }
-	  
+
 	  break;
 	  }	 /* END for(;;) */
-	
+
 	j = errno;
-	
+
 	close(parent_read);
-	
+
 	if (i != sizeof(sjr))
 	  {
 	  sprintf(log_buffer, "read of pipe for sid job %s got %d not %ld (errno: %d, %s)",
@@ -4099,92 +4098,92 @@ int start_process(
 					  (long)sizeof(sjr),
 					  j,
 					  strerror(j));
-	  
+
 	  log_err(j, id, log_buffer);
-	  
+
 	  close(parent_write);
-	  
+
 	  return(-1);
 	  }
-	
-	/* This write to the pipe is redundant and leads to a sigpipe because of a 
+
+	/* This write to the pipe is redundant and leads to a sigpipe because of a
 	 * race condition with the child
 	 */
 	/*    if (write(parent_write, &sjr, sizeof(sjr)) == -1) {} */
-	
+
 	close(parent_write);
-	
+
 	DBPRT(("%s: read start return %d %ld\n",
 				 id,
 				 sjr.sj_code,
 				 (long)sjr.sj_session))
-	
+
 	if (sjr.sj_code < 0)
 	  {
 	  char tmpLine[1024];
-	  
+
 	  tmpLine[0] = '\0';
-	  
+
 	  switch (sjr.sj_code)
 		{
-		
+
 		case JOB_EXEC_OK:	 /* 0 */
-		
+
 			/* NO-OP */
-		
+
 			break;
-		
+
 		case JOB_EXEC_FAIL1:	/* -1 */
 		case JOB_EXEC_STDOUTFAIL:	/* -9 */
-		
+
 			strcpy(tmpLine, "stdio setup failed");
-		
+
 			break;
-		
+
 		case JOB_EXEC_FAIL2:	/* -2 */
-		
+
 			strcpy(tmpLine, "env setup or user dir problem");
-		
+
 			break;
-		
+
 		case JOB_EXEC_RETRY: /* -3 */
-		
+
 			strcpy(tmpLine, "unable to set limits, retry will be attempted");
-		
+
 			break;
-		
+
 		case JOB_EXEC_CMDFAIL: /* -8 */
-		
+
 			strcpy(tmpLine, "command exec failed");
-		
+
 			break;
-		
+
 		default:
-		
+
 			sprintf(tmpLine, "code=%d",
 							sjr.sj_code);
-		
+
 			break;
 		}	 /* END switch (sjr.sj_code) */
-	  
+
 	  sprintf(log_buffer, "task not started, '%s', %s (see syslog)",
 					  argv[0],
 					  tmpLine);
-	  
+
 	  log_record( PBSEVENT_ERROR,
 				  PBS_EVENTCLASS_JOB,
 				  pjob->ji_qs.ji_jobid,
 				  log_buffer);
-	  
+
 	  return(-1);
 	  }	 /* END if (sjr.sj_code < 0) */
-	
+
 	set_globid(pjob, &sjr);
-	
+
 	ptask->ti_qs.ti_sid = sjr.sj_session;
-	
+
 	ptask->ti_qs.ti_status = TI_STATE_RUNNING;
-	
+
 	if (LOGLEVEL >= 6)
 	  {
 	  log_record(	PBSEVENT_ERROR,
@@ -4192,86 +4191,86 @@ int start_process(
 				  pjob->ji_qs.ji_jobid,
 				  "task set to running/saving task (start_process)");
 	  }
-	
+
 	task_save(ptask);
-	
+
 	if (pjob->ji_qs.ji_substate != JOB_SUBSTATE_RUNNING)
 	  {
 	  pjob->ji_qs.ji_state    = JOB_STATE_RUNNING;
 	  pjob->ji_qs.ji_substate = JOB_SUBSTATE_RUNNING;
-	  
+
 	  job_save(pjob, SAVEJOB_QUICK);
 	  }
-	
+
 	sprintf(log_buffer, "%s: task started, tid %d, sid %ld, cmd %s",
 					id,
 					ptask->ti_qs.ti_task,
 					(long)ptask->ti_qs.ti_sid,
 					argv[0]);
-	
+
 	log_record(	PBSEVENT_JOB,
 				PBS_EVENTCLASS_JOB,
 				pjob->ji_qs.ji_jobid,
 				log_buffer);
-	
+
 	return(0);
 	}	 /* END else if (pid != 0) */
-  
+
   /************************************************/
   /* The child process - will become the TASK   */
   /************************************************/
-  
+
   if (LOGLEVEL >= 10)
 	  log_ext(-1, id, "child starting", LOG_DEBUG);
-  
+
   if (lockfds >= 0)
 	{
 	close(lockfds);
-	
+
 	lockfds = -1;
 	}
-  
+
   close(parent_read);
-  
+
   close(parent_write);
-  
+
   /* set up the environmental variables to be given to the job */
-  
+
   /* NOTE:  use log_err beyond this point to write messages to syslog */
-  
+
   if (InitUserEnv(pjob, ptask, envp, NULL, NULL) < 0)
 	{
 	log_err(errno, id, "failed to setup user env");
-	
+
 	starter_return(kid_write, kid_read, JOB_EXEC_RETRY, &sjr);
-	
+
 	/*NOTREACHED*/
-	
+
 	exit(1);
 	}
-  
+
   if (LOGLEVEL >= 10)
     log_ext(-1, id, "user env initialized", LOG_DEBUG);
-  
+
   set_resource_vars(pjob,&vtable);
   read_environ_script(pjob,&vtable);
 
   if (set_mach_vars(pjob, &vtable) != 0)
 	{
 	strcpy(log_buffer, "PBS: machine dependent environment variable setup failed\n");
-	
+
 	log_err(errno, id, log_buffer);
-	
+
 	starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-	
+
 	/*NOTREACHED*/
-	
+
 	exit(1);
 	}
-  
+
   if (LOGLEVEL >= 10)
     log_ext(-1, id, "mach vars set", LOG_DEBUG);
-  
+
   if (pjob->ji_wattr[(int)JOB_ATR_umask].at_flags & ATR_VFLAG_SET)
     {
     umask(pjob->ji_wattr[(int)JOB_ATR_umask].at_val.at_long);
@@ -4280,289 +4279,289 @@ int start_process(
     {
     umask(077);
     }
-  
+
   /* set environment to reflect batch */
-  
+
   bld_env_variables(&vtable, "PBS_ENVIRONMENT", "PBS_BATCH");
-  
+
   bld_env_variables(&vtable, "ENVIRONMENT",    "BATCH");
-  
+
   /* Set limits for the child */
   if (mom_set_limits(pjob, SET_LIMIT_SET) != PBSE_NONE)
 	{
 	strcpy(log_buffer, "PBS: resource limits setup failed\n");
-  
+
 	log_err(errno, id, log_buffer);
-  
+
 	starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-  
+
 	/*NOTREACHED*/
-  
+
 	exit(1);
-	}	
+	}
 
   /* NULL terminate the envp array, This is MUST DO */
-  
+
   *(vtable.v_envp + vtable.v_used) = NULL;
-  
+
   /*
   ** Set up stdin.
   */
-  
+
   /* look through env for a port# on MS we should use for stdin */
-  
+
   if ((fd0 = search_env_and_open("MPIEXEC_STDIN_PORT", ipaddr)) == -2)
 	{
 	log_err(errno, id, "cannot locate MPIEXEC_STDIN_PORT");
-	
+
 	starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-	
+
 	/*NOTREACHED*/
-	
+
 	exit(1);
 	}
-  
+
   if ((fd0 < 0) && ((fd0 = search_env_and_open("TM_STDIN_PORT", ipaddr)) == -2))
 	{
 	log_err(errno, id, "cannot locate TM_STDIN_PORT");
-	
+
 	starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-	
+
 	/*NOTREACHED*/
-	
+
 	exit(1);
 	}
-  
+
   /* use /dev/null if no env var found */
-  
+
   if ((fd0 < 0) && (fd0 = open("/dev/null", O_RDONLY)) == -1)
 	{
 	log_err(errno, id, "could not open dev/null");
-	
+
 	close(0);
-	} 
+	}
   else
 	{
 	dup2(fd0, 0);
-	
+
 	if (fd0 > 0)
 		close(fd0);
 	}
-  
+
   /* look through env for a port# on MS we should use for stdout/err */
-  
+
   if ((fd1 = search_env_and_open("MPIEXEC_STDOUT_PORT", ipaddr)) == -2)
 	{
 	log_err(errno, id, "cannot locate MPIEXEC_STDOUT_PORT");
-	
+
 	starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-	
+
 	/*NOTREACHED*/
-	
+
 	exit(1);
 	}
-  
+
   if (fd1 < 0)
 	{
 	if ((fd1 = search_env_and_open("TM_STDOUT_PORT", ipaddr)) == -2)
 	  {
 	  log_err(errno, id, "cannot locate TM_STDOUT_PORT");
-	  
+
 	  starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-	  
+
 	  /*NOTREACHED*/
-	  
+
 	  exit(1);
 	  }
 	}
-  
+
   if ((fd2 = search_env_and_open("MPIEXEC_STDERR_PORT", ipaddr)) == -2)
 	{
 	log_err(errno, id, "cannot locate MPIEXEC_STDERR_PORT");
-	
+
 	starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-	
+
 	/*NOTREACHED*/
-	
+
 	exit(1);
 	}
-  
+
   if (fd2 < 0)
 	{
 	  if ((fd2 = search_env_and_open("TM_STDERR_PORT", ipaddr)) == -2)
 		{
 		log_err(errno, id, "cannot locate TM_STDERR_PORT");
-		
+
 		starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-		
+
 		/*NOTREACHED*/
-		
+
 		exit(1);
 		}
 	}
-  
+
   if (LOGLEVEL >= 10)
 	log_ext(-1, id, "MPI/TM variables set", LOG_DEBUG);
-  
+
 #ifdef PENABLE_LINUX26_CPUSETS
   if (use_cpusets(pjob) == TRUE)
 	{
 	int j;
 	char nodeidbuf[1024];
-	
+
 	/* FIXME: vnodenum needs to be stored in the task struct so that we don't
 	 * have to fish it out here.  Then we just pass the int to move_to_taskset
 	 * (changing the type of arg3) */
-	
+
 	for (j = 0;j < vtable.v_used;j++)
 	  {
 	  if (!strncmp(vtable.v_envp[j], "PBS_VNODENUM=", strlen("PBS_VNODENUM=")))
 		{
 		strcpy(nodeidbuf, vtable.v_envp[j] + strlen("PBS_VNODENUM="));
-		  
+
 		/* FIXME: temp debugging info */
-		  
+
 		sprintf(log_buffer, "about to move to taskset for job %s/%s.\n",
 					  pjob->ji_qs.ji_jobid, nodeidbuf);
-		  
+
 		log_ext(-1, id, log_buffer, LOG_DEBUG);
-		  
+
 		/* Move this mom process into the cpuset so the job will start in it. */
-		  
+
 		/* Changed to move_to_jobset for OpenMPI jobs - CS - 20080526 */
-		  
+
 		/* move_to_taskset(getpid(),pjob,nodeidbuf); */
 		move_to_jobset(getpid(), pjob);
 		}
 	  }
 	}
 #endif  /* (PENABLE_LINUX26_CPUSETS) */
-  
+
   if (pjob->ji_numnodes > 1)
 	{
 	/*
 	** Open sockets to demux proc for stdout and stderr.
 	*/
-	
+
 	if ((fd1 < 0) && ((fd1 = open_demux(ipaddr, pjob->ji_stdout)) == -1))
 	  {
 	  log_err(errno, id, "cannot open mux stdout port");
-	  
+
 	  starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-	  
+
 	  /*NOTREACHED*/
-	  
+
 	  exit(1);
 	  }
-	
+
 	dup2(fd1, 1);
-	
+
 	if (fd1 > 1)
 		close(fd1);
-	
+
 	if ((fd2 < 0) && ((fd2 = open_demux(ipaddr, pjob->ji_stderr)) == -1))
 	  {
 	  log_err(errno, id, "cannot open mux stderr port");
-	  
+
 	  starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-	  
+
 	  /*NOTREACHED*/
-	  
+
 	  exit(1);
 	  }
-	
+
 	dup2(fd2, 2);
-	
+
 	if (fd2 > 2)
 		close(fd2);
-	
+
 	/* never send cookie - PW mpiexec patch */
-	
+
 	/*
 	if (write(1,pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str,
 		strlen(pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str)) == -1) {}
-	
+
 	if (write(2,pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str,
 		strlen(pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str)) == -1) {}
 	*/
-	} 
+	}
   else if ((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags&ATR_VFLAG_SET) &&
 						   (pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long > 0))
 	{
 	/* interactive job, single node, write to pty */
-	
+
 	pts = -1;
-	
+
 	if ((fd1 < 0) || (fd2 < 0))
 		{
 		if ((pts = open_pty(pjob)) < 0)
 			{
 			log_err(errno, id, "cannot open slave pty");
-	
+
 			starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
-	
+
 			/*NOTREACHED*/
-	
+
 			exit(1);
 			}
-	
+
 		if (fd1 < 0)
 			fd1 = pts;
-	
+
 		if (fd2 < 0)
 			fd2 = pts;
 		}
-	
+
 	dup2(fd1, 1);
-	
+
 	dup2(fd2, 2);
-	
+
 	if (fd1 != pts)
 		close(fd1);
-	
+
 	if (fd2 != pts)
 		close(fd2);
-	} 
+	}
   else
 	{
 	/* This code block may be dead (may never be run). This is due to the fact that
 	 * start_process() is only called by a sister who has received a IM_SPAWN_TASK,
 	 * but the below comment states that the code only runs for a "single node" job,
 	 * and all sisters are part of a multi-node job. */
-	
+
 	/* normal batch job, single node, write straight to files */
-	
+
 	pts = -1;
-	
+
 	if ((fd1 < 0) || (fd2 < 0))
 	  {
 	  if (open_std_out_err(pjob, -1) == -1)
 		{
 		log_err(errno, id, "cannot open job stderr/stdout files");
-		
+
 		starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
 		}
 	  }
-	
+
 	if (fd1 >= 0)
 	  {
 	  close(1);
 	  dup2(fd1, 1);
-	  
+
 	  if (fd1 > 1)
 	    close(fd1);
 	  }
-	
+
 	if (fd2 >= 0)
 	  {
 	  close(2);
 	  dup2(fd2, 2);
-	  
+
 	  if (fd2 > 2)
 	    close(fd2);
 	  }
 	}		 /* END else */
-  
+
   // Initialize CGROUP if requested
 #ifdef MOM_MACH_LINUX
 
@@ -4638,36 +4637,36 @@ int start_process(
    * any further error messages should be written
    * directly to fd 2, with a \n, and ended with fsync(2)
    *******************************************************/
-  
+
   if (LOGLEVEL >= 10)
 	  log_ext(-1, id, "about to perform set_job", LOG_DEBUG);
-  
+
   j = set_job(pjob, &sjr);
-  
+
   if (j < 0)
 	{
 	if (j != -2)
 	  {
 	  /* set_job didn't leave message in log_buffer */
-	  
+
 	  strcpy(log_buffer, "PBS: unable to set task session\n");
 	  }
-	
+
 	if (write(2, log_buffer, strlen(log_buffer)) == -1)
 	  {
 	  }
-	
+
 	fsync(2);
-	
+
 	log_err(errno, id, log_buffer);
-	
+
 	starter_return(kid_write, kid_read, JOB_EXEC_FAIL2, &sjr);
 	}
-  
+
   ptask->ti_qs.ti_sid = sjr.sj_session;
-  
+
   log_buffer[0] = '\0';
-  
+
   if ((i = mom_set_limits(pjob, SET_LIMIT_SET)) != PBSE_NONE)
 	{
 	if (log_buffer[0] != '\0')
@@ -4676,33 +4675,33 @@ int start_process(
 	  if (write(2, log_buffer, strlen(log_buffer)) == -1)
 	    {
 	    }
-	  
+
 	  fsync(2);
 	  }
-	
+
 	sprintf(log_buffer, "PBS: unable to set limits, err=%d\n",
-	
+
 					i);
-	
+
 	if (write(2, log_buffer, strlen(log_buffer)) == -1)
 	  {
 	  }
-	
+
 	fsync(2);
-	
+
 	if (i == PBSE_RESCUNAV)	 /* resource temp unavailable */
 		j = JOB_EXEC_RETRY;
 	else
 		j	= JOB_EXEC_FAIL2;
-	
+
 	log_err(errno, id, log_buffer);
-	
+
 	starter_return(kid_write, kid_read, j, &sjr);
 	}
-  
+
   if (LOGLEVEL >= 10)
 	  log_ext(-1, id, "set_job complete", LOG_DEBUG);
-  
+
   if ((idir = get_job_envvar(pjob, "PBS_O_ROOTDIR")) != NULL)
 	{
 	if (chroot(idir) == -1)
@@ -4710,26 +4709,26 @@ int start_process(
 	  sprintf(log_buffer, "PBS: chroot to %.256s failed: %s\n",
 					  idir,
 					  strerror(errno));
-	  
+
 	  if (write(2, log_buffer, strlen(log_buffer)) == -1)
 		{
 		}
-	  
+
 	  fsync(2);
-	  
+
 	  log_err(errno, id, log_buffer);
-	  
+
 	  starter_return(kid_write, kid_read, JOB_EXEC_FAIL2, &sjr);
 	  }
 	}
-    
+
 #ifdef GSSAPI
-  if (start_renewal(ptask,kid_write,kid_read))
+  if (start_renewal(ptask,kid_write,kid_read) != PBSGSS_OK)
       starter_return(kid_write, kid_read, JOB_EXEC_FAIL1, &sjr);
 #endif
 
   /* become the user and execv the shell and become the real job */
-  
+
   if (setgroups(pjob->ji_grpcache->gc_ngroup,
 							  (gid_t *)pjob->ji_grpcache->gc_groups) != 0)
 	{
@@ -4737,18 +4736,18 @@ int start_process(
 					 "PBS: setgroups for UID = %lu failed: %s\n",
 					 (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
 					 strerror(errno));
-	
+
 	if (write(2, log_buffer, strlen(log_buffer)) == -1)
 		{
 		}
-	
+
 	fsync(2);
-	
+
 	log_err(errno,id,log_buffer);
-	
+
 	starter_return(kid_write,kid_read,JOB_EXEC_FAIL2,&sjr);
 	}
-  
+
   if (setgid(pjob->ji_qs.ji_un.ji_momt.ji_exgid) != 0)
 	{
 	snprintf(log_buffer,sizeof(log_buffer),
@@ -4756,131 +4755,131 @@ int start_process(
 					 (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exgid,
 					 (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
 					 strerror(errno));
-	
+
 	if (write(2, log_buffer, strlen(log_buffer)) == -1)
 		{
 		}
-	
+
 	fsync(2);
-	
+
 	log_err(errno,id,log_buffer);
-	
+
 	starter_return(kid_write,kid_read,JOB_EXEC_FAIL2,&sjr);
 	}
-  
+
   if (setuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) < 0)
 	{
 	snprintf(log_buffer,sizeof(log_buffer),
 					 "PBS: setuid to %lu failed: %s\n",
 					 (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
 					 strerror(errno));
-	
+
 	if (write(2, log_buffer, strlen(log_buffer)) == -1)
 		{
 		}
-	
+
 	fsync(2);
-	
+
 	log_err(errno, id, log_buffer);
-	
+
 	starter_return(kid_write, kid_read, JOB_EXEC_FAIL2, &sjr);
 	}
-  
+
   #ifdef _CRAY
   seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid); /* cray kludge */
-  
+
   #endif /* CRAY */
-  
+
   /* cwd to PBS_O_INITDIR if specified, otherwise User's Home */
-  
+
   if ((idir = get_job_envvar(pjob, "PBS_O_INITDIR")) != NULL)
 	{
 	/* in start_process() executed as user */
-	
+
 	if (chdir(idir) == -1)
 		{
 		sprintf(log_buffer, "PBS: chdir to %.256s failed: %s\n",
 						idir,
 						strerror(errno));
-	
+
 		if (write(2, log_buffer, strlen(log_buffer)) == -1)
 			{
 			}
-	
+
 		fsync(2);
-	
+
 		log_err(errno, id, log_buffer);
-	
+
 		starter_return(kid_write, kid_read, JOB_EXEC_FAIL2, &sjr);
 		}
-	} 
+	}
   else
 	{
 	/* in start_process() executed as user */
-	
+
 	if (chdir(pjob->ji_grpcache->gc_homedir) == -1)
 		{
 		sprintf(log_buffer, "PBS: chdir to %.256s failed: %s\n",
 						pjob->ji_grpcache->gc_homedir,
 						strerror(errno));
-	
+
 		if (write(2, log_buffer, strlen(log_buffer)) == -1)
 			{
 			}
-	
+
 		fsync(2);
-	
+
 		log_err(errno, id, log_buffer);
-	
+
 		starter_return(kid_write, kid_read, JOB_EXEC_FAIL2, &sjr);
 		}
 	}
-  
+
   if (LOGLEVEL >= 10)
 	  log_ext(-1, id, "done - writing pipe and exec'ing", LOG_DEBUG);
-  
+
   starter_return( kid_write,
 				  kid_read,
 				  JOB_EXEC_OK,
 				  &sjr);
-  
+
   fcntl(kid_write, F_SETFD, FD_CLOEXEC);
-  
+
 #if 0 /* def DEBUG */
   for (i = 3;i < 40;++i)
 	{
 	/* check for any extra open descriptors */
-  
+
 	if (close(i) >= 0)
 	  fprintf(stderr, "Closed file %d\n", i);
 	}
-  
+
 #endif /* DEBUG */
-  
+
   environ = vtable.v_envp;
-  
+
   execvp(argv[0], argv);
-  
+
   /* only reached if execvp() fails */
-  
+
   sprintf(log_buffer, "PBS: %.256s: %s\n",
 				  argv[0],
 				  strerror(errno));
-  
+
   if (write(2, log_buffer, strlen(log_buffer)) == -1)
 	{
 	}
-  
+
   fsync(2);
-  
+
   log_err(errno, id, log_buffer);
-  
+
   starter_return(kid_write, kid_read, JOB_EXEC_CMDFAIL, &sjr);
-  
+
   exit(254);
-  
+
   /*NOTREACHED*/
-  
+
   return(-1);
   }	 /* END start_process() */
 
@@ -4897,48 +4896,48 @@ void nodes_free(
 
   {
   void arrayfree A_((char **));
-  
+
   hnodent *np;
-  
+
   if (pj->ji_vnods != NULL)
 	{
 	free(pj->ji_vnods);
-	
+
 	pj->ji_vnods = NULL;
 	}
-  
+
   if (pj->ji_hosts != NULL)
 	{
 	for (np = pj->ji_hosts;np->hn_node != TM_ERROR_NODE;np++)
 	  {
 	  eventent *ep = (eventent *)GET_NEXT(np->hn_events);
-	  
+
 	  if (np->hn_host)
 		  free(np->hn_host);
-	  
+
 	  /* don't close stream incase another job uses it */
-	  
+
 	  while (ep)
 		{
 		if (ep->ee_argv)
 			arrayfree(ep->ee_argv);
-		
+
 		if (ep->ee_envp)
 			arrayfree(ep->ee_envp);
-		
+
 		delete_link(&ep->ee_next);
-		
+
 		free(ep);
-		
+
 		ep = (eventent *)GET_NEXT(np->hn_events);
 		}	 /* END while (ep) */
 	  }		 /* END for (np) */
-	
+
 	free(pj->ji_hosts);
-	
+
 	pj->ji_hosts = NULL;
 	}	 /* END if (pj->ji_hosts != NULL) */
-  
+
   return;
   }	 /* END nodes_free() */
 
@@ -4960,23 +4959,23 @@ void job_nodes(
 
   {
   char         *id = "job_nodes";
-  
+
   int  i, j, nhosts, nodenum;
   int  ix;
   char  *cp, *nodestr;
   hnodent *hp;
   vnodent *np;
   extern char    mom_host[];
-  
+
   nodes_free(pjob);
-  
+
   nodenum = 1;
-  
+
   if (pjob->ji_wattr[(int)JOB_ATR_exec_host].at_flags &
 		  ATR_VFLAG_SET)
 	{
 	nodestr = pjob->ji_wattr[(int)JOB_ATR_exec_host].at_val.at_str;
-	
+
 	if (nodestr != NULL)
 	  {
 	  for (cp = nodestr;*cp;cp++)
@@ -4985,94 +4984,94 @@ void job_nodes(
 			nodenum++;
 		}
 	  }
-	} 
+	}
   else
 	{
 	nodestr = mom_host;
 	}
-  
+
   pjob->ji_hosts = (hnodent *)calloc(nodenum + 1, sizeof(hnodent));
-  
+
   pjob->ji_vnods = (vnodent *)calloc(nodenum + 1, sizeof(vnodent));
-  
+
   assert(pjob->ji_hosts);
   assert(pjob->ji_vnods);
-  
+
   pjob->ji_numvnod = nodenum;
-  
+
   nhosts = 0;
-  
+
   np = pjob->ji_vnods;
-  
+
   for (i = 0;i < nodenum;i++, np++)
 	{
 	char *dp, nodename[MAXPATHLEN + 1];
-	
+
 	ix = 0;
-	
+
 	for (cp = nodestr, dp = nodename;*cp;cp++, dp++)
 	  {
 	  if (*cp == '/')
 		{
 		ix = atoi(cp + 1);
-		
+
 		while ((*cp != '\0') && (*cp != '+'))
 			++cp;
-		
+
 		if (*cp == '\0')
 		  {
 		  nodestr = cp;
-		  
+
 		  break;
 		  }
 		}
-	  
+
 	  if (*cp == '+')
 		{
 		nodestr = cp + 1;
-		
+
 		break;
 		}
-	  
+
 	  *dp = *cp;
 	  }
-	
+
 	*dp = '\0';
-	
+
 	/* see if we already have this host */
-	
+
 	for (j = 0;j < nhosts;++j)
 	  {
 	  if (strcmp(nodename, pjob->ji_hosts[j].hn_host) == 0)
 		  break;
 	  }
-	
+
 	hp = &pjob->ji_hosts[j];
-	
+
 	if (j == nhosts)
 	  {
 	  /* need to add host to tn_host */
-	  
+
 	  hp->hn_node = nhosts++;
 	  hp->hn_stream = -1;
 	  hp->hn_sister = SISTER_OKAY;
 	  hp->hn_host = strdup(nodename);
-	  
+
 	  CLEAR_HEAD(hp->hn_events);
 	  }
-	
+
 	np->vn_node  = i;	/* make up node id */
-	
+
 	np->vn_host  = &pjob->ji_hosts[j];
 	np->vn_index = ix;
-	
+
 	if (LOGLEVEL >= 4)
 	  {
 	  sprintf(log_buffer, "%d: %s/%d",
 					  np->vn_node,
 					  np->vn_host->hn_host,
 					  np->vn_index);
-	  
+
 	  log_record(
 						  PBSEVENT_ERROR,
 						  PBS_EVENTCLASS_JOB,
@@ -5080,29 +5079,29 @@ void job_nodes(
 						  log_buffer);
 	  }
 	}	 /* END for (i) */
-  
+
   np->vn_node = TM_ERROR_NODE;
-  
+
   pjob->ji_hosts[nhosts].hn_node = TM_ERROR_NODE;
-  
+
   pjob->ji_numnodes = nhosts;
-  
+
   pjob->ji_numvnod  = nodenum;
-  
+
   if (LOGLEVEL >= 2)
 	{
 	sprintf(log_buffer, "job: %s numnodes=%d numvnod=%d",
 					pjob->ji_qs.ji_jobid,
 					nhosts,
 					nodenum);
-	
+
 	log_record(
 						PBSEVENT_ERROR,
 						PBS_EVENTCLASS_JOB,
 						id,
 						log_buffer);
 	}
-  
+
   return;
   }	 /* END job_nodes() */
 
@@ -5131,11 +5130,11 @@ void start_exec(
 
   {
   static char  *id = "start_exec";
-  
+
   eventent     *ep;
   int  i, nodenum;
   int  ports[2], socks[2];
-  
+
   struct sockaddr_in saddr;
   hnodent      *np;
   attribute    *pattr;
@@ -5143,88 +5142,88 @@ void start_exec(
   svrattrl     *psatl;
   int           stream;
   char          tmpdir[MAXPATHLEN];
-  
+
   torque_socklen_t slen;
-  
+
   void im_compose A_((int         stream,
 					  char       *jobid,
 					  char       *cookie,
 					  int  command,
 					  tm_event_t  event,
 					  tm_task_id  taskid));
-  
+
   /* Step 1.0 Generate Cookie */
-  
+
   if (!(pjob->ji_wattr[(int)JOB_ATR_Cookie].at_flags & ATR_VFLAG_SET))
 	{
 	char  *tt;
 	extern time_t loopcnt;
 	MD5_CTX  c;
 	int   i;
-	
+
 	/* alloc 33 bytes? */
-	
+
 	tt = malloc(33);
-	
+
 	if (tt == NULL)
 		{
 		log_err(-1,id,"cannot alloc memory");
-	
+
 		exec_bail(pjob,JOB_EXEC_FAIL1);
-	
+
 		return;
 		}
-	
+
 	pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str = tt;
-	
+
 	pjob->ji_wattr[(int)JOB_ATR_Cookie].at_flags |= ATR_VFLAG_SET;
-	
+
 	loopcnt++;
-	
+
 	MD5Init(&c);
-	
+
 	MD5Update(&c, (unsigned char *)&loopcnt, sizeof(loopcnt));
-	
+
 	MD5Update(&c, (unsigned char *)pjob, sizeof(job));
-	
+
 	MD5Final(&c);
-	
+
 	for (i = 0;i < 16;i++)
 		{
 		sprintf(&tt[i * 2], "%02X",
 						c.digest[i]);
 		}
-	
+
 	DBPRT(("===== MD5 %s\n",
 				 tt))
 	}	 /* END if () */
-  
+
   /* Step 2.0 Initialize Job */
-  
+
   /* update nodes info w/in job based on exec_hosts attribute */
-  
+
   job_nodes(pjob);
-  
+
   /* start_exec only executed on mother superior */
-  
+
   pjob->ji_nodeid = 0; /* I'm MS */
-  
+
   nodenum = pjob->ji_numnodes;
-  
+
   /* Step 3.0 Validate/Initialize Environment */
-  
+
   /* check creds early because we need the uid/gid for TMakeTmpDir() */
 
   if (!is_cloud_job(pjob)) /* skip this test for cloud jobs (they only run as root) */
   if (!check_pwd(pjob))
 	{
 	log_err(-1, id, log_buffer);
-	
+
 	exec_bail(pjob, JOB_EXEC_FAIL1);
-	
+
 	return;
 	}
-  
+
   /* should we make a tmpdir? */
   if (!is_cloud_job(pjob)) /* skip this for cloud jobs (no need to create temp directory */
   if (TTmpDirName(pjob, tmpdir))
@@ -5233,32 +5232,32 @@ void start_exec(
 	  {
 	  snprintf(log_buffer, 1024, "cannot create temp dir '%s'",
 					   tmpdir);
-	  
+
 	  log_err(-1, id, log_buffer);
-	  
+
 	  exec_bail(pjob, JOB_EXEC_FAIL1);
-	  
+
 	  return;
 	  }
 	}
-  
+
   /* if nodecount > 1, return once joins are sent, if nodecount == 1,
 	   return once job is started */
-  
+
   if (nodenum > 1)
 	{
 	/* Step 4.0A Send Join Request to Sisters */
-	
+
 	/* parallel job */
-	
+
 	pjob->ji_resources = (noderes *)calloc(nodenum - 1, sizeof(noderes));
-	
+
 	assert(pjob->ji_resources != NULL);
-	
+
 	CLEAR_HEAD(phead);
-	
+
 	pattr = pjob->ji_wattr;
-	
+
 	for (i = 0;i < (int)JOB_ATR_LAST;i++)
 		{
 		(job_attr_def + i)->at_encode(
@@ -5268,55 +5267,55 @@ void start_exec(
 																 NULL,
 																 ATR_ENCODE_MOM);
 		}	 /* END for (i) */
-	
+
 	attrl_fixlink(&phead);
-	
+
 	/* Open streams to the sisterhood. */
-	
+
 	for (i = 1;i < nodenum;i++)
 		{
 		np = &pjob->ji_hosts[i];
-	
+
 		log_buffer[0] = '\0';
-	
+
 		/* rpp_open() will succeed even if MOM is down */
-	
+
 		np->hn_stream = rpp_open(np->hn_host, pbs_rm_port, log_buffer);
-	
+
 		if (np->hn_stream < 0)
 			{
 			pjob->ji_nodekill = i;
-	
+
 			if (log_buffer[0] != '\0')
 				{
 				sprintf(log_buffer, "rpp_open failed on %s",
 								np->hn_host);
 				}
-	
+
 			log_err(errno, id, log_buffer);
-	
+
 			exec_bail(pjob, JOB_EXEC_FAIL1);
-	
+
 			return;
 			}
 		}		 /* END for (i) */
-	
+
 	/* Open two sockets for use by demux program later. */
-	
+
 	for (i = 0;i < 2;i++)
 		socks[i] = -1;
-	
+
 	for (i = 0;i < 2;i++)
 		{
 		if ((socks[i] = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 			break;
-	
+
 		memset(&saddr, '\0', sizeof(saddr));
-	
+
 		saddr.sin_addr.s_addr = INADDR_ANY;
-	
+
 		saddr.sin_family = AF_INET;
-	
+
 		if (bind(
 						socks[i],
 						(struct sockaddr *)&saddr,
@@ -5324,38 +5323,38 @@ void start_exec(
 			{
 			break;
 			}
-	
+
 		slen = sizeof(saddr);
-	
+
 		if (getsockname(socks[i], (struct sockaddr *)&saddr, &slen) == -1)
 			break;
-	
+
 		ports[i] = (int)ntohs(saddr.sin_port);
 		}	 /* END for (i) */
-	
+
 	if (i < 2)
 		{
 		/* ERROR:  cannot open sockets for stdout and stderr */
-	
+
 		for (i = 0;i < 2;i++)
 			{
 			if (socks[i] != -1)
 				close(socks[i]);
 			}
-	
+
 		/* command sisters to abort job and continue */
-	
+
 		log_err(errno, id, "stdout/err socket");
-	
+
 		exec_bail(pjob, JOB_EXEC_FAIL1);
-	
+
 		return;
 		}
-	
+
 	pjob->ji_stdout = socks[0];
-	
+
 	pjob->ji_stderr = socks[1];
-	
+
 	/* Send out a JOIN_JOB message to all the MOM's in the sisterhood. */
 
 	int ret = 0;
@@ -5363,7 +5362,7 @@ void start_exec(
 	  ret = magrathea_admin_lock(pjob);
 	else
 	  ret = magrathea_lock();
-	
+
 	if (ret != 0)
 	  {
 	  exec_bail(pjob, JOB_EXEC_FAIL1);
@@ -5371,16 +5370,16 @@ void start_exec(
 	  }
 
 	/* NOTE:  does not check success of join request */
-	
+
 	for (i = 1;i < nodenum;i++)
 		{
 		np = &pjob->ji_hosts[i];
 		stream = np->hn_stream;
-	
+
 		ep = event_alloc(IM_JOIN_JOB, np, TM_NULL_EVENT, TM_NULL_TASK);
-	
+
 		/* im_compose() will succeed even if mom is down */
-	
+
 		im_compose(
 							stream,
 							pjob->ji_qs.ji_jobid,
@@ -5388,29 +5387,29 @@ void start_exec(
 							IM_JOIN_JOB,
 							ep->ee_event,
 							TM_NULL_TASK);
-	
+
 		diswsi(stream, i);				/* nodeid of receiver */
 		diswsi(stream, nodenum); /* number of nodes */
 		diswsi(stream, ports[0]);	/* out port number */
 		diswsi(stream, ports[1]);	/* err port number */
-	
+
 		/* write jobattrs */
-	
+
 		psatl = (svrattrl *)GET_NEXT(phead);
-	
+
 		encode_DIS_svrattrl(stream, psatl);
-	
+
 		/* NOTE:  rpp_flush() will succeed even if MOM is down */
-	
+
 		if (rpp_flush(stream) != 0)
 			{
 			sprintf(log_buffer, "ALERT:  unable to send join_job message to %s",
 							np->hn_host);
-	
+
 			log_err(errno, id, log_buffer);
 			}
 		}	 /* END for (i) */
-	
+
 	if (is_cloud_job(pjob))
 	  {
     log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"start_exec","Cloud job detected");
@@ -5434,24 +5433,24 @@ void start_exec(
     exec_bail(pjob, JOB_EXEC_FAIL1);
     return;
     }
-	
+
 	/* serial job */
-	
+
 	int SC;
 	int RC;
-	
+
 	int Count;
-	
+
 	pjobexec_t *TJE;
-	
+
 	/* single node job - no sisters */
-	
+
 	ports[0] = -1;
 	ports[1] = -1;
-	
+
 	pjob->ji_stdout = -1;
 	pjob->ji_stderr = -1;
-	
+
 	if (is_cloud_job(pjob))
 	  {
 	  log_record(PBSEVENT_JOB,PBS_EVENTCLASS_JOB,"start_exec","Cloud job detected");
@@ -5462,111 +5461,111 @@ void start_exec(
 	if (TMOMJobGetStartInfo(NULL, &TJE) == FAILURE)
 		{
 		sprintf(log_buffer, "ALERT:  cannot locate available job slot");
-	
+
 		log_record(
 							PBSEVENT_ERROR,
 							PBS_EVENTCLASS_JOB,
 							pjob->ji_qs.ji_jobid,
 							log_buffer);
-	
+
 		/* on failure, TJE is NULL */
-	
+
 		exec_bail(pjob, JOB_EXEC_RETRY);
-	
+
 		return;
 		}
-	
+
 	if (TMomFinalizeJob1(pjob, TJE, &SC) == FAILURE)
 		{
 		/* FAILURE (or at least do not continue) */
-	
+
 		if (SC != 0)
 			{
 			memset(TJE, 0, sizeof(pjobexec_t));
-	
+
 			exec_bail(pjob, SC);
 			}
-	
+
 		return;
 		}
-	
+
 	/* TMomFinalizeJob2() blocks until job is fully launched */
-	
+
 	if (TMomFinalizeJob2(TJE, &SC) == FAILURE)
 		{
 		if (SC != 0)
 			{
 			memset(TJE, 0, sizeof(pjobexec_t));
-	
+
 			exec_bail(pjob, SC);
 			}
-	
+
 		return;
 		}
-	
+
 	if (TMomCheckJobChild(TJE, TJobStartBlockTime, &Count, &RC) == FAILURE)
 		{
 		if (LOGLEVEL >= 3)
 			{
 			sprintf(log_buffer, "job not ready after %ld second timeout, MOM will recheck",
 							TJobStartBlockTime);
-	
+
 			log_record(
 								PBSEVENT_ERROR,
 								PBS_EVENTCLASS_JOB,
 								pjob->ji_qs.ji_jobid,
 								log_buffer);
 			}
-	
+
 		return;
 		}
-	
+
 	/* NOTE:  TMomFinalizeJob3() populates SC */
-	
+
 	if (TMomFinalizeJob3(TJE, Count, RC, &SC) == FAILURE)
 		{
 		/* no need to log an error, TMomFinalizeJob3 already does it */
-	
+
 		memset(TJE, 0, sizeof(pjobexec_t));
-	
+
 		exec_bail(pjob, SC);
-	
+
 		return;
 		}
-	
+
 	/* SUCCESS:  MOM returns */
-	
+
 	if (LOGLEVEL >= 3)
 		{
 		sprintf(log_buffer, "job successfully started");
-	
+
 		log_record(
 							PBSEVENT_ERROR,
 							PBS_EVENTCLASS_JOB,
 							pjob->ji_qs.ji_jobid,
 							log_buffer);
 		}
-	
+
 	/* clear old TJE */
-	
+
 	memset(TJE, 0, sizeof(pjobexec_t));
 	}	 /* END else (nodenum > 1) */
-  
+
   /* SUCCESS */
-  
+
   if (LOGLEVEL >= 3)
 	{
 	sprintf(log_buffer, "job %s reported successful start on %d node(s)",
 					pjob->ji_qs.ji_jobid,
 					nodenum);
-	
+
 	LOG_EVENT(
 					 PBSEVENT_JOB,
 					 PBS_EVENTCLASS_JOB,
 					 pjob->ji_qs.ji_jobid,
 					 log_buffer);
 	}
-  
+
   return;
   }	 /* END start_exec() */
 
@@ -5581,61 +5580,61 @@ pid_t fork_me(
   {
   struct sigaction act;
   pid_t   pid;
-  
+
   fflush(stdout);
   fflush(stderr);
-  
+
   pid = fork();
-  
+
   if (pid == 0)
 	  {
 	  /* now the child */
-  
+
 	  /* Turn off alarm if it should happen to be on */
-  
+
 	  alarm(0);
-  
+
 	  rpp_terminate();
-  
+
 	  /* Reset signal actions for most to SIG_DFL */
-  
+
 	  sigemptyset(&act.sa_mask);
-  
+
 	  act.sa_flags   = 0;
 	  act.sa_handler = SIG_DFL;
-  
+
 	  sigaction(SIGCHLD, &act, (struct sigaction *)0);
-  
+
   #ifdef _CRAY
 	  sigaction(WJSIGNAL, &act, (struct sigaction *)0);
   #endif /* _CRAY */
-  
+
 	  sigaction(SIGHUP, &act, (struct sigaction *)0);
 	  sigaction(SIGINT, &act, (struct sigaction *)0);
 	  sigaction(SIGTERM, &act, (struct sigaction *)0);
-  
+
 	  /* reset signal mask */
-  
+
 	  sigprocmask(SIG_SETMASK, &act.sa_mask, NULL);
-  
+
 	  mom_close_poll();
-  
+
 	  /* NOTE:  close logfile, lockfile, and connection to server (NYI) */
-  
+
 	  if (lockfds >= 0)
 		  {
 		  close(lockfds);
-  
+
 		  lockfds = -1;
 		  }
-  
+
 	  log_close(0);
-  
+
 	  net_close(conn); /* close all but for the current */
-  
+
 	  /* release mlock; it seems to be inherited even though the
 	   * man page claims otherwise */
-  
+
   #ifdef _POSIX_MEMLOCK
 	  munlockall();
   #endif /* _POSIX_MEMLOCK */
@@ -5643,7 +5642,7 @@ pid_t fork_me(
 	  {
 	  log_err(errno, "fork_me", "fork failed");
 	  }
-  
+
   return(pid);
   }	 /* END fork_me() */
 
@@ -5662,36 +5661,36 @@ static void starter_return(
   {
   struct startjob_rtn ack;
   int i;
-  
+
   sjrtn->sj_code = code;
-  
+
   if (write(upfds, (char *)sjrtn, sizeof(*sjrtn)) == -1)
     {
     }
-  
+
   if (code < 0)
     close(upfds);
-  
+
   /* wait for acknowledgement */
-  
+
   do
 	{
 	i = read(downfds, &ack, sizeof(ack));
-	
+
 	if ((i == -1) && (errno != EINTR))
 	  {
 	  break;
 	  }
 	}
   while (i < 0);
-  
+
   close(downfds);
-  
+
   if (code < 0)
 	{
 	exit(254);
 	}
-  
+
   return;
   }	 /* END starter_return() */
 
@@ -5715,7 +5714,7 @@ int remove_leading_hostname(
 
   char *ptr;
 
-  if ((jobpath == NULL) || 
+  if ((jobpath == NULL) ||
       (*jobpath == NULL))
     {
     return(FAILURE);
@@ -5729,7 +5728,7 @@ int remove_leading_hostname(
 
   /* SUCCESS, move past the ':' and return the rest */
   ptr++;
-  
+
   *jobpath = ptr;
 
   return(SUCCESS);
@@ -5766,166 +5765,166 @@ char *std_file_name(
 	char *pt;
 	char endpath[MAXPATHLEN + 1];
 	#endif
-	
+
 	#if NO_SPOOL_OUTPUT == 0
 	int   havehomespool = 0;
-	
+
 	extern char *TNoSpoolDirList[];
 	#else /* NO_SPOOL_OUTPUT */
-	
+
 	struct stat myspooldir;
 	static char  path_alt[MAXPATHLEN + 1];
 	int   rcstat;
 	#endif /* NO_SPOOL_OUTPUT */
-	
+
 	if (LOGLEVEL >= 5)
 		{
 		sprintf(log_buffer, "getting %s file name",
 						(which == StdOut) ? "stdout" : "stderr");
-	
+
 		log_record(
 							PBSEVENT_JOB,
 							PBS_EVENTCLASS_JOB,
 							pjob->ji_qs.ji_jobid,
 							log_buffer);
 		}
-	
+
 	if (keeping == NULL)
 		{
 		/* FAILURE */
-	
+
 		return(NULL);
 		}
-	
+
 	if ((pjob->ji_wattr[(int)JOB_ATR_interactive].at_flags & ATR_VFLAG_SET) &&
 			(pjob->ji_wattr[(int)JOB_ATR_interactive].at_val.at_long > 0))
 		{
 		/* interactive job, name of pty is in outpath */
-	
+
 		*keeping = 0;
-	
+
 		return(pjob->ji_wattr[(int)JOB_ATR_outpath].at_val.at_str);
 		}
-	
+
 	if (pjob->ji_grpcache == NULL)
 		{
 		/* FAILURE - ji_grpcache required for gc_homedir information */
-	
+
 		return(NULL);
 		}
-	
+
 	switch (which)
 		{
-		
+
 		case StdOut:
-	
+
 			key    = 'o';
 			suffix = JOB_STDOUT_SUFFIX;
-	
+
 			if (pjob->ji_wattr[(int)JOB_ATR_outpath].at_flags & ATR_VFLAG_SET)
 				{
 				jobpath = pjob->ji_wattr[(int)JOB_ATR_outpath].at_val.at_str;
-	
+
 				if (spoolasfinalname == TRUE)
 					{
 					remove_leading_hostname(&jobpath);
-		
+
 					if (expand_path(pjob,jobpath,sizeof(path),path) != SUCCESS)
 						{
 						return(NULL);
 						}
 					}
 				}
-	
+
 			break;
-	
+
 		case StdErr:
-	
+
 			key    = 'e';
 			suffix = JOB_STDERR_SUFFIX;
-	
+
 			if (pjob->ji_wattr[(int)JOB_ATR_errpath].at_flags & ATR_VFLAG_SET)
 				{
 				jobpath = pjob->ji_wattr[(int)JOB_ATR_errpath].at_val.at_str;
-	
+
 				if (spoolasfinalname == TRUE)
 					{
 					remove_leading_hostname(&jobpath);
-		
+
 					if (expand_path(pjob,jobpath,sizeof(path),path) != SUCCESS)
 						{
 						return(NULL);
 						}
 					}
 				}
-	
+
 			break;
-	
+
 		case Checkpoint:
-	
+
 		default:
-	
+
 			key = '\001';	/* should never be found */
 			suffix = JOB_CHECKPOINT_SUFFIX;
-	
+
 			break;
 		}	 /* END switch (which) */
-	
+
 	/* everything that changes the path here is ignored if spoolasfinalname is set
 	 * to true. spoolasfinalname specifies directly spooling as the output file */
-	
+
 	/* Is file to be kept?, if so, place the stderr/stdout files in the
 	 * path specified by the user. The path must be local to the execution node,
 	 * if a hostname is supplied, it will be stripped off. The only suppported
 	 * environment variable is $HOME--any other will cause files to be placed in
 	 * the home directory (the default location). */
-	
+
 	if ((pjob->ji_wattr[(int)JOB_ATR_keep].at_flags & ATR_VFLAG_SET) &&
 			(strchr(pjob->ji_wattr[(int)JOB_ATR_keep].at_val.at_str, key)))
 		{
 		/* yes, it is to be kept */
-	
+
 		if (spoolasfinalname == FALSE)
 			{
 			strcpy(path, pjob->ji_grpcache->gc_homedir);
-		
+
 				pd = strrchr(pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str, '/');
-		
+
 				if (pd == NULL)
 					{
 				pd = pjob->ji_wattr[(int)JOB_ATR_jobname].at_val.at_str;
-		
+
 					strcat(path, "/");
 					}
-			
-		
+
+
 			#ifdef QSUB_KEEP_NO_OVERRIDE
 				/* don't do for checkpoint file names, only StdErr and StdOut */
-		
+
 			if (strcmp(suffix, JOB_CHECKPOINT_SUFFIX) != 0)
 					{
 				pt = strstr(jobpath, "$HOME");
-		
+
 				if (pt != NULL)
 						{
 						strcpy(endpath, pt + 5);
 						strcpy(pt, pjob->ji_grpcache->gc_homedir);
 						strcat(jobpath, endpath);
 					}
-		
+
 					if ((strstr(jobpath, pd) == NULL) && (strchr(jobpath, '$') == NULL))
 						{
 					if (jobpath[strlen(jobpath) - 1] != '/')
 							{
 							strcat(jobpath, "/");
 							}
-		
+
 						pt = strchr(jobpath, ':');
-		
+
 					if (pt == NULL)
 							{
 							strcpy(path, jobpath);
-							} 
+							}
 					else
 						{
 							strcpy(path, pt + 1);
@@ -5933,200 +5932,200 @@ char *std_file_name(
 						}
 					}
 			#endif
-		
+
 				strcat(path, pd);						 /* start with the job name */
-		
+
 			len = strlen(path);
-		
+
 				*(path + len++) = '.';					/* the dot        */
 				*(path + len++) = key;		 /* the letter     */
-		
+
 			pd = pjob->ji_qs.ji_jobid;			/* the seq_number */
-		
+
 				while (isdigit((int)*pd))
 					*(path + len++) = *pd++;
-		
+
 			*(path + len) = '\0';
 			} /* END if (spoolasfinalname == FALSE) */
-	
+
 		*keeping = 1;
-		} 
+		}
 	else
 		{
 		/* don't bother keeping output if the user actually wants to discard it */
-	
+
 		if ((jobpath != NULL) && (*jobpath != '\0'))
 			{
 			char *ptr;
-	
+
 			if ((ptr = strchr(jobpath, ':')) != NULL)
 				{
 				jobpath = ptr + 1;
 				}
-	
+
 			if (!strcmp(jobpath, "/dev/null"))
 				{
 				strcpy(path, "/dev/null");
-	
+
 				*keeping = 1;
-	
+
 				return(path);
 				}
 			}
-	
+
 		/* put into spool directory unless NO_SPOOL_OUTPUT is defined */
-	
+
 		if (LOGLEVEL >= 10)
 			{
 			sprintf(log_buffer, "%s path before NO_SPOOL_OUTPUT: %s",
 			id,
 			path);
-	
+
 			log_ext(-1, id, log_buffer, LOG_DEBUG);
 			}
-	
+
 	#if NO_SPOOL_OUTPUT == 1
-	
+
 		if (spoolasfinalname == FALSE)
 			{
 			/* force all output to user's HOME */
-		
+
 			strncpy(path, pjob->ji_grpcache->gc_homedir, sizeof(path));
-		
+
 			/* check for $HOME/.pbs_spool */
 				/* if it's not a directory, just use $HOME us usual */
-		
+
 			strncpy(path_alt, path, sizeof(path_alt));
-		
+
 			strncat(path_alt, "/.pbs_spool/", sizeof(path_alt));
-		
+
 			if (seteuid(pjob->ji_qs.ji_un.ji_momt.ji_exuid) == -1)
 				{
 					return(NULL);
 				}
-		
+
 			rcstat = stat(path_alt, &myspooldir);
-		
+
 			seteuid(0);
-		
+
 			if ((rcstat == 0) && (S_ISDIR(myspooldir.st_mode)))
 					strncpy(path, path_alt, sizeof(path));
 			else
 				strncat(path, "/", sizeof(path));
-		
+
 			*keeping = 1;
-		
+
 			if (LOGLEVEL >= 10)
 				{
 				sprintf(log_buffer, "%s path in NO_SPOOL_OUTPUT: %s",
 					id,
 					path);
-		
+
 				log_ext(-1, id, log_buffer, LOG_DEBUG);
 				}
 			} /* END if (spoolasfinalname == FALSE) */
-	
+
 	#else /* NO_SPOOL_OUTPUT */
-	
+
 		if (spoolasfinalname == FALSE)
 			{
 			if ((TNoSpoolDirList[0] != NULL))
 				{
 				int   dindex;
-		
+
 				char *wdir;
-		
+
 				wdir = get_job_envvar(pjob, "PBS_O_WORKDIR");
-		
+
 				if (LOGLEVEL >= 10)
 					{
 					sprintf(log_buffer, "wdir: %s",
 							wdir);
-		
+
 					log_ext(-1, id, log_buffer, LOG_DEBUG);
 					}
-		
+
 				if (wdir != NULL)
 					{
 						/* check if job's work dir matches the no-spool directory list */
-		
+
 					if (LOGLEVEL >= 10)
 							log_ext(-1, id, "inside wdir != NULL", LOG_DEBUG);
-		
+
 					for (dindex = 0;dindex < TMAX_NSDCOUNT;dindex++)
 						{
 						if (TNoSpoolDirList[dindex] == NULL)
 								break;
-		
+
 						if (!strcasecmp(TNoSpoolDirList[dindex], "$WORKDIR") ||
 									!strcmp(TNoSpoolDirList[dindex], "*"))
 							{
 							havehomespool = 1;
-		
+
 							if (LOGLEVEL >= 10)
 									log_ext(-1, id, "inside !strcasecmp", LOG_DEBUG);
-		
+
 							strncpy(path, wdir, sizeof(path));
-		
+
 							break;
 							}
-		
+
 						if (!strncmp(TNoSpoolDirList[dindex], wdir, strlen(TNoSpoolDirList[dindex])))
 							{
 							havehomespool = 1;
-		
+
 							if (LOGLEVEL >= 10)
 									log_ext(-1, id, "inside !strncmp", LOG_DEBUG);
-		
+
 							strncpy(path, wdir, sizeof(path));
-		
+
 							break;
 							}
 						}	 /* END for (dindex) */
 					}		 /* END if (wdir != NULL) */
 				}			 /* END if (TNoSpoolDirList != NULL) */
-		
+
 				if (havehomespool == 0)
 					{
 					strncpy(path, path_spool, sizeof(path));
-					} 
+					}
 				else
 					{
 					strncat(path, "/", sizeof(path));
 					}
-		
+
 			} /* END if (spoolasfinalname == FALSE) */
-	
+
 		*keeping = 0;
-	
+
 		if (LOGLEVEL >= 10)
 			{
 			sprintf(log_buffer, "%s path in else NO_SPOOL_OUTPUT: %s",
 			id,
 			path);
-	
+
 			log_ext(-1, id, log_buffer, LOG_DEBUG);
 			}
-	
+
 	#endif /* NO_SPOOL_OUTPUT */
 		if (spoolasfinalname == FALSE)
 			{
 			strncat(path, pjob->ji_qs.ji_fileprefix, (sizeof(path) - strlen(path) - 1));
-		
+
 			strncat(path, suffix, (sizeof(path) - strlen(path) - 1));
-		
+
 			if (LOGLEVEL >= 10)
 				{
 				sprintf(log_buffer, "path: '%s'  prefix: '%s'  suffix: '%s'",
 						path,
 						pjob->ji_qs.ji_fileprefix,
 						suffix);
-		
+
 				log_ext(-1, id, log_buffer, LOG_DEBUG);
 				}
 			} /* END if (spoolasfinalname == FALSE) */
 		}		 /* END else ((pjob->ji_wattr[(int)JOB_ATR_keep].at_flags & ...)) */
-	
+
 	return(path);
 	}	 /* END std_file_name() */
 
@@ -6155,22 +6154,22 @@ int open_std_file(
 	int   old_umask = 0;
 
   char *id = "open_std_file";
-	
+
 	struct stat statbuf;
-	
+
 	if ((path = std_file_name(pjob, which, &keeping)) == NULL)
 		{
 		log_err(-1, id, "cannot determine filename");
-	
+
 		/* FAILURE - cannot determine filename */
-	
+
 		return(-1);
 		}
-	
+
 	/* these checks are a bit complicated.  If keeping, we do what the user
 	 * says.  Otherwise, make sure we aren't following a symlink and that
 		 the user owns the file without breaking /dev/null. */
-	
+
 	if (keeping)
 		{
 		mode &= ~O_EXCL;
@@ -6180,28 +6179,28 @@ int open_std_file(
 		if (lstat(path, &statbuf) == 0)
 			{
 			/* lstat succeeded */
-	
+
 			if (S_ISLNK(statbuf.st_mode))
 				{
 				log_err(-1, id, "std file is symlink, someone is doing something fishy");
-	
+
 				return(-1);
 				}
-	
+
 			if (S_ISREG(statbuf.st_mode))
 				{
 				if (statbuf.st_uid != pjob->ji_qs.ji_un.ji_momt.ji_exuid)
 					{
 					log_err(-1, id, "std file exists with the wrong owner, someone is doing something fishy");
-	
+
 					return(-1);
 					}
-	
+
 				if ((statbuf.st_gid != exgid) && (statbuf.st_gid != 0))
 					{
 					int i;
 					int equal = FALSE;
-					
+
 					/* check all of the secondary groups before throwing an error */
 					for (i = 0; i < pjob->ji_grpcache->gc_ngroup; i++)
 						{
@@ -6211,51 +6210,51 @@ int open_std_file(
               break;
               }
 						}
-	
+
 					if (equal == FALSE)
 						{
 						log_err(-1, id, "std file exists with the wrong group, someone is doing something fishy");
-	
+
 						return(-1);
 						}
 					}
 				}
-	
+
 			/* seems reasonably safe to append to the existing file */
-	
+
 			/* file exists - do not need to create or open exclusive */
-	
+
 			mode &= ~(O_EXCL | O_CREAT);
 			}	 /* END if (lstat(path,&statbuf) == 0) */
 		else
 			{
 			/* lstat failed - should we return failure in all cases? */
-	
+
 			if (errno == EINTR)
 				{
 				sprintf(log_buffer, "cannot stat stdout/stderr file '%s' (timeout)",
 								path);
-	
+
 				if (LOGLEVEL >= 6)
 					log_err(errno, id, log_buffer);
-	
+
 				/* fail on timeout */
-	
+
 				return(-2);
-				} 
+				}
 			else
 				{
 				sprintf(log_buffer, "cannot stat stdout/stderr file '%s' - file does not exist, will create",
 								path);
-	
+
 				if (LOGLEVEL >= 6)
 					log_ext(errno, id, log_buffer, LOG_DEBUG);
 				}
 			}
 		}		 /* END else (keeping) */
-	
-	/* become user to create file, if we aren't already the user. In 
-   * run_pelog setuid etc. are called and the this function is invoked, 
+
+	/* become user to create file, if we aren't already the user. In
+   * run_pelog setuid etc. are called and the this function is invoked,
    * so doing this again fails and is unnecessary */
   if (getuid() == 0)
     {
@@ -6265,7 +6264,7 @@ int open_std_file(
         "setgroups failed for UID = %lu, error: %s\n",
         (unsigned long)pjob->ji_qs.ji_un.ji_momt.ji_exuid,
         strerror(errno));
-      
+
       log_err(errno,id,log_buffer);
       }
 
@@ -6294,50 +6293,50 @@ int open_std_file(
       return(-1);
       }
     }
-	
+
 	if (pjob->ji_wattr[(int)JOB_ATR_umask].at_flags & ATR_VFLAG_SET)
 		{
 		old_umask = umask(pjob->ji_wattr[(int)JOB_ATR_umask].at_val.at_long);
 		}
-	
+
 	/* open file */
-	
+
 	fds = open(path, mode, 0666);
-	
+
 	if (fds == -1)
 		{
 		sprintf(log_buffer, "cannot open/create stdout/stderr file '%s' (mode: %o, keeping: %s)",
 						path,
 						mode,
 						(keeping == 0) ? "FALSE" : "TRUE");
-	
+
 		log_err(errno, id, log_buffer);
-	
+
 		if (errno == ENOENT)
 			{
 			char *ptr;
 			char  tmpLine[1024];
-	
+
 			/* parent directory does not exist - find out what part of subtree exists */
-	
+
 			strncpy(tmpLine, path, sizeof(tmpLine));
-	
+
 			while ((ptr = strrchr(tmpLine, '/')) != NULL)
 				{
 				*ptr = '\0';
-	
+
 				if (lstat(tmpLine, &statbuf) == 0)
 					{
 					/* lstat succeeded */
-	
+
 					sprintf(log_buffer, "'%s' exists\n", tmpLine);
-	
+
 					break;
 					}	 /* END if (lstat(tmpLine,&statbuf) == 0) */
 				else
 					{
 					/* lstat failed - should we return failure in all cases? */
-	
+
 					if (errno == EINTR)
 						sprintf(log_buffer, "cannot stat stdout/stderr file '%s' (timeout)\n",
 										tmpLine);
@@ -6348,39 +6347,39 @@ int open_std_file(
 				}		/* END while ((ptr = strrchr(tmpLine,'/')) != NULL) */
 			}			/* END if (errno == ENOENT) */
 		}				/* END if (fds == -1) */
-	
+
 	if (old_umask)
 		{
 		umask(old_umask);
 		}
-	
+
 	seteuid(0);
-	
+
 	setegid(pbsgroup);
-	
+
 	if (fds == -1)
 		{
 		/* FAILURE - cannot open file */
-	
+
 		if (errno == EINTR)
 			{
 			/* TIMEOUT */
-	
+
 			return(-2);
 			}
 		}
-	
+
 	if (LOGLEVEL >= 4)
 		{
 		if (fds >= 0)
 			{
 			sprintf(log_buffer, "successfully created/opened stdout/stderr file '%s'",
 							path);
-	
+
 			log_ext(-1, id, log_buffer, LOG_DEBUG);
 			}
 		}
-	
+
 	return(fds);
 	}	 /* END open_std_file() */
 
@@ -6400,10 +6399,10 @@ static int find_env_slot(
 	{
 	int  i;
 	int  len = 1;	/* one extra for '=' */
-	
+
 	for (i = 0;(*(pstr + i) != '\0') && (*(pstr + i) != '=');++i)
 		++len;
-	
+
 	for (i = 0;i < ptbl->v_used;++i)
 		{
 		if (strncmp(ptbl->v_envp[i], pstr, len) == 0)
@@ -6411,7 +6410,7 @@ static int find_env_slot(
 			return(i);
 			}
 		}	 /* END for (i) */
-	
+
 	return(-1);
 	}	 /* END find_env_slot() */
 
@@ -6433,66 +6432,66 @@ void bld_env_variables(
 	{
 	int amt;
 	int i;
-	
+
 	if (vtable->v_used == vtable->v_ensize)
 		{
 		/* FAILURE - no room for pointer */
-	
+
 		return;
 		}
-	
+
 	if ((name == NULL) || (name[0] == '\0'))
 		{
 		/* FAILURE - name required */
-	
+
 		if (LOGLEVEL >= 7)
 			{
 			log_err(-1, "bld_env_variables", "invalid name passed");
 			}
 		}
-	
+
 	if (LOGLEVEL >= 10)
 		{
 		char tmpLine[1024];
-	
+
 		snprintf(tmpLine, sizeof(tmpLine), "building var '%s' (value: '%.64s')",
 						 name,
 						 (value != NULL) ? value : "NULL");
-	
+
 		log_ext(-1, "bld_env_variables", tmpLine, LOG_DEBUG);
 		}
-	
+
 	/*
 	 * We do not want the BATCH_PARTITION_ID to be passed down to the child.
 	 * It just needs to be checked for the job submitted by the user, not for
 	 * any jobs that the job might qsub.
 	 */
-	
+
 	if (memcmp(name,"BATCH_PARTITION_ID",strlen("BATCH_PARTITION_ID")) == 0)
 		{
 		return;
 		}
-	
+
 	amt = strlen(name) + 1;
-	
+
 	if (value != NULL)
 		amt += strlen(value) + 1;	/* plus 1 for "="     */
-	
+
 	if (amt > vtable->v_bsize)
 		{
 		/* FAILURE - no room for string */
-	
+
 		return;
 		}
-	
+
 	strcpy(vtable->v_block, name);
-	
+
 	if (value != NULL)
 		{
 		strcat(vtable->v_block, "=");
 		strcat(vtable->v_block, value);
 		}
-	
+
 	if ((i = find_env_slot(vtable, vtable->v_block)) < 0)
 		{
 		*(vtable->v_envp + vtable->v_used++) = vtable->v_block;
@@ -6500,13 +6499,13 @@ void bld_env_variables(
 		{
 		*(vtable->v_envp + i) = vtable->v_block;
 		}
-	
+
 	vtable->v_block += amt;
-	
+
 	vtable->v_bsize -= amt;
 
         *(vtable->v_envp + vtable->v_used) = NULL;
-	
+
 	return;
 	}	 /* END bld_env_variables() */
 
@@ -6530,108 +6529,108 @@ int init_groups(
 		 explicit LDAP backend to do initgroups (3) efficiently in nss_ldap
 		 (on Linux), lets use initgroups() to figure out the group
 		 membership. A little clunky, but not too ugly.  */
-	
+
 	/* return -1 on failure */
-	
+
 	char id[] = "init_groups";
-	
+
 	extern sigset_t allsigs; /* set up at the start of mom_main */
 	sigset_t savedset;
-	
+
 	int n, nsaved;
 	gid_t savedgroups[NGROUPS_MAX + 16]; /* plus one for the egid below */
-	
+
 	gid_t momegid;
 	int i;
-	
+
 	/* save current group access because we're about to overwrite it */
-	
+
 	nsaved = getgroups(NGROUPS_MAX, savedgroups);
-	
+
 	if (nsaved < 0)
 		{
 		log_err(errno, id, "getgroups");
-	
+
 		return(-1);
 		}
-	
+
 	/* From the Linux man page: It is unspecified whether the effective
 		 group ID of the calling process is included in the returned
 		 list. (Thus, an application should also call getegid(2) and add
 		 or remove the resulting value.)
 	*/
-	
+
 	momegid = getegid();
-	
+
 	/* search for duplicates */
-	
+
 	for (i = 0;i < nsaved;i++)
 		{
 		if (savedgroups[i] == momegid)
 			break;
 		}
-	
+
 	if (i >= nsaved)
 		savedgroups[nsaved++] = momegid;
-	
+
 	if (pwgrp == 0)
 		{
 		/* Emulate the original init_groups() behaviour which treated
 			 gid==0 as a special case */
-	
+
 		struct passwd *pwe = getpwnam(pwname);
-	
+
 		if (pwe == NULL)
 			{
 			log_err(errno, id, "no such user");
-	
+
 			return(-1);
 			}
-	
+
 		pwgrp = pwe->pw_gid;
 		}
-	
+
 	if (LOGLEVEL >= 4)
 		{
 		log_ext(-1, id, "pre-sigprocmask", LOG_DEBUG);
 		}
-	
+
 	/* Block signals while we do this or else the signal handler might
 		 run with strange group access */
-	
+
 	if (sigprocmask(SIG_BLOCK, &allsigs, &savedset) == -1)
 		{
 		log_err(errno, id, "sigprocmask(BLOCK)");
-	
+
 		return(-1);
 		}
-	
+
 	n = 0;
-	
+
 	if (initgroups(pwname, pwgrp) < 0)
 		{
 		log_err(errno, id, "initgroups");
-	
+
 		n = -1;
-		} 
+		}
 	else
 		{
 		n = getgroups(groupsize, (gid_t *)groups);
 		}
-	
+
 	if (LOGLEVEL >= 4)
 		{
 		log_ext(-1, id, "post-initgroups", LOG_DEBUG);
 		}
-	
+
 	/* restore state */
-	
+
 	if (setgroups(nsaved, savedgroups) < 0)
 		log_err(errno, id, "setgroups");
-	
+
 	if (sigprocmask(SIG_SETMASK, &savedset, NULL) == -1)
 		log_err(errno, id, "sigprocmask(SIG_SETMASK)");
-	
+
 	return(n);
 	}	 /* END init_groups() */
 
@@ -6649,23 +6648,23 @@ int init_groups(
 	int  *groups)		/* O ptr to group array, list build there */
 
 	{
-	
+
 	struct group *grp;
 	int i;
 	int n;
-	
+
 	n = 0;
-	
+
 	if (pwgrp != 0)
 		*(groups + n++) = pwgrp;
-	
+
 	setgrent();
-	
+
 	while ((grp = getgrent()))
 		{
 		if (grp->gr_gid == (gid_t)pwgrp)
 			continue;
-	
+
 		for (i = 0;grp->gr_mem[i];i++)
 			{
 			if (!strcmp(grp->gr_mem[i], pwname))
@@ -6673,17 +6672,17 @@ int init_groups(
 				if (n == groupsize)
 					{
 					endgrent();
-	
+
 					return(-1);
 					}
-	
+
 				*(groups + n++) = grp->gr_gid;
 				}
 			}
 		}		 /* END while (grp) */
-	
+
 	endgrent();
-	
+
 	return(n);
 	}	 /* END init_groups() */
 
@@ -6745,9 +6744,9 @@ static int search_env_and_open(
 	{
 	static char *id = "search_env_and_open";
 	int i, len;
-	
+
 	len = strlen(envname);
-	
+
 	for (i = 0;i < vtable.v_used;i++)
 		{
 		if (!strncmp(vtable.v_envp[i], envname, len))
@@ -6755,42 +6754,42 @@ static int search_env_and_open(
 			const char *cp = vtable.v_envp[i] + len;
 			char *cq;
 			int fd, port;
-	
+
 			if (*cp++ != '=')
 				break;	/* empty, ignore it */
-	
+
 			port = strtol(cp, &cq, 10);
-	
+
 			if (*cq)
 				{
 				sprintf(log_buffer, "improper value for %s", envname);
 				log_err(errno, id, log_buffer);
-	
+
 				return(-2);
 				}
-	
+
 	#if 0       /* debugging */
 		log_err(-1, "search_env_and_open attempting open", vtable.v_envp[i]);
-	
+
 	#endif
-	
+
 		if ((fd = open_demux(ipaddr, port)) < 0)
 			{
 				sprintf(log_buffer, "failed connect to stdio on %s:%d",
 								vtable.v_envp[i],
 								port);
-	
+
 				log_err(errno, id, log_buffer);
-	
+
 				return(-2);
 				}
-	
+
 			return(fd);
 			}
 		}		 /* END for (i) */
-	
+
 	/* not found */
-	
+
 	return(-1);
 	}	 /* END search_env_and_open() */
 
@@ -6805,60 +6804,60 @@ int TMomCheckJobChild(
 
 	{
 	int i;
-	
+
 	fd_set fdset;
-	
+
 	int rc;
-	
+
 	struct timeval timeout;
-	
+
 	/* NOTE:  assume if anything is on pipe, everything is on pipe
 						(may reasult in hang) */
-	
+
 	/* block up to timeout, wait for child to complete indicating
 		 success/failure of job launch */
-	
+
 	/* read returns the session id or error */
-	
+
 	timeout.tv_sec  = Timeout;
 	timeout.tv_usec = 0;
 	errno = 0;
-	
+
 	FD_ZERO(&fdset);
-	
+
 	FD_SET(TJE->jsmpipe[0], &fdset);
-	
+
 	rc = select(
 						 TJE->jsmpipe[0] + 1,
 						 &fdset,
 						 (fd_set *)NULL,
 						 (fd_set *)NULL,
 						 &timeout);
-	
+
 	if (rc <= 0)
 		{
 		/* TIMEOUT - data not yet available */
-	
+
 		return(FAILURE);
 		}
-	
+
 	for (;;)
 		{
 		i = read(
 						TJE->jsmpipe[0],
 						(char *) & TJE->sjr,
 						sizeof(struct startjob_rtn));
-	
+
 		if ((i == -1) && (errno == EINTR))
 			continue;
-	
+
 		break;
 		}
-	
+
 	*RC = errno;
-	
+
 	*Count = i;
-	
+
 	if (LOGLEVEL >= 4)
 		{
 		log_record(
@@ -6867,7 +6866,7 @@ int TMomCheckJobChild(
 							(TJE->pjob != NULL) ? ((job *)TJE->pjob)->ji_qs.ji_jobid : "???",
 							"task/session info loaded");
 		}
-	
+
 	return(SUCCESS);
 	}	 /* END TMomCheckJobChild() */
 
@@ -6882,7 +6881,7 @@ uint64_t get_jobid(
 	char*    pbs_jobid)
 {
 	static char *id = "get_jobid";
-	
+
 	uint64_t job_id;
 
 #ifndef JOBFAKE
@@ -6930,35 +6929,35 @@ uint64_t get_jobid(
 
 int check_csa_status(enum csa_chk_cmd chk_action)
 	{
-#ifndef CSAFAKE	
+#ifndef CSAFAKE
 	static char *id = "check_csa_status";
-#endif /* CSAFAKE */	
+#endif /* CSAFAKE */
 	int csa_stat = 0;
 
-#ifndef CSAFAKE	
+#ifndef CSAFAKE
 	struct csa_check_req ck_req;
-	
+
 	ck_req.ck_stat.am_id = (chk_action == IS_INSTALLED) ? ACCT_KERN_CSA : ACCT_DMD_WKMG;
 	ck_req.ck_stat.am_status = ACS_OFF;
 	ck_req.ck_stat.am_param = 0;
-	
+
 	if (csa_check(&ck_req) != 0)
 		{
 		if (errno != ENOSYS)
 			{
 			sprintf("check_csa_status errno = %d\n", errno);
-	
+
 			log_err(-1, id, log_buffer);
 			}
-	
+
 		return 0;
 		}
-	
+
 	if (chk_action == IS_INSTALLED)
 		{
 		/* since the call to csa_check was successful, we know csa is installed */
 		csa_stat = 1;
-		} 
+		}
 	else
 		{
 		csa_stat = (ck_req.ck_stat.am_status != ACS_ON) ? 0 : 1;
@@ -6967,7 +6966,7 @@ int check_csa_status(enum csa_chk_cmd chk_action)
 #else
   csa_stat = 1;
 
-#endif /* CSAFAKE */	
+#endif /* CSAFAKE */
 	return(csa_stat);
 	}
 
@@ -7226,9 +7225,9 @@ void add_wkm_start(
 
 	if (check_csa_status(IS_UP))
 		{
-		
+
 		/* check if we have a valid job id, if not just return */
-		
+
 		if (job_id == JOB_FAIL)
   		{
       if (LOGLEVEL >= 2)
@@ -7314,9 +7313,9 @@ void add_wkm_end(
 
 	if (check_csa_status(IS_UP))
 		{
-		
+
 		/* check if we have a valid job id, if not just return */
-		
+
 		if (job_id == JOB_FAIL)
   		{
       if (LOGLEVEL >= 2)
@@ -7422,32 +7421,32 @@ int expand_path(
   /* expand the path */
   switch (wordexp(path_in, &exp, WRDE_NOCMD | WRDE_UNDEF))
     {
-    
+
     case 0:
-      
+
       /* success - allow if word count is 1 */
-      
+
       if (exp.we_wordc == 1)
         {
         snprintf(path,pathlen,"%s",exp.we_wordv[0]);
-        
+
         wordfree(&exp);
-        
+
         return(SUCCESS);
         }
-      
+
       /* fall through */
-      
+
     case WRDE_NOSPACE:
-      
+
       wordfree(&exp);
-      
+
       /* fall through */
-      
+
     default:
-      
+
       return(FAILURE);
-      
+
     }  /* END switch () */
 
   /* not reached */

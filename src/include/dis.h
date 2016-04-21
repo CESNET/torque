@@ -257,7 +257,7 @@ extern void DIS_tcp_settimeout A_((long timeout));
 extern int  DIS_tcp_istimeout A_((int fd));
 extern void DIS_tcp_release (int fd);
 #ifdef GSSAPI
-extern void DIS_tcp_set_gss(int fd,gss_ctx_id_t ctx,OM_uint32 flags);
+extern int DIS_tcp_set_gss(int fd,gss_ctx_id_t ctx,OM_uint32 flags);
 #endif
 
 

@@ -149,7 +149,7 @@
 #include "cgroup.h"
 
 #include "mcom.h"
-
+#include "renew.h"
 #include "cloud.h"
 #include "root_task.h"
 
@@ -667,7 +667,6 @@ extern void exec_bail(job *, int);
 extern void check_state(int);
 extern void DIS_tcp_funcs();
 
-extern void stop_renewal(task *ptask);
 
 /* Local public functions */
 

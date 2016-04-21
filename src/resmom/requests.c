@@ -225,10 +225,6 @@ char *get_job_envvar(
   }  /* END get_job_envvar() */
 
 
-#ifndef GSSAPI
-#define krb_holder_t int
-#endif
-
 /*
  * fork_to_user - fork mom and go to user's home directory
  *    also sets up the global useruid and usergid in the child
@@ -242,7 +238,7 @@ static pid_t fork_to_user(
   int                   SetUID, /* I (boolean) */
   char                 *HDir,   /* O (job/user home directory) */
   char                 *EMsg,   /* I (optional,minsize=1024) */
-  krb_holder_t         *ticket)
+  struct krb_holder    *ticket)
 
   {
   char           *id = "fork_to_user";
@@ -464,25 +460,12 @@ static pid_t fork_to_user(
 
 #endif /* _CRAY */
 
+
 #ifdef GSSAPI
   if (pjob != NULL)
-    {
-    int ret;
-
-    ret = init_ticket(pjob,NULL,NULL,NULL,ticket->job_info,&ticket->context);
-
-    if (ret == 0)
-      ticket->got_ticket = 1;
-    }
+    init_ticket_from_job(pjob,NULL,ticket);
   else
-    {
-    int ret;
-
-    ret = init_ticket(NULL,preq->rq_extend,preq->rq_ind.rq_cpyfile.rq_jobid,NULL,ticket->job_info,&ticket->context);
-
-    if (ret == 0)
-      ticket->got_ticket = 1;
-    }
+    init_ticket_from_req(preq->rq_extend,preq->rq_ind.rq_cpyfile.rq_jobid,ticket);
 #endif
 
   /* NOTE:  only chdir now if SetUID is TRUE */
@@ -650,11 +633,11 @@ static int return_file(
   filename = std_file_name(pjob, which, &amt); /* amt is place holder */
 
   /* We need to check for NULL which may be returned */
-  
+
   if (filename == NULL)
     {
     return(-1);
-    }  
+    }
 
   if (strcmp(filename, "/dev/null") == 0)
     {
@@ -1084,7 +1067,7 @@ static int is_file_going_to_dir(
     int complen = 0;
 
     /* Make sure the destination is a directory */
-    
+
     if (!S_ISDIR(sb1.st_mode))
       {
       /* destination is not a directory */
@@ -1092,21 +1075,21 @@ static int is_file_going_to_dir(
       }
 
     strcpy(filename,file);
-    
+
     /* Does directory match the files path? */
-    
+
     ptr1 = strrchr(filename, '/');
     if (ptr1 != NULL)
       {
       ptr1[0] = '\0';
-      
-      complen = strlen(destdir);      
+
+      complen = strlen(destdir);
       if (destdir[complen - 1] == '/')
         {
         /* don't include trailing slash (if any) in comparision */
         complen--;
         }
-      
+
       if (memcmp(filename, destdir, complen) == 0)
         {
         /* file is going to directory*/
@@ -2243,7 +2226,7 @@ void req_signaljob(
   /*
    * When kill_job is launched, processes are killed and waitpid() should harvest the process
    * and takes action to send an obit. If no matching process exists, then an obit may never be
-   * sent due to the current way that TORQUE's state machine works. 
+   * sent due to the current way that TORQUE's state machine works.
    */
 
   numprocs = kill_job(pjob, sig, id, "killing job");
@@ -2568,7 +2551,7 @@ static int del_files(
   if (path==NULL)
     {
     add_bad_list(pbadfile,"malloc failed",1);
- 
+
     return(-1);
     }
 
@@ -2622,10 +2605,10 @@ static int del_files(
           strerror(errno));
 
         add_bad_list(pbadfile,log_buffer,1);
- 
+
         return(-1);
         }
-      
+
       if (setgid(usergid) != 0 && EUID0 == TRUE)
         {
         snprintf(log_buffer,sizeof(log_buffer),
@@ -2653,7 +2636,7 @@ static int del_files(
 
         return(-1);
       }
-	      
+
       EUID0 = FALSE;
       UID0 = FALSE;
 
@@ -2790,7 +2773,7 @@ static int del_files(
      * path to remove the jobs checkpoint directory not just the checkpoint itself.
      * Do not remove if it is in the remote checkpoint directory list
      */
-     
+
     if (del_dir)
       {
       char *ptr;
@@ -2843,7 +2826,7 @@ static int del_files(
         }
       }
     }
-    
+
 
   return(rc);
   }  /* END del_files() */
@@ -3232,12 +3215,9 @@ void req_cpyfile(
   int   wordexperr = 0;
 #endif
 
+  struct krb_holder *ticket = NULL;
 #ifdef GSSAPI
-  krb_holder_t ticket;
-  ticket.got_ticket = 0;
-  ticket.job_info = &ticket.job_info_;
-#else
-  int ticket = 0;
+  ticket = alloc_ticket();
 #endif
 
   /* there is nothing to copy */
@@ -3270,7 +3250,7 @@ void req_cpyfile(
       log_buffer);
     }
 
-  rc = (int)fork_to_user(preq, TRUE, HDir, EMsg, &ticket);
+  rc = (int)fork_to_user(preq, TRUE, HDir, EMsg, ticket);
 
   if (rc < 0)
     {
@@ -3442,16 +3422,16 @@ void req_cpyfile(
       }
 
 #ifdef GSSAPI
-    setenv("KRB5CCNAME",ticket.job_info->ccache_name,1);
+    setenv("KRB5CCNAME",get_ticket_ccname(ticket),1);
 #endif
     }
   else
     {
     InitUserEnv(pjob, NULL, NULL, NULL, NULL);
 #ifdef GSSAPI
-    if (ticket.got_ticket)
+    if (got_ticket(ticket))
       {
-      bld_env_variables(&vtable, "KRB5CCNAME", ticket.job_info->ccache_name);
+      bld_env_variables(&vtable, "KRB5CCNAME", get_ticket_ccname(ticket));
       }
 #endif
 
@@ -3585,9 +3565,9 @@ void req_cpyfile(
       else if (pair->fp_flag == JOBCKPFILE)
         {
         strncpy(localname, pair->fp_local, sizeof(localname) - 1);  /* from location */
-        
+
         replace_checkpoint_path(localname);
-        
+
         /*
          * If the checkpoint directory
          * is in the the TRemChkptDirList then we do not transfer since directory
@@ -3653,9 +3633,9 @@ void req_cpyfile(
       if (pair->fp_flag == JOBCKPFILE)
         {
         int path_changed = 0;
-       
+
         path_changed = replace_checkpoint_path(arg3);
-        
+
         /*
          * If the checkpoint directory
          * is in the the TRemChkptDirList then we do not transfer since directory
@@ -3665,7 +3645,7 @@ void req_cpyfile(
           {
           continue;
           }
-        
+
         /*
          * We may need to create the directory for this inbound checkpoint /
          * restart file.  If we changed the path and the last segment of the
@@ -3676,14 +3656,14 @@ void req_cpyfile(
           char needdir[MAXPATHLEN + 1];
           int saveumask;
           char *ptr;
-          
+
           strcpy(needdir,arg3);
           ptr = strrchr(needdir,'/');
           if (ptr != NULL)
           {
           ptr[0] = '\0';
           }
-          
+
           saveumask = umask(0000);
 
           if ((mkdir(needdir, 0777) == -1) && (errno != EEXIST))
@@ -3691,7 +3671,7 @@ void req_cpyfile(
             log_err(errno, id, "Failed to create jobs checkpoint directory");
             }
 
-          umask(saveumask); 
+          umask(saveumask);
           }
         }  /* END if (pair->fp_flag == JOBCKPFILE) */
 
@@ -3960,7 +3940,7 @@ error:
         /* if we are using the default checkpoint path then we need to clean
          * up the job directory
          */
-         
+
         if (strncmp(localname, path_checkpoint, strlen(path_checkpoint)) == 0)
           {
           char *ptr1;
@@ -3980,7 +3960,7 @@ error:
             {
             continue;
             }
-          
+
           if (LOGLEVEL >= 7)
             {
             sprintf(log_buffer,"removing checkpoint file directory (%s)\n", localname);
@@ -4024,8 +4004,7 @@ error:
     }  /* END for (pair) */
 
 #ifdef GSSAPI
-  if (ticket.got_ticket)
-    free_ticket(&ticket.context,ticket.job_info);
+  free_ticket(ticket);
 #endif
 
 #ifdef HAVE_WORDEXP
@@ -4071,15 +4050,12 @@ void req_delfile(
   char   HDir[1024];
   char   EMsg[1024];
 
+struct krb_holder *ticket = NULL;
 #ifdef GSSAPI
-  krb_holder_t  ticket;
-  ticket.got_ticket = 0;
-  ticket.job_info = &ticket.job_info_;
-#else
-  int ticket = 0;
+  ticket = alloc_ticket();
 #endif
 
-  rc = (int)fork_to_user(preq, FALSE, HDir, EMsg, &ticket);
+  rc = (int)fork_to_user(preq, FALSE, HDir, EMsg, ticket);
 
   if (rc < 0)
     {
@@ -4111,8 +4087,7 @@ void req_delfile(
   rc = del_files(preq, HDir, 1, &bad_list);
 
 #ifdef GSSAPI
-  if (ticket.got_ticket)
-    free_ticket(&ticket.context,ticket.job_info);
+  free_ticket(ticket);
 #endif
 
   if (rc)

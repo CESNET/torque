@@ -110,11 +110,6 @@ extern char *PJobState[];
 
 extern int site_allow_u(char *, char *);
 
-#ifdef GSSAPI
-char  *rootprinc;
-#endif
-
-
 int svr_chk_owner_generic(struct batch_request *preq, char *owner, char *submit_host);
 int svr_authorize_req(struct batch_request *preq, char *owner, char *submit_host);
 
@@ -299,7 +294,7 @@ int svr_get_privilege(
       PBS_EVENTCLASS_SERVER,
       id,
       log_buffer);
-     
+
     return(0);
     }
 
@@ -310,7 +305,7 @@ int svr_get_privilege(
 
   /* if the request host has port information in it, we want to strip it out */
 
-  if (colon_loc == NULL) 
+  if (colon_loc == NULL)
     {
     /* no colon found */
     num_host_chars = strlen(host);
@@ -351,10 +346,15 @@ int svr_get_privilege(
 
 #ifdef GSSAPI
   snprintf(uh,uhlen,"%s@%s",user,host);
-  if (!rootprinc) {
+
+  static const char *rootprinc = NULL;
+
+  if (rootprinc == NULL)
     rootprinc = pbsgss_get_host_princname();
-  }
-  if (!rootprinc) {return 0;}
+
+  if (rootprinc == NULL)
+    return 0;
+
   if (strcmp(uh,rootprinc) == 0) {
     is_root = 1;
 #ifdef PBS_ROOT_ALWAYS_ADMIN
@@ -434,7 +434,7 @@ int authenticate_user(
       /* use configured value if set */
       lifetime = server.sv_attr[SRV_ATR_CredentialLifetime].at_val.at_long;
       }
-    else 
+    else
       {
       /* if not use the default */
       lifetime = CREDENTIAL_LIFETIME;

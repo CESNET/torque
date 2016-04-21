@@ -121,6 +121,8 @@
 
 #include "root_task.h"
 
+#include "renew.h"
+
 /* External Functions */
 
 /* External Globals */
@@ -145,7 +147,6 @@ extern char  *PJobSubState[];
 extern int   PBSNodeCheckProlog;
 extern int   PBSNodeCheckEpilog;
 
-
 /* external prototypes */
 
 u_long resc_used(job *, char *, u_long(*f) A_((resource *)));
@@ -168,7 +169,6 @@ extern int is_mom_server_down(pbs_net_t);
 extern void set_mom_server_down(pbs_net_t);
 extern int no_mom_servers_down();
 extern char *get_local_script_path(job *pjob, char *base);
-extern void stop_renewal(task *ptask);
 extern double get_fairshare(job *pjob);
 
 /* END external prototypes */

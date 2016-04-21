@@ -75,7 +75,7 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
     }
 
     /* if we can't get new creds, try again in a few minutes */
-    if (pbsgss_server_acquire_creds(service_name,&new_creds) < 0) {
+    if (pbsgss_server_acquire_creds(service_name,&new_creds) != PBSGSS_OK) { // TODO Better error handling
       log_err(0,"req_gssauthenuser","acquire creds didn't work");
       lastcredstime += 120; 
     } else {
@@ -139,7 +139,7 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
     req_reject(PBSE_SYSTEM,0,preq,NULL,"no integrity protection");
     return -1;
   }
-  pbsgss_save_sec_context(&context,ret_flags,sock);
+  pbsgss_save_sec_context(&context,ret_flags,sock); // TODO Handle error
   log_event(PBSEVENT_DEBUG,
 	    PBS_EVENTCLASS_SERVER,"req_gssauthenuser calling con_credent","");
 

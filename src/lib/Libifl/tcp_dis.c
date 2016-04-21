@@ -237,7 +237,7 @@ static int tcp_resize_buff (
  */
 
 static int tcp_readbuf(
-
+  struct tcp_chan *chan,
   int               fd, /* I */
   struct tcpdisbuf *tp)	/* I */
 
@@ -340,7 +340,7 @@ static int tcp_readbuf(
   else if (i == 0)
     {
     /* FAILURE - no data read */
-
+    chan->AtEOF = 1;
     return(-2);
     }
 
@@ -368,41 +368,44 @@ static int tcp_read(
 #endif
     {
     tp = &tcparray[fd]->readbuf;
-    return tcp_readbuf(fd, tp);
+    return tcp_readbuf(tcparray[fd], fd, tp);
     }
 
 #ifdef GSSAPI
+  size_t remaining_data;
+
+// if there is still data in the unwrapped buffer
 leftover:
-  if ((l = tcparray[fd]->unwrapped.length) > 0)
+
+  if ((remaining_data = tcparray[fd]->unwrapped.length) > 0)
     {
     tp = &tcparray[fd]->readbuf;
     tcp_pack_buff(tp);
-    f = tp->tdis_bufsize - (tp->tdis_eod - tp->tdis_thebuf);
-    if ((size_t)f < l)
+    ssize_t remaining_cap = tp->tdis_bufsize - (tp->tdis_eod - tp->tdis_thebuf);
+    if ((size_t)remaining_cap < remaining_data) // remove first f bytes from unwrapped values
       {
-      memcpy(tp->tdis_eod, tcparray[fd]->unwrapped.value, f);
-      tp->tdis_eod += f;
-      memmove(tcparray[fd]->unwrapped.value,
-	      ((char *)tcparray[fd]->unwrapped.value)+f,
-	      l-f);
-      tcparray[fd]->unwrapped.length = l-f;
-      return f;	/* readbuf is now full */
+      memcpy(tp->tdis_eod, tcparray[fd]->unwrapped.value, remaining_cap);
+      tp->tdis_eod += remaining_cap;
+      memmove(tcparray[fd]->unwrapped.value, ((char *)tcparray[fd]->unwrapped.value)+remaining_cap, remaining_data-remaining_cap);
+      tcparray[fd]->unwrapped.length = remaining_data-remaining_cap;
+      return remaining_cap;	/* readbuf is now full after reading remaining_cap */
       }
     else
       {
-      memcpy(tp->tdis_eod, tcparray[fd]->unwrapped.value, l);
-      tp->tdis_eod += l;
+      memcpy(tp->tdis_eod, tcparray[fd]->unwrapped.value, remaining_data);
+      tp->tdis_eod += remaining_data;
       gss_release_buffer(&minor, &tcparray[fd]->unwrapped);
-      return l;	/* for simplicity */
+      return remaining_data;	/* for simplicity */
       }
     }
 
+// we don't have data in the unwrapped buffer, we need to read more
 readmore:
   if (tcparray[fd]->AtEOF)
     return(-2);
+
   tp = &tcparray[fd]->gssrdbuf;
-  f = tcp_readbuf(fd, tp);
-  tcparray[fd]->AtEOF = (f == -2);
+  f = tcp_readbuf(tcparray[fd], fd, tp);
 
   if (tp->tdis_eod - tp->tdis_leadp >= 4)
     {
@@ -415,31 +418,28 @@ readmore:
     */
     if (l+4>tp->tdis_bufsize)
       {
-	tcp_resize_buff(tp, l+4);
-	f = tcp_readbuf(fd, tp);
-	tcparray[fd]->AtEOF = (f == -2);
+      tcp_resize_buff(tp, l+4);
+      f = tcp_readbuf(tcparray[fd], fd, tp);
       }
+
     if ((size_t)(tp->tdis_eod - tp->tdis_leadp) >= l)
       {
       OM_uint32 major, minor;
       gss_buffer_desc msg_in;
       msg_in.length = l;
       msg_in.value = tp->tdis_leadp;
-      major = gss_unwrap(&minor,
-		         tcparray[fd]->gssctx,
-			 &msg_in,
-			 &tcparray[fd]->unwrapped,
-			 NULL,
-			 NULL);
+      major = gss_unwrap(&minor, tcparray[fd]->gssctx, &msg_in, &tcparray[fd]->unwrapped, NULL, NULL);
       tp->tdis_leadp += l;
       tp->tdis_trailp = tp->tdis_leadp;	/* commit */
+
       if (major != GSS_S_COMPLETE)
         {
-	if (getenv("PBSDEBUG") != NULL)
-	  pbsgss_display_status("gss_unwrap", major, minor);
-	gss_release_buffer(&minor, &tcparray[fd]->unwrapped);
-	tcparray[fd]->ReadErrno = 0;
-	return(-1);
+        if (getenv("PBSDEBUG") != NULL)
+          pbsgss_display_status("gss_unwrap", major, minor);
+
+        gss_release_buffer(&minor, &tcparray[fd]->unwrapped);
+        tcparray[fd]->ReadErrno = 0;
+        return(-1);
         }
       if (tcparray[fd]->unwrapped.length > 0)
         goto leftover;
@@ -470,7 +470,6 @@ void *detached_write_thread(void *param)
   {
   struct write_buff *buff = (struct write_buff*)param;
   async_write_with_timeout(buff->fd,buff->buff,buff->size,60*2);
-  free(buff);
   return NULL;
   }
 
@@ -683,7 +682,7 @@ int DIS_tcp_wflush_async(int fd)
         pbsgss_display_status("gss_wrap", major, minor);
 
       gss_release_buffer(&minor, &msg_out);
-      return NULL;
+      return -1;
       }
 
     if (tcparray[fd]->Confidential && !conf_state)
@@ -692,7 +691,7 @@ int DIS_tcp_wflush_async(int fd)
         fprintf(stderr, "gss_wrap() failed to encrypt as requested\n");
 
       gss_release_buffer(&minor, &msg_out);
-      return NULL;
+      return -1;
       }
 
     pb = msg_out.value;
@@ -1437,9 +1436,7 @@ void DIS_tcp_setup(
 /*
  * DIS_tcp_release - release data structures for the given fd
  */
-void DIS_tcp_release(
-  int fd)
-
+void DIS_tcp_release(int fd)
   {
 #ifdef GSSAPI
   OM_uint32 minor;
@@ -1465,48 +1462,50 @@ void DIS_tcp_release(
   }
 
 #ifdef GSSAPI
-  if (tcparray[fd]->gssctx != GSS_C_NO_CONTEXT){
+  if (tcparray[fd]->gssctx != GSS_C_NO_CONTEXT)
+    {
 	  OM_uint32 minor,major;
-	  /*gss_buffer_desc out_buf;*/
-/*	  major=gss_delete_sec_context (&minor, &tcparray[fd]->gssctx,&out_buf);*/
+
 	  major=gss_delete_sec_context (&minor, &tcparray[fd]->gssctx,GSS_C_NO_BUFFER);
-      if(major != GSS_S_COMPLETE ){
-    	  log_err(major,"DIS_tcp_release","gss_delete_sec_context failure");
-    	 /* gss_delete_sec_context (&minor, &tcparray[fd]->gssctx,GSS_C_NO_BUFFER);*/
-      }
-     /*gss_release_buffer(&minor,&out_buf);*/
-      tcparray[fd]->gssctx = GSS_C_NO_CONTEXT;
-  }
+    if(major != GSS_S_COMPLETE )
+    	log_err(major,"DIS_tcp_release","gss_delete_sec_context failure");
+
+    tcparray[fd]->gssctx = GSS_C_NO_CONTEXT;
+    }
+
   if (tcparray[fd]->unwrapped.value)
     gss_release_buffer (&minor, &tcparray[fd]->unwrapped);
+
   /*fix memory loss in DIS_scp_setup */
-   tp = &tcp->gssrdbuf;
-   if (tp->tdis_thebuf != NULL) free(tp->tdis_thebuf);
+  tp = &tcp->gssrdbuf;
+  if (tp->tdis_thebuf != NULL)
+    free(tp->tdis_thebuf);
 #endif
+
   free(tcparray[fd]);
   tcparray[fd] = NULL;
   }  /* END DIS_tcp_release() */
 
 #ifdef GSSAPI
-/*
- * DIS_tcp_set_gss - associate GSSAPI information with a TCP channel
+/** \brief Associate GSSAPI information with a TCP channel
+ *
+ * \param fd TCP channel descriptor
+ * \param ctx Kerberos security context
+ * \param flags
+ * \returns \c PBSGSS_OK on SUCCESS, \c PBSGSS_ERR_INTERNAL when memory couldn't be allocated
  */
-void DIS_tcp_set_gss(
-
-  int          fd,    /* I */
-  gss_ctx_id_t ctx,   /* I */
-  OM_uint32    flags) /* I */
-
+int DIS_tcp_set_gss(int fd, gss_ctx_id_t ctx, OM_uint32 flags)
   {
   OM_uint32 major, minor, bufsize;
 
   assert (fd >= 0 && fd < tcparraymax && tcparray[fd]);
   assert (tcparray[fd]->gssctx == GSS_C_NO_CONTEXT);
+
   tcparray[fd]->gssctx = ctx;
   tcparray[fd]->AtEOF = 0;
   tcparray[fd]->Confidential = (flags & GSS_C_CONF_FLAG);
-  major = gss_wrap_size_limit (&minor, ctx, (flags & GSS_C_CONF_FLAG),
-                             GSS_C_QOP_DEFAULT, THE_BUF_SIZE, &bufsize);
+
+  major = gss_wrap_size_limit (&minor, ctx, (flags & GSS_C_CONF_FLAG), GSS_C_QOP_DEFAULT, THE_BUF_SIZE, &bufsize);
 
   /* reallocate the gss buffer if it's too small to handle the wrapped
      version of the largest unwrapped message
@@ -1517,23 +1516,30 @@ void DIS_tcp_set_gss(
     struct tcpdisbuf *tp = &tcparray[fd]->gssrdbuf;
     if (tp->tdis_bufsize < bufsize)
       {
+      // TODO How do we handle memory errors here?
       if (tp->tdis_thebuf != NULL)
         {
         free(tp->tdis_thebuf);
         }
-      tp->tdis_thebuf = (char *)malloc(bufsize);
+
+      tp->tdis_thebuf = malloc(bufsize);
       if(tp->tdis_thebuf == NULL)
         {
         log_err(errno,"DIS_tcp_set_gss","malloc failure");
-
-        return;
+        return PBSGSS_ERR_INTERNAL;
         }
+
       tp->tdis_bufsize = bufsize;
       }
-    }
 
+    return PBSGSS_OK;
+    }
+  else
+    {
+    pbsgss_display_status("Kerberos - DIS_tcp_set_gss", major, minor);
+    return PBSGSS_ERR_WRAPSIZE;
+    }
   } /* END DIS_tcp_set_gss */
 #endif
-
 
 /* END tcp_dis.c */
