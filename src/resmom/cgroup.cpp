@@ -41,6 +41,7 @@ void cgroup_set_path_mem(const char *path)
 
 static int cgroup_detection_mem = 0;
 static int cgroup_detection_cpu = 0;
+static int cgroup_detected = 0;
 
 int cgroup_get_cpu_enabled()
 {
@@ -184,13 +185,16 @@ static int write_buf_to_file(char * buff, int size, const char *format, ...)
 /** \brief Detect whether cgroups are enabled on machine */
 int cgroup_detect_status()
   {
+  if (cgroup_detected == 1)
+    return 0;
+
   int ret;
 
   if (cgroup_path_cpu[0] != '\0')
     {
     if ((ret = check_file_exists(cgroup_path_cpu)) != 0) // cgroup not found
       {
-      printf("Could not find cgroup CPU path %s\n",strerror(errno));
+      fprintf(stderr,"[CGROUP] Could not find cgroup CPU path %s\n",strerror(errno));
       cgroup_detection_cpu = 0;
       goto memory_detect;
       }
@@ -206,7 +210,10 @@ int cgroup_detect_status()
     if (cpu_detected == 2)
       cgroup_detection_cpu = 1;
     else
+      {
       cgroup_detection_cpu = 0;
+      fprintf(stderr,"[CGROUP] Could not find one of required cpu options (%s,%s).\n",cgroup_cpu_period,cgroup_cpu_quota);
+      }
     }
 
 memory_detect:
@@ -214,17 +221,33 @@ memory_detect:
     {
     if ((ret = check_file_exists(cgroup_path_mem)) != 0) // cgroup not found
       {
-      printf("Could not find cgroup MEM path %s\n",strerror(errno));
+      fprintf(stderr,"[CGROUP] Could not find cgroup MEM path %s\n",strerror(errno));
       cgroup_detection_mem = 0;
-      return 0;
+      goto done;
       }
 
+    int mem_detected = 0;
+
     if ((ret = check_file_exists("%s/%s",cgroup_path_mem,cgroup_mem_limit)) == 0)
+      ++mem_detected;
+
+    if ((ret = check_file_exists("%s/%s",cgroup_path_mem,cgroup_mem_usage)) == 0)
+      ++mem_detected;
+
+    if ((ret = check_file_exists("%s/%s",cgroup_path_mem,cgroup_swmem_usage)) == 0)
+      ++mem_detected;
+
+    if (mem_detected == 3)
       cgroup_detection_mem = 1;
     else
+      {
       cgroup_detection_mem = 0;
+      fprintf(stderr,"[CGROUP] Could not find one of required memory options (%s,%s,%s).\n",cgroup_mem_limit,cgroup_mem_usage,cgroup_swmem_usage);
+      }
     }
 
+done:
+  cgroup_detected = 1;
   return 0;
   }
 
@@ -253,20 +276,20 @@ cgroup_create_memory:
 
 cgroup_create_post:
   // UNINITIALIZED CPUSET FIX
-  //if (cgroup_path_cpu[0] != '\0')
+  if (cgroup_detection_cpu == 1)
     {
     // we need make sure that the cpuset.cpus and cpuset.mems is initialized correctly
     char buff[8*1024] = {0};
     int bytes;
 
     if ((bytes = read_file_to_buf(buff,8*1024,"%s/%s",cgroup_path_cpu,"cpuset.cpus")) <= 0)
-      return -1;
+      return 0;
 
     if ((ret = write_buf_to_file(buff,bytes,"%s/%s/%s",cgroup_path_cpu,name,"cpuset.cpus")) != 0)
-      return -1;
+      return 0;
     }
 
-  //if (cgroup_path_mem[0] != '\0')
+  if (cgroup_detection_cpu == 1)
     {
     char buff[8*1024] = {0};
     int bytes;
@@ -274,7 +297,7 @@ cgroup_create_post:
     strcpy(buff,"0");
     bytes = 1;
     if ((ret = write_buf_to_file(buff,bytes,"%s/%s/%s",cgroup_path_cpu,name,"cpuset.mems")) != 0)
-      return -1;
+      return 0;
     }
 
   return 0;
