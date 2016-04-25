@@ -806,6 +806,7 @@ GSSAPIINC=
 GSSAPIROOT=
 K5CFLAGS=
 K5LIBS=
+KRB525LIB=
 
 AC_ARG_WITH([gssapi_bin], AS_HELP_STRING([--with-gssapi_bin=PATH],[Set GSSAPI/Krb5 binaries path.]),
 [ GSSAPIBIN=$withval ])
@@ -813,7 +814,7 @@ AC_ARG_WITH([gssapi_bin], AS_HELP_STRING([--with-gssapi_bin=PATH],[Set GSSAPI/Kr
 AC_ARG_WITH([gssapi_lib], AS_HELP_STRING([--with-gssapi_lib=PATH],[Set GSSAPI/Krb5 libraries path.]),
 [
 GSSAPILIB=$withval
-K5LIBS="-Wl,-R$withval -L$withval -lgssapi -lheimntlm -lkrb5 -lkrb525"
+K5LIBS="-Wl,-R$withval -L$withval -lgssapi -lheimntlm -lkrb5"
 buildgssapi=yes
 ])
 
@@ -821,6 +822,11 @@ AC_ARG_WITH([gssapi_inc], AS_HELP_STRING([--with-gssapi_inc=PATH],[Set GSSAPI/Kr
 [
 GSSAPIINC=$withval
 K5CFLAGS="-I$withval"
+])
+
+AC_ARG_WITH([krb525_lib], AS_HELP_STRING([--with-krb525_lib=PATH],[Set Krb525 library path.]),
+[
+KRB525LIB="-Wl,-R$withval -L$withval -lkrb525"
 ])
 
 
@@ -860,6 +866,7 @@ fi
 ])
 
 AC_SUBST([K5LIBS])
+AC_SUBST([KRB525LIB])
 AM_CONDITIONAL(INCLUDE_GSSAPI, [test "$buildgssapi" = "yes"])
 
 if test "$buildgssapi" = "yes" ;then
@@ -875,7 +882,7 @@ if test "$buildgssapi" = "yes" ;then
 	AC_DEFINE_UNQUOTED([AKLOG_PATH],		"${AKLOG}",		[Path to afslog])
 
 	CPPFLAGS="$CPPFLAGS $K5CFLAGS"
-	LDFLAGS="$LDFLAGS $K5LIBS"
+	LDFLAGS="$LDFLAGS $K5LIBS $KRB525LIB"
 
 	if test ! -z "$need_dash_r";	then	LDFLAGS="$LDFLAGS -R${GSSAPILIB}";	fi
 	if test ! -z "$blibpath";	then	blibpath="$blibpath:${GSSAPILIB}"; 	fi
