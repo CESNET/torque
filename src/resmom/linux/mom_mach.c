@@ -164,8 +164,6 @@ extern char *ret_string;
 extern char extra_parm[];
 extern char no_parm[];
 
-extern time_t   time_now;
-
 extern  int     LOGLEVEL;
 
 #define TBL_INC 200            /* initial proc table */
@@ -390,7 +388,7 @@ proc_stat_t *get_proc_stat(
 
   lastbracket++;
 
-  if (sscanf(readbuf,"%d (%[^\n]",&ps.pid,path) != 2) 
+  if (sscanf(readbuf,"%d (%[^\n]",&ps.pid,path) != 2)
     {
     /* FAILURE */
 
@@ -401,7 +399,7 @@ proc_stat_t *get_proc_stat(
 
   /* see stat_str[] value for mapping 'stat' format */
 
-  if (sscanf(lastbracket,stat_str, 
+  if (sscanf(lastbracket,stat_str,
         &ps.state,     /* state (one of RSDZTW) */
         &ps.ppid,      /* ppid */
         &ps.pgrp,      /* pgrp */
@@ -1808,7 +1806,7 @@ int mom_over_limit(
       if (retval != PBSE_NONE)
         continue;
 
-      num = (unsigned long)((double)(time_now - pjob->ji_qs.ji_stime) *
+      num = (unsigned long)((double)(time(NULL) - pjob->ji_qs.ji_stime) *
                             wallfactor);
 
       if (num > value)
@@ -1831,7 +1829,8 @@ int mom_over_limit(
   int exclusive = is_exclusive(spec,node);
 
   /* determine CPU time */
-  num = time_now - pjob->ji_qs.ji_stime; /* current raw walltime */
+
+  num = time(NULL) - pjob->ji_qs.ji_stime; /* current raw walltime */
 
   /* job running for at least 5 minutes, using more cpus than requested and not using more than system (cpu bug) */
   if (num > 60*5 && cputsum > 1.1*node->procs*num && cputsum < 1.1*num*system_ncpus)
@@ -1992,7 +1991,7 @@ int mom_over_limit(
  * stats gathered by the mom_get_sample() function. This function
  * is often called by "im_request()" as a result of POLL_JOB query
  * from the mother superior.
- * 
+ *
  * @see im_request() - parent - respond to poll_job request from mother superior
  * @see examine_all_running_jobs() - parent - update local use on mother superior
  * @see TMomFinalizeJob1() - parent - update serial job immediately at job start
@@ -2079,7 +2078,7 @@ int mom_set_use(
     pres->rs_value.at_val.at_long = 0;
   else
     pres->rs_value.at_val.at_long =
-      (long)((double)(time_now - pjob->ji_qs.ji_stime) * wallfactor);
+      (long)((double)(time(NULL) - pjob->ji_qs.ji_stime) * wallfactor);
 
   // mem
   rd = find_resc_def(svr_resc_def, "mem", svr_resc_size);
@@ -2161,12 +2160,12 @@ int mom_set_use(
  * Kill a task session.
  * Call with the task pointer and a signal number.
  *
- * @return number of tasks signalled (0 = failure) 
+ * @return number of tasks signalled (0 = failure)
  *
  * @see kill_job() - parent
  *
  * NOTE:  should support killpg() or killpidtree() - (NYI)
- *        may be required for suspend/resume 
+ *        may be required for suspend/resume
  */
 
 int kill_task(
@@ -2415,8 +2414,8 @@ int kill_task(
     }      /* END while ((dent = readdir(pdir)) != NULL) */
 
   /* NOTE:  to fix bad state situations resulting from a hard crash, the logic
-            below should be triggered any time no processes are found (NYI) */ 
-            
+            below should be triggered any time no processes are found (NYI) */
+
   if (IS_ADOPTED_TASK(ptask->ti_qs.ti_task) && (NumProcessesFound == 0))
     {
     /* no process was found, but for an adopted task this is OK (we don't find
@@ -3979,7 +3978,7 @@ void scan_non_child_tasks(void)
     }    /* END for (job = GET_NEXT(svr_alljobs)) */
 
   closedir(pdir);
-  
+
   first_time = FALSE;
 
   return;
