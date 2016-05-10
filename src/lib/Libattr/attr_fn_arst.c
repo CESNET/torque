@@ -946,7 +946,7 @@ void free_arst(
   struct attribute *attr)
 
   {
-  if ((attr->at_flags & ATR_VFLAG_SET) && (attr->at_val.at_arst))
+  if (attr->at_val.at_arst != NULL)
     {
     if (attr->at_val.at_arst->as_buf)
       (void)free(attr->at_val.at_arst->as_buf);

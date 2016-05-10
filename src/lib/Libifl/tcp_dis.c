@@ -340,7 +340,9 @@ static int tcp_readbuf(
   else if (i == 0)
     {
     /* FAILURE - no data read */
-    chan->AtEOF = 1;
+#ifdef GSSAPI
+    tcparray[fd]->AtEOF = 1;
+#endif
     return(-2);
     }
 
@@ -470,6 +472,7 @@ void *detached_write_thread(void *param)
   {
   struct write_buff *buff = (struct write_buff*)param;
   async_write_with_timeout(buff->fd,buff->buff,buff->size,60*2);
+  free(buff);
   return NULL;
   }
 

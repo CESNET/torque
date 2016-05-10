@@ -146,6 +146,7 @@ extern tree           *okclients; /* accept connections from */
 extern  int             port_care;
 extern  char           *path_prologp;
 extern  char           *path_prologuserp;
+extern time_t  last_poll_time;
 
 const char *PMOMCommand[] =
   {
@@ -1348,26 +1349,26 @@ void node_bailout(
 #else /* __TRR */
 
         /* we should be more patient - how do we recover this connection? (NYI) */
-        
+
         /* if job attribute fault_tolerant is not set or set to false then kill the job */
-        if ((pjob->ji_wattr[(int)JOB_ATR_fault_tolerant].at_flags & ATR_VFLAG_SET) && 
-            pjob->ji_wattr[(int)JOB_ATR_fault_tolerant].at_val.at_long) 
-          {        
+        if ((pjob->ji_wattr[(int)JOB_ATR_fault_tolerant].at_flags & ATR_VFLAG_SET) &&
+            pjob->ji_wattr[(int)JOB_ATR_fault_tolerant].at_val.at_long)
+          {
           sprintf(log_buffer, "%s POLL failed from node %s %d - job is fault tolerant - job will not be killed)",
                   pjob->ji_qs.ji_jobid,
                   np->hn_host,
                   np->hn_node);
           }
         else
-          {           
+          {
           sprintf(log_buffer, "%s POLL failed from node %s %d - recovery not attempted - job will be killed)",
                   pjob->ji_qs.ji_jobid,
                   np->hn_host,
                   np->hn_node);
-            
-          pjob->ji_nodekill = np->hn_node;  
+
+          pjob->ji_nodekill = np->hn_node;
           }
-          
+
         log_err(-1, id, log_buffer);
 
 #endif /* __TRR */
@@ -3583,6 +3584,9 @@ void im_request(
           ** )
           */
 
+          // force poll of other jobs to prevent memory crashes
+          last_poll_time = 0;
+
           if ((pjob->ji_qs.ji_svrflags & JOB_SVFLG_HERE) == 0)
             {
             log_err(-1, id, "got JOIN_JOB OKAY and I'm not MS");
@@ -3788,10 +3792,8 @@ void im_request(
               char *kill_msg = disrcs(stream,&chars,&ret);
               if (ret == DIS_SUCCESS)
                 {
-                if (pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags & ATR_VFLAG_SET)
-                  free(pjob->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str);
-                pjob->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str = strdup(kill_msg);
-                pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags |= ATR_VFLAG_SEND | ATR_VFLAG_SET;
+                replace_attr_string(&pjob->ji_wattr[(int)JOB_ATR_Comment],strdup(kill_msg));
+                pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags |= ATR_VFLAG_SEND;
                 pjob->ji_qs.ji_un.ji_momt.ji_exitstat = JOB_EXEC_OVERLIMIT;
                 }
               }
@@ -4629,7 +4631,7 @@ void tm_eof(
 **  from taskid  int
 ** )
 **
-** 
+**
 ** tm_requests only use tcp. No rpp.
 */
 
@@ -5841,19 +5843,18 @@ done:
 
   if (reply)
     {
-    DBPRT(("%s: REPLY %s\n",
-           id,
-           dis_emsg[ret]))
+    DBPRT(("%s: REPLY %s\n", id, dis_emsg[ret]))
 
     if ((ret != DIS_SUCCESS) || (DIS_tcp_wflush(fd) == -1))
       {
-      sprintf(log_buffer, "comm failed %s",
-              dis_emsg[ret]);
-      log_err(errno,
-              id,
-              log_buffer);
-
+      sprintf(log_buffer, "comm failed %s", dis_emsg[ret]);
+      log_err(errno, id, log_buffer);
       close_conn(fd);
+
+      free(jobid);
+      free(cookie);
+
+      return -2;
       }
     }
 
@@ -6019,7 +6020,8 @@ static int adoptSession(pid_t sid, char *id, int command, char *cookie)
             pjob->ji_qs.ji_jobid,
             cgroup_get_cpu_enabled() != 0 ? "enabled" : "disabled",
             cgroup_get_mem_enabled() != 0 ? "enabled" : "disabled");
-        log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, log_buffer);
+        log_err(-1,"adoptSession",log_buffer);
+        fprintf(stderr,"adoptSession() : %s\n",log_buffer);
         return TM_ERROR;
         }
       }
@@ -6028,28 +6030,32 @@ static int adoptSession(pid_t sid, char *id, int command, char *cookie)
     pars_spec *spec = parse_nodespec(pjob->ji_wattr[JOB_ATR_sched_spec].at_val.at_str);
     if (spec == NULL)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP creation failed, could not parse nodespec.");
+      log_err(-1,"adoptSession", "CGROUP creation failed, could not parse nodespec.");
+      fprintf(stderr,"adoptSession() : %s\n", "CGROUP creation failed, could not parse nodespec.");
       return TM_ERROR;
       }
 
     pars_spec_node *node = find_node_in_spec(spec,mom_host);
     if (node == NULL)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP creation failed, node not found in nodespec.");
+      log_err(-1,"adoptSession", "CGROUP creation failed, node not found in nodespec.");
+      fprintf(stderr,"adoptSession() : %s\n", "CGROUP creation failed, node not found in nodespec.");
       free_parsed_nodespec(spec);
       return TM_ERROR;
       }
 
     if (cgroup_set_cpu_limit(pjob->ji_qs.ji_jobid,node->procs) != 0)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP CPU limit could not be set.");
+      log_err(-1,"adoptSession", "CGROUP CPU limit could not be set.");
+      fprintf(stderr,"adoptSession() : %s\n", "CGROUP CPU limit could not be set.");
       free_parsed_nodespec(spec);
       return TM_ERROR;
       }
 
     if (cgroup_set_mem_limit(pjob->ji_qs.ji_jobid,node->mem*1024) != 0)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP MEM limit could not be set.");
+      log_err(-1,"adoptSession", "CGROUP MEM limit could not be set.");
+      fprintf(stderr,"adoptSession() : %s\n", "CGROUP MEM limit could not be set.");
       free_parsed_nodespec(spec);
       return TM_ERROR;
       }
@@ -6060,7 +6066,8 @@ static int adoptSession(pid_t sid, char *id, int command, char *cookie)
     if (buf != NULL)
     if (cgroup_add_pids(pjob->ji_qs.ji_jobid,buf) != 0)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP adoption failed. Could not add pids to cgroup.");
+      log_err(-1,"adoptSession", "CGROUP adoption failed. Could not add pids to cgroup.");
+      fprintf(stderr,"adoptSession() : %s\n", "CGROUP adoption failed. Could not add pids to cgroup.");
       return TM_ERROR;
       }
     }
@@ -6117,7 +6124,7 @@ static int adoptSession(pid_t sid, char *id, int command, char *cookie)
  * cat_dirs --
  *
  *  Concatenate root and base into a new string and return the result
- * 
+ *
  * Result:
  *    if root is null only the base value is returned. Otherwise a string
  *    with the root followed by base is returned. If memory cannot be
@@ -6159,13 +6166,13 @@ char *cat_dirs(char *root, char *base)
 
 /*
  *  get_local_script_path --
- *  
+ *
  *  takes a path given by base and prepends
  *  the PBS_O_WORKDIR if base is a relative path. That is, if
  *  base does not begin with '/'. Otherwise it returns
  *  the value of base. cat_dirs allocates memory for the new
  *  string so this has to be freed.
- *  
+ *
  *  If a null string is returned it is because cat_dirs could
  *  not allocate memory
 */
@@ -6176,7 +6183,7 @@ char *get_local_script_path(job *pjob, char *base)
   size_t len;
   char *pn = NULL;
 
-  
+
   /* see if base is an absolute path*/
   if(base[0] != '/')
     {

@@ -276,7 +276,7 @@ static int is_checkpoint_restart(
     return(FALSE);
     }
 #endif
- 
+
   return(TRUE);
   }  /* END is_checkpoint_restart() */
 
@@ -354,18 +354,18 @@ static void post_checkpointsend(
       /* checkpoint copy was successful */
 
       pjob->ji_qs.ji_svrflags |= JOB_SVFLG_CHECKPOINT_COPIED;
-      
+
       /* set restart_name attribute to the checkpoint_name we just copied */
-      
+
       job_attr_def[(int)JOB_ATR_restart_name].at_set(
         &pjob->ji_wattr[(int)JOB_ATR_restart_name],
         &pjob->ji_wattr[(int)JOB_ATR_checkpoint_name],
         SET);
 
       pjob->ji_modified = 1;
-      
+
       job_save(pjob, SAVEJOB_FULL);
-      
+
       /* continue to start job running */
 
       svr_strtjob2(pjob, NULL);
@@ -1051,7 +1051,7 @@ static int svr_strtjob2(
   job_save(pjob, SAVEJOB_FULL);
 
   /* if job start timeout attribute is set use its value */
-  
+
   if (((server.sv_attr[(int)SRV_ATR_JobStartTimeout].at_flags & ATR_VFLAG_SET) != 0)
           && (server.sv_attr[(int)SRV_ATR_JobStartTimeout].at_val.at_long > 0))
     {
@@ -1227,18 +1227,13 @@ static void post_sendmom(
 
 #ifdef HAVE_GLITE_LB
 	svr_logjobstate(jobp, JOB_STATE_RUNNING, JOB_SUBSTATE_RUNNING, preq);
-#endif		
+#endif
         svr_setjobstate(jobp, JOB_STATE_RUNNING, JOB_SUBSTATE_RUNNING);
-
-        if (jobp->ji_wattr[(int)JOB_ATR_Comment].at_flags & ATR_VFLAG_SET)
-          free(jobp->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str);
 
         time_t result = time(NULL);
         sprintf(log_buffer,"Job successfully started at %s",asctime(localtime(&result)));
 
-        jobp->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str = strdup(log_buffer);
-        jobp->ji_wattr[(int)JOB_ATR_Comment].at_flags |= ATR_VFLAG_SET;
-
+        replace_attr_string(&jobp->ji_wattr[(int)JOB_ATR_Comment],strdup(log_buffer));
         jobp->ji_modified = 1;
         /* above saves job structure */
         }

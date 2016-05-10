@@ -19,7 +19,7 @@ time_t lastcredstime = 0;
 time_t credlifetime = 0;
 
 /* this should be called on a socket after readauth() (in net_server.c) but
- * goes before process request.  It copies the principal from the svr_conn 
+ * goes before process request.  It copies the principal from the svr_conn
  * structure (in net_server) to conn_credent
  *
  * returns 0 on success and -1 on failure
@@ -48,7 +48,8 @@ int gss_conn_credent (struct batch_request *preq, int s) {
 }
 
 /* returns 0 on success and other values on failure */
-int req_gssauthenuser (struct batch_request *preq, int sock) {
+int req_gssauthenuser (struct batch_request *preq, int sock)
+  {
   gss_ctx_id_t context;
   gss_cred_id_t client_creds;
   gss_buffer_desc client_name;
@@ -57,91 +58,98 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
   int status;
 
   /* if credentials are old, try to get new ones.  If we can't, keep the old
-     ones since they're probably still valid and hope that we can get new credentials next time 
+     ones since they're probably still valid and hope that we can get new credentials next time
   */
   now = time((time_t *)NULL);
-  if (now - lastcredstime > credlifetime) {
+  if (now - lastcredstime > credlifetime)
+    {
     gss_cred_id_t new_creds;
-    if (service_name == NULL) {
+    if (service_name == NULL)
+      {
       struct utsname buf;
-      if (uname(&buf) != 0) {
-	perror("couldn't uname");
-	log_err(0,"req_gssauthenuser","couldn't uname");
-	req_reject(PBSE_BADCRED,0,preq,NULL,"couldn't get server nodename");
-	return -1;
-      }
+      if (uname(&buf) != 0)
+        {
+        perror("couldn't uname");
+        log_err(0,"req_gssauthenuser","couldn't uname");
+        req_reject(PBSE_BADCRED,0,preq,NULL,"couldn't get server nodename");
+        return -1;
+        }
       service_name = malloc(sizeof(buf.nodename) + 6);
       sprintf(service_name,"host@%s",buf.nodename);
-    }
+      }
 
     /* if we can't get new creds, try again in a few minutes */
-    if (pbsgss_server_acquire_creds(service_name,&new_creds) != PBSGSS_OK) { // TODO Better error handling
+    if (pbsgss_server_acquire_creds(service_name,&new_creds) != PBSGSS_OK)
+      { // TODO Better error handling
       log_err(0,"req_gssauthenuser","acquire creds didn't work");
-      lastcredstime += 120; 
-    } else {
+      lastcredstime += 120;
+      }
+    else
+      {
       /* if we got new creds, free the old ones and use the new ones */
       lastcredstime = now;
       sprintf(log_buffer,"renewing server tickets at %ld\n",(long)now);
-      log_event(PBSEVENT_DEBUG,
-		PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
-      if (server_creds != GSS_C_NO_CREDENTIAL) {
-	gss_release_cred(&ret_flags,&server_creds);
-      }
+      log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
+      if (server_creds != GSS_C_NO_CREDENTIAL)
+        {
+        gss_release_cred(&ret_flags,&server_creds);
+        }
       server_creds = new_creds;
-      majstat = gss_inquire_cred(&ret_flags,server_creds,
-				 NULL,&lifetime,NULL,NULL);
-      if (majstat == GSS_S_COMPLETE) {
-	if (lifetime == GSS_C_INDEFINITE) {
-	  credlifetime = 7200;
-	  sprintf(log_buffer,"got new ticket lifetime as indefinite.  Using 7200\n");
-	  log_event(PBSEVENT_DEBUG,
-		    PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
-	} else {
-	  sprintf(log_buffer,"got new ticket lifetime as %d\n",lifetime);
-	  log_event(PBSEVENT_DEBUG,
-		    PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
-	  credlifetime = lifetime;
-	}
-      } else {
-	credlifetime = 0;
-      }      
+      majstat = gss_inquire_cred(&ret_flags,server_creds, NULL,&lifetime,NULL,NULL);
+      if (majstat == GSS_S_COMPLETE)
+        {
+        if (lifetime == GSS_C_INDEFINITE)
+          {
+          credlifetime = 7200;
+          sprintf(log_buffer,"got new ticket lifetime as indefinite.  Using 7200\n");
+          log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
+          }
+        else
+          {
+          sprintf(log_buffer,"got new ticket lifetime as %d\n",lifetime);
+          log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
+          credlifetime = lifetime;
+          }
+        }
+      else
+        {
+        credlifetime = 0;
+        }
+      }
     }
-  }
 
-  if ((status = pbsgss_server_establish_context(sock, server_creds, NULL, &context,
-						&client_name, &ret_flags)) < 0) {
+  if ((status = pbsgss_server_establish_context(sock, server_creds, NULL, &context, &client_name, &ret_flags)) < 0)
+    {
     sprintf(log_buffer,"server_establish_context failed : %d",status);
-    log_event(PBSEVENT_DEBUG,
-	      PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
+    log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
     req_reject(PBSE_BADCRED,0,preq,NULL,"establish context didn't work");
-    return -1;    
-  }
-  if (context == GSS_C_NO_CONTEXT) {
-    log_event(
-	      PBSEVENT_DEBUG,
-	      PBS_EVENTCLASS_SERVER,"req_gssauthenuser","Accepted unauthenticated connection.");
+    return -1;
+    }
+
+  if (context == GSS_C_NO_CONTEXT)
+    {
+    log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER,"req_gssauthenuser","Accepted unauthenticated connection.");
     req_reject(PBSE_BADCRED,0,preq,NULL,"got no context");
     return -1;
-  }
+    }
 
   free(svr_conn[sock].principal);
 
   svr_conn[sock].principal = (char *)malloc(sizeof(char) * (1 + client_name.length));
   strncpy(svr_conn[sock].principal,client_name.value,client_name.length);
   svr_conn[sock].principal[client_name.length] = '\0';
+  free(client_name.value);
   memcpy(&(svr_conn[sock].creds),&client_creds,sizeof(client_creds));
   svr_conn[sock].cn_authen = PBS_NET_CONN_GSSAPIAUTH;
-  if (!(ret_flags & GSS_C_INTEG_FLAG)) {
-    log_event(PBSEVENT_DEBUG,
-	      PBS_EVENTCLASS_SERVER,
-	      "req_gssauthenuser",
-	      "Integrity protection not available on connection.");
+  if (!(ret_flags & GSS_C_INTEG_FLAG))
+    {
+    log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER, "req_gssauthenuser", "Integrity protection not available on connection.");
     req_reject(PBSE_SYSTEM,0,preq,NULL,"no integrity protection");
     return -1;
-  }
+    }
+
   pbsgss_save_sec_context(&context,ret_flags,sock); // TODO Handle error
-  log_event(PBSEVENT_DEBUG,
-	    PBS_EVENTCLASS_SERVER,"req_gssauthenuser calling con_credent","");
+  log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER,"req_gssauthenuser calling con_credent","");
 
   if ((status = gss_conn_credent(preq,sock)) < 0)
     {
@@ -150,4 +158,4 @@ int req_gssauthenuser (struct batch_request *preq, int sock) {
     }
 
   return 0;
-}
+  }

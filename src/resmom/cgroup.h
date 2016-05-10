@@ -1,6 +1,10 @@
 #ifndef CGROUP_MANAGER_H
 #define CGROUP_MANAGER_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 
   extern int cgroup_use_cpu;
@@ -50,7 +54,7 @@
    *
    */
   int get_cgroup_pid_info(const char *name, int **pids);
-  int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage, int64_t *swmem_usage);
+  int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *swmem_limit, int64_t *mem_usage, int64_t *swmem_usage);
   int get_cgroup_cpu_info(const char *name, double *cpu_limit);
 
   /** \brief Set CPU limit for a cgroup
@@ -72,4 +76,10 @@
   int cgroup_remove_pids(const char *name, int* pids);
 
   int get_cgroup_exists(const char *name);
+
+
+#ifdef __cplusplus
+  }
+#endif
+
 #endif // CGROUP_MANAGER_H

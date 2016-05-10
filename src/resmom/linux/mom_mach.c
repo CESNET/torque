@@ -1537,9 +1537,10 @@ int mom_set_limits(
   }  /* END mom_set_limits() */
 
 
+// always poll jobs in MetaCentrum
+int mom_do_poll(job *pjob) { return TRUE; }
 
-
-
+#if 0
 /*
  * State whether MOM main loop has to poll this job to determine if some
  * limits are being exceeded.
@@ -1597,7 +1598,7 @@ int mom_do_poll(
 
   return(FALSE);
   }  /* END mom_do_poll() */
-
+#endif
 
 
 
@@ -1872,7 +1873,7 @@ int mom_over_limit(
           (cgroup_get_mem_enabled() != 0))
       {
       int64_t mem_usage = 0;
-      if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,&mem_usage,NULL) != 0)
+      if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,NULL,&mem_usage,NULL) != 0)
         numll = resi_sum(pjob);
       else
         numll = mem_usage;
@@ -2104,7 +2105,7 @@ int mom_set_use(
     {
     int64_t mem_usage = 0;
 
-    if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,&mem_usage,NULL) != 0)
+    if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,NULL,&mem_usage,NULL) != 0)
       mem_usage = resi_sum(pjob);
 
     lnum = (mem_usage + 1023) >> pres->rs_value.at_val.at_size.atsv_shift;
@@ -2137,7 +2138,7 @@ int mom_set_use(
       (cgroup_get_mem_enabled() != 0))
     {
     int64_t mem_usage = 0;
-    if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,NULL,&mem_usage) != 0)
+    if (get_cgroup_mem_info(pjob->ji_qs.ji_jobid,NULL,NULL,NULL,&mem_usage) != 0)
        mem_usage = resi_sum(pjob);
 
     lnum = (mem_usage + 1023) >> pres->rs_value.at_val.at_size.atsv_shift;

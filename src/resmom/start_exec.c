@@ -2945,7 +2945,7 @@ int TMomFinalizeChild(
             pjob->ji_qs.ji_jobid,
             cgroup_get_cpu_enabled() != 0 ? "enabled" : "disabled",
             cgroup_get_mem_enabled() != 0 ? "enabled" : "disabled");
-        log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, log_buffer);
+        log_err(-1,"TMomFinalizeChild",log_buffer);
         fprintf(stderr,"TMomFinalizeChild() : %s\n",log_buffer);
         starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr); /* exits */
         }
@@ -2955,7 +2955,7 @@ int TMomFinalizeChild(
     pars_spec *spec = parse_nodespec(pjob->ji_wattr[JOB_ATR_sched_spec].at_val.at_str);
     if (spec == NULL)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP creation failed, could not parse nodespec.");
+      log_err(-1,"TMomFinalizeChild", "CGROUP creation failed, could not parse nodespec.");
       fprintf(stderr,"TMomFinalizeChild() : %s\n","CGROUP creation failed, could not parse nodespec.");
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr); /* exits */
       }
@@ -2963,7 +2963,7 @@ int TMomFinalizeChild(
     pars_spec_node *node = find_node_in_spec(spec,mom_host);
     if (node == NULL)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP creation failed, node not found in nodespec.");
+      log_err(-1,"TMomFinalizeChild", "CGROUP creation failed, node not found in nodespec.");
       fprintf(stderr,"TMomFinalizeChild() : %s\n","CGROUP creation failed, node not found in nodespec.");
       free_parsed_nodespec(spec);
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr); /* exits */
@@ -2971,7 +2971,7 @@ int TMomFinalizeChild(
 
     if (cgroup_set_cpu_limit(pjob->ji_qs.ji_jobid,node->procs) != 0)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP CPU limit could not be set.");
+      log_err(-1,"TMomFinalizeChild", "CGROUP CPU limit could not be set.");
       fprintf(stderr,"TMomFinalizeChild() : %s\n","CGROUP CPU limit could not be set.");
       free_parsed_nodespec(spec);
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr); /* exits */
@@ -2979,7 +2979,7 @@ int TMomFinalizeChild(
 
     if (cgroup_set_mem_limit(pjob->ji_qs.ji_jobid,node->mem*1024) != 0)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP MEM limit could not be set.");
+      log_err(-1,"TMomFinalizeChild", "CGROUP MEM limit could not be set.");
       fprintf(stderr,"TMomFinalizeChild() : %s\n","CGROUP MEM limit could not be set.");
       free_parsed_nodespec(spec);
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr); /* exits */
@@ -2989,7 +2989,7 @@ int TMomFinalizeChild(
 
     if (cgroup_add_pid(pjob->ji_qs.ji_jobid,getpid()) != 0)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP adoption failed. Could not add pids to cgroup.");
+      log_err(-1,"TMomFinalizeChild", "CGROUP adoption failed. Could not add pids to cgroup.");
       fprintf(stderr,"TMomFinalizeChild() : %s\n","CGROUP adoption failed. Could not add pids to cgroup.");
       free_parsed_nodespec(spec);
       starter_return(TJE->upfds, TJE->downfds, JOB_EXEC_FAIL2, &sjr); /* exits */
@@ -4580,7 +4580,7 @@ int start_process(
             pjob->ji_qs.ji_jobid,
             cgroup_get_cpu_enabled() != 0 ? "enabled" : "disabled",
             cgroup_get_mem_enabled() != 0 ? "enabled" : "disabled");
-        log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, log_buffer);
+        log_err(-1,"start_process", log_buffer);
         fprintf(stderr,"start_process() : %s\n",log_buffer);
         starter_return(kid_write, kid_read, JOB_EXEC_FAIL2, &sjr); /* exits */
         }
@@ -4590,7 +4590,7 @@ int start_process(
     pars_spec *spec = parse_nodespec(pjob->ji_wattr[JOB_ATR_sched_spec].at_val.at_str);
     if (spec == NULL)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP creation failed, could not parse nodespec.");
+      log_err(-1,"start_process", "CGROUP creation failed, could not parse nodespec.");
       fprintf(stderr,"start_process() : %s\n","CGROUP creation failed, could not parse nodespec.");
       starter_return(kid_write, kid_read, JOB_EXEC_FAIL2, &sjr); /* exits */
       }
@@ -4598,7 +4598,7 @@ int start_process(
     pars_spec_node *node = find_node_in_spec(spec,mom_host);
     if (node == NULL)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP creation failed, node not found in nodespec.");
+      log_err(-1,"start_process", "CGROUP creation failed, node not found in nodespec.");
       fprintf(stderr,"start_process() : %s\n","CGROUP creation failed, node not found in nodespec.");
       free_parsed_nodespec(spec);
       starter_return(kid_write, kid_read, JOB_EXEC_FAIL2, &sjr); /* exits */
@@ -4606,7 +4606,7 @@ int start_process(
 
     if (cgroup_set_cpu_limit(pjob->ji_qs.ji_jobid,node->procs) != 0)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP CPU limit could not be set.");
+      log_err(-1,"start_process", "CGROUP CPU limit could not be set.");
       fprintf(stderr,"start_process() : %s\n","CGROUP CPU limit could not be set.");
       free_parsed_nodespec(spec);
       starter_return(kid_write, kid_read, JOB_EXEC_FAIL2, &sjr); /* exits */
@@ -4614,7 +4614,7 @@ int start_process(
 
     if (cgroup_set_mem_limit(pjob->ji_qs.ji_jobid,node->mem*1024) != 0)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP MEM limit could not be set.");
+      log_err(-1,"start_process", "CGROUP MEM limit could not be set.");
       fprintf(stderr,"start_process() : %s\n","CGROUP MEM limit could not be set.");
       free_parsed_nodespec(spec);
       starter_return(kid_write, kid_read, JOB_EXEC_FAIL2, &sjr); /* exits */
@@ -4624,7 +4624,7 @@ int start_process(
 
     if (cgroup_add_pid(pjob->ji_qs.ji_jobid,getpid()) != 0)
       {
-      log_record(PBSEVENT_JOB, PBS_EVENTCLASS_JOB, pjob->ji_qs.ji_jobid, "CGROUP adoption failed. Could not add pids to cgroup.");
+      log_err(-1,"start_process", "CGROUP adoption failed. Could not add pids to cgroup.");
       fprintf(stderr,"start_process() : %s\n","CGROUP adoption failed. Could not add pids to cgroup.");
       starter_return(kid_write, kid_read, JOB_EXEC_FAIL2, &sjr); /* exits */
       }
@@ -5174,9 +5174,7 @@ void start_exec(
 		return;
 		}
 
-	pjob->ji_wattr[(int)JOB_ATR_Cookie].at_val.at_str = tt;
-
-	pjob->ji_wattr[(int)JOB_ATR_Cookie].at_flags |= ATR_VFLAG_SET;
+  replace_attr_string(&pjob->ji_wattr[(int)JOB_ATR_Cookie],tt);
 
 	loopcnt++;
 

@@ -1,7 +1,9 @@
 extern "C" {
-#include "cgroup.h"
+#include "log.h"
 }
 
+
+#include "cgroup.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -15,7 +17,8 @@ extern "C" {
 #include <stdarg.h>
 #include <inttypes.h>
 
-static const char * cgroup_mem_limit = "memory.memsw.limit_in_bytes";
+static const char * cgroup_mem_limit = "memory.limit_in_bytes";
+static const char * cgroup_swmem_limit = "memory.memsw.limit_in_bytes";
 static const char * cgroup_mem_usage = "memory.usage_in_bytes";
 static const char * cgroup_swmem_usage = "memory.memsw.usage_in_bytes";
 static const char * cgroup_cpu_quota = "cpu.cfs_quota_us";
@@ -194,7 +197,9 @@ int cgroup_detect_status()
     {
     if ((ret = check_file_exists(cgroup_path_cpu)) != 0) // cgroup not found
       {
-      fprintf(stderr,"[CGROUP] Could not find cgroup CPU path %s\n",strerror(errno));
+      snprintf(log_buffer,LOG_BUF_SIZE,"[CGROUP] Could not find cgroup CPU path %s\n",strerror(errno));
+      fprintf(stderr,log_buffer);
+      log_err(-1,"cgroup_detect_status",log_buffer);
       cgroup_detection_cpu = 0;
       goto memory_detect;
       }
@@ -212,7 +217,9 @@ int cgroup_detect_status()
     else
       {
       cgroup_detection_cpu = 0;
-      fprintf(stderr,"[CGROUP] Could not find one of required cpu options (%s,%s).\n",cgroup_cpu_period,cgroup_cpu_quota);
+      snprintf(log_buffer,LOG_BUF_SIZE,"[CGROUP] Could not find one of required cpu options (%s,%s).\n",cgroup_cpu_period,cgroup_cpu_quota);
+      fprintf(stderr,log_buffer);
+      log_err(-1,"cgroup_detect_status",log_buffer);
       }
     }
 
@@ -221,7 +228,9 @@ memory_detect:
     {
     if ((ret = check_file_exists(cgroup_path_mem)) != 0) // cgroup not found
       {
-      fprintf(stderr,"[CGROUP] Could not find cgroup MEM path %s\n",strerror(errno));
+      snprintf(log_buffer,LOG_BUF_SIZE,"[CGROUP] Could not find cgroup MEM path %s\n",strerror(errno));
+      fprintf(stderr,log_buffer);
+      log_err(-1,"cgroup_detect_status",log_buffer);
       cgroup_detection_mem = 0;
       goto done;
       }
@@ -231,18 +240,23 @@ memory_detect:
     if ((ret = check_file_exists("%s/%s",cgroup_path_mem,cgroup_mem_limit)) == 0)
       ++mem_detected;
 
+    if ((ret = check_file_exists("%s/%s",cgroup_path_mem,cgroup_swmem_limit)) == 0)
+      ++mem_detected;
+
     if ((ret = check_file_exists("%s/%s",cgroup_path_mem,cgroup_mem_usage)) == 0)
       ++mem_detected;
 
     if ((ret = check_file_exists("%s/%s",cgroup_path_mem,cgroup_swmem_usage)) == 0)
       ++mem_detected;
 
-    if (mem_detected == 3)
+    if (mem_detected == 4)
       cgroup_detection_mem = 1;
     else
       {
       cgroup_detection_mem = 0;
-      fprintf(stderr,"[CGROUP] Could not find one of required memory options (%s,%s,%s).\n",cgroup_mem_limit,cgroup_mem_usage,cgroup_swmem_usage);
+      snprintf(log_buffer,LOG_BUF_SIZE,"[CGROUP] Could not find one of required memory options (%s,%s,%s,%s).\n",cgroup_mem_limit,cgroup_swmem_limit,cgroup_mem_usage,cgroup_swmem_usage);
+      fprintf(stderr,log_buffer);
+      log_err(-1,"cgroup_detect_status",log_buffer);
       }
     }
 
@@ -347,7 +361,7 @@ int get_cgroup_cpu_info(const char *name, double *cpu_limit)
   return 0;
   }
 
-int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage, int64_t *swmem_usage)
+int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *swmem_limit, int64_t *mem_usage, int64_t *swmem_usage)
   {
   if (mem_limit == NULL && mem_usage == NULL)
     return 0;
@@ -362,13 +376,19 @@ int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage
     }
 
   // read memory limit && usage
-  FILE *mem_lim = NULL, *mem_use = NULL, *swmem_use = NULL;
+  FILE *mem_lim = NULL, *swmem_lim = NULL, *mem_use = NULL, *swmem_use = NULL;
   char file_path[PATH_MAX] = {0};
 
   if (mem_limit != NULL)
     {
     sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,cgroup_mem_limit);
     mem_lim = fopen(file_path,"r");
+    }
+
+  if (swmem_limit != NULL)
+    {
+    sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,cgroup_swmem_limit);
+    swmem_lim = fopen(file_path,"r");
     }
 
   if (mem_usage != NULL)
@@ -393,6 +413,18 @@ int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage
   else if (mem_limit != NULL && mem_lim == NULL)
     {
     *mem_limit = 0;
+    return -1;
+    }
+
+  if (swmem_lim != NULL && swmem_limit != NULL)
+    {
+    fscanf(swmem_lim,"%" SCNd64,&cap);
+    *swmem_limit = cap;
+    }
+  // if requested and not read - report error
+  else if (swmem_limit != NULL && swmem_lim == NULL)
+    {
+    *swmem_limit = 0;
     return -1;
     }
 
@@ -421,8 +453,12 @@ int get_cgroup_mem_info(const char *name, int64_t *mem_limit, int64_t *mem_usage
 
   if (mem_use != NULL)
     fclose(mem_use);
+  if (swmem_usage != NULL)
+    fclose(swmem_use);
   if (mem_lim != NULL)
     fclose(mem_lim);
+  if (swmem_lim != NULL)
+    fclose(swmem_lim);
 
   return 0;
   }
@@ -533,8 +569,12 @@ int cgroup_add_pid(const char *name, int pid)
   if (fprintf(tasks,"%d\n",pid) <= 0)
     return -1;
 
-  if (tasks != NULL)
-    fclose(tasks);
+  if (tasks != NULL && fclose(tasks) != 0)
+    {
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
+    log_err(-1,"cgroup_add_pid", log_buffer);
+    fprintf(stderr,"cgroup_add_pid() : %s\n",log_buffer);
+    }
 
   // if the cgroup does not exist yet, create it
 
@@ -555,8 +595,12 @@ cgroup_add_pid_memory:
   if (fprintf(tasks,"%d\n",pid) <= 0)
     return -1;
 
-  if (tasks != NULL)
-    fclose(tasks);
+  if (tasks != NULL && fclose(tasks) != 0)
+    {
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
+    log_err(-1,"cgroup_add_pid", log_buffer);
+    fprintf(stderr,"cgroup_add_pid() : %s\n",log_buffer);
+    }
 
   return 0;
 }
@@ -593,8 +637,12 @@ int cgroup_add_pids(const char *name, int* pids)
     ++i;
     }
 
-  if (tasks != NULL)
-    fclose(tasks);
+  if (tasks != NULL && fclose(tasks) != 0)
+    {
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
+    log_err(-1,"cgroup_add_pids", log_buffer);
+    fprintf(stderr,"cgroup_add_pids() : %s\n",log_buffer);
+    }
 
   // if the cgroup does not exist yet, create it
 
@@ -623,8 +671,12 @@ cgroup_add_pids_memory:
     ++i;
     }
 
-  if (tasks != NULL)
-    fclose(tasks);
+  if (tasks != NULL && fclose(tasks))
+    {
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
+    log_err(-1,"cgroup_add_pids", log_buffer);
+    fprintf(stderr,"cgroup_add_pids() : %s\n",log_buffer);
+    }
 
   return 0;
 }
@@ -652,8 +704,12 @@ int cgroup_remove_pids(int* pids)
     ++i;
     }
 
-  if (tasks != NULL)
-    fclose(tasks);
+  if (tasks != NULL && fclose(tasks) != 0)
+    {
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
+    log_err(-1,"cgroup_remove_pids", log_buffer);
+    fprintf(stderr,"cgroup_remove_pids() : %s\n",log_buffer);
+    }
 
   // if the cgroup does not exist yet, create it
 
@@ -673,8 +729,13 @@ cgroup_remove_pids_memory:
     ++i;
     }
 
-  if (tasks != NULL)
-    fclose(tasks);
+  if (tasks != NULL && fclose(tasks) != 0)
+    {
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
+    log_err(-1,"cgroup_remove_pids", log_buffer);
+    fprintf(stderr,"cgroup_remove_pids() : %s\n",log_buffer);
+    }
+
 
   return 0;
 }
@@ -696,8 +757,12 @@ int cgroup_remove_pid(int pid)
   if (fprintf(tasks,"%d\n",pid) <= 0)
     return -1;
 
-  if (tasks != NULL)
-    fclose(tasks);
+  if (tasks != NULL && fclose(tasks) != 0)
+    {
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
+    log_err(-1,"cgroup_remove_pid", log_buffer);
+    fprintf(stderr,"cgroup_remove_pid() : %s\n",log_buffer);
+    }
 
   // if the cgroup does not exist yet, create it
 
@@ -712,8 +777,12 @@ cgroup_remove_pid_memory:
   if (fprintf(tasks,"%d\n",pid) <= 0)
     return -1;
 
-  if (tasks != NULL)
-    fclose(tasks);
+  if (tasks != NULL && fclose(tasks) != 0)
+    {
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
+    log_err(-1,"cgroup_remove_pid", log_buffer);
+    fprintf(stderr,"cgroup_remove_pid() : %s\n",log_buffer);
+    }
 
   return 0;
 }
@@ -765,7 +834,9 @@ int cgroup_set_cpu_limit(const char *name, double cpu_limit)
   cpu_period = fopen(file_path,"w");
   if (cpu_period == NULL)
     {
-    printf("Could not open %s file : %s\n",file_path,strerror(errno));
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not open %s file : %s\n",file_path,strerror(errno));
+    log_err(-1,"cgroup_set_cpu_limit", log_buffer);
+    fprintf(stderr,"cgroup_set_cpu_limit() : %s\n",log_buffer);
     }
 
   sprintf(file_path,"%s/%s/%s",cgroup_path_cpu,name,cgroup_cpu_quota);
@@ -773,7 +844,9 @@ int cgroup_set_cpu_limit(const char *name, double cpu_limit)
 
   if (cpu_quota == NULL)
     {
-    printf("Could not open %s file : %s\n",file_path,strerror(errno));
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not open %s file : %s\n",file_path,strerror(errno));
+    log_err(-1,"cgroup_set_cpu_limit", log_buffer);
+    fprintf(stderr,"cgroup_set_cpu_limit() : %s\n",log_buffer);
     }
 
   if (cpu_period != NULL && cpu_quota != NULL)
@@ -784,10 +857,19 @@ int cgroup_set_cpu_limit(const char *name, double cpu_limit)
       return -1;
     }
 
-  if (cpu_period != NULL)
-    fclose(cpu_period);
-  if (cpu_quota != NULL)
-    fclose(cpu_quota);
+  if (cpu_period != NULL && fclose(cpu_period) != 0)
+    {
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush cpu_period : %s\n",strerror(errno));
+    log_err(-1,"cgroup_set_mem_limit", log_buffer);
+    fprintf(stderr,"cgroup_set_mem_limit() : %s\n",log_buffer);
+    }
+
+  if (cpu_quota != NULL && fclose(cpu_quota) != 0)
+    {
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush cpu_quota : %s\n",strerror(errno));
+    log_err(-1,"cgroup_set_cpu_limit", log_buffer);
+    fprintf(stderr,"cgroup_set_cpu_limit() : %s\n",log_buffer);
+    }
 
   return 0;
   }
@@ -799,24 +881,52 @@ int cgroup_set_mem_limit(const char *name, int64_t mem_limit)
   if (cgroup_detection_mem == 0)
     return 0;
 
-  FILE *mem;
+  FILE *mem, *swmem;
   char file_path[PATH_MAX] = {0};
 
   sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,cgroup_mem_limit);
   mem = fopen(file_path,"w");
   if (mem == NULL)
     {
-    printf("Could not open %s file : %s\n",file_path,strerror(errno));
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not open %s file : %s\n",file_path,strerror(errno));
+    log_err(-1,"cgroup_set_mem_limit", log_buffer);
+    fprintf(stderr,"cgroup_set_mem_limit() : %s\n",log_buffer);
+    }
+
+  sprintf(file_path,"%s/%s/%s",cgroup_path_mem,name,cgroup_swmem_limit);
+  swmem = fopen(file_path,"w");
+  if (swmem == NULL)
+    {
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not open %s file : %s\n",file_path,strerror(errno));
+    log_err(-1,"cgroup_set_mem_limit", log_buffer);
+    fprintf(stderr,"cgroup_set_mem_limit() : %s\n",log_buffer);
     }
 
   if (mem != NULL)
     {
-    if (fprintf(mem,"%ld",mem_limit) <= 0)
+    if (fprintf(mem,"%" SCNd64,mem_limit) <= 0)
       return -1;
     }
 
-  if (mem != NULL)
-    fclose(mem);
+  if (swmem != NULL)
+    {
+    if (fprintf(swmem,"%" SCNd64,mem_limit) <= 0)
+      return -1;
+    }
+
+  if (mem != NULL && fclose(mem) != 0)
+    {
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush memory : %s\n",strerror(errno));
+    log_err(-1,"cgroup_set_mem_limit", log_buffer);
+    fprintf(stderr,"cgroup_set_mem_limit() : %s\n",log_buffer);
+    }
+
+  if (swmem != NULL && fclose(swmem) != 0)
+    {
+    snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush swmemory : %s\n",strerror(errno));
+    log_err(-1,"cgroup_set_mem_limit", log_buffer);
+    fprintf(stderr,"cgroup_set_mem_limit() : %s\n",log_buffer);
+    }
 
   return 0;
   }

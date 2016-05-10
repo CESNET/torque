@@ -8031,10 +8031,8 @@ examine_all_polled_jobs(void)
           message_job(pjob,StdErr,kill_msg);
 
             { /* modify job comment */
-            if (pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags & ATR_VFLAG_SET)
-              free(pjob->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str);
-            pjob->ji_wattr[(int)JOB_ATR_Comment].at_val.at_str = strdup(kill_msg);
-            pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags |= ATR_VFLAG_SEND | ATR_VFLAG_SET;
+            replace_attr_string(&pjob->ji_wattr[(int)JOB_ATR_Comment],strdup(kill_msg));
+            pjob->ji_wattr[(int)JOB_ATR_Comment].at_flags |= ATR_VFLAG_SEND;
             }
 
           free(kill_msg);

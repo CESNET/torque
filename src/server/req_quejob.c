@@ -222,8 +222,7 @@ static int filter_job_replaceppn(resource_def *d_nodes, job* pj)
     /* concat the rest */
     strcat(newnodestr,nodestr);
 
-    free(nodes->rs_value.at_val.at_str);
-    nodes->rs_value.at_val.at_str = newnodestr;
+    replace_attr_string(&nodes->rs_value,newnodestr);
     }
 
   return 0;
@@ -258,8 +257,7 @@ static int filter_job(job *pj)
           if ((place_val = find_resc_entry(&pj->ji_wattr[(int)JOB_ATR_resource],place_def)) == 0)
           if ((place_val = add_resource_entry(&pj->ji_wattr[(int)JOB_ATR_resource],place_def)) != 0)
             {
-            place_val->rs_value.at_val.at_str = strdup("scratch_pool");
-            place_val->rs_value.at_flags |= ATR_VFLAG_SET;
+            replace_attr_string(&place_val->rs_value,strdup("scratch_pool"));
             }
           }
         }
@@ -286,8 +284,7 @@ static int filter_job(job *pj)
           if ((place_val = find_resc_entry(&pj->ji_wattr[(int)JOB_ATR_resource],place_def)) == 0)
           if ((place_val = add_resource_entry(&pj->ji_wattr[(int)JOB_ATR_resource],place_def)) != 0)
             {
-            place_val->rs_value.at_val.at_str = strdup("infiniband");
-            place_val->rs_value.at_flags |= ATR_VFLAG_SET;
+            replace_attr_string(&place_val->rs_value,strdup("infiniband"));
             }
           }
 
@@ -300,8 +297,7 @@ static int filter_job(job *pj)
           if (newnodes != NULL)
             {
             sprintf(newnodes,"%s%s",nodes->rs_value.at_val.at_str,"#cgroup");
-            free(nodespec);
-            nodes->rs_value.at_val.at_str = newnodes;
+            replace_attr_string(&nodes->rs_value,newnodes);
             }
           }
 

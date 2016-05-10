@@ -464,10 +464,8 @@ void req_register(
             set_depend_hold(pjob, pattr);
 
             sprintf(tmpcoststr, "%ld", preq->rq_ind.rq_register.rq_cost);
-            pjob->ji_wattr[(int)JOB_ATR_sched_hint].at_val.at_str =
-              strdup(tmpcoststr);
 
-            pjob->ji_wattr[(int)JOB_ATR_sched_hint].at_flags |= ATR_VFLAG_SET;
+            replace_attr_string(&pjob->ji_wattr[(int)JOB_ATR_sched_hint],strdup(tmpcoststr));
             }
           else
             {
@@ -1902,7 +1900,7 @@ static void cat_jobsvr(
 
   d = *Dest;
 
-  while (*Src) 
+  while (*Src)
     {
     if (*Src == ':')
       *d++ = '\\';
@@ -2116,7 +2114,7 @@ int encode_depend(
           }
 
 				pdjb = (struct depend_job *)GET_NEXT(pdjb->dc_link);
-			  } 
+			  }
 		  }
 
 		++numdep;

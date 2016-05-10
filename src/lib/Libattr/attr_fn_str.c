@@ -132,7 +132,7 @@ int decode_str(
   {
   size_t len;
 
-  if ((patr->at_flags & ATR_VFLAG_SET) && (patr->at_val.at_str != NULL))
+  if (patr->at_val.at_str != NULL)
     {
     free(patr->at_val.at_str);
 

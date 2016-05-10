@@ -1452,8 +1452,7 @@ void req_stat_svr(
 
   nc = netcounter_get();
   sprintf(nc_buf, "%d %d %d", *nc, *(nc + 1), *(nc + 2));
-  server.sv_attr[(int)SRV_ATR_NetCounter].at_val.at_str = nc_buf;
-  server.sv_attr[(int)SRV_ATR_NetCounter].at_flags |= ATR_VFLAG_SET;
+  replace_attr_string(&server.sv_attr[(int)SRV_ATR_NetCounter],nc_buf);
 
   /* allocate a reply structure and a status sub-structure */
 
@@ -1534,7 +1533,5 @@ update_state_ct(attribute *pattr, int *ct_array, char *buf)
             *(ct_array + index));
     }
 
-  pattr->at_val.at_str = buf;
-
-  pattr->at_flags |= ATR_VFLAG_SET;
+  replace_attr_string(pattr,buf);
   }

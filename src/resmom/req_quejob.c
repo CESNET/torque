@@ -155,6 +155,8 @@ extern char *msg_jobnew;
 extern time_t time_now;
 extern int    LOGLEVEL;
 
+extern time_t last_poll_time;
+
 extern  char *msg_daemonname;
 
 extern int decode_arst_merge(struct attribute *,char *,char *,char *);
@@ -470,7 +472,7 @@ void req_quejob(
       pj->ji_qs.ji_un.ji_newt.ji_fromaddr = get_connectaddr(sock);
       pj->ji_qs.ji_un.ji_newt.ji_scriptsz = 0;
 
-      /* Per Eric R., req_mvjobfile was giving error in open_std_file, 
+      /* Per Eric R., req_mvjobfile was giving error in open_std_file,
          showed up as fishy error message */
 
       if (pj->ji_grpcache != NULL)
@@ -1008,6 +1010,9 @@ void req_commit(
       (pj != NULL) ? pj->ji_qs.ji_jobid : "NULL",
       "starting job execution");
     }
+
+  // force poll of other jobs to prevent memory crashes
+  last_poll_time = 0;
 
   start_exec(pj);
 
