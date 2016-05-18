@@ -199,7 +199,7 @@ int cgroup_detect_status()
       {
       snprintf(log_buffer,LOG_BUF_SIZE,"[CGROUP] Could not find cgroup CPU path %s\n",strerror(errno));
       fprintf(stderr,log_buffer);
-      log_err(-1,"cgroup_detect_status",log_buffer);
+      log_err(-1,const_cast<char*>("cgroup_detect_status"),log_buffer);
       cgroup_detection_cpu = 0;
       goto memory_detect;
       }
@@ -219,7 +219,7 @@ int cgroup_detect_status()
       cgroup_detection_cpu = 0;
       snprintf(log_buffer,LOG_BUF_SIZE,"[CGROUP] Could not find one of required cpu options (%s,%s).\n",cgroup_cpu_period,cgroup_cpu_quota);
       fprintf(stderr,log_buffer);
-      log_err(-1,"cgroup_detect_status",log_buffer);
+      log_err(-1,const_cast<char*>("cgroup_detect_status"),log_buffer);
       }
     }
 
@@ -230,7 +230,7 @@ memory_detect:
       {
       snprintf(log_buffer,LOG_BUF_SIZE,"[CGROUP] Could not find cgroup MEM path %s\n",strerror(errno));
       fprintf(stderr,log_buffer);
-      log_err(-1,"cgroup_detect_status",log_buffer);
+      log_err(-1,const_cast<char*>("cgroup_detect_status"),log_buffer);
       cgroup_detection_mem = 0;
       goto done;
       }
@@ -256,7 +256,7 @@ memory_detect:
       cgroup_detection_mem = 0;
       snprintf(log_buffer,LOG_BUF_SIZE,"[CGROUP] Could not find one of required memory options (%s,%s,%s,%s).\n",cgroup_mem_limit,cgroup_swmem_limit,cgroup_mem_usage,cgroup_swmem_usage);
       fprintf(stderr,log_buffer);
-      log_err(-1,"cgroup_detect_status",log_buffer);
+      log_err(-1,const_cast<char*>("cgroup_detect_status"),log_buffer);
       }
     }
 
@@ -572,7 +572,7 @@ int cgroup_add_pid(const char *name, int pid)
   if (tasks != NULL && fclose(tasks) != 0)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
-    log_err(-1,"cgroup_add_pid", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_add_pid"), log_buffer);
     fprintf(stderr,"cgroup_add_pid() : %s\n",log_buffer);
     }
 
@@ -598,7 +598,7 @@ cgroup_add_pid_memory:
   if (tasks != NULL && fclose(tasks) != 0)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
-    log_err(-1,"cgroup_add_pid", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_add_pid"), log_buffer);
     fprintf(stderr,"cgroup_add_pid() : %s\n",log_buffer);
     }
 
@@ -640,7 +640,7 @@ int cgroup_add_pids(const char *name, int* pids)
   if (tasks != NULL && fclose(tasks) != 0)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
-    log_err(-1,"cgroup_add_pids", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_add_pids"), log_buffer);
     fprintf(stderr,"cgroup_add_pids() : %s\n",log_buffer);
     }
 
@@ -674,7 +674,7 @@ cgroup_add_pids_memory:
   if (tasks != NULL && fclose(tasks))
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
-    log_err(-1,"cgroup_add_pids", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_add_pids"), log_buffer);
     fprintf(stderr,"cgroup_add_pids() : %s\n",log_buffer);
     }
 
@@ -707,7 +707,7 @@ int cgroup_remove_pids(int* pids)
   if (tasks != NULL && fclose(tasks) != 0)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
-    log_err(-1,"cgroup_remove_pids", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_remove_pids"), log_buffer);
     fprintf(stderr,"cgroup_remove_pids() : %s\n",log_buffer);
     }
 
@@ -732,7 +732,7 @@ cgroup_remove_pids_memory:
   if (tasks != NULL && fclose(tasks) != 0)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
-    log_err(-1,"cgroup_remove_pids", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_remove_pids"), log_buffer);
     fprintf(stderr,"cgroup_remove_pids() : %s\n",log_buffer);
     }
 
@@ -760,7 +760,7 @@ int cgroup_remove_pid(int pid)
   if (tasks != NULL && fclose(tasks) != 0)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
-    log_err(-1,"cgroup_remove_pid", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_remove_pid"), log_buffer);
     fprintf(stderr,"cgroup_remove_pid() : %s\n",log_buffer);
     }
 
@@ -780,7 +780,7 @@ cgroup_remove_pid_memory:
   if (tasks != NULL && fclose(tasks) != 0)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush tasks : %s\n",strerror(errno));
-    log_err(-1,"cgroup_remove_pid", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_remove_pid"), log_buffer);
     fprintf(stderr,"cgroup_remove_pid() : %s\n",log_buffer);
     }
 
@@ -835,7 +835,7 @@ int cgroup_set_cpu_limit(const char *name, double cpu_limit)
   if (cpu_period == NULL)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not open %s file : %s\n",file_path,strerror(errno));
-    log_err(-1,"cgroup_set_cpu_limit", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_set_cpu_limit"), log_buffer);
     fprintf(stderr,"cgroup_set_cpu_limit() : %s\n",log_buffer);
     }
 
@@ -845,7 +845,7 @@ int cgroup_set_cpu_limit(const char *name, double cpu_limit)
   if (cpu_quota == NULL)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not open %s file : %s\n",file_path,strerror(errno));
-    log_err(-1,"cgroup_set_cpu_limit", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_set_cpu_limit"), log_buffer);
     fprintf(stderr,"cgroup_set_cpu_limit() : %s\n",log_buffer);
     }
 
@@ -860,14 +860,14 @@ int cgroup_set_cpu_limit(const char *name, double cpu_limit)
   if (cpu_period != NULL && fclose(cpu_period) != 0)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush cpu_period : %s\n",strerror(errno));
-    log_err(-1,"cgroup_set_mem_limit", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_set_mem_limit"), log_buffer);
     fprintf(stderr,"cgroup_set_mem_limit() : %s\n",log_buffer);
     }
 
   if (cpu_quota != NULL && fclose(cpu_quota) != 0)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush cpu_quota : %s\n",strerror(errno));
-    log_err(-1,"cgroup_set_cpu_limit", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_set_cpu_limit"), log_buffer);
     fprintf(stderr,"cgroup_set_cpu_limit() : %s\n",log_buffer);
     }
 
@@ -889,7 +889,7 @@ int cgroup_set_mem_limit(const char *name, int64_t mem_limit)
   if (mem == NULL)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not open %s file : %s\n",file_path,strerror(errno));
-    log_err(-1,"cgroup_set_mem_limit", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_set_mem_limit"), log_buffer);
     fprintf(stderr,"cgroup_set_mem_limit() : %s\n",log_buffer);
     }
 
@@ -898,7 +898,7 @@ int cgroup_set_mem_limit(const char *name, int64_t mem_limit)
   if (swmem == NULL)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not open %s file : %s\n",file_path,strerror(errno));
-    log_err(-1,"cgroup_set_mem_limit", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_set_mem_limit"), log_buffer);
     fprintf(stderr,"cgroup_set_mem_limit() : %s\n",log_buffer);
     }
 
@@ -917,14 +917,14 @@ int cgroup_set_mem_limit(const char *name, int64_t mem_limit)
   if (mem != NULL && fclose(mem) != 0)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush memory : %s\n",strerror(errno));
-    log_err(-1,"cgroup_set_mem_limit", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_set_mem_limit"), log_buffer);
     fprintf(stderr,"cgroup_set_mem_limit() : %s\n",log_buffer);
     }
 
   if (swmem != NULL && fclose(swmem) != 0)
     {
     snprintf(log_buffer,LOG_BUF_SIZE,"Could not close/flush swmemory : %s\n",strerror(errno));
-    log_err(-1,"cgroup_set_mem_limit", log_buffer);
+    log_err(-1,const_cast<char*>("cgroup_set_mem_limit"), log_buffer);
     fprintf(stderr,"cgroup_set_mem_limit() : %s\n",log_buffer);
     }
 

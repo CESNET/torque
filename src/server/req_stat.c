@@ -86,11 +86,7 @@
 
 #define STAT_CNTL 1
 
-#include <sys/types.h>
-#include <stdlib.h>
-#include <stdio.h>
 #include "libpbs.h"
-#include <ctype.h>
 #include "server_limits.h"
 #include "list_link.h"
 #include "attribute.h"
@@ -106,6 +102,12 @@
 #include "pbs_nodes.h"
 #include "log.h"
 #include "cloud.h"
+
+#include <sys/types.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
 
 /* Global Data Items: */
 
@@ -1452,7 +1454,7 @@ void req_stat_svr(
 
   nc = netcounter_get();
   sprintf(nc_buf, "%d %d %d", *nc, *(nc + 1), *(nc + 2));
-  replace_attr_string(&server.sv_attr[(int)SRV_ATR_NetCounter],nc_buf);
+  replace_attr_string(&server.sv_attr[(int)SRV_ATR_NetCounter],strdup(nc_buf));
 
   /* allocate a reply structure and a status sub-structure */
 
@@ -1533,5 +1535,9 @@ update_state_ct(attribute *pattr, int *ct_array, char *buf)
             *(ct_array + index));
     }
 
-  replace_attr_string(pattr,buf);
+  char *attr_str = strdup(buf);
+  if (attr_str != NULL) // we should report this error somehow
+    {
+    replace_attr_string(pattr,attr_str);
+    }
   }
