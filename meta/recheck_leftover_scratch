@@ -45,6 +45,11 @@ for scr in $SCRATCHES; do
 			(dead_quota_sum $scr >$scr/.dead.size) 2>/dev/null
 		fi
 
+		# check whether we have .size files, but still have a sum somehow
+		if [ $(find "$scr/" -mindepth 2 -maxdepth 2 -type f -name "*.size" | wc -l 2>/dev/null) -eq 0 ]; then
+			echo "0" >$scr/.dead.size 2>/dev/null
+		fi
+
 	fi
 
 done

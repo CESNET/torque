@@ -254,6 +254,8 @@ int reply_send_async(struct batch_request *request)
       {
       free_br(request);
       }
+
+    return rc;
     }
     /* Otherwise, the reply is to be sent to a remote client */
 

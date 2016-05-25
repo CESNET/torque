@@ -258,7 +258,7 @@ int init_network(
   int unixsocket;
   memset(&unsocname, 0, sizeof(unsocname));
 #endif
- 
+
   MaxNumDescriptors = get_max_num_descriptors();
 
   memset(&socname, 0, sizeof(socname));
@@ -354,7 +354,7 @@ int init_network(
 
     unsocname.sun_family = AF_UNIX;
 
-    strncpy(unsocname.sun_path, TSOCK_PATH, sizeof(unsocname.sun_path) - 1);  
+    strncpy(unsocname.sun_path, TSOCK_PATH, sizeof(unsocname.sun_path) - 1);
 
     unlink(TSOCK_PATH);  /* don't care if this fails */
 
@@ -440,15 +440,16 @@ int wait_request(
   if (SState != NULL)
     OrigState = *SState;
 
-  timeout.tv_usec = 0;
-
-  timeout.tv_sec  = waittime;
+  // no timeout polling
+  timeout.tv_usec = 200;
+  timeout.tv_sec = 0;
+  //timeout.tv_sec  = waittime;
 
   SelectSetSize = sizeof(char) * get_fdset_size();
   SelectSet = (fd_set *)calloc(1,SelectSetSize);
 
   memcpy(SelectSet,GlobalSocketReadSet,SelectSetSize);
- 
+
   /* selset = readset;*/  /* readset is global */
   MaxNumDescriptors = get_max_num_descriptors();
 
@@ -733,7 +734,7 @@ void close_conn(
   if (svr_conn[sd].cn_oncl != 0)
     svr_conn[sd].cn_oncl(sd);
 
-  /* 
+  /*
    * In the case of a -t cold start, this will be called prior to
    * GlobalSocketReadSet being initialized
    */
