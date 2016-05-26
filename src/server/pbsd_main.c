@@ -1184,11 +1184,18 @@ main_loop(void)
 
     /* wait for a request and process it */
 
+    struct timeval timeout;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 200;
+
     time_t end_time = time(NULL) + waittime;
-    while (wait_request(waittime, state) == 0)
+    while (wait_request(&timeout, state) == 0)
       {
       if (time(NULL) >= end_time) // timeout, continue processing
         break;
+
+      timeout.tv_sec = 0;
+      timeout.tv_usec = 200;
       }
 
     /* qmgr can dynamically set the loglevel specification

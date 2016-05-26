@@ -8504,7 +8504,11 @@ void main_loop(void)
 
     /* wait_request does a select and then calls the connection's cn_func for sockets with data */
 
-    if (wait_request(tmpTime, NULL) != 0)
+    struct timeval timeout;
+    timeout.tv_sec = tmpTime;
+    timeout.tv_usec = 0;
+
+    if (wait_request(&timeout, NULL) != 0)
       {
       if (errno == EBADF)
         {

@@ -192,7 +192,7 @@ int  get_fullhostname A_((char *, char *, int, char *));
 unsigned int  get_svrport A_((char *, char *, unsigned int));
 int  init_network A_((unsigned int, void (*readfunc)()));
 void net_close A_((int));
-int  wait_request(time_t waittime, long *);
+int  wait_request(struct timeval *timeout, long *);
 void net_add_close_func A_((int, void(*)()));
 int get_max_num_descriptors(void);
 int get_fdset_size(void);

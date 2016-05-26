@@ -413,7 +413,7 @@ int init_network(
 
 int wait_request(
 
-  time_t  waittime,   /* I (seconds) */
+  struct timeval *timeout,   /* I (seconds) */
   long   *SState)     /* I (optional) */
 
   {
@@ -433,17 +433,10 @@ int wait_request(
   char id[] = "wait_request";
   char tmpLine[1024];
 
-  struct timeval timeout;
-
   long OrigState = 0;
 
   if (SState != NULL)
     OrigState = *SState;
-
-  // no timeout polling
-  timeout.tv_usec = 200;
-  timeout.tv_sec = 0;
-  //timeout.tv_sec  = waittime;
 
   SelectSetSize = sizeof(char) * get_fdset_size();
   SelectSet = (fd_set *)calloc(1,SelectSetSize);
@@ -453,7 +446,7 @@ int wait_request(
   /* selset = readset;*/  /* readset is global */
   MaxNumDescriptors = get_max_num_descriptors();
 
-  n = select(MaxNumDescriptors, SelectSet, (fd_set *)0, (fd_set *)0, &timeout);
+  n = select(MaxNumDescriptors, SelectSet, (fd_set *)0, (fd_set *)0, timeout);
 
   if (n == -1)
     {
