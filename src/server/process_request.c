@@ -440,28 +440,31 @@ void process_request(
     }
 
 #ifdef GSSAPI
-  if (request->rq_type == PBS_BATCH_GSSAuthenUser) {
+  if (request->rq_type == PBS_BATCH_GSSAuthenUser)
+    {
 #ifdef PBS_MOM
     req_reject(PBSE_BADCRED,0,request,NULL,"pbs_mom didn't expect PBS_BATCH_GSSAuthenUser");
     return;
 #else
-    /* gss_gssauthenuser will already have called req_reject */
-    if (req_gssauthenuser(request,sfds) < 0) {
-      log_event(PBSEVENT_DEBUG,
-                PBS_EVENTCLASS_SERVER,"req_gssauthenuser returned < 0","");
+    /* gss_gssauthenuser calls req_reject internally, no need to free request */
+    if (req_gssauthenuser(request,sfds) < 0)
+      {
+      log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER,"req_gssauthenuser returned < 0","");
+      close_client(sfds);
       return;
-    }
-    log_event(PBSEVENT_DEBUG,
-              PBS_EVENTCLASS_SERVER,"req_gssauthenuser returned >= 0","");
+      }
 #endif
-  } else {
-#ifndef PBS_MOM    
-    if (svr_conn[sfds].cn_authen == PBS_NET_CONN_GSSAPIAUTH) {
+    }
+  else
+    {
+#ifndef PBS_MOM
+    if (svr_conn[sfds].cn_authen == PBS_NET_CONN_GSSAPIAUTH)
+      {
       strcpy(request->rq_user,conn_credent[sfds].username);
       strcpy(request->rq_host,conn_credent[sfds].hostname);
-    }
+      }
 #endif
-  }
+    }
 #endif /* GSSAPI */
 
   if (LOGLEVEL >= 1)
@@ -499,6 +502,7 @@ void process_request(
                  svr_conn[sfds].principal);
 
         req_reject(PBSE_BADHOST, 0, request, NULL, tmpLine);
+        close_client(sfds);
 
         return;
         }
@@ -620,7 +624,7 @@ void process_request(
      * alters and releases on checkpointable jobs.  Allow manager permission
      * for root on the jobs execution node.
      */
-     
+
     if (((request->rq_type == PBS_BATCH_ModifyJob) ||
         (request->rq_type == PBS_BATCH_ReleaseJob)) &&
         (strcmp(request->rq_user, PBS_DEFAULT_ADMIN) == 0))
@@ -637,7 +641,7 @@ void process_request(
         {
         *dptr = '\0';
         }
-      
+
       if (((pjob = find_job(request->rq_ind.rq_modify.rq_objname)) != (job *)0) &&
           (pjob->ji_qs.ji_state == JOB_STATE_RUNNING))
         {
@@ -1411,6 +1415,7 @@ void dispatch_request(
 
 #ifdef GSSAPI
     case PBS_BATCH_GSSAuthenUser:
+      free_br(request);
       /* already handled */
       break;
 #endif /* GSSAPI */
