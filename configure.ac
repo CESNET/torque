@@ -808,20 +808,26 @@ K5CFLAGS=
 K5LIBS=
 KRB525LIB=
 
-AC_ARG_WITH([gssapi_bin], AS_HELP_STRING([--with-gssapi_bin=PATH],[Set GSSAPI/Krb5 binaries path.]),
-[ GSSAPIBIN=$withval ])
+AC_ARG_WITH([krb5-config], AS_HELP_STRING([--with-krb5-config=PATH],[Set GSSAPI/Krb5 include and library paths from a krb5-config executable.]),[
 
-AC_ARG_WITH([gssapi_lib], AS_HELP_STRING([--with-gssapi_lib=PATH],[Set GSSAPI/Krb5 libraries path.]),
-[
-GSSAPILIB=$withval
-K5LIBS="-Wl,-R$withval -L$withval -lgssapi -lheimntlm -lkrb5"
-buildgssapi=yes
-])
+if test "x$withval" != "xno" ; then
+	buildgssapi=yes
 
-AC_ARG_WITH([gssapi_inc], AS_HELP_STRING([--with-gssapi_inc=PATH],[Set GSSAPI/Krb5 include path.]),
-[
-GSSAPIINC=$withval
-K5CFLAGS="-I$withval"
+	if test "x$withval" = "xyes" ; then
+		KRB5CONFIG="/usr/bin/krb5-config"
+	else
+		KRB5CONFIG="${withval}"
+	fi
+
+	AC_MSG_CHECKING(for krb5-config)
+	if test -x $KRB5CONFIG ; then
+		AC_MSG_RESULT($KRB5CONFIG)
+		K5CFLAGS="`$KRB5CONFIG --cflags`"
+		K5LIBS="`$KRB5CONFIG --libs` `$KRB5CONFIG --libs gssapi` -lkrb525"
+		K5BINS="`$KRB5CONFIG --prefix`/bin"
+	fi
+
+fi
 ])
 
 AC_ARG_WITH([krb525_lib], AS_HELP_STRING([--with-krb525_lib=PATH],[Set Krb525 library path.]),
@@ -829,57 +835,22 @@ AC_ARG_WITH([krb525_lib], AS_HELP_STRING([--with-krb525_lib=PATH],[Set Krb525 li
 KRB525LIB="-Wl,-R$withval -L$withval -lkrb525"
 ])
 
-
-AC_ARG_WITH([gssapi],	AS_HELP_STRING([--with-gssapi=PATH],	[Enable GSSAPI/Krb5 support.]),
-[
-if test "x$withval" != "xno" ; then
-	buildgssapi=yes
-
-    if test "x$withval" = "xyes" ; then
-		GSSAPIROOT="/usr"
-	else
-		GSSAPIROOT=${withval}
-	fi
-
-	GSSAPIBIN=$GSSAPIROOT/bin
-	GSSAPILIB=$GSSAPIROOT/lib
-	GSSAPIINC=$GSSAPIROOT/include
-
-	AC_MSG_CHECKING(for krb5-config)
-        if test -x $GSSAPIBIN/krb5-config ; then
-		KRB5CONF=$GSSAPIBIN/krb5-config
-		AC_MSG_RESULT($KRB5CONF)
-
-		AC_MSG_CHECKING(for gssapi support)
-		if $KRB5CONF | grep gssapi >/dev/null ; then
-			AC_MSG_RESULT(yes)
-			k5confopts=gssapi
-		fi
-
-		K5CFLAGS="`$KRB5CONF --cflags $k5confopts`"
-		K5LIBS="-Wl,-R${GSSAPILIB} `$KRB5CONF --libs $k5confopts` -lkrb525"
-	fi
-
-fi
-
-
-])
-
 AC_SUBST([K5LIBS])
 AC_SUBST([KRB525LIB])
+
 AM_CONDITIONAL(INCLUDE_GSSAPI, [test "$buildgssapi" = "yes"])
 
-if test "$buildgssapi" = "yes" ;then
+if test "$buildgssapi" = "yes" ; then
 	AC_CHECK_HEADERS(gssapi.h gssapi/gssapi.h)
 	AC_DEFINE(GSSAPI,1,[Use GSSAPI/Krb5])
 
-	AC_PATH_PROGS(KRB5KDESTROY,	kdestroy,	kdestroy,	$PATH:$GSSAPIBIN)
-	AC_PATH_PROGS(KRB5KINIT,		kinit,		kinit,		$PATH:$GSSAPIBIN)
-	AC_PATH_PROGS(AKLOG,		afslog,		afslog,		$PATH:$GSSAPIBIN)
+	AC_PATH_PROGS(KRB5KDESTROY,	kdestroy,	kdestroy,	$PATH:$K5BINS)
+	AC_PATH_PROGS(KRB5KINIT,	kinit,		kinit,		$PATH:$K5BINS)
+	AC_PATH_PROGS(AKLOG,		afslog,		afslog,		$PATH:$K5BINS)
 
 	AC_DEFINE_UNQUOTED([KRB5_KDESTROY],	"${KRB5KDESTROY}",	[Path to kdestroy])
-	AC_DEFINE_UNQUOTED([KRB5_KINIT],		"${KRB5KINIT}",		[Path to kinit])
-	AC_DEFINE_UNQUOTED([AKLOG_PATH],		"${AKLOG}",		[Path to afslog])
+	AC_DEFINE_UNQUOTED([KRB5_KINIT],	"${KRB5KINIT}",		[Path to kinit])
+	AC_DEFINE_UNQUOTED([AKLOG_PATH],	"${AKLOG}",		[Path to afslog])
 
 	CPPFLAGS="$CPPFLAGS $K5CFLAGS"
 	LDFLAGS="$LDFLAGS $K5LIBS $KRB525LIB"
