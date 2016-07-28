@@ -714,12 +714,12 @@ void close_conn(
     {
     return;
     }
-
+#if 0
   if (svr_conn[sd].cn_active == Idle)
     {
     return;
     }
-
+#endif
   close(sd);
 
   /* if there is a function to call on close, do it */

@@ -203,9 +203,7 @@ void req_holdarray(struct batch_request *preq);
 
 #endif
 
-#ifdef GSSAPI
 extern int req_gssauthenuser (struct batch_request *preq, int sock);
-#endif
 
 /* END request processing prototypes */
 

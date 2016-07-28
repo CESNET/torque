@@ -1167,6 +1167,8 @@ static void preobit_reply(
     return;
     }
 
+  log_buffer[0] = '\0';
+  
   /* we've got a job in PREOBIT and matches the socket, now
      inspect the results of the job stat */
 
@@ -1333,20 +1335,33 @@ static void preobit_reply(
     }
 
   if (pjob->ji_mompost == ROOT_TASK_POST_CHECKPOINT)
-  {
-  pjob->ji_momhandle = -1;
-  return;
-  }
+    {
+    log_record(
+      PBSEVENT_ERROR,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      log_buffer);
+    
+    pjob->ji_momhandle = -1;
+    return;
+    }
 
   /* at this point, server gave us a valid response so we can run epilogue */
 
+  
   if (LOGLEVEL >= 2)
     {
     log_record(
       PBSEVENT_DEBUG,
       PBS_EVENTCLASS_JOB,
       pjob->ji_qs.ji_jobid,
-      "performing job clean-up in preobit_reply()");
+      "performing job clean-up in preobit_reply(), log_buffer content:");
+    
+    log_record(
+      PBSEVENT_DEBUG,
+      PBS_EVENTCLASS_JOB,
+      pjob->ji_qs.ji_jobid,
+      log_buffer);    
     }
 
   cpid = fork_me(-1);

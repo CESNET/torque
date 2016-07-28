@@ -118,7 +118,7 @@ int req_gssauthenuser (struct batch_request *preq, int sock)
       }
     }
 
-  if ((status = pbsgss_server_establish_context(sock, server_creds, NULL, &context, &client_name, &ret_flags)) < 0)
+  if ((status = pbsgss_server_establish_context(sock, server_creds, NULL, &context, &client_name, &ret_flags)) != PBSGSS_OK)
     {
     sprintf(log_buffer,"server_establish_context failed : %d",status);
     log_event(PBSEVENT_DEBUG, PBS_EVENTCLASS_SERVER,"req_gssauthenuser",log_buffer);
