@@ -496,7 +496,10 @@ int wait_request(
         {
         netcounter_incr();
 
-        svr_conn[i].cn_func(i);
+        if (svr_conn[i].cn_func != NULL)
+          {
+          svr_conn[i].cn_func(i);
+          }
 
         /* NOTE:  breakout if state changed (probably received shutdown request) */
 
@@ -714,12 +717,12 @@ void close_conn(
     {
     return;
     }
-#if 0
+
   if (svr_conn[sd].cn_active == Idle)
     {
     return;
     }
-#endif
+
   close(sd);
 
   /* if there is a function to call on close, do it */

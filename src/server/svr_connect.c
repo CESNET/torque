@@ -249,13 +249,8 @@ int svr_connect(
     }
 
   /* add the connection to the server connection table and select list */
-
-  if (func != NULL)
-    {
-    /* connect attempt to XXX? */
-
-    add_conn(sock, ToServerDIS, hostaddr, port, PBS_SOCK_INET, func);
-    }
+  /* connect attempt to XXX? */
+  add_conn(sock, ToServerDIS, hostaddr, port, PBS_SOCK_INET, func);
 
   svr_conn[sock].cn_authen = PBS_NET_CONN_AUTHENTICATED;
 
