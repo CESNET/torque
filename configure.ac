@@ -25,7 +25,7 @@ dnl by David Beer (dbeer@adaptivecomputing.com)
 dnl
 
 AC_PREREQ(2.53)
-AC_INIT([torque], [2.4.160], [torqueusers@supercluster.org])
+AC_INIT([torque], [2.4.161], [torqueusers@supercluster.org])
 AC_CONFIG_AUX_DIR([buildutils])
 AC_CONFIG_SRCDIR([src/cmds/qrun.c])
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
