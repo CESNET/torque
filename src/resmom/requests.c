@@ -355,6 +355,7 @@ static pid_t fork_to_user(
     return(-PBSE_UNKRESC);
     }
 
+  #if 0
   /* check user home directory as root and log failures */
 
   /* NOTE: root may not be able to see user home directory due to root_squash
@@ -393,6 +394,7 @@ static pid_t fork_to_user(
 
     return(-PBSE_UNKRESC);
     }
+  #endif
 
   if (LOGLEVEL >= 1)
     {
