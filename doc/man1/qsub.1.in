@@ -895,7 +895,7 @@ Defines the dependency between this and other jobs.  The
 .Ar dependency_list
 is in the form:
 .br
-.Ty "type[:argument[:argument...][,type:argument...]" .
+.Ty "type:argument[:argument...]" .
 .br
 The
 .I argument
