@@ -1186,7 +1186,7 @@ main_loop(void)
 
     struct timeval timeout;
     timeout.tv_sec = 0;
-    timeout.tv_usec = 200;
+    timeout.tv_usec = 200000;
 
     time_t end_time = time(NULL) + waittime;
     while (wait_request(&timeout, state) == 0)
@@ -1195,7 +1195,7 @@ main_loop(void)
         break;
 
       timeout.tv_sec = 0;
-      timeout.tv_usec = 200;
+      timeout.tv_usec = 200000;
       }
 
     /* qmgr can dynamically set the loglevel specification
