@@ -4124,6 +4124,7 @@ void im_request(
                 log_buffer);
               }
 
+            np->hn_sister = exitval;
             pjob->ji_nodekill = np->hn_node;
             }
 
