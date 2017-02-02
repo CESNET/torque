@@ -1916,6 +1916,9 @@ void req_commit(
 
       return;
       }
+
+    if (pj == NULL)
+      return;
     }
 
 #ifdef AUTORUN_JOBS

@@ -355,6 +355,18 @@ int job_route(
 
       break;
 
+    case JOB_STATE_COMPLETE:
+
+      /* job has been deleted */
+
+      job_purge(jobp);
+
+      return(0);
+
+      /*NOTREACHED*/
+
+      break;
+
     default:
 
       sprintf(log_buffer, "%s %d", pbse_to_txt(PBSE_BADSTATE),
